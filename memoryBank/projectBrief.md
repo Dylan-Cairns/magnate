@@ -11,6 +11,7 @@ Build a web-playable, single-player **Magnate** with a competent computer oppone
 - **Single codebase**: Same TS engine works in browser (UI) and in Node (training).
 - **Reproducible & testable**: Seeded randomness, pure state updates, and snapshot tests.
 - **Static deploy**: Ship to GitHub Pages; model loaded as a static asset (no server required).
+- **Development sequence**: Reinforcement learning tools and training will not be added until a working implementation with a rules-based opponent is complete.
 
 ## Non-Goals (v1)
 

@@ -9,10 +9,12 @@
 - TypeScript core engine (pure reducers, state, actions, legality, scoring, RNG)
 - React UI (browser play, human vs bot)
 - Node bridge (JSON API for training)
+- Rules-based opponent (required before any RL tools)
 - Python trainer (RL loop, PPO, baselines)
 - Static model export and browser inference
 - Testing: unit, snapshot, property tests
 - Deployment: static build for GitHub Pages
+- Reinforcement learning tools and training (to be added only after a working rules-based opponent is complete)
 
 ## Current Status
 
