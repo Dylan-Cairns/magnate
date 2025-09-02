@@ -21,6 +21,7 @@
 - Strict adherence to official Magnate rules.
 - All code and documentation must be deterministic, testable, and reproducible.
 - Maintain clear separation between engine, UI, bridge, and training components.
+- Reinforcement learning tools and training will only be added after a working rules-based opponent is implemented.
 
 ## Insights & Learnings
 
