@@ -36,12 +36,18 @@ Two-player Magnate per the official write-up: setup, turn order, resource collec
   - Simple reinforcement learning loop (e.g., PPO from Stable-Baselines).
   - Presents only legal moves to the agent (illegal moves are hidden).
 
+## Modules & Owners
+
+- `src/engine/types.ts` — Builder (domain primitives and shared enums).
+- `src/engine/cards.ts` — Builder (canonical deck list and card metadata).
+- `src/engine/deck.ts` — Builder (deterministic draw, discard, and shuffle helpers).
+
 ## Data model (engine)
 
 - **State**
-  - Deck & discard; hands; district line; player resources by suit; deeds/developments; turn/phase; RNG seed; minimal history for debugging.
+  - Deck & discard; hands; district line (four Pawn markers + the Excuse); player resources by suit; deeds/developments; turn/phase; RNG seed; minimal history for debugging.
 - **Actions (discrete)**
-  - Buy deed, buy outright, develop, trade (3:1), sell (per rules), pass (only when legal).
+  - Buy deed, buy outright, advance deed, trade (3:1 one trade per action), sell. No pass.
 - **Legality**
   - `legalActions(state)` returns the exact set allowed now—used by UI and training.
 
@@ -50,7 +56,7 @@ Two-player Magnate per the official write-up: setup, turn order, resource collec
 - **Cards**
   - Fixed-length “one-hot” vectors for possible cards in hand (1 at a card’s position if held, else 0).
 - **Board**
-  - Compact features for each district (stack depth, top card’s suits/rank), remaining deck counts, whose turn, resource counts.
+  - Compact features for each district (stack depth, top card's suits/rank), district marker suits (for first-card matching), remaining deck counts, whose turn, resource counts.
 - **Scaling**
   - Numeric values normalized to a common range (e.g., 0..1) so no single feature dominates learning.
 
@@ -102,4 +108,4 @@ Two-player Magnate per the official write-up: setup, turn order, resource collec
 - Magnate rules: http://wiki.decktet.com/game:magnate
 - SIMPLE project (self-play RL pattern): https://github.com/davidADSP/SIMPLE
 - Walkthrough article: https://medium.com/applied-data-science/how-to-train-ai-agents-to-play-multiplayer-games-using-self-play-deep-reinforcement-learning-247d0b440717
-- Cline Memory Bank (context for this file): https://docs.cline.bot/prompting/cline-memory-bank
+- Repo agent guide and memory workflow: docs/AGENT_GUIDE.md
