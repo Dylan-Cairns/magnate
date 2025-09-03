@@ -29,7 +29,7 @@ type RawCardObject = {
   suit3: '' | Suit;
 };
 
-const RAW_CARD_OBJECTS: RawCardObject[] = [
+const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
   {
     name: 'Ace of Knots',
     id: '0',
@@ -401,22 +401,34 @@ const RAW_CARD_OBJECTS: RawCardObject[] = [
   },
 ] as const;
 
+export type CardId = (typeof RAW_CARD_OBJECTS)[number]['id'];
+export type CardName = (typeof RAW_CARD_OBJECTS)[number]['name'];
+
 const toCard = (raw: RawCardObject): Card => {
   if (raw.rank === 'Excuse') {
-    const card: ExcuseCard = { id: raw.id, name: raw.name, kind: 'Excuse' };
+    const card: ExcuseCard = {
+      id: raw.id as CardId,
+      name: raw.name as CardName,
+      kind: 'Excuse',
+    };
     return card;
   }
   if (raw.rank === 'Pawn') {
     const suits = [raw.suit1, raw.suit2, raw.suit3] as [Suit, Suit, Suit];
-    const card: PawnCard = { id: raw.id, name: raw.name, kind: 'Pawn', suits };
+    const card: PawnCard = {
+      id: raw.id as CardId,
+      name: raw.name as CardName,
+      kind: 'Pawn',
+      suits,
+    };
     return card;
   }
   if (raw.rank === 'Crown') {
     const rank = 10 as const;
     const suits = [raw.suit1 as Suit] as [Suit];
     const card: CrownCard = {
-      id: raw.id,
-      name: raw.name,
+      id: raw.id as CardId,
+      name: raw.name as CardName,
       kind: 'Crown',
       rank,
       suits,
@@ -431,8 +443,8 @@ const toCard = (raw: RawCardObject): Card => {
     Boolean
   ) as Suit[];
   const card: PropertyCard = {
-    id: raw.id,
-    name: raw.name,
+    id: raw.id as CardId,
+    name: raw.name as CardName,
     kind: 'Property',
     rank,
     suits,
@@ -442,10 +454,10 @@ const toCard = (raw: RawCardObject): Card => {
 
 export const ALL_CARDS: Card[] = RAW_CARD_OBJECTS.map(toCard);
 
-export const CARD_BY_ID: Record<string, Card> = ALL_CARDS.reduce((acc, c) => {
+export const CARD_BY_ID: Record<CardId, Card> = ALL_CARDS.reduce((acc, c) => {
   acc[c.id] = c;
   return acc;
-}, Object.create(null) as Record<string, Card>);
+}, Object.create(null) as Record<CardId, Card>);
 
 export const PROPERTY_CARDS = ALL_CARDS.filter(
   (c): c is PropertyCard => c.kind === 'Property'

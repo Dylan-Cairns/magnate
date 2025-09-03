@@ -1,3 +1,4 @@
+import type { CardId, CardName } from './cards';
 export type Suit = 'Moons' | 'Suns' | 'Waves' | 'Leaves' | 'Wyrms' | 'Knots';
 
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
@@ -5,8 +6,8 @@ export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type CardKind = 'Property' | 'Crown' | 'Pawn' | 'Excuse';
 
 export interface CardBase {
-  id: string;
-  name: string;
+  id: CardId;
+  name: CardName;
   kind: CardKind;
 }
 
@@ -34,14 +35,14 @@ export interface ExcuseCard extends CardBase {
 export type Card = PropertyCard | CrownCard | PawnCard | ExcuseCard;
 
 export interface DeckState {
-  draw: string[];
-  discard: string[];
+  draw: CardId[];
+  discard: CardId[];
   reshuffles: 0 | 1 | 2;
 }
 
 
 export interface DistrictStack {
-  developed: string[];
+  developed: CardId[];
   deed?: DeedState;
 }
 
@@ -59,14 +60,14 @@ export type ResourcePool = Record<Suit, number>;
 export type DistrictId = string;
 
 export interface DeedState {
-  cardId: string;
+  cardId: CardId;
   progress: number;
   tokens: Partial<Record<Suit, number>>;
 }
 
 export interface PlayerState {
   id: PlayerId;
-  hand: string[];
-  crowns: string[];
+  hand: CardId[];
+  crowns: CardId[];
   resources: ResourcePool;
 }
