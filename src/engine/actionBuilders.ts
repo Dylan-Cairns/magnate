@@ -1,8 +1,17 @@
 import { CARD_BY_ID } from './cards';
-import { SUITS, canAfford, deedCost, developmentCost, enumerateOutrightPayments, placementAllowed } from './stateHelpers';
-import type { GameState, GameAction, GamePhase, PlayerId } from './types';
+import {
+  SUITS,
+  canAfford,
+  deedCost,
+  developmentCost,
+  enumerateOutrightPayments,
+  placementAllowed,
+} from './stateHelpers';
+import type { GameState, GameAction, GamePhase } from './types';
 
-type PhaseBuilderMap = Partial<Record<GamePhase, (state: GameState) => GameAction[]>>;
+type PhaseBuilderMap = Partial<
+  Record<GamePhase, (state: GameState) => GameAction[]>
+>;
 
 const builders: PhaseBuilderMap = {
   OptionalTrade: tradeActions,
@@ -69,9 +78,10 @@ function playActions(state: GameState): GameAction[] {
     const placements = state.districts.filter((district) =>
       placementAllowed(card, district, playerId)
     );
+    const canBuyDeed = canAfford(player.resources, deedCost(card));
     const deedable = placements
       .filter((district) => !district.stacks[playerId]?.deed)
-      .filter((district) => canAfford(player.resources, deedCost(card)))
+      .filter(() => canBuyDeed)
       .map((district) => ({
         type: 'buy-deed' as const,
         cardId,
@@ -90,4 +100,3 @@ function playActions(state: GameState): GameAction[] {
     return [sell, ...deedable, ...developOutright];
   });
 }
-

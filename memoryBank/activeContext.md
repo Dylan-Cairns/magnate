@@ -23,6 +23,14 @@
   - `vite.config.ts`
 - Removed legacy `.eslintrc.json`.
 - Updated `test` script to pass with no test files while tests are being introduced.
+- Hardened current low-level engine behavior:
+  - `applyAction` now enforces phase/action legality via `legalActions(state)`.
+  - Action handlers now validate card ownership, district existence, placement legality, and resource affordability.
+  - Buying a deed now transitions to `OptionalDevelop` instead of immediately forcing `DrawCard`.
+  - Excuse district first-placement rule is now handled in `placementAllowed`.
+  - Deed development now prevents overspend and requires exact completion to finish a deed.
+  - Setup now shuffles/deals crowns, deals opening hands, and computes starting resources by crown suit.
+  - Draw helper now uses seed + RNG cursor for reshuffles and tracks second-exhaustion final-turn state.
 
 ## Next Steps
 
