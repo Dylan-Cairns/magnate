@@ -3,9 +3,9 @@
 
 ## Current Focus
 
-- Complete the project truth-source reset so all docs match current decisions.
-- Prepare implementation sequencing for TS-canonical engine completion.
-- Define and lock bridge interface contract v1 before bridge/trainer coding.
+- Complete tooling baseline alignment with Kuhn-style versions/config shape.
+- Keep implementation sequencing centered on TS-canonical engine completion.
+- Use the bridge interface contract as the integration boundary for upcoming bridge/trainer work.
 
 ## Recent Changes
 
@@ -16,6 +16,13 @@
 - Added `memoryBank/bridgeInterfaceContract.md`.
 - Updated `README.md`, `AGENTS.md`, and Memory Bank docs to align with these decisions.
 - Removed stale docs language implying pass actions or outdated architecture assumptions.
+- Aligned frontend/tooling versions closer to Kuhn baseline in `package.json`.
+- Added missing root config files:
+  - `eslint.config.js` (flat config)
+  - `tsconfig.json`
+  - `vite.config.ts`
+- Removed legacy `.eslintrc.json`.
+- Updated `test` script to pass with no test files while tests are being introduced.
 
 ## Next Steps
 
@@ -27,6 +34,7 @@
   - scoring and terminal logic
 - Add targeted tests for setup, legality, taxation/income, and scoring.
 - Scaffold bridge runtime and validate contract with a Python client smoke test.
+- Add minimal web app entry scaffolding (`index.html` + app entrypoint) so Vite build succeeds.
 
 ## Active Decisions and Considerations
 
@@ -35,6 +43,7 @@
 - Preserve deterministic behavior end to end (seed + action log replay).
 - No pass action; if no legal develop/deed is available, selling is mandatory.
 - Trade remains 3:1 one exchange per action and can be chained.
+- Keep tooling versions close to Kuhn baseline unless a clear Magnate-specific reason exists.
 
 ## Insights and Learnings
 
