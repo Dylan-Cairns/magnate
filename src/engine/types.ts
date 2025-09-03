@@ -111,3 +111,48 @@ export interface GameState {
   lastIncomeRoll?: IncomeRollResult;
   log: ReadonlyArray<GameLogEntry>;
 }
+
+export type ActionId =
+  | 'buy-deed'
+  | 'develop-deed'
+  | 'develop-outright'
+  | 'sell-card'
+  | 'trade';
+
+export interface BuyDeedAction {
+  type: 'buy-deed';
+  cardId: CardId;
+  districtId: DistrictId;
+}
+
+export interface DevelopDeedAction {
+  type: 'develop-deed';
+  districtId: DistrictId;
+  cardId: CardId;
+  tokens: Partial<Record<Suit, number>>;
+}
+
+export interface DevelopOutrightAction {
+  type: 'develop-outright';
+  cardId: CardId;
+  districtId: DistrictId;
+  payment: Partial<Record<Suit, number>>;
+}
+
+export interface SellCardAction {
+  type: 'sell-card';
+  cardId: CardId;
+}
+
+export interface TradeAction {
+  type: 'trade';
+  give: Suit;
+  receive: Suit;
+}
+
+export type GameAction =
+  | BuyDeedAction
+  | DevelopDeedAction
+  | DevelopOutrightAction
+  | SellCardAction
+  | TradeAction;
