@@ -3,38 +3,43 @@
 
 ## Current Focus
 
-- Core TypeScript engine scaffolding: types, cards, deterministic deck.
-- Finalize action spec and legality (no pass; single-trade actions).
-- Implement setupGame and legalActions skeleton.
+- Complete the project truth-source reset so all docs match current decisions.
+- Prepare implementation sequencing for TS-canonical engine completion.
+- Define and lock bridge interface contract v1 before bridge/trainer coding.
 
 ## Recent Changes
 
-- Added engine types, suits/ranks, and strict card kinds.
-- Adapted provided card list; split into Property/Crown/Pawn/Excuse.
-- Implemented deterministic deck with seeded shuffle and reshuffle.
-- Removed Pass action; Trade is one exchange per action (repeat to chain).
-- Adopted “no code comments” policy; removed comments from engine files.
-- Updated docs (projectBrief, systemPatterns, README) to reflect the above.
+- Confirmed architecture direction:
+  - TypeScript engine is canonical for Magnate rules.
+  - Python trainer will call TS engine through a stable bridge.
+  - Full shared rules schema was dropped in favor of a small interface contract.
+- Added `memoryBank/bridgeInterfaceContract.md`.
+- Updated `README.md`, `AGENTS.md`, and Memory Bank docs to align with these decisions.
+- Removed stale docs language implying pass actions or outdated architecture assumptions.
 
 ## Next Steps
 
-- Define Action union and `legalActions(state)` skeleton with stable IDs.
-- Implement placement validators (Pawn tri-suits, Excuse rules) and turn FSM.
-- Implement `setupGame(seed)` to deal Crowns, starting resources, and hands.
-- Add unit/snapshot tests for deck, setup, and legality basics.
+- Finalize bridge command payloads and metadata fields for v1.
+- Implement missing TS engine rule flow:
+  - setup game
+  - turn FSM (taxation/income/play/draw)
+  - full legality coverage
+  - scoring and terminal logic
+- Add targeted tests for setup, legality, taxation/income, and scoring.
+- Scaffold bridge runtime and validate contract with a Python client smoke test.
 
-## Active Decisions & Considerations
+## Active Decisions and Considerations
 
-- No code comments; express intent with names/types/tests; rationale in Memory Bank.
-- No Pass; if development/deed is impossible, Sell is mandatory.
-- Trade is 3:1, one per action (repeatable).
-- Crowns persist with players; properties deck excludes Crowns/Pawns/Excuse.
-- District markers are Pawn tri-suits plus the Excuse.
-- Deterministic PRNG (seeded sfc32) for shuffle/reshuffle.
+- Keep all game-rule semantics in TS for v1.
+- Python remains a consumer of engine outputs, not a second rules engine.
+- Preserve deterministic behavior end to end (seed + action log replay).
+- No pass action; if no legal develop/deed is available, selling is mandatory.
+- Trade remains 3:1 one exchange per action and can be chained.
 
-## Insights & Learnings
+## Insights and Learnings
 
-- Keep rule interpretations explicit in Memory Bank to guide engine purity.
-- Deterministic helpers greatly simplify snapshot tests and RL reproducibility.
+- Magnate complexity increases drift risk; a single canonical rules runtime is the safest path.
+- A narrow bridge contract yields most of the cross-language stability benefit with much less maintenance cost than full rules schema duplication.
+- Keeping docs synchronized early prevents architecture confusion during implementation.
 
-_Active context updated on 2025-09-03._
+_Active context updated on 2026-02-19._
