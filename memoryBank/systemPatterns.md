@@ -2,120 +2,123 @@
 
 ## Purpose
 
-- Capture the architecture and patterns used across the project.
-- Keep decisions short, explicit, and testable.
-- Scope: official Magnate rules only; single-player vs computer.
+- Capture architecture and patterns used across Magnate.
+- Keep decisions explicit, testable, and synchronized with implementation.
+- Scope: official Magnate rules, single-player human vs computer.
 
 ## High-level architecture
 
-- **TypeScript Core Engine**: pure game logic, no I/O.
-- **React UI**: thin view over the engine.
-- **Node Bridge**: JSON over stdin/stdout for training.
-- **Python Trainer**: reinforcement learning loop calling the bridge.
-- **Browser Inference**: loads a static model and picks actions.
+- **TypeScript Core Engine (canonical rules)**: deterministic/pure game logic.
+- **React UI**: thin state presenter/controller over engine APIs.
+- **Node Bridge**: stable JSON protocol exposing engine operations to Python.
+- **Python Trainer**: RL loop that treats bridge as the environment runtime.
+- **Browser Inference**: static model artifact loaded client-side.
 
 ## Core design principles
 
-- **Determinism**: seeded randomness; same inputs → same outputs.
-- **Purity**: reducers are pure functions; no hidden state, no I/O, no clocks.
-- **Immutability**: return new state; never mutate inputs.
-- **Type safety**: strict TypeScript, discriminated unions for actions, no `any`.
+- **Canonical rules runtime**: TS is the only source of gameplay truth.
+- **Determinism**: fixed seed + action sequence -> identical outcomes.
+- **Purity**: reducers/helpers are side-effect free.
+- **Immutability**: return new state objects; do not mutate inputs.
+- **Type safety**: strict TS, discriminated action unions, no `any` in core paths.
 
-## Game loop & phases
+## Game loop and phases
 
-- Finite state machine for turn flow.
-- Exactly one “play” per turn (per official rules).
-- Central reducer: `next = reduce(prev, action)`.
-- Helper functions: `setup`, `legalActions`, `score`, `isTerminal`.
+- Explicit turn finite state machine.
+- Exactly one card-play choice each turn (develop outright, buy deed, or sell).
+- Trading and deed advancement occur in legal windows defined by rules.
+- No pass action.
 
-## Domain model (plain language)
+Primary engine API targets:
+- `setupGame(seed)`
+- `legalActions(state)`
+- `applyAction(state, action)`
+- `isTerminal(state)`
+- `scoreGame(state)`
 
-- **Card**: identity, suits, rank.
-- **District**: ordered stacks along the district line.
-- **Player**: hand, resources by suit, deeds/developments.
-- **Game state**: players, board, turn/phase, RNG seed, history of actions for UI.
-- **Actions**: buy deed, buy outright, develop, trade (3:1), sell (per rules), pass (only when legal).
+## Domain model
+
+- **Card**: immutable identity, suits, rank, kind.
+- **District**: marker + per-player developed stack + optional deed state.
+- **Player**: hand, crowns, resource pool.
+- **GameState**: players, districts, deck/discard, phase, turn, rng cursor, history/log.
+- **GameAction**: buy deed, develop deed, develop outright, trade, sell.
 
 ## Randomness pattern
 
-- Single master seed feeds all randomness (e.g., shuffles).
-- Use a pure PRNG; avoid `Math.random`.
-- Deterministic results when seed and action sequence are the same.
+- Use seeded PRNG helpers only.
+- Avoid `Math.random` in engine.
+- Keep shuffle/reshuffle deterministic under seed and state.
 
-## Legality & action space
+## Legality and action space
 
-- `legalActions(state)` returns only the actions allowed right now.
-- Stable action IDs for UI and trainer.
-- The bot is never offered illegal actions.
+- `legalActions(state)` emits only actions legal in current phase/state.
+- Stable action IDs are required once training/checkpoints depend on them.
+- Trainer and UI both consume the same legality output.
 
-## Observation format (for the bot)
+## Bridge boundary pattern
 
-- **Hand**: fixed “multi-hot” vector over the full card list (1 for each card you hold, 0 otherwise).
-- **Board**: compact features per district (stack depth, top card’s suits/rank).
-- **Counts & flags**: deck/discard remaining as needed, current player flag, resource counts.
-- **Scaling**: numeric features normalized to a common range (e.g., 0..1) for steady learning.
+Use a **small interface contract** for TS/Python coordination (not a full rules schema).
 
-## Bridge protocol (Node ⇄ Python)
+Contract document: `memoryBank/bridgeInterfaceContract.md`
 
-- **Commands**: `reset(seed?)`, `step(actionId)`, `observation()`, `legalActions()`, `serialize()`.
-- **Message shape**: simple JSON with a type and payload, one message per line.
-- **Errors**: typed codes with enough context to reproduce locally.
+Bridge command set (v1 target):
+- `metadata`
+- `reset`
+- `step`
+- `legalActions`
+- `observation`
+- `serialize`
 
-## Training patterns
+Metadata handshake must provide:
+- action ID maps
+- observation spec (size/segments)
+- model I/O names
+- contract version
 
-- Trial-and-error learning through many simulated games.
-- Reward: win = 1, loss = 0 (optional small progress points only if needed).
-- Baselines: random and a simple scripted heuristic.
-- **Execution model**: single thread, single process.
+## Observation pattern (bot-facing)
 
-## Inference in the browser (static model)
+- Observation vector emitted from TS state only.
+- Python does not infer hidden rules fields independently.
+- Layout is contract-versioned and exposed through `metadata`.
+- Legal action mask is derived from `legalActions(state)`.
 
-- **Approach**: export a small neural network as a `model.json` file (weights and layer descriptions).
-- **Flow**:
-  1. UI builds the observation vector from the current game state (same layout used during training).
-  2. UI obtains the legal-action mask from `legalActions(state)`.
-  3. The model produces a score for each action.
-  4. Mask out illegal actions and choose the highest-scoring legal action (deterministic).
-- All assets (app and `model.json`) are static files served from GitHub Pages.
+## Training pattern
+
+- Python RL loop interacts only through bridge contract.
+- Start with random and scripted baselines before self-play complexity.
+- Reward starts simple; shaping is optional and justified by measured need.
+- Single-process execution is acceptable for v1.
+
+## Browser inference pattern
+
+- Load static model artifact from deployed assets.
+- Build observation using the same contract layout used in training.
+- Apply legal mask before action selection.
+- Deterministic policy mode is default for predictable UX.
 
 ## Testing strategy
 
-- **Unit tests** for reducers and helpers.
-- **Snapshot fixtures**: serialize states after known sequences; fail on unexpected changes.
-- **Property tests** for invariants (e.g., resources never negative; legal actions are truly legal).
+- Unit tests for engine rules helpers/reducers.
+- Snapshot/fixture tests for hard rule sequences.
+- Bridge contract tests for command payload stability.
+- Parity checks: UI and Python consume matching action IDs/observation layout.
 
-## Serialization & versioning
+## Serialization and versioning
 
-- Canonical JSON for game state with a `schemaVersion`.
-- Stable ordering for arrays where needed.
-- Migration handlers if the schema changes.
+- Canonical JSON state includes `schemaVersion`.
+- Contract payloads include `contractVersion`.
+- Breaking bridge changes require a major version bump.
 
-## Performance & UX guidelines
+## Security and deployment
 
-- Correctness first; keep the engine allocation-light where practical.
-- Never block the main thread during bot turns; show clear “thinking” feedback.
-- Simple animations and clear affordances over raw speed.
-
-## Error handling & logging
-
-- Reducers validate inputs; boundary layers surface errors with context.
-- **Logging is always on** to aid user feedback and debugging.
-- **Turn History**: visible list of all human and AI actions with key deltas (resources, scores) for user review.
-
-## Security & licensing
-
-- Static hosting on GitHub Pages; no external servers or APIs.
-- Use permissive/CC-compatible assets for suits/icons; attribute appropriately.
-
-## Coding conventions
-
-- Strict TypeScript, discriminated unions for actions, functional helpers.
-- File layout by domain: `engine/`, `ui/`, `bridge/`, `trainer/` (stubs).
-- Naming: `VerbNoun` for actions; `getX`, `isX`, `toX` helpers.
+- Static hosting on GitHub Pages.
+- No runtime backend required.
+- No external API dependency for gameplay or inference.
 
 ## Open questions
 
-- Exact observation vector layout and size.
-- Scripted baseline heuristics and tie-breakers.
-- PRNG choice and seeding details.
-- Minimal district features that are sufficient for learning without leaking hidden info.
+- Final observation feature set and dimensionality.
+- Final model artifact format (ONNX vs equivalent static format).
+- Exact scripted baseline heuristic policy and tie-breakers.
+- Whether bridge transport should remain stdin/stdout or adopt local HTTP later.

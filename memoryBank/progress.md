@@ -3,39 +3,47 @@
 
 ## What Works
 
-- Memory Bank is current and reflects design decisions.
-- Engine scaffolding in place: strict types, normalized cards, deterministic deck.
-- Docs aligned to rules: no Pass; Trade is one exchange per action.
-- No code comments policy enforced; engine files cleaned.
+- Memory Bank and top-level docs are aligned to current architecture decisions.
+- TypeScript engine foundations exist (`types`, `cards`, deterministic `deck`, early legality/reducer scaffolding).
+- Rules references remain centralized in `memoryBank/magnateRules.md`.
+- TS-canonical + bridge-client Python direction is now explicit and documented.
+- Small interface contract strategy is documented in `memoryBank/bridgeInterfaceContract.md`.
 
 ## What's Left to Build
 
-- TypeScript engine reducers, legality, scoring, turn FSM.
-- `setupGame(seed)` to deal Crowns, starting resources, and hands.
-- `legalActions(state)` skeleton with stable IDs and action union.
-- React UI (human vs rules-based bot).
-- Node bridge (stdin/stdout JSON API).
-- Rules-based opponent (before any RL tools).
-- Python trainer (RL loop, PPO, baselines).
-- Static model export and browser inference.
-- Testing: unit, snapshot, property tests.
-- Deployment: static build for GitHub Pages.
+- Complete TS engine flow:
+  - setup/deal
+  - full phase machine (taxation/income/play/draw/end)
+  - legality completeness
+  - scoring and terminal resolution
+- Add TS unit and snapshot tests.
+- Implement bridge runtime with v1 contract.
+- Build scripted baseline bot.
+- Build minimal browser UI (human vs bot).
+- Add Python trainer scaffolding that uses bridge contract.
+- Add model export + browser inference integration.
+- Add GitHub Pages deployment workflow.
 
 ## Current Status
 
-- Up to date as of 2025-09-03.
-- Types/cards/deck done; moving into legality and setup implementation.
+- Up to date as of 2026-02-19.
+- Project is in architecture-reset/implementation-readiness phase.
+- No code/package changes were made in this pass; docs only.
 
 ## Known Issues
 
-- None currently tracked.
+- Lint tooling mismatch: ESLint v9 with legacy `.eslintrc.json`.
+- No TS tests currently present.
+- Missing root TS/Vite config files.
+- Python interpreter in this shell is 3.7.9, below planned training baseline.
 
 ## Evolution of Project Decisions
 
-- Removed Pass action; Sell is mandatory when no develop/deed is legal.
-- Trade is 3:1, one per action; repeat to chain.
-- District markers are Pawn tri-suits plus the Excuse.
-- Crowns persist with players and power 10-income; not in property deck.
-- No code comments; record rationale in Memory Bank.
+- Kept no-pass interpretation for play action flow.
+- Kept 3:1 trade as one exchange per action, chainable.
+- Locked TS engine as canonical rules source.
+- Dropped plan for full shared cross-language rules schema.
+- Adopted narrow TS<->Python bridge contract as the shared boundary.
+- Deferred native Python rules implementation unless bridge throughput proves insufficient.
 
-_Progress updated on 2025-09-03._
+_Progress updated on 2026-02-19._
