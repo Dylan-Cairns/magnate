@@ -1,5 +1,5 @@
 import { CARD_BY_ID } from './cards';
-import { SUITS, canAfford, deedCost, defaultOutrightPayment, placementAllowed } from './stateHelpers';
+import { SUITS, canAfford, deedCost, developmentCost, enumerateOutrightPayments, placementAllowed } from './stateHelpers';
 import type { GameState, GameAction, GamePhase, PlayerId } from './types';
 
 type PhaseBuilderMap = Partial<Record<GamePhase, (state: GameState) => GameAction[]>>;
@@ -40,7 +40,7 @@ function developActions(state: GameState): GameAction[] {
     if (!card || card.kind !== 'Property') {
       return [];
     }
-    if (deed.progress >= card.rank) {
+    if (deed.progress >= developmentCost(card)) {
       return [];
     }
     return card.suits
@@ -78,19 +78,14 @@ function playActions(state: GameState): GameAction[] {
         districtId: district.id,
       }));
 
-    const developOutright = placements.flatMap((district) => {
-      const payment = defaultOutrightPayment(card, player.resources);
-      return payment
-        ? [
-            {
-              type: 'develop-outright' as const,
-              cardId,
-              districtId: district.id,
-              payment,
-            },
-          ]
-        : [];
-    });
+    const developOutright = placements.flatMap((district) =>
+      enumerateOutrightPayments(card, player.resources).map((payment) => ({
+        type: 'develop-outright' as const,
+        cardId,
+        districtId: district.id,
+        payment,
+      }))
+    );
 
     return [sell, ...deedable, ...developOutright];
   });
