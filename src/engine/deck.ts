@@ -1,3 +1,4 @@
+import type { CardId } from './cards';
 import { PROPERTY_CARDS, CROWN_CARDS, PAWN_CARDS, EXCUSE_CARD } from './cards';
 import type { DeckState } from './types';
 
@@ -45,8 +46,8 @@ function shuffleInPlace<T>(arr: T[], rand: () => number): void {
 
 export interface SetupResult {
   deck: DeckState;
-  crowns: string[];
-  districts: string[]; // marker card IDs: four Pawns + the Excuse
+  crowns: CardId[];
+  districts: CardId[]; // marker card IDs: four Pawns + the Excuse
 }
 
 export function initialSetup(seed: string): SetupResult {
@@ -59,7 +60,7 @@ export function initialSetup(seed: string): SetupResult {
 
   const crowns = CROWN_CARDS.map((c) => c.id);
 
-  const districts: string[] = [
+  const districts: CardId[] = [
     ...PAWN_CARDS.map((p) => p.id),
     EXCUSE_CARD.id,
   ];
@@ -67,7 +68,7 @@ export function initialSetup(seed: string): SetupResult {
   return { deck, crowns, districts };
 }
 
-export function drawOne(deck: DeckState): { cardId?: string; deck: DeckState } {
+export function drawOne(deck: DeckState): { cardId?: CardId; deck: DeckState } {
   if (deck.draw.length === 0) {
     if (deck.reshuffles >= 2) {
       return { cardId: undefined, deck };
@@ -87,6 +88,6 @@ export function drawOne(deck: DeckState): { cardId?: string; deck: DeckState } {
   return { cardId, deck: { ...deck, draw: rest } };
 }
 
-export function discard(deck: DeckState, cardId: string): DeckState {
+export function discard(deck: DeckState, cardId: CardId): DeckState {
   return { ...deck, discard: [cardId, ...deck.discard] };
 }
