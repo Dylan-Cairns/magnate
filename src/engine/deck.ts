@@ -1,6 +1,12 @@
 import type { CardId } from './cards';
-import { PROPERTY_CARDS, CROWN_CARDS, PAWN_CARDS, EXCUSE_CARD } from './cards';
-import type { DeckState } from './types';
+import {
+  PROPERTY_CARDS,
+  CROWN_CARDS,
+  PAWN_CARDS,
+  EXCUSE_CARD,
+  CARD_BY_ID,
+} from './cards';
+import type { DeckState, PlayerId, ResourcePool } from './types';
 
 function xmur3(str: string) {
   let h = 1779033703 ^ str.length;
@@ -46,7 +52,9 @@ function shuffleInPlace<T>(arr: T[], rand: () => number): void {
 
 export interface SetupResult {
   deck: DeckState;
-  crowns: CardId[];
+  crownsByPlayer: Record<PlayerId, readonly [CardId, CardId, CardId]>;
+  handsByPlayer: Record<PlayerId, readonly [CardId, CardId, CardId]>;
+  startingResourcesByPlayer: Record<PlayerId, ResourcePool>;
   districts: CardId[]; // marker card IDs: four Pawns + the Excuse
 }
 
@@ -56,36 +64,136 @@ export function initialSetup(seed: string): SetupResult {
   const draw = PROPERTY_CARDS.map((c) => c.id);
   shuffleInPlace(draw, rand);
 
-  const deck: DeckState = { draw, discard: [], reshuffles: 0 };
-
   const crowns = CROWN_CARDS.map((c) => c.id);
+  shuffleInPlace(crowns, rand);
+
+  const playerA: PlayerId = 'PlayerA';
+  const playerB: PlayerId = 'PlayerB';
+
+  const dealMany = (pile: CardId[], count: number): CardId[] => {
+    if (pile.length < count) {
+      throw new Error(`Not enough cards to deal ${count}.`);
+    }
+    return pile.splice(0, count);
+  };
+
+  const toTriple = (cards: CardId[]): readonly [CardId, CardId, CardId] => {
+    if (cards.length !== 3) {
+      throw new Error('Expected exactly 3 cards.');
+    }
+    return [cards[0], cards[1], cards[2]];
+  };
+
+  const crownsByPlayer: Record<PlayerId, readonly [CardId, CardId, CardId]> = {
+    [playerA]: toTriple(dealMany(crowns, 3)),
+    [playerB]: toTriple(dealMany(crowns, 3)),
+  };
+
+  const handsByPlayer: Record<PlayerId, readonly [CardId, CardId, CardId]> = {
+    [playerA]: toTriple(dealMany(draw, 3)),
+    [playerB]: toTriple(dealMany(draw, 3)),
+  };
+
+  const createEmptyPool = (): ResourcePool => ({
+    Moons: 0,
+    Suns: 0,
+    Waves: 0,
+    Leaves: 0,
+    Wyrms: 0,
+    Knots: 0,
+  });
+
+  const resourcesFromCrowns = (
+    crownIds: readonly [CardId, CardId, CardId]
+  ): ResourcePool => {
+    const pool = createEmptyPool();
+    crownIds.forEach((cardId) => {
+      const card = CARD_BY_ID[cardId];
+      if (card.kind !== 'Crown') {
+        throw new Error(`Expected crown card during setup, got ${card.kind}.`);
+      }
+      const suit = card.suits[0];
+      pool[suit] += 1;
+    });
+    return pool;
+  };
+
+  const startingResourcesByPlayer: Record<PlayerId, ResourcePool> = {
+    [playerA]: resourcesFromCrowns(crownsByPlayer[playerA]),
+    [playerB]: resourcesFromCrowns(crownsByPlayer[playerB]),
+  };
+
+  const deck: DeckState = { draw, discard: [], reshuffles: 0 };
 
   const districts: CardId[] = [
     ...PAWN_CARDS.map((p) => p.id),
     EXCUSE_CARD.id,
   ];
 
-  return { deck, crowns, districts };
+  return {
+    deck,
+    crownsByPlayer,
+    handsByPlayer,
+    startingResourcesByPlayer,
+    districts,
+  };
 }
 
-export function drawOne(deck: DeckState): { cardId?: CardId; deck: DeckState } {
-  if (deck.draw.length === 0) {
-    if (deck.reshuffles >= 2) {
-      return { cardId: undefined, deck };
-    }
-    const rand = rngFromSeed(
-      `reshuffle:${deck.discard.length}:${deck.reshuffles}`
-    );
+export interface DrawContext {
+  deck: DeckState;
+  seed: string;
+  rngCursor: number;
+  exhaustionStage: 0 | 1 | 2;
+  finalTurnsRemaining?: number;
+}
+
+export interface DrawResult {
+  cardId?: CardId;
+  deck: DeckState;
+  rngCursor: number;
+  exhaustionStage: 0 | 1 | 2;
+  finalTurnsRemaining?: number;
+}
+
+export function drawOne(context: DrawContext): DrawResult {
+  const { deck, seed, rngCursor, exhaustionStage, finalTurnsRemaining } =
+    context;
+
+  if (deck.draw.length > 0) {
+    const [cardId, ...rest] = deck.draw;
+    return {
+      cardId,
+      deck: { ...deck, draw: rest },
+      rngCursor,
+      exhaustionStage,
+      finalTurnsRemaining,
+    };
+  }
+
+  if (deck.reshuffles === 0 && deck.discard.length > 0) {
+    const rand = rngFromSeed(`${seed}:reshuffle:${rngCursor}`);
     const newDraw = [...deck.discard];
     shuffleInPlace(newDraw, rand);
     return drawOne({
-      draw: newDraw,
-      discard: [],
-      reshuffles: (deck.reshuffles + 1) as 1 | 2,
+      deck: {
+        draw: newDraw,
+        discard: [],
+        reshuffles: 1,
+      },
+      seed,
+      rngCursor: rngCursor + 1,
+      exhaustionStage: 1,
+      finalTurnsRemaining,
     });
   }
-  const [cardId, ...rest] = deck.draw;
-  return { cardId, deck: { ...deck, draw: rest } };
+
+  return {
+    cardId: undefined,
+    deck: { ...deck, draw: [], reshuffles: 2 },
+    rngCursor,
+    exhaustionStage: 2,
+    finalTurnsRemaining: finalTurnsRemaining ?? 2,
+  };
 }
 
 export function discard(deck: DeckState, cardId: CardId): DeckState {

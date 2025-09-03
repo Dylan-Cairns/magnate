@@ -85,6 +85,10 @@ export function placementAllowed(
     const previous = findProperty(stack.developed[stack.developed.length - 1]);
     return Boolean(previous?.suits.some((suit) => suits.has(suit)));
   }
+  const isExcuseDistrict = district.markerSuitMask.length === 0;
+  if (isExcuseDistrict) {
+    return true;
+  }
   return district.markerSuitMask.some((suit) => suits.has(suit));
 }
 
