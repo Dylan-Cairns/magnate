@@ -8,6 +8,11 @@
 - Rules references remain centralized in `memoryBank/magnateRules.md`.
 - TS-canonical + bridge-client Python direction is now explicit and documented.
 - Small interface contract strategy is documented in `memoryBank/bridgeInterfaceContract.md`.
+- Tooling baseline has been modernized and aligned closer to Kuhn:
+  - React/Vite/Vitest versions adjusted
+  - ESLint flat config in place
+  - root TS/Vite config files added
+  - lint/test commands now execute successfully
 
 ## What's Left to Build
 
@@ -23,18 +28,18 @@
 - Add Python trainer scaffolding that uses bridge contract.
 - Add model export + browser inference integration.
 - Add GitHub Pages deployment workflow.
+- Add minimal web app entry files required for `vite build`.
 
 ## Current Status
 
 - Up to date as of 2026-02-19.
-- Project is in architecture-reset/implementation-readiness phase.
-- No code/package changes were made in this pass; docs only.
+- Project is in architecture-reset plus tooling-baseline phase.
+- Package/config changes have been made; engine gameplay code was not changed in this pass.
 
 ## Known Issues
 
-- Lint tooling mismatch: ESLint v9 with legacy `.eslintrc.json`.
 - No TS tests currently present.
-- Missing root TS/Vite config files.
+- Vite build fails due missing `index.html` entrypoint.
 - Python interpreter in this shell is 3.7.9, below planned training baseline.
 
 ## Evolution of Project Decisions

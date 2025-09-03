@@ -3,7 +3,7 @@
 ## Technologies and Frameworks
 
 - **Rules runtime**: TypeScript (strict), Node.js 20+
-- **Frontend**: React 19 + Vite
+- **Frontend**: React 19.2.x + Vite 5.4.x
 - **Testing (TS)**: Vitest
 - **Lint/format**: ESLint + Prettier
 - **Training runtime**: Python 3.11+ (3.12 preferred)
@@ -26,7 +26,10 @@ Magnate diverges where game complexity requires it, but should not diverge witho
 - **Package manager (current)**: Yarn
 - **Node target**: v20+
 - **Python target for training tooling**: 3.11+
-- **Core scripts (current package.json)**: `dev`, `build`, `preview`, `test`, `lint`, `format`
+- **Core scripts (current package.json)**: `dev`, `build`, `preview`, `test`, `test:watch`, `lint`, `format`
+- **TypeScript config**: root `tsconfig.json` (strict, bundler module resolution, React JSX)
+- **Vite config**: root `vite.config.ts` with `base: "./"` for static-host compatibility
+- **ESLint config**: root `eslint.config.js` (flat config)
 
 ## Technical constraints
 
@@ -38,16 +41,13 @@ Magnate diverges where game complexity requires it, but should not diverge witho
 
 ## Current known gaps (2026-02-19)
 
-- ESLint is on v9 while config is still legacy `.eslintrc.json` format.
-- No `tsconfig.json` yet in repo root.
-- No `vite.config.*` yet in repo root.
 - No TS test files currently present.
+- Vite build currently fails because no `index.html`/app entrypoint exists yet.
 - Python environment in this shell is currently 3.7.9, below the target for RL stack work.
 
 ## Planned config direction
 
-- Add strict `tsconfig.json` and explicit Vite config (Kuhn-style baseline).
-- Migrate ESLint config to flat config format or pin compatible ESLint strategy.
+- Keep frontend/runtime versions close to Kuhn's proven baseline unless a justified divergence is needed.
 - Add bridge contract tests and engine unit/snapshot tests before trainer work.
 - Add Python project config (`pyproject.toml`) when bridge client/trainer scaffolding starts.
 
