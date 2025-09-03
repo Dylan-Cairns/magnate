@@ -10,6 +10,13 @@ export const SUITS: readonly Suit[] = [
   'Knots',
 ];
 
+function developmentTarget(card: PropertyCard): number {
+  if (card.rank === 1 && card.suits.length === 1) {
+    return 3;
+  }
+  return card.rank;
+}
+
 export function findProperty(cardId: CardId): PropertyCard | undefined {
   const card = CARD_BY_ID[cardId];
   return card?.kind === 'Property' ? card : undefined;
@@ -60,6 +67,10 @@ export function deedCost(card: PropertyCard): Partial<Record<Suit, number>> {
   }, {});
 }
 
+export function developmentCost(card: PropertyCard): number {
+  return developmentTarget(card);
+}
+
 export function placementAllowed(
   card: PropertyCard,
   district: GameState['districts'][number],
@@ -77,35 +88,56 @@ export function placementAllowed(
   return district.markerSuitMask.some((suit) => suits.has(suit));
 }
 
-export function defaultOutrightPayment(
+export function enumerateOutrightPayments(
   card: PropertyCard,
   pool: GameState['players'][number]['resources']
-): Partial<Record<Suit, number>> | undefined {
-  const required = new Set(card.suits);
-  if (![...required].every((suit) => pool[suit] > 0)) {
-    return undefined;
+): Partial<Record<Suit, number>>[] {
+  const suits = [...card.suits];
+  if (suits.length === 0) {
+    return [];
   }
-  const payment = [...required].reduce<Partial<Record<Suit, number>>>(
-    (acc, suit) => {
-      acc[suit] = 1;
-      return acc;
-    },
-    {}
-  );
-  const remainder = card.rank - required.size;
-  if (remainder <= 0) {
-    return payment;
+  if (suits.some((suit) => pool[suit] <= 0)) {
+    return [];
   }
-  const priorities = [...required].sort((a, b) => pool[b] - pool[a]);
-  let outstanding = remainder;
-  priorities.forEach((suit) => {
-    if (outstanding === 0) {
+
+  const cost = developmentTarget(card);
+  if (cost < suits.length) {
+    return [];
+  }
+
+  const basePayment = suits.reduce<Partial<Record<Suit, number>>>((acc, suit) => {
+    acc[suit] = 1;
+    return acc;
+  }, {});
+
+  if (suits.some((suit) => pool[suit] < (basePayment[suit] ?? 0))) {
+    return [];
+  }
+
+  const remainder = cost - suits.length;
+  if (remainder === 0) {
+    return [{ ...basePayment }];
+  }
+
+  const payments: Partial<Record<Suit, number>>[] = [];
+  function backtrack(index: number, remaining: number) {
+    if (index === suits.length) {
+      if (remaining === 0) {
+        payments.push({ ...basePayment });
+      }
       return;
     }
-    const capacity = pool[suit] - (payment[suit] ?? 0);
-    const spend = Math.min(capacity, outstanding);
-    payment[suit] = (payment[suit] ?? 0) + spend;
-    outstanding -= spend;
-  });
-  return outstanding === 0 ? payment : undefined;
+
+    const suit = suits[index];
+    const already = basePayment[suit] ?? 0;
+    const maxExtra = Math.min(remaining, (pool[suit] ?? 0) - already);
+    for (let extra = 0; extra <= maxExtra; extra++) {
+      basePayment[suit] = already + extra;
+      backtrack(index + 1, remaining - extra);
+    }
+    basePayment[suit] = already;
+  }
+
+  backtrack(0, remainder);
+  return payments;
 }
