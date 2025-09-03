@@ -38,3 +38,35 @@ export interface DeckState {
   discard: string[];
   reshuffles: 0 | 1 | 2;
 }
+
+
+export interface DistrictStack {
+  developed: string[];
+  deed?: DeedState;
+}
+
+export interface DistrictState {
+  id: DistrictId;
+  markerSuitMask: readonly Suit[];
+  stacks: Record<PlayerId, DistrictStack>;
+}
+
+export type DistrictLine = ReadonlyArray<DistrictState>;
+export type PlayerId = 'PlayerA' | 'PlayerB';
+
+export type ResourcePool = Record<Suit, number>;
+
+export type DistrictId = string;
+
+export interface DeedState {
+  cardId: string;
+  progress: number;
+  tokens: Partial<Record<Suit, number>>;
+}
+
+export interface PlayerState {
+  id: PlayerId;
+  hand: string[];
+  crowns: string[];
+  resources: ResourcePool;
+}
