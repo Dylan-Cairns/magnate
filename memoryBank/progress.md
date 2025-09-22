@@ -20,6 +20,9 @@
   - `newGame(seed, { firstPlayer })` builds playable state from setup output and real district marker suits.
 - Ace deed completion interpretation is now explicit and test-covered:
   - ace deed development target is 3 total tokens.
+- Player visibility boundary is implemented and test-covered:
+  - `toPlayerView`/`toActivePlayerView` hide opponent hand cards and draw order.
+  - Public info remains visible for both players (board, deeds, resources, crowns, discard, phase/turn state).
 - Unit tests cover key low-level rules and early turn-flow behavior.
 
 ## In Progress
@@ -29,6 +32,7 @@
 ## Remaining
 
 - Remaining full-game scenario coverage and replay-focused integration tests.
+- CLI gameplay shell and policy wiring (human input + random bot) on top of player views.
 - Bridge runtime implementation and contract tests.
 - Trainer scaffolding and baseline bot loop.
 - Browser gameplay shell and model inference integration.
