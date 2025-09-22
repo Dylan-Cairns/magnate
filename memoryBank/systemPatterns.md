@@ -28,6 +28,9 @@ Design expectations:
   - render from `toPlayerView(state, viewerId)`
   - apply only `legalActions(state)` through `applyAction`
 - Bot/human action selection should sit behind a shared policy contract so swapping random -> trained does not change controller flow.
+- UI score presentation should be derived, not stateful:
+  - compute live score from canonical engine state (`scoreGame(state)`) on render
+  - reuse same score component for terminal and non-terminal states
 
 ## Turn-Flow Pattern
 

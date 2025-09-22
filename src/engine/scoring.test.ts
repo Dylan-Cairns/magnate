@@ -19,6 +19,24 @@ describe('isTerminal', () => {
 });
 
 describe('scoreGame', () => {
+  it('returns a valid score snapshot for non-terminal states (live score)', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: { developed: ['6'] },
+      [PLAYER_B]: { developed: ['7'] },
+    });
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      districts,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+
+    const score = scoreGame(state);
+    expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 0 });
+    expect(score.rankTotals).toEqual({ PlayerA: 2, PlayerB: 2 });
+    expect(score.winner).toBe('Draw');
+    expect(score.decidedBy).toBe('draw');
+  });
+
   it('scores district points with ace district bonus and district winner', () => {
     const districts = withStacks('D1', {
       [PLAYER_A]: { developed: ['0', '6'] },
