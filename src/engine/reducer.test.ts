@@ -96,6 +96,69 @@ describe('optional-phase progression actions', () => {
   });
 });
 
+describe('income choice reducer semantics', () => {
+  it('choose-income-suit applies selected suit gain and advances when last pending choice resolves', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Suns: 0, Wyrms: 0 }) }),
+        makePlayer(PLAYER_B),
+      ] as const,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+      ],
+    });
+
+    const action: GameAction = {
+      type: 'choose-income-suit',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '7',
+      suit: 'Wyrms',
+    };
+    const next = applyAction(state, action);
+
+    const playerA = next.players.find((player) => player.id === PLAYER_A);
+    if (!playerA) {
+      throw new Error('Missing PlayerA.');
+    }
+    expect(playerA.resources.Wyrms).toBe(1);
+    expect(next.phase).toBe('OptionalTrade');
+    expect(next.pendingIncomeChoices).toBeUndefined();
+  });
+
+  it('choose-income-suit keeps CollectIncome phase when more choices remain', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+    });
+    const action = findLegalActionByType(state, 'choose-income-suit');
+    const next = applyAction(state, action);
+
+    expect(next.phase).toBe('CollectIncome');
+    expect(next.pendingIncomeChoices).toHaveLength(1);
+    expect(next.pendingIncomeChoices?.[0].playerId).toBe(PLAYER_B);
+  });
+});
+
 describe('buy-deed reducer semantics', () => {
   it('transitions to OptionalDevelop after buying a deed', () => {
     const state = makeGameState({

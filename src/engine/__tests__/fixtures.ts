@@ -7,6 +7,7 @@ import type {
   GameAction,
   GamePhase,
   GameState,
+  IncomeChoice,
   IncomeRollResult,
   PlayerId,
   PlayerState,
@@ -82,6 +83,7 @@ export interface GameStateOverrides {
   exhaustionStage?: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
+  pendingIncomeChoices?: readonly IncomeChoice[];
 }
 
 export function makeGameState(overrides: GameStateOverrides = {}): GameState {
@@ -105,6 +107,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     exhaustionStage: overrides.exhaustionStage ?? 0,
     finalTurnsRemaining: overrides.finalTurnsRemaining,
     lastIncomeRoll: overrides.lastIncomeRoll,
+    pendingIncomeChoices: overrides.pendingIncomeChoices,
     log: [],
   };
 }

@@ -17,6 +17,38 @@ describe('legalActions', () => {
     expect(legalActions(state)).toEqual([]);
   });
 
+  it('CollectIncome exposes choose-income-suit actions when pending choices exist', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+      ],
+    });
+
+    const actions = legalActions(state);
+    expect(actions).toEqual([
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '7',
+        suit: 'Suns',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '7',
+        suit: 'Wyrms',
+      },
+    ]);
+  });
+
   it('OptionalTrade only includes suits with at least 3 tokens', () => {
     const players = [
       makePlayer(PLAYER_A, {
@@ -119,6 +151,7 @@ describe('legalActions', () => {
         case 'develop-deed':
           return nonPropertyIds.has(action.cardId);
         case 'trade':
+        case 'choose-income-suit':
         case 'end-optional-trade':
         case 'end-optional-develop':
           return false;

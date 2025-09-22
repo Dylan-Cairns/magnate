@@ -28,6 +28,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   assertActionIsLegal(state, action);
 
   switch (action.type) {
+    case 'choose-income-suit':
+      return chooseIncomeSuit(state, action);
     case 'end-optional-trade':
       return endOptionalTrade(state);
     case 'end-optional-develop':
@@ -62,6 +64,15 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
 
   if (left.type === 'end-optional-trade' || left.type === 'end-optional-develop') {
     return true;
+  }
+
+  if (left.type === 'choose-income-suit' && right.type === 'choose-income-suit') {
+    return (
+      left.playerId === right.playerId &&
+      left.districtId === right.districtId &&
+      left.cardId === right.cardId &&
+      left.suit === right.suit
+    );
   }
 
   if (left.type === 'trade' && right.type === 'trade') {
@@ -108,6 +119,45 @@ function endOptionalTrade(state: GameState): GameState {
 
 function endOptionalDevelop(state: GameState): GameState {
   return log({ ...state, phase: 'PlayCard' }, 'end optional develop');
+}
+
+function chooseIncomeSuit(
+  state: GameState,
+  action: Extract<GameAction, { type: 'choose-income-suit' }>
+): GameState {
+  const [nextChoice, ...restChoices] = state.pendingIncomeChoices ?? [];
+  if (!nextChoice) {
+    throw new Error('No pending income choices available.');
+  }
+  if (
+    action.playerId !== nextChoice.playerId ||
+    action.districtId !== nextChoice.districtId ||
+    action.cardId !== nextChoice.cardId
+  ) {
+    throw new Error('Income choice does not match the next pending income choice.');
+  }
+  if (!nextChoice.suits.includes(action.suit)) {
+    throw new Error(`Suit ${action.suit} is not valid for this income choice.`);
+  }
+
+  const player = findPlayerById(state, action.playerId);
+  const updatedPlayer: PlayerState = {
+    ...player,
+    resources: applyDelta(player.resources, { [action.suit]: 1 }),
+  };
+
+  const pendingIncomeChoices = restChoices.length > 0 ? restChoices : undefined;
+  const phase = pendingIncomeChoices ? 'CollectIncome' : 'OptionalTrade';
+
+  const next = replacePlayerById(state, action.playerId, updatedPlayer);
+  return log(
+    {
+      ...next,
+      phase,
+      pendingIncomeChoices,
+    },
+    `income choice ${action.cardId}:${action.suit}`
+  );
 }
 
 function trade(
@@ -344,6 +394,25 @@ function replaceActivePlayer(state: GameState, updated: PlayerState): GameState 
     index === state.activePlayerIndex ? updated : player
   );
   return { ...state, players };
+}
+
+function replacePlayerById(
+  state: GameState,
+  playerId: PlayerId,
+  updated: PlayerState
+): GameState {
+  const players = state.players.map((player) =>
+    player.id === playerId ? updated : player
+  );
+  return { ...state, players };
+}
+
+function findPlayerById(state: GameState, playerId: PlayerId): PlayerState {
+  const player = state.players.find((entry) => entry.id === playerId);
+  if (!player) {
+    throw new Error(`Unknown player: ${playerId}`);
+  }
+  return player;
 }
 
 function updateDistricts(

@@ -8,12 +8,13 @@ import type {
   DistrictStack,
   GamePhase,
   GameState,
+  IncomeChoice,
   IncomeRollResult,
   PlayerId,
   Suit,
 } from './types';
 
-const DECISION_PHASES: ReadonlySet<GamePhase> = new Set([
+const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set([
   'OptionalTrade',
   'OptionalDevelop',
   'PlayCard',
@@ -34,7 +35,7 @@ export function advanceToDecision(state: GameState): GameState {
   let current = state;
 
   for (let i = 0; i < MAX_ADVANCE_STEPS; i += 1) {
-    if (DECISION_PHASES.has(current.phase)) {
+    if (isDecisionPhase(current)) {
       return current;
     }
 
@@ -44,6 +45,16 @@ export function advanceToDecision(state: GameState): GameState {
   throw new Error(
     `advanceToDecision exceeded ${MAX_ADVANCE_STEPS} phase transitions.`
   );
+}
+
+function isDecisionPhase(state: GameState): boolean {
+  if (BASE_DECISION_PHASES.has(state.phase)) {
+    return true;
+  }
+  if (state.phase === 'CollectIncome') {
+    return (state.pendingIncomeChoices?.length ?? 0) > 0;
+  }
+  return false;
 }
 
 function advanceOnePhase(state: GameState): GameState {
@@ -110,20 +121,35 @@ function resolveCollectIncome(state: GameState): GameState {
   if (!state.lastIncomeRoll) {
     throw new Error('CollectIncome phase requires lastIncomeRoll to be present.');
   }
+  if ((state.pendingIncomeChoices?.length ?? 0) > 0) {
+    return state;
+  }
   const incomeRoll = state.lastIncomeRoll;
 
+  const pendingChoices: IncomeChoice[] = [];
   const players = state.players.map((player) => {
-    const delta = incomeDeltaForPlayer(state, player.id, incomeRoll);
+    const income = incomeDeltaForPlayer(state, player.id, incomeRoll);
+    pendingChoices.push(...income.pendingChoices);
     return {
       ...player,
-      resources: applyDelta(player.resources, delta),
+      resources: applyDelta(player.resources, income.delta),
     };
   });
+
+  if (pendingChoices.length > 0) {
+    return {
+      ...state,
+      players,
+      phase: 'CollectIncome',
+      pendingIncomeChoices: pendingChoices,
+    };
+  }
 
   return {
     ...state,
     players,
     phase: 'OptionalTrade',
+    pendingIncomeChoices: undefined,
   };
 }
 
@@ -143,22 +169,26 @@ function incomeDeltaForPlayer(
   state: GameState,
   playerId: PlayerId,
   roll: IncomeRollResult
-): Partial<Record<Suit, number>> {
+): {
+  delta: Partial<Record<Suit, number>>;
+  pendingChoices: IncomeChoice[];
+} {
   const result = Math.max(roll.die1, roll.die2);
   const delta: Partial<Record<Suit, number>> = {};
+  const pendingChoices: IncomeChoice[] = [];
 
   if (result === 10) {
     awardCrownIncome(state, playerId, delta);
-    return delta;
+    return { delta, pendingChoices };
   }
 
   if (result === 1) {
     awardAceIncome(state, playerId, delta);
-    return delta;
+    return { delta, pendingChoices };
   }
 
-  awardRankIncome(state, playerId, result, delta);
-  return delta;
+  awardRankIncome(state, playerId, result, delta, pendingChoices);
+  return { delta, pendingChoices };
 }
 
 function awardCrownIncome(
@@ -206,7 +236,8 @@ function awardRankIncome(
   state: GameState,
   playerId: PlayerId,
   rank: number,
-  delta: Partial<Record<Suit, number>>
+  delta: Partial<Record<Suit, number>>,
+  pendingChoices: IncomeChoice[]
 ): void {
   state.districts.forEach((district) => {
     const stack = district.stacks[playerId];
@@ -220,9 +251,16 @@ function awardRankIncome(
 
     const deed = stack.deed ? findProperty(stack.deed.cardId) : undefined;
     if (deed && deed.rank === rank) {
-      // Rules allow choosing deed suit at income time; until that choice is explicit,
-      // use first suit deterministically to keep engine behavior reproducible.
-      addSuit(delta, deed.suits[0], 1);
+      if (deed.suits.length === 1) {
+        addSuit(delta, deed.suits[0], 1);
+      } else {
+        pendingChoices.push({
+          playerId,
+          districtId: district.id,
+          cardId: deed.id,
+          suits: deed.suits,
+        });
+      }
     }
   });
 }
