@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "lint": "eslint .",
+    "lint": "eslint . && yarn typecheck",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
   },
   "engines": {

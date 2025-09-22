@@ -4,17 +4,25 @@
 
 - TS-canonical architecture and small bridge-contract strategy are documented and locked.
 - Engine foundations are in place (`types`, `cards`, setup/deck/draw modules, legality/reducer paths).
-- Deterministic phase resolver scaffold exists (`advanceToDecision`) with tax/income and draw/end-turn baseline behavior.
+- Tooling checks now gate TypeScript compilation (`lint` runs `eslint` + `tsc --noEmit`).
+- Deterministic phase resolver exists (`advanceToDecision`) with:
+  - tax/income baseline behavior
+  - draw/end-turn baseline behavior
+  - explicit optional-phase progression actions (`OptionalTrade -> OptionalDevelop -> PlayCard`)
+- Scoring and terminal resolution are implemented:
+  - district scoring with ace district bonus
+  - tie-breakers (`districts -> rank total -> resources -> draw`)
+  - terminal finalization that discards hands and incomplete deeds
+  - final score stored on terminal state
 - Unit tests cover key low-level rules and early turn-flow behavior.
 
 ## In Progress
 
-- Completing full turn-loop wiring across optional phases.
 - Tightening endgame and scoring behavior to full rules parity.
 
 ## Remaining
 
-- Full scoring and terminal resolution.
+- Remaining turn-loop edge cases and broader full-game scenario coverage.
 - Bridge runtime implementation and contract tests.
 - Trainer scaffolding and baseline bot loop.
 - Browser gameplay shell and model inference integration.
@@ -25,4 +33,4 @@
 - Rule-edge handling in turn flow and scoring still needs broader scenario coverage.
 - Bridge contract stability should be guarded as soon as runtime work starts.
 
-_Updated: 2026-02-19._
+_Updated: 2026-02-20._

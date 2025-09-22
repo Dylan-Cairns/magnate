@@ -28,6 +28,10 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   assertActionIsLegal(state, action);
 
   switch (action.type) {
+    case 'end-optional-trade':
+      return endOptionalTrade(state);
+    case 'end-optional-develop':
+      return endOptionalDevelop(state);
     case 'trade':
       return trade(state, action);
     case 'develop-deed':
@@ -56,26 +60,39 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     return false;
   }
 
-  switch (left.type) {
-    case 'trade':
-      return left.give === right.give && left.receive === right.receive;
-    case 'sell-card':
-      return left.cardId === right.cardId;
-    case 'buy-deed':
-      return left.cardId === right.cardId && left.districtId === right.districtId;
-    case 'develop-deed':
-      return (
-        left.cardId === right.cardId &&
-        left.districtId === right.districtId &&
-        sameSuitCounts(left.tokens, right.tokens)
-      );
-    case 'develop-outright':
-      return (
-        left.cardId === right.cardId &&
-        left.districtId === right.districtId &&
-        sameSuitCounts(left.payment, right.payment)
-      );
+  if (left.type === 'end-optional-trade' || left.type === 'end-optional-develop') {
+    return true;
   }
+
+  if (left.type === 'trade' && right.type === 'trade') {
+    return left.give === right.give && left.receive === right.receive;
+  }
+
+  if (left.type === 'sell-card' && right.type === 'sell-card') {
+    return left.cardId === right.cardId;
+  }
+
+  if (left.type === 'buy-deed' && right.type === 'buy-deed') {
+    return left.cardId === right.cardId && left.districtId === right.districtId;
+  }
+
+  if (left.type === 'develop-deed' && right.type === 'develop-deed') {
+    return (
+      left.cardId === right.cardId &&
+      left.districtId === right.districtId &&
+      sameSuitCounts(left.tokens, right.tokens)
+    );
+  }
+
+  if (left.type === 'develop-outright' && right.type === 'develop-outright') {
+    return (
+      left.cardId === right.cardId &&
+      left.districtId === right.districtId &&
+      sameSuitCounts(left.payment, right.payment)
+    );
+  }
+
+  return false;
 }
 
 function sameSuitCounts(
@@ -83,6 +100,14 @@ function sameSuitCounts(
   right: Partial<Record<Suit, number>>
 ): boolean {
   return SUITS.every((suit) => (left[suit] ?? 0) === (right[suit] ?? 0));
+}
+
+function endOptionalTrade(state: GameState): GameState {
+  return log({ ...state, phase: 'OptionalDevelop' }, 'end optional trade');
+}
+
+function endOptionalDevelop(state: GameState): GameState {
+  return log({ ...state, phase: 'PlayCard' }, 'end optional develop');
 }
 
 function trade(

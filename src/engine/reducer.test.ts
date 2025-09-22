@@ -74,6 +74,28 @@ describe('applyAction legality gate', () => {
   });
 });
 
+describe('optional-phase progression actions', () => {
+  it('end-optional-trade transitions to OptionalDevelop', () => {
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const action = findLegalActionByType(state, 'end-optional-trade');
+    const next = applyAction(state, action);
+    expect(next.phase).toBe('OptionalDevelop');
+  });
+
+  it('end-optional-develop transitions to PlayCard', () => {
+    const state = makeGameState({
+      phase: 'OptionalDevelop',
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const action = findLegalActionByType(state, 'end-optional-develop');
+    const next = applyAction(state, action);
+    expect(next.phase).toBe('PlayCard');
+  });
+});
+
 describe('buy-deed reducer semantics', () => {
   it('transitions to OptionalDevelop after buying a deed', () => {
     const state = makeGameState({
