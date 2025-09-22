@@ -15,7 +15,7 @@ import type {
   Suit,
 } from './types';
 
-const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set(['PlayCard', 'GameOver']);
+const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set(['GameOver']);
 
 const MAX_ADVANCE_STEPS = 32;
 const TAX_SUIT_BY_D6: readonly [Suit, Suit, Suit, Suit, Suit, Suit] = [
@@ -44,7 +44,7 @@ export function advanceToDecision(state: GameState): GameState {
 }
 
 function isDecisionPhase(state: GameState): boolean {
-  if (state.phase === 'OptionalTrade' || state.phase === 'OptionalDevelop') {
+  if (state.phase === 'ActionWindow') {
     return legalActions(state).length > 0;
   }
   if (BASE_DECISION_PHASES.has(state.phase)) {
@@ -71,17 +71,7 @@ function advanceOnePhase(state: GameState): GameState {
       return resolveCollectIncome(state);
     case 'DrawCard':
       return resolveDrawPhase(state);
-    case 'OptionalTrade':
-      return {
-        ...state,
-        phase: 'OptionalDevelop',
-      };
-    case 'OptionalDevelop':
-      return {
-        ...state,
-        phase: state.cardPlayedThisTurn ? 'OptionalTrade' : 'PlayCard',
-      };
-    case 'PlayCard':
+    case 'ActionWindow':
     case 'GameOver':
       return state;
   }
@@ -170,7 +160,7 @@ function resolveCollectIncome(state: GameState): GameState {
   return {
     ...state,
     players,
-    phase: 'OptionalTrade',
+    phase: 'ActionWindow',
     cardPlayedThisTurn: false,
     pendingIncomeChoices: undefined,
     incomeChoiceReturnPlayerIndex: undefined,

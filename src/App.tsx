@@ -63,6 +63,7 @@ export function App() {
   const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
   const score = useMemo(() => state.finalScore ?? scoreGame(state), [state]);
+  const statusText = useMemo(() => deriveStatusLabel(humanView), [humanView]);
 
   const playersById = useMemo(
     () => new Map(humanView.players.map((player) => [player.id, player])),
@@ -183,7 +184,7 @@ export function App() {
 
       <section className="hud-strip">
         <HudItem label="Turn" value={String(humanView.turn)} />
-        <HudItem label="Phase" value={humanView.phase} />
+        <HudItem label="Status" value={statusText} />
         <HudItem label="Active" value={humanView.activePlayerId} />
         <HudItem label="Income Roll" value={formatRoll(humanView.lastIncomeRoll)} />
         <HudItem
@@ -537,6 +538,22 @@ function describeAction(action: GameAction): string {
     case 'choose-income-suit':
       return `Choose ${SUIT_EMOJI[action.suit]} income for ${cardSummary(action.cardId)} in ${action.districtId}`;
   }
+}
+
+function deriveStatusLabel(view: ReturnType<typeof toPlayerView>): string {
+  if (view.phase === 'GameOver') {
+    return 'Game over';
+  }
+  if (view.phase === 'CollectIncome' && (view.pendingIncomeChoices?.length ?? 0) > 0) {
+    return 'Choose income suit';
+  }
+  if (view.phase === 'ActionWindow') {
+    return view.cardPlayedThisTurn
+      ? 'Optional actions / End turn'
+      : 'Choose turn action';
+  }
+
+  return 'Resolving turn';
 }
 
 function cardSummary(cardId: CardId): string {
