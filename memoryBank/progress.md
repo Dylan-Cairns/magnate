@@ -10,10 +10,10 @@
   - explicit deed income suit-choice flow (`choose-income-suit`) during `CollectIncome`
   - actor ownership on income choices (active actor switches to choice owner and restores to turn owner)
   - draw/end-turn baseline behavior
-  - unified optional decision surface:
-    - no `end-optional-*` actions
-    - pre-card optional phases expose `trade` + `develop-deed` + card-play actions
-    - post-card optional phases expose `trade` + `develop-deed` + `end-turn`
+  - unified `ActionWindow` decision phase:
+    - legacy `OptionalTrade` / `OptionalDevelop` / `PlayCard` literals removed
+    - pre-card exposes `trade` + `develop-deed` + card-play actions
+    - post-card exposes `trade` + `develop-deed` + `end-turn`
   - one-card lock keeps card-play actions unavailable after the first card play each turn
 - Scoring and terminal resolution are implemented:
   - district scoring with ace district bonus
@@ -33,6 +33,7 @@
   - human player can play via engine-generated legal actions
   - random bot opponent executes legal actions through same engine loop
   - UI renders core board/resource/deed/dice/log state
+  - HUD status now uses derived user-facing state instead of raw phase labels
   - UI now renders incremental score snapshot every update and reuses the same panel as final score at game end
 - Unit tests cover key low-level rules and early turn-flow behavior.
 - Additional regressions now lock first-placement district legality:

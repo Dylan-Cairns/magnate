@@ -15,11 +15,11 @@ import { advanceToDecision } from './turnFlow';
 
 describe('advanceToDecision', () => {
   it('returns the same state when already at a decision phase', () => {
-    const state = makeGameState({ phase: 'PlayCard' });
+    const state = makeGameState({ phase: 'ActionWindow' });
     expect(advanceToDecision(state)).toBe(state);
   });
 
-  it('auto-advances StartTurn through CollectIncome into OptionalTrade decision', () => {
+  it('auto-advances StartTurn through CollectIncome into ActionWindow decision', () => {
     const state = makeGameState({
       phase: 'StartTurn',
       turn: 5,
@@ -31,14 +31,14 @@ describe('advanceToDecision', () => {
     });
 
     const advanced = advanceToDecision(state);
-    expect(advanced.phase).toBe('OptionalTrade');
+    expect(advanced.phase).toBe('ActionWindow');
     expect(advanced.turn).toBe(5);
     expect(advanced.activePlayerIndex).toBe(1);
   });
 
-  it('post-card OptionalTrade exposes deed development and end-turn together', () => {
+  it('post-card ActionWindow exposes deed development and end-turn together', () => {
     let state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1 }) }),
@@ -54,14 +54,14 @@ describe('advanceToDecision', () => {
     const advanced = advanceToDecision(state);
     const actions = legalActions(advanced);
 
-    expect(advanced.phase).toBe('OptionalTrade');
+    expect(advanced.phase).toBe('ActionWindow');
     expect(actions.some((action) => action.type === 'develop-deed')).toBe(true);
     expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
   });
 
-  it('post-card OptionalDevelop exposes trade and end-turn together', () => {
+  it('post-card ActionWindow exposes trade and end-turn together', () => {
     const state = makeGameState({
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
@@ -72,14 +72,14 @@ describe('advanceToDecision', () => {
     const advanced = advanceToDecision(state);
     const actions = legalActions(advanced);
 
-    expect(advanced.phase).toBe('OptionalDevelop');
+    expect(advanced.phase).toBe('ActionWindow');
     expect(actions.some((action) => action.type === 'trade')).toBe(true);
     expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
   });
 
   it('post-card optional flow exposes only end-turn when no trade or develop exists', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -87,7 +87,7 @@ describe('advanceToDecision', () => {
     const advanced = advanceToDecision(state);
     const actions = legalActions(advanced);
 
-    expect(advanced.phase).toBe('OptionalTrade');
+    expect(advanced.phase).toBe('ActionWindow');
     expect(actions).toEqual([{ type: 'end-turn' }]);
   });
 
@@ -103,7 +103,7 @@ describe('advanceToDecision', () => {
     });
 
     const advanced = advanceToDecision(state);
-    expect(advanced.phase).toBe('OptionalTrade');
+    expect(advanced.phase).toBe('ActionWindow');
     expect(advanced.turn).toBe(2);
     expect(advanced.activePlayerIndex).toBe(1);
     expect(advanced.players[0].hand).toEqual(['6', '6']);
@@ -125,7 +125,7 @@ describe('advanceToDecision', () => {
     });
 
     const advanced = advanceToDecision(state);
-    expect(advanced.phase).toBe('OptionalTrade');
+    expect(advanced.phase).toBe('ActionWindow');
     expect(advanced.turn).toBe(11);
     expect(advanced.activePlayerIndex).toBe(1);
     expect(advanced.exhaustionStage).toBe(2);
@@ -342,7 +342,7 @@ describe('tax and income resolution', () => {
     }
 
     const resolved = applyAction(advanced, choose);
-    expect(resolved.phase).toBe('OptionalTrade');
+    expect(resolved.phase).toBe('ActionWindow');
     expect(resolved.players[resolved.activePlayerIndex].id).toBe(PLAYER_A);
     expect(resolved.incomeChoiceReturnPlayerIndex).toBeUndefined();
   });

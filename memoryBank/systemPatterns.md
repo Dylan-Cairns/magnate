@@ -35,14 +35,13 @@ Design expectations:
 ## Turn-Flow Pattern
 
 - Non-decision phases auto-resolve via `advanceToDecision`.
-- Decision phases are where external actors choose actions (`CollectIncome` with pending choices, `OptionalTrade`, `OptionalDevelop`, `PlayCard`).
+- Decision phases are where external actors choose actions (`CollectIncome` with pending choices and `ActionWindow`).
 - Draw/exhaustion handling and final-turn countdown are part of phase resolution.
 - Card-play gating is explicit (`cardPlayedThisTurn`):
   - exactly one card-play action per turn
-  - optional phases share one action surface:
+  - `ActionWindow` uses a unified action surface:
     - pre-card: `trade`, `develop-deed`, and card-play actions
     - post-card: `trade`, `develop-deed`, and `end-turn`
-  - no explicit optional-phase navigation actions are exposed
 - Income suit-choice actor ownership is explicit:
   - active actor switches to pending choice owner during `CollectIncome`
   - turn owner is restored before normal turn decisions resume

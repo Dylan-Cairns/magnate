@@ -20,10 +20,9 @@
 - `advanceToDecision` exists and currently resolves start-turn chain, tax/income baseline, draw, and end-turn handoff.
 - Deed income suit choice is now explicit input:
   - `CollectIncome` becomes a decision phase when multi-suit deed income choices are pending.
-  - `choose-income-suit` actions resolve those choices one-by-one, with active actor switching to the choice owner and restoration to the turn owner before `OptionalTrade`.
-- Optional-phase progression is explicit via actions:
-  - `end-optional-trade` / `end-optional-develop` have been removed from the action surface.
-  - `OptionalTrade` and `OptionalDevelop` now expose the same unified optional decision set.
+  - `choose-income-suit` actions resolve those choices one-by-one, with active actor switching to the choice owner and restoration to the turn owner before `ActionWindow`.
+- Decision-phase model now uses a single `ActionWindow` phase:
+  - legacy `OptionalTrade` / `OptionalDevelop` / `PlayCard` phase literals were removed.
   - Before card play: legal actions are `trade`, `develop-deed`, and all card-play actions.
   - After card play: legal actions are `trade`, `develop-deed`, and `end-turn`.
   - One-card-per-turn lock is enforced via `cardPlayedThisTurn`; card-play actions are unavailable once a card is played.
@@ -50,6 +49,7 @@
   - Board UI shows districts, developed cards, deeds + deed tokens, crowns, resources, hands, dice roll, and action log.
   - Human acts via `legalActions` panel; bot currently chooses random legal actions with a short delay.
   - UI consumes engine truth (`newGame`, `advanceToDecision`, `legalActions`, `applyAction`, `toPlayerView`).
+  - HUD now shows a derived `Status` label instead of raw engine phase names.
   - Incremental score is now displayed throughout play:
     - UI derives score each state update via `scoreGame(state)`.
     - Single score panel is used; on terminal states it shows the final score (no duplicate live/final panels).

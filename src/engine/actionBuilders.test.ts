@@ -67,14 +67,14 @@ describe('legalActions', () => {
     expect(legalActions(state)).toEqual([]);
   });
 
-  it('OptionalTrade only includes suits with at least 3 tokens', () => {
+  it('ActionWindow only includes trade give suits with at least 3 tokens', () => {
     const players = [
       makePlayer(PLAYER_A, {
         resources: makeResources({ Moons: 3, Suns: 2, Knots: 6 }),
       }),
       makePlayer(PLAYER_B),
     ] as const;
-    const state = makeGameState({ phase: 'OptionalTrade', players });
+    const state = makeGameState({ phase: 'ActionWindow', players });
     const trades = legalActions(state).filter((action) => action.type === 'trade');
 
     expect(trades.length).toBeGreaterThan(0);
@@ -83,19 +83,19 @@ describe('legalActions', () => {
     );
   });
 
-  it('OptionalTrade never includes trades with same give/receive suit', () => {
+  it('ActionWindow never includes trades with same give/receive suit', () => {
     const players = [
       makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
       makePlayer(PLAYER_B),
     ] as const;
-    const state = makeGameState({ phase: 'OptionalTrade', players });
+    const state = makeGameState({ phase: 'ActionWindow', players });
     const trades = legalActions(state).filter((action) => action.type === 'trade');
     expect(trades.every((trade) => trade.give !== trade.receive)).toBe(true);
   });
 
-  it('OptionalTrade includes trade actions when at least one trade is available', () => {
+  it('ActionWindow includes trade actions when at least one trade is available', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
         makePlayer(PLAYER_B),
@@ -106,9 +106,9 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'end-turn')).toBe(false);
   });
 
-  it('OptionalTrade still exposes card-play actions before card play even without trades', () => {
+  it('ActionWindow exposes card-play actions before card play even without trades', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: false,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -117,9 +117,9 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'end-turn')).toBe(false);
   });
 
-  it('OptionalTrade includes end-turn once a card has been played this turn', () => {
+  it('ActionWindow includes end-turn once a card has been played this turn', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -130,9 +130,9 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
   });
 
-  it('OptionalDevelop emits one-token deed actions only for affordable deed suits', () => {
+  it('ActionWindow emits one-token deed actions only for affordable deed suits', () => {
     let state = makeGameState({
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           resources: makeResources({ Moons: 1, Knots: 0, Suns: 5 }),
@@ -155,9 +155,9 @@ describe('legalActions', () => {
     expect(developActions[0].tokens).toEqual({ Moons: 1 });
   });
 
-  it('OptionalDevelop includes develop actions when a deed is developable', () => {
+  it('ActionWindow includes develop actions when a deed is developable', () => {
     let state = makeGameState({
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1 }) }),
         makePlayer(PLAYER_B),
@@ -173,9 +173,9 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'sell-card')).toBe(true);
   });
 
-  it('OptionalDevelop still exposes card-play actions before card play even without deeds', () => {
+  it('ActionWindow exposes card-play actions before card play even without deeds', () => {
     const state = makeGameState({
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: false,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -184,9 +184,9 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'end-turn')).toBe(false);
   });
 
-  it('OptionalDevelop includes end-turn once a card has been played this turn', () => {
+  it('ActionWindow includes end-turn once a card has been played this turn', () => {
     const state = makeGameState({
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -197,8 +197,8 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
   });
 
-  it('OptionalTrade and OptionalDevelop expose the same action kinds for the same state', () => {
-    let base = makeGameState({
+  it('ActionWindow includes both trade and develop actions in the same state', () => {
+    let state = makeGameState({
       players: [
         makePlayer(PLAYER_A, {
           resources: makeResources({ Moons: 3, Knots: 1 }),
@@ -206,23 +206,18 @@ describe('legalActions', () => {
         makePlayer(PLAYER_B),
       ] as const,
     });
-    base = withDeed(base, 'D1', PLAYER_A, {
+    state = withDeed(state, 'D1', PLAYER_A, {
       cardId: '6',
       progress: 0,
       tokens: {},
     });
 
-    const tradeKinds = new Set(
-      legalActions({ ...base, phase: 'OptionalTrade' }).map((action) => action.type)
-    );
-    const developKinds = new Set(
-      legalActions({ ...base, phase: 'OptionalDevelop' }).map((action) => action.type)
-    );
-
-    expect([...tradeKinds].sort()).toEqual([...developKinds].sort());
+    const actions = legalActions({ ...state, phase: 'ActionWindow' });
+    expect(actions.some((action) => action.type === 'trade')).toBe(true);
+    expect(actions.some((action) => action.type === 'develop-deed')).toBe(true);
   });
 
-  it('PlayCard includes a sell action for each property card in hand', () => {
+  it('ActionWindow includes a sell action for each property card in hand', () => {
     const players = [
       makePlayer(PLAYER_A, {
         hand: ['6', '8', '13'],
@@ -230,12 +225,12 @@ describe('legalActions', () => {
       }),
       makePlayer(PLAYER_B),
     ] as const;
-    const state = makeGameState({ phase: 'PlayCard', players });
+    const state = makeGameState({ phase: 'ActionWindow', players });
     const sells = legalActions(state).filter((action) => action.type === 'sell-card');
     expect(sells.map((action) => action.cardId).sort()).toEqual(['13', '6', '8']);
   });
 
-  it('PlayCard excludes non-property cards present in hand', () => {
+  it('ActionWindow excludes non-property cards present in hand', () => {
     const players = [
       makePlayer(PLAYER_A, {
         hand: ['6', '30', '36', '37'],
@@ -243,7 +238,7 @@ describe('legalActions', () => {
       }),
       makePlayer(PLAYER_B),
     ] as const;
-    const state = makeGameState({ phase: 'PlayCard', players });
+    const state = makeGameState({ phase: 'ActionWindow', players });
     const actions = legalActions(state);
 
     const nonPropertyIds = new Set(['30', '36', '37']);
@@ -263,16 +258,20 @@ describe('legalActions', () => {
     expect(actionsForNonProperty).toHaveLength(0);
   });
 
-  it('PlayCard emits no actions after a card has already been played this turn', () => {
+  it('ActionWindow excludes card-play actions after a card has already been played this turn', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
-    expect(legalActions(state)).toEqual([]);
+    const actions = legalActions(state);
+    expect(actions.some((action) => action.type === 'sell-card')).toBe(false);
+    expect(actions.some((action) => action.type === 'buy-deed')).toBe(false);
+    expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
+    expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
   });
 
-  it('PlayCard buy-deed actions only appear when placement is legal and cost is affordable', () => {
+  it('ActionWindow buy-deed actions only appear when placement is legal and cost is affordable', () => {
     const blockedDistricts = makeDefaultDistricts().map((district) => ({
       ...district,
       stacks: {
@@ -297,7 +296,7 @@ describe('legalActions', () => {
     ] as const;
 
     const blockedState = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players,
       districts: blockedDistricts,
     });
@@ -306,7 +305,7 @@ describe('legalActions', () => {
     ).toBe(false);
 
     const affordableState = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -321,9 +320,9 @@ describe('legalActions', () => {
     ).toBe(true);
   });
 
-  it('PlayCard blocks first-placement buy/develop actions in districts without pawn-suit overlap', () => {
+  it('ActionWindow blocks first-placement buy/develop actions in districts without pawn-suit overlap', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['7'],

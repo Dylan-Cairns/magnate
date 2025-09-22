@@ -19,7 +19,7 @@ Single-player Magnate with a trained bot opponent.
   - board rendering for districts/stacks/deeds/resources/crowns/hand
   - legal-action button panel for the human player
   - random-bot opponent using engine `legalActions` + `applyAction`
-  - turn/phase/dice/log HUD
+  - turn/status/dice/log HUD
 - Bridge runtime and training pipeline are still in progress.
 
 ## Local Commands

@@ -104,7 +104,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     players,
     activePlayerIndex: overrides.activePlayerIndex ?? 0,
     turn: overrides.turn ?? 1,
-    phase: overrides.phase ?? 'PlayCard',
+    phase: overrides.phase ?? 'ActionWindow',
     districts: overrides.districts ?? makeDefaultDistricts(),
     cardPlayedThisTurn: overrides.cardPlayedThisTurn ?? false,
     exhaustionStage: overrides.exhaustionStage ?? 0,
