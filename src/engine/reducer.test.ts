@@ -74,39 +74,8 @@ describe('applyAction legality gate', () => {
   });
 });
 
-describe('optional-phase progression actions', () => {
-  it('end-optional-trade transitions to OptionalDevelop', () => {
-    const state = makeGameState({
-      phase: 'OptionalTrade',
-      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
-    });
-    const action = findLegalActionByType(state, 'end-optional-trade');
-    const next = applyAction(state, action);
-    expect(next.phase).toBe('OptionalDevelop');
-  });
-
-  it('end-optional-develop transitions to PlayCard', () => {
-    const state = makeGameState({
-      phase: 'OptionalDevelop',
-      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
-    });
-    const action = findLegalActionByType(state, 'end-optional-develop');
-    const next = applyAction(state, action);
-    expect(next.phase).toBe('PlayCard');
-  });
-
-  it('end-optional-develop transitions to OptionalTrade after a card play', () => {
-    const state = makeGameState({
-      phase: 'OptionalDevelop',
-      cardPlayedThisTurn: true,
-      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
-    });
-    const action = findLegalActionByType(state, 'end-optional-develop');
-    const next = applyAction(state, action);
-    expect(next.phase).toBe('OptionalTrade');
-  });
-
-  it('end-turn transitions to DrawCard only after a card play', () => {
+describe('post-card progression actions', () => {
+  it('end-turn transitions to DrawCard from OptionalTrade after a card play', () => {
     const state = makeGameState({
       phase: 'OptionalTrade',
       cardPlayedThisTurn: true,
@@ -115,6 +84,27 @@ describe('optional-phase progression actions', () => {
     const action = findLegalActionByType(state, 'end-turn');
     const next = applyAction(state, action);
     expect(next.phase).toBe('DrawCard');
+  });
+
+  it('end-turn transitions to DrawCard from OptionalDevelop after a card play', () => {
+    const state = makeGameState({
+      phase: 'OptionalDevelop',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const action = findLegalActionByType(state, 'end-turn');
+    const next = applyAction(state, action);
+    expect(next.phase).toBe('DrawCard');
+  });
+
+  it('end-turn is illegal before a card has been played', () => {
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: false,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const endTurn: GameAction = { type: 'end-turn' };
+    expect(() => applyAction(state, endTurn)).toThrow('Illegal action');
   });
 });
 
@@ -579,21 +569,18 @@ describe('one card per turn flow', () => {
     const afterPlay = applyAction(state, play);
     expect(afterPlay.phase).toBe('OptionalTrade');
 
-    const toDevelop = applyAction(afterPlay, findLegalActionByType(afterPlay, 'end-optional-trade'));
-    expect(toDevelop.phase).toBe('OptionalDevelop');
-
-    const backToTrade = applyAction(
-      toDevelop,
-      findLegalActionByType(toDevelop, 'end-optional-develop')
-    );
-    expect(backToTrade.phase).toBe('OptionalTrade');
-    expect(legalActions(backToTrade).some((action) => action.type === 'buy-deed')).toBe(false);
-    expect(legalActions(backToTrade).some((action) => action.type === 'sell-card')).toBe(false);
-    expect(legalActions(backToTrade).some((action) => action.type === 'develop-outright')).toBe(
+    expect(legalActions(afterPlay).some((action) => action.type === 'buy-deed')).toBe(false);
+    expect(legalActions(afterPlay).some((action) => action.type === 'sell-card')).toBe(false);
+    expect(legalActions(afterPlay).some((action) => action.type === 'develop-outright')).toBe(
       false
     );
+    expect(legalActions(afterPlay).some((action) => action.type === 'trade')).toBe(false);
+    expect(legalActions(afterPlay).some((action) => action.type === 'develop-deed')).toBe(
+      false
+    );
+    expect(legalActions(afterPlay).some((action) => action.type === 'end-turn')).toBe(true);
 
-    const draw = applyAction(backToTrade, findLegalActionByType(backToTrade, 'end-turn'));
+    const draw = applyAction(afterPlay, findLegalActionByType(afterPlay, 'end-turn'));
     expect(draw.phase).toBe('DrawCard');
   });
 });

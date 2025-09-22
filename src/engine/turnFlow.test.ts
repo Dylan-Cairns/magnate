@@ -7,6 +7,7 @@ import {
   makeGameState,
   makePlayer,
   makeResources,
+  withDeed,
 } from './__tests__/fixtures';
 import { legalActions } from './actionBuilders';
 import { applyAction } from './reducer';
@@ -18,11 +19,15 @@ describe('advanceToDecision', () => {
     expect(advanceToDecision(state)).toBe(state);
   });
 
-  it('auto-advances StartTurn through CollectIncome into OptionalTrade', () => {
+  it('auto-advances StartTurn through CollectIncome into OptionalTrade decision', () => {
     const state = makeGameState({
       phase: 'StartTurn',
       turn: 5,
       activePlayerIndex: 1,
+      players: [
+        makePlayer(PLAYER_A, { crowns: [], resources: makeResources() }),
+        makePlayer(PLAYER_B, { crowns: [], resources: makeResources() }),
+      ] as const,
     });
 
     const advanced = advanceToDecision(state);
@@ -31,14 +36,69 @@ describe('advanceToDecision', () => {
     expect(advanced.activePlayerIndex).toBe(1);
   });
 
+  it('post-card OptionalTrade exposes deed development and end-turn together', () => {
+    let state = makeGameState({
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: true,
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1 }) }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    state = withDeed(state, 'D1', PLAYER_A, {
+      cardId: '6',
+      progress: 0,
+      tokens: {},
+    });
+
+    const advanced = advanceToDecision(state);
+    const actions = legalActions(advanced);
+
+    expect(advanced.phase).toBe('OptionalTrade');
+    expect(actions.some((action) => action.type === 'develop-deed')).toBe(true);
+    expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
+  });
+
+  it('post-card OptionalDevelop exposes trade and end-turn together', () => {
+    const state = makeGameState({
+      phase: 'OptionalDevelop',
+      cardPlayedThisTurn: true,
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const advanced = advanceToDecision(state);
+    const actions = legalActions(advanced);
+
+    expect(advanced.phase).toBe('OptionalDevelop');
+    expect(actions.some((action) => action.type === 'trade')).toBe(true);
+    expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
+  });
+
+  it('post-card optional flow exposes only end-turn when no trade or develop exists', () => {
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+
+    const advanced = advanceToDecision(state);
+    const actions = legalActions(advanced);
+
+    expect(advanced.phase).toBe('OptionalTrade');
+    expect(actions).toEqual([{ type: 'end-turn' }]);
+  });
+
   it('resolves DrawCard by drawing to active player hand and handing off turn', () => {
     const state = makeGameState({
       phase: 'DrawCard',
       turn: 1,
       activePlayerIndex: 0,
       players: [
-        makePlayer(PLAYER_A, { hand: ['6'] }),
-        makePlayer(PLAYER_B, { hand: ['7'] }),
+        makePlayer(PLAYER_A, { hand: ['6'], crowns: [], resources: makeResources() }),
+        makePlayer(PLAYER_B, { hand: ['7'], crowns: [], resources: makeResources() }),
       ],
     });
 
@@ -58,6 +118,10 @@ describe('advanceToDecision', () => {
       deck: { draw: [], discard: [], reshuffles: 1 },
       exhaustionStage: 1,
       finalTurnsRemaining: undefined,
+      players: [
+        makePlayer(PLAYER_A, { crowns: [], resources: makeResources() }),
+        makePlayer(PLAYER_B, { crowns: [], resources: makeResources() }),
+      ] as const,
     });
 
     const advanced = advanceToDecision(state);

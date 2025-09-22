@@ -13,8 +13,8 @@ type PhaseBuilderMap = Partial<Record<GamePhase, (state: GameState) => GameActio
 
 const builders: PhaseBuilderMap = {
   CollectIncome: collectIncomeChoiceActions,
-  OptionalTrade: tradeActions,
-  OptionalDevelop: developActions,
+  OptionalTrade: optionalActions,
+  OptionalDevelop: optionalActions,
   PlayCard: playActions,
 };
 
@@ -23,9 +23,21 @@ export function legalActions(state: GameState): readonly GameAction[] {
   return phaseBuilder ? phaseBuilder(state) : [];
 }
 
-function tradeActions(state: GameState): GameAction[] {
+function optionalActions(state: GameState): GameAction[] {
+  const trades = tradeActions(state);
+  const develops = developActions(state);
+  if (state.cardPlayedThisTurn) {
+    return [...trades, ...develops, { type: 'end-turn' as const }];
+  }
+
+  return [...trades, ...develops, ...playActions(state)];
+}
+
+function tradeActions(
+  state: GameState
+): Extract<GameAction, { type: 'trade' }>[] {
   const player = state.players[state.activePlayerIndex];
-  const trades: Extract<GameAction, { type: 'trade' }>[] = SUITS.flatMap((give) =>
+  return SUITS.flatMap((give) =>
     player.resources[give] < 3
       ? []
       : SUITS.filter((receive) => receive !== give).map((receive) => ({
@@ -34,14 +46,15 @@ function tradeActions(state: GameState): GameAction[] {
           receive,
         }))
   );
-  return [...optionalEndActions(state, 'trade'), ...trades];
 }
 
-function developActions(state: GameState): GameAction[] {
+function developActions(
+  state: GameState
+): Extract<GameAction, { type: 'develop-deed' }>[] {
   const player = state.players[state.activePlayerIndex];
   const playerId = player.id;
 
-  const develops: Extract<GameAction, { type: 'develop-deed' }>[] = state.districts.flatMap(
+  return state.districts.flatMap(
     (district) => {
       const deed = district.stacks[playerId]?.deed;
       if (!deed) {
@@ -66,8 +79,6 @@ function developActions(state: GameState): GameAction[] {
         }));
     }
   );
-
-  return [...optionalEndActions(state, 'develop'), ...develops];
 }
 
 function collectIncomeChoiceActions(state: GameState): GameAction[] {
@@ -130,18 +141,4 @@ function playActions(state: GameState): GameAction[] {
 
     return [sell, ...deedable, ...developOutright];
   });
-}
-
-function optionalEndActions(
-  state: GameState,
-  phase: 'trade' | 'develop'
-): GameAction[] {
-  const base =
-    phase === 'trade'
-      ? ({ type: 'end-optional-trade' } as const)
-      : ({ type: 'end-optional-develop' } as const);
-  if (!state.cardPlayedThisTurn) {
-    return [base];
-  }
-  return [base, { type: 'end-turn' as const }];
 }

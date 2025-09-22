@@ -30,10 +30,6 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'choose-income-suit':
       return chooseIncomeSuit(state, action);
-    case 'end-optional-trade':
-      return endOptionalTrade(state);
-    case 'end-optional-develop':
-      return endOptionalDevelop(state);
     case 'end-turn':
       return endTurn(state);
     case 'trade':
@@ -64,11 +60,7 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     return false;
   }
 
-  if (
-    left.type === 'end-optional-trade' ||
-    left.type === 'end-optional-develop' ||
-    left.type === 'end-turn'
-  ) {
+  if (left.type === 'end-turn') {
     return true;
   }
 
@@ -117,15 +109,6 @@ function sameSuitCounts(
   right: Partial<Record<Suit, number>>
 ): boolean {
   return SUITS.every((suit) => (left[suit] ?? 0) === (right[suit] ?? 0));
-}
-
-function endOptionalTrade(state: GameState): GameState {
-  return log({ ...state, phase: 'OptionalDevelop' }, 'end optional trade');
-}
-
-function endOptionalDevelop(state: GameState): GameState {
-  const phase = state.cardPlayedThisTurn ? 'OptionalTrade' : 'PlayCard';
-  return log({ ...state, phase }, 'end optional develop');
 }
 
 function endTurn(state: GameState): GameState {
