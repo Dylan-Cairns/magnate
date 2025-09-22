@@ -4,7 +4,7 @@ import { legalActions } from './engine/actionBuilders';
 import { CARD_BY_ID, type CardId } from './engine/cards';
 import { newGame } from './engine/game';
 import { applyAction } from './engine/reducer';
-import { isTerminal } from './engine/scoring';
+import { isTerminal, scoreGame } from './engine/scoring';
 import { developmentCost, findProperty, SUITS } from './engine/stateHelpers';
 import { advanceToDecision } from './engine/turnFlow';
 import type {
@@ -62,6 +62,7 @@ export function App() {
   const terminal = isTerminal(state);
   const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
+  const score = useMemo(() => state.finalScore ?? scoreGame(state), [state]);
 
   const playersById = useMemo(
     () => new Map(humanView.players.map((player) => [player.id, player])),
@@ -220,9 +221,14 @@ export function App() {
 
         <aside className="side-pane">
           <section className="panel">
+            <h2>{terminal ? 'Final Score' : 'Live Score'}</h2>
+            <ScorePanel score={score} terminal={terminal} />
+          </section>
+
+          <section className="panel">
             <h2>Actions</h2>
-            {terminal && humanView.finalScore ? (
-              <FinalScorePanel score={humanView.finalScore} />
+            {terminal ? (
+              <p className="empty-note">Game over.</p>
             ) : activePlayerId === HUMAN_PLAYER ? (
               humanActions.length === 0 ? (
                 <p className="empty-note">No legal actions.</p>
@@ -467,11 +473,17 @@ function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compac
   );
 }
 
-function FinalScorePanel({ score }: { score: FinalScore }) {
+function ScorePanel({
+  score,
+  terminal,
+}: {
+  score: FinalScore;
+  terminal: boolean;
+}) {
   return (
     <div className="score-grid">
       <p className="score-result">
-        Winner: <strong>{score.winner}</strong> ({score.decidedBy})
+        {terminal ? 'Winner' : 'Leader'}: <strong>{score.winner}</strong> ({score.decidedBy})
       </p>
       <ScoreLine label="Districts" a={score.districtPoints.PlayerA} b={score.districtPoints.PlayerB} />
       <ScoreLine label="Rank Total" a={score.rankTotals.PlayerA} b={score.rankTotals.PlayerB} />

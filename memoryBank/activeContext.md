@@ -48,6 +48,9 @@
   - Board UI shows districts, developed cards, deeds + deed tokens, crowns, resources, hands, dice roll, and action log.
   - Human acts via `legalActions` panel; bot currently chooses random legal actions with a short delay.
   - UI consumes engine truth (`newGame`, `advanceToDecision`, `legalActions`, `applyAction`, `toPlayerView`).
+  - Incremental score is now displayed throughout play:
+    - UI derives score each state update via `scoreGame(state)`.
+    - Single score panel is used; on terminal states it shows the final score (no duplicate live/final panels).
 
 ## Immediate Next Steps
 

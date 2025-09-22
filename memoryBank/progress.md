@@ -33,6 +33,7 @@
   - human player can play via engine-generated legal actions
   - random bot opponent executes legal actions through same engine loop
   - UI renders core board/resource/deed/dice/log state
+  - UI now renders incremental score snapshot every update and reuses the same panel as final score at game end
 - Unit tests cover key low-level rules and early turn-flow behavior.
 
 ## In Progress
