@@ -49,6 +49,23 @@ describe('legalActions', () => {
     ]);
   });
 
+  it('CollectIncome emits no choice actions for non-owning active player', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      activePlayerIndex: 1,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+      ],
+    });
+
+    expect(legalActions(state)).toEqual([]);
+  });
+
   it('OptionalTrade only includes suits with at least 3 tokens', () => {
     const players = [
       makePlayer(PLAYER_A, {
@@ -84,6 +101,16 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'end-optional-trade')).toBe(true);
   });
 
+  it('OptionalTrade includes end-turn once a card has been played this turn', () => {
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const actions = legalActions(state);
+    expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
+  });
+
   it('OptionalDevelop emits one-token deed actions only for affordable deed suits', () => {
     let state = makeGameState({
       phase: 'OptionalDevelop',
@@ -116,6 +143,16 @@ describe('legalActions', () => {
     });
     const actions = legalActions(state);
     expect(actions.some((action) => action.type === 'end-optional-develop')).toBe(true);
+  });
+
+  it('OptionalDevelop includes end-turn once a card has been played this turn', () => {
+    const state = makeGameState({
+      phase: 'OptionalDevelop',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const actions = legalActions(state);
+    expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
   });
 
   it('PlayCard includes a sell action for each property card in hand', () => {
@@ -154,10 +191,20 @@ describe('legalActions', () => {
         case 'choose-income-suit':
         case 'end-optional-trade':
         case 'end-optional-develop':
+        case 'end-turn':
           return false;
       }
     });
     expect(actionsForNonProperty).toHaveLength(0);
+  });
+
+  it('PlayCard emits no actions after a card has already been played this turn', () => {
+    const state = makeGameState({
+      phase: 'PlayCard',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    expect(legalActions(state)).toEqual([]);
   });
 
   it('PlayCard buy-deed actions only appear when placement is legal and cost is affordable', () => {
