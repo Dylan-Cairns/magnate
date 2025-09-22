@@ -31,15 +31,21 @@ export function drawTop(deck: DeckState): DrawTopResult {
 
 export function reshuffleDiscardIntoDraw(
   deck: DeckState,
-  rand: RandomFn,
-  reshuffles: 1 | 2
+  rand: RandomFn
 ): DeckState {
+  if (deck.discard.length === 0) {
+    throw new Error('Cannot reshuffle when discard pile is empty.');
+  }
+  if (deck.reshuffles >= 2) {
+    throw new Error('Cannot reshuffle after second exhaustion.');
+  }
+
   const draw = [...deck.discard];
   shuffleInPlace(draw, rand);
   return {
     draw,
     discard: [],
-    reshuffles,
+    reshuffles: (deck.reshuffles + 1) as 1 | 2,
   };
 }
 
@@ -49,4 +55,3 @@ export function discardCard(deck: DeckState, cardId: CardId): DeckState {
     discard: [cardId, ...deck.discard],
   };
 }
-

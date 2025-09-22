@@ -78,6 +78,17 @@ describe('initialSetup', () => {
 });
 
 describe('drawOne', () => {
+  it('throws when exhaustionStage does not match deck reshuffle state', () => {
+    expect(() =>
+      drawOne({
+        deck: { draw: ['6'], discard: [], reshuffles: 0 },
+        seed: 'seed-mismatch',
+        rngCursor: 0,
+        exhaustionStage: 1,
+      })
+    ).toThrow(/Draw context mismatch/);
+  });
+
   it('draws from the top of draw pile when cards are available', () => {
     const result = drawOne({
       deck: { draw: ['6', '7'], discard: [], reshuffles: 0 },
