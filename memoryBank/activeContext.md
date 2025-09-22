@@ -31,6 +31,12 @@
   - Deed development now prevents overspend and requires exact completion to finish a deed.
   - Setup now shuffles/deals crowns, deals opening hands, and computes starting resources by crown suit.
   - Draw helper now uses seed + RNG cursor for reshuffles and tracks second-exhaustion final-turn state.
+- Added comprehensive TS engine unit tests (49 passing) covering:
+  - setup/deck draw behavior and exhaustion markers
+  - placement rules (including Excuse behavior)
+  - legal action generation across trade/develop/play phases
+  - reducer legality gate and low-level action semantics (buy/develop/sell)
+  - direct regressions for issues 2, 3, 4, 5, 6, 7, and 9.
 
 ## Next Steps
 
