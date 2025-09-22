@@ -23,6 +23,8 @@ import { toPlayerView } from './engine/view';
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
 const BOT_DELAY_MS = 450;
+const PLAYER_CROWN_SLOT_COUNT = 3;
+const PLAYER_HAND_SLOT_COUNT = 3;
 
 const SUIT_EMOJI: Record<Suit, string> = {
   Moons: '🌙',
@@ -63,7 +65,6 @@ export function App() {
   const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
   const score = useMemo(() => state.finalScore ?? scoreGame(state), [state]);
-  const statusText = useMemo(() => deriveStatusLabel(humanView), [humanView]);
 
   const playersById = useMemo(
     () => new Map(humanView.players.map((player) => [player.id, player])),
@@ -161,38 +162,6 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <header className="top-bar">
-        <div>
-          <h1>Magnate</h1>
-          <p className="subtitle">Human vs random bot</p>
-        </div>
-        <div className="controls">
-          <label className="seed-label" htmlFor="seed-input">
-            Seed
-          </label>
-          <input
-            id="seed-input"
-            className="seed-input"
-            value={seedInput}
-            onChange={(event) => setSeedInput(event.target.value)}
-          />
-          <button className="reset-button" type="button" onClick={handleReset}>
-            New Game
-          </button>
-        </div>
-      </header>
-
-      <section className="hud-strip">
-        <HudItem label="Turn" value={String(humanView.turn)} />
-        <HudItem label="Status" value={statusText} />
-        <HudItem label="Active" value={humanView.activePlayerId} />
-        <HudItem label="Income Roll" value={formatRoll(humanView.lastIncomeRoll)} />
-        <HudItem
-          label="Final Turns"
-          value={humanView.finalTurnsRemaining !== undefined ? String(humanView.finalTurnsRemaining) : '-'}
-        />
-      </section>
-
       {error && (
         <section className="error-banner">
           <strong>Engine Error:</strong> {error}
@@ -200,6 +169,37 @@ export function App() {
       )}
 
       <main className="layout">
+        <aside className="actions-pane">
+          <section className="panel actions-panel">
+            <h2>Actions</h2>
+            <div className="actions-body">
+              {terminal ? (
+                <p className="empty-note">Game over.</p>
+              ) : activePlayerId === HUMAN_PLAYER ? (
+                humanActions.length === 0 ? (
+                  <p className="empty-note">No legal actions.</p>
+                ) : (
+                  <div className="action-list">
+                    {humanActions.map((action, index) => (
+                      <button
+                        key={`${action.type}-${index}-${JSON.stringify(action)}`}
+                        type="button"
+                        className="action-button"
+                        onClick={() => handleHumanAction(action)}
+                      >
+                        <span className="action-kind">{action.type}</span>
+                        <span className="action-text">{describeAction(action)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <p className="empty-note">{botThinking ? 'Bot is thinking...' : 'Waiting for bot...'}</p>
+              )}
+            </div>
+          </section>
+        </aside>
+
         <section className="board-pane">
           <PlayerPanel
             title="Bot"
@@ -220,40 +220,37 @@ export function App() {
           />
         </section>
 
-        <aside className="side-pane">
+        <aside className="info-pane">
+          <section className="panel brand-panel">
+            <h1>Magnate</h1>
+          </section>
+
+          <section className="panel controls-panel">
+            <label className="seed-label" htmlFor="seed-input">
+              Seed
+            </label>
+            <input
+              id="seed-input"
+              className="seed-input"
+              value={seedInput}
+              onChange={(event) => setSeedInput(event.target.value)}
+            />
+            <button className="reset-button" type="button" onClick={handleReset}>
+              New Game
+            </button>
+          </section>
+
           <section className="panel">
-            <h2>{terminal ? 'Final Score' : 'Live Score'}</h2>
+            <h2>Live Score</h2>
             <ScorePanel score={score} terminal={terminal} />
           </section>
 
           <section className="panel">
-            <h2>Actions</h2>
-            {terminal ? (
-              <p className="empty-note">Game over.</p>
-            ) : activePlayerId === HUMAN_PLAYER ? (
-              humanActions.length === 0 ? (
-                <p className="empty-note">No legal actions.</p>
-              ) : (
-                <div className="action-list">
-                  {humanActions.map((action, index) => (
-                    <button
-                      key={`${action.type}-${index}-${JSON.stringify(action)}`}
-                      type="button"
-                      className="action-button"
-                      onClick={() => handleHumanAction(action)}
-                    >
-                      <span className="action-kind">{action.type}</span>
-                      <span className="action-text">{describeAction(action)}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : (
-              <p className="empty-note">{botThinking ? 'Bot is thinking...' : 'Waiting for bot...'}</p>
-            )}
+            <h2>Roll Result</h2>
+            <p className="roll-value">{formatRoll(humanView.lastIncomeRoll)}</p>
           </section>
 
-          <section className="panel">
+          <section className="panel log-panel">
             <h2>Log</h2>
             {recentLog.length === 0 ? (
               <p className="empty-note">No actions yet.</p>
@@ -275,15 +272,6 @@ export function App() {
   );
 }
 
-function HudItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="hud-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
 function PlayerPanel({
   title,
   player,
@@ -293,6 +281,10 @@ function PlayerPanel({
   player: ObservedPlayerState;
   isActive: boolean;
 }) {
+  const crownSlots = Math.max(PLAYER_CROWN_SLOT_COUNT, player.crowns.length);
+  const handCardCount = player.handHidden ? player.handCount : player.hand.length;
+  const handSlots = Math.max(PLAYER_HAND_SLOT_COUNT, handCardCount);
+
   return (
     <section className={`player-panel${isActive ? ' is-active' : ''}`}>
       <header className="player-header">
@@ -302,30 +294,46 @@ function PlayerPanel({
         </span>
       </header>
 
-      <div className="player-section">
-        <h3>Resources</h3>
-        <TokenRow tokens={player.resources} emptyLabel="No resources" />
-      </div>
-
-      <div className="player-section">
-        <h3>Crowns</h3>
-        <div className="card-row-wrap">
-          {player.crowns.map((cardId, index) => (
-            <CardTile key={`${cardId}-${index}`} cardId={cardId} compact />
-          ))}
+      <div className="player-row">
+        <div className="player-section resources-section">
+          <h3>Resources</h3>
+          <TokenRow tokens={player.resources} fixedSuitSlots />
         </div>
-      </div>
 
-      <div className="player-section">
-        <h3>{player.handHidden ? 'Hidden Hand' : 'Hand'}</h3>
-        <div className="card-row-wrap">
-          {player.handHidden
-            ? Array.from({ length: player.handCount }).map((_, index) => (
-                <CardTile key={`hidden-${player.id}-${index}`} hidden />
-              ))
-            : player.hand.map((cardId, index) => (
-                <CardTile key={`${cardId}-${index}`} cardId={cardId} />
-              ))}
+        <div className="player-section crowns-section">
+          <h3>Crowns</h3>
+          <div className="card-row-wrap fixed-slots">
+            {Array.from({ length: crownSlots }).map((_, index) => {
+              const cardId = player.crowns[index];
+              if (!cardId) {
+                return <CardTile key={`crown-slot-${player.id}-${index}`} compact placeholder />;
+              }
+
+              return <CardTile key={`${cardId}-${index}`} cardId={cardId} compact />;
+            })}
+          </div>
+        </div>
+
+        <div className="player-section hand-section">
+          <h3>{player.handHidden ? 'Hidden Hand' : 'Hand'}</h3>
+          <div className="card-row-wrap fixed-slots">
+            {Array.from({ length: handSlots }).map((_, index) => {
+              if (player.handHidden) {
+                return index < player.handCount ? (
+                  <CardTile key={`hidden-${player.id}-${index}`} hidden compact />
+                ) : (
+                  <CardTile key={`hidden-slot-${player.id}-${index}`} compact placeholder />
+                );
+              }
+
+              const cardId = player.hand[index];
+              if (!cardId) {
+                return <CardTile key={`hand-slot-${player.id}-${index}`} compact placeholder />;
+              }
+
+              return <CardTile key={`${cardId}-${index}`} cardId={cardId} compact />;
+            })}
+          </div>
         </div>
       </div>
     </section>
@@ -386,6 +394,7 @@ function CardTile({
   cardId,
   hidden,
   compact,
+  placeholder,
   deedTokens,
   deedProgress,
   deedTarget,
@@ -393,10 +402,15 @@ function CardTile({
   cardId?: CardId;
   hidden?: boolean;
   compact?: boolean;
+  placeholder?: boolean;
   deedTokens?: Partial<Record<Suit, number>>;
   deedProgress?: number;
   deedTarget?: number;
 }) {
+  if (placeholder) {
+    return <div className={`card-tile card-placeholder${compact ? ' compact' : ''}`} aria-hidden="true" />;
+  }
+
   if (hidden) {
     return <div className={`card-tile card-back${compact ? ' compact' : ''}`} title="Hidden card" />;
   }
@@ -446,18 +460,23 @@ function TokenRow({
   tokens,
   compact,
   emptyLabel,
+  fixedSuitSlots,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
   compact?: boolean;
   emptyLabel?: string;
+  fixedSuitSlots?: boolean;
 }) {
-  const entries = tokenEntries(tokens);
-  if (entries.length === 0) {
+  const entries = fixedSuitSlots
+    ? SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 }))
+    : tokenEntries(tokens);
+
+  if (!fixedSuitSlots && entries.length === 0) {
     return <span className="empty-note">{emptyLabel ?? 'None'}</span>;
   }
 
   return (
-    <div className={`token-row${compact ? ' compact' : ''}`}>
+    <div className={`token-row${compact ? ' compact' : ''}${fixedSuitSlots ? ' fixed-suits' : ''}`}>
       {entries.map(({ suit, count }) => (
         <TokenChip key={suit} suit={suit} count={count} compact={compact} />
       ))}
@@ -466,8 +485,9 @@ function TokenRow({
 }
 
 function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compact?: boolean }) {
+  const isEmpty = count === 0;
   return (
-    <span className={`token-chip${compact ? ' compact' : ''}`} title={`${suit} x${count}`}>
+    <span className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}`} title={`${suit} x${count}`}>
       <span>{SUIT_EMOJI[suit]}</span>
       {count > 1 && <span className="token-count">x{count}</span>}
     </span>
@@ -538,22 +558,6 @@ function describeAction(action: GameAction): string {
     case 'choose-income-suit':
       return `Choose ${SUIT_EMOJI[action.suit]} income for ${cardSummary(action.cardId)} in ${action.districtId}`;
   }
-}
-
-function deriveStatusLabel(view: ReturnType<typeof toPlayerView>): string {
-  if (view.phase === 'GameOver') {
-    return 'Game over';
-  }
-  if (view.phase === 'CollectIncome' && (view.pendingIncomeChoices?.length ?? 0) > 0) {
-    return 'Choose income suit';
-  }
-  if (view.phase === 'ActionWindow') {
-    return view.cardPlayedThisTurn
-      ? 'Optional actions / End turn'
-      : 'Choose turn action';
-  }
-
-  return 'Resolving turn';
 }
 
 function cardSummary(cardId: CardId): string {

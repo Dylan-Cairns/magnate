@@ -53,6 +53,15 @@
   - Incremental score is now displayed throughout play:
     - UI derives score each state update via `scoreGame(state)`.
     - Single score panel is used; on terminal states it shows the final score (no duplicate live/final panels).
+  - Layout is now reorganized for gameplay ergonomics:
+    - dedicated left actions column with scrollable action list
+    - dedicated right info column ordered as title, seed/new game controls, score, roll result, and log
+    - player summary rows now place resources, crowns, and hand horizontally in a single line on desktop
+  - Player-row stability polish is now in place:
+    - each player section now uses left-aligned title-above-content grouping
+    - resources render fixed 2x3 suit slots (with zero-count placeholders) to avoid width/height jitter
+    - crowns/hand render fixed slot footprints so card-count changes do not shift layout
+    - gameplay shell is viewport-anchored with internal panel scrolling so action-count changes do not resize page height
 
 ## Immediate Next Steps
 
