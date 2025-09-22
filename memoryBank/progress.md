@@ -10,7 +10,11 @@
   - explicit deed income suit-choice flow (`choose-income-suit`) during `CollectIncome`
   - actor ownership on income choices (active actor switches to choice owner and restores to turn owner)
   - draw/end-turn baseline behavior
-  - explicit optional-phase progression actions with one-card lock (`OptionalTrade <-> OptionalDevelop`, `end-turn -> DrawCard` after card play)
+  - unified optional decision surface:
+    - no `end-optional-*` actions
+    - pre-card optional phases expose `trade` + `develop-deed` + card-play actions
+    - post-card optional phases expose `trade` + `develop-deed` + `end-turn`
+  - one-card lock keeps card-play actions unavailable after the first card play each turn
 - Scoring and terminal resolution are implemented:
   - district scoring with ace district bonus
   - tie-breakers (`districts -> rank total -> resources -> draw`)

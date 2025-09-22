@@ -176,8 +176,6 @@ export type ActionId =
   | 'choose-income-suit'
   | 'develop-deed'
   | 'develop-outright'
-  | 'end-optional-develop'
-  | 'end-optional-trade'
   | 'end-turn'
   | 'sell-card'
   | 'trade';
@@ -213,14 +211,6 @@ export interface TradeAction {
   receive: Suit;
 }
 
-export interface EndOptionalTradeAction {
-  type: 'end-optional-trade';
-}
-
-export interface EndOptionalDevelopAction {
-  type: 'end-optional-develop';
-}
-
 export interface EndTurnAction {
   type: 'end-turn';
 }
@@ -238,8 +228,6 @@ export type GameAction =
   | ChooseIncomeSuitAction
   | DevelopDeedAction
   | DevelopOutrightAction
-  | EndOptionalDevelopAction
-  | EndOptionalTradeAction
   | EndTurnAction
   | SellCardAction
   | TradeAction;
