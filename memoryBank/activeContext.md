@@ -38,14 +38,14 @@
   - Draw helper now uses seed + RNG cursor for reshuffles and tracks second-exhaustion final-turn state.
 - Added phase resolver scaffolding via `src/engine/turnFlow.ts`:
   - `advanceToDecision(state)` auto-advances non-decision phases.
-  - Start-turn chain currently advances `StartTurn -> TaxCheck -> IncomeRoll -> CollectIncome -> OptionalTrade`.
+  - Start-turn chain now resolves deterministic taxation/income and advances `StartTurn -> TaxCheck -> IncomeRoll -> CollectIncome -> OptionalTrade`.
   - `DrawCard` now resolves draw/exhaustion, hands off active player, increments turn, and applies final-turn countdown to `GameOver`.
-- Added comprehensive TS engine unit tests (55 passing) covering:
+- Added comprehensive TS engine unit tests (61 passing) covering:
   - setup/deck draw behavior and exhaustion markers
   - placement rules (including Excuse behavior)
   - legal action generation across trade/develop/play phases
   - reducer legality gate and low-level action semantics (buy/develop/sell)
-  - initial turn-flow auto-advance and draw/end-turn handling
+  - turn-flow auto-advance, draw/end-turn handling, deterministic taxation/income
   - direct regressions for issues 2, 3, 4, 5, 6, 7, and 9.
 
 ## Next Steps
@@ -53,7 +53,7 @@
 - Finalize bridge command payloads and metadata fields for v1.
 - Implement missing TS engine rule flow:
   - setup game
-  - turn FSM details for taxation/income resolution (phase scaffolding is in)
+  - remaining turn FSM details beyond current tax/income baseline (optional-phase exits, full action loop wiring)
   - full legality coverage
   - scoring and terminal logic
 - Add targeted tests for taxation/income behavior and scoring.
