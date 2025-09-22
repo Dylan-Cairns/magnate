@@ -18,6 +18,7 @@
   - final score stored on terminal state
 - Canonical state initialization entrypoint is implemented:
   - `newGame(seed, { firstPlayer })` builds playable state from setup output and real district marker suits.
+  - Setup marker ordering now uses `Excuse` fixed at center with seeded Pawn shuffle around it.
 - Ace deed completion interpretation is now explicit and test-covered:
   - ace deed development target is 3 total tokens.
 - Player visibility boundary is implemented and test-covered:
