@@ -3,8 +3,8 @@
 
 ## Current Focus
 
-- Complete tooling baseline alignment with Kuhn-style versions/config shape.
-- Keep implementation sequencing centered on TS-canonical engine completion.
+- Finish TS-canonical engine completion (turn FSM, taxation/income, scoring, terminal flow).
+- Expand engine tests from low-level action coverage into turn-flow and scoring scenarios.
 - Use the bridge interface contract as the integration boundary for upcoming bridge/trainer work.
 
 ## Recent Changes
@@ -22,7 +22,12 @@
   - `tsconfig.json`
   - `vite.config.ts`
 - Removed legacy `.eslintrc.json`.
-- Updated `test` script to pass with no test files while tests are being introduced.
+- Refactored deck implementation into focused modules:
+  - `src/engine/rng.ts` (seeded PRNG + shuffle)
+  - `src/engine/deckCore.ts` (deck primitives)
+  - `src/engine/setup.ts` (setup/deal/resources)
+  - `src/engine/drawPolicy.ts` (draw/exhaustion policy)
+  - `src/engine/deck.ts` kept as a compatibility facade
 - Hardened current low-level engine behavior:
   - `applyAction` now enforces phase/action legality via `legalActions(state)`.
   - Action handlers now validate card ownership, district existence, placement legality, and resource affordability.
@@ -47,6 +52,7 @@
   - full legality coverage
   - scoring and terminal logic
 - Add targeted tests for setup, legality, taxation/income, and scoring.
+- Add higher-level turn-flow and scoring fixtures on top of the existing low-level suite.
 - Scaffold bridge runtime and validate contract with a Python client smoke test.
 - Add minimal web app entry scaffolding (`index.html` + app entrypoint) so Vite build succeeds.
 

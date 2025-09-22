@@ -4,7 +4,7 @@
 ## What Works
 
 - Memory Bank and top-level docs are aligned to current architecture decisions.
-- TypeScript engine foundations exist (`types`, `cards`, deterministic `deck`, early legality/reducer scaffolding).
+- TypeScript engine foundations exist (`types`, `cards`, deterministic deck flow, legality/reducer scaffolding).
 - Rules references remain centralized in `memoryBank/magnateRules.md`.
 - TS-canonical + bridge-client Python direction is now explicit and documented.
 - Small interface contract strategy is documented in `memoryBank/bridgeInterfaceContract.md`.
@@ -20,6 +20,12 @@
   - Excuse district first-card placement rule is respected
   - setup deals crowns/hands and computes starting resources
   - reshuffle RNG now uses seed + cursor and draw helper marks second-exhaustion final turns
+- Deck module refactor completed with compatibility preserved:
+  - `src/engine/rng.ts`
+  - `src/engine/deckCore.ts`
+  - `src/engine/setup.ts`
+  - `src/engine/drawPolicy.ts`
+  - `src/engine/deck.ts` now re-exports and adapts legacy imports
 - New engine unit test suite is in place:
   - `src/engine/deck.test.ts`
   - `src/engine/stateHelpers.test.ts`
@@ -34,8 +40,7 @@
   - full phase machine (taxation/income/play/draw/end)
   - legality completeness
   - scoring and terminal resolution
-- Add TS unit and snapshot tests.
-- Add higher-level turn-flow tests once full roll/income/draw-end FSM is implemented.
+- Expand test coverage into higher-level turn-flow, taxation/income, and scoring fixtures.
 - Implement bridge runtime with v1 contract.
 - Build scripted baseline bot.
 - Build minimal browser UI (human vs bot).
@@ -47,12 +52,11 @@
 ## Current Status
 
 - Up to date as of 2026-02-19.
-- Project is in architecture-reset plus tooling-baseline phase.
-- Package/config changes have been made; engine gameplay code was not changed in this pass.
+- Project is in engine-hardening and rules-loop implementation phase.
+- Tooling baseline and low-level engine correctness work are complete enough to proceed with higher-level rule flow implementation.
 
 ## Known Issues
 
-- No TS tests currently present.
 - Vite build fails due missing `index.html` entrypoint.
 - Python interpreter in this shell is 3.7.9, below planned training baseline.
 
