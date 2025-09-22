@@ -35,6 +35,15 @@
   - UI renders core board/resource/deed/dice/log state
   - HUD status now uses derived user-facing state instead of raw phase labels
   - UI now renders incremental score snapshot every update and reuses the same panel as final score at game end
+  - UI layout now uses dedicated columns for actions and info:
+    - actions list occupies a full vertical left column with internal scrolling
+    - right column is ordered as title, seed/new game controls, score, roll result, and log
+    - player resource/crown/hand sections are compacted onto one horizontal row on desktop
+  - UI stability pass completed:
+    - player section headers now sit above content and are left-aligned
+    - resources reserve a fixed 2x3 suit footprint, including zero-count slots
+    - crowns and hand reserve fixed card slots so counts changing does not shift panel geometry
+    - shell uses viewport-height anchoring with internal scroll regions to prevent global page-height jumps from action-list size changes
 - Unit tests cover key low-level rules and early turn-flow behavior.
 - Additional regressions now lock first-placement district legality:
   - first placement must overlap district Pawn suits for both `buy-deed` and `develop-outright` legality/execution paths.
