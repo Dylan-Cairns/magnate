@@ -22,6 +22,7 @@ export interface DrawResult {
 export function drawOne(context: DrawContext): DrawResult {
   const { deck, seed, rngCursor, exhaustionStage, finalTurnsRemaining } =
     context;
+  assertDrawContextIsConsistent(deck, exhaustionStage);
 
   const topDraw = drawTop(deck);
   if (topDraw.cardId) {
@@ -36,12 +37,12 @@ export function drawOne(context: DrawContext): DrawResult {
 
   if (deck.reshuffles === 0 && deck.discard.length > 0) {
     const rand = rngFromSeed(`${seed}:reshuffle:${rngCursor}`);
-    const reshuffledDeck = reshuffleDiscardIntoDraw(deck, rand, 1);
+    const reshuffledDeck = reshuffleDiscardIntoDraw(deck, rand);
     return drawOne({
       deck: reshuffledDeck,
       seed,
       rngCursor: rngCursor + 1,
-      exhaustionStage: 1,
+      exhaustionStage: reshuffledDeck.reshuffles,
       finalTurnsRemaining,
     });
   }
@@ -59,3 +60,13 @@ export function drawOne(context: DrawContext): DrawResult {
   };
 }
 
+function assertDrawContextIsConsistent(
+  deck: DeckState,
+  exhaustionStage: DrawContext['exhaustionStage']
+): void {
+  if (deck.reshuffles !== exhaustionStage) {
+    throw new Error(
+      `Draw context mismatch: deck.reshuffles (${deck.reshuffles}) does not match exhaustionStage (${exhaustionStage}).`
+    );
+  }
+}
