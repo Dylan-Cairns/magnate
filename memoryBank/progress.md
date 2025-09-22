@@ -26,18 +26,23 @@
   - `src/engine/setup.ts`
   - `src/engine/drawPolicy.ts`
   - `src/engine/deck.ts` now re-exports and adapts legacy imports
+- Turn-flow scaffolding now exists:
+  - `src/engine/turnFlow.ts` with `advanceToDecision(state)`
+  - auto-advances non-decision phases through the start-turn chain
+  - resolves `DrawCard` into draw + end-turn handoff + final-turn countdown
 - New engine unit test suite is in place:
   - `src/engine/deck.test.ts`
   - `src/engine/stateHelpers.test.ts`
   - `src/engine/actionBuilders.test.ts`
   - `src/engine/reducer.test.ts`
-  - Current result: 49 tests passing.
+  - `src/engine/turnFlow.test.ts`
+  - Current result: 55 tests passing.
 
 ## What's Left to Build
 
 - Complete TS engine flow:
   - setup/deal
-  - full phase machine (taxation/income/play/draw/end)
+  - taxation/income roll + resource resolution details
   - legality completeness
   - scoring and terminal resolution
 - Expand test coverage into higher-level turn-flow, taxation/income, and scoring fixtures.
