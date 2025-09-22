@@ -5,6 +5,7 @@ import {
   PLAYER_A,
   PLAYER_B,
   makeDefaultDistricts,
+  makeDistrict,
   makeGameState,
   makePlayer,
   makeResources,
@@ -318,5 +319,43 @@ describe('legalActions', () => {
     expect(
       legalActions(affordableState).some((action) => action.type === 'buy-deed')
     ).toBe(true);
+  });
+
+  it('PlayCard blocks first-placement buy/develop actions in districts without pawn-suit overlap', () => {
+    const state = makeGameState({
+      phase: 'PlayCard',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['7'],
+          resources: makeResources({ Suns: 1, Wyrms: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+      districts: [
+        makeDistrict('D1', ['Moons']),
+        makeDistrict('D2', ['Suns']),
+        makeDistrict('D3', ['Waves']),
+        makeDistrict('D4', ['Leaves']),
+        makeDistrict('D5', []),
+      ],
+    });
+
+    const actions = legalActions(state);
+    const districtActions = actions.filter(
+      (
+        action
+      ): action is
+        | Extract<typeof action, { type: 'buy-deed' }>
+        | Extract<typeof action, { type: 'develop-outright' }> =>
+        (action.type === 'buy-deed' || action.type === 'develop-outright') &&
+        action.cardId === '7'
+    );
+
+    const districtIds = new Set(districtActions.map((action) => action.districtId));
+    expect(districtIds.has('D1')).toBe(false);
+    expect(districtIds.has('D2')).toBe(true);
+    expect(districtIds.has('D3')).toBe(false);
+    expect(districtIds.has('D4')).toBe(false);
+    expect(districtIds.has('D5')).toBe(true);
   });
 });

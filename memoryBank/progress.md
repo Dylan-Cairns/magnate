@@ -35,6 +35,8 @@
   - UI renders core board/resource/deed/dice/log state
   - UI now renders incremental score snapshot every update and reuses the same panel as final score at game end
 - Unit tests cover key low-level rules and early turn-flow behavior.
+- Additional regressions now lock first-placement district legality:
+  - first placement must overlap district Pawn suits for both `buy-deed` and `develop-outright` legality/execution paths.
 
 ## In Progress
 
