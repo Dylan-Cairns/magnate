@@ -20,6 +20,12 @@
   - Excuse district first-card placement rule is respected
   - setup deals crowns/hands and computes starting resources
   - reshuffle RNG now uses seed + cursor and draw helper marks second-exhaustion final turns
+- New engine unit test suite is in place:
+  - `src/engine/deck.test.ts`
+  - `src/engine/stateHelpers.test.ts`
+  - `src/engine/actionBuilders.test.ts`
+  - `src/engine/reducer.test.ts`
+  - Current result: 49 tests passing.
 
 ## What's Left to Build
 
@@ -29,6 +35,7 @@
   - legality completeness
   - scoring and terminal resolution
 - Add TS unit and snapshot tests.
+- Add higher-level turn-flow tests once full roll/income/draw-end FSM is implemented.
 - Implement bridge runtime with v1 contract.
 - Build scripted baseline bot.
 - Build minimal browser UI (human vs bot).
