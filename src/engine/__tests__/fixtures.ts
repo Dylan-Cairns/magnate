@@ -7,6 +7,7 @@ import type {
   GameAction,
   GamePhase,
   GameState,
+  IncomeRollResult,
   PlayerId,
   PlayerState,
   ResourcePool,
@@ -80,6 +81,7 @@ export interface GameStateOverrides {
   turn?: number;
   exhaustionStage?: 0 | 1 | 2;
   finalTurnsRemaining?: number;
+  lastIncomeRoll?: IncomeRollResult;
 }
 
 export function makeGameState(overrides: GameStateOverrides = {}): GameState {
@@ -102,6 +104,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     districts: overrides.districts ?? makeDefaultDistricts(),
     exhaustionStage: overrides.exhaustionStage ?? 0,
     finalTurnsRemaining: overrides.finalTurnsRemaining,
+    lastIncomeRoll: overrides.lastIncomeRoll,
     log: [],
   };
 }
