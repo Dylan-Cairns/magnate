@@ -7,6 +7,7 @@
 - Tooling checks now gate TypeScript compilation (`lint` runs `eslint` + `tsc --noEmit`).
 - Deterministic phase resolver exists (`advanceToDecision`) with:
   - tax/income baseline behavior
+  - explicit deed income suit-choice flow (`choose-income-suit`) during `CollectIncome`
   - draw/end-turn baseline behavior
   - explicit optional-phase progression actions (`OptionalTrade -> OptionalDevelop -> PlayCard`)
 - Scoring and terminal resolution are implemented:
@@ -18,7 +19,7 @@
 
 ## In Progress
 
-- Tightening endgame and scoring behavior to full rules parity.
+- Tightening remaining turn-flow edge handling to full rules parity.
 
 ## Remaining
 
