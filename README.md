@@ -15,7 +15,12 @@ Single-player Magnate with a trained bot opponent.
 - Tax/income, scoring, and terminal resolution are implemented.
 - Canonical game initialization now exists via `newGame(seed, { firstPlayer })`.
 - Player-scoped observation views are implemented (`toPlayerView` / `toActivePlayerView`) so opponent hand cards and draw order stay hidden.
-- UI, bridge runtime, and training pipeline are still in progress.
+- React gameplay shell is now wired (`index.html`, `src/main.tsx`, `src/App.tsx`) with:
+  - board rendering for districts/stacks/deeds/resources/crowns/hand
+  - legal-action button panel for the human player
+  - random-bot opponent using engine `legalActions` + `applyAction`
+  - turn/phase/dice/log HUD
+- Bridge runtime and training pipeline are still in progress.
 
 ## Local Commands
 

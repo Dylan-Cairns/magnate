@@ -2,9 +2,9 @@
 
 ## Current Focus
 
-- Complete the TS engine turn loop from decision phase through endgame.
-- Keep legality and turn progression deterministic.
-- Preserve a stable TS-Python bridge boundary while engine work continues.
+- Keep legality and turn progression deterministic while wiring playable clients.
+- Consolidate UI/controller patterns so random bot and future trained bot share one policy boundary.
+- Preserve a stable TS-Python bridge boundary while client work continues.
 
 ## Locked Decisions
 
@@ -39,11 +39,16 @@
   - Public info remains visible (districts, deeds, resources, crowns, discard pile, phase/turn flags).
 - Ace completion interpretation is explicitly locked in tests:
   - Ace deed completion target is 3 total progress tokens.
+- React gameplay shell is now in place:
+  - Vite/React entry files were added (`index.html`, `src/main.tsx`, `src/App.tsx`, `src/styles.css`).
+  - Board UI shows districts, developed cards, deeds + deed tokens, crowns, resources, hands, dice roll, and action log.
+  - Human acts via `legalActions` panel; bot currently chooses random legal actions with a short delay.
+  - UI consumes engine truth (`newGame`, `advanceToDecision`, `legalActions`, `applyAction`, `toPlayerView`).
 
 ## Immediate Next Steps
 
-1. Build CLI loop on top of `toActivePlayerView` + policy interface (human/random).
-2. Start bridge runtime scaffolding against `bridgeInterfaceContract.md`.
-3. Add API-level integration tests that drive full turns from `newGame`.
+1. Extract a formal policy interface (`selectAction(view, legalActions)`) and move random bot behind it.
+2. Improve action UX from raw action buttons to grouped/intention-level controls where useful.
+3. Start bridge runtime scaffolding against `bridgeInterfaceContract.md`.
 
 _Updated: 2026-02-20._

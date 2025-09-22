@@ -23,19 +23,26 @@
 - Player visibility boundary is implemented and test-covered:
   - `toPlayerView`/`toActivePlayerView` hide opponent hand cards and draw order.
   - Public info remains visible for both players (board, deeds, resources, crowns, discard, phase/turn state).
+- React playable shell is implemented:
+  - entrypoint + app scaffold exists (`index.html`, `src/main.tsx`, `src/App.tsx`, `src/styles.css`)
+  - human player can play via engine-generated legal actions
+  - random bot opponent executes legal actions through same engine loop
+  - UI renders core board/resource/deed/dice/log state
 - Unit tests cover key low-level rules and early turn-flow behavior.
 
 ## In Progress
 
 - Tightening remaining turn-flow edge handling to full rules parity and integration coverage.
+- Hardening UI/controller boundaries for bot policy swapping.
 
 ## Remaining
 
 - Remaining full-game scenario coverage and replay-focused integration tests.
-- CLI gameplay shell and policy wiring (human input + random bot) on top of player views.
+- Policy interface extraction for random/human/trained bot implementations.
+- UI action ergonomics and interaction polish.
 - Bridge runtime implementation and contract tests.
 - Trainer scaffolding and baseline bot loop.
-- Browser gameplay shell and model inference integration.
+- Browser model inference integration.
 - Deploy-ready web app entry/deployment workflow.
 
 ## Risks / Watch Items
