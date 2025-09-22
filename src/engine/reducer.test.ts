@@ -94,6 +94,28 @@ describe('optional-phase progression actions', () => {
     const next = applyAction(state, action);
     expect(next.phase).toBe('PlayCard');
   });
+
+  it('end-optional-develop transitions to OptionalTrade after a card play', () => {
+    const state = makeGameState({
+      phase: 'OptionalDevelop',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const action = findLegalActionByType(state, 'end-optional-develop');
+    const next = applyAction(state, action);
+    expect(next.phase).toBe('OptionalTrade');
+  });
+
+  it('end-turn transitions to DrawCard only after a card play', () => {
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: true,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const action = findLegalActionByType(state, 'end-turn');
+    const next = applyAction(state, action);
+    expect(next.phase).toBe('DrawCard');
+  });
 });
 
 describe('income choice reducer semantics', () => {
@@ -112,6 +134,7 @@ describe('income choice reducer semantics', () => {
           suits: ['Suns', 'Wyrms'],
         },
       ],
+      incomeChoiceReturnPlayerIndex: 0,
     });
 
     const action: GameAction = {
@@ -129,7 +152,9 @@ describe('income choice reducer semantics', () => {
     }
     expect(playerA.resources.Wyrms).toBe(1);
     expect(next.phase).toBe('OptionalTrade');
+    expect(next.activePlayerIndex).toBe(0);
     expect(next.pendingIncomeChoices).toBeUndefined();
+    expect(next.incomeChoiceReturnPlayerIndex).toBeUndefined();
   });
 
   it('choose-income-suit keeps CollectIncome phase when more choices remain', () => {
@@ -154,6 +179,7 @@ describe('income choice reducer semantics', () => {
     const next = applyAction(state, action);
 
     expect(next.phase).toBe('CollectIncome');
+    expect(next.activePlayerIndex).toBe(1);
     expect(next.pendingIncomeChoices).toHaveLength(1);
     expect(next.pendingIncomeChoices?.[0].playerId).toBe(PLAYER_B);
   });
@@ -174,6 +200,7 @@ describe('buy-deed reducer semantics', () => {
     const buy = findLegalActionByType(state, 'buy-deed');
     const next = applyAction(state, buy);
     expect(next.phase).toBe('OptionalDevelop');
+    expect(next.cardPlayedThisTurn).toBe(true);
   });
 
   it('removes card from hand and creates deed with zero progress', () => {
@@ -280,6 +307,35 @@ describe('develop-deed reducer semantics', () => {
 
     expect(stack.deed).toBeUndefined();
     expect(stack.developed).toContain('6');
+  });
+
+  it('ace deeds require total progress of 3 to complete', () => {
+    const state = withDeed(
+      makeGameState({
+        phase: 'OptionalDevelop',
+        players: [
+          makePlayer(PLAYER_A, {
+            resources: makeResources({ Knots: 1 }),
+          }),
+          makePlayer(PLAYER_B),
+        ] as const,
+      }),
+      'D1',
+      PLAYER_A,
+      { cardId: '0', progress: 2, tokens: { Knots: 2 } }
+    );
+
+    const action: GameAction = {
+      type: 'develop-deed',
+      districtId: 'D1',
+      cardId: '0',
+      tokens: { Knots: 1 },
+    };
+    const next = applyAction(state, action);
+    const stack = getDistrict(next, 'D1').stacks[PLAYER_A];
+
+    expect(stack.deed).toBeUndefined();
+    expect(stack.developed).toContain('0');
   });
 
   it('rejects overspend payloads', () => {
@@ -397,7 +453,7 @@ describe('develop-outright reducer semantics', () => {
     expect(() => applyAction(state, action)).toThrow('Illegal action');
   });
 
-  it('on success removes card from hand, adds developed card, and moves to DrawCard', () => {
+  it('on success removes card from hand, adds developed card, and moves to post-play optionals', () => {
     const state = makeGameState({
       phase: 'PlayCard',
       players: [
@@ -423,7 +479,8 @@ describe('develop-outright reducer semantics', () => {
     }
 
     const next = applyAction(state, action);
-    expect(next.phase).toBe('DrawCard');
+    expect(next.phase).toBe('OptionalTrade');
+    expect(next.cardPlayedThisTurn).toBe(true);
     expect(getPlayerAState(next).hand).not.toContain('6');
     expect(getDistrict(next, 'D1').stacks[PLAYER_A].developed).toContain('6');
   });
@@ -482,13 +539,62 @@ describe('sell-card reducer semantics', () => {
     expect(next.deck.discard[0]).toBe('6');
   });
 
-  it('transitions to DrawCard after selling', () => {
+  it('transitions to post-play optionals after selling', () => {
     const state = makeGameState({
       phase: 'PlayCard',
       players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer(PLAYER_B)] as const,
     });
     const next = applyAction(state, { type: 'sell-card', cardId: '6' });
-    expect(next.phase).toBe('DrawCard');
+    expect(next.phase).toBe('OptionalTrade');
+    expect(next.cardPlayedThisTurn).toBe(true);
+  });
+});
+
+describe('one card per turn flow', () => {
+  it('cannot return to PlayCard after card play; post-play loop ends via end-turn', () => {
+    const state = makeGameState({
+      phase: 'PlayCard',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6', '7'],
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+      districts: makeDefaultDistricts(),
+    });
+
+    const play = legalActions(state).find(
+      (item): item is Extract<GameAction, { type: 'develop-outright' }> =>
+        item.type === 'develop-outright' &&
+        item.cardId === '6' &&
+        item.districtId === 'D1' &&
+        item.payment.Moons === 1 &&
+        item.payment.Knots === 1
+    );
+    if (!play) {
+      throw new Error('Missing expected legal develop-outright action.');
+    }
+
+    const afterPlay = applyAction(state, play);
+    expect(afterPlay.phase).toBe('OptionalTrade');
+
+    const toDevelop = applyAction(afterPlay, findLegalActionByType(afterPlay, 'end-optional-trade'));
+    expect(toDevelop.phase).toBe('OptionalDevelop');
+
+    const backToTrade = applyAction(
+      toDevelop,
+      findLegalActionByType(toDevelop, 'end-optional-develop')
+    );
+    expect(backToTrade.phase).toBe('OptionalTrade');
+    expect(legalActions(backToTrade).some((action) => action.type === 'buy-deed')).toBe(false);
+    expect(legalActions(backToTrade).some((action) => action.type === 'sell-card')).toBe(false);
+    expect(legalActions(backToTrade).some((action) => action.type === 'develop-outright')).toBe(
+      false
+    );
+
+    const draw = applyAction(backToTrade, findLegalActionByType(backToTrade, 'end-turn'));
+    expect(draw.phase).toBe('DrawCard');
   });
 });
 

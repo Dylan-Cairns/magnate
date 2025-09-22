@@ -30,7 +30,7 @@
 
 ## Known Gaps
 
-- Full turn-loop wiring is not complete yet.
-- Scoring and full terminal resolution are not complete yet.
+- Full rules-parity scenario coverage is not complete yet.
 - Bridge runtime and trainer scaffolding are not complete yet.
 - Web app entry/deploy flow is not complete yet.
+- Browser/bridge wiring to drive games from `newGame(seed, { firstPlayer })` is not complete yet.

@@ -11,9 +11,10 @@ Single-player Magnate with a trained bot opponent.
 
 ## Current Status
 
-- Engine core exists (`src/engine/`) with deterministic setup, deck flow, low-level actions, and early turn-flow resolution.
-- Tax/income baseline is implemented in the turn-flow resolver.
-- UI, bridge runtime, training pipeline, and scoring/endgame completion are still in progress.
+- Engine core exists (`src/engine/`) with deterministic setup, deck flow, action legality/reducer logic, and turn-flow resolution.
+- Tax/income, scoring, and terminal resolution are implemented.
+- Canonical game initialization now exists via `newGame(seed, { firstPlayer })`.
+- UI, bridge runtime, and training pipeline are still in progress.
 
 ## Local Commands
 
