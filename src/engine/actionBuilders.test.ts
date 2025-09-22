@@ -43,6 +43,15 @@ describe('legalActions', () => {
     expect(trades.every((trade) => trade.give !== trade.receive)).toBe(true);
   });
 
+  it('OptionalTrade always includes an explicit end action', () => {
+    const state = makeGameState({
+      phase: 'OptionalTrade',
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const actions = legalActions(state);
+    expect(actions.some((action) => action.type === 'end-optional-trade')).toBe(true);
+  });
+
   it('OptionalDevelop emits one-token deed actions only for affordable deed suits', () => {
     let state = makeGameState({
       phase: 'OptionalDevelop',
@@ -66,6 +75,15 @@ describe('legalActions', () => {
 
     expect(developActions).toHaveLength(1);
     expect(developActions[0].tokens).toEqual({ Moons: 1 });
+  });
+
+  it('OptionalDevelop always includes an explicit end action', () => {
+    const state = makeGameState({
+      phase: 'OptionalDevelop',
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+    const actions = legalActions(state);
+    expect(actions.some((action) => action.type === 'end-optional-develop')).toBe(true);
   });
 
   it('PlayCard includes a sell action for each property card in hand', () => {
@@ -94,10 +112,17 @@ describe('legalActions', () => {
 
     const nonPropertyIds = new Set(['30', '36', '37']);
     const actionsForNonProperty = actions.filter((action) => {
-      if (action.type === 'trade') {
-        return false;
+      switch (action.type) {
+        case 'sell-card':
+        case 'buy-deed':
+        case 'develop-outright':
+        case 'develop-deed':
+          return nonPropertyIds.has(action.cardId);
+        case 'trade':
+        case 'end-optional-trade':
+        case 'end-optional-develop':
+          return false;
       }
-      return nonPropertyIds.has(action.cardId);
     });
     expect(actionsForNonProperty).toHaveLength(0);
   });

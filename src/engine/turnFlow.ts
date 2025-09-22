@@ -1,8 +1,17 @@
 import { CARD_BY_ID } from './cards';
+import type { CardId } from './cards';
 import { drawOne } from './deck';
 import { rngFromSeed } from './rng';
+import { scoreGame } from './scoring';
 import { applyDelta, findProperty } from './stateHelpers';
-import type { GamePhase, GameState, IncomeRollResult, PlayerId, Suit } from './types';
+import type {
+  DistrictStack,
+  GamePhase,
+  GameState,
+  IncomeRollResult,
+  PlayerId,
+  Suit,
+} from './types';
 
 const DECISION_PHASES: ReadonlySet<GamePhase> = new Set([
   'OptionalTrade',
@@ -240,6 +249,7 @@ function rollDie(seed: string, rngCursor: number, sides: number): RollResult {
 }
 
 function resolveDrawPhase(state: GameState): GameState {
+  const previousExhaustionStage = state.exhaustionStage;
   const draw = drawOne({
     deck: state.deck,
     seed: state.seed,
@@ -267,25 +277,38 @@ function resolveDrawPhase(state: GameState): GameState {
     finalTurnsRemaining: draw.finalTurnsRemaining,
   };
 
-  return endTurn(withDraw);
+  const justEnteredFinalTurns =
+    previousExhaustionStage !== 2 && withDraw.exhaustionStage === 2;
+
+  return endTurn(withDraw, justEnteredFinalTurns);
 }
 
-function endTurn(state: GameState): GameState {
+function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
   const nextPlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
   const nextTurn = state.turn + 1;
 
   if (state.exhaustionStage === 2) {
+    if (justEnteredFinalTurns) {
+      return {
+        ...state,
+        activePlayerIndex: nextPlayerIndex,
+        turn: nextTurn,
+        phase: 'StartTurn',
+        finalTurnsRemaining: state.finalTurnsRemaining ?? 2,
+      };
+    }
+
     const turnsLeft = state.finalTurnsRemaining ?? 0;
     const remaining = Math.max(turnsLeft - 1, 0);
 
     if (remaining === 0) {
-      return {
+      return finalizeGame({
         ...state,
         activePlayerIndex: nextPlayerIndex,
         turn: nextTurn,
         phase: 'GameOver',
         finalTurnsRemaining: 0,
-      };
+      });
     }
 
     return {
@@ -302,5 +325,53 @@ function endTurn(state: GameState): GameState {
     activePlayerIndex: nextPlayerIndex,
     turn: nextTurn,
     phase: 'StartTurn',
+  };
+}
+
+function finalizeGame(state: GameState): GameState {
+  const discardedCards: CardId[] = [];
+
+  const players = state.players.map((player) => {
+    discardedCards.push(...player.hand);
+    return {
+      ...player,
+      hand: [],
+    };
+  });
+
+  const districts = state.districts.map((district) => ({
+    ...district,
+    stacks: {
+      ...district.stacks,
+      PlayerA: clearIncompleteDeed(district.stacks.PlayerA, discardedCards),
+      PlayerB: clearIncompleteDeed(district.stacks.PlayerB, discardedCards),
+    },
+  }));
+
+  const terminalState: GameState = {
+    ...state,
+    players,
+    districts,
+    deck: {
+      ...state.deck,
+      discard: [...discardedCards, ...state.deck.discard],
+    },
+  };
+
+  return {
+    ...terminalState,
+    finalScore: scoreGame(terminalState),
+  };
+}
+
+function clearIncompleteDeed(
+  stack: DistrictStack,
+  discardedCards: CardId[]
+): DistrictStack {
+  if (stack.deed) {
+    discardedCards.push(stack.deed.cardId);
+  }
+  return {
+    developed: [...stack.developed],
   };
 }

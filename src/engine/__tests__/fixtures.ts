@@ -15,8 +15,8 @@ import type {
 } from '../types';
 import { legalActions } from '../actionBuilders';
 
-export const PLAYER_A: PlayerId = 'PlayerA';
-export const PLAYER_B: PlayerId = 'PlayerB';
+export const PLAYER_A = 'PlayerA';
+export const PLAYER_B = 'PlayerB';
 
 export function makeResources(
   overrides: Partial<Record<Suit, number>> = {}
