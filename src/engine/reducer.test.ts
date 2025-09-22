@@ -596,6 +596,35 @@ describe('issue regressions', () => {
     expect(() => applyAction(state, illegal)).toThrow('Illegal action');
   });
 
+  it('blocks first-placement actions in districts without marker-suit overlap', () => {
+    const state = makeGameState({
+      phase: 'PlayCard',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['7'],
+          resources: makeResources({ Suns: 2, Wyrms: 2 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+      districts: makeDefaultDistricts(),
+    });
+
+    const illegalBuy: GameAction = {
+      type: 'buy-deed',
+      cardId: '7',
+      districtId: 'D1',
+    };
+    expect(() => applyAction(state, illegalBuy)).toThrow('Illegal action');
+
+    const illegalOutright: GameAction = {
+      type: 'develop-outright',
+      cardId: '7',
+      districtId: 'D1',
+      payment: { Suns: 1, Wyrms: 1 },
+    };
+    expect(() => applyAction(state, illegalOutright)).toThrow('Illegal action');
+  });
+
   it('issue 3: buying deed preserves same-turn develop window', () => {
     const state = makeGameState({
       phase: 'PlayCard',
