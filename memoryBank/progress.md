@@ -47,6 +47,7 @@
   - Trade action list is now de-duplicated in UI:
     - one trade action per give suit in the actions column
     - anchored suit popover (positioned beside clicked trade action) selects receive suit before dispatching canonical `trade` action
+  - District header display now uses marker card names centered in each district title row, with right-aligned suit icons for non-Excuse markers only
 - Unit tests cover key low-level rules and early turn-flow behavior.
 - Additional regressions now lock first-placement district legality:
   - first placement must overlap district Pawn suits for both `buy-deed` and `develop-outright` legality/execution paths.

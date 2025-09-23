@@ -273,18 +273,43 @@ h1 {
 }
 
 .district-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.4rem;
+  min-height: 1.4rem;
 }
 
-.excuse-pill {
-  border: 1px solid rgba(244, 196, 101, 0.45);
-  border-radius: 999px;
-  color: #ffd386;
-  font-size: 0.72rem;
-  padding: 0.08rem 0.4rem;
+.district-id {
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+  position: relative;
+  z-index: 1;
+}
+
+.district-marker-name {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  max-width: calc(100% - 7.6rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dff8f3;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  pointer-events: none;
+}
+
+.district-marker-tokens {
+  margin-left: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .district-lane {
