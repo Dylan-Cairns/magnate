@@ -44,6 +44,9 @@
     - resources reserve a fixed 2x3 suit footprint, including zero-count slots
     - crowns and hand reserve fixed card slots so counts changing does not shift panel geometry
     - shell uses viewport-height anchoring with internal scroll regions to prevent global page-height jumps from action-list size changes
+  - Trade action list is now de-duplicated in UI:
+    - one trade action per give suit in the actions column
+    - anchored suit popover (positioned beside clicked trade action) selects receive suit before dispatching canonical `trade` action
 - Unit tests cover key low-level rules and early turn-flow behavior.
 - Additional regressions now lock first-placement district legality:
   - first placement must overlap district Pawn suits for both `buy-deed` and `develop-outright` legality/execution paths.
