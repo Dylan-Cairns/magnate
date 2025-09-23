@@ -453,6 +453,22 @@ h1 {
   gap: 0.14rem;
 }
 
+.action-button.has-submenu {
+  position: relative;
+  padding-right: 1.5rem;
+}
+
+.action-button.has-submenu::after {
+  content: '>';
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #dff8f3;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
 .action-button:hover {
   background: linear-gradient(130deg, rgba(57, 164, 154, 0.8), rgba(14, 84, 88, 0.82));
 }
@@ -511,6 +527,53 @@ h1 {
   margin: 0;
   color: var(--muted);
   font-size: 0.84rem;
+}
+
+.trade-popover {
+  position: fixed;
+  width: min(13.75rem, calc(100vw - 1.25rem));
+  display: grid;
+  gap: 0.7rem;
+  z-index: 60;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+.trade-popover h2 {
+  margin: 0;
+}
+
+.trade-choice-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.trade-choice-button,
+.trade-cancel-button {
+  border: 1px solid rgba(82, 191, 180, 0.4);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  padding: 0.5rem 0.6rem;
+}
+
+.trade-choice-button {
+  background: linear-gradient(130deg, rgba(46, 143, 134, 0.68), rgba(9, 65, 68, 0.72));
+  text-align: left;
+}
+
+.trade-choice-button:hover {
+  background: linear-gradient(130deg, rgba(57, 164, 154, 0.8), rgba(14, 84, 88, 0.82));
+}
+
+.trade-cancel-button {
+  background: rgba(10, 33, 44, 0.62);
+  text-align: center;
+}
+
+.trade-cancel-button:hover {
+  background: rgba(17, 45, 58, 0.8);
 }
 
 .info-pane {
@@ -585,5 +648,9 @@ h1 {
 
   .board-pane {
     overflow: visible;
+  }
+
+  .trade-choice-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
