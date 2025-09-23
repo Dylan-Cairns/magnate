@@ -31,16 +31,44 @@ const TRADE_POPOVER_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 10;
 
 type TradeAction = Extract<GameAction, { type: 'trade' }>;
+type BuyDeedAction = Extract<GameAction, { type: 'buy-deed' }>;
+type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
+type NonGroupedAction = Exclude<GameAction, TradeAction | BuyDeedAction | DevelopOutrightAction>;
 
-type TradePickerState = {
-  give: Suit;
-  top: number;
-  left: number;
-};
+type ActionPickerState =
+  | {
+      kind: 'trade';
+      give: Suit;
+      top: number;
+      left: number;
+    }
+  | {
+      kind: 'district';
+      actionType: 'buy-deed' | 'develop-outright';
+      cardId: CardId;
+      payment?: Partial<Record<Suit, number>>;
+      paymentKey?: string;
+      top: number;
+      left: number;
+    };
 
 type HumanActionListItem =
-  | { kind: 'action'; action: Exclude<GameAction, { type: 'trade' }> }
-  | { kind: 'trade-group'; give: Suit };
+  | { kind: 'action'; action: NonGroupedAction }
+  | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
+  | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
+  | {
+      kind: 'develop-outright-group';
+      cardId: CardId;
+      payment: Partial<Record<Suit, number>>;
+      paymentKey: string;
+      options: DevelopOutrightAction[];
+    };
+
+interface PickerOption {
+  id: string;
+  label: string;
+  action: GameAction;
+}
 
 const SUIT_EMOJI: Record<Suit, string> = {
   Moons: '🌙',
@@ -71,10 +99,10 @@ export function App() {
   const [state, setState] = useState<GameState>(() => createInitialState(seedInput));
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
-  const [tradePicker, setTradePicker] = useState<TradePickerState | null>(null);
+  const [actionPicker, setActionPicker] = useState<ActionPickerState | null>(null);
 
   const stateRef = useRef(state);
-  const tradePopoverRef = useRef<HTMLElement | null>(null);
+  const actionPopoverRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -100,17 +128,63 @@ export function App() {
 
   const humanActionItems = useMemo(() => buildHumanActionList(humanActions), [humanActions]);
 
-  const tradePickerOptions = useMemo(() => {
-    if (!tradePicker) {
-      return [] as Suit[];
+  const actionPickerOptions = useMemo((): PickerOption[] => {
+    if (!actionPicker) {
+      return [];
     }
 
-    const receives = humanActions
-      .filter((action): action is TradeAction => action.type === 'trade' && action.give === tradePicker.give)
-      .map((action) => action.receive);
+    if (actionPicker.kind === 'trade') {
+      return humanActions
+        .filter((action): action is TradeAction => action.type === 'trade' && action.give === actionPicker.give)
+        .map((action) => ({
+          id: `trade-${action.give}-${action.receive}`,
+          label: `${SUIT_EMOJI[action.receive]} x1`,
+          action,
+        }));
+    }
 
-    return Array.from(new Set(receives));
-  }, [humanActions, tradePicker]);
+    if (actionPicker.actionType === 'buy-deed') {
+      return humanActions
+        .filter(
+          (action): action is BuyDeedAction =>
+            action.type === 'buy-deed' && action.cardId === actionPicker.cardId
+        )
+        .map((action) => ({
+          id: `buy-deed-${action.cardId}-${action.districtId}`,
+          label: action.districtId,
+          action,
+        }));
+    }
+
+    return humanActions
+      .filter(
+        (action): action is DevelopOutrightAction =>
+          action.type === 'develop-outright' &&
+          action.cardId === actionPicker.cardId &&
+          paymentSignature(action.payment) === actionPicker.paymentKey
+      )
+      .map((action) => ({
+        id: `develop-outright-${action.cardId}-${action.districtId}-${paymentSignature(action.payment)}`,
+        label: action.districtId,
+        action,
+      }));
+  }, [actionPicker, humanActions]);
+
+  const actionPickerTitle = useMemo((): string => {
+    if (!actionPicker) {
+      return '';
+    }
+
+    if (actionPicker.kind === 'trade') {
+      return `Trade ${SUIT_EMOJI[actionPicker.give]}x3 for`;
+    }
+
+    if (actionPicker.actionType === 'buy-deed') {
+      return `Buy deed ${cardSummary(actionPicker.cardId)} in`;
+    }
+
+    return `Develop ${cardSummary(actionPicker.cardId)} (${formatTokens(actionPicker.payment ?? {})}) in`;
+  }, [actionPicker]);
 
   useEffect(() => {
     if (terminal || activePlayerId !== BOT_PLAYER) {
@@ -154,22 +228,20 @@ export function App() {
 
   useEffect(() => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
-      setTradePicker(null);
+      setActionPicker(null);
       return;
     }
 
-    if (tradePicker) {
-      const stillLegal = humanActions.some(
-        (action): action is TradeAction => action.type === 'trade' && action.give === tradePicker.give
-      );
+    if (actionPicker) {
+      const stillLegal = pickerStillLegal(actionPicker, humanActions);
       if (!stillLegal) {
-        setTradePicker(null);
+        setActionPicker(null);
       }
     }
-  }, [activePlayerId, humanActions, terminal, tradePicker]);
+  }, [activePlayerId, humanActions, terminal, actionPicker]);
 
   useEffect(() => {
-    if (!tradePicker) {
+    if (!actionPicker) {
       return;
     }
 
@@ -179,21 +251,21 @@ export function App() {
         return;
       }
 
-      if (tradePopoverRef.current?.contains(target)) {
+      if (actionPopoverRef.current?.contains(target)) {
         return;
       }
 
-      setTradePicker(null);
+      setActionPicker(null);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setTradePicker(null);
+        setActionPicker(null);
       }
     };
 
     const handleScroll = () => {
-      setTradePicker(null);
+      setActionPicker(null);
     };
 
     window.addEventListener('pointerdown', handlePointerDown);
@@ -205,7 +277,7 @@ export function App() {
       window.removeEventListener('keydown', handleEscape);
       window.removeEventListener('scroll', handleScroll, true);
     };
-  }, [tradePicker]);
+  }, [actionPicker]);
 
   const handleHumanAction = (action: GameAction) => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
@@ -224,7 +296,7 @@ export function App() {
   const handleReset = () => {
     const seed = seedInput.trim() || makeSeed();
     setSeedInput(seed);
-    setTradePicker(null);
+    setActionPicker(null);
 
     try {
       setState(createInitialState(seed));
@@ -235,26 +307,39 @@ export function App() {
     }
   };
 
-  const handleTradeSelection = (receive: Suit) => {
-    if (!tradePicker) {
-      return;
-    }
-
-    const action: TradeAction = {
-      type: 'trade',
-      give: tradePicker.give,
-      receive,
-    };
-
-    setTradePicker(null);
+  const handlePickerSelection = (action: GameAction) => {
+    setActionPicker(null);
     handleHumanAction(action);
   };
 
-  const openTradePicker = (give: Suit, trigger: HTMLButtonElement) => {
+  const openTradePicker = (give: Suit, trigger: HTMLButtonElement, optionCount: number) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({ kind: 'trade', give, ...position });
+  };
+
+  const openDistrictPicker = (
+    config: {
+      actionType: 'buy-deed' | 'develop-outright';
+      cardId: CardId;
+      payment?: Partial<Record<Suit, number>>;
+      paymentKey?: string;
+    },
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({
+      kind: 'district',
+      actionType: config.actionType,
+      cardId: config.cardId,
+      payment: config.payment,
+      paymentKey: config.paymentKey,
+      ...position,
+    });
+  };
+
+  const pickerPosition = (trigger: HTMLButtonElement, optionCount: number): { top: number; left: number } => {
     const rect = trigger.getBoundingClientRect();
-    const optionCount = humanActions.filter(
-      (action): action is TradeAction => action.type === 'trade' && action.give === give
-    ).length;
     const rowCount = Math.max(1, Math.ceil(optionCount / 2));
     const estimatedHeight = Math.max(TRADE_POPOVER_MIN_HEIGHT_PX, 116 + rowCount * 46);
     const maxLeft = window.innerWidth - TRADE_POPOVER_WIDTH_PX - VIEWPORT_PADDING_PX;
@@ -263,7 +348,7 @@ export function App() {
     const left = clamp(rect.right + TRADE_POPOVER_GAP_PX, VIEWPORT_PADDING_PX, maxLeft);
     const top = clamp(rect.top, VIEWPORT_PADDING_PX, maxTop);
 
-    setTradePicker({ give, left, top });
+    return { left, top };
   };
 
   if (!humanPlayer || !botPlayer) {
@@ -301,6 +386,21 @@ export function App() {
                   <div className="action-list">
                     {humanActionItems.map((item, index) => {
                       if (item.kind === 'trade-group') {
+                        if (item.options.length === 1) {
+                          const [onlyOption] = item.options;
+                          return (
+                            <button
+                              key={`trade-direct-${item.give}-${index}`}
+                              type="button"
+                              className="action-button"
+                              onClick={() => handleHumanAction(onlyOption)}
+                            >
+                              <span className="action-kind">trade</span>
+                              <span className="action-text">{describeAction(onlyOption)}</span>
+                            </button>
+                          );
+                        }
+
                         return (
                           <button
                             key={`trade-group-${item.give}-${index}`}
@@ -308,15 +408,114 @@ export function App() {
                             className="action-button has-submenu"
                             onClick={(event) => {
                               const trigger = event.currentTarget;
-                              if (tradePicker?.give === item.give) {
-                                setTradePicker(null);
+                              if (actionPicker?.kind === 'trade' && actionPicker.give === item.give) {
+                                setActionPicker(null);
                                 return;
                               }
-                              openTradePicker(item.give, trigger);
+                              openTradePicker(item.give, trigger, item.options.length);
                             }}
                           >
                             <span className="action-kind">trade</span>
                             <span className="action-text">Trade {SUIT_EMOJI[item.give]}x3</span>
+                          </button>
+                        );
+                      }
+
+                      if (item.kind === 'buy-deed-group') {
+                        if (item.options.length === 1) {
+                          const [onlyOption] = item.options;
+                          return (
+                            <button
+                              key={`buy-deed-direct-${item.cardId}-${index}`}
+                              type="button"
+                              className="action-button"
+                              onClick={() => handleHumanAction(onlyOption)}
+                            >
+                              <span className="action-kind">{onlyOption.type}</span>
+                              <span className="action-text">{describeAction(onlyOption)}</span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={`buy-deed-group-${item.cardId}-${index}`}
+                            type="button"
+                            className="action-button has-submenu"
+                            onClick={(event) => {
+                              const trigger = event.currentTarget;
+                              if (
+                                actionPicker?.kind === 'district' &&
+                                actionPicker.actionType === 'buy-deed' &&
+                                actionPicker.cardId === item.cardId
+                              ) {
+                                setActionPicker(null);
+                                return;
+                              }
+                              openDistrictPicker(
+                                {
+                                  actionType: 'buy-deed',
+                                  cardId: item.cardId,
+                                },
+                                trigger,
+                                item.options.length
+                              );
+                            }}
+                          >
+                            <span className="action-kind">buy-deed</span>
+                            <span className="action-text">Buy deed {cardSummary(item.cardId)}</span>
+                          </button>
+                        );
+                      }
+
+                      if (item.kind === 'develop-outright-group') {
+                        if (item.options.length === 1) {
+                          const [onlyOption] = item.options;
+                          return (
+                            <button
+                              key={`develop-outright-direct-${item.cardId}-${item.paymentKey}-${index}`}
+                              type="button"
+                              className="action-button"
+                              onClick={() => handleHumanAction(onlyOption)}
+                            >
+                              <span className="action-kind">{onlyOption.type}</span>
+                              <span className="action-text">{describeAction(onlyOption)}</span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={`develop-outright-group-${item.cardId}-${item.paymentKey}-${index}`}
+                            type="button"
+                            className="action-button has-submenu"
+                            onClick={(event) => {
+                              const trigger = event.currentTarget;
+                              if (
+                                actionPicker?.kind === 'district' &&
+                                actionPicker.actionType === 'develop-outright' &&
+                                actionPicker.cardId === item.cardId &&
+                                actionPicker.paymentKey === item.paymentKey
+                              ) {
+                                setActionPicker(null);
+                                return;
+                              }
+                              openDistrictPicker(
+                                {
+                                  actionType: 'develop-outright',
+                                  cardId: item.cardId,
+                                  payment: item.payment,
+                                  paymentKey: item.paymentKey,
+                                },
+                                trigger,
+                                item.options.length
+                              );
+                            }}
+                          >
+                            <span className="action-kind">develop-outright</span>
+                            <span className="action-text">
+                              Develop {cardSummary(item.cardId)} ({formatTokens(item.payment)})
+                            </span>
                           </button>
                         );
                       }
@@ -411,34 +610,34 @@ export function App() {
         </aside>
       </main>
 
-      {tradePicker && (
+      {actionPicker && (
         <section
-          ref={tradePopoverRef}
+          ref={actionPopoverRef}
           className="panel trade-popover"
           role="dialog"
-          aria-label="Choose trade receive suit"
-          style={{ top: `${tradePicker.top}px`, left: `${tradePicker.left}px` }}
+          aria-label="Choose follow-up action option"
+          style={{ top: `${actionPicker.top}px`, left: `${actionPicker.left}px` }}
         >
-          <h2>Trade {SUIT_EMOJI[tradePicker.give]}x3 for</h2>
+          <h2>{actionPickerTitle}</h2>
 
-          {tradePickerOptions.length === 0 ? (
-            <p className="empty-note">No trade targets available.</p>
+          {actionPickerOptions.length === 0 ? (
+            <p className="empty-note">No options available.</p>
           ) : (
             <div className="trade-choice-list">
-              {tradePickerOptions.map((suit) => (
+              {actionPickerOptions.map((option) => (
                 <button
-                  key={`trade-choice-${tradePicker.give}-${suit}`}
+                  key={option.id}
                   type="button"
                   className="trade-choice-button"
-                  onClick={() => handleTradeSelection(suit)}
+                  onClick={() => handlePickerSelection(option.action)}
                 >
-                  {SUIT_EMOJI[suit]} x1
+                  {option.label}
                 </button>
               ))}
             </div>
           )}
 
-          <button type="button" className="trade-cancel-button" onClick={() => setTradePicker(null)}>
+          <button type="button" className="trade-cancel-button" onClick={() => setActionPicker(null)}>
             Cancel
           </button>
         </section>
@@ -774,15 +973,53 @@ function clamp(value: number, min: number, max: number): number {
 
 function buildHumanActionList(actions: readonly GameAction[]): HumanActionListItem[] {
   const result: HumanActionListItem[] = [];
-  const seenTradeGive = new Set<Suit>();
+  const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
+  const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
+  const developOutrightGroups = new Map<string, { options: DevelopOutrightAction[] }>();
 
   for (const action of actions) {
     if (action.type === 'trade') {
-      if (seenTradeGive.has(action.give)) {
-        continue;
+      const existing = tradeGroups.get(action.give);
+      if (existing) {
+        existing.options.push(action);
+      } else {
+        const options = [action];
+        tradeGroups.set(action.give, { options });
+        result.push({ kind: 'trade-group', give: action.give, options });
       }
-      seenTradeGive.add(action.give);
-      result.push({ kind: 'trade-group', give: action.give });
+      continue;
+    }
+
+    if (action.type === 'buy-deed') {
+      const existing = buyDeedGroups.get(action.cardId);
+      if (existing) {
+        existing.options.push(action);
+      } else {
+        const options = [action];
+        buyDeedGroups.set(action.cardId, { options });
+        result.push({ kind: 'buy-deed-group', cardId: action.cardId, options });
+      }
+      continue;
+    }
+
+    if (action.type === 'develop-outright') {
+      const paymentKey = paymentSignature(action.payment);
+      const groupKey = `${action.cardId}|${paymentKey}`;
+      const existing = developOutrightGroups.get(groupKey);
+
+      if (existing) {
+        existing.options.push(action);
+      } else {
+        const options = [action];
+        developOutrightGroups.set(groupKey, { options });
+        result.push({
+          kind: 'develop-outright-group',
+          cardId: action.cardId,
+          payment: action.payment,
+          paymentKey,
+          options,
+        });
+      }
       continue;
     }
 
@@ -790,6 +1027,34 @@ function buildHumanActionList(actions: readonly GameAction[]): HumanActionListIt
   }
 
   return result;
+}
+
+function pickerStillLegal(picker: ActionPickerState, actions: readonly GameAction[]): boolean {
+  if (picker.kind === 'trade') {
+    return actions.some(
+      (action): action is TradeAction => action.type === 'trade' && action.give === picker.give
+    );
+  }
+
+  if (picker.actionType === 'buy-deed') {
+    const options = actions.filter(
+      (action): action is BuyDeedAction =>
+        action.type === 'buy-deed' && action.cardId === picker.cardId
+    );
+    return options.length > 1;
+  }
+
+  const options = actions.filter(
+    (action): action is DevelopOutrightAction =>
+      action.type === 'develop-outright' &&
+      action.cardId === picker.cardId &&
+      paymentSignature(action.payment) === picker.paymentKey
+  );
+  return options.length > 1;
+}
+
+function paymentSignature(tokens: Partial<Record<Suit, number>>): string {
+  return SUITS.map((suit) => `${suit}:${tokens[suit] ?? 0}`).join('|');
 }
 
 function districtMarkerName(markerSuitMask: readonly Suit[]): string {

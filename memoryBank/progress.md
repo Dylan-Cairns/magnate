@@ -47,6 +47,9 @@
   - Trade action list is now de-duplicated in UI:
     - one trade action per give suit in the actions column
     - anchored suit popover (positioned beside clicked trade action) selects receive suit before dispatching canonical `trade` action
+  - Actions list now also collapses district-only variants:
+    - `buy-deed` grouped by card with district picker popover for multi-district cases
+    - `develop-outright` grouped by card + payment with district picker popover when district is the only difference
   - District header display now uses marker card names centered in each district title row, with right-aligned suit icons for non-Excuse markers only
   - Player-area cards now match board card size/shape, with centered player-section layout and slightly increased inter-section spacing
   - Player resource chips are now scaled up so the resources block visually matches neighboring card height
