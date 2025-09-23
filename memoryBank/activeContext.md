@@ -66,6 +66,9 @@
     - action list shows one `trade` action per give-suit (`give x3`) instead of one per give/receive pair
     - selecting a trade action opens an anchored popover to the right of the clicked action to choose receive suit
     - this reduces action-list length while preserving engine action semantics
+  - Action list de-duplication now also covers district-only variance:
+    - `buy-deed` options are collapsed by card and use right-side district chooser when multiple districts are legal
+    - `develop-outright` options are collapsed by card + payment and use right-side district chooser when only district differs
   - District headers now show the marker card name centered in the header row:
     - Pawn/Excuse markers use a unified header style
     - suit icons remain right-aligned for Pawn markers only
