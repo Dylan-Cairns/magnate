@@ -72,6 +72,7 @@
   - District headers now show the marker card name centered in the header row:
     - Pawn/Excuse markers use a unified header style
     - suit icons remain right-aligned for Pawn markers only
+  - District lane card areas now reserve two rows of card space even at low/zero occupancy to avoid board jitter
   - Player-panel visual consistency pass:
     - crowns/hand now use full-size card tiles matching board card dimensions
     - player sections are horizontally centered in each player panel with slightly increased spacing
