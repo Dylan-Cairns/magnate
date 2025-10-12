@@ -79,6 +79,8 @@ With `.venv` active:
 - Python PPO scaffold training:
   - `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout`
   - progress logging is enabled by default every 5 updates (`--progress-every-updates 0` disables it)
+- Queue PPO training runs by seed (sequential):
+  - `python -m scripts.train_ppo_queue --seeds 2 3 4 --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout --progress-every-updates 5`
 
 ## Source-of-Truth Docs
 

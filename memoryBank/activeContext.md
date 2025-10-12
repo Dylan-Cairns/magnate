@@ -83,6 +83,7 @@
     - BC-anchor regularization
     - fixed-holdout eval-based best-checkpoint selection (default)
   - PyTorch PPO scaffold: `trainer/ppo_model.py` + `trainer/ppo_training.py` + `scripts/train_ppo.py`
+  - PPO seed queue runner: `scripts/train_ppo_queue.py` (sequential multi-seed automation)
   - training CLI: `scripts/train.py` (collect + optimize + checkpoint)
   - checkpoint-backed policy loading: `policy_from_name(..., checkpoint_path=...)`
   - project Python environment bootstrap: `requirements.txt` + `scripts/setup_python_env.ps1`
