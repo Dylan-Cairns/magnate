@@ -1,6 +1,9 @@
 import { CARD_BY_ID, type CardId } from '../engine/cards';
+import { actionStableKey, paymentSignature } from '../engine/actionSurface';
 import { SUITS } from '../engine/stateHelpers';
 import type { GameAction, Suit } from '../engine/types';
+
+export { actionStableKey, paymentSignature };
 
 type TradeAction = Extract<GameAction, { type: 'trade' }>;
 type BuyDeedAction = Extract<GameAction, { type: 'buy-deed' }>;
@@ -264,29 +267,6 @@ export function describeAction(action: GameAction, suitEmoji: Record<Suit, strin
         suitEmoji
       )} in ${action.districtId}`;
   }
-}
-
-export function actionStableKey(action: GameAction): string {
-  switch (action.type) {
-    case 'end-turn':
-      return 'end-turn';
-    case 'trade':
-      return `trade:${action.give}:${action.receive}`;
-    case 'sell-card':
-      return `sell-card:${action.cardId}`;
-    case 'buy-deed':
-      return `buy-deed:${action.cardId}:${action.districtId}`;
-    case 'develop-deed':
-      return `develop-deed:${action.cardId}:${action.districtId}:${paymentSignature(action.tokens)}`;
-    case 'develop-outright':
-      return `develop-outright:${action.cardId}:${action.districtId}:${paymentSignature(action.payment)}`;
-    case 'choose-income-suit':
-      return `choose-income-suit:${action.playerId}:${action.districtId}:${action.cardId}:${action.suit}`;
-  }
-}
-
-export function paymentSignature(tokens: Partial<Record<Suit, number>>): string {
-  return SUITS.map((suit) => `${suit}:${tokens[suit] ?? 0}`).join('|');
 }
 
 export function formatTokens(
