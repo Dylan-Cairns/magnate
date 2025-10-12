@@ -18,10 +18,13 @@ Single-player Magnate with a trained bot opponent.
   - scoring + terminal resolution
 - Canonical initialization is available via `newGame(seed, { firstPlayer })`.
 - Player-view projection exists (`toPlayerView` / `toActivePlayerView`) with hidden opponent hand contents and hidden draw order.
-- React gameplay shell exists (`index.html`, `src/main.tsx`, `src/App.tsx`) for human vs random bot using engine APIs.
+- React gameplay shell exists (`index.html`, `src/main.tsx`, `src/App.tsx`) for human vs bot play using engine APIs.
+- UI exposes a bot profile selector:
+  - random legal policy is available now
+  - trained profile entries are scaffolded with explicit random fallback until model/runtime wiring lands
 - Controller boundaries are extracted for bot swapping:
   - `createSession` / `stepToDecision` (`src/engine/session.ts`)
-  - `ActionPolicy` + `randomPolicy` (`src/policies/`)
+  - async-capable `ActionPolicy` + profile catalog (`src/policies/`)
   - action grouping/picker helpers (`src/ui/actionPresentation.ts`)
 - Bridge runtime and training pipeline are not implemented yet.
 

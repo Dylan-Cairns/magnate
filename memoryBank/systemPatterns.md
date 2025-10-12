@@ -30,6 +30,11 @@ Design expectations:
 - UI-only convenience controls may exist outside `legalActions` if they do not alter rules semantics or policy/bridge contracts:
   - example: human-only turn reset that restores a previously captured engine snapshot.
 - Bot/human action selection should sit behind a shared policy contract so swapping random -> trained does not change controller flow.
+- Policy contract should allow async selection so browser model inference can plug in without changing controller flow.
+- Bot profile selection should resolve through a small catalog:
+  - available profiles use their own policy implementation
+  - unavailable trained profiles fall back explicitly to random legal policy with visible UI status text
+- Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
