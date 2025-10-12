@@ -1,68 +1,82 @@
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
 
 :root {
-  --page-bg: #ffffff;
-  --panel: #ffffff;
-  --panel-border: #000000;
-  --ink: #000000;
-  --muted: #000000;
-  --accent: #000000;
-  --accent-soft: #000000;
-  --moss: #000000;
-  --input-border: #000000;
-  --input-bg: #ffffff;
-  --button-primary-text: #000000;
-  --button-primary-bg: #ffffff;
-  --button-primary-bg-hover: #ffffff;
-  --divider-subtle: #000000;
-  --last-turn-border: #000000;
-  --last-turn-bg: #ffffff;
-  --last-turn-text: #000000;
-  --last-turn-ring: rgba(0, 0, 0, 0.15);
-  --error-border: #000000;
-  --error-bg: #ffffff;
-  --error-text: #000000;
-  --board-border: #000000;
-  --active-border: #000000;
-  --active-ring: rgba(0, 0, 0, 0.2);
-  --active-glow: rgba(0, 0, 0, 0.08);
-  --board-dashed: rgba(0, 0, 0, 0.3);
-  --card-inset-border: rgba(0, 0, 0, 0.08);
-  --card-back-border: #000000;
-  --card-back-stripe-a: #ffffff;
-  --card-back-stripe-b: #000000;
-  --card-placeholder-border: #000000;
-  --card-placeholder-bg: #ffffff;
-  --action-border: #000000;
-  --action-bg: #ffffff;
-  --action-bg-hover: #ffffff;
-  --reset-turn-border: #000000;
-  --reset-turn-bg: #ffffff;
-  --reset-turn-bg-hover: #ffffff;
-  --card-border: #000000;
-  --card-bg: #ffffff;
-  --chip-border: #000000;
-  --chip-bg: #ffffff;
-  --chip-count-border: #000000;
-  --chip-count-bg: #ffffff;
-  --chip-count-text: #000000;
-  --shadow-popover: rgba(0, 0, 0, 0.12);
-  --popover-cancel-bg: #ffffff;
-  --popover-cancel-bg-hover: #ffffff;
-  --dice-icon-filter: none;
-  --suit-outline: #000000;
-  --suit-moons: #000000;
-  --suit-suns: #000000;
-  --suit-waves: #000000;
-  --suit-leaves: #000000;
-  --suit-wyrms: #000000;
-  --suit-knots: #000000;
-  --card-width: 5.1rem;
-  --card-height: 5.8rem;
-  --card-compact-width: 4.1rem;
-  --card-compact-height: 4.9rem;
+  --page-bg: #080b12;
+  --page-grain-light: rgba(255, 255, 255, 0.02);
+  --page-grain-mid: rgba(150, 176, 212, 0.04);
+  --panel: #080b12;
+  --panel-border: rgba(125, 94, 73, 0.6);
+  --panel-border-start: #7d5e49;
+  --panel-border-end: #37373b;
+  --container-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+  --container-shadow-soft: 0 7px 18px rgba(0, 0, 0, 0.45);
+  --ink: #f2f5fa;
+  --muted: #b8c1cf;
+  --accent: #cfa978;
+  --accent-soft: #e1c39b;
+  --moss: #4fbf74;
+  --input-border: #4f5f77;
+  --input-bg: #111926;
+  --button-primary-text: #21170f;
+  --button-primary-bg: #d0ad72;
+  --button-primary-bg-hover: #e2c58f;
+  --divider-subtle: rgba(154, 124, 100, 0.38);
+  --last-turn-border: #c89b62;
+  --last-turn-bg: #2d1f15;
+  --last-turn-text: #f4dbc0;
+  --last-turn-ring: rgba(200, 155, 98, 0.3);
+  --error-border: #b47b63;
+  --error-bg: #24171c;
+  --error-text: #ffd7cc;
+  --board-border: rgba(125, 94, 73, 0.62);
+  --active-border: #d4b07a;
+  --active-ring: rgba(212, 176, 122, 0.36);
+  --active-glow: rgba(125, 94, 73, 0.28);
+  --board-dashed: rgba(171, 139, 112, 0.28);
+  --wood-start: #1a1512;
+  --wood-end: #683721;
+  --player-area-bg: linear-gradient(135deg, var(--wood-start) 0%, var(--wood-end) 100%);
+  --district-divider-bg: linear-gradient(135deg, var(--wood-start) 0%, var(--wood-end) 100%);
+  --district-divider-border: #6b4836;
+  --card-inset-border: rgba(255, 255, 255, 0.18);
+  --card-back-border: rgba(140, 148, 153, 0.55);
+  --card-back-stripe-a: #8c9499;
+  --card-back-stripe-b: #41281d;
+  --card-placeholder-border: rgba(140, 148, 153, 0.38);
+  --card-placeholder-bg: rgba(31, 40, 53, 0.45);
+  --action-border: #36455b;
+  --action-bg: #121927;
+  --action-bg-hover: #1a2538;
+  --reset-turn-border: #4fbf74;
+  --reset-turn-bg: #183428;
+  --reset-turn-bg-hover: #224c38;
+  --card-border: #4f5963;
+  --card-bg-start: #e7eaea;
+  --card-bg-end: #8c9499;
+  --card-ink: #171d24;
+  --card-rank: #2b1e13;
+  --chip-border: #5f6976;
+  --chip-bg: #dce3ea;
+  --chip-count-border: #788598;
+  --chip-count-bg: #162033;
+  --chip-count-text: #f4f7fb;
+  --shadow-popover: rgba(0, 0, 0, 0.58);
+  --popover-cancel-bg: #101722;
+  --popover-cancel-bg-hover: #1a2538;
+  --dice-icon-filter: invert(1) brightness(1.8);
+  --suit-outline: rgba(7, 10, 15, 0.85);
+  --suit-moons: #c7c8ca;
+  --suit-suns: #f7901e;
+  --suit-waves: #85b6e2;
+  --suit-leaves: #bc8a5d;
+  --suit-wyrms: #6fc055;
+  --suit-knots: #efed6a;
+  --card-width: 7.65rem;
+  --card-height: 8.7rem;
+  --card-compact-width: 6.15rem;
+  --card-compact-height: 7.35rem;
   --card-stack-step: calc(var(--card-height) / 3);
-  --player-panel-height: 10.4rem;
+  --player-panel-height: 13.2rem;
 }
 
 * {
@@ -75,7 +89,12 @@ body,
   margin: 0;
   height: 100%;
   min-height: 100%;
-  background: var(--page-bg);
+  background-color: var(--page-bg);
+  background-image:
+    radial-gradient(circle at 17% 15%, var(--page-grain-mid), transparent 40%),
+    radial-gradient(circle at 82% 80%, rgba(110, 136, 169, 0.03), transparent 42%),
+    repeating-radial-gradient(circle at 0 0, var(--page-grain-light) 0 1px, transparent 1px 4px);
+  background-size: auto, auto, 3px 3px;
   color: var(--ink);
 }
 
@@ -98,11 +117,14 @@ body {
   justify-content: space-between;
   align-items: flex-end;
   gap: 1rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid transparent;
   border-radius: 14px;
   padding: 0.8rem 1rem;
-  background: var(--panel);
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end)) border-box;
   backdrop-filter: none;
+  box-shadow: var(--container-shadow);
 }
 
 h1 {
@@ -139,7 +161,7 @@ h1 {
 }
 
 .reset-button {
-  border: none;
+  border: 1px solid rgba(35, 23, 15, 0.45);
   border-radius: 8px;
   padding: 0.45rem 0.7rem;
   font: inherit;
@@ -188,10 +210,13 @@ h1 {
 }
 
 .panel {
-  border: 1px solid var(--panel-border);
+  border: 1px solid transparent;
   border-radius: 14px;
-  background: var(--panel);
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end)) border-box;
   backdrop-filter: none;
+  box-shadow: var(--container-shadow);
 }
 
 .board-pane {
@@ -298,7 +323,7 @@ h1 {
 .player-panel {
   border: 1px solid var(--board-border);
   border-radius: 10px;
-  background: var(--panel);
+  background: var(--player-area-bg);
   backdrop-filter: none;
   padding: 0.5rem 0.6rem;
   display: grid;
@@ -307,6 +332,7 @@ h1 {
   width: fit-content;
   max-width: 100%;
   justify-self: center;
+  box-shadow: var(--container-shadow);
   min-height: 0;
   overflow: hidden;
 }
@@ -414,9 +440,11 @@ h1 {
   align-items: center;
   gap: 0.4rem;
   min-height: 1.4rem;
-  border-top: 1px dashed var(--board-dashed);
-  border-bottom: 1px dashed var(--board-dashed);
-  padding: 0.24rem 0.1rem;
+  border: 1px solid var(--district-divider-border);
+  border-radius: 6px;
+  background: var(--district-divider-bg);
+  box-shadow: var(--container-shadow-soft);
+  padding: 0.24rem 0.22rem;
 }
 
 .district-id {
@@ -448,6 +476,13 @@ h1 {
   margin-left: auto;
   position: relative;
   z-index: 1;
+  min-width: 4.4rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.district-marker-placeholder {
+  min-height: 1.35rem;
 }
 
 .district-lane {
@@ -509,9 +544,9 @@ h1 {
   height: var(--card-height);
   border-radius: 10px;
   border: 1px solid var(--card-border);
-  background: var(--card-bg);
+  background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
   box-shadow: inset 0 0 0 1px var(--card-inset-border);
-  color: var(--ink);
+  color: var(--card-ink);
   padding: 0.38rem;
   display: grid;
   grid-template-rows: 1rem minmax(0, 1fr) 1rem;
@@ -559,7 +594,7 @@ h1 {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--card-rank);
   min-height: 1rem;
   line-height: 1;
 }
@@ -683,14 +718,14 @@ h1 {
   height: 1.7rem;
   border-radius: 999px;
   border: 1px solid var(--chip-border);
-  background: var(--chip-bg);
+  background: var(--token-bg, var(--chip-bg));
   display: grid;
   place-items: center;
   font-size: 0.84rem;
 }
 
 .token-chip .suit-emoji {
-  font-size: 1.22em;
+  font-size: 1.42em;
 }
 
 .token-chip.compact {
@@ -700,7 +735,18 @@ h1 {
 }
 
 .token-chip.compact .suit-emoji {
-  font-size: 1.28em;
+  font-size: 1.48em;
+}
+
+.player-panel .card-tile,
+.player-panel .token-chip {
+  box-shadow: var(--container-shadow-soft);
+}
+
+.player-panel .card-tile {
+  box-shadow:
+    var(--container-shadow-soft),
+    inset 0 0 0 1px var(--card-inset-border);
 }
 
 .token-chip.empty {
@@ -742,6 +788,7 @@ h1 {
   cursor: pointer;
   display: grid;
   gap: 0.14rem;
+  box-shadow: var(--container-shadow-soft);
 }
 
 .action-button.has-submenu {
@@ -856,6 +903,7 @@ h1 {
   font: inherit;
   cursor: pointer;
   padding: 0.5rem 0.6rem;
+  box-shadow: var(--container-shadow-soft);
 }
 
 .trade-choice-button {
