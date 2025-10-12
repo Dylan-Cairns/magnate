@@ -78,6 +78,7 @@ With `.venv` active:
   - `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300 --eval-games 100 --eval-every 50 --eval-mode fixed-holdout`
 - Python PPO scaffold training:
   - `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout`
+  - progress logging is enabled by default every 5 updates (`--progress-every-updates 0` disables it)
 
 ## Source-of-Truth Docs
 
