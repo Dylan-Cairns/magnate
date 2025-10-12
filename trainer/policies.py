@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Sequence
 
-from .encoding import _card_rank
+from .behavior_cloning import BehaviorCloningModel, load_behavior_cloning_checkpoint
+from .encoding import _card_rank, encode_action_candidates, encode_observation
 from .types import KeyedAction
 
 
@@ -86,11 +88,42 @@ class HeuristicPolicy(Policy):
         return score
 
 
-def policy_from_name(name: str) -> Policy:
+@dataclass
+class BehaviorCloningPolicy(Policy):
+    model: BehaviorCloningModel
+    checkpoint_path: str = ""
+    name: str = "behavior-cloned"
+
+    def choose_action_key(
+        self,
+        view: Dict,
+        legal_actions: Sequence[KeyedAction],
+        rng: random.Random,
+    ) -> str:
+        del rng  # deterministic action selection from the trained checkpoint
+        if not legal_actions:
+            raise ValueError("Behavior-cloned policy requires at least one legal action.")
+
+        observation_vector = encode_observation(view)
+        action_vectors = encode_action_candidates(legal_actions)
+        action_index = self.model.choose_action_index(observation_vector, action_vectors)
+        return legal_actions[action_index].action_key
+
+
+def policy_from_name(name: str, checkpoint_path: str | Path | None = None) -> Policy:
     normalized = name.strip().lower()
     if normalized == "random":
         return RandomLegalPolicy()
     if normalized == "heuristic":
         return HeuristicPolicy()
-    raise ValueError(f"Unknown policy name: {name!r}. Expected one of: random, heuristic.")
-
+    if normalized in ("bc", "behavior-cloned", "behavior_cloned"):
+        if checkpoint_path is None:
+            raise ValueError("Policy 'bc' requires a checkpoint path.")
+        path = Path(checkpoint_path)
+        model = load_behavior_cloning_checkpoint(path)
+        return BehaviorCloningPolicy(
+            model=model,
+            checkpoint_path=str(path),
+            name=f"behavior-cloned:{path.name}",
+        )
+    raise ValueError(f"Unknown policy name: {name!r}. Expected one of: random, heuristic, bc.")
