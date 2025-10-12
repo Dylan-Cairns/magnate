@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
 import cubeDieIcon from './assets/icons/cube.png';
@@ -62,6 +62,31 @@ const SUIT_EMOJI: Record<Suit, string> = {
   Wyrms: '🐉',
   Knots: '🪢',
 };
+
+const SUIT_CLASS: Record<Suit, string> = {
+  Moons: 'moons',
+  Suns: 'suns',
+  Waves: 'waves',
+  Leaves: 'leaves',
+  Wyrms: 'wyrms',
+  Knots: 'knots',
+};
+
+const EMOJI_TO_SUIT = Object.entries(SUIT_EMOJI).reduce(
+  (acc, [suit, glyph]) => {
+    acc[glyph] = suit as Suit;
+    return acc;
+  },
+  {} as Record<string, Suit>
+);
+
+const SUIT_EMOJI_REGEX = new RegExp(
+  Object.values(SUIT_EMOJI)
+    .sort((a, b) => b.length - a.length)
+    .map((glyph) => escapeRegex(glyph))
+    .join('|'),
+  'gu'
+);
 
 function makeSeed(): string {
   return `seed-${Date.now()}`;
@@ -399,7 +424,9 @@ export function App() {
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">trade</span>
-                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
+                              <span className="action-text">
+                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                              </span>
                             </button>
                           );
                         }
@@ -419,7 +446,9 @@ export function App() {
                             }}
                           >
                             <span className="action-kind">trade</span>
-                            <span className="action-text">Trade {SUIT_EMOJI[item.give]}x3</span>
+                            <span className="action-text">
+                              {renderSuitText(`Trade ${SUIT_EMOJI[item.give]}x3`)}
+                            </span>
                           </button>
                         );
                       }
@@ -435,7 +464,9 @@ export function App() {
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
+                              <span className="action-text">
+                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                              </span>
                             </button>
                           );
                         }
@@ -466,7 +497,9 @@ export function App() {
                             }}
                           >
                             <span className="action-kind">buy-deed</span>
-                            <span className="action-text">Buy deed {cardSummary(item.cardId, SUIT_EMOJI)}</span>
+                            <span className="action-text">
+                              {renderSuitText(`Buy deed ${cardSummary(item.cardId, SUIT_EMOJI)}`)}
+                            </span>
                           </button>
                         );
                       }
@@ -482,7 +515,9 @@ export function App() {
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
+                              <span className="action-text">
+                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                              </span>
                             </button>
                           );
                         }
@@ -514,7 +549,9 @@ export function App() {
                           >
                             <span className="action-kind">develop-deed</span>
                             <span className="action-text">
-                              Develop deed {cardSummary(item.cardId, SUIT_EMOJI)} in {item.districtId}
+                              {renderSuitText(
+                                `Develop deed ${cardSummary(item.cardId, SUIT_EMOJI)} in ${item.districtId}`
+                              )}
                             </span>
                           </button>
                         );
@@ -531,7 +568,9 @@ export function App() {
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
+                              <span className="action-text">
+                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                              </span>
                             </button>
                           );
                         }
@@ -566,7 +605,9 @@ export function App() {
                           >
                             <span className="action-kind">develop-outright</span>
                             <span className="action-text">
-                              Develop {cardSummary(item.cardId, SUIT_EMOJI)} ({formatTokens(item.payment, SUIT_EMOJI)})
+                              {renderSuitText(
+                                `Develop ${cardSummary(item.cardId, SUIT_EMOJI)} (${formatTokens(item.payment, SUIT_EMOJI)})`
+                              )}
                             </span>
                           </button>
                         );
@@ -580,7 +621,9 @@ export function App() {
                           onClick={() => handleHumanAction(item.action)}
                         >
                           <span className="action-kind">{item.action.type}</span>
-                          <span className="action-text">{describeAction(item.action, SUIT_EMOJI)}</span>
+                          <span className="action-text">
+                            {renderSuitText(describeAction(item.action, SUIT_EMOJI))}
+                          </span>
                         </button>
                       );
                     })}
@@ -698,7 +741,7 @@ export function App() {
           aria-label="Choose follow-up action option"
           style={{ top: `${actionPicker.top}px`, left: `${actionPicker.left}px` }}
         >
-          <h2>{actionPickerTitle}</h2>
+          <h2>{renderSuitText(actionPickerTitle)}</h2>
 
           {actionPickerOptions.length === 0 ? (
             <p className="empty-note">No options available.</p>
@@ -711,7 +754,7 @@ export function App() {
                   className="trade-choice-button"
                   onClick={() => handlePickerSelection(option.action)}
                 >
-                  {option.label}
+                  {renderSuitText(option.label)}
                 </button>
               ))}
             </div>
@@ -943,7 +986,7 @@ function CardTile({
       <span className="card-rank">{rank}</span>
       <div className="card-suits-row">
         {suits.length > 0 ? (
-          suits.map((suit) => <span key={`${cardId}-${suit}`}>{SUIT_EMOJI[suit]}</span>)
+          suits.map((suit) => <SuitEmoji key={`${cardId}-${suit}`} suit={suit} />)
         ) : (
           <span className="card-suit-placeholder" />
         )}
@@ -1018,7 +1061,7 @@ function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compac
   const isEmpty = count === 0;
   return (
     <span className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}`} title={`${suit} x${count}`}>
-      <span>{SUIT_EMOJI[suit]}</span>
+      <SuitEmoji suit={suit} />
       {count > 1 && <span className="token-count">x{count}</span>}
     </span>
   );
@@ -1094,6 +1137,51 @@ function clamp(value: number, min: number, max: number): number {
     return min;
   }
   return Math.max(min, Math.min(value, max));
+}
+
+function SuitEmoji({ suit }: { suit: Suit }) {
+  return (
+    <span className={`suit-emoji suit-${SUIT_CLASS[suit]}`} aria-label={suit} role="img">
+      {SUIT_EMOJI[suit]}
+    </span>
+  );
+}
+
+function renderSuitText(text: string): ReactNode {
+  if (!text) {
+    return text;
+  }
+
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  for (const match of text.matchAll(SUIT_EMOJI_REGEX)) {
+    const index = match.index ?? 0;
+    const glyph = match[0];
+    const suit = EMOJI_TO_SUIT[glyph];
+
+    if (index > cursor) {
+      nodes.push(text.slice(cursor, index));
+    }
+
+    if (suit) {
+      nodes.push(<SuitEmoji key={`suit-${index}-${suit}`} suit={suit} />);
+    } else {
+      nodes.push(glyph);
+    }
+
+    cursor = index + glyph.length;
+  }
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes.length > 0 ? <>{nodes}</> : text;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function toPickerQuery(picker: ActionPickerState): ActionPickerQuery {
