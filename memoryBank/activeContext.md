@@ -79,6 +79,12 @@
     - crowns/hand now use full-size card tiles matching board card dimensions
     - player sections are horizontally centered in each player panel with slightly increased spacing
     - resource chips are enlarged so the 2x3 resource block height aligns with adjacent card height
+  - Card face styling now follows Decktet-like structure:
+    - rank appears at top-left with suits stacked vertically below it
+    - deed progress chips appear in a dedicated right-side column on the card
+    - suits/chips now share the same lower-row baseline for better symmetry, with slightly increased vertical spacing between suit rows
+    - suit and chip rows now use explicit paired row layout to keep horizontal and vertical alignment locked
+    - rank and suit glyphs now share a fixed-width centered lane so rank sits directly above suit icons
 
 ## Immediate Next Steps
 
