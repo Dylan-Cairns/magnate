@@ -34,6 +34,7 @@
 - UI dispatches only engine-legal actions and uses grouped follow-up pickers where options are noisy.
 - Right info column includes controls, score, deck state, roll result, and full scrollable log.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
+- District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
 
 ## Immediate Next Steps
 
