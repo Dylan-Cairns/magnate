@@ -49,6 +49,7 @@
     - BC-anchor regularization
     - fixed-holdout eval-based best-checkpoint selection (default)
   - PyTorch PPO scaffold in `trainer/ppo_model.py` + `trainer/ppo_training.py` + `scripts/train_ppo.py`
+    - `scripts/train_ppo.py` now emits infrequent update-heartbeat progress logs to stderr
   - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC), `scripts/finetune.py` (BC -> RL), `scripts/train_ppo.py` (PPO scaffold)
   - project Python venv bootstrap is standardized (`requirements.txt`, `scripts/setup_python_env.ps1`)
   - unittest coverage in `trainer_tests/`

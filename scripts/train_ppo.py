@@ -4,6 +4,8 @@ import argparse
 import copy
 import json
 import math
+import sys
+import time
 from pathlib import Path
 from typing import Dict, List
 
@@ -109,11 +111,19 @@ def parse_args() -> argparse.Namespace:
         default=0.3,
         help="Selection-score weight for random matchup win rate.",
     )
+    parser.add_argument(
+        "--progress-every-updates",
+        type=int,
+        default=5,
+        help="Print one progress line every N PPO updates (0 disables progress logs).",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.progress_every_updates < 0:
+        raise SystemExit("progress_every_updates must be >= 0.")
 
     if args.checkpoint_in is not None:
         model, loaded_payload = load_ppo_checkpoint(args.checkpoint_in)
@@ -157,6 +167,8 @@ def main() -> int:
         heuristic_weight=args.heuristic_weight,
         random_weight=args.random_weight,
     )
+    total_updates = max(1, math.ceil(args.episodes / args.episodes_per_update))
+    start_time = time.perf_counter()
 
     with BridgeClient() as client:
         env = MagnateBridgeEnv(client=client)
@@ -194,6 +206,16 @@ def main() -> int:
                 heuristic_weight=args.selection_heuristic_weight,
                 random_weight=args.selection_random_weight,
             )
+            if args.progress_every_updates > 0:
+                print(
+                    "[ppo] eval "
+                    f"update={update_number} "
+                    f"score={score:.4f} "
+                    f"winRateRandom={_player_a_win_rate(random_summary):.3f} "
+                    f"winRateHeuristic={_player_a_win_rate(heuristic_summary):.3f}",
+                    file=sys.stderr,
+                    flush=True,
+                )
             snapshot = {
                 "update": update_number,
                 "selectionScore": score,
@@ -207,10 +229,28 @@ def main() -> int:
                 best_update = update_number
 
         def on_update_end(update_index: int, _summary: PpoUpdateSummary) -> None:
-            if args.eval_games <= 0 or args.eval_every_updates <= 0:
-                return
             update_number = update_index + 1
-            if update_number % args.eval_every_updates == 0:
+            if args.progress_every_updates > 0 and (
+                update_number == 1
+                or update_number == total_updates
+                or update_number % args.progress_every_updates == 0
+            ):
+                elapsed_seconds = time.perf_counter() - start_time
+                episodes_done = _summary.end_episode + 1
+                progress = (episodes_done / args.episodes) if args.episodes > 0 else 1.0
+                print(
+                    "[ppo] progress "
+                    f"update={update_number}/{total_updates} "
+                    f"episodes={episodes_done}/{args.episodes} "
+                    f"pct={progress * 100:.1f}% "
+                    f"elapsedMin={elapsed_seconds / 60.0:.1f} "
+                    f"policyLoss={_summary.policy_loss:.4f} "
+                    f"valueLoss={_summary.value_loss:.4f} "
+                    f"entropy={_summary.entropy:.4f}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            if args.eval_games > 0 and args.eval_every_updates > 0 and update_number % args.eval_every_updates == 0:
                 maybe_evaluate(update_number)
 
         optimizer, training_summary = train_ppo_policy(

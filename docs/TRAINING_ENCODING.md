@@ -158,6 +158,7 @@ Training script:
   - actor-critic policy/value network scores legal action candidates directly
   - PPO clipped objective over collected bridge trajectories
   - fixed-holdout checkpoint selection (`--eval-mode fixed-holdout` by default)
+  - default progress heartbeat prints to stderr every 5 updates (`--progress-every-updates 0` disables)
 
 Checkpoint type:
 
