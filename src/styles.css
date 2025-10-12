@@ -81,13 +81,6 @@
   --popover-cancel-bg: #101722;
   --popover-cancel-bg-hover: #1a2538;
   --dice-icon-filter: invert(1) brightness(1.8);
-  --suit-outline: rgba(7, 10, 15, 0.95);
-  --suit-moons: #c7c8ca;
-  --suit-suns: #f7901e;
-  --suit-waves: #85b6e2;
-  --suit-leaves: #bc8a5d;
-  --suit-wyrms: #6fc055;
-  --suit-knots: #efed6a;
   --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
   --card-height: calc(
     (var(--card-padding) * 2) +
@@ -717,57 +710,40 @@ h1 {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-  font-size: 0.88rem;
   min-height: 1rem;
   line-height: 1;
 }
 
-.card-suits-row > span {
+.card-suits-row > * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.suit-emoji {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  text-shadow:
-    0 0 0 var(--suit-color, var(--ink)),
-    0 0 1px var(--suit-outline);
+.suit-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
-.suit-emoji.suit-moons {
-  --suit-color: var(--suit-moons);
+.card-suit-icon {
+  width: 0.82rem;
+  height: 0.82rem;
 }
 
-.suit-emoji.suit-suns {
-  --suit-color: var(--suit-suns);
-}
-
-.suit-emoji.suit-waves {
-  --suit-color: var(--suit-waves);
-}
-
-.suit-emoji.suit-leaves {
-  --suit-color: var(--suit-leaves);
-}
-
-.suit-emoji.suit-wyrms {
-  --suit-color: var(--suit-wyrms);
-}
-
-.suit-emoji.suit-knots {
-  --suit-color: var(--suit-knots);
+.inline-suit-icon {
+  width: 0.92em;
+  height: 0.92em;
+  vertical-align: -0.12em;
+  margin: 0 0.04em;
 }
 
 .card-suit-placeholder {
   display: inline-block;
-  width: 0.9rem;
-  min-height: 0.9rem;
+  width: 0.82rem;
+  min-height: 0.82rem;
   opacity: 0;
 }
 
@@ -855,8 +831,9 @@ h1 {
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-.token-chip .suit-emoji {
-  font-size: 1.42em;
+.token-chip .chip-suit-icon {
+  width: calc(100% - 0.16rem);
+  height: calc(100% - 0.16rem);
 }
 
 .token-chip.compact {
@@ -865,8 +842,9 @@ h1 {
   font-size: 0.72rem;
 }
 
-.token-chip.compact .suit-emoji {
-  font-size: 1.48em;
+.token-chip.compact .chip-suit-icon {
+  width: calc(100% - 0.12rem);
+  height: calc(100% - 0.12rem);
 }
 
 .token-chip.empty {
