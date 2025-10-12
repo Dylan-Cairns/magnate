@@ -92,7 +92,9 @@
   --dice-icon-filter: invert(1) brightness(1.8);
   --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
   --card-row-gap: 0.35rem;
-  --three-card-row-width: calc((var(--card-width) * 3) + (var(--card-row-gap) * 2));
+  --three-card-row-width: calc(
+    (var(--card-width) * 3) + (var(--card-row-gap) * 2)
+  );
   --side-column-width: calc(var(--three-card-row-width) + 1.4rem);
   --card-height: calc(
     (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +
@@ -101,7 +103,7 @@
   --card-stack-step: calc(var(--card-height) / 3);
   --player-panel-height: 15rem;
   --side-column-panel-width-factor: 0.8;
-  --token-rail-chip-size: 2.7rem;
+  --token-rail-chip-size: 3rem;
 }
 
 * {
@@ -590,9 +592,14 @@ h1 {
   gap: 0.24rem;
 }
 
-.rail-resources-row .token-chip {
+.rail-resources-row .token-chip.compact {
   width: var(--token-rail-chip-size);
   height: var(--token-rail-chip-size);
+}
+
+.rail-resources-row .token-chip.compact .chip-suit-icon {
+  width: calc(100% - 0.16rem);
+  height: calc(100% - 0.16rem);
 }
 
 .rail-resources-row .token-count {
@@ -608,9 +615,14 @@ h1 {
   gap: 0.24rem;
 }
 
-.crowns-rail-row .token-chip {
+.crowns-rail-row .token-chip.compact {
   width: var(--token-rail-chip-size);
   height: var(--token-rail-chip-size);
+}
+
+.crowns-rail-row .token-chip.compact .chip-suit-icon {
+  width: calc(100% - 0.16rem);
+  height: calc(100% - 0.16rem);
 }
 
 .district-strip {
@@ -1186,7 +1198,10 @@ h1 {
   gap: 0.24rem;
   cursor: pointer;
   box-shadow: var(--button-shadow);
-  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .hamburger-button:hover {
@@ -1201,7 +1216,9 @@ h1 {
   height: 2px;
   border-radius: 999px;
   background: var(--accent-soft);
-  transition: transform 140ms ease, opacity 140ms ease;
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease;
 }
 
 .hamburger-button.is-open span:nth-child(1) {
