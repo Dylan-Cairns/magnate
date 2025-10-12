@@ -39,8 +39,16 @@
   --board-dashed: rgba(171, 139, 112, 0.34);
   --wood-start: #140f0c;
   --wood-end: #5b2f1e;
-  --player-area-bg: linear-gradient(135deg, var(--wood-start) 0%, var(--wood-end) 100%);
-  --district-divider-bg: linear-gradient(135deg, var(--wood-start) 0%, var(--wood-end) 100%);
+  --player-area-bg: linear-gradient(
+    135deg,
+    var(--wood-start) 0%,
+    var(--wood-end) 100%
+  );
+  --district-divider-bg: linear-gradient(
+    135deg,
+    var(--wood-start) 0%,
+    var(--wood-end) 100%
+  );
   --district-divider-border: #7b4f39;
   --card-inset-border: rgba(255, 255, 255, 0.24);
   --card-back-border: rgba(140, 148, 153, 0.55);
@@ -63,7 +71,8 @@
   --card-image-source-height: 376;
   --card-image-area-width: 6.81rem;
   --card-image-area-height: calc(
-    var(--card-image-area-width) * var(--card-image-source-height) / var(--card-image-source-width)
+    var(--card-image-area-width) * var(--card-image-source-height) /
+      var(--card-image-source-width)
   );
   --card-border: #3f4850;
   --card-bg-start: #fcfdff;
@@ -83,10 +92,8 @@
   --dice-icon-filter: invert(1) brightness(1.8);
   --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
   --card-height: calc(
-    (var(--card-padding) * 2) +
-    var(--card-meta-height) +
-    var(--card-meta-gap) +
-    var(--card-image-area-height)
+    (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +
+      var(--card-image-area-height)
   );
   --card-stack-step: calc(var(--card-height) / 3);
   --player-panel-height: 15rem;
@@ -104,15 +111,56 @@ body,
   min-height: 100%;
   background-color: var(--page-bg);
   background-image:
-    radial-gradient(ellipse 84% 64% at 50% 50%, var(--bg-center-glow) 0%, rgba(78, 109, 156, 0.09) 30%, transparent 72%),
-    radial-gradient(ellipse 120% 95% at 16% 17%, var(--page-grain-mid) 0%, transparent 64%),
-    radial-gradient(ellipse 116% 90% at 84% 83%, rgba(103, 133, 174, 0.06) 0%, transparent 66%),
-    repeating-linear-gradient(104deg, var(--velvet-weave-light) 0 2px, transparent 2px 24px),
-    repeating-linear-gradient(-101deg, var(--velvet-weave-dark) 0 3px, transparent 3px 32px),
-    repeating-radial-gradient(circle at 0 0, var(--velvet-speck-light) 0 1.1px, transparent 1.1px 18px),
-    repeating-radial-gradient(circle at 100% 100%, var(--velvet-speck-dark) 0 1px, transparent 1px 21px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.18) 100%);
-  background-size: auto, auto, auto, 360px 360px, 420px 420px, 210px 210px, 260px 260px, auto;
+    radial-gradient(
+      ellipse 84% 64% at 50% 50%,
+      var(--bg-center-glow) 0%,
+      rgba(78, 109, 156, 0.09) 30%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 120% 95% at 16% 17%,
+      var(--page-grain-mid) 0%,
+      transparent 64%
+    ),
+    radial-gradient(
+      ellipse 116% 90% at 84% 83%,
+      rgba(103, 133, 174, 0.06) 0%,
+      transparent 66%
+    ),
+    repeating-linear-gradient(
+      104deg,
+      var(--velvet-weave-light) 0 2px,
+      transparent 2px 24px
+    ),
+    repeating-linear-gradient(
+      -101deg,
+      var(--velvet-weave-dark) 0 3px,
+      transparent 3px 32px
+    ),
+    repeating-radial-gradient(
+      circle at 0 0,
+      var(--velvet-speck-light) 0 1.1px,
+      transparent 1.1px 18px
+    ),
+    repeating-radial-gradient(
+      circle at 100% 100%,
+      var(--velvet-speck-dark) 0 1px,
+      transparent 1px 21px
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.02) 0%,
+      rgba(0, 0, 0, 0.18) 100%
+    );
+  background-size:
+    auto,
+    auto,
+    auto,
+    360px 360px,
+    420px 420px,
+    210px 210px,
+    260px 260px,
+    auto;
   color: var(--ink);
 }
 
@@ -140,7 +188,8 @@ body {
   padding: 0.8rem 1rem;
   background:
     linear-gradient(var(--panel), var(--panel)) padding-box,
-    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end)) border-box;
+    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end))
+      border-box;
   backdrop-filter: none;
   box-shadow: var(--container-shadow);
 }
@@ -191,7 +240,10 @@ h1 {
   box-shadow:
     0 4px 10px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transition: background-color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
+  transition:
+    background-color 140ms ease,
+    transform 120ms ease,
+    box-shadow 140ms ease;
 }
 
 .reset-button:hover {
@@ -228,7 +280,10 @@ h1 {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr) minmax(18rem, 24rem);
+  grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr) minmax(
+      18rem,
+      24rem
+    );
   gap: 0.9rem;
   flex: 1;
   min-height: 0;
@@ -241,7 +296,8 @@ h1 {
   border-radius: 14px;
   background:
     linear-gradient(var(--panel), var(--panel)) padding-box,
-    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end)) border-box;
+    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end))
+      border-box;
   backdrop-filter: none;
   box-shadow:
     var(--container-shadow),
@@ -256,7 +312,9 @@ h1 {
   padding: 0;
   margin: 0;
   display: grid;
-  grid-template-rows: var(--player-panel-height) minmax(0, 1fr) var(--player-panel-height);
+  grid-template-rows: var(--player-panel-height) minmax(0, 1fr) var(
+      --player-panel-height
+    );
   gap: 0.7rem;
   min-height: 0;
   overflow: hidden;
@@ -372,7 +430,9 @@ h1 {
 
 .player-panel.is-active {
   border-color: var(--active-border);
-  box-shadow: 0 0 0 1px var(--active-ring), inset 0 0 16px var(--active-glow);
+  box-shadow:
+    0 0 0 1px var(--active-ring),
+    inset 0 0 16px var(--active-glow);
 }
 
 .player-header {
@@ -435,7 +495,10 @@ h1 {
   opacity: 0;
   visibility: hidden;
   transform: translateY(-3px);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
   pointer-events: none;
   z-index: 20;
 }
@@ -620,7 +683,9 @@ h1 {
   position: relative;
   width: var(--card-width);
   min-height: var(--card-height);
-  height: calc(var(--card-height) + (var(--stack-count) - 1) * var(--card-stack-step));
+  height: calc(
+    var(--card-height) + (var(--stack-count) - 1) * var(--card-stack-step)
+  );
   flex: 0 0 auto;
 }
 
@@ -644,7 +709,11 @@ h1 {
   height: var(--card-height);
   border-radius: 10px;
   border: 1px solid var(--card-border);
-  background: linear-gradient(135deg, var(--card-bg-start) 0%, var(--card-bg-end) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--card-bg-start) 0%,
+    var(--card-bg-end) 100%
+  );
   box-shadow:
     0 5px 12px rgba(0, 0, 0, 0.35),
     inset 0 0 0 1px var(--card-inset-border);
@@ -662,14 +731,13 @@ h1 {
 .card-back {
   border-style: dashed;
   border-color: var(--card-back-border);
-  background:
-    repeating-linear-gradient(
-      135deg,
-      var(--card-back-stripe-a) 0,
-      var(--card-back-stripe-a) 8px,
-      var(--card-back-stripe-b) 8px,
-      var(--card-back-stripe-b) 16px
-    );
+  background: repeating-linear-gradient(
+    135deg,
+    var(--card-back-stripe-a) 0,
+    var(--card-back-stripe-a) 8px,
+    var(--card-back-stripe-b) 8px,
+    var(--card-back-stripe-b) 16px
+  );
 }
 
 .card-placeholder {
@@ -731,13 +799,6 @@ h1 {
 .card-suit-icon {
   width: 0.82rem;
   height: 0.82rem;
-}
-
-.inline-suit-icon {
-  width: 0.92em;
-  height: 0.92em;
-  vertical-align: -0.12em;
-  margin: 0 0.04em;
 }
 
 .card-suit-placeholder {
@@ -845,6 +906,14 @@ h1 {
 .token-chip.compact .chip-suit-icon {
   width: calc(100% - 0.12rem);
   height: calc(100% - 0.12rem);
+}
+
+.inline-token-chip {
+  display: inline-grid;
+  width: 1.02rem;
+  height: 1.02rem;
+  margin: 0 0.15em;
+  vertical-align: -0.35em;
 }
 
 .token-chip.empty {

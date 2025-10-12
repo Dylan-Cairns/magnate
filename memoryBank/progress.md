@@ -34,6 +34,7 @@
 - Official Decktet suit SVG icons are now wired across the UI:
   - shared suit-token mapping in `src/ui/suitIcons.tsx` replaces suit emojis in action text, card metadata, and token chips
   - player resources/crowns, district marker tokens, and card/deed chips all render from `src/assets/icons/*.svg`
+  - action text now renders suits with the shared token-chip component (not standalone transparent icons)
   - chip icon CSS scales SVGs to fill nearly the full chip area
 - Player row crown/score presentation was streamlined:
   - crowns render as suit token aggregates instead of crown card tiles
