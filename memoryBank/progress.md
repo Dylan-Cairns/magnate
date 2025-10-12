@@ -40,7 +40,8 @@
   - baseline policies/eval in `trainer/policies.py` and `trainer/evaluate.py`
   - sample collection + sample IO in `trainer/training.py`
   - behavior-cloning optimizer/checkpointing in `trainer/behavior_cloning.py`
-  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC warm start)
+  - RL self-play fine-tuning in `trainer/reinforcement.py`
+  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC), `scripts/finetune.py` (BC -> RL)
   - project Python venv bootstrap is standardized (`requirements.txt`, `scripts/setup_python_env.ps1`)
   - unittest coverage in `trainer_tests/`
 - Tooling gates include lint + typecheck + tests.
@@ -48,12 +49,12 @@
 ## In Progress
 
 - Expanding rules-parity scenario coverage, especially full-turn/full-game edges.
-- Building RL fine-tuning and self-play schedules on top of BC warm-start checkpoints.
+- Tuning RL schedules/hyperparameters and benchmark tracking on top of implemented BC + RL loops.
 
 ## Remaining
 
-- RL optimization loop initialized from BC checkpoints.
 - Experiment tracking/metrics for BC baseline, RL fine-tuning, and self-play runs.
+- Stronger RL training curriculum (opponent mix and checkpoint selection) to surpass heuristic baseline consistently.
 - Model inference wiring in browser client.
 - Deployment polish for static hosting path.
 

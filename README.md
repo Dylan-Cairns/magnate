@@ -35,7 +35,8 @@ Single-player Magnate with a trained bot opponent.
   - baseline random/heuristic policies and matchup evaluation harness
   - behavior-cloning warm-start optimizer + checkpoint save/load
   - behavior-cloned policy support in eval (`--player-*-policy bc --player-*-checkpoint <path>`)
-- RL fine-tuning/self-play stages are not implemented yet.
+  - REINFORCE self-play fine-tuning from BC checkpoints (`scripts/finetune.py`)
+- Broader experiment scheduling/metrics automation is not implemented yet.
 
 ## Local Commands
 
@@ -66,6 +67,8 @@ With `.venv` active:
 - Python eval: `python scripts/eval.py --games 20`
 - Python sample collection + BC warm-start: `python scripts/train.py --games 20`
 - Python BC from existing samples: `python scripts/train.py --samples-in artifacts/training_samples.jsonl`
+- Python RL fine-tune from BC checkpoint:
+  - `python scripts/finetune.py --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 200 --eval-games 100`
 
 ## Source-of-Truth Docs
 
