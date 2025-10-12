@@ -1,6 +1,6 @@
 import { ALL_CARDS, type CardId, type CardName } from '../engine/cards';
 
-const CARD_IMAGE_MODULES = import.meta.glob('../assets/icons/CardImages/*.png', {
+const CARD_IMAGE_MODULES = import.meta.glob('../assets/CardImages/*.png', {
   eager: true,
   import: 'default',
 }) as Record<string, string>;
@@ -70,14 +70,15 @@ function mapByCardId<T>(recordByName: Record<CardName, T>): Record<CardId, T> {
 
 const CARD_IMAGE_BY_NAME = Object.freeze(
   Object.fromEntries(
-    (Object.entries(CARD_IMAGE_FILE_BY_NAME) as Array<[CardName, string]>).map(([cardName, fileName]) => [
-      cardName,
-      resolveCardImageFile(fileName),
-    ])
+    (Object.entries(CARD_IMAGE_FILE_BY_NAME) as Array<[CardName, string]>).map(
+      ([cardName, fileName]) => [cardName, resolveCardImageFile(fileName)]
+    )
   ) as Record<CardName, string>
 );
 
-export const CARD_IMAGE_FILE_BY_ID = Object.freeze(mapByCardId(CARD_IMAGE_FILE_BY_NAME));
+export const CARD_IMAGE_FILE_BY_ID = Object.freeze(
+  mapByCardId(CARD_IMAGE_FILE_BY_NAME)
+);
 export const CARD_IMAGE_BY_ID = Object.freeze(mapByCardId(CARD_IMAGE_BY_NAME));
 export const CARD_BACK_IMAGE = resolveCardImageFile(CARD_BACK_IMAGE_FILE);
 
