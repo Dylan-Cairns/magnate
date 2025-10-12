@@ -173,6 +173,31 @@ h1 {
   flex-direction: column;
 }
 
+.actions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.actions-heading h2 {
+  margin: 0;
+}
+
+.last-turn-badge {
+  border: 1px solid rgba(255, 213, 138, 0.7);
+  background: linear-gradient(120deg, rgba(147, 36, 36, 0.88), rgba(196, 89, 47, 0.9));
+  color: #fff4d1;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 1px rgba(255, 186, 90, 0.28);
+}
+
 .panel {
   padding: 0.8rem;
 }
@@ -651,17 +676,42 @@ h1 {
   background: rgba(17, 45, 58, 0.8);
 }
 
+.brand-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.brand-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-controls .seed-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.meta-grid {
+  display: grid;
+  gap: 0.36rem;
+}
+
+.meta-line {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
 .info-pane {
   display: grid;
   gap: 0.9rem;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
+  align-content: stretch;
   overflow: hidden;
-}
-
-.controls-panel {
-  display: grid;
-  gap: 0.55rem;
 }
 
 .seed-input {
@@ -672,6 +722,7 @@ h1 {
 .log-panel {
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
 }
 

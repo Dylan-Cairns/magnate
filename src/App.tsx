@@ -120,9 +120,11 @@ export function App() {
   }, [state]);
 
   const terminal = isTerminal(state);
+  const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
   const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
   const score = useMemo(() => state.finalScore ?? scoreGame(state), [state]);
+  const reshufflesRemaining = Math.max(0, 2 - humanView.deck.reshuffles);
 
   const playersById = useMemo(
     () => new Map(humanView.players.map((player) => [player.id, player])),
@@ -420,7 +422,10 @@ export function App() {
       <main className="layout">
         <aside className="actions-pane">
           <section className="panel actions-panel">
-            <h2>Actions</h2>
+            <div className="actions-heading">
+              <h2>Actions</h2>
+              {isLastTurn && <span className="last-turn-badge">Last Turn</span>}
+            </div>
             <div className="actions-body">
               {terminal ? (
                 <p className="empty-note">Game over.</p>
@@ -658,26 +663,37 @@ export function App() {
         <aside className="info-pane">
           <section className="panel brand-panel">
             <h1>Magnate</h1>
-          </section>
-
-          <section className="panel controls-panel">
-            <label className="seed-label" htmlFor="seed-input">
-              Seed
-            </label>
-            <input
-              id="seed-input"
-              className="seed-input"
-              value={seedInput}
-              onChange={(event) => setSeedInput(event.target.value)}
-            />
-            <button className="reset-button" type="button" onClick={handleReset}>
-              New Game
-            </button>
+            <div className="brand-controls">
+              <input
+                id="seed-input"
+                aria-label="Seed"
+                className="seed-input"
+                value={seedInput}
+                onChange={(event) => setSeedInput(event.target.value)}
+              />
+              <button className="reset-button" type="button" onClick={handleReset}>
+                New Game
+              </button>
+            </div>
           </section>
 
           <section className="panel">
             <h2>Live Score</h2>
             <ScorePanel score={score} terminal={terminal} />
+          </section>
+
+          <section className="panel">
+            <h2>Deck State</h2>
+            <div className="meta-grid">
+              <p className="meta-line">
+                <span>Cards Remaining</span>
+                <strong>{humanView.deck.drawCount}</strong>
+              </p>
+              <p className="meta-line">
+                <span>Reshuffles Remaining</span>
+                <strong>{reshufflesRemaining}</strong>
+              </p>
+            </div>
           </section>
 
           <section className="panel">
