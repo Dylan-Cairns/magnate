@@ -50,8 +50,10 @@
   - Actions list now also collapses district-only variants:
     - `buy-deed` grouped by card with district picker popover for multi-district cases
     - `develop-outright` grouped by card + payment with district picker popover when district is the only difference
+    - `develop-deed` grouped by card + district with payment picker popover when token suit/payment is the only difference
   - District header display now uses marker card names centered in each district title row, with right-aligned suit icons for non-Excuse markers only
   - District card lanes now reserve a fixed two-row card area regardless of current card count to reduce layout jitter
+  - Log panel now shows full game history without truncation and scrolls within its container when needed
   - Player-area cards now match board card size/shape, with centered player-section layout and slightly increased inter-section spacing
   - Player resource chips are now scaled up so the resources block visually matches neighboring card height
 - Unit tests cover key low-level rules and early turn-flow behavior.

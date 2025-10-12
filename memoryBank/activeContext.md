@@ -69,10 +69,12 @@
   - Action list de-duplication now also covers district-only variance:
     - `buy-deed` options are collapsed by card and use right-side district chooser when multiple districts are legal
     - `develop-outright` options are collapsed by card + payment and use right-side district chooser when only district differs
+    - `develop-deed` options are collapsed by deed card + district and use right-side payment chooser when only token suit/payment differs
   - District headers now show the marker card name centered in the header row:
     - Pawn/Excuse markers use a unified header style
     - suit icons remain right-aligned for Pawn markers only
   - District lane card areas now reserve two rows of card space even at low/zero occupancy to avoid board jitter
+  - Log panel now renders full action history (no 12-entry cap) and relies on internal panel scrolling for overflow
   - Player-panel visual consistency pass:
     - crowns/hand now use full-size card tiles matching board card dimensions
     - player sections are horizontally centered in each player panel with slightly increased spacing

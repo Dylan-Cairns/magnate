@@ -32,8 +32,12 @@ const VIEWPORT_PADDING_PX = 10;
 
 type TradeAction = Extract<GameAction, { type: 'trade' }>;
 type BuyDeedAction = Extract<GameAction, { type: 'buy-deed' }>;
+type DevelopDeedAction = Extract<GameAction, { type: 'develop-deed' }>;
 type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
-type NonGroupedAction = Exclude<GameAction, TradeAction | BuyDeedAction | DevelopOutrightAction>;
+type NonGroupedAction = Exclude<
+  GameAction,
+  TradeAction | BuyDeedAction | DevelopDeedAction | DevelopOutrightAction
+>;
 
 type ActionPickerState =
   | {
@@ -50,12 +54,20 @@ type ActionPickerState =
       paymentKey?: string;
       top: number;
       left: number;
+    }
+  | {
+      kind: 'deed-payment';
+      cardId: CardId;
+      districtId: string;
+      top: number;
+      left: number;
     };
 
 type HumanActionListItem =
   | { kind: 'action'; action: NonGroupedAction }
   | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
   | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
+  | { kind: 'develop-deed-group'; cardId: CardId; districtId: string; options: DevelopDeedAction[] }
   | {
       kind: 'develop-outright-group';
       cardId: CardId;
@@ -143,6 +155,21 @@ export function App() {
         }));
     }
 
+    if (actionPicker.kind === 'deed-payment') {
+      return humanActions
+        .filter(
+          (action): action is DevelopDeedAction =>
+            action.type === 'develop-deed' &&
+            action.cardId === actionPicker.cardId &&
+            action.districtId === actionPicker.districtId
+        )
+        .map((action) => ({
+          id: `develop-deed-${action.cardId}-${action.districtId}-${paymentSignature(action.tokens)}`,
+          label: formatTokens(action.tokens),
+          action,
+        }));
+    }
+
     if (actionPicker.actionType === 'buy-deed') {
       return humanActions
         .filter(
@@ -177,6 +204,10 @@ export function App() {
 
     if (actionPicker.kind === 'trade') {
       return `Trade ${SUIT_EMOJI[actionPicker.give]}x3 for`;
+    }
+
+    if (actionPicker.kind === 'deed-payment') {
+      return `Develop deed ${cardSummary(actionPicker.cardId)} in ${actionPicker.districtId} with`;
     }
 
     if (actionPicker.actionType === 'buy-deed') {
@@ -338,6 +369,20 @@ export function App() {
     });
   };
 
+  const openDeedPaymentPicker = (
+    config: { cardId: CardId; districtId: string },
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({
+      kind: 'deed-payment',
+      cardId: config.cardId,
+      districtId: config.districtId,
+      ...position,
+    });
+  };
+
   const pickerPosition = (trigger: HTMLButtonElement, optionCount: number): { top: number; left: number } => {
     const rect = trigger.getBoundingClientRect();
     const rowCount = Math.max(1, Math.ceil(optionCount / 2));
@@ -362,7 +407,7 @@ export function App() {
     );
   }
 
-  const recentLog = humanView.log.slice(-12).reverse();
+  const recentLog = [...humanView.log].reverse();
 
   return (
     <div className="app-shell">
@@ -464,6 +509,55 @@ export function App() {
                           >
                             <span className="action-kind">buy-deed</span>
                             <span className="action-text">Buy deed {cardSummary(item.cardId)}</span>
+                          </button>
+                        );
+                      }
+
+                      if (item.kind === 'develop-deed-group') {
+                        if (item.options.length === 1) {
+                          const [onlyOption] = item.options;
+                          return (
+                            <button
+                              key={`develop-deed-direct-${item.cardId}-${item.districtId}-${index}`}
+                              type="button"
+                              className="action-button"
+                              onClick={() => handleHumanAction(onlyOption)}
+                            >
+                              <span className="action-kind">{onlyOption.type}</span>
+                              <span className="action-text">{describeAction(onlyOption)}</span>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <button
+                            key={`develop-deed-group-${item.cardId}-${item.districtId}-${index}`}
+                            type="button"
+                            className="action-button has-submenu"
+                            onClick={(event) => {
+                              const trigger = event.currentTarget;
+                              if (
+                                actionPicker?.kind === 'deed-payment' &&
+                                actionPicker.cardId === item.cardId &&
+                                actionPicker.districtId === item.districtId
+                              ) {
+                                setActionPicker(null);
+                                return;
+                              }
+                              openDeedPaymentPicker(
+                                {
+                                  cardId: item.cardId,
+                                  districtId: item.districtId,
+                                },
+                                trigger,
+                                item.options.length
+                              );
+                            }}
+                          >
+                            <span className="action-kind">develop-deed</span>
+                            <span className="action-text">
+                              Develop deed {cardSummary(item.cardId)} in {item.districtId}
+                            </span>
                           </button>
                         );
                       }
@@ -975,6 +1069,7 @@ function buildHumanActionList(actions: readonly GameAction[]): HumanActionListIt
   const result: HumanActionListItem[] = [];
   const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
   const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
+  const developDeedGroups = new Map<string, { options: DevelopDeedAction[] }>();
   const developOutrightGroups = new Map<string, { options: DevelopOutrightAction[] }>();
 
   for (const action of actions) {
@@ -998,6 +1093,24 @@ function buildHumanActionList(actions: readonly GameAction[]): HumanActionListIt
         const options = [action];
         buyDeedGroups.set(action.cardId, { options });
         result.push({ kind: 'buy-deed-group', cardId: action.cardId, options });
+      }
+      continue;
+    }
+
+    if (action.type === 'develop-deed') {
+      const groupKey = `${action.cardId}|${action.districtId}`;
+      const existing = developDeedGroups.get(groupKey);
+      if (existing) {
+        existing.options.push(action);
+      } else {
+        const options = [action];
+        developDeedGroups.set(groupKey, { options });
+        result.push({
+          kind: 'develop-deed-group',
+          cardId: action.cardId,
+          districtId: action.districtId,
+          options,
+        });
       }
       continue;
     }
@@ -1034,6 +1147,16 @@ function pickerStillLegal(picker: ActionPickerState, actions: readonly GameActio
     return actions.some(
       (action): action is TradeAction => action.type === 'trade' && action.give === picker.give
     );
+  }
+
+  if (picker.kind === 'deed-payment') {
+    const options = actions.filter(
+      (action): action is DevelopDeedAction =>
+        action.type === 'develop-deed' &&
+        action.cardId === picker.cardId &&
+        action.districtId === picker.districtId
+    );
+    return options.length > 1;
   }
 
   if (picker.actionType === 'buy-deed') {
