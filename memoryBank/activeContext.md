@@ -41,6 +41,9 @@
 
 - Playable React shell exists (`src/App.tsx`) with human vs bot and a profile selector.
 - UI dispatches only engine-legal actions and uses grouped follow-up pickers where options are noisy.
+- Canonical Decktet card-image mapping for UI assets now exists in `src/ui/cardImages.ts`:
+  - maps every engine `CardId` to Adaman-derived filenames in `src/assets/icons/CardImages`
+  - validates asset resolution at module load and via dedicated regression tests (`src/ui/cardImages.test.ts`)
 - Human-only turn reset is available in the actions list:
   - snapshot is captured at the start of the human `ActionWindow` (post roll/income resolution).
   - reset restores that snapshot before `end-turn`; it is not part of engine `legalActions`.

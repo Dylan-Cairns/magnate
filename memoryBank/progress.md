@@ -24,7 +24,10 @@
   - async-capable `src/policies/types.ts` + `src/policies/randomPolicy.ts`
   - `src/policies/catalog.ts` profile registry with strict fail-fast resolution for unknown/unavailable profiles
   - `src/ui/actionPresentation.ts` (+ tests)
-- UI now exposes bot-profile selection and status text, with a model-backed champion PPO profile enabled and set as default.
+- UI card-image mapping is now integrated from Adaman assets:
+  - canonical mapping module in `src/ui/cardImages.ts` (`CardId` -> image filename/url)
+  - regression tests in `src/ui/cardImages.test.ts` enforce full-card coverage and expected relationships
+- UI now exposes bot-profile selection and status text while keeping random legal fallback available.
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime
   - income-choice log attribution now reflects the chooser even when active player is restored
