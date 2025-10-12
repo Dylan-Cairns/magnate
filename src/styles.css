@@ -365,7 +365,7 @@ h1 {
     rgba(10, 28, 33, 0.7);
   padding: 0.38rem;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.2rem;
 }
 
@@ -392,31 +392,59 @@ h1 {
   background: rgba(12, 31, 39, 0.22);
 }
 
-.card-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.2rem;
+.card-face {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  row-gap: 0.2rem;
 }
 
 .card-rank {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
   font-weight: 700;
   color: var(--accent);
+  line-height: 1;
 }
 
-.card-suits {
-  display: flex;
-  gap: 0.2rem;
+.card-icon-grid {
+  display: grid;
+  gap: 0.28rem;
+  align-content: start;
+}
+
+.card-icon-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.34rem;
+}
+
+.card-suit-glyph {
+  justify-self: start;
+  width: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 0.88rem;
+  line-height: 1;
 }
 
-.card-bottom {
-  align-items: flex-start;
+.card-chip-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 1.35rem;
 }
 
-.card-bottom-placeholder {
+.card-chip-placeholder {
   display: block;
-  min-height: 1.2rem;
+  width: 1.35rem;
+  height: 1.35rem;
+  opacity: 0;
 }
 
 .deed-progress {

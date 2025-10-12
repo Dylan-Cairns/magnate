@@ -899,24 +899,32 @@ function CardTile({
       : card.kind === 'Pawn'
         ? 'P'
         : 'X';
+  const deedEntries = deedTokens ? tokenEntries(deedTokens) : [];
+  const iconRows = Math.max(suits.length, deedEntries.length, 1);
 
   return (
     <div className={`card-tile${compact ? ' compact' : ''}`} title={card.name}>
-      <div className="card-row card-top">
+      <div className="card-face">
         <span className="card-rank">{rank}</span>
-        <div className="card-suits">
-          {suits.map((suit) => (
-            <span key={`${cardId}-${suit}`}>{SUIT_EMOJI[suit]}</span>
-          ))}
-        </div>
-      </div>
 
-      <div className="card-row card-bottom">
-        {deedTokens && tokenEntries(deedTokens).length > 0 ? (
-          <TokenRow tokens={deedTokens} compact />
-        ) : (
-          <span className="card-bottom-placeholder" />
-        )}
+        <div className="card-icon-grid">
+          {Array.from({ length: iconRows }).map((_, index) => {
+            const suit = suits[index];
+            const deedEntry = deedEntries[index];
+            return (
+              <div className="card-icon-row" key={`${cardId}-row-${index}`}>
+                <span className="card-suit-glyph">{suit ? SUIT_EMOJI[suit] : '\u00A0'}</span>
+                <span className="card-chip-cell">
+                  {deedEntry ? (
+                    <TokenChip suit={deedEntry.suit} count={deedEntry.count} compact />
+                  ) : (
+                    <span className="card-chip-placeholder" />
+                  )}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {deedProgress !== undefined && deedTarget !== undefined && (
