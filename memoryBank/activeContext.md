@@ -61,7 +61,7 @@
   - crowns/resources render inside the middle board column as mirrored edge rows:
     - top row: bot resources-left/crowns-right, right-aligned in center lane
     - bottom row: human crowns-left/resources-right, left-aligned in center lane
-    - crown/resource chips are upscaled for readability (2.7rem token size)
+    - crown/resource chips are upscaled for readability (3rem token size)
   - full score breakdown is available via hover/focus popovers on each player score badge
 - Brand/info controls are now menu-driven:
   - title row (top-left, above Actions) includes a right-aligned hamburger button
@@ -75,8 +75,13 @@
   - browser-trained PPO profile is now enabled (`ppo_champion_2026-02-23_seed7`)
   - champion PPO profile is the default bot selection in UI
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
-- Right info column includes bot hand, deck state, roll result, and full scrollable log.
-  - deck state now includes draw count, discard count, and reshuffles remaining
+- Right info column includes bot hand, roll result, deck state, and full scrollable log.
+  - roll panel is above deck state, uses larger dice icons, and renders taxed suit as an icon
+  - deck state now renders visual deck/discard piles with count badges:
+    - deck uses striped card-back styling with "Cards remaining" hover text
+    - discard shows top discarded card face-up with "Discard pile" hover text
+    - reshuffles remaining is shown above the piles
+- Hidden opponent hand cards use striped card-back styling.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
 
