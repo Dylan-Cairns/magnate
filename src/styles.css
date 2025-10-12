@@ -2,8 +2,12 @@
 
 :root {
   --page-bg: #05080f;
-  --page-grain-light: rgba(255, 255, 255, 0.025);
-  --page-grain-mid: rgba(150, 176, 212, 0.06);
+  --page-grain-mid: rgba(143, 171, 212, 0.07);
+  --velvet-weave-light: rgba(126, 155, 196, 0.03);
+  --velvet-weave-dark: rgba(0, 0, 0, 0.048);
+  --velvet-speck-light: rgba(202, 220, 242, 0.018);
+  --velvet-speck-dark: rgba(10, 15, 24, 0.095);
+  --bg-center-glow: rgba(78, 109, 156, 0.2);
   --panel: #080b12;
   --panel-border: rgba(125, 94, 73, 0.6);
   --panel-border-start: #b57e4f;
@@ -93,10 +97,15 @@ body,
   min-height: 100%;
   background-color: var(--page-bg);
   background-image:
-    radial-gradient(circle at 18% 16%, var(--page-grain-mid), transparent 42%),
-    radial-gradient(circle at 78% 82%, rgba(99, 129, 170, 0.035), transparent 44%),
-    repeating-radial-gradient(circle at 0 0, var(--page-grain-light) 0 1px, transparent 1px 4px);
-  background-size: auto, auto, 3px 3px;
+    radial-gradient(ellipse 84% 64% at 50% 50%, var(--bg-center-glow) 0%, rgba(78, 109, 156, 0.09) 30%, transparent 72%),
+    radial-gradient(ellipse 120% 95% at 16% 17%, var(--page-grain-mid) 0%, transparent 64%),
+    radial-gradient(ellipse 116% 90% at 84% 83%, rgba(103, 133, 174, 0.06) 0%, transparent 66%),
+    repeating-linear-gradient(104deg, var(--velvet-weave-light) 0 2px, transparent 2px 24px),
+    repeating-linear-gradient(-101deg, var(--velvet-weave-dark) 0 3px, transparent 3px 32px),
+    repeating-radial-gradient(circle at 0 0, var(--velvet-speck-light) 0 1.1px, transparent 1.1px 18px),
+    repeating-radial-gradient(circle at 100% 100%, var(--velvet-speck-dark) 0 1px, transparent 1px 21px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.18) 100%);
+  background-size: auto, auto, auto, 360px 360px, 420px 420px, 210px 210px, 260px 260px, auto;
   color: var(--ink);
 }
 
