@@ -56,9 +56,20 @@
   --reset-turn-border: #60cc87;
   --reset-turn-bg: #1f4a37;
   --reset-turn-bg-hover: #296148;
+  --card-padding: 0.42rem;
+  --card-meta-height: 1.05rem;
+  --card-meta-gap: 0.24rem;
+  --card-image-source-width: 242;
+  --card-image-source-height: 376;
+  --card-image-area-width: 6.81rem;
+  --card-image-area-height: calc(
+    var(--card-image-area-width) * var(--card-image-source-height) / var(--card-image-source-width)
+  );
   --card-border: #3f4850;
-  --card-bg-start: #f0f2f3;
-  --card-bg-end: #7c858b;
+  --card-bg-start: #fcfdff;
+  --card-bg-end: #d9e1e8;
+  --card-image-border: #8e959b;
+  --card-image-bg: #f3f6fa;
   --card-ink: #10151b;
   --card-rank: #21150d;
   --chip-border: #4a545f;
@@ -77,12 +88,15 @@
   --suit-leaves: #bc8a5d;
   --suit-wyrms: #6fc055;
   --suit-knots: #efed6a;
-  --card-width: 7.65rem;
-  --card-height: 8.7rem;
-  --card-compact-width: 6.15rem;
-  --card-compact-height: 7.35rem;
+  --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
+  --card-height: calc(
+    (var(--card-padding) * 2) +
+    var(--card-meta-height) +
+    var(--card-meta-gap) +
+    var(--card-image-area-height)
+  );
   --card-stack-step: calc(var(--card-height) / 3);
-  --player-panel-height: 13.2rem;
+  --player-panel-height: 15rem;
 }
 
 * {
@@ -577,16 +591,14 @@ h1 {
     0 5px 12px rgba(0, 0, 0, 0.35),
     inset 0 0 0 1px var(--card-inset-border);
   color: var(--card-ink);
-  padding: 0.38rem;
+  padding: var(--card-padding);
   display: grid;
-  grid-template-rows: 1rem minmax(0, 1fr) 1rem;
-  gap: 0.22rem;
+  grid-template-rows: var(--card-meta-height) minmax(0, 1fr);
+  gap: var(--card-meta-gap);
 }
 
-.card-tile.compact {
-  width: var(--card-compact-width);
-  min-height: var(--card-compact-height);
-  height: var(--card-compact-height);
+.card-tile.perspective-bot {
+  grid-template-rows: minmax(0, 1fr) var(--card-meta-height);
 }
 
 .card-back {
@@ -614,9 +626,16 @@ h1 {
   gap: 0.24rem;
 }
 
-.card-top {
-  justify-content: flex-start;
-  min-height: 1rem;
+.card-meta {
+  justify-content: space-between;
+  min-height: var(--card-meta-height);
+}
+
+.card-meta-leading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  min-width: 0;
 }
 
 .card-rank {
@@ -688,30 +707,44 @@ h1 {
 }
 
 .card-body {
-  align-items: center;
+  position: relative;
+  align-items: stretch;
   justify-content: center;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.card-progress-slot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 1rem;
+.card-image-frame {
+  flex: 0 1 auto;
+  width: var(--card-image-area-width);
+  height: var(--card-image-area-height);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--card-image-bg);
+  box-shadow: inset 0 0 0 1px var(--card-image-border);
+}
+
+.card-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center;
 }
 
 .card-token-row {
+  position: absolute;
+  left: 50%;
+  bottom: 0.22rem;
+  transform: translateX(-50%);
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
-  min-height: 1.35rem;
-}
-
-.card-chip-placeholder {
-  display: block;
-  width: 1.35rem;
-  min-height: 1.35rem;
-  opacity: 0;
+  min-height: 0;
+  padding: 0.08rem 0.16rem;
+  border-radius: 999px;
+  background: rgba(14, 20, 31, 0.58);
 }
 
 .deed-progress {
