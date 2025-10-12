@@ -11,16 +11,15 @@ Single-player Magnate with a trained bot opponent.
 
 ## Current Status
 
-- Engine core exists (`src/engine/`) with deterministic setup, deck flow, action legality/reducer logic, and turn-flow resolution.
-- Tax/income, scoring, and terminal resolution are implemented.
-- Canonical game initialization now exists via `newGame(seed, { firstPlayer })`.
-- Player-scoped observation views are implemented (`toPlayerView` / `toActivePlayerView`) so opponent hand cards and draw order stay hidden.
-- React gameplay shell is now wired (`index.html`, `src/main.tsx`, `src/App.tsx`) with:
-  - board rendering for districts/stacks/deeds/resources/crowns/hand
-  - legal-action button panel for the human player
-  - random-bot opponent using engine `legalActions` + `applyAction`
-  - turn/status/dice/log HUD
-- Bridge runtime and training pipeline are still in progress.
+- Engine core exists in `src/engine/` and is deterministic:
+  - setup/deck lifecycle
+  - legality + reducer transitions
+  - phase resolution (`advanceToDecision`)
+  - scoring + terminal resolution
+- Canonical initialization is available via `newGame(seed, { firstPlayer })`.
+- Player-view projection exists (`toPlayerView` / `toActivePlayerView`) with hidden opponent hand contents and hidden draw order.
+- React gameplay shell exists (`index.html`, `src/main.tsx`, `src/App.tsx`) for human vs random bot using engine APIs.
+- Bridge runtime and training pipeline are not implemented yet.
 
 ## Local Commands
 
