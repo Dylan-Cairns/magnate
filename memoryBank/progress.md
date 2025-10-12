@@ -54,6 +54,12 @@
   - District header display now uses marker card names centered in each district title row, with right-aligned suit icons for non-Excuse markers only
   - District card lanes now reserve a fixed two-row card area regardless of current card count to reduce layout jitter
   - Log panel now shows full game history without truncation and scrolls within its container when needed
+  - Right info column UX polish:
+    - title panel now includes inline seed + new game controls
+    - added `Deck State` panel (draw count + reshuffles remaining)
+    - actions header now surfaces a high-visibility `Last Turn` badge across both final turns (`finalTurnsRemaining > 0`)
+    - info-column/log-panel height behavior tightened so log panel fully reaches column bottom
+    - fixed remaining gap by aligning info-pane row-template count with actual panel count
   - Player-area cards now match board card size/shape, with centered player-section layout and slightly increased inter-section spacing
   - Player resource chips are now scaled up so the resources block visually matches neighboring card height
   - Card visuals were restyled so each card shows rank + vertical suits on the left, with deed chips in a right-side column
