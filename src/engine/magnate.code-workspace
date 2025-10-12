@@ -1,11 +1,11 @@
 {
-	"folders": [
-		{
-			"path": "../.."
-		},
-		{
-			"path": "../../../kuhn-poker"
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "../..",
+    },
+    {
+      "path": "../../../kuhn-poker",
+    },
+  ],
+  "settings": {},
 }

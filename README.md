@@ -81,6 +81,8 @@ With `.venv` active:
   - progress logging is enabled by default every 5 updates (`--progress-every-updates 0` disables it)
 - Queue PPO training runs by seed (sequential):
   - `python -m scripts.train_ppo_queue --seeds 2 3 4 --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout --progress-every-updates 5`
+- Queue canonical benchmarks by seed (sequential, with ranked summary):
+  - `python -m scripts.benchmark_queue --seeds 1 2 3 4 --candidate-policy ppo`
 
 ## Source-of-Truth Docs
 
