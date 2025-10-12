@@ -4,11 +4,9 @@ import { legalActions } from './engine/actionBuilders';
 import cubeDieIcon from './assets/icons/cube.png';
 import dodecahedronDieIcon from './assets/icons/dodecahedron.png';
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from './engine/cards';
-import { newGame } from './engine/game';
-import { applyAction } from './engine/reducer';
-import { isTerminal, scoreGame } from './engine/scoring';
+import { createSession, stepToDecision } from './engine/session';
+import { isTerminal, scoreLive } from './engine/scoring';
 import { developmentCost, findProperty, SUITS } from './engine/stateHelpers';
-import { advanceToDecision } from './engine/turnFlow';
 import type {
   DistrictStack,
   DistrictState,
@@ -21,6 +19,18 @@ import type {
   Suit,
 } from './engine/types';
 import { toPlayerView } from './engine/view';
+import { randomPolicy } from './policies/randomPolicy';
+import {
+  actionStableKey,
+  buildHumanActionList,
+  buildPickerOptions,
+  cardSummary,
+  describeAction,
+  formatTokens,
+  pickerStillLegal,
+  pickerTitle,
+  type ActionPickerQuery,
+} from './ui/actionPresentation';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -32,57 +42,10 @@ const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
 const TRADE_POPOVER_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 10;
 
-type TradeAction = Extract<GameAction, { type: 'trade' }>;
-type BuyDeedAction = Extract<GameAction, { type: 'buy-deed' }>;
-type DevelopDeedAction = Extract<GameAction, { type: 'develop-deed' }>;
-type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
-type NonGroupedAction = Exclude<
-  GameAction,
-  TradeAction | BuyDeedAction | DevelopDeedAction | DevelopOutrightAction
->;
-
-type ActionPickerState =
-  | {
-      kind: 'trade';
-      give: Suit;
-      top: number;
-      left: number;
-    }
-  | {
-      kind: 'district';
-      actionType: 'buy-deed' | 'develop-outright';
-      cardId: CardId;
-      payment?: Partial<Record<Suit, number>>;
-      paymentKey?: string;
-      top: number;
-      left: number;
-    }
-  | {
-      kind: 'deed-payment';
-      cardId: CardId;
-      districtId: string;
-      top: number;
-      left: number;
-    };
-
-type HumanActionListItem =
-  | { kind: 'action'; action: NonGroupedAction }
-  | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
-  | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
-  | { kind: 'develop-deed-group'; cardId: CardId; districtId: string; options: DevelopDeedAction[] }
-  | {
-      kind: 'develop-outright-group';
-      cardId: CardId;
-      payment: Partial<Record<Suit, number>>;
-      paymentKey: string;
-      options: DevelopOutrightAction[];
-    };
-
-interface PickerOption {
-  id: string;
-  label: string;
-  action: GameAction;
-}
+type ActionPickerState = ActionPickerQuery & {
+  top: number;
+  left: number;
+};
 
 type CardPerspective = 'human' | 'bot';
 
@@ -100,7 +63,7 @@ function makeSeed(): string {
 }
 
 function createInitialState(seed: string): GameState {
-  return advanceToDecision(newGame(seed, { firstPlayer: HUMAN_PLAYER }));
+  return createSession(seed, HUMAN_PLAYER);
 }
 
 function errorMessage(error: unknown): string {
@@ -127,7 +90,7 @@ export function App() {
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
   const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
-  const score = useMemo(() => state.finalScore ?? scoreGame(state), [state]);
+  const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
   const reshufflesRemaining = Math.max(0, 2 - humanView.deck.reshuffles);
 
   const playersById = useMemo(
@@ -146,81 +109,18 @@ export function App() {
 
   const humanActionItems = useMemo(() => buildHumanActionList(humanActions), [humanActions]);
 
-  const actionPickerOptions = useMemo((): PickerOption[] => {
+  const actionPickerOptions = useMemo(() => {
     if (!actionPicker) {
       return [];
     }
-
-    if (actionPicker.kind === 'trade') {
-      return humanActions
-        .filter((action): action is TradeAction => action.type === 'trade' && action.give === actionPicker.give)
-        .map((action) => ({
-          id: `trade-${action.give}-${action.receive}`,
-          label: `${SUIT_EMOJI[action.receive]} x1`,
-          action,
-        }));
-    }
-
-    if (actionPicker.kind === 'deed-payment') {
-      return humanActions
-        .filter(
-          (action): action is DevelopDeedAction =>
-            action.type === 'develop-deed' &&
-            action.cardId === actionPicker.cardId &&
-            action.districtId === actionPicker.districtId
-        )
-        .map((action) => ({
-          id: `develop-deed-${action.cardId}-${action.districtId}-${paymentSignature(action.tokens)}`,
-          label: formatTokens(action.tokens),
-          action,
-        }));
-    }
-
-    if (actionPicker.actionType === 'buy-deed') {
-      return humanActions
-        .filter(
-          (action): action is BuyDeedAction =>
-            action.type === 'buy-deed' && action.cardId === actionPicker.cardId
-        )
-        .map((action) => ({
-          id: `buy-deed-${action.cardId}-${action.districtId}`,
-          label: action.districtId,
-          action,
-        }));
-    }
-
-    return humanActions
-      .filter(
-        (action): action is DevelopOutrightAction =>
-          action.type === 'develop-outright' &&
-          action.cardId === actionPicker.cardId &&
-          paymentSignature(action.payment) === actionPicker.paymentKey
-      )
-      .map((action) => ({
-        id: `develop-outright-${action.cardId}-${action.districtId}-${paymentSignature(action.payment)}`,
-        label: action.districtId,
-        action,
-      }));
+    return buildPickerOptions(toPickerQuery(actionPicker), humanActions, SUIT_EMOJI);
   }, [actionPicker, humanActions]);
 
   const actionPickerTitle = useMemo((): string => {
     if (!actionPicker) {
       return '';
     }
-
-    if (actionPicker.kind === 'trade') {
-      return `Trade ${SUIT_EMOJI[actionPicker.give]}x3 for`;
-    }
-
-    if (actionPicker.kind === 'deed-payment') {
-      return `Develop deed ${cardSummary(actionPicker.cardId)} in ${actionPicker.districtId} with`;
-    }
-
-    if (actionPicker.actionType === 'buy-deed') {
-      return `Buy deed ${cardSummary(actionPicker.cardId)} in`;
-    }
-
-    return `Develop ${cardSummary(actionPicker.cardId)} (${formatTokens(actionPicker.payment ?? {})}) in`;
+    return pickerTitle(toPickerQuery(actionPicker), SUIT_EMOJI);
   }, [actionPicker]);
 
   useEffect(() => {
@@ -244,11 +144,20 @@ export function App() {
         setBotThinking(false);
         return;
       }
-
-      const choice = actions[Math.floor(Math.random() * actions.length)];
+      const botView = toPlayerView(current, BOT_PLAYER);
+      const choice = randomPolicy.selectAction({
+        view: botView,
+        legalActions: actions,
+        random: Math.random,
+      });
+      if (!choice) {
+        setError('Bot policy could not select an action.');
+        setBotThinking(false);
+        return;
+      }
 
       try {
-        const next = advanceToDecision(applyAction(current, choice));
+        const next = stepToDecision(current, choice);
         setState(next);
         setError(null);
       } catch (err) {
@@ -270,7 +179,7 @@ export function App() {
     }
 
     if (actionPicker) {
-      const stillLegal = pickerStillLegal(actionPicker, humanActions);
+      const stillLegal = pickerStillLegal(toPickerQuery(actionPicker), humanActions);
       if (!stillLegal) {
         setActionPicker(null);
       }
@@ -322,7 +231,7 @@ export function App() {
     }
 
     try {
-      const next = advanceToDecision(applyAction(state, action));
+      const next = stepToDecision(state, action);
       setState(next);
       setError(null);
     } catch (err) {
@@ -438,26 +347,26 @@ export function App() {
                   <p className="empty-note">No legal actions.</p>
                 ) : (
                   <div className="action-list">
-                    {humanActionItems.map((item, index) => {
+                    {humanActionItems.map((item) => {
                       if (item.kind === 'trade-group') {
                         if (item.options.length === 1) {
                           const [onlyOption] = item.options;
                           return (
                             <button
-                              key={`trade-direct-${item.give}-${index}`}
+                              key={`trade-direct-${item.give}`}
                               type="button"
                               className="action-button"
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">trade</span>
-                              <span className="action-text">{describeAction(onlyOption)}</span>
+                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
                             </button>
                           );
                         }
 
                         return (
                           <button
-                            key={`trade-group-${item.give}-${index}`}
+                            key={`trade-group-${item.give}`}
                             type="button"
                             className="action-button has-submenu"
                             onClick={(event) => {
@@ -480,20 +389,20 @@ export function App() {
                           const [onlyOption] = item.options;
                           return (
                             <button
-                              key={`buy-deed-direct-${item.cardId}-${index}`}
+                              key={`buy-deed-direct-${actionStableKey(onlyOption)}`}
                               type="button"
                               className="action-button"
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">{describeAction(onlyOption)}</span>
+                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
                             </button>
                           );
                         }
 
                         return (
                           <button
-                            key={`buy-deed-group-${item.cardId}-${index}`}
+                            key={`buy-deed-group-${item.cardId}`}
                             type="button"
                             className="action-button has-submenu"
                             onClick={(event) => {
@@ -517,7 +426,7 @@ export function App() {
                             }}
                           >
                             <span className="action-kind">buy-deed</span>
-                            <span className="action-text">Buy deed {cardSummary(item.cardId)}</span>
+                            <span className="action-text">Buy deed {cardSummary(item.cardId, SUIT_EMOJI)}</span>
                           </button>
                         );
                       }
@@ -527,20 +436,20 @@ export function App() {
                           const [onlyOption] = item.options;
                           return (
                             <button
-                              key={`develop-deed-direct-${item.cardId}-${item.districtId}-${index}`}
+                              key={`develop-deed-direct-${actionStableKey(onlyOption)}`}
                               type="button"
                               className="action-button"
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">{describeAction(onlyOption)}</span>
+                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
                             </button>
                           );
                         }
 
                         return (
                           <button
-                            key={`develop-deed-group-${item.cardId}-${item.districtId}-${index}`}
+                            key={`develop-deed-group-${item.cardId}-${item.districtId}`}
                             type="button"
                             className="action-button has-submenu"
                             onClick={(event) => {
@@ -565,7 +474,7 @@ export function App() {
                           >
                             <span className="action-kind">develop-deed</span>
                             <span className="action-text">
-                              Develop deed {cardSummary(item.cardId)} in {item.districtId}
+                              Develop deed {cardSummary(item.cardId, SUIT_EMOJI)} in {item.districtId}
                             </span>
                           </button>
                         );
@@ -576,20 +485,20 @@ export function App() {
                           const [onlyOption] = item.options;
                           return (
                             <button
-                              key={`develop-outright-direct-${item.cardId}-${item.paymentKey}-${index}`}
+                              key={`develop-outright-direct-${actionStableKey(onlyOption)}`}
                               type="button"
                               className="action-button"
                               onClick={() => handleHumanAction(onlyOption)}
                             >
                               <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">{describeAction(onlyOption)}</span>
+                              <span className="action-text">{describeAction(onlyOption, SUIT_EMOJI)}</span>
                             </button>
                           );
                         }
 
                         return (
                           <button
-                            key={`develop-outright-group-${item.cardId}-${item.paymentKey}-${index}`}
+                            key={`develop-outright-group-${item.cardId}-${item.paymentKey}`}
                             type="button"
                             className="action-button has-submenu"
                             onClick={(event) => {
@@ -617,7 +526,7 @@ export function App() {
                           >
                             <span className="action-kind">develop-outright</span>
                             <span className="action-text">
-                              Develop {cardSummary(item.cardId)} ({formatTokens(item.payment)})
+                              Develop {cardSummary(item.cardId, SUIT_EMOJI)} ({formatTokens(item.payment, SUIT_EMOJI)})
                             </span>
                           </button>
                         );
@@ -625,13 +534,13 @@ export function App() {
 
                       return (
                         <button
-                          key={`${item.action.type}-${index}-${JSON.stringify(item.action)}`}
+                          key={actionStableKey(item.action)}
                           type="button"
                           className="action-button"
                           onClick={() => handleHumanAction(item.action)}
                         >
                           <span className="action-kind">{item.action.type}</span>
-                          <span className="action-text">{describeAction(item.action)}</span>
+                          <span className="action-text">{describeAction(item.action, SUIT_EMOJI)}</span>
                         </button>
                       );
                     })}
@@ -1123,49 +1032,6 @@ function RollResult({
   );
 }
 
-function describeAction(action: GameAction): string {
-  switch (action.type) {
-    case 'end-turn':
-      return 'Draw card and end turn';
-    case 'trade':
-      return `Trade ${SUIT_EMOJI[action.give]}x3 for ${SUIT_EMOJI[action.receive]}x1`;
-    case 'sell-card':
-      return `Sell ${cardSummary(action.cardId)}`;
-    case 'buy-deed':
-      return `Buy deed ${cardSummary(action.cardId)} in ${action.districtId}`;
-    case 'develop-deed':
-      return `Develop deed ${cardSummary(action.cardId)} in ${action.districtId} (${formatTokens(
-        action.tokens
-      )})`;
-    case 'develop-outright':
-      return `Develop ${cardSummary(action.cardId)} in ${action.districtId} (${formatTokens(
-        action.payment
-      )})`;
-    case 'choose-income-suit':
-      return `Choose ${SUIT_EMOJI[action.suit]} income for ${cardSummary(action.cardId)} in ${action.districtId}`;
-  }
-}
-
-function cardSummary(cardId: CardId): string {
-  const card = CARD_BY_ID[cardId];
-  const rank =
-    card.kind === 'Property' || card.kind === 'Crown'
-      ? String(card.rank)
-      : card.kind === 'Pawn'
-        ? 'P'
-        : 'X';
-  const suits = card.kind === 'Excuse' ? '' : card.suits.map((suit) => SUIT_EMOJI[suit]).join('');
-  return `${rank}${suits}`;
-}
-
-function formatTokens(tokens: Partial<Record<Suit, number>>): string {
-  const entries = tokenEntries(tokens);
-  if (entries.length === 0) {
-    return '-';
-  }
-  return entries.map((entry) => `${SUIT_EMOJI[entry.suit]}x${entry.count}`).join(' ');
-}
-
 function clamp(value: number, min: number, max: number): number {
   if (max < min) {
     return min;
@@ -1173,119 +1039,20 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-function buildHumanActionList(actions: readonly GameAction[]): HumanActionListItem[] {
-  const result: HumanActionListItem[] = [];
-  const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
-  const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
-  const developDeedGroups = new Map<string, { options: DevelopDeedAction[] }>();
-  const developOutrightGroups = new Map<string, { options: DevelopOutrightAction[] }>();
-
-  for (const action of actions) {
-    if (action.type === 'trade') {
-      const existing = tradeGroups.get(action.give);
-      if (existing) {
-        existing.options.push(action);
-      } else {
-        const options = [action];
-        tradeGroups.set(action.give, { options });
-        result.push({ kind: 'trade-group', give: action.give, options });
-      }
-      continue;
-    }
-
-    if (action.type === 'buy-deed') {
-      const existing = buyDeedGroups.get(action.cardId);
-      if (existing) {
-        existing.options.push(action);
-      } else {
-        const options = [action];
-        buyDeedGroups.set(action.cardId, { options });
-        result.push({ kind: 'buy-deed-group', cardId: action.cardId, options });
-      }
-      continue;
-    }
-
-    if (action.type === 'develop-deed') {
-      const groupKey = `${action.cardId}|${action.districtId}`;
-      const existing = developDeedGroups.get(groupKey);
-      if (existing) {
-        existing.options.push(action);
-      } else {
-        const options = [action];
-        developDeedGroups.set(groupKey, { options });
-        result.push({
-          kind: 'develop-deed-group',
-          cardId: action.cardId,
-          districtId: action.districtId,
-          options,
-        });
-      }
-      continue;
-    }
-
-    if (action.type === 'develop-outright') {
-      const paymentKey = paymentSignature(action.payment);
-      const groupKey = `${action.cardId}|${paymentKey}`;
-      const existing = developOutrightGroups.get(groupKey);
-
-      if (existing) {
-        existing.options.push(action);
-      } else {
-        const options = [action];
-        developOutrightGroups.set(groupKey, { options });
-        result.push({
-          kind: 'develop-outright-group',
-          cardId: action.cardId,
-          payment: action.payment,
-          paymentKey,
-          options,
-        });
-      }
-      continue;
-    }
-
-    result.push({ kind: 'action', action });
-  }
-
-  return result;
-}
-
-function pickerStillLegal(picker: ActionPickerState, actions: readonly GameAction[]): boolean {
+function toPickerQuery(picker: ActionPickerState): ActionPickerQuery {
   if (picker.kind === 'trade') {
-    return actions.some(
-      (action): action is TradeAction => action.type === 'trade' && action.give === picker.give
-    );
+    return { kind: 'trade', give: picker.give };
   }
-
   if (picker.kind === 'deed-payment') {
-    const options = actions.filter(
-      (action): action is DevelopDeedAction =>
-        action.type === 'develop-deed' &&
-        action.cardId === picker.cardId &&
-        action.districtId === picker.districtId
-    );
-    return options.length > 1;
+    return { kind: 'deed-payment', cardId: picker.cardId, districtId: picker.districtId };
   }
-
-  if (picker.actionType === 'buy-deed') {
-    const options = actions.filter(
-      (action): action is BuyDeedAction =>
-        action.type === 'buy-deed' && action.cardId === picker.cardId
-    );
-    return options.length > 1;
-  }
-
-  const options = actions.filter(
-    (action): action is DevelopOutrightAction =>
-      action.type === 'develop-outright' &&
-      action.cardId === picker.cardId &&
-      paymentSignature(action.payment) === picker.paymentKey
-  );
-  return options.length > 1;
-}
-
-function paymentSignature(tokens: Partial<Record<Suit, number>>): string {
-  return SUITS.map((suit) => `${suit}:${tokens[suit] ?? 0}`).join('|');
+  return {
+    kind: 'district',
+    actionType: picker.actionType,
+    cardId: picker.cardId,
+    payment: picker.payment,
+    paymentKey: picker.paymentKey,
+  };
 }
 
 function districtMarkerName(markerSuitMask: readonly Suit[]): string {

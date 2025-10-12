@@ -24,9 +24,9 @@ Design expectations:
 ## Client Controller Pattern
 
 - Client loop should stay thin and deterministic:
-  - `state = advanceToDecision(newGame(...))`
+  - `state = createSession(seed, firstPlayer)`
   - render from `toPlayerView(state, viewerId)`
-  - apply only `legalActions(state)` through `applyAction`
+  - apply only `legalActions(state)` through `stepToDecision(state, action)`
 - Bot/human action selection should sit behind a shared policy contract so swapping random -> trained does not change controller flow.
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
@@ -37,6 +37,8 @@ Design expectations:
 - Non-decision phases auto-resolve via `advanceToDecision`.
 - Decision phases are where external actors choose actions (`CollectIncome` with pending choices and `ActionWindow`).
 - Draw/exhaustion handling and final-turn countdown are part of phase resolution.
+- Draw exhaustion source is canonical in `deck.reshuffles` (no duplicate exhaustion field).
+- Income-choice return owner is stored as `PlayerId`.
 - Card-play gating is explicit (`cardPlayedThisTurn`):
   - exactly one card-play action per turn
   - `ActionWindow` uses a unified action surface:

@@ -52,6 +52,6 @@ describe('newGame', () => {
     expect(state.turn).toBe(1);
     expect(state.cardPlayedThisTurn).toBe(false);
     expect(state.pendingIncomeChoices).toBeUndefined();
-    expect(state.incomeChoiceReturnPlayerIndex).toBeUndefined();
+    expect(state.incomeChoiceReturnPlayerId).toBeUndefined();
   });
 });

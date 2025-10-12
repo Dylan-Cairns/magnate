@@ -75,7 +75,6 @@ export interface PlayerState {
 export type GamePhase =
   | 'StartTurn'
   | 'TaxCheck'
-  | 'IncomeRoll'
   | 'CollectIncome'
   | 'ActionWindow'
   | 'DrawCard'
@@ -140,7 +139,6 @@ export interface PlayerView {
   players: ReadonlyArray<ObservedPlayerState>;
   deck: PublicDeckView;
   cardPlayedThisTurn: boolean;
-  exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
   lastTaxSuit?: Suit;
@@ -161,12 +159,11 @@ export interface GameState {
   phase: GamePhase;
   districts: DistrictLine;
   cardPlayedThisTurn: boolean;
-  exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
   lastTaxSuit?: Suit;
   pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
-  incomeChoiceReturnPlayerIndex?: number;
+  incomeChoiceReturnPlayerId?: PlayerId;
   finalScore?: FinalScore;
   log: ReadonlyArray<GameLogEntry>;
 }

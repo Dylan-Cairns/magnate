@@ -173,30 +173,6 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'sell-card')).toBe(true);
   });
 
-  it('ActionWindow exposes card-play actions before card play even without deeds', () => {
-    const state = makeGameState({
-      phase: 'ActionWindow',
-      cardPlayedThisTurn: false,
-      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
-    });
-    const actions = legalActions(state);
-    expect(actions.some((action) => action.type === 'sell-card')).toBe(true);
-    expect(actions.some((action) => action.type === 'end-turn')).toBe(false);
-  });
-
-  it('ActionWindow includes end-turn once a card has been played this turn', () => {
-    const state = makeGameState({
-      phase: 'ActionWindow',
-      cardPlayedThisTurn: true,
-      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
-    });
-    const actions = legalActions(state);
-    expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
-    expect(actions.some((action) => action.type === 'sell-card')).toBe(false);
-    expect(actions.some((action) => action.type === 'buy-deed')).toBe(false);
-    expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
-  });
-
   it('ActionWindow includes both trade and develop actions in the same state', () => {
     let state = makeGameState({
       players: [

@@ -10,16 +10,24 @@
   - legality + reducer action handling
   - phase resolver (`advanceToDecision`)
   - scoring and terminal finalization
+- Engine state model was simplified:
+  - canonical exhaustion source is `deck.reshuffles` (removed duplicated `exhaustionStage`)
+  - income-choice return owner is ID-based (`incomeChoiceReturnPlayerId`)
+  - removed transitional `IncomeRoll` phase
 - Canonical game creation exists via `newGame(seed, { firstPlayer })`.
 - Player-scoped visibility projection exists and is test-covered (`toPlayerView` / `toActivePlayerView`).
 - Playable browser client exists (human vs random bot) using engine truth APIs.
 - Board UI now uses centered overlapping district stacks with player-specific visual perspective for readability.
+- Policy/controller boundaries now exist:
+  - `src/engine/session.ts` (`createSession`, `stepToDecision`)
+  - `src/policies/types.ts` + `src/policies/randomPolicy.ts`
+  - `src/ui/actionPresentation.ts` (+ tests)
 - Tooling gates include lint + typecheck + tests.
 
 ## In Progress
 
 - Expanding rules-parity scenario coverage, especially full-turn/full-game edges.
-- Cleaning policy boundaries so random/human/trained bots share one selector interface.
+- Preparing bridge runtime/trainer integration against the extracted policy and session boundaries.
 
 ## Remaining
 

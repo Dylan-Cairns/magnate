@@ -119,14 +119,15 @@ function playActions(state: GameState): GameAction[] {
     );
 
     const canBuyDeed = canAfford(player.resources, deedCost(card));
-    const deedable = placements
-      .filter((district) => !district.stacks[playerId]?.deed)
-      .filter(() => canBuyDeed)
-      .map((district) => ({
-        type: 'buy-deed' as const,
-        cardId,
-        districtId: district.id,
-      }));
+    const deedable = canBuyDeed
+      ? placements
+          .filter((district) => !district.stacks[playerId]?.deed)
+          .map((district) => ({
+            type: 'buy-deed' as const,
+            cardId,
+            districtId: district.id,
+          }))
+      : [];
 
     const developOutright = placements.flatMap((district) =>
       enumerateOutrightPayments(card, player.resources).map((payment) => ({
