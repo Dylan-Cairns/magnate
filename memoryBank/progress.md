@@ -53,6 +53,9 @@
     - `develop-deed` grouped by card + district with payment picker popover when token suit/payment is the only difference
   - District header display now uses marker card names centered in each district title row, with right-aligned suit icons for non-Excuse markers only
   - District card lanes now reserve a fixed two-row card area regardless of current card count to reduce layout jitter
+  - District lane card ordering/display updated to vertical stacks with player-specific chronology:
+    - human lanes: older -> newer top-to-bottom
+    - bot lanes: newer -> older top-to-bottom
   - Log panel now shows full game history without truncation and scrolls within its container when needed
   - Right info column UX polish:
     - title panel now includes inline seed + new game controls

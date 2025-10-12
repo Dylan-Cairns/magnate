@@ -74,6 +74,9 @@
     - Pawn/Excuse markers use a unified header style
     - suit icons remain right-aligned for Pawn markers only
   - District lane card areas now reserve two rows of card space even at low/zero occupancy to avoid board jitter
+  - District lane card flow is now vertical:
+    - human stacks place newer cards below older cards
+    - bot stacks place newer cards above older cards
   - Log panel now renders full action history (no 12-entry cap) and relies on internal panel scrolling for overflow
   - Right-side info column controls and status updates:
     - seed input + new game button now sit inline directly under the `Magnate` title in the same panel
