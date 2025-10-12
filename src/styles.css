@@ -434,10 +434,10 @@ h1 {
   min-height: var(--card-height);
   height: var(--card-height);
   border-radius: 10px;
-  border: 1px solid #9c804b;
-  background: linear-gradient(160deg, #d7c79e 0%, #c5b07e 56%, #aa915f 100%);
-  box-shadow: inset 0 0 0 1px rgba(241, 224, 182, 0.2);
-  color: #1f2b2f;
+  border: 1px solid #b08a50;
+  background: linear-gradient(160deg, #6a665c 0%, #2b4450 56%, #0a1c21 100%);
+  box-shadow: inset 0 0 0 1px rgba(231, 203, 138, 0.16);
+  color: var(--ink);
   padding: 0.38rem;
   display: grid;
   grid-template-rows: 1rem minmax(0, 1fr) 1rem;
@@ -451,15 +451,15 @@ h1 {
 }
 
 .card-back {
-  border-style: solid;
-  border-color: #7ea39d;
+  border-style: dashed;
+  border-color: rgba(191, 226, 220, 0.5);
   background:
     repeating-linear-gradient(
       135deg,
-      #a8c2bf 0,
-      #a8c2bf 8px,
-      #2c5063 8px,
-      #2c5063 16px
+      #9dc2bd 0,
+      #9dc2bd 8px,
+      #163440 8px,
+      #163440 16px
     );
 }
 
@@ -485,7 +485,7 @@ h1 {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: #875f1e;
+  color: var(--accent);
   min-height: 1rem;
   line-height: 1;
 }
@@ -541,7 +541,7 @@ h1 {
 
 .deed-progress {
   font-size: 0.68rem;
-  color: #4f5d63;
+  color: var(--muted);
 }
 
 .deed-progress-placeholder {
