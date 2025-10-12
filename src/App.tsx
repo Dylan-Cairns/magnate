@@ -72,6 +72,15 @@ const SUIT_CLASS: Record<Suit, string> = {
   Knots: 'knots',
 };
 
+const SUIT_TOKEN_BG: Record<Suit, string> = {
+  Moons: '#e4e7eb',
+  Suns: '#f7cc95',
+  Waves: '#cfe3f5',
+  Leaves: '#dfc8b2',
+  Wyrms: '#bfe3b3',
+  Knots: '#f6f4bf',
+};
+
 const EMOJI_TO_SUIT = Object.entries(SUIT_EMOJI).reduce(
   (acc, [suit, glyph]) => {
     acc[glyph] = suit as Suit;
@@ -857,7 +866,9 @@ function DistrictColumn({ district }: { district: DistrictState }) {
             }, {})}
             compact
           />
-        ) : null}
+        ) : (
+          <span className="district-marker-tokens district-marker-placeholder" aria-hidden="true" />
+        )}
       </header>
 
       <DistrictLane playerId={HUMAN_PLAYER} stack={district.stacks[HUMAN_PLAYER]} />
@@ -926,9 +937,7 @@ function DistrictLane({
               </div>
             ))}
           </div>
-        ) : (
-          <span className="empty-note">No cards</span>
-        )}
+        ) : null}
       </div>
     </section>
   );
@@ -1055,7 +1064,11 @@ function TokenRow({
 function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compact?: boolean }) {
   const isEmpty = count === 0;
   return (
-    <span className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}`} title={`${suit} x${count}`}>
+    <span
+      className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}`}
+      title={`${suit} x${count}`}
+      style={{ '--token-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
+    >
       <SuitEmoji suit={suit} />
       {count > 1 && <span className="token-count">x{count}</span>}
     </span>
