@@ -6,6 +6,7 @@ from pathlib import Path
 
 from trainer.behavior_cloning import BehaviorCloningModel, save_behavior_cloning_checkpoint
 from trainer.policies import BehaviorCloningPolicy, policy_from_name
+from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
 
 
 class PolicyFactoryTests(unittest.TestCase):
@@ -21,6 +22,18 @@ class PolicyFactoryTests(unittest.TestCase):
             policy = policy_from_name("bc", checkpoint_path=path)
 
         self.assertIsInstance(policy, BehaviorCloningPolicy)
+
+    def test_ppo_policy_requires_checkpoint_path(self) -> None:
+        with self.assertRaises(ValueError):
+            policy_from_name("ppo")
+
+    def test_policy_factory_loads_ppo_checkpoint(self) -> None:
+        model = CandidateActorCritic(observation_dim=2, action_feature_dim=2, hidden_dim=8)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "ppo.pt"
+            save_ppo_checkpoint(model, path)
+            policy = policy_from_name("ppo", checkpoint_path=path)
+        self.assertEqual(policy.name, f"ppo:{path.name}")
 
 
 if __name__ == "__main__":

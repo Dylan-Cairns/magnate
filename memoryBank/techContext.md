@@ -25,11 +25,13 @@
 - Python training commands run from a project-local virtualenv (`.venv`):
   - bootstrap script: `scripts/setup_python_env.ps1`
   - activate in PowerShell: `.\.venv\Scripts\Activate.ps1`
-  - run scripts with `python ...` once activated
-  - `scripts/smoke_trainer.py`
-  - `scripts/eval.py`
-  - `scripts/train.py`
-  - `scripts/finetune.py`
+  - run script entrypoints as modules once activated (`python -m scripts.<name>`)
+  - `python -m scripts.smoke_trainer`
+  - `python -m scripts.eval`
+  - `python -m scripts.train`
+  - `python -m scripts.finetune`
+  - PPO uses PyTorch from `requirements.txt`
+  - PPO scaffold entrypoint: `python -m scripts.train_ppo`
 
 ## Constraints
 
@@ -40,6 +42,6 @@
 ## Known Gaps
 
 - Full rules-parity scenario coverage is not complete yet.
-- Trainer supports BC warm-start and stabilized seeded RL fine-tuning, but experiment automation/tuning depth is still limited.
-- Model-backed trained-policy implementations are not complete yet (UI trained profiles currently use explicit random fallback).
+- Trainer supports BC warm-start, stabilized seeded RL fine-tuning, and a PPO scaffold path, but experiment automation/tuning depth is still limited.
+- Model-backed trained-policy implementations are not complete yet (UI trained profiles are currently disabled placeholders).
 - Browser/bridge wiring to drive games from `newGame(seed, { firstPlayer })` is not complete yet.

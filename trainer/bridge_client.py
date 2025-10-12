@@ -91,42 +91,36 @@ class BridgeClient:
             self._process.stdin.write(json.dumps(envelope) + "\n")
             self._process.stdin.flush()
 
-            ignored_lines: List[str] = []
-            response = None
-            while True:
-                line = self._process.stdout.readline()
-                if line == "":
-                    stderr = ""
-                    if self._process.stderr is not None:
-                        stderr = self._process.stderr.read().strip()
-                    raise RuntimeError(
-                        "Bridge process terminated unexpectedly while waiting for response. "
-                        f"stderr={stderr!r} ignored_stdout={ignored_lines!r}"
-                    )
+            line = self._process.stdout.readline()
+            if line == "":
+                stderr = ""
+                if self._process.stderr is not None:
+                    stderr = self._process.stderr.read().strip()
+                raise RuntimeError(
+                    "Bridge process terminated unexpectedly while waiting for response. "
+                    f"stderr={stderr!r}"
+                )
 
-                candidate = line.strip()
-                if not candidate:
-                    continue
+            candidate = line.strip()
+            if not candidate:
+                raise RuntimeError("Bridge returned an empty response line.")
 
-                try:
-                    parsed = json.loads(candidate)
-                except json.JSONDecodeError:
-                    ignored_lines.append(candidate)
-                    continue
+            try:
+                response = json.loads(candidate)
+            except json.JSONDecodeError as error:
+                raise RuntimeError(f"Bridge returned non-JSON response: {candidate!r}") from error
 
-                if not isinstance(parsed, dict):
-                    ignored_lines.append(candidate)
-                    continue
+            if not isinstance(response, dict):
+                raise RuntimeError(
+                    f"Bridge response must be an object, got {type(response).__name__}."
+                )
 
-                if parsed.get("requestId") != request_id:
-                    ignored_lines.append(candidate)
-                    continue
-
-                response = parsed
-                break
-
-            if response is None:
-                raise RuntimeError("Failed to receive bridge response.")
+            response_request_id = response.get("requestId")
+            if response_request_id != request_id:
+                raise RuntimeError(
+                    "Bridge response requestId mismatch. "
+                    f"expected={request_id!r} actual={response_request_id!r}"
+                )
 
             if response.get("ok") is not True:
                 error = response.get("error") or {}
@@ -237,13 +231,6 @@ class BridgeClient:
 
 
 def _default_bridge_command(cwd: Path) -> List[str]:
-    if os.name == "nt":
-        tsx_cmd = cwd / "node_modules" / ".bin" / "tsx.cmd"
-        if tsx_cmd.exists():
-            return [str(tsx_cmd), "src/bridge/cli.ts"]
-        return ["cmd", "/c", "yarn", "bridge"]
-
-    tsx_bin = cwd / "node_modules" / ".bin" / "tsx"
-    if tsx_bin.exists():
-        return [str(tsx_bin), "src/bridge/cli.ts"]
-    return ["yarn", "bridge"]
+    tsx_executable = "tsx.cmd" if os.name == "nt" else "tsx"
+    tsx_path = cwd / "node_modules" / ".bin" / tsx_executable
+    return [str(tsx_path), "src/bridge/cli.ts"]

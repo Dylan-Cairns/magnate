@@ -47,7 +47,7 @@
 - Controller/policy boundaries are extracted:
   - `createSession` / `stepToDecision` in `src/engine/session.ts`
   - async-capable `ActionPolicy` + bot profile catalog in `src/policies/`
-  - trained-profile placeholders currently resolve to explicit random fallback with status text in UI
+  - trained-profile placeholders are visible but disabled in UI until model/runtime wiring lands
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
 - Right info column includes controls, score, deck state, roll result, and full scrollable log.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
@@ -70,14 +70,15 @@
   - `trainer/encoding.py` (`OBSERVATION_DIM=186`, `ACTION_FEATURE_DIM=40`)
   - `docs/TRAINING_ENCODING.md`
 - Baseline policy/eval/training scripts are implemented:
-  - policies: `trainer/policies.py` (random + heuristic + checkpoint-backed BC)
+  - policies: `trainer/policies.py` (random + heuristic + checkpoint-backed BC + checkpoint-backed PPO)
   - eval: `trainer/evaluate.py` + `scripts/eval.py`
   - sample collection + JSONL IO: `trainer/training.py`
   - behavior cloning warm-start: `trainer/behavior_cloning.py`
   - RL fine-tuning (stabilized REINFORCE): `trainer/reinforcement.py` + `scripts/finetune.py`
     - mixed-opponent training (self/heuristic/random)
     - BC-anchor regularization
-    - eval-based best-checkpoint selection
+    - fixed-holdout eval-based best-checkpoint selection (default)
+  - PyTorch PPO scaffold: `trainer/ppo_model.py` + `trainer/ppo_training.py` + `scripts/train_ppo.py`
   - training CLI: `scripts/train.py` (collect + optimize + checkpoint)
   - checkpoint-backed policy loading: `policy_from_name(..., checkpoint_path=...)`
   - project Python environment bootstrap: `requirements.txt` + `scripts/setup_python_env.ps1`
@@ -86,7 +87,7 @@
 ## Immediate Next Steps
 
 1. Expand full-turn/full-game scenario coverage for rules parity.
-2. Tune stabilized RL hyperparameters/opponent mix to close the gap vs heuristic baseline.
+2. Validate PPO scaffold against BC/heuristic baselines and tune PPO objective/rollout settings.
 3. Improve experiment logging/tracking around checkpoint-selection decisions over long runs.
 4. Replace trained-profile placeholders with model-backed policies through the existing `ActionPolicy` boundary.
 
