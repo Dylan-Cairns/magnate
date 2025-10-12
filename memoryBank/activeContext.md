@@ -89,11 +89,11 @@
     - player sections are horizontally centered in each player panel with slightly increased spacing
     - resource chips are enlarged so the 2x3 resource block height aligns with adjacent card height
   - Card face styling now follows Decktet-like structure:
-    - rank appears at top-left with suits stacked vertically below it
-    - deed progress chips appear in a dedicated right-side column on the card
-    - suits/chips now share the same lower-row baseline for better symmetry, with slightly increased vertical spacing between suit rows
-    - suit and chip rows now use explicit paired row layout to keep horizontal and vertical alignment locked
-    - rank and suit glyphs now share a fixed-width centered lane so rank sits directly above suit icons
+    - rank and suits now share a single top header row (suits horizontal)
+    - deed chips are rendered below in the card body row
+    - this keeps card identity compact at the top for planned vertical stacking layouts
+    - header row alignment was tightened so rank and suit glyphs share the same vertical centerline
+    - deed chips now render in a single centered row within the card body
 
 ## Immediate Next Steps
 
