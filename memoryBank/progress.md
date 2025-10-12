@@ -31,6 +31,10 @@
   - cards display art in a framed image panel with a 1px gray border
   - rank/suit and in-progress deed value render on one metadata line
   - image panel uses Decktet aspect-ratio sizing with scaled `object-fit: contain`
+- Player row crown/score presentation was streamlined:
+  - crowns render as suit token aggregates instead of crown card tiles
+  - live-score side panel removed; current district score is shown inline in each player header
+  - full score breakdown is available via hover/focus popovers on score badges
 - UI now exposes bot-profile selection and status text while keeping random legal fallback available.
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime
