@@ -795,6 +795,18 @@ h1 {
   gap: 0.55rem;
 }
 
+.brand-panel h1 {
+  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  letter-spacing: 0.03em;
+}
+
+.brand-subtitle {
+  margin: -0.2rem 0 0.1rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+}
+
 .brand-controls {
   display: flex;
   align-items: center;
