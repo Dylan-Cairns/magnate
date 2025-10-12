@@ -36,6 +36,9 @@
 
 - Playable React shell exists (`src/App.tsx`) with human vs random bot.
 - UI dispatches only engine-legal actions and uses grouped follow-up pickers where options are noisy.
+- Human-only turn reset is available in the actions list:
+  - snapshot is captured at the start of the human `ActionWindow` (post roll/income resolution).
+  - reset restores that snapshot before `end-turn`; it is not part of engine `legalActions`.
 - Controller/policy boundaries are extracted:
   - `createSession` / `stepToDecision` in `src/engine/session.ts`
   - `ActionPolicy` + `randomPolicy` in `src/policies/`
