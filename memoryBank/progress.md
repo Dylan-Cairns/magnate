@@ -28,24 +28,37 @@
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime
   - income-choice log attribution now reflects the chooser even when active player is restored
+- Bridge runtime and deterministic action surface are implemented:
+  - canonical action IDs/keys/order in `src/engine/actionSurface.ts`
+  - NDJSON runtime in `src/bridge/runtime.ts` + CLI entrypoint `src/bridge/cli.ts`
+  - command coverage: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`
+  - bridge tests in `src/bridge/runtime.test.ts`
+  - versioned contract artifact in `contracts/magnate_bridge.v1.json`
+- Python trainer scaffold is implemented:
+  - bridge client + env wrapper in `trainer/bridge_client.py` and `trainer/env.py`
+  - training encoders in `trainer/encoding.py` with spec in `docs/TRAINING_ENCODING.md`
+  - baseline policies/eval in `trainer/policies.py` and `trainer/evaluate.py`
+  - sample collection scaffold in `trainer/training.py`
+  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py`
+  - unittest coverage in `trainer_tests/`
 - Tooling gates include lint + typecheck + tests.
 
 ## In Progress
 
 - Expanding rules-parity scenario coverage, especially full-turn/full-game edges.
-- Preparing bridge runtime/trainer integration against the extracted policy and session boundaries.
+- Preparing model optimization/checkpoint wiring against the implemented trainer scaffold.
 
 ## Remaining
 
-- Bridge runtime implementation and contract tests.
-- Trainer scaffold and baseline training loop.
+- Model optimization/checkpoint training loop implementation.
+- Experiment tracking/metrics for baseline and self-play runs.
 - Model inference wiring in browser client.
 - Deployment polish for static hosting path.
 
 ## Risks / Watch Items
 
 - Remaining parity gaps are likely in edge-case sequencing rather than base mechanics.
-- Bridge/API stability needs explicit guardrails once runtime integration starts.
+- Bridge/API stability needs explicit guardrails as trainer integration starts.
 - Trained profiles are still placeholders until bridge/runtime inference wiring is complete.
 
 _Updated: 2026-02-21._
