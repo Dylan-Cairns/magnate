@@ -787,9 +787,7 @@ function PlayerPanel({
     <section className={`player-panel${isActive ? ' is-active' : ''}`}>
       <header className="player-header">
         <h2>{title}</h2>
-        <span className="player-meta">
-          {player.id} · Hand {player.handCount}
-        </span>
+        <span className="player-meta">{player.id}</span>
       </header>
 
       <div className="player-row">
@@ -843,7 +841,7 @@ function DistrictColumn({ district }: { district: DistrictState }) {
 
   return (
     <article className="district-column">
-      <DistrictLane label="Bot" playerId={BOT_PLAYER} stack={district.stacks[BOT_PLAYER]} />
+      <DistrictLane playerId={BOT_PLAYER} stack={district.stacks[BOT_PLAYER]} />
 
       <header className="district-header">
         <span className="district-id">{district.id}</span>
@@ -862,17 +860,15 @@ function DistrictColumn({ district }: { district: DistrictState }) {
         ) : null}
       </header>
 
-      <DistrictLane label="You" playerId={HUMAN_PLAYER} stack={district.stacks[HUMAN_PLAYER]} />
+      <DistrictLane playerId={HUMAN_PLAYER} stack={district.stacks[HUMAN_PLAYER]} />
     </article>
   );
 }
 
 function DistrictLane({
-  label,
   playerId,
   stack,
 }: {
-  label: string;
   playerId: PlayerId;
   stack: DistrictStack;
 }) {
@@ -906,7 +902,6 @@ function DistrictLane({
 
   return (
     <section className={`district-lane${playerId === BOT_PLAYER ? ' is-bot' : ' is-human'}`}>
-      <header>{label}</header>
       <div className={`lane-stack-frame${playerId === BOT_PLAYER ? ' is-bot' : ''}`}>
         {laneCards.length > 0 ? (
           <div className={`lane-stack ${playerId === BOT_PLAYER ? 'is-bot' : 'is-human'}`} style={laneStyle}>
