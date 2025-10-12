@@ -1090,11 +1090,23 @@ function TokenRow({
   );
 }
 
-function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compact?: boolean }) {
+function TokenChip({
+  suit,
+  count,
+  compact,
+  className,
+}: {
+  suit: Suit;
+  count: number;
+  compact?: boolean;
+  className?: string;
+}) {
   const isEmpty = count === 0;
   return (
     <span
-      className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}`}
+      className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
+        className ? ` ${className}` : ''
+      }`}
       title={`${suit} x${count}`}
       style={{ '--token-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
     >
@@ -1188,7 +1200,7 @@ function renderSuitText(text: string): ReactNode {
     }
 
     if (suit) {
-      nodes.push(<SuitIcon key={`suit-${index}-${suit}`} suit={suit} className="inline-suit-icon" />);
+      nodes.push(<TokenChip key={`suit-${index}-${suit}`} suit={suit} count={1} compact className="inline-token-chip" />);
     } else {
       nodes.push(token);
     }
