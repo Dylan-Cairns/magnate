@@ -21,7 +21,7 @@ Single-player Magnate with a trained bot opponent.
 - React gameplay shell exists (`index.html`, `src/main.tsx`, `src/App.tsx`) for human vs bot play using engine APIs.
 - UI exposes a bot profile selector:
   - random legal policy is available now
-  - trained profile entries are scaffolded with explicit random fallback until model/runtime wiring lands
+  - trained profile entries are scaffolded as disabled placeholders until model/runtime wiring lands
 - Controller boundaries are extracted for bot swapping:
   - `createSession` / `stepToDecision` (`src/engine/session.ts`)
   - async-capable `ActionPolicy` + profile catalog (`src/policies/`)
@@ -38,8 +38,9 @@ Single-player Magnate with a trained bot opponent.
   - stabilized RL fine-tuning from BC checkpoints (`scripts/finetune.py`):
     - mixed opponents (self/heuristic/random)
     - BC-anchor regularization
-    - eval-based best-checkpoint selection
-- Broader experiment scheduling/metrics automation is not implemented yet.
+    - fixed-holdout eval-based best-checkpoint selection
+  - PyTorch PPO scaffold (`scripts/train_ppo.py`) with candidate-action actor-critic model
+- Competitive RL tuning vs human-level play is still in progress.
 
 ## Local Commands
 
@@ -66,12 +67,14 @@ macOS/Linux equivalent:
 
 With `.venv` active:
 
-- Python smoke: `python scripts/smoke_trainer.py`
-- Python eval: `python scripts/eval.py --games 20`
-- Python sample collection + BC warm-start: `python scripts/train.py --games 20`
-- Python BC from existing samples: `python scripts/train.py --samples-in artifacts/training_samples.jsonl`
+- Python smoke: `python -m scripts.smoke_trainer`
+- Python eval: `python -m scripts.eval --games 20`
+- Python sample collection + BC warm-start: `python -m scripts.train --games 20`
+- Python BC from existing samples: `python -m scripts.train --samples-in artifacts/training_samples.jsonl`
 - Python RL fine-tune from BC checkpoint:
-  - `python scripts/finetune.py --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300 --eval-games 100 --eval-every 50`
+  - `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300 --eval-games 100 --eval-every 50 --eval-mode fixed-holdout`
+- Python PPO scaffold training:
+  - `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout`
 
 ## Source-of-Truth Docs
 

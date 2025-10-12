@@ -22,9 +22,9 @@
 - Policy/controller boundaries now exist:
   - `src/engine/session.ts` (`createSession`, `stepToDecision`)
   - async-capable `src/policies/types.ts` + `src/policies/randomPolicy.ts`
-  - `src/policies/catalog.ts` profile registry with trained-profile placeholders and explicit random fallback
+  - `src/policies/catalog.ts` profile registry with strict fail-fast resolution for unknown/unavailable profiles
   - `src/ui/actionPresentation.ts` (+ tests)
-- UI now exposes bot-profile selection and status text while keeping random legal fallback available.
+- UI now exposes bot-profile selection and status text, with unavailable trained placeholders shown as disabled options.
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime
   - income-choice log attribution now reflects the chooser even when active player is restored
@@ -43,8 +43,9 @@
   - stabilized RL fine-tuning in `trainer/reinforcement.py`:
     - mixed opponents (self/heuristic/random)
     - BC-anchor regularization
-    - eval-based best-checkpoint selection
-  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC), `scripts/finetune.py` (BC -> RL)
+    - fixed-holdout eval-based best-checkpoint selection (default)
+  - PyTorch PPO scaffold in `trainer/ppo_model.py` + `trainer/ppo_training.py` + `scripts/train_ppo.py`
+  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC), `scripts/finetune.py` (BC -> RL), `scripts/train_ppo.py` (PPO scaffold)
   - project Python venv bootstrap is standardized (`requirements.txt`, `scripts/setup_python_env.ps1`)
   - unittest coverage in `trainer_tests/`
 - Tooling gates include lint + typecheck + tests.
@@ -52,12 +53,12 @@
 ## In Progress
 
 - Expanding rules-parity scenario coverage, especially full-turn/full-game edges.
-- Tuning stabilized RL schedules/hyperparameters and benchmark tracking on top of implemented BC + RL loops.
+- Tuning RL schedules/hyperparameters and benchmark tracking across BC, stabilized REINFORCE, and PPO scaffold loops.
 
 ## Remaining
 
 - Experiment tracking/metrics for BC baseline, RL fine-tuning, and self-play runs.
-- Surpass heuristic baseline consistently with current stabilized RL controls.
+- Surpass heuristic baseline consistently with current stabilized REINFORCE controls and/or PPO path.
 - Model inference wiring in browser client.
 - Deployment polish for static hosting path.
 

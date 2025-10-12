@@ -153,6 +153,7 @@ describe('income choice reducer semantics', () => {
           suits: ['Waves', 'Leaves'],
         },
       ],
+      incomeChoiceReturnPlayerId: PLAYER_A,
     });
     const action = findLegalActionByType(state, 'choose-income-suit');
     const next = applyAction(state, action);

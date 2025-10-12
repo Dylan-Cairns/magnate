@@ -18,7 +18,6 @@ export interface BotProfile {
 export interface ResolvedBotProfile {
   selected: BotProfile;
   policy: ActionPolicy;
-  usingFallback: boolean;
   statusText: string;
 }
 
@@ -51,31 +50,23 @@ export const BOT_PROFILES: readonly BotProfile[] = [
 
 export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'random-legal';
 
-export function getBotProfile(id: string | undefined): BotProfile {
+export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);
   if (match) {
     return match;
   }
-
-  const fallback = BOT_PROFILES[0];
-  if (!fallback) {
-    throw new Error('Bot profile catalog is empty.');
-  }
-  return fallback;
+  throw new Error(`Unknown bot profile: ${id}`);
 }
 
-export function resolveBotProfile(id: string | undefined): ResolvedBotProfile {
+export function resolveBotProfile(id: string): ResolvedBotProfile {
   const selected = getBotProfile(id);
-  const usingFallback = !selected.available;
-  const policy = usingFallback ? randomPolicy : selected.policy;
-  const statusText = usingFallback
-    ? `${selected.description} Using random legal fallback until the model is integrated.`
-    : selected.description;
+  if (!selected.available) {
+    throw new Error(`Bot profile is not available: ${id}`);
+  }
 
   return {
     selected,
-    policy,
-    usingFallback,
-    statusText,
+    policy: selected.policy,
+    statusText: selected.description,
   };
 }

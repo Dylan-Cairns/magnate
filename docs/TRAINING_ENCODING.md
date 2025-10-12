@@ -77,19 +77,22 @@ Baseline policies currently implemented in `trainer.policies`:
 - `RandomLegalPolicy`
 - `HeuristicPolicy`
 - `BehaviorCloningPolicy` (checkpoint-backed)
+- `TorchPpoPolicy` (checkpoint-backed, requires PyTorch)
 
 Evaluation harness:
 
 - `trainer.evaluate.evaluate_matchup`
-- Script (with project `.venv` active): `python scripts/eval.py --games 50 --player-a-policy heuristic --player-b-policy random`
+- Script (with project `.venv` active): `python -m scripts.eval --games 50 --player-a-policy heuristic --player-b-policy random`
 - BC eval example:
-  - `python scripts/eval.py --games 50 --player-a-policy bc --player-a-checkpoint artifacts/bc_checkpoint.json --player-b-policy random`
+  - `python -m scripts.eval --games 50 --player-a-policy bc --player-a-checkpoint artifacts/bc_checkpoint.json --player-b-policy random`
+- PPO eval example:
+  - `python -m scripts.eval --games 50 --player-a-policy ppo --player-a-checkpoint artifacts/ppo_checkpoint.pt --player-b-policy heuristic`
 
 ## Behavior-Cloning Warm Start
 
 Training script:
 
-- `python scripts/train.py --games 20` (with project `.venv` active)
+- `python -m scripts.train --games 20` (with project `.venv` active)
   - collects decision samples (`artifacts/training_samples.jsonl` by default)
   - optimizes a supervised action-ranking model from chosen legal actions
   - writes checkpoint (`artifacts/bc_checkpoint.json` by default)
@@ -109,7 +112,8 @@ Model scoring form (`trainer.behavior_cloning`):
 
 Fine-tuning script:
 
-- `python scripts/finetune.py --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300 --eval-games 100 --eval-every 50`
+- `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300 --eval-games 100 --eval-every 50`
+  - default checkpoint-selection mode now uses fixed holdout seeds (`--eval-mode fixed-holdout`)
   - loads a BC checkpoint
   - runs seeded mixed-opponent training with stochastic learner sampling
     - self-play snapshot opponent
@@ -128,3 +132,21 @@ Update shape:
   - `winner_reward in {-1, 0, +1}`
   - L2 weight decay from config
   - BC-anchor penalty toward source checkpoint weights
+
+## PPO Scaffold (PyTorch)
+
+Dependency:
+
+- PyTorch is required in the trainer environment (`requirements.txt`)
+
+Training script:
+
+- `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5`
+  - uses the same bridge observations and legal action candidate features
+  - actor-critic policy/value network scores legal action candidates directly
+  - PPO clipped objective over collected bridge trajectories
+  - fixed-holdout checkpoint selection (`--eval-mode fixed-holdout` by default)
+
+Checkpoint type:
+
+- `magnate_ppo_policy_v1` (`trainer/ppo_model.py`)
