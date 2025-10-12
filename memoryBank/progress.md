@@ -21,8 +21,13 @@
 - Human-only `reset-turn` UX is implemented via a UI snapshot anchor at human turn start (`ActionWindow` pre-card), restoring state prior to `end-turn` without changing engine action contracts.
 - Policy/controller boundaries now exist:
   - `src/engine/session.ts` (`createSession`, `stepToDecision`)
-  - `src/policies/types.ts` + `src/policies/randomPolicy.ts`
+  - async-capable `src/policies/types.ts` + `src/policies/randomPolicy.ts`
+  - `src/policies/catalog.ts` profile registry with trained-profile placeholders and explicit random fallback
   - `src/ui/actionPresentation.ts` (+ tests)
+- UI now exposes bot-profile selection and status text while keeping random legal fallback available.
+- Runtime hardening and audit fixes landed:
+  - `newGame` now validates `firstPlayer` at runtime
+  - income-choice log attribution now reflects the chooser even when active player is restored
 - Tooling gates include lint + typecheck + tests.
 
 ## In Progress
@@ -41,5 +46,6 @@
 
 - Remaining parity gaps are likely in edge-case sequencing rather than base mechanics.
 - Bridge/API stability needs explicit guardrails once runtime integration starts.
+- Trained profiles are still placeholders until bridge/runtime inference wiring is complete.
 
-_Updated: 2026-02-20._
+_Updated: 2026-02-21._

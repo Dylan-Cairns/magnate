@@ -6,6 +6,8 @@ export interface ActionSelectionContext {
   random: () => number;
 }
 
+export type MaybePromise<T> = T | Promise<T>;
+
 export interface ActionPolicy {
-  selectAction(context: ActionSelectionContext): GameAction | undefined;
+  selectAction(context: ActionSelectionContext): MaybePromise<GameAction | undefined>;
 }

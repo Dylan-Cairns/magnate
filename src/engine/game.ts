@@ -97,6 +97,10 @@ function districtFromMarker(markerCardId: CardId, districtId: string): DistrictS
   throw new Error(`Invalid district marker card kind: ${marker.kind}`);
 }
 
-function playerIndexFor(playerId: PlayerId): number {
-  return PLAYER_IDS.indexOf(playerId);
+function playerIndexFor(playerId: PlayerId): 0 | 1 {
+  const index = PLAYER_IDS.indexOf(playerId);
+  if (index < 0) {
+    throw new Error(`Unknown first player: ${playerId}`);
+  }
+  return index as 0 | 1;
 }
