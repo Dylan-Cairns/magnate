@@ -376,8 +376,10 @@ h1 {
 }
 
 .lane-cards {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   min-height: calc((5.8rem * 2) + 0.35rem);
-  align-content: flex-start;
 }
 
 .card-tile {
