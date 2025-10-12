@@ -39,6 +39,6 @@
 ## Known Gaps
 
 - Full rules-parity scenario coverage is not complete yet.
-- Trainer now supports BC warm-start optimization/checkpointing, but RL fine-tuning/self-play loops are not implemented yet.
+- Trainer supports BC warm-start and seeded RL self-play fine-tuning, but experiment automation/tuning depth is still limited.
 - Model-backed trained-policy implementations are not complete yet (UI trained profiles currently use explicit random fallback).
 - Browser/bridge wiring to drive games from `newGame(seed, { firstPlayer })` is not complete yet.

@@ -104,3 +104,23 @@ Model scoring form (`trainer.behavior_cloning`):
   - observation/action dimensions
   - `obsActionWeights`, `actionWeights`
   - metadata (sample source + optimizer params)
+
+## RL Fine-Tuning (Self-Play REINFORCE)
+
+Fine-tuning script:
+
+- `python scripts/finetune.py --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 200 --eval-games 100`
+  - loads a BC checkpoint
+  - runs seeded self-play with stochastic softmax action sampling
+  - applies REINFORCE policy-gradient updates to the same model weights
+  - writes a fine-tuned checkpoint using the same checkpoint schema
+  - optional final eval snapshots vs `random` and `heuristic`
+
+Update shape:
+
+- Policy logits are produced from the same candidate-scoring form:
+  - `score(a) = obs^T W a + w_action^T a`
+- REINFORCE gradient update uses:
+  - `advantage = winner_reward / decisions_by_player_in_episode`
+  - `winner_reward in {-1, 0, +1}`
+  - L2 weight decay from config
