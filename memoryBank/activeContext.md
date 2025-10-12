@@ -42,13 +42,17 @@
 - Playable React shell exists (`src/App.tsx`) with human vs bot and a profile selector.
 - UI dispatches only engine-legal actions and uses grouped follow-up pickers where options are noisy.
 - Canonical Decktet card-image mapping for UI assets now exists in `src/ui/cardImages.ts`:
-  - maps every engine `CardId` to Adaman-derived filenames in `src/assets/icons/CardImages`
+  - maps every engine `CardId` to Adaman-derived filenames in `src/assets/CardImages`
   - validates asset resolution at module load and via dedicated regression tests (`src/ui/cardImages.test.ts`)
 - Card tiles now render mapped art in `src/App.tsx` with:
   - a dedicated framed image panel (1px gray border)
   - rank/suits and deed progress share a single metadata row
   - image panel sizing follows Decktet source aspect ratio and uses scaled `object-fit: contain`
   - deed-token overlays are retained without reserving a separate top/bottom progress lane
+- Official Decktet suit icons are now canonical in `src/ui/suitIcons.tsx`:
+  - shared `{Suit}` text tokens drive action-label formatting and inline suit-icon replacement
+  - cards, action text, resource/crown rows, district markers, and deed-token chips all render the same SVG set from `src/assets/icons/*.svg`
+  - chip icon sizing is tuned to fill nearly the full circular chip area
 - Player-area presentation is compacted:
   - crown cards are no longer rendered as card tiles in player rows; crowns now display as suit token aggregates
   - right-column live score panel was removed; current district score is shown beside each player name

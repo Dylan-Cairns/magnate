@@ -52,7 +52,7 @@ const CARD_IMAGE_FILE_BY_NAME = {
 export const CARD_BACK_IMAGE_FILE = 'back.png';
 
 function resolveCardImageFile(fileName: string): string {
-  const moduleKey = `../assets/icons/CardImages/${fileName}`;
+  const moduleKey = `../assets/CardImages/${fileName}`;
   const imageUrl = CARD_IMAGE_MODULES[moduleKey];
   if (!imageUrl) {
     throw new Error(`Missing card image asset: ${fileName}`);
