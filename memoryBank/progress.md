@@ -44,6 +44,7 @@
   - center-lane token rows are edge-aligned: bot row packed right, human row packed left
   - crown/resource token chips in the center rows are enlarged (2.7rem)
   - full score breakdown remains available via hover/focus popovers on score badges
+- Deck state panel now shows discard count in addition to draw count and reshuffles remaining.
 - Brand panel controls were reorganized:
   - title now sits above Actions in the left column with a right-side hamburger trigger
   - seed/new-game and bot-profile controls now live in a dropdown options menu

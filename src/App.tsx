@@ -953,6 +953,10 @@ export function App() {
                 <strong>{humanView.deck.drawCount}</strong>
               </p>
               <p className="meta-line">
+                <span>Discard Count</span>
+                <strong>{humanView.deck.discard.length}</strong>
+              </p>
+              <p className="meta-line">
                 <span>Reshuffles Remaining</span>
                 <strong>{reshufflesRemaining}</strong>
               </p>
