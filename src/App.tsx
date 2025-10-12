@@ -597,7 +597,7 @@ export function App() {
                         onClick={handleTurnReset}
                       >
                         <span className="action-kind">reset-turn</span>
-                        <span className="action-text">Reset turn to post-roll state</span>
+                        <span className="action-text">reset turn</span>
                       </button>
                     </div>
                   ) : null}
@@ -632,6 +632,7 @@ export function App() {
         <aside className="info-pane">
           <section className="panel brand-panel">
             <h1>Magnate</h1>
+            <p className="brand-subtitle">For the throne of the Grand Duke</p>
             <div className="brand-controls">
               <input
                 id="seed-input"
