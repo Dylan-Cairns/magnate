@@ -39,6 +39,7 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
     exhaustionStage: state.exhaustionStage,
     finalTurnsRemaining: state.finalTurnsRemaining,
     lastIncomeRoll: cloneIncomeRoll(state.lastIncomeRoll),
+    lastTaxSuit: state.lastTaxSuit,
     pendingIncomeChoices: cloneIncomeChoices(state.pendingIncomeChoices),
     incomeChoiceReturnPlayerId,
     finalScore: cloneFinalScore(state.finalScore),

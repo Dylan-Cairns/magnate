@@ -86,14 +86,17 @@ function resolveTaxCheck(state: GameState): GameState {
     ...state,
     rngCursor: second.rngCursor,
     lastIncomeRoll: incomeRoll,
+    lastTaxSuit: undefined,
   };
 
   if (incomeRoll.die1 === 1 || incomeRoll.die2 === 1) {
     const taxSuitRoll = rollDie(state.seed, second.rngCursor, 6);
+    const taxSuit = TAX_SUIT_BY_D6[taxSuitRoll.value - 1];
     nextState = {
       ...nextState,
       rngCursor: taxSuitRoll.rngCursor,
-      players: applyTaxation(nextState, taxSuitRoll.value),
+      lastTaxSuit: taxSuit,
+      players: applyTaxation(nextState, taxSuit),
     };
   }
 
@@ -167,9 +170,7 @@ function resolveCollectIncome(state: GameState): GameState {
   };
 }
 
-function applyTaxation(state: GameState, d6: number): GameState['players'] {
-  const taxSuit = TAX_SUIT_BY_D6[d6 - 1];
-
+function applyTaxation(state: GameState, taxSuit: Suit): GameState['players'] {
   return state.players.map((player) => ({
     ...player,
     resources: {
@@ -349,6 +350,7 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
         cardPlayedThisTurn: false,
         finalTurnsRemaining: state.finalTurnsRemaining ?? 2,
         lastIncomeRoll: undefined,
+        lastTaxSuit: undefined,
         pendingIncomeChoices: undefined,
         incomeChoiceReturnPlayerIndex: undefined,
       };
@@ -366,6 +368,7 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
         cardPlayedThisTurn: false,
         finalTurnsRemaining: 0,
         lastIncomeRoll: undefined,
+        lastTaxSuit: undefined,
         pendingIncomeChoices: undefined,
         incomeChoiceReturnPlayerIndex: undefined,
       });
@@ -379,6 +382,7 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
       cardPlayedThisTurn: false,
       finalTurnsRemaining: remaining,
       lastIncomeRoll: undefined,
+      lastTaxSuit: undefined,
       pendingIncomeChoices: undefined,
       incomeChoiceReturnPlayerIndex: undefined,
     };
@@ -391,6 +395,7 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
     phase: 'StartTurn',
     cardPlayedThisTurn: false,
     lastIncomeRoll: undefined,
+    lastTaxSuit: undefined,
     pendingIncomeChoices: undefined,
     incomeChoiceReturnPlayerIndex: undefined,
   };

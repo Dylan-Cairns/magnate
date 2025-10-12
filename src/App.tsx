@@ -700,7 +700,7 @@ export function App() {
 
           <section className="panel">
             <h2>Roll Result</h2>
-            <p className="roll-value">{formatRoll(humanView.lastIncomeRoll)}</p>
+            <p className="roll-value">{formatRoll(humanView.lastIncomeRoll, humanView.lastTaxSuit)}</p>
           </section>
 
           <section className="panel log-panel">
@@ -1092,11 +1092,11 @@ function tokenEntries(tokens: Partial<Record<Suit, number>> | ResourcePool): Arr
   );
 }
 
-function formatRoll(roll: { die1: number; die2: number } | undefined): string {
+function formatRoll(roll: { die1: number; die2: number } | undefined, taxSuit: Suit | undefined): string {
   if (!roll) {
     return '-';
   }
-  return `${roll.die1} / ${roll.die2}`;
+  return `d10: ${roll.die1}  d10: ${roll.die2}  tax die: ${taxSuit ?? '-'}`;
 }
 
 function describeAction(action: GameAction): string {
