@@ -116,7 +116,6 @@ describe('advanceToDecision', () => {
       turn: 10,
       activePlayerIndex: 0,
       deck: { draw: [], discard: [], reshuffles: 1 },
-      exhaustionStage: 1,
       finalTurnsRemaining: undefined,
       players: [
         makePlayer(PLAYER_A, { crowns: [], resources: makeResources() }),
@@ -128,7 +127,7 @@ describe('advanceToDecision', () => {
     expect(advanced.phase).toBe('ActionWindow');
     expect(advanced.turn).toBe(11);
     expect(advanced.activePlayerIndex).toBe(1);
-    expect(advanced.exhaustionStage).toBe(2);
+    expect(advanced.deck.reshuffles).toBe(2);
     expect(advanced.finalTurnsRemaining).toBe(2);
   });
 
@@ -154,7 +153,6 @@ describe('advanceToDecision', () => {
       turn: 11,
       activePlayerIndex: 1,
       deck: { draw: [], discard: [], reshuffles: 2 },
-      exhaustionStage: 2,
       finalTurnsRemaining: 1,
       districts,
       players: [
@@ -333,7 +331,7 @@ describe('tax and income resolution', () => {
     const advanced = advanceToDecision(state);
     expect(advanced.phase).toBe('CollectIncome');
     expect(advanced.players[advanced.activePlayerIndex].id).toBe(PLAYER_B);
-    expect(advanced.incomeChoiceReturnPlayerIndex).toBe(0);
+    expect(advanced.incomeChoiceReturnPlayerId).toBe(PLAYER_A);
 
     const choose = legalActions(advanced).find(
       (action) => action.type === 'choose-income-suit'
@@ -345,7 +343,7 @@ describe('tax and income resolution', () => {
     const resolved = applyAction(advanced, choose);
     expect(resolved.phase).toBe('ActionWindow');
     expect(resolved.players[resolved.activePlayerIndex].id).toBe(PLAYER_A);
-    expect(resolved.incomeChoiceReturnPlayerIndex).toBeUndefined();
+    expect(resolved.incomeChoiceReturnPlayerId).toBeUndefined();
   });
 
   it('CollectIncome on double ones pays ace income for ace properties in play', () => {

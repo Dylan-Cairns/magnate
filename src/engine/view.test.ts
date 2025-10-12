@@ -72,7 +72,7 @@ describe('toPlayerView', () => {
           suits: ['Suns', 'Wyrms'],
         },
       ],
-      incomeChoiceReturnPlayerIndex: 0,
+      incomeChoiceReturnPlayerId: PLAYER_A,
     });
 
     const view = toPlayerView(state, PLAYER_A);
