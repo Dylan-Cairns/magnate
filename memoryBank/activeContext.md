@@ -47,7 +47,8 @@
 - Controller/policy boundaries are extracted:
   - `createSession` / `stepToDecision` in `src/engine/session.ts`
   - async-capable `ActionPolicy` + bot profile catalog in `src/policies/`
-  - trained-profile placeholders are visible but disabled in UI until model/runtime wiring lands
+  - browser-trained PPO profile is now enabled (`ppo_champion_2026-02-23_seed7`)
+  - champion PPO profile is the default bot selection in UI
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
 - Right info column includes controls, score, deck state, roll result, and full scrollable log.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
@@ -84,6 +85,10 @@
     - BC-anchor regularization
     - fixed-holdout eval-based best-checkpoint selection (default)
   - PyTorch PPO scaffold: `trainer/ppo_model.py` + `trainer/ppo_training.py` + `scripts/train_ppo.py`
+  - browser checkpoint export utility: `scripts/export_ppo_browser_checkpoint.py`
+  - browser checkpoint artifact: `public/models/ppo_champion_2026-02-23_seed7.browser.json`
+  - browser PPO runtime policy: `src/policies/ppoBrowserPolicy.ts`
+  - TS feature-encoder parity: `src/policies/trainingEncoding.ts`
   - PPO seed queue runner: `scripts/train_ppo_queue.py` (sequential multi-seed automation)
   - training CLI: `scripts/train.py` (collect + optimize + checkpoint)
   - checkpoint-backed policy loading: `policy_from_name(..., checkpoint_path=...)`
@@ -95,6 +100,6 @@
 1. Expand full-turn/full-game scenario coverage for rules parity.
 2. Validate PPO scaffold against BC/heuristic baselines and tune PPO objective/rollout settings.
 3. Improve experiment logging/tracking around checkpoint-selection decisions over long runs.
-4. Replace trained-profile placeholders with model-backed policies through the existing `ActionPolicy` boundary.
+4. Add model lifecycle docs for promoting trained checkpoints into browser-ready champion profiles.
 
-_Updated: 2026-02-22._
+_Updated: 2026-02-24._
