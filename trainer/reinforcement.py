@@ -3,22 +3,30 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Sequence
+from typing import Callable, Dict, List, Mapping, Sequence
 
 from .behavior_cloning import BehaviorCloningModel
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
+from .policies import BehaviorCloningPolicy, HeuristicPolicy, Policy, RandomLegalPolicy
 from .types import PlayerId, Winner
+
+OpponentKind = str
+EpisodeCallback = Callable[[int, "ReinforceEpisodeResult"], None]
 
 
 @dataclass(frozen=True)
 class ReinforceConfig:
     episodes: int = 200
-    learning_rate: float = 0.01
+    learning_rate: float = 0.002
     l2: float = 1e-5
     temperature: float = 1.0
     seed: int = 0
     max_decisions_per_game: int = 2000
+    self_play_weight: float = 0.4
+    heuristic_weight: float = 0.4
+    random_weight: float = 0.2
+    bc_anchor_coeff: float = 0.02
 
 
 @dataclass(frozen=True)
@@ -26,7 +34,10 @@ class ReinforceEpisodeResult:
     episode: int
     seed: str
     first_player: PlayerId
+    learner_player: PlayerId
+    opponent: OpponentKind
     winner: Winner
+    learner_reward: float
     turn: int
     decisions: int
     average_entropy: float
@@ -36,6 +47,7 @@ class ReinforceEpisodeResult:
 class ReinforceSummary:
     episodes: int
     winners: Dict[Winner, int]
+    opponent_counts: Dict[OpponentKind, int]
     average_turn: float
     average_decisions: float
     average_entropy: float
@@ -48,7 +60,6 @@ class _EpisodeDecision:
     action_features: List[List[float]]
     chosen_index: int
     probs: List[float]
-    active_player_id: PlayerId
 
 
 def fine_tune_with_reinforce(
@@ -56,34 +67,51 @@ def fine_tune_with_reinforce(
     model: BehaviorCloningModel,
     config: ReinforceConfig,
     seed_prefix: str,
+    anchor_model: BehaviorCloningModel | None = None,
+    start_episode_index: int = 0,
+    on_episode_end: EpisodeCallback | None = None,
 ) -> ReinforceSummary:
     _validate_config(config)
+    if anchor_model is not None:
+        _validate_model_dims(model, anchor_model)
 
-    rng = random.Random(config.seed)
+    rng = random.Random(config.seed + start_episode_index)
     winners: Dict[Winner, int] = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
+    opponent_counts: Dict[OpponentKind, int] = {"self": 0, "heuristic": 0, "random": 0}
     history: List[ReinforceEpisodeResult] = []
 
     turn_total = 0
     decision_total = 0
     entropy_total = 0.0
 
-    for episode_index in range(config.episodes):
+    for local_index in range(config.episodes):
+        episode_index = start_episode_index + local_index
         seed = f"{seed_prefix}-{episode_index}"
         first_player: PlayerId = "PlayerA" if episode_index % 2 == 0 else "PlayerB"
+        learner_player: PlayerId = "PlayerA" if ((episode_index // 2) % 2 == 0) else "PlayerB"
+        opponent = sample_opponent_kind(config, rng)
+
         result = _run_episode_with_update(
             env=env,
             model=model,
+            anchor_model=anchor_model,
             config=config,
             seed=seed,
             first_player=first_player,
+            learner_player=learner_player,
+            opponent=opponent,
             rng=rng,
             episode_index=episode_index,
         )
+
         history.append(result)
         winners[result.winner] += 1
+        opponent_counts[result.opponent] += 1
         turn_total += result.turn
         decision_total += result.decisions
         entropy_total += result.average_entropy
+        if on_episode_end is not None:
+            on_episode_end(episode_index, result)
 
     episodes = config.episodes
     average_turn = (turn_total / episodes) if episodes > 0 else 0.0
@@ -93,6 +121,7 @@ def fine_tune_with_reinforce(
     return ReinforceSummary(
         episodes=episodes,
         winners=winners,
+        opponent_counts=opponent_counts,
         average_turn=average_turn,
         average_decisions=average_decisions,
         average_entropy=average_entropy,
@@ -109,6 +138,8 @@ def apply_reinforce_update(
     advantage: float,
     learning_rate: float,
     l2: float,
+    anchor_model: BehaviorCloningModel | None = None,
+    anchor_coeff: float = 0.0,
 ) -> None:
     if len(observation) != model.observation_dim:
         raise ValueError(
@@ -131,6 +162,10 @@ def apply_reinforce_update(
         raise ValueError("learning_rate must be > 0.")
     if l2 < 0:
         raise ValueError("l2 must be >= 0.")
+    if anchor_coeff < 0:
+        raise ValueError("anchor_coeff must be >= 0.")
+    if anchor_model is not None:
+        _validate_model_dims(model, anchor_model)
 
     for features in action_features:
         if len(features) != model.action_feature_dim:
@@ -145,20 +180,23 @@ def apply_reinforce_update(
         probs=probs,
         action_feature_dim=model.action_feature_dim,
     )
-    scale = learning_rate * advantage
-    decay = 1.0 - (learning_rate * l2)
 
     for feature_index in range(model.action_feature_dim):
-        model.action_weights[feature_index] = (
-            decay * model.action_weights[feature_index]
-        ) + (scale * delta[feature_index])
+        current = model.action_weights[feature_index]
+        gradient = (advantage * delta[feature_index]) - (l2 * current)
+        if anchor_model is not None and anchor_coeff > 0:
+            gradient -= anchor_coeff * (current - anchor_model.action_weights[feature_index])
+        model.action_weights[feature_index] = current + (learning_rate * gradient)
 
     for obs_index, obs_value in enumerate(observation):
         row = model.obs_action_weights[obs_index]
+        anchor_row = anchor_model.obs_action_weights[obs_index] if anchor_model is not None else None
         for feature_index in range(model.action_feature_dim):
-            row[feature_index] = (decay * row[feature_index]) + (
-                scale * obs_value * delta[feature_index]
-            )
+            current = row[feature_index]
+            gradient = (advantage * obs_value * delta[feature_index]) - (l2 * current)
+            if anchor_row is not None and anchor_coeff > 0:
+                gradient -= anchor_coeff * (current - anchor_row[feature_index])
+            row[feature_index] = current + (learning_rate * gradient)
 
 
 def sample_action_index(probs: Sequence[float], rng: random.Random) -> int:
@@ -197,38 +235,68 @@ def softmax_with_temperature(scores: Sequence[float], temperature: float) -> Lis
     return [value / total for value in exps]
 
 
+def sample_opponent_kind(config: ReinforceConfig, rng: random.Random) -> OpponentKind:
+    options = [
+        ("self", config.self_play_weight),
+        ("heuristic", config.heuristic_weight),
+        ("random", config.random_weight),
+    ]
+    total = 0.0
+    for _, weight in options:
+        if weight < 0:
+            raise ValueError("Opponent mix weights must be >= 0.")
+        total += weight
+    if total <= 0:
+        raise ValueError("At least one opponent mix weight must be > 0.")
+
+    draw = rng.random() * total
+    cumulative = 0.0
+    for label, weight in options:
+        cumulative += weight
+        if draw <= cumulative:
+            return label
+    return options[-1][0]
+
+
 def _run_episode_with_update(
     env: MagnateBridgeEnv,
     model: BehaviorCloningModel,
+    anchor_model: BehaviorCloningModel | None,
     config: ReinforceConfig,
     seed: str,
     first_player: PlayerId,
+    learner_player: PlayerId,
+    opponent: OpponentKind,
     rng: random.Random,
     episode_index: int,
 ) -> ReinforceEpisodeResult:
+    opponent_policy = _create_opponent_policy(opponent, model)
     step_result = env.reset(seed=seed, first_player=first_player)
     staged: List[_EpisodeDecision] = []
     entropy_total = 0.0
 
     while not step_result.terminal:
         legal = env.legal_actions()
-        observation_vector = encode_observation(step_result.view)
-        action_vectors = encode_action_candidates(legal.actions)
-        scores = model.score_candidates(observation_vector, action_vectors)
-        probs = softmax_with_temperature(scores, config.temperature)
-        action_index = sample_action_index(probs, rng)
-        action_key = legal.actions[action_index].action_key
 
-        staged.append(
-            _EpisodeDecision(
-                observation=observation_vector,
-                action_features=action_vectors,
-                chosen_index=action_index,
-                probs=probs,
-                active_player_id=legal.active_player_id,
+        if legal.active_player_id == learner_player:
+            observation_vector = encode_observation(step_result.view)
+            action_vectors = encode_action_candidates(legal.actions)
+            scores = model.score_candidates(observation_vector, action_vectors)
+            probs = softmax_with_temperature(scores, config.temperature)
+            action_index = sample_action_index(probs, rng)
+            action_key = legal.actions[action_index].action_key
+
+            staged.append(
+                _EpisodeDecision(
+                    observation=observation_vector,
+                    action_features=action_vectors,
+                    chosen_index=action_index,
+                    probs=probs,
+                )
             )
-        )
-        entropy_total += _entropy(probs)
+            entropy_total += _entropy(probs)
+        else:
+            action_key = opponent_policy.choose_action_key(step_result.view, legal.actions, rng)
 
         step_result = env.step(action_key=action_key)
         if len(staged) > config.max_decisions_per_game:
@@ -238,7 +306,14 @@ def _run_episode_with_update(
             )
 
     winner = _winner_from_state(step_result.state)
-    _apply_episode_updates(model, staged, winner, config)
+    learner_reward = _reward_for_player(winner, learner_player)
+    _apply_episode_updates(
+        model=model,
+        anchor_model=anchor_model,
+        staged=staged,
+        learner_reward=learner_reward,
+        config=config,
+    )
 
     decisions = len(staged)
     average_entropy = (entropy_total / decisions) if decisions > 0 else 0.0
@@ -246,36 +321,41 @@ def _run_episode_with_update(
         episode=episode_index,
         seed=seed,
         first_player=first_player,
+        learner_player=learner_player,
+        opponent=opponent,
         winner=winner,
+        learner_reward=learner_reward,
         turn=int(step_result.state.get("turn", 0)),
         decisions=decisions,
         average_entropy=average_entropy,
     )
 
 
+def _create_opponent_policy(opponent: OpponentKind, model: BehaviorCloningModel) -> Policy:
+    if opponent == "self":
+        # Use a frozen snapshot opponent to avoid chasing a moving target within the same episode.
+        return BehaviorCloningPolicy(model=model.copy(), name="self-snapshot")
+    if opponent == "heuristic":
+        return HeuristicPolicy()
+    if opponent == "random":
+        return RandomLegalPolicy()
+    raise ValueError(f"Unknown opponent kind: {opponent!r}")
+
+
 def _apply_episode_updates(
     model: BehaviorCloningModel,
+    anchor_model: BehaviorCloningModel | None,
     staged: Sequence[_EpisodeDecision],
-    winner: Winner,
+    learner_reward: float,
     config: ReinforceConfig,
 ) -> None:
-    decisions_by_player: Dict[PlayerId, int] = {
-        "PlayerA": 0,
-        "PlayerB": 0,
-    }
+    if learner_reward == 0.0:
+        return
+    if not staged:
+        return
+
+    advantage = learner_reward / float(len(staged))
     for decision in staged:
-        decisions_by_player[decision.active_player_id] += 1
-
-    for decision in staged:
-        reward = _reward_for_player(winner, decision.active_player_id)
-        if reward == 0.0:
-            continue
-
-        player_steps = decisions_by_player[decision.active_player_id]
-        if player_steps <= 0:
-            continue
-        advantage = reward / float(player_steps)
-
         apply_reinforce_update(
             model=model,
             observation=decision.observation,
@@ -285,6 +365,8 @@ def _apply_episode_updates(
             advantage=advantage,
             learning_rate=config.learning_rate,
             l2=config.l2,
+            anchor_model=anchor_model,
+            anchor_coeff=config.bc_anchor_coeff,
         )
 
 
@@ -341,3 +423,22 @@ def _validate_config(config: ReinforceConfig) -> None:
         raise ValueError("temperature must be > 0.")
     if config.max_decisions_per_game <= 0:
         raise ValueError("max_decisions_per_game must be > 0.")
+    if config.self_play_weight < 0 or config.heuristic_weight < 0 or config.random_weight < 0:
+        raise ValueError("Opponent mix weights must be >= 0.")
+    if (config.self_play_weight + config.heuristic_weight + config.random_weight) <= 0:
+        raise ValueError("At least one opponent mix weight must be > 0.")
+    if config.bc_anchor_coeff < 0:
+        raise ValueError("bc_anchor_coeff must be >= 0.")
+
+
+def _validate_model_dims(model: BehaviorCloningModel, anchor_model: BehaviorCloningModel) -> None:
+    if model.observation_dim != anchor_model.observation_dim:
+        raise ValueError(
+            "Anchor model observation dimension mismatch. "
+            f"expected={model.observation_dim}, actual={anchor_model.observation_dim}"
+        )
+    if model.action_feature_dim != anchor_model.action_feature_dim:
+        raise ValueError(
+            "Anchor model action-feature dimension mismatch. "
+            f"expected={model.action_feature_dim}, actual={anchor_model.action_feature_dim}"
+        )
