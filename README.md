@@ -33,7 +33,9 @@ Single-player Magnate with a trained bot opponent.
   - bridge client + env wrapper
   - fixed-size observation/action encoders
   - baseline random/heuristic policies and matchup evaluation harness
-- Full learning loop/model training is still a scaffold stage.
+  - behavior-cloning warm-start optimizer + checkpoint save/load
+  - behavior-cloned policy support in eval (`--player-*-policy bc --player-*-checkpoint <path>`)
+- RL fine-tuning/self-play stages are not implemented yet.
 
 ## Local Commands
 
@@ -43,9 +45,27 @@ Single-player Magnate with a trained bot opponent.
 - Test: `yarn test`
 - Lint: `yarn lint`
 - Format: `yarn format`
-- Python smoke: `py -3.12 scripts/smoke_trainer.py`
-- Python eval: `py -3.12 scripts/eval.py --games 20`
-- Python sample collection: `py -3.12 scripts/train.py --games 20`
+
+## Python Setup (Required)
+
+From repo root (`c:\Users\dcairns\Documents\src\magnate`):
+
+1. Create/update venv (Windows PowerShell): `.\scripts\setup_python_env.ps1`
+2. Activate venv (Windows PowerShell): `.\.venv\Scripts\Activate.ps1`
+
+macOS/Linux equivalent:
+
+1. `python3 -m venv .venv`
+2. `source .venv/bin/activate`
+3. `python -m pip install --upgrade pip`
+4. `python -m pip install -r requirements.txt`
+
+With `.venv` active:
+
+- Python smoke: `python scripts/smoke_trainer.py`
+- Python eval: `python scripts/eval.py --games 20`
+- Python sample collection + BC warm-start: `python scripts/train.py --games 20`
+- Python BC from existing samples: `python scripts/train.py --samples-in artifacts/training_samples.jsonl`
 
 ## Source-of-Truth Docs
 

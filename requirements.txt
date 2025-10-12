@@ -1,0 +1,3 @@
+# Python dependencies for the Magnate trainer pipeline.
+# The current BC warm-start stage uses only Python standard library modules.
+# Add RL/training libraries here as the pipeline expands.

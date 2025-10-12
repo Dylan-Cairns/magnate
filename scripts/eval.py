@@ -28,21 +28,33 @@ def parse_args() -> argparse.Namespace:
         "--player-a-policy",
         type=str,
         default="heuristic",
-        help="Policy name for PlayerA (random|heuristic).",
+        help="Policy name for PlayerA (random|heuristic|bc).",
     )
     parser.add_argument(
         "--player-b-policy",
         type=str,
         default="random",
-        help="Policy name for PlayerB (random|heuristic).",
+        help="Policy name for PlayerB (random|heuristic|bc).",
+    )
+    parser.add_argument(
+        "--player-a-checkpoint",
+        type=Path,
+        default=None,
+        help="Checkpoint path required when --player-a-policy=bc.",
+    )
+    parser.add_argument(
+        "--player-b-checkpoint",
+        type=Path,
+        default=None,
+        help="Checkpoint path required when --player-b-policy=bc.",
     )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    policy_a = policy_from_name(args.player_a_policy)
-    policy_b = policy_from_name(args.player_b_policy)
+    policy_a = policy_from_name(args.player_a_policy, checkpoint_path=args.player_a_checkpoint)
+    policy_b = policy_from_name(args.player_b_policy, checkpoint_path=args.player_b_checkpoint)
 
     with BridgeClient() as client:
         env = MagnateBridgeEnv(client=client)

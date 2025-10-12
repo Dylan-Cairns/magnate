@@ -22,7 +22,10 @@
 - Primary scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
 - `lint` now includes `tsc --noEmit` via `yarn typecheck`.
 - Vite base uses relative paths for static hosting compatibility.
-- Python scripts are run with `py -3.12` in this workspace:
+- Python training commands run from a project-local virtualenv (`.venv`):
+  - bootstrap script: `scripts/setup_python_env.ps1`
+  - activate in PowerShell: `.\.venv\Scripts\Activate.ps1`
+  - run scripts with `python ...` once activated
   - `scripts/smoke_trainer.py`
   - `scripts/eval.py`
   - `scripts/train.py`
@@ -36,6 +39,6 @@
 ## Known Gaps
 
 - Full rules-parity scenario coverage is not complete yet.
-- Trainer scaffold exists but does not yet implement a model optimization loop/checkpointing.
+- Trainer now supports BC warm-start optimization/checkpointing, but RL fine-tuning/self-play loops are not implemented yet.
 - Model-backed trained-policy implementations are not complete yet (UI trained profiles currently use explicit random fallback).
 - Browser/bridge wiring to drive games from `newGame(seed, { firstPlayer })` is not complete yet.
