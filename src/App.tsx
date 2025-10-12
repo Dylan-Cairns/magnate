@@ -44,6 +44,7 @@ import {
   shouldCaptureTurnResetAnchor,
   type TurnResetAnchor,
 } from './ui/turnReset';
+import { getCardImage } from './ui/cardImages';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -996,7 +997,6 @@ function DistrictLane({
 function CardTile({
   cardId,
   hidden,
-  compact,
   placeholder,
   deedTokens,
   deedProgress,
@@ -1005,7 +1005,6 @@ function CardTile({
 }: {
   cardId?: CardId;
   hidden?: boolean;
-  compact?: boolean;
   placeholder?: boolean;
   deedTokens?: Partial<Record<Suit, number>>;
   deedProgress?: number;
@@ -1013,11 +1012,11 @@ function CardTile({
   perspective?: CardPerspective;
 }) {
   if (placeholder) {
-    return <div className={`card-tile card-placeholder${compact ? ' compact' : ''}`} aria-hidden="true" />;
+    return <div className="card-tile card-placeholder" aria-hidden="true" />;
   }
 
   if (hidden) {
-    return <div className={`card-tile card-back${compact ? ' compact' : ''}`} title="Hidden card" />;
+    return <div className="card-tile card-back" title="Hidden card" />;
   }
 
   if (!cardId) {
@@ -1034,22 +1033,20 @@ function CardTile({
         : 'X';
   const hasDeedTokens = deedTokens ? tokenEntries(deedTokens).length > 0 : false;
   const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
+  const cardImage = getCardImage(cardId);
 
-  const rankAndSuits = (
-    <div className="card-row card-top">
-      <span className="card-rank">{rank}</span>
-      <div className="card-suits-row">
-        {suits.length > 0 ? (
-          suits.map((suit) => <SuitEmoji key={`${cardId}-${suit}`} suit={suit} />)
-        ) : (
-          <span className="card-suit-placeholder" />
-        )}
+  const metadataRow = (
+    <div className="card-row card-meta">
+      <div className="card-meta-leading">
+        <span className="card-rank">{rank}</span>
+        <div className="card-suits-row">
+          {suits.length > 0 ? (
+            suits.map((suit) => <SuitEmoji key={`${cardId}-${suit}`} suit={suit} />)
+          ) : (
+            <span className="card-suit-placeholder" />
+          )}
+        </div>
       </div>
-    </div>
-  );
-
-  const progressSlot = (
-    <div className="card-progress-slot">
       {hasDeedProgress ? (
         <div className="deed-progress">
           {deedProgress}/{deedTarget}
@@ -1060,19 +1057,19 @@ function CardTile({
     </div>
   );
 
-  return (
-    <div className={`card-tile${compact ? ' compact' : ''}${perspective === 'bot' ? ' perspective-bot' : ''}`} title={card.name}>
-      {perspective === 'bot' ? progressSlot : rankAndSuits}
-
-      <div className="card-row card-body">
-        {hasDeedTokens && deedTokens ? (
-          <TokenRow tokens={deedTokens} compact className="card-token-row" />
-        ) : (
-          <span className="card-chip-placeholder" />
-        )}
+  const imageBody = (
+    <div className="card-row card-body">
+      <div className="card-image-frame" aria-hidden="true">
+        <img className="card-image" src={cardImage} alt="" />
       </div>
+      {hasDeedTokens && deedTokens ? <TokenRow tokens={deedTokens} compact className="card-token-row" /> : null}
+    </div>
+  );
 
-      {perspective === 'bot' ? rankAndSuits : progressSlot}
+  return (
+    <div className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}`} title={card.name}>
+      {perspective === 'bot' ? imageBody : metadataRow}
+      {perspective === 'bot' ? metadataRow : imageBody}
     </div>
   );
 }
