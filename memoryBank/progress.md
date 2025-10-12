@@ -42,6 +42,7 @@
     - fixed holdout seeds (`bench-random-holdout`, `bench-heuristic-holdout`)
     - default 200 games per matchup
     - locked selection score (`0.7 * heuristic + 0.3 * random`)
+    - sequential multi-seed benchmark queue helper (`scripts/benchmark_queue.py`)
   - sample collection + sample IO in `trainer/training.py`
   - behavior-cloning optimizer/checkpointing in `trainer/behavior_cloning.py`
   - stabilized RL fine-tuning in `trainer/reinforcement.py`:
@@ -74,4 +75,4 @@
 - Bridge/API stability needs explicit guardrails as trainer integration starts.
 - Trained profiles are still placeholders until bridge/runtime inference wiring is complete.
 
-_Updated: 2026-02-21._
+_Updated: 2026-02-22._
