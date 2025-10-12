@@ -488,6 +488,7 @@ export function App() {
   }
 
   const recentLog = [...humanView.log].reverse();
+  const topDiscardCardId = humanView.deck.discard[0];
 
   return (
     <div className="app-shell">
@@ -946,29 +947,36 @@ export function App() {
           </section>
 
           <section className="panel">
-            <h2>Deck State</h2>
-            <div className="meta-grid">
-              <p className="meta-line">
-                <span>Cards Remaining</span>
-                <strong>{humanView.deck.drawCount}</strong>
-              </p>
-              <p className="meta-line">
-                <span>Discard Count</span>
-                <strong>{humanView.deck.discard.length}</strong>
-              </p>
-              <p className="meta-line">
-                <span>Reshuffles Remaining</span>
-                <strong>{reshufflesRemaining}</strong>
-              </p>
-            </div>
+            <h2>Roll Result</h2>
+            <RollResult roll={humanView.lastIncomeRoll} taxSuit={humanView.lastTaxSuit} />
           </section>
 
           <section className="panel">
-            <h2>Roll Result</h2>
-            <RollResult
-              roll={humanView.lastIncomeRoll}
-              taxSuit={humanView.lastTaxSuit}
-            />
+            <h2>Deck State</h2>
+            <p className="meta-line deck-reshuffles-line">
+              <span>Reshuffles Remaining</span>
+              <strong>{reshufflesRemaining}</strong>
+            </p>
+            <div className="deck-piles" aria-label="Deck and discard piles">
+              <div className="deck-pile">
+                <div className="deck-pile-card deck-pile-card-back" title="Cards remaining" aria-label="Cards remaining" />
+                <strong className="deck-pile-count">{humanView.deck.drawCount}</strong>
+              </div>
+              <div className="deck-pile">
+                <div
+                  className={`deck-pile-card deck-pile-card-discard${topDiscardCardId ? '' : ' is-empty'}`}
+                  title="Discard pile"
+                  aria-label="Discard pile"
+                >
+                  {topDiscardCardId ? (
+                    <img className="deck-pile-image" src={getCardImage(topDiscardCardId)} alt="" />
+                  ) : (
+                    <span className="deck-pile-empty-marker" aria-hidden="true" />
+                  )}
+                </div>
+                <strong className="deck-pile-count">{humanView.deck.discard.length}</strong>
+              </div>
+            </div>
           </section>
 
           <section className="panel log-panel">
@@ -1537,7 +1545,7 @@ function RollResult({
       </span>
       <span className="roll-item">
         <img src={cubeDieIcon} alt="d6" title="d6" className="roll-die-icon" />
-        <strong>{taxSuit ?? '-'}</strong>
+        {taxSuit ? <SuitIcon suit={taxSuit} className="roll-tax-suit-icon" /> : <strong>-</strong>}
       </span>
     </div>
   );
