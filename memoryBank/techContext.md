@@ -28,6 +28,7 @@
   - run script entrypoints as modules once activated (`python -m scripts.<name>`)
   - `python -m scripts.smoke_trainer`
   - `python -m scripts.eval`
+  - `python -m scripts.benchmark`
   - `python -m scripts.train`
   - `python -m scripts.finetune`
   - PPO uses PyTorch from `requirements.txt`

@@ -40,6 +40,7 @@ Single-player Magnate with a trained bot opponent.
     - BC-anchor regularization
     - fixed-holdout eval-based best-checkpoint selection
   - PyTorch PPO scaffold (`scripts/train_ppo.py`) with candidate-action actor-critic model
+  - canonical fixed-holdout benchmark CLI (`scripts/benchmark.py`) for consistent checkpoint comparison
 - Competitive RL tuning vs human-level play is still in progress.
 
 ## Local Commands
@@ -69,6 +70,8 @@ With `.venv` active:
 
 - Python smoke: `python -m scripts.smoke_trainer`
 - Python eval: `python -m scripts.eval --games 20`
+- Canonical benchmark (BC/PPO/random/heuristic candidate as PlayerA):
+  - `python -m scripts.benchmark --candidate-policy bc --candidate-checkpoint artifacts/bc_checkpoint.json`
 - Python sample collection + BC warm-start: `python -m scripts.train --games 20`
 - Python BC from existing samples: `python -m scripts.train --samples-in artifacts/training_samples.jsonl`
 - Python RL fine-tune from BC checkpoint:

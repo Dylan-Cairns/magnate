@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 from typing import Dict, List
 
+from trainer.benchmarking import canonical_selection_score
 from trainer.behavior_cloning import (
     BehaviorCloningModel,
     load_behavior_cloning_checkpoint,
@@ -167,7 +168,7 @@ def main() -> int:
                 games=args.eval_games,
                 seed_prefix=f"{args.eval_seed_prefix}-heuristic{eval_suffix}",
             )
-            score = _selection_score(random_summary, heuristic_summary)
+            score = canonical_selection_score(random_summary, heuristic_summary)
             snapshot = {
                 "episode": episode_number,
                 "selectionScore": score,
@@ -251,18 +252,6 @@ def main() -> int:
         )
     )
     return 0
-
-
-def _selection_score(random_summary: MatchSummary, heuristic_summary: MatchSummary) -> float:
-    random_win_rate = _player_a_win_rate(random_summary)
-    heuristic_win_rate = _player_a_win_rate(heuristic_summary)
-    return (0.7 * heuristic_win_rate) + (0.3 * random_win_rate)
-
-
-def _player_a_win_rate(summary: MatchSummary) -> float:
-    if summary.games <= 0:
-        return 0.0
-    return summary.winners["PlayerA"] / float(summary.games)
 
 
 def _to_snapshot(opponent: str, summary: MatchSummary) -> Dict[str, object]:
