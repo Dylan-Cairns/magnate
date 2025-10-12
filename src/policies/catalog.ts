@@ -1,10 +1,8 @@
 import { randomPolicy } from './randomPolicy';
+import { createPpoBrowserPolicy } from './ppoBrowserPolicy';
 import type { ActionPolicy } from './types';
 
-export type BotProfileId =
-  | 'random-legal'
-  | 'trained-baseline'
-  | 'trained-conservative';
+export type BotProfileId = 'ppo-champion-2026-02-23-seed7' | 'random-legal';
 
 export interface BotProfile {
   id: BotProfileId;
@@ -21,7 +19,20 @@ export interface ResolvedBotProfile {
   statusText: string;
 }
 
+const CHAMPION_MODEL_URL = `${import.meta.env.BASE_URL}models/ppo_champion_2026-02-23_seed7.browser.json`;
+const championPolicy = createPpoBrowserPolicy({
+  modelUrl: CHAMPION_MODEL_URL,
+});
+
 export const BOT_PROFILES: readonly BotProfile[] = [
+  {
+    id: 'ppo-champion-2026-02-23-seed7',
+    label: 'Champion PPO (2026-02-23 seed7)',
+    description: 'Current best trained PPO checkpoint. Default bot profile.',
+    kind: 'trained',
+    available: true,
+    policy: championPolicy,
+  },
   {
     id: 'random-legal',
     label: 'Random legal',
@@ -30,25 +41,9 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     available: true,
     policy: randomPolicy,
   },
-  {
-    id: 'trained-baseline',
-    label: 'Trained baseline (coming soon)',
-    description: 'Checkpoint profile placeholder for the baseline trained bot.',
-    kind: 'trained',
-    available: false,
-    policy: randomPolicy,
-  },
-  {
-    id: 'trained-conservative',
-    label: 'Trained conservative (coming soon)',
-    description: 'Checkpoint profile placeholder for a conservative trained bot.',
-    kind: 'trained',
-    available: false,
-    policy: randomPolicy,
-  },
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'random-legal';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'ppo-champion-2026-02-23-seed7';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);

@@ -24,7 +24,7 @@
   - async-capable `src/policies/types.ts` + `src/policies/randomPolicy.ts`
   - `src/policies/catalog.ts` profile registry with strict fail-fast resolution for unknown/unavailable profiles
   - `src/ui/actionPresentation.ts` (+ tests)
-- UI now exposes bot-profile selection and status text, with unavailable trained placeholders shown as disabled options.
+- UI now exposes bot-profile selection and status text, with a model-backed champion PPO profile enabled and set as default.
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime
   - income-choice log attribution now reflects the chooser even when active player is restored
@@ -52,6 +52,11 @@
   - PyTorch PPO scaffold in `trainer/ppo_model.py` + `trainer/ppo_training.py` + `scripts/train_ppo.py`
     - `scripts/train_ppo.py` now emits infrequent update-heartbeat progress logs to stderr
     - `scripts/train_ppo_queue.py` adds sequential multi-seed PPO run automation
+  - browser PPO checkpoint export path is implemented:
+    - `scripts/export_ppo_browser_checkpoint.py` exports `.pt` checkpoints to browser JSON
+    - `src/policies/trainingEncoding.ts` provides TS parity for trainer feature encoding
+    - `src/policies/ppoBrowserPolicy.ts` runs candidate-action PPO inference in browser
+    - champion browser artifact tracked at `public/models/ppo_champion_2026-02-23_seed7.browser.json`
   - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC), `scripts/finetune.py` (BC -> RL), `scripts/train_ppo.py` (PPO scaffold)
   - project Python venv bootstrap is standardized (`requirements.txt`, `scripts/setup_python_env.ps1`)
   - unittest coverage in `trainer_tests/`
@@ -66,7 +71,6 @@
 
 - Experiment tracking/metrics for BC baseline, RL fine-tuning, and self-play runs.
 - Surpass heuristic baseline consistently with current stabilized REINFORCE controls and/or PPO path.
-- Model inference wiring in browser client.
 - Deployment polish for static hosting path.
 
 ## Risks / Watch Items
@@ -75,4 +79,4 @@
 - Bridge/API stability needs explicit guardrails as trainer integration starts.
 - Trained profiles are still placeholders until bridge/runtime inference wiring is complete.
 
-_Updated: 2026-02-22._
+_Updated: 2026-02-24._

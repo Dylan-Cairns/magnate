@@ -37,6 +37,10 @@ Feature groups:
 
 All numeric features are normalized to bounded ranges for stable learning input.
 
+Browser parity:
+
+- TypeScript encoder parity is now implemented in `src/policies/trainingEncoding.ts` for model-backed UI bot inference.
+
 ## Action Candidate Features
 
 - Function: `trainer.encoding.encode_action_candidates(actions)`
@@ -167,3 +171,6 @@ Training script:
 Checkpoint type:
 
 - `magnate_ppo_policy_v1` (`trainer/ppo_model.py`)
+- Browser-export checkpoint type:
+  - `magnate_ppo_browser_v1` (generated via `scripts/export_ppo_browser_checkpoint.py`)
+  - consumed by `src/policies/ppoBrowserPolicy.ts`
