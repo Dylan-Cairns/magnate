@@ -72,6 +72,10 @@
 - Baseline policy/eval/training scripts are implemented:
   - policies: `trainer/policies.py` (random + heuristic + checkpoint-backed BC + checkpoint-backed PPO)
   - eval: `trainer/evaluate.py` + `scripts/eval.py`
+  - canonical holdout benchmark: `trainer/benchmarking.py` + `scripts/benchmark.py`
+    - fixed seed prefixes: `bench-random-holdout`, `bench-heuristic-holdout`
+    - default games per matchup: 200
+    - selection score: `0.7 * heuristic + 0.3 * random`
   - sample collection + JSONL IO: `trainer/training.py`
   - behavior cloning warm-start: `trainer/behavior_cloning.py`
   - RL fine-tuning (stabilized REINFORCE): `trainer/reinforcement.py` + `scripts/finetune.py`
