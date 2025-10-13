@@ -47,7 +47,7 @@
 - Card tiles now render mapped art in `src/App.tsx` with:
   - a dedicated framed image panel (1px gray border)
   - rank/suits and deed progress share a single metadata row
-  - image panel sizing follows Decktet source aspect ratio and uses scaled `object-fit: contain`
+  - image panel sizing follows Decktet source aspect ratio, stretches art with `object-fit: fill`, and draws the 1px frame border via an overlay pseudo-element to avoid edge clipping artifacts
   - deed-token overlays are retained without reserving a separate top/bottom progress lane
 - Official Decktet suit icons are now canonical in `src/ui/suitIcons.tsx`:
   - shared `{Suit}` text tokens drive action-label formatting and inline suit-icon replacement
