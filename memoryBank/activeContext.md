@@ -84,7 +84,10 @@
 - Hidden opponent hand cards use striped card-back styling.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
-  - card drop shadows now match district-divider strength; in stacked district lanes only the top card keeps the outer shadow
+  - stack shadow now uses a two-layer model:
+    - strong outer shadow is applied at the stack container level (`.lane-stack`)
+    - each overlapping card gets a subtle directional seam shadow to separate overlaps (human casts upward, bot casts downward)
+  - district stack overlap is tighter (`card-stack-step` reduced) so less of underlying cards remains exposed
 
 ### Bridge
 
