@@ -45,11 +45,12 @@
   - crown/resource token chips in the center rows are enlarged (3rem)
   - full score breakdown remains available via hover/focus popovers on score badges
 - Deck state panel now uses a visual pile layout:
-  - deck pile shows striped card-back styling with hover text ("Cards remaining") and numeric count
-  - discard pile shows face-up top discarded card with hover text ("Discard pile") and numeric count
+  - deck pile shows striped card-back styling with hover text ("Cards remaining"), rendering up to three stacked backs with a uniform diagonal offset or a dashed empty placeholder when empty
+  - discard pile shows up to three top discarded cards with hover text ("Discard pile"), including a slight fan effect when multiple cards are visible
   - reshuffles remaining is shown as a text line above the piles
 - Hidden bot-hand cards use striped card-back styling.
 - Roll result panel now appears above deck state, doubles die icon size, and shows taxed suit via the shared token-chip component.
+- Card drop shadows now match district-divider strength; stacked district lanes only render outer shadow on the top card.
 - Brand panel controls were reorganized:
   - title now sits above Actions in the left column with a right-side hamburger trigger
   - seed/new-game and bot-profile controls now live in a dropdown options menu
