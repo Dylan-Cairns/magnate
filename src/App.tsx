@@ -1545,7 +1545,7 @@ function RollResult({
       </span>
       <span className="roll-item">
         <img src={cubeDieIcon} alt="d6" title="d6" className="roll-die-icon" />
-        {taxSuit ? <SuitIcon suit={taxSuit} className="roll-tax-suit-icon" /> : <strong>-</strong>}
+        {taxSuit ? <TokenChip suit={taxSuit} count={1} compact className="roll-tax-chip" /> : <strong>-</strong>}
       </span>
     </div>
   );
