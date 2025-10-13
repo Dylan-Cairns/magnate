@@ -51,6 +51,7 @@
 - Hidden bot-hand cards use striped card-back styling.
 - Roll result panel now appears above deck state, doubles die icon size, and shows taxed suit via the shared token-chip component.
 - Card drop shadows now match district-divider strength; stacked district lanes only render outer shadow on the top card.
+- District stack shadow behavior now uses a two-layer model (container outer shadow + subtle directional per-card seam shadow), and stack overlap was tightened by reducing `card-stack-step`.
 - Brand panel controls were reorganized:
   - title now sits above Actions in the left column with a right-side hamburger trigger
   - seed/new-game and bot-profile controls now live in a dropdown options menu
