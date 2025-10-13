@@ -38,7 +38,7 @@
   - chip icon CSS scales SVGs to fill nearly the full chip area
 - Player/board column layout was rebalanced for district space:
   - side columns now anchor player panels by hand only (title/score + 3-card hand footprint)
-  - non-hand panels in the side columns are now 80% width and outer-edge aligned
+  - non-hand panels in the side columns are now 80% width, outer-edge aligned, and rendered with ~50% opacity fill
   - bot hand sits at top-right column and human hand at bottom-left column
   - crowns/resources now render in mirrored top/bottom rows inside the center board column
   - center-lane token rows are edge-aligned: bot row packed right, human row packed left
@@ -49,7 +49,7 @@
   - discard pile shows face-up top discarded card with hover text ("Discard pile") and numeric count
   - reshuffles remaining is shown as a text line above the piles
 - Hidden bot-hand cards use striped card-back styling.
-- Roll result panel now appears above deck state, doubles die icon size, and shows taxed suit as an icon.
+- Roll result panel now appears above deck state, doubles die icon size, and shows taxed suit via the shared token-chip component.
 - Brand panel controls were reorganized:
   - title now sits above Actions in the left column with a right-side hamburger trigger
   - seed/new-game and bot-profile controls now live in a dropdown options menu
