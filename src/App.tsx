@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
-import { type CardId } from './engine/cards';
+import { CARD_BY_ID, type CardId } from './engine/cards';
 import { rngFromSeed } from './engine/rng';
 import { createSession, stepToDecision } from './engine/session';
 import { isTerminal, scoreLive } from './engine/scoring';
@@ -357,6 +357,21 @@ export function App() {
   const recentLog = [...humanView.log].reverse();
   const deckStackCount = Math.min(3, humanView.deck.drawCount);
   const discardStackCardIds = humanView.deck.discard.slice(0, 3).reverse();
+  const discardCardDetails = humanView.deck.discard.map((cardId) => {
+    const card = CARD_BY_ID[cardId];
+    const rank =
+      card.kind === 'Property' || card.kind === 'Crown'
+        ? String(card.rank)
+        : card.kind;
+    const suitTokenText =
+      card.kind === 'Excuse' ? '' : card.suits.map((suit) => SUIT_TEXT_TOKEN[suit]).join(' ');
+    return {
+      id: card.id,
+      name: card.name,
+      rank,
+      suitTokenText,
+    };
+  });
 
   return (
     <div className="app-shell">
@@ -743,23 +758,55 @@ export function App() {
                 <strong className="deck-pile-count">{humanView.deck.drawCount}</strong>
               </div>
               <div className="deck-pile">
-                <div
-                  className={`deck-pile-stack is-discard${discardStackCardIds.length > 1 ? ' is-fanned' : ''}`}
-                  title="Discard pile"
-                  aria-label="Discard pile"
-                >
-                  {discardStackCardIds.length > 0 ? (
-                    discardStackCardIds.map((cardId, index) => (
-                      <div
-                        key={`discard-${cardId}-${index}`}
-                        className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
-                      >
-                        <img className="deck-pile-image" src={getCardImage(cardId)} alt="" />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
-                  )}
+                <div className="player-score-wrap discard-pile-wrap">
+                  <div
+                    className={`deck-pile-stack is-discard${discardStackCardIds.length > 1 ? ' is-fanned' : ''}`}
+                    title="Discard pile"
+                    aria-label="Discard pile"
+                    tabIndex={0}
+                  >
+                    {discardStackCardIds.length > 0 ? (
+                      discardStackCardIds.map((cardId, index) => (
+                        <div
+                          key={`discard-${cardId}-${index}`}
+                          className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
+                        >
+                          <img className="deck-pile-image" src={getCardImage(cardId)} alt="" />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
+                    )}
+                  </div>
+                  <section
+                    className="player-score-popover discard-pile-popover"
+                    role="tooltip"
+                    aria-label="Discard pile details"
+                  >
+                    <p className="score-result">
+                      Discarded Cards: <strong>{discardCardDetails.length}</strong>
+                    </p>
+                    {discardCardDetails.length === 0 ? (
+                      <p className="score-line">
+                        <span>None yet</span>
+                        <strong>-</strong>
+                      </p>
+                    ) : (
+                      <ol className="discard-pile-list">
+                        {discardCardDetails.map((card, index) => (
+                          <li key={`discard-detail-${card.id}-${index}`} className="discard-pile-item">
+                            <p className="discard-pile-card-row">
+                              <strong className="discard-pile-card-rank">{card.rank}</strong>
+                              <span className="discard-pile-card-suits">
+                                {card.suitTokenText.length > 0 ? renderSuitText(card.suitTokenText) : <strong>-</strong>}
+                              </span>
+                              <span className="discard-pile-card-name">{card.name}</span>
+                            </p>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </section>
                 </div>
                 <strong className="deck-pile-count">{humanView.deck.discard.length}</strong>
               </div>
