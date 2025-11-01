@@ -55,6 +55,7 @@ With `.venv` active:
 - BC warm-start: `python -m scripts.train --games 50`
 - RL fine-tune from BC: `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300`
 - PPO training: `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32`
+- Teacher-data generation (for distillation): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
 
 Use `--help` on each script for full options.
 
@@ -62,6 +63,7 @@ Use `--help` on each script for full options.
 
 - Agent manifest: `AGENTS.md`
 - Memory workflow: `docs/AGENT_GUIDE.md`
+- Training handoff/restart context: `docs/TRAINING_HANDOFF.md`
 - Memory Bank: `memoryBank/`
 - Rules reference: `memoryBank/magnateRules.md`
 - Bridge contract: `memoryBank/bridgeInterfaceContract.md`
