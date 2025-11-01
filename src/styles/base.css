@@ -1,0 +1,298 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
+
+:root {
+  --page-bg: #05080f;
+  --page-grain-mid: rgba(143, 171, 212, 0.07);
+  --velvet-weave-light: rgba(126, 155, 196, 0.03);
+  --velvet-weave-dark: rgba(0, 0, 0, 0.048);
+  --velvet-speck-light: rgba(202, 220, 242, 0.018);
+  --velvet-speck-dark: rgba(10, 15, 24, 0.095);
+  --bg-center-glow: rgba(78, 109, 156, 0.2);
+  --panel: #080b12;
+  --side-rail-panel-fill: rgba(8, 11, 18, 0.5);
+  --panel-border: rgba(125, 94, 73, 0.6);
+  --panel-border-start: #b57e4f;
+  --panel-border-end: #2e2f35;
+  --container-shadow: 0 14px 32px rgba(0, 0, 0, 0.62);
+  --container-shadow-soft: 0 9px 22px rgba(0, 0, 0, 0.54);
+  --ink: #fafcff;
+  --muted: #c8d0dc;
+  --accent: #e0b986;
+  --accent-soft: #f0d2ac;
+  --moss: #4fbf74;
+  --input-border: #637896;
+  --input-bg: #111926;
+  --button-primary-text: #21170f;
+  --button-primary-bg: #dfb16a;
+  --button-primary-bg-hover: #eccb92;
+  --divider-subtle: rgba(154, 124, 100, 0.48);
+  --last-turn-border: #d6a86c;
+  --last-turn-bg: #352114;
+  --last-turn-text: #f7e2c9;
+  --last-turn-ring: rgba(214, 168, 108, 0.4);
+  --error-border: #b47b63;
+  --error-bg: #24171c;
+  --error-text: #ffd7cc;
+  --board-border: rgba(125, 94, 73, 0.62);
+  --active-border: #e2bf89;
+  --active-ring: rgba(226, 191, 137, 0.48);
+  --active-glow: rgba(164, 119, 79, 0.34);
+  --board-dashed: rgba(171, 139, 112, 0.34);
+  --wood-start: #140f0c;
+  --wood-end: #5b2f1e;
+  --player-area-bg: linear-gradient(
+    135deg,
+    var(--wood-start) 0%,
+    var(--wood-end) 100%
+  );
+  --district-divider-bg: linear-gradient(
+    135deg,
+    var(--wood-start) 0%,
+    var(--wood-end) 100%
+  );
+  --district-divider-border: #7b4f39;
+  --card-inset-border: rgba(255, 255, 255, 0.24);
+  --card-back-border: rgba(48, 62, 86, 0.96);
+  --card-back-stripe-a: #646d7b;
+  --card-back-stripe-b: #101827;
+  --card-placeholder-border: rgba(140, 148, 153, 0.38);
+  --card-placeholder-bg: rgba(31, 40, 53, 0.45);
+  --action-border: #4a5d79;
+  --action-bg: #1a2333;
+  --action-bg-hover: #24334a;
+  --button-shadow: 0 2px 5px rgba(0, 0, 0, 0.34);
+  --button-shadow-hover: 0 3px 7px rgba(0, 0, 0, 0.42);
+  --reset-turn-border: #60cc87;
+  --reset-turn-bg: #1f4a37;
+  --reset-turn-bg-hover: #296148;
+  --card-padding: 0.42rem;
+  --card-meta-height: 1.05rem;
+  --card-meta-gap: 0.24rem;
+  --card-image-source-width: 242;
+  --card-image-source-height: 376;
+  --card-image-area-width: 6.81rem;
+  --card-image-area-height: calc(
+    var(--card-image-area-width) * var(--card-image-source-height) /
+      var(--card-image-source-width)
+  );
+  --card-border: #3f4850;
+  --card-bg-start: #fcfdff;
+  --card-bg-end: #d9e1e8;
+  --card-image-border: #8e959b;
+  --card-image-bg: #f3f6fa;
+  --card-ink: #10151b;
+  --card-rank: #21150d;
+  --chip-border: #4a545f;
+  --chip-bg: #e5ebf1;
+  --chip-count-border: #788598;
+  --chip-count-bg: #0f1728;
+  --chip-count-text: #f4f7fb;
+  --shadow-popover: rgba(0, 0, 0, 0.66);
+  --popover-cancel-bg: #101722;
+  --popover-cancel-bg-hover: #1a2538;
+  --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
+  --card-row-gap: 0.35rem;
+  --three-card-row-width: calc(
+    (var(--card-width) * 3) + (var(--card-row-gap) * 2)
+  );
+  --side-column-width: calc(var(--three-card-row-width) + 1.4rem);
+  --card-height: calc(
+    (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +
+      var(--card-image-area-height)
+  );
+  --card-stack-step: calc(var(--card-height) / 4.5);
+  --player-panel-height: 15rem;
+  --side-column-panel-width-factor: 0.8;
+  --token-rail-chip-size: 3rem;
+  --deck-pile-card-width: 5.5rem;
+  --deck-pile-card-height: calc(
+    var(--deck-pile-card-width) * var(--card-image-source-height) /
+      var(--card-image-source-width)
+  );
+  --deck-pile-stack-step: 0.24rem;
+  --deck-pile-fan-shift: 0.18rem;
+  --card-drop-shadow: var(--container-shadow-soft);
+  --card-stack-drop-shadow: var(--container-shadow-soft);
+  --card-stack-inner-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22), 0 -1px 1px rgba(255, 255, 255, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  min-height: 100%;
+  background-color: var(--page-bg);
+  background-image:
+    radial-gradient(
+      ellipse 84% 64% at 50% 50%,
+      var(--bg-center-glow) 0%,
+      rgba(78, 109, 156, 0.09) 30%,
+      transparent 72%
+    ),
+    radial-gradient(
+      ellipse 120% 95% at 16% 17%,
+      var(--page-grain-mid) 0%,
+      transparent 64%
+    ),
+    radial-gradient(
+      ellipse 116% 90% at 84% 83%,
+      rgba(103, 133, 174, 0.06) 0%,
+      transparent 66%
+    ),
+    repeating-linear-gradient(
+      104deg,
+      var(--velvet-weave-light) 0 2px,
+      transparent 2px 24px
+    ),
+    repeating-linear-gradient(
+      -101deg,
+      var(--velvet-weave-dark) 0 3px,
+      transparent 3px 32px
+    ),
+    repeating-radial-gradient(
+      circle at 0 0,
+      var(--velvet-speck-light) 0 1.1px,
+      transparent 1.1px 18px
+    ),
+    repeating-radial-gradient(
+      circle at 100% 100%,
+      var(--velvet-speck-dark) 0 1px,
+      transparent 1px 21px
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.02) 0%,
+      rgba(0, 0, 0, 0.18) 100%
+    );
+  background-size:
+    auto,
+    auto,
+    auto,
+    360px 360px,
+    420px 420px,
+    210px 210px,
+    260px 260px,
+    auto;
+  color: var(--ink);
+}
+
+body {
+  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+}
+
+.app-shell {
+  height: 100vh;
+  min-height: 100vh;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  background: transparent;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 0.8rem 1rem;
+  background:
+    linear-gradient(var(--panel), var(--panel)) padding-box,
+    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end))
+      border-box;
+  backdrop-filter: none;
+  box-shadow: var(--container-shadow);
+}
+
+h1 {
+  margin: 0;
+  font-family: 'DM Serif Display', Georgia, serif;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.subtitle {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.seed-label {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.seed-input {
+  width: 13rem;
+  max-width: 45vw;
+  padding: 0.42rem 0.5rem;
+  border-radius: 7px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.reset-button {
+  border: 1px solid rgba(35, 23, 15, 0.45);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--button-primary-text);
+  background: var(--button-primary-bg);
+  cursor: pointer;
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  transition:
+    background-color 140ms ease,
+    transform 120ms ease,
+    box-shadow 140ms ease;
+}
+
+.reset-button:hover {
+  background: var(--button-primary-bg-hover);
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.hud-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.hud-item {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 0.5rem 0.65rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.hud-item span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.hud-item strong {
+  font-size: 1rem;
+}
+
