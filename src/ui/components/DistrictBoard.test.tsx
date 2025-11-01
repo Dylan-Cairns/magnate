@@ -47,8 +47,14 @@ describe('DistrictColumn', () => {
       <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
     );
 
-    expect(html).toContain('class="district-lane-score is-leading"');
-    const nonLeadingScoreMatches = [...html.matchAll(/class="district-lane-score"/g)];
-    expect(nonLeadingScoreMatches).toHaveLength(1);
+    const scoreClassMatches = [
+      ...html.matchAll(/class="[^"]*\bdistrict-lane-score\b[^"]*"/g),
+    ];
+    expect(scoreClassMatches).toHaveLength(2);
+
+    const leadingScoreMatches = [
+      ...html.matchAll(/class="[^"]*\bdistrict-lane-score\b[^"]*\bis-leading\b[^"]*"/g),
+    ];
+    expect(leadingScoreMatches).toHaveLength(1);
   });
 });
