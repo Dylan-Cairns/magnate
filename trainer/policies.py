@@ -158,8 +158,68 @@ class MctsConfig:
 
 
 @dataclass
+class _GuidanceModel:
+    model: CandidateActorCritic
+    temperature: float = 1.0
+
+    def policy_probs(
+        self,
+        view: Mapping[str, Any],
+        legal_actions: Sequence[KeyedAction],
+    ) -> list[float]:
+        if not legal_actions:
+            return []
+        observation_vector = encode_observation(view)
+        action_vectors = encode_action_candidates(legal_actions)
+        observation = torch.tensor(observation_vector, dtype=torch.float32)
+        action_features = torch.tensor(action_vectors, dtype=torch.float32)
+        with torch.no_grad():
+            logits = self.model.policy_logits_tensor(observation, action_features)
+            if self.temperature != 1.0:
+                logits = logits / self.temperature
+            probs = torch.softmax(logits, dim=-1).tolist()
+        return [float(value) for value in probs]
+
+    def choose_action_key(
+        self,
+        view: Mapping[str, Any],
+        legal_actions: Sequence[KeyedAction],
+        rng: random.Random,
+        deterministic: bool,
+    ) -> str:
+        if not legal_actions:
+            raise ValueError("Guidance policy requires at least one legal action.")
+        probs = self.policy_probs(view=view, legal_actions=legal_actions)
+        if deterministic:
+            ranked = sorted(
+                range(len(legal_actions)),
+                key=lambda index: (
+                    -probs[index],
+                    legal_actions[index].action_key,
+                ),
+            )
+            return legal_actions[ranked[0]].action_key
+
+        draw = rng.random()
+        cumulative = 0.0
+        for index, prob in enumerate(probs):
+            cumulative += prob
+            if draw <= cumulative:
+                return legal_actions[index].action_key
+        return legal_actions[-1].action_key
+
+    def value_from_view(self, view: Mapping[str, Any]) -> float:
+        observation_vector = encode_observation(view)
+        observation = torch.tensor(observation_vector, dtype=torch.float32)
+        with torch.no_grad():
+            raw = float(self.model.value_tensor(observation).item())
+        return max(-1.0, min(1.0, raw))
+
+
+@dataclass
 class DeterminizedSearchPolicy(Policy):
     config: SearchConfig
+    guidance_model: _GuidanceModel | None = None
     name: str = "search"
 
     def __post_init__(self) -> None:
@@ -183,12 +243,16 @@ class DeterminizedSearchPolicy(Policy):
             raise ValueError("Search policy requires a serialized state payload.")
 
         root_player = _active_player_id(view)
-        candidates = self._root_candidates(legal_actions)
+        candidates = self._root_candidates(view=view, legal_actions=legal_actions)
         worlds = self._sample_worlds(state=state, view=view, root_player=root_player, rng=rng)
+        root_prior_by_key = self._root_priors_by_key(
+            view=view,
+            legal_actions=legal_actions,
+        )
 
         best_action = candidates[0]
         best_score = float("-inf")
-        best_prior = self._heuristic_policy.score_action(best_action)
+        best_prior = root_prior_by_key.get(best_action.action_key, 0.0)
         for action in candidates:
             score = self._evaluate_action_over_worlds(
                 world_states=worlds,
@@ -196,7 +260,7 @@ class DeterminizedSearchPolicy(Policy):
                 root_action_key=action.action_key,
                 rng=rng,
             )
-            prior = self._heuristic_policy.score_action(action)
+            prior = root_prior_by_key.get(action.action_key, 0.0)
             if (
                 score > best_score
                 or (
@@ -228,7 +292,23 @@ class DeterminizedSearchPolicy(Policy):
         except Exception:
             return None
 
-    def _root_candidates(self, legal_actions: Sequence[KeyedAction]) -> list[KeyedAction]:
+    def _root_candidates(
+        self,
+        view: Mapping[str, Any],
+        legal_actions: Sequence[KeyedAction],
+    ) -> list[KeyedAction]:
+        if self.guidance_model is not None:
+            probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
+            ranked_indices = sorted(
+                range(len(legal_actions)),
+                key=lambda index: (
+                    -probs[index],
+                    legal_actions[index].action_key,
+                ),
+            )
+            ranked = [legal_actions[index] for index in ranked_indices]
+            return ranked[: min(len(ranked), self.config.max_root_actions)]
+
         ranked = sorted(
             legal_actions,
             key=lambda action: (
@@ -281,12 +361,21 @@ class DeterminizedSearchPolicy(Policy):
                 view=step_result.view,
                 legal_actions=legal.actions,
                 rng=rng,
+                root_player=root_player,
             )
             step_result = sim_env.step(action_key=action_key)
             depth += 1
 
         if step_result.terminal:
             return _terminal_value(step_result.state, root_player)
+
+        if self.guidance_model is not None:
+            active_player = _active_player_id(step_result.view)
+            value = self.guidance_model.value_from_view(step_result.view)
+            if active_player != root_player:
+                value = -value
+            return max(-1.0, min(1.0, value))
+
         root_view = sim_env.observation(viewer_id=root_player).view
         return _value_from_player_view(root_view, root_player)
 
@@ -295,10 +384,38 @@ class DeterminizedSearchPolicy(Policy):
         view: Dict[str, Any],
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
+        root_player: PlayerId,
     ) -> str:
         if rng.random() < self.config.rollout_epsilon:
             return self._random_policy.choose_action_key(view, legal_actions, rng)
+
+        if self.guidance_model is not None:
+            active_player = _active_player_id(view)
+            deterministic = active_player == root_player
+            return self.guidance_model.choose_action_key(
+                view=view,
+                legal_actions=legal_actions,
+                rng=rng,
+                deterministic=deterministic,
+            )
+
         return self._heuristic_policy.choose_action_key(view, legal_actions, rng)
+
+    def _root_priors_by_key(
+        self,
+        view: Mapping[str, Any],
+        legal_actions: Sequence[KeyedAction],
+    ) -> Dict[str, float]:
+        if self.guidance_model is None:
+            return {
+                action.action_key: self._heuristic_policy.score_action(action)
+                for action in legal_actions
+            }
+        probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
+        return {
+            legal_actions[index].action_key: probs[index]
+            for index in range(len(legal_actions))
+        }
 
     def _sample_worlds(
         self,
@@ -372,6 +489,7 @@ class _MctsNode:
 @dataclass
 class DeterminizedMctsPolicy(Policy):
     config: MctsConfig
+    guidance_model: _GuidanceModel | None = None
     name: str = "mcts"
 
     def __post_init__(self) -> None:
@@ -380,6 +498,8 @@ class DeterminizedMctsPolicy(Policy):
         self._sim_env: MagnateBridgeEnv | None = None
         self._step_cache: OrderedDict[tuple[str, str], Dict[str, Any]] = OrderedDict()
         self._step_cache_limit = 20_000
+        self._value_cache: OrderedDict[tuple[str, PlayerId], float] = OrderedDict()
+        self._value_cache_limit = 20_000
 
     def choose_action_key(
         self,
@@ -396,8 +516,9 @@ class DeterminizedMctsPolicy(Policy):
             raise ValueError("MCTS policy requires a serialized state payload.")
 
         root_player = _active_player_id(view)
-        root_candidates = self._ranked_root_actions(legal_actions)
+        root_candidates = self._ranked_root_actions(view=view, legal_actions=legal_actions)
         worlds = self._sample_worlds(state=state, view=view, root_player=root_player, rng=rng)
+        root_prior_by_key = self._root_priors_by_key(view=view, legal_actions=legal_actions)
 
         aggregate_visits: Dict[str, int] = {action.action_key: 0 for action in root_candidates}
         aggregate_value_sum: Dict[str, float] = {action.action_key: 0.0 for action in root_candidates}
@@ -418,11 +539,11 @@ class DeterminizedMctsPolicy(Policy):
             aggregate_value_sum[best_action.action_key],
             aggregate_visits[best_action.action_key],
         )
-        best_prior = self._heuristic_policy.score_action(best_action)
+        best_prior = root_prior_by_key.get(best_action.action_key, 0.0)
         for action in root_candidates[1:]:
             visits = aggregate_visits[action.action_key]
             avg_value = _safe_div(aggregate_value_sum[action.action_key], visits)
-            prior = self._heuristic_policy.score_action(action)
+            prior = root_prior_by_key.get(action.action_key, 0.0)
             if (
                 visits > best_visits
                 or (
@@ -454,6 +575,8 @@ class DeterminizedMctsPolicy(Policy):
             self._sim_client.close()
             self._sim_client = None
             self._sim_env = None
+        self._step_cache.clear()
+        self._value_cache.clear()
 
     def __del__(self) -> None:
         try:
@@ -461,7 +584,22 @@ class DeterminizedMctsPolicy(Policy):
         except Exception:
             return None
 
-    def _ranked_root_actions(self, legal_actions: Sequence[KeyedAction]) -> list[KeyedAction]:
+    def _ranked_root_actions(
+        self,
+        legal_actions: Sequence[KeyedAction],
+        view: Mapping[str, Any] | None = None,
+    ) -> list[KeyedAction]:
+        if self.guidance_model is not None and view is not None:
+            probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
+            ranked_indices = sorted(
+                range(len(legal_actions)),
+                key=lambda index: (
+                    -probs[index],
+                    legal_actions[index].action_key,
+                ),
+            )
+            return [legal_actions[index] for index in ranked_indices]
+
         return sorted(
             legal_actions,
             key=lambda action: (
@@ -500,14 +638,14 @@ class DeterminizedMctsPolicy(Policy):
         if node.terminal:
             return _terminal_value(node.state, root_player)
         if depth_remaining <= 0:
-            return _value_from_serialized_state(node.state, root_player)
+            return self._leaf_value(node.state, root_player)
         if not node.expanded:
             self._expand_node(node=node)
             if node.terminal:
                 return _terminal_value(node.state, root_player)
-            return _value_from_serialized_state(node.state, root_player)
+            return self._leaf_value(node.state, root_player)
         if not node.edges:
-            return _value_from_serialized_state(node.state, root_player)
+            return self._leaf_value(node.state, root_player)
 
         self._maybe_widen_root(node=node)
         edge = self._select_edge(node=node, root_player=root_player)
@@ -582,7 +720,10 @@ class DeterminizedMctsPolicy(Policy):
             node.expanded = True
             return
 
-        priors = self._action_priors(legal_actions)
+        priors = self._action_priors(
+            legal_actions=legal_actions,
+            view=step_result.view,
+        )
         actions_to_expand = legal_actions
         if node.root_ranked_actions is not None:
             legal_by_key = {action.action_key: action for action in legal_actions}
@@ -592,7 +733,10 @@ class DeterminizedMctsPolicy(Policy):
                 if action.action_key in legal_by_key
             ]
             if not ranked_legal_actions:
-                ranked_legal_actions = self._ranked_root_actions(legal_actions)
+                ranked_legal_actions = self._ranked_root_actions(
+                    legal_actions=legal_actions,
+                    view=step_result.view,
+                )
 
             node.root_ranked_actions = ranked_legal_actions
             node.root_priors = priors
@@ -638,9 +782,19 @@ class DeterminizedMctsPolicy(Policy):
             if len(node.edges) >= target_actions:
                 break
 
-    def _action_priors(self, legal_actions: Sequence[KeyedAction]) -> Dict[str, float]:
+    def _action_priors(
+        self,
+        legal_actions: Sequence[KeyedAction],
+        view: Mapping[str, Any] | None = None,
+    ) -> Dict[str, float]:
         if not legal_actions:
             return {}
+        if self.guidance_model is not None and view is not None:
+            probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
+            return {
+                legal_actions[index].action_key: probs[index]
+                for index in range(len(legal_actions))
+            }
         scores = [self._heuristic_policy.score_action(action) for action in legal_actions]
         max_score = max(scores)
         exp_scores = [math.exp(score - max_score) for score in scores]
@@ -673,6 +827,57 @@ class DeterminizedMctsPolicy(Policy):
         while len(self._step_cache) > self._step_cache_limit:
             self._step_cache.popitem(last=False)
         return copy.deepcopy(next_state)
+
+    def _leaf_value(
+        self,
+        state: Mapping[str, Any],
+        root_player: PlayerId,
+    ) -> float:
+        if self.guidance_model is None:
+            return _value_from_serialized_state(state, root_player)
+
+        state_key = _state_cache_key(state)
+        cache_key = (state_key, root_player)
+        cached = self._value_cache.get(cache_key)
+        if cached is not None:
+            self._value_cache.move_to_end(cache_key)
+            return cached
+
+        sim_env = self._simulator_env()
+        step_result = sim_env.reset(
+            serialized_state=copy.deepcopy(dict(state)),
+            skip_advance_to_decision=True,
+        )
+        if step_result.terminal:
+            value = _terminal_value(step_result.state, root_player)
+        else:
+            active_player = _active_player_id(step_result.view)
+            value = self.guidance_model.value_from_view(step_result.view)
+            if active_player != root_player:
+                value = -value
+            value = max(-1.0, min(1.0, value))
+
+        self._value_cache[cache_key] = value
+        self._value_cache.move_to_end(cache_key)
+        while len(self._value_cache) > self._value_cache_limit:
+            self._value_cache.popitem(last=False)
+        return value
+
+    def _root_priors_by_key(
+        self,
+        view: Mapping[str, Any],
+        legal_actions: Sequence[KeyedAction],
+    ) -> Dict[str, float]:
+        if self.guidance_model is None:
+            return {
+                action.action_key: self._heuristic_policy.score_action(action)
+                for action in legal_actions
+            }
+        probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
+        return {
+            legal_actions[index].action_key: probs[index]
+            for index in range(len(legal_actions))
+        }
 
     def _sample_worlds(
         self,
@@ -794,6 +999,9 @@ def policy_from_name(
     checkpoint_path: str | Path | None = None,
     search_config: SearchConfig | None = None,
     mcts_config: MctsConfig | None = None,
+    search_guidance_checkpoint: str | Path | None = None,
+    mcts_guidance_checkpoint: str | Path | None = None,
+    guidance_temperature: float = 1.0,
 ) -> Policy:
     normalized = name.strip().lower()
     if normalized == "random":
@@ -801,9 +1009,23 @@ def policy_from_name(
     if normalized == "heuristic":
         return HeuristicPolicy()
     if normalized == "search":
-        return DeterminizedSearchPolicy(config=search_config or SearchConfig())
+        guidance_model = _load_guidance_model(
+            checkpoint_path=search_guidance_checkpoint,
+            temperature=guidance_temperature,
+        )
+        return DeterminizedSearchPolicy(
+            config=search_config or SearchConfig(),
+            guidance_model=guidance_model,
+        )
     if normalized == "mcts":
-        return DeterminizedMctsPolicy(config=mcts_config or MctsConfig())
+        guidance_model = _load_guidance_model(
+            checkpoint_path=mcts_guidance_checkpoint,
+            temperature=guidance_temperature,
+        )
+        return DeterminizedMctsPolicy(
+            config=mcts_config or MctsConfig(),
+            guidance_model=guidance_model,
+        )
     if normalized in ("bc", "behavior-cloned", "behavior_cloned"):
         if checkpoint_path is None:
             raise ValueError("Policy 'bc' requires a checkpoint path.")
@@ -827,6 +1049,20 @@ def policy_from_name(
     raise ValueError(
         f"Unknown policy name: {name!r}. Expected one of: random, heuristic, search, mcts, bc, ppo."
     )
+
+
+def _load_guidance_model(
+    checkpoint_path: str | Path | None,
+    temperature: float,
+) -> _GuidanceModel | None:
+    if checkpoint_path is None:
+        return None
+    if temperature <= 0:
+        raise ValueError("guidance_temperature must be > 0.")
+    path = Path(checkpoint_path)
+    model, _ = load_ppo_checkpoint(path)
+    model.eval()
+    return _GuidanceModel(model=model, temperature=temperature)
 
 
 def _active_player_id(view: Mapping[str, Any]) -> PlayerId:

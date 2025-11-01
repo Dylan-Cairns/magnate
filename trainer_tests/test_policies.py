@@ -50,11 +50,45 @@ class PolicyFactoryTests(unittest.TestCase):
         finally:
             policy.close()
 
+    def test_policy_factory_creates_search_policy_with_guidance(self) -> None:
+        config = SearchConfig(worlds=1, rollouts=1, depth=1, max_root_actions=1, rollout_epsilon=0.0)
+        model = CandidateActorCritic(observation_dim=2, action_feature_dim=2, hidden_dim=8)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "guidance.pt"
+            save_ppo_checkpoint(model, path)
+            policy = policy_from_name(
+                "search",
+                search_config=config,
+                search_guidance_checkpoint=path,
+            )
+        try:
+            self.assertIsInstance(policy, DeterminizedSearchPolicy)
+            self.assertIsNotNone(policy.guidance_model)
+        finally:
+            policy.close()
+
     def test_policy_factory_creates_mcts_policy(self) -> None:
         config = MctsConfig(worlds=1, simulations=4, depth=2, max_root_actions=2, c_puct=1.0)
         policy = policy_from_name("mcts", mcts_config=config)
         try:
             self.assertIsInstance(policy, DeterminizedMctsPolicy)
+        finally:
+            policy.close()
+
+    def test_policy_factory_creates_mcts_policy_with_guidance(self) -> None:
+        config = MctsConfig(worlds=1, simulations=4, depth=2, max_root_actions=2, c_puct=1.0)
+        model = CandidateActorCritic(observation_dim=2, action_feature_dim=2, hidden_dim=8)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "guidance.pt"
+            save_ppo_checkpoint(model, path)
+            policy = policy_from_name(
+                "mcts",
+                mcts_config=config,
+                mcts_guidance_checkpoint=path,
+            )
+        try:
+            self.assertIsInstance(policy, DeterminizedMctsPolicy)
+            self.assertIsNotNone(policy.guidance_model)
         finally:
             policy.close()
 

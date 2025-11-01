@@ -30,6 +30,7 @@
   - `python -m scripts.train`
   - `python -m scripts.finetune`
   - `python -m scripts.train_ppo`
+  - `python -m scripts.train_search_guidance`
   - queue helpers for PPO and benchmark sweeps
 
 ## Constraints
@@ -40,6 +41,7 @@
 
 ## Known Gaps
 
-- Search teacher is strong but expensive at inference time; distillation path is not yet implemented.
+- Guidance training path now exists, but checkpoint quality and tuning are not yet standardized.
+- Search teacher is stronger than PPO, but still below target dominance; learned priors/value/opponent-model tuning remains in progress.
 - Experiment tracking and promotion criteria are still lightweight/manual.
 - Long-run training automation exists, but tuning strategy and reporting are not yet standardized.
