@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import { legalActions } from './engine/actionBuilders';
 import { CARD_BY_ID, type CardId } from './engine/cards';
 import { rngFromSeed } from './engine/rng';
 import { createSession, stepToDecision } from './engine/session';
-import { isTerminal, scoreLive } from './engine/scoring';
-import type {
-  BotProfileId,
-} from './policies/catalog';
+import { districtWinnersByPlayer, isTerminal, scoreLive } from './engine/scoring';
+import type { BotProfileId } from './policies/catalog';
 import {
   BOT_PROFILES,
   DEFAULT_BOT_PROFILE_ID,
   resolveBotProfile,
 } from './policies/catalog';
 import type {
+  FinalScore,
   GameAction,
   GameState,
   PlayerId,
@@ -23,6 +29,7 @@ import { toPlayerView } from './engine/view';
 import {
   actionStableKey,
   buildHumanActionList,
+  buildTradeSourceGroups,
   buildPickerOptions,
   cardSummary,
   describeAction,
@@ -57,10 +64,16 @@ const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
 const TRADE_POPOVER_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 10;
 
-type ActionPickerState = ActionPickerQuery & {
-  top: number;
-  left: number;
-};
+type ActionPickerState =
+  | (ActionPickerQuery & {
+      top: number;
+      left: number;
+    })
+  | {
+      kind: 'trade-source';
+      top: number;
+      left: number;
+    };
 
 function makeSeed(): string {
   return `seed-${Date.now()}`;
@@ -85,14 +98,20 @@ function errorMessage(error: unknown): string {
 
 export function App() {
   const [seedInput, setSeedInput] = useState<string>(() => makeSeed());
-  const [botProfileId, setBotProfileId] =
-    useState<BotProfileId>(DEFAULT_BOT_PROFILE_ID);
-  const [state, setState] = useState<GameState>(() => createInitialState(seedInput));
+  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
+    DEFAULT_BOT_PROFILE_ID
+  );
+  const [state, setState] = useState<GameState>(() =>
+    createInitialState(seedInput)
+  );
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
-  const [actionPicker, setActionPicker] = useState<ActionPickerState | null>(null);
+  const [actionPicker, setActionPicker] = useState<ActionPickerState | null>(
+    null
+  );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
-  const [turnResetAnchor, setTurnResetAnchor] = useState<TurnResetAnchor | null>(null);
+  const [turnResetAnchor, setTurnResetAnchor] =
+    useState<TurnResetAnchor | null>(null);
 
   const stateRef = useRef(state);
   const actionPopoverRef = useRef<HTMLElement | null>(null);
@@ -101,20 +120,35 @@ export function App() {
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
-  const optionsMenuLayerRefs = useMemo(() => [optionsMenuRef, optionsMenuButtonRef], []);
+  const optionsMenuLayerRefs = useMemo(
+    () => [optionsMenuRef, optionsMenuButtonRef],
+    []
+  );
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
 
   const terminal = isTerminal(state);
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
-  const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
+  const activePlayerId =
+    state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
-  const resolvedBotProfile = useMemo(() => resolveBotProfile(botProfileId), [botProfileId]);
+  const resolvedBotProfile = useMemo(
+    () => resolveBotProfile(botProfileId),
+    [botProfileId]
+  );
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
-  const reshufflesRemaining = Math.max(0, 2 - humanView.deck.reshuffles);
-  const humanPlayer = humanView.players.find((player) => player.id === HUMAN_PLAYER);
-  const botPlayer = humanView.players.find((player) => player.id === BOT_PLAYER);
+  const wonDistrictsByPlayer = useMemo(
+    () => districtWinnersByPlayer(state),
+    [state]
+  );
+  const isSecondShuffle = humanView.deck.reshuffles > 0;
+  const humanPlayer = humanView.players.find(
+    (player) => player.id === HUMAN_PLAYER
+  );
+  const botPlayer = humanView.players.find(
+    (player) => player.id === BOT_PLAYER
+  );
 
   const humanActions = useMemo(() => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
@@ -123,18 +157,37 @@ export function App() {
     return legalActions(state);
   }, [activePlayerId, state, terminal]);
 
-  const humanActionItems = useMemo(() => buildHumanActionList(humanActions), [humanActions]);
+  const humanActionItems = useMemo(
+    () => buildHumanActionList(humanActions),
+    [humanActions]
+  );
+  const tradeSourceGroups = useMemo(
+    () => buildTradeSourceGroups(humanActions),
+    [humanActions]
+  );
+  const hasMultipleTradeSources = tradeSourceGroups.length > 1;
+  const firstTradeGroupIndex = useMemo(
+    () => humanActionItems.findIndex((item) => item.kind === 'trade-group'),
+    [humanActionItems]
+  );
 
   const actionPickerOptions = useMemo(() => {
-    if (!actionPicker) {
+    if (!actionPicker || actionPicker.kind === 'trade-source') {
       return [];
     }
-    return buildPickerOptions(toPickerQuery(actionPicker), humanActions, SUIT_TEXT_TOKEN);
+    return buildPickerOptions(
+      toPickerQuery(actionPicker),
+      humanActions,
+      SUIT_TEXT_TOKEN
+    );
   }, [actionPicker, humanActions]);
 
   const actionPickerTitle = useMemo((): string => {
     if (!actionPicker) {
       return '';
+    }
+    if (actionPicker.kind === 'trade-source') {
+      return 'Trade x3 from';
     }
     return pickerTitle(toPickerQuery(actionPicker), SUIT_TEXT_TOKEN);
   }, [actionPicker]);
@@ -145,7 +198,14 @@ export function App() {
   );
 
   useEffect(() => {
-    if (!shouldCaptureTurnResetAnchor(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor)) {
+    if (
+      !shouldCaptureTurnResetAnchor(
+        state,
+        activePlayerId,
+        HUMAN_PLAYER,
+        turnResetAnchor
+      )
+    ) {
       return;
     }
 
@@ -222,12 +282,28 @@ export function App() {
     }
 
     if (actionPicker) {
-      const stillLegal = pickerStillLegal(toPickerQuery(actionPicker), humanActions);
+      if (actionPicker.kind === 'trade-source') {
+        if (!hasMultipleTradeSources) {
+          closeActionPicker();
+        }
+        return;
+      }
+      const stillLegal = pickerStillLegal(
+        toPickerQuery(actionPicker),
+        humanActions
+      );
       if (!stillLegal) {
         closeActionPicker();
       }
     }
-  }, [activePlayerId, humanActions, terminal, actionPicker, closeActionPicker]);
+  }, [
+    activePlayerId,
+    humanActions,
+    terminal,
+    actionPicker,
+    closeActionPicker,
+    hasMultipleTradeSources,
+  ]);
 
   useDismissableLayer({
     enabled: Boolean(actionPicker),
@@ -281,7 +357,9 @@ export function App() {
     if (!turnResetAnchor) {
       return;
     }
-    if (!canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor)) {
+    if (
+      !canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor)
+    ) {
       return;
     }
 
@@ -291,9 +369,36 @@ export function App() {
     setBotThinking(false);
   };
 
-  const openTradePicker = (give: Suit, trigger: HTMLButtonElement, optionCount: number) => {
+  const openTradePicker = (
+    give: Suit,
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
     const position = pickerPosition(trigger, optionCount);
     setActionPicker({ kind: 'trade', give, ...position });
+  };
+
+  const openTradeSourcePicker = (
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({ kind: 'trade-source', ...position });
+  };
+
+  const selectTradeSource = (give: Suit) => {
+    setActionPicker((current) => {
+      if (!current || current.kind !== 'trade-source') {
+        return current;
+      }
+
+      return {
+        kind: 'trade',
+        give,
+        top: current.top,
+        left: current.left,
+      };
+    });
   };
 
   const openDistrictPicker = (
@@ -331,14 +436,25 @@ export function App() {
     });
   };
 
-  const pickerPosition = (trigger: HTMLButtonElement, optionCount: number): { top: number; left: number } => {
+  const pickerPosition = (
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ): { top: number; left: number } => {
     const rect = trigger.getBoundingClientRect();
     const rowCount = Math.max(1, Math.ceil(optionCount / 2));
-    const estimatedHeight = Math.max(TRADE_POPOVER_MIN_HEIGHT_PX, 116 + rowCount * 46);
-    const maxLeft = window.innerWidth - TRADE_POPOVER_WIDTH_PX - VIEWPORT_PADDING_PX;
+    const estimatedHeight = Math.max(
+      TRADE_POPOVER_MIN_HEIGHT_PX,
+      116 + rowCount * 46
+    );
+    const maxLeft =
+      window.innerWidth - TRADE_POPOVER_WIDTH_PX - VIEWPORT_PADDING_PX;
     const maxTop = window.innerHeight - estimatedHeight - VIEWPORT_PADDING_PX;
 
-    const left = clamp(rect.right + TRADE_POPOVER_GAP_PX, VIEWPORT_PADDING_PX, maxLeft);
+    const left = clamp(
+      rect.right + TRADE_POPOVER_GAP_PX,
+      VIEWPORT_PADDING_PX,
+      maxLeft
+    );
     const top = clamp(rect.top, VIEWPORT_PADDING_PX, maxTop);
 
     return { left, top };
@@ -357,6 +473,12 @@ export function App() {
 
   const recentLog = [...humanView.log].reverse();
   const deckStackCount = Math.min(3, humanView.deck.drawCount);
+  const deckOverlayShiftClass =
+    deckStackCount >= 3
+      ? 'overlay-shift-2'
+      : deckStackCount === 2
+        ? 'overlay-shift-1'
+        : 'overlay-shift-0';
   const discardStackCardIds = humanView.deck.discard.slice(0, 3).reverse();
   const discardCardDetails = humanView.deck.discard.map((cardId) => {
     const card = CARD_BY_ID[cardId];
@@ -365,7 +487,9 @@ export function App() {
         ? String(card.rank)
         : card.kind;
     const suitTokenText =
-      card.kind === 'Excuse' ? '' : card.suits.map((suit) => SUIT_TEXT_TOKEN[suit]).join(' ');
+      card.kind === 'Excuse'
+        ? ''
+        : card.suits.map((suit) => SUIT_TEXT_TOKEN[suit]).join(' ');
     return {
       id: card.id,
       name: card.name,
@@ -388,7 +512,9 @@ export function App() {
             <div className="brand-header">
               <div className="brand-title-block">
                 <h1>Magnate</h1>
-                <p className="brand-subtitle">For the throne of the Grand Duke</p>
+                <p className="brand-subtitle">
+                  For the throne of the Grand Duke
+                </p>
               </div>
               <button
                 ref={optionsMenuButtonRef}
@@ -406,7 +532,12 @@ export function App() {
             </div>
 
             {optionsMenuOpen ? (
-              <section id="brand-options-menu" ref={optionsMenuRef} className="brand-options-menu" aria-label="Game options">
+              <section
+                id="brand-options-menu"
+                ref={optionsMenuRef}
+                className="brand-options-menu"
+                aria-label="Game options"
+              >
                 <div className="brand-controls">
                   <input
                     id="seed-input"
@@ -415,7 +546,11 @@ export function App() {
                     value={seedInput}
                     onChange={(event) => setSeedInput(event.target.value)}
                   />
-                  <button className="reset-button" type="button" onClick={handleReset}>
+                  <button
+                    className="reset-button"
+                    type="button"
+                    onClick={handleReset}
+                  >
                     New Game
                   </button>
                 </div>
@@ -445,12 +580,48 @@ export function App() {
 
           <section className="panel actions-panel">
             <div className="actions-heading">
-              <h2>Actions</h2>
+              <h2>{terminal ? 'Game Over' : 'Actions'}</h2>
               {isLastTurn && <span className="last-turn-badge">Last Turn</span>}
             </div>
             <div className="actions-body">
               {terminal ? (
-                <p className="empty-note">Game over.</p>
+                <section
+                  className="terminal-score-summary"
+                  aria-label="Final score breakdown"
+                >
+                  <p className="score-result terminal-score-winner">
+                    Winner: <strong>{winnerLabel(score.winner)}</strong>
+                  </p>
+                  <p className="score-line terminal-score-decider">
+                    <span>Decided By</span>
+                    <strong>{deciderLabel(score.decidedBy)}</strong>
+                  </p>
+
+                  <div className="terminal-score-players">
+                    {([HUMAN_PLAYER, BOT_PLAYER] as const).map((playerId) => (
+                      <article
+                        key={`terminal-score-${playerId}`}
+                        className="terminal-score-player"
+                      >
+                        <h3>{playerId === HUMAN_PLAYER ? 'You' : 'Bot'}</h3>
+                        <p className="score-line">
+                          <span>Districts Won</span>
+                          <strong>
+                            {formatDistrictList(wonDistrictsByPlayer[playerId])}
+                          </strong>
+                        </p>
+                        <p className="score-line">
+                          <span>Total Properties</span>
+                          <strong>{score.rankTotals[playerId]}</strong>
+                        </p>
+                        <p className="score-line">
+                          <span>Resources</span>
+                          <strong>{score.resourceTotals[playerId]}</strong>
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               ) : activePlayerId === HUMAN_PLAYER ? (
                 <div className="actions-human-layout">
                   <div className="actions-human-main">
@@ -458,221 +629,297 @@ export function App() {
                       <p className="empty-note">No legal actions.</p>
                     ) : (
                       <div className="action-list">
-                        {humanActionItems.map((item) => {
-                      if (item.kind === 'trade-group') {
-                        if (item.options.length === 1) {
-                          const [onlyOption] = item.options;
-                          return (
-                            <button
-                              key={`trade-direct-${item.give}`}
-                              type="button"
-                              className="action-button"
-                              onClick={() => handleHumanAction(onlyOption)}
-                            >
-                              <span className="action-kind">trade</span>
-                              <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
-                              </span>
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={`trade-group-${item.give}`}
-                            type="button"
-                            className="action-button has-submenu"
-                            onClick={(event) => {
-                              const trigger = event.currentTarget;
-                              if (actionPicker?.kind === 'trade' && actionPicker.give === item.give) {
-                                closeActionPicker();
-                                return;
+                        {humanActionItems.map((item, index) => {
+                          if (item.kind === 'trade-group') {
+                            if (hasMultipleTradeSources) {
+                              if (index !== firstTradeGroupIndex) {
+                                return null;
                               }
-                              openTradePicker(item.give, trigger, item.options.length);
-                            }}
-                          >
-                            <span className="action-kind">trade</span>
-                            <span className="action-text">
-                              {renderSuitText(`Trade ${SUIT_TEXT_TOKEN[item.give]}x3`)}
-                            </span>
-                          </button>
-                        );
-                      }
 
-                      if (item.kind === 'buy-deed-group') {
-                        if (item.options.length === 1) {
-                          const [onlyOption] = item.options;
-                          return (
-                            <button
-                              key={`buy-deed-direct-${actionStableKey(onlyOption)}`}
-                              type="button"
-                              className="action-button"
-                              onClick={() => handleHumanAction(onlyOption)}
-                            >
-                              <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
-                              </span>
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={`buy-deed-group-${item.cardId}`}
-                            type="button"
-                            className="action-button has-submenu"
-                            onClick={(event) => {
-                              const trigger = event.currentTarget;
-                              if (
-                                actionPicker?.kind === 'district' &&
-                                actionPicker.actionType === 'buy-deed' &&
-                                actionPicker.cardId === item.cardId
-                              ) {
-                                closeActionPicker();
-                                return;
-                              }
-                              openDistrictPicker(
-                                {
-                                  actionType: 'buy-deed',
-                                  cardId: item.cardId,
-                                },
-                                trigger,
-                                item.options.length
+                              return (
+                                <button
+                                  key="trade-source-group"
+                                  type="button"
+                                  className="action-button has-submenu"
+                                  onClick={(event) => {
+                                    const trigger = event.currentTarget;
+                                    if (actionPicker?.kind === 'trade-source') {
+                                      closeActionPicker();
+                                      return;
+                                    }
+                                    openTradeSourcePicker(
+                                      trigger,
+                                      tradeSourceGroups.length
+                                    );
+                                  }}
+                                >
+                                  <span className="action-kind">trade</span>
+                                  <span className="action-text">
+                                    Trade resources
+                                  </span>
+                                </button>
                               );
-                            }}
-                          >
-                            <span className="action-kind">buy-deed</span>
-                            <span className="action-text">
-                              {renderSuitText(`Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`)}
-                            </span>
-                          </button>
-                        );
-                      }
+                            }
 
-                      if (item.kind === 'develop-deed-group') {
-                        if (item.options.length === 1) {
-                          const [onlyOption] = item.options;
+                            if (item.options.length === 1) {
+                              const [onlyOption] = item.options;
+                              return (
+                                <button
+                                  key={`trade-direct-${item.give}`}
+                                  type="button"
+                                  className="action-button"
+                                  onClick={() => handleHumanAction(onlyOption)}
+                                >
+                                  <span className="action-kind">trade</span>
+                                  <span className="action-text">
+                                    {renderSuitText(
+                                      describeAction(
+                                        onlyOption,
+                                        SUIT_TEXT_TOKEN
+                                      )
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={`trade-group-${item.give}`}
+                                type="button"
+                                className="action-button has-submenu"
+                                onClick={(event) => {
+                                  const trigger = event.currentTarget;
+                                  if (
+                                    actionPicker?.kind === 'trade' &&
+                                    actionPicker.give === item.give
+                                  ) {
+                                    closeActionPicker();
+                                    return;
+                                  }
+                                  openTradePicker(
+                                    item.give,
+                                    trigger,
+                                    item.options.length
+                                  );
+                                }}
+                              >
+                                <span className="action-kind">trade</span>
+                                <span className="action-text">
+                                  {renderSuitText(
+                                    `Trade ${SUIT_TEXT_TOKEN[item.give]}x3`
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          }
+
+                          if (item.kind === 'buy-deed-group') {
+                            if (item.options.length === 1) {
+                              const [onlyOption] = item.options;
+                              return (
+                                <button
+                                  key={`buy-deed-direct-${actionStableKey(onlyOption)}`}
+                                  type="button"
+                                  className="action-button"
+                                  onClick={() => handleHumanAction(onlyOption)}
+                                >
+                                  <span className="action-kind">
+                                    {onlyOption.type}
+                                  </span>
+                                  <span className="action-text">
+                                    {renderSuitText(
+                                      describeAction(
+                                        onlyOption,
+                                        SUIT_TEXT_TOKEN
+                                      )
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={`buy-deed-group-${item.cardId}`}
+                                type="button"
+                                className="action-button has-submenu"
+                                onClick={(event) => {
+                                  const trigger = event.currentTarget;
+                                  if (
+                                    actionPicker?.kind === 'district' &&
+                                    actionPicker.actionType === 'buy-deed' &&
+                                    actionPicker.cardId === item.cardId
+                                  ) {
+                                    closeActionPicker();
+                                    return;
+                                  }
+                                  openDistrictPicker(
+                                    {
+                                      actionType: 'buy-deed',
+                                      cardId: item.cardId,
+                                    },
+                                    trigger,
+                                    item.options.length
+                                  );
+                                }}
+                              >
+                                <span className="action-kind">buy-deed</span>
+                                <span className="action-text">
+                                  {renderSuitText(
+                                    `Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          }
+
+                          if (item.kind === 'develop-deed-group') {
+                            if (item.options.length === 1) {
+                              const [onlyOption] = item.options;
+                              return (
+                                <button
+                                  key={`develop-deed-direct-${actionStableKey(onlyOption)}`}
+                                  type="button"
+                                  className="action-button"
+                                  onClick={() => handleHumanAction(onlyOption)}
+                                >
+                                  <span className="action-kind">
+                                    {onlyOption.type}
+                                  </span>
+                                  <span className="action-text">
+                                    {renderSuitText(
+                                      describeAction(
+                                        onlyOption,
+                                        SUIT_TEXT_TOKEN
+                                      )
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={`develop-deed-group-${item.cardId}-${item.districtId}`}
+                                type="button"
+                                className="action-button has-submenu"
+                                onClick={(event) => {
+                                  const trigger = event.currentTarget;
+                                  if (
+                                    actionPicker?.kind === 'deed-payment' &&
+                                    actionPicker.cardId === item.cardId &&
+                                    actionPicker.districtId === item.districtId
+                                  ) {
+                                    closeActionPicker();
+                                    return;
+                                  }
+                                  openDeedPaymentPicker(
+                                    {
+                                      cardId: item.cardId,
+                                      districtId: item.districtId,
+                                    },
+                                    trigger,
+                                    item.options.length
+                                  );
+                                }}
+                              >
+                                <span className="action-kind">
+                                  develop-deed
+                                </span>
+                                <span className="action-text">
+                                  {renderSuitText(
+                                    `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          }
+
+                          if (item.kind === 'develop-outright-group') {
+                            if (item.options.length === 1) {
+                              const [onlyOption] = item.options;
+                              return (
+                                <button
+                                  key={`develop-outright-direct-${actionStableKey(onlyOption)}`}
+                                  type="button"
+                                  className="action-button"
+                                  onClick={() => handleHumanAction(onlyOption)}
+                                >
+                                  <span className="action-kind">
+                                    {onlyOption.type}
+                                  </span>
+                                  <span className="action-text">
+                                    {renderSuitText(
+                                      describeAction(
+                                        onlyOption,
+                                        SUIT_TEXT_TOKEN
+                                      )
+                                    )}
+                                  </span>
+                                </button>
+                              );
+                            }
+
+                            return (
+                              <button
+                                key={`develop-outright-group-${item.cardId}-${item.paymentKey}`}
+                                type="button"
+                                className="action-button has-submenu"
+                                onClick={(event) => {
+                                  const trigger = event.currentTarget;
+                                  if (
+                                    actionPicker?.kind === 'district' &&
+                                    actionPicker.actionType ===
+                                      'develop-outright' &&
+                                    actionPicker.cardId === item.cardId &&
+                                    actionPicker.paymentKey === item.paymentKey
+                                  ) {
+                                    closeActionPicker();
+                                    return;
+                                  }
+                                  openDistrictPicker(
+                                    {
+                                      actionType: 'develop-outright',
+                                      cardId: item.cardId,
+                                      payment: item.payment,
+                                      paymentKey: item.paymentKey,
+                                    },
+                                    trigger,
+                                    item.options.length
+                                  );
+                                }}
+                              >
+                                <span className="action-kind">
+                                  develop-outright
+                                </span>
+                                <span className="action-text">
+                                  {renderSuitText(
+                                    `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(item.payment, SUIT_TEXT_TOKEN)})`
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          }
+
                           return (
                             <button
-                              key={`develop-deed-direct-${actionStableKey(onlyOption)}`}
+                              key={actionStableKey(item.action)}
                               type="button"
                               className="action-button"
-                              onClick={() => handleHumanAction(onlyOption)}
+                              onClick={() => handleHumanAction(item.action)}
                             >
-                              <span className="action-kind">{onlyOption.type}</span>
+                              <span className="action-kind">
+                                {item.action.type}
+                              </span>
                               <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
+                                {renderSuitText(
+                                  describeAction(item.action, SUIT_TEXT_TOKEN)
+                                )}
                               </span>
                             </button>
                           );
-                        }
-
-                        return (
-                          <button
-                            key={`develop-deed-group-${item.cardId}-${item.districtId}`}
-                            type="button"
-                            className="action-button has-submenu"
-                            onClick={(event) => {
-                              const trigger = event.currentTarget;
-                              if (
-                                actionPicker?.kind === 'deed-payment' &&
-                                actionPicker.cardId === item.cardId &&
-                                actionPicker.districtId === item.districtId
-                              ) {
-                                closeActionPicker();
-                                return;
-                              }
-                              openDeedPaymentPicker(
-                                {
-                                  cardId: item.cardId,
-                                  districtId: item.districtId,
-                                },
-                                trigger,
-                                item.options.length
-                              );
-                            }}
-                          >
-                            <span className="action-kind">develop-deed</span>
-                            <span className="action-text">
-                              {renderSuitText(
-                                `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`
-                              )}
-                            </span>
-                          </button>
-                        );
-                      }
-
-                      if (item.kind === 'develop-outright-group') {
-                        if (item.options.length === 1) {
-                          const [onlyOption] = item.options;
-                          return (
-                            <button
-                              key={`develop-outright-direct-${actionStableKey(onlyOption)}`}
-                              type="button"
-                              className="action-button"
-                              onClick={() => handleHumanAction(onlyOption)}
-                            >
-                              <span className="action-kind">{onlyOption.type}</span>
-                              <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
-                              </span>
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={`develop-outright-group-${item.cardId}-${item.paymentKey}`}
-                            type="button"
-                            className="action-button has-submenu"
-                            onClick={(event) => {
-                              const trigger = event.currentTarget;
-                              if (
-                                actionPicker?.kind === 'district' &&
-                                actionPicker.actionType === 'develop-outright' &&
-                                actionPicker.cardId === item.cardId &&
-                                actionPicker.paymentKey === item.paymentKey
-                              ) {
-                                closeActionPicker();
-                                return;
-                              }
-                              openDistrictPicker(
-                                {
-                                  actionType: 'develop-outright',
-                                  cardId: item.cardId,
-                                  payment: item.payment,
-                                  paymentKey: item.paymentKey,
-                                },
-                                trigger,
-                                item.options.length
-                              );
-                            }}
-                          >
-                            <span className="action-kind">develop-outright</span>
-                            <span className="action-text">
-                              {renderSuitText(
-                                `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(item.payment, SUIT_TEXT_TOKEN)})`
-                              )}
-                            </span>
-                          </button>
-                        );
-                      }
-
-                      return (
-                        <button
-                          key={actionStableKey(item.action)}
-                          type="button"
-                          className="action-button"
-                          onClick={() => handleHumanAction(item.action)}
-                        >
-                          <span className="action-kind">{item.action.type}</span>
-                          <span className="action-text">
-                            {renderSuitText(describeAction(item.action, SUIT_TEXT_TOKEN))}
-                          </span>
-                        </button>
-                      );
-                    })}
+                        })}
                       </div>
                     )}
                   </div>
@@ -692,7 +939,9 @@ export function App() {
                   ) : null}
                 </div>
               ) : (
-                <p className="empty-note">{botThinking ? 'Bot is thinking...' : 'Waiting for bot...'}</p>
+                <p className="empty-note">
+                  {botThinking ? 'Bot is thinking...' : 'Waiting for bot...'}
+                </p>
               )}
             </div>
           </section>
@@ -736,27 +985,40 @@ export function App() {
 
           <section className="panel">
             <h2>Roll Result</h2>
-            <RollResult roll={humanView.lastIncomeRoll} taxSuit={humanView.lastTaxSuit} />
+            <RollResult
+              roll={humanView.lastIncomeRoll}
+              taxSuit={humanView.lastTaxSuit}
+            />
           </section>
 
           <section className="panel">
             <h2>Deck State</h2>
-            <p className="meta-line deck-reshuffles-line">
-              <span>Reshuffles Remaining</span>
-              <strong>{reshufflesRemaining}</strong>
-            </p>
             <div className="deck-piles" aria-label="Deck and discard piles">
               <div className="deck-pile">
-                <div className="deck-pile-stack is-deck" title="Cards remaining" aria-label="Cards remaining">
+                <div
+                  className={`deck-pile-stack is-deck ${deckOverlayShiftClass}`}
+                  title="Cards remaining"
+                  aria-label="Cards remaining"
+                >
                   {deckStackCount === 0 ? (
                     <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
                   ) : (
                     Array.from({ length: deckStackCount }).map((_, index) => (
-                      <div key={`deck-back-${index}`} className="deck-pile-card deck-pile-card-back deck-pile-stack-card" />
+                      <div
+                        key={`deck-back-${index}`}
+                        className="deck-pile-card deck-pile-card-back deck-pile-stack-card"
+                      />
                     ))
                   )}
+                  {isSecondShuffle ? (
+                    <span className="deck-pile-overlay-label" aria-hidden="true">
+                      2nd shuffle
+                    </span>
+                  ) : null}
                 </div>
-                <strong className="deck-pile-count">{humanView.deck.drawCount}</strong>
+                <strong className="deck-pile-count">
+                  {humanView.deck.drawCount}
+                </strong>
               </div>
               <div className="deck-pile">
                 <div className="player-score-wrap discard-pile-wrap">
@@ -772,7 +1034,11 @@ export function App() {
                           key={`discard-${cardId}-${index}`}
                           className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
                         >
-                          <img className="deck-pile-image" src={getCardImage(cardId)} alt="" />
+                          <img
+                            className="deck-pile-image"
+                            src={getCardImage(cardId)}
+                            alt=""
+                          />
                         </div>
                       ))
                     ) : (
@@ -785,7 +1051,8 @@ export function App() {
                     aria-label="Discard pile details"
                   >
                     <p className="score-result">
-                      Discarded Cards: <strong>{discardCardDetails.length}</strong>
+                      Discarded Cards:{' '}
+                      <strong>{discardCardDetails.length}</strong>
                     </p>
                     {discardCardDetails.length === 0 ? (
                       <p className="score-line">
@@ -795,13 +1062,24 @@ export function App() {
                     ) : (
                       <ol className="discard-pile-list">
                         {discardCardDetails.map((card, index) => (
-                          <li key={`discard-detail-${card.id}-${index}`} className="discard-pile-item">
+                          <li
+                            key={`discard-detail-${card.id}-${index}`}
+                            className="discard-pile-item"
+                          >
                             <p className="discard-pile-card-row">
-                              <strong className="discard-pile-card-rank">{card.rank}</strong>
+                              <strong className="discard-pile-card-rank">
+                                {card.rank}
+                              </strong>
                               <span className="discard-pile-card-suits">
-                                {card.suitTokenText.length > 0 ? renderSuitText(card.suitTokenText) : <strong>-</strong>}
+                                {card.suitTokenText.length > 0 ? (
+                                  renderSuitText(card.suitTokenText)
+                                ) : (
+                                  <strong>-</strong>
+                                )}
                               </span>
-                              <span className="discard-pile-card-name">{card.name}</span>
+                              <span className="discard-pile-card-name">
+                                {card.name}
+                              </span>
                             </p>
                           </li>
                         ))}
@@ -809,7 +1087,9 @@ export function App() {
                     )}
                   </section>
                 </div>
-                <strong className="deck-pile-count">{humanView.deck.discard.length}</strong>
+                <strong className="deck-pile-count">
+                  {humanView.deck.discard.length}
+                </strong>
               </div>
             </div>
           </section>
@@ -821,7 +1101,9 @@ export function App() {
             ) : (
               <ol className="log-list">
                 {recentLog.map((entry, index) => (
-                  <li key={`${entry.turn}-${entry.phase}-${entry.summary}-${index}`}>
+                  <li
+                    key={`${entry.turn}-${entry.phase}-${entry.summary}-${index}`}
+                  >
                     <span className="log-turn">T{entry.turn}</span>
                     <span>{entry.player}</span>
                     <span>{entry.summary}</span>
@@ -839,11 +1121,31 @@ export function App() {
           className="panel trade-popover"
           role="dialog"
           aria-label="Choose follow-up action option"
-          style={{ top: `${actionPicker.top}px`, left: `${actionPicker.left}px` }}
+          style={{
+            top: `${actionPicker.top}px`,
+            left: `${actionPicker.left}px`,
+          }}
         >
           <h2>{renderSuitText(actionPickerTitle)}</h2>
 
-          {actionPickerOptions.length === 0 ? (
+          {actionPicker.kind === 'trade-source' ? (
+            tradeSourceGroups.length === 0 ? (
+              <p className="empty-note">No options available.</p>
+            ) : (
+              <div className="trade-choice-list">
+                {tradeSourceGroups.map((group) => (
+                  <button
+                    key={`trade-source-${group.give}`}
+                    type="button"
+                    className="trade-choice-button"
+                    onClick={() => selectTradeSource(group.give)}
+                  >
+                    {renderSuitText(`${SUIT_TEXT_TOKEN[group.give]} x3`)}
+                  </button>
+                ))}
+              </div>
+            )
+          ) : actionPickerOptions.length === 0 ? (
             <p className="empty-note">No options available.</p>
           ) : (
             <div className="trade-choice-list">
@@ -860,7 +1162,11 @@ export function App() {
             </div>
           )}
 
-          <button type="button" className="trade-cancel-button" onClick={closeActionPicker}>
+          <button
+            type="button"
+            className="trade-cancel-button"
+            onClick={closeActionPicker}
+          >
             Cancel
           </button>
         </section>
@@ -868,6 +1174,34 @@ export function App() {
     </div>
   );
 }
+
+function winnerLabel(winner: FinalScore['winner']): string {
+  if (winner === 'Draw') {
+    return 'Tie';
+  }
+  return winner === HUMAN_PLAYER ? 'You' : 'Bot';
+}
+
+function deciderLabel(decidedBy: FinalScore['decidedBy']): string {
+  switch (decidedBy) {
+    case 'districts':
+      return 'Districts';
+    case 'rank-total':
+      return 'Total Properties';
+    case 'resources':
+      return 'Resources';
+    case 'draw':
+      return 'Tie';
+  }
+}
+
+function formatDistrictList(districtIds: readonly string[]): string {
+  if (districtIds.length === 0) {
+    return 'None';
+  }
+  return districtIds.join(', ');
+}
+
 function clamp(value: number, min: number, max: number): number {
   if (max < min) {
     return min;
@@ -893,7 +1227,15 @@ function renderSuitText(text: string): ReactNode {
     }
 
     if (suit) {
-      nodes.push(<TokenChip key={`suit-${index}-${suit}`} suit={suit} count={1} compact className="inline-token-chip" />);
+      nodes.push(
+        <TokenChip
+          key={`suit-${index}-${suit}`}
+          suit={suit}
+          count={1}
+          compact
+          className="inline-token-chip"
+        />
+      );
     } else {
       nodes.push(token);
     }
@@ -908,12 +1250,18 @@ function renderSuitText(text: string): ReactNode {
   return nodes.length > 0 ? <>{nodes}</> : text;
 }
 
-function toPickerQuery(picker: ActionPickerState): ActionPickerQuery {
+function toPickerQuery(
+  picker: Exclude<ActionPickerState, { kind: 'trade-source' }>
+): ActionPickerQuery {
   if (picker.kind === 'trade') {
     return { kind: 'trade', give: picker.give };
   }
   if (picker.kind === 'deed-payment') {
-    return { kind: 'deed-payment', cardId: picker.cardId, districtId: picker.districtId };
+    return {
+      kind: 'deed-payment',
+      cardId: picker.cardId,
+      districtId: picker.districtId,
+    };
   }
   return {
     kind: 'district',
