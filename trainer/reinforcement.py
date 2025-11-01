@@ -296,7 +296,12 @@ def _run_episode_with_update(
             )
             entropy_total += _entropy(probs)
         else:
-            action_key = opponent_policy.choose_action_key(step_result.view, legal.actions, rng)
+            action_key = opponent_policy.choose_action_key(
+                step_result.view,
+                legal.actions,
+                rng,
+                state=step_result.state,
+            )
 
         step_result = env.step(action_key=action_key)
         if len(staged) > config.max_decisions_per_game:

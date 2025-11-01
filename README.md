@@ -34,6 +34,7 @@ Single-player Magnate with a trained bot opponent.
   - bridge client + env wrapper
   - fixed-size observation/action encoders
   - baseline random/heuristic policies and matchup evaluation harness
+  - additive determinized search baseline policy (`search`) for eval/benchmark
   - behavior-cloning warm-start optimizer + checkpoint save/load
   - behavior-cloned policy support in eval (`--player-*-policy bc --player-*-checkpoint <path>`)
   - stabilized RL fine-tuning from BC checkpoints (`scripts/finetune.py`):
@@ -72,8 +73,14 @@ With `.venv` active:
 
 - Python smoke: `python -m scripts.smoke_trainer`
 - Python eval: `python -m scripts.eval --games 20`
+  - prints periodic progress updates by default (every 25 games, plus final)
+  - writes JSON artifact by default to `artifacts/evals/`
+- Python eval with determinized search policy:
+  - `python -m scripts.eval --games 20 --player-a-policy search --player-b-policy heuristic --search-worlds 8 --search-rollouts 1 --search-depth 16 --search-max-root-actions 6`
 - Canonical benchmark (BC/PPO/random/heuristic candidate as PlayerA):
   - `python -m scripts.benchmark --candidate-policy bc --candidate-checkpoint artifacts/bc_checkpoint.json`
+- Canonical benchmark with search candidate:
+  - `python -m scripts.benchmark --candidate-policy search --search-worlds 8 --search-rollouts 1 --search-depth 16 --search-max-root-actions 6`
 - Python sample collection + BC warm-start: `python -m scripts.train --games 20`
 - Python BC from existing samples: `python -m scripts.train --samples-in artifacts/training_samples.jsonl`
 - Python RL fine-tune from BC checkpoint:
