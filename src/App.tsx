@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 
@@ -52,7 +53,7 @@ import { getCardImage } from './ui/cardImages';
 import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
-import { TokenChip } from './ui/components/TokenComponents';
+import { TokenChip, tokenEntries } from './ui/components/TokenComponents';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
 import {
   SUIT_TEXT_TOKEN,
@@ -68,6 +69,11 @@ const TRADE_POPOVER_WIDTH_PX = 220;
 const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
 const TRADE_POPOVER_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 10;
+const RESOURCE_FLIGHT_DURATION_MS = 280;
+const RESOURCE_FLIGHT_STAGGER_MS = 75;
+const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
+const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
+const RESOURCE_FLIGHT_COMMIT_BUFFER_MS = 20;
 
 type ActionPickerState =
   | (ActionPickerQuery & {
@@ -79,6 +85,28 @@ type ActionPickerState =
       top: number;
       left: number;
     };
+
+type ResourceFlight = {
+  id: string;
+  suit: Suit;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  delayMs: number;
+};
+
+type PendingResourceFlight = {
+  id: string;
+  suit: Suit;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  delayMs: number;
+};
+
+type DeedTokenSide = 'left' | 'right';
 
 function makeSeed(): string {
   return `seed-${Date.now()}`;
@@ -101,6 +129,222 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+function cssEscapeValue(value: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(value);
+  }
+  return value.replace(/["\\]/g, '\\$&');
+}
+
+function elementCenter(element: Element): { x: number; y: number } {
+  const rect = element.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  };
+}
+
+function parsePixelValue(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function splitDeedTokenEntriesBySide(
+  entries: Array<{ suit: Suit; count: number }>,
+  perspective: 'human' | 'bot'
+): {
+  left: Array<{ suit: Suit; count: number }>;
+  right: Array<{ suit: Suit; count: number }>;
+} {
+  if (entries.length === 1) {
+    return perspective === 'bot'
+      ? { left: [], right: entries }
+      : { left: entries, right: [] };
+  }
+
+  const left: Array<{ suit: Suit; count: number }> = [];
+  const right: Array<{ suit: Suit; count: number }> = [];
+  for (const [index, entry] of entries.entries()) {
+    const placeLeft = perspective === 'bot' ? index % 2 === 1 : index % 2 === 0;
+    if (placeLeft) {
+      left.push(entry);
+    } else {
+      right.push(entry);
+    }
+  }
+  return { left, right };
+}
+
+function deedTokenCenterInRail(
+  railElement: HTMLElement,
+  tokenSizePx: number,
+  gapPx: number,
+  index: number,
+  sideCount: number
+): { x: number; y: number } {
+  const railCenter = elementCenter(railElement);
+  if (sideCount <= 1) {
+    return railCenter;
+  }
+
+  const totalHeight = sideCount * tokenSizePx + (sideCount - 1) * gapPx;
+  const firstTokenCenterOffset = (-totalHeight / 2) + (tokenSizePx / 2);
+  return {
+    x: railCenter.x,
+    y: railCenter.y + firstTokenCenterOffset + index * (tokenSizePx + gapPx),
+  };
+}
+
+function collectDeedResourceFlights(
+  state: GameState,
+  action: GameAction,
+  actingPlayerId: PlayerId,
+  makeFlightId: () => string
+): PendingResourceFlight[] {
+  if (action.type !== 'develop-deed') {
+    return [];
+  }
+  if (typeof document === 'undefined') {
+    return [];
+  }
+
+  const suitsToAnimate: Suit[] = [];
+  for (const entry of tokenEntries(action.tokens)) {
+    for (let count = 0; count < entry.count; count += 1) {
+      suitsToAnimate.push(entry.suit);
+    }
+  }
+  if (suitsToAnimate.length === 0) {
+    return [];
+  }
+
+  const escapedCardId = cssEscapeValue(action.cardId);
+  const cardSelector = `.district-strip .card-tile[data-card-id="${escapedCardId}"]`;
+  const cardElement =
+    document.querySelector<HTMLElement>(
+      `${cardSelector}[data-in-development="true"]`
+    ) ?? document.querySelector<HTMLElement>(cardSelector);
+  if (!cardElement) {
+    return [];
+  }
+
+  const district = state.districts.find((candidate) => candidate.id === action.districtId);
+  const deedBefore = district?.stacks[actingPlayerId]?.deed;
+  if (!deedBefore || deedBefore.cardId !== action.cardId) {
+    return [];
+  }
+
+  const nextDeedTokens: Partial<Record<Suit, number>> = { ...deedBefore.tokens };
+  for (const entry of tokenEntries(action.tokens)) {
+    nextDeedTokens[entry.suit] = (nextDeedTokens[entry.suit] ?? 0) + entry.count;
+  }
+
+  const perspective: 'human' | 'bot' = cardElement.classList.contains('perspective-bot')
+    ? 'bot'
+    : 'human';
+  const nextTokenEntries = tokenEntries(nextDeedTokens);
+  const nextBySide = splitDeedTokenEntriesBySide(nextTokenEntries, perspective);
+  const targetBySuit = new Map<
+    Suit,
+    { side: DeedTokenSide; index: number; sideCount: number }
+  >();
+  for (const [index, entry] of nextBySide.left.entries()) {
+    targetBySuit.set(entry.suit, {
+      side: 'left',
+      index,
+      sideCount: nextBySide.left.length,
+    });
+  }
+  for (const [index, entry] of nextBySide.right.entries()) {
+    targetBySuit.set(entry.suit, {
+      side: 'right',
+      index,
+      sideCount: nextBySide.right.length,
+    });
+  }
+
+  const escapedPlayerId = cssEscapeValue(actingPlayerId);
+  const sourceBySuit = new Map<Suit, { x: number; y: number }>();
+  const tokenSizeBySuit = new Map<Suit, number>();
+  for (const suit of new Set(suitsToAnimate)) {
+    const escapedSuit = cssEscapeValue(suit);
+    const sourceElement = document.querySelector<HTMLElement>(
+      `[data-token-rail-player-id="${escapedPlayerId}"] .rail-resources-row .token-chip[data-token-suit="${escapedSuit}"]`
+    );
+    if (!sourceElement) {
+      continue;
+    }
+    sourceBySuit.set(suit, elementCenter(sourceElement));
+    tokenSizeBySuit.set(
+      suit,
+      sourceElement.getBoundingClientRect().width || DEFAULT_TOKEN_CHIP_SIZE_PX
+    );
+  }
+
+  const flights: PendingResourceFlight[] = [];
+  for (const [index, suit] of suitsToAnimate.entries()) {
+    const source = sourceBySuit.get(suit);
+    const target = targetBySuit.get(suit);
+    if (!source) {
+      continue;
+    }
+    if (!target) {
+      continue;
+    }
+
+    const escapedSuit = cssEscapeValue(suit);
+    const existingTargetChip = cardElement.querySelector<HTMLElement>(
+      `.card-side-token-rail-${target.side} .token-chip[data-token-suit="${escapedSuit}"]`
+    );
+
+    let targetPoint: { x: number; y: number } | null = null;
+    if (existingTargetChip) {
+      targetPoint = elementCenter(existingTargetChip);
+    } else {
+      const targetRail = cardElement.querySelector<HTMLElement>(
+        `.card-side-token-rail-${target.side}`
+      );
+      if (targetRail) {
+        const railStyle = window.getComputedStyle(targetRail);
+        const gapPx = parsePixelValue(
+          railStyle.rowGap || railStyle.gap,
+          DEFAULT_TOKEN_RAIL_GAP_PX
+        );
+        targetPoint = deedTokenCenterInRail(
+          targetRail,
+          tokenSizeBySuit.get(suit) ?? DEFAULT_TOKEN_CHIP_SIZE_PX,
+          gapPx,
+          target.index,
+          target.sideCount
+        );
+      }
+    }
+    if (!targetPoint) {
+      continue;
+    }
+
+    flights.push({
+      id: makeFlightId(),
+      suit,
+      startX: source.x,
+      startY: source.y,
+      endX: targetPoint.x,
+      endY: targetPoint.y,
+      delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
+    });
+  }
+
+  return flights;
+}
+
+function resourceFlightSettleMs(flights: readonly ResourceFlight[]): number {
+  if (flights.length === 0) {
+    return 0;
+  }
+  const maxDelayMs = Math.max(...flights.map((flight) => flight.delayMs));
+  return maxDelayMs + RESOURCE_FLIGHT_DURATION_MS + RESOURCE_FLIGHT_COMMIT_BUFFER_MS;
+}
+
 export function App() {
   const [seedInput, setSeedInput] = useState<string>(() => makeSeed());
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(
@@ -115,15 +359,33 @@ export function App() {
     null
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
+  const [resourceFlights, setResourceFlights] = useState<ReadonlyArray<ResourceFlight>>([]);
+  const [actionCommitPending, setActionCommitPending] = useState<boolean>(false);
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
 
   const stateRef = useRef(state);
+  const actionCommitTimerRef = useRef<number | null>(null);
+  const nextResourceFlightId = useRef(0);
   const actionPopoverRef = useRef<HTMLElement | null>(null);
   const optionsMenuRef = useRef<HTMLElement | null>(null);
   const optionsMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
+  const clearPendingActionCommit = useCallback(() => {
+    if (actionCommitTimerRef.current !== null) {
+      window.clearTimeout(actionCommitTimerRef.current);
+      actionCommitTimerRef.current = null;
+    }
+    setActionCommitPending(false);
+  }, []);
+  const makeResourceFlightId = useCallback(() => {
+    nextResourceFlightId.current += 1;
+    return `resource-flight-${nextResourceFlightId.current}`;
+  }, []);
+  const clearResourceFlight = useCallback((flightId: string) => {
+    setResourceFlights((existing) => existing.filter((flight) => flight.id !== flightId));
+  }, []);
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
     () => [optionsMenuRef, optionsMenuButtonRef],
@@ -132,6 +394,15 @@ export function App() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    return () => {
+      if (actionCommitTimerRef.current !== null) {
+        window.clearTimeout(actionCommitTimerRef.current);
+        actionCommitTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const terminal = isTerminal(state);
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
@@ -233,7 +504,7 @@ export function App() {
   }, [activePlayerId, state, turnResetAnchor]);
 
   useEffect(() => {
-    if (terminal || activePlayerId !== BOT_PLAYER) {
+    if (terminal || activePlayerId !== BOT_PLAYER || actionCommitPending) {
       setBotThinking(false);
       return;
     }
@@ -274,8 +545,27 @@ export function App() {
             return;
           }
 
+          const actingPlayerId =
+            current.players[current.activePlayerIndex]?.id ?? BOT_PLAYER;
+          const queuedFlights = collectDeedResourceFlights(
+            current,
+            choice,
+            actingPlayerId,
+            makeResourceFlightId
+          );
           const next = stepToDecision(current, choice);
-          setState(next);
+          if (queuedFlights.length > 0) {
+            setResourceFlights((existing) => [...existing, ...queuedFlights]);
+            setActionCommitPending(true);
+            const settleMs = resourceFlightSettleMs(queuedFlights);
+            actionCommitTimerRef.current = window.setTimeout(() => {
+              setState(next);
+              setActionCommitPending(false);
+              actionCommitTimerRef.current = null;
+            }, settleMs);
+          } else {
+            setState(next);
+          }
           setError(null);
         } catch (err) {
           setError(`Bot action failed: ${errorMessage(err)}`);
@@ -289,7 +579,14 @@ export function App() {
       cancelled = true;
       window.clearTimeout(timerId);
     };
-  }, [activePlayerId, resolvedBotProfile, state, terminal]);
+  }, [
+    actionCommitPending,
+    activePlayerId,
+    makeResourceFlightId,
+    resolvedBotProfile,
+    state,
+    terminal,
+  ]);
 
   useEffect(() => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
@@ -335,13 +632,30 @@ export function App() {
   });
 
   const handleHumanAction = (action: GameAction) => {
-    if (terminal || activePlayerId !== HUMAN_PLAYER) {
+    if (terminal || activePlayerId !== HUMAN_PLAYER || actionCommitPending) {
       return;
     }
 
     try {
+      const queuedFlights = collectDeedResourceFlights(
+        state,
+        action,
+        activePlayerId,
+        makeResourceFlightId
+      );
       const next = stepToDecision(state, action);
-      setState(next);
+      if (queuedFlights.length > 0) {
+        setResourceFlights((existing) => [...existing, ...queuedFlights]);
+        setActionCommitPending(true);
+        const settleMs = resourceFlightSettleMs(queuedFlights);
+        actionCommitTimerRef.current = window.setTimeout(() => {
+          setState(next);
+          setActionCommitPending(false);
+          actionCommitTimerRef.current = null;
+        }, settleMs);
+      } else {
+        setState(next);
+      }
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
@@ -354,6 +668,8 @@ export function App() {
     closeActionPicker();
     closeOptionsMenu();
     setTurnResetAnchor(null);
+    clearPendingActionCommit();
+    setResourceFlights([]);
 
     try {
       setState(createInitialState(seed));
@@ -380,9 +696,11 @@ export function App() {
     }
 
     closeActionPicker();
+    clearPendingActionCommit();
     setState(turnResetAnchor.state);
     setError(null);
     setBotThinking(false);
+    setResourceFlights([]);
   };
 
   const openTradePicker = (
@@ -1154,6 +1472,39 @@ export function App() {
           aria-hidden="true"
           onClick={closeOptionsMenu}
         />
+      ) : null}
+
+      {resourceFlights.length > 0 ? (
+        <div className="resource-flight-layer" aria-hidden="true">
+          {resourceFlights.map((flight) => {
+            const dx = flight.endX - flight.startX;
+            const dy = flight.endY - flight.startY;
+            return (
+              <div
+                key={flight.id}
+                className="resource-flight"
+                style={
+                  {
+                    '--resource-flight-start-x': `${flight.startX}px`,
+                    '--resource-flight-start-y': `${flight.startY}px`,
+                    '--resource-flight-dx': `${dx}px`,
+                    '--resource-flight-dy': `${dy}px`,
+                    '--resource-flight-delay-ms': `${flight.delayMs}ms`,
+                    '--resource-flight-duration-ms': `${RESOURCE_FLIGHT_DURATION_MS}ms`,
+                  } as CSSProperties
+                }
+                onAnimationEnd={() => clearResourceFlight(flight.id)}
+              >
+                <TokenChip
+                  suit={flight.suit}
+                  count={1}
+                  compact
+                  className="resource-flight-chip"
+                />
+              </div>
+            );
+          })}
+        </div>
       ) : null}
 
       {actionPicker && (

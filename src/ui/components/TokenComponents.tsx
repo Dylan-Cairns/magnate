@@ -70,6 +70,7 @@ export function TokenChip({
       className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
         className ? ` ${className}` : ''
       }`}
+      data-token-suit={suit}
       title={`${suit} x${count}`}
       style={{ '--token-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
     >

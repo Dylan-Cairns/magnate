@@ -39,6 +39,7 @@
 - Browser rollout-eval search profile (T3 config) is wired for direct play/testing.
 - Bot policy failures are surfaced explicitly in the UI (no silent policy fallback).
 - Development-card progress rings now animate only on fill increases using UI-local interpolation; canonical `progress/target` math remains unchanged and deterministic.
+- Deed development now triggers a UI-only linear resource-flight animation from the acting player's resource rail to the deed token-side target on the in-development card (human and bot actions), and deed-token UI state is deferred until flight completion for visual consistency.
 
 ### Bridge
 

@@ -16,6 +16,7 @@
 - Browser rollout-eval search policy path is wired into the UI bot catalog (T3 config) for direct in-browser play/testing.
 - Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
 - Development-card progress ring fill now animates on upward progress only (including across remounts), with helper-level tests to protect canonical ratio/arc math.
+- Deed-development spend now shows a transient linear chip-flight animation from the acting player's resource rail to the deed token-side target on the in-development card, with deed-token UI updates deferred until flight completion; rules/state semantics remain unchanged.
 - Bridge runtime and contract tests are in place.
 - Trainer scaffold is in place for:
   - sample collection + BC warm-start

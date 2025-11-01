@@ -199,7 +199,11 @@ export function PlayerTokenRail({
   );
 
   return (
-    <section className={`token-rail token-rail-${side}`} aria-label={`${player.id} crowns and resources`}>
+    <section
+      className={`token-rail token-rail-${side}`}
+      aria-label={`${player.id} crowns and resources`}
+      data-token-rail-player-id={player.id}
+    >
       <div className="token-rail-inner">
         {side === 'human' ? (
           <>

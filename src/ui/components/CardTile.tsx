@@ -84,6 +84,7 @@ export function CardTile({
         : 'X';
   const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
   const hasDeedTokens = deedTokenEntries.length > 0;
+  const showDeedTokenRails = Boolean(inDevelopment) || hasDeedTokens;
   const deedTokensBySide = splitDeedTokensBySide(deedTokenEntries, perspective);
   const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
   const progressValue = deedProgress ?? 0;
@@ -212,14 +213,22 @@ export function CardTile({
       <div className="card-image-frame" aria-hidden="true">
         <img className="card-image" src={cardImage} alt="" />
       </div>
-      {hasDeedTokens ? (
+      {showDeedTokenRails ? (
         <>
-          <div className="card-side-token-rail card-side-token-rail-left" aria-hidden="true">
+          <div
+            className="card-side-token-rail card-side-token-rail-left"
+            data-deed-token-rail="left"
+            aria-hidden="true"
+          >
             {deedTokensBySide.left.map((entry) => (
               <TokenChip key={`left-${cardId}-${entry.suit}`} suit={entry.suit} count={entry.count} compact />
             ))}
           </div>
-          <div className="card-side-token-rail card-side-token-rail-right" aria-hidden="true">
+          <div
+            className="card-side-token-rail card-side-token-rail-right"
+            data-deed-token-rail="right"
+            aria-hidden="true"
+          >
             {deedTokensBySide.right.map((entry) => (
               <TokenChip key={`right-${cardId}-${entry.suit}`} suit={entry.suit} count={entry.count} compact />
             ))}
@@ -233,6 +242,8 @@ export function CardTile({
     <div
       className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}`}
       title={card.name}
+      data-card-id={cardId}
+      data-in-development={inDevelopment ? 'true' : undefined}
     >
       {perspective === 'bot' ? imageBody : metadataRow}
       {perspective === 'bot' ? metadataRow : imageBody}
