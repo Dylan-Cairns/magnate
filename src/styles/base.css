@@ -128,7 +128,9 @@
     (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +
       var(--card-image-area-height)
   );
-  --card-stack-step: calc(var(--card-height) / 4.5);
+  --card-stack-step: calc(
+    var(--card-padding) + var(--card-meta-height) + var(--card-meta-gap)
+  );
   --player-panel-height: 15rem;
   --side-column-panel-width-factor: 0.8;
   --token-rail-chip-size: 3rem;

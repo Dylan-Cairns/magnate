@@ -327,6 +327,7 @@
 }
 
 .lane-stack-frame {
+  position: relative;
   min-height: 0;
   display: flex;
   justify-content: center;
@@ -362,5 +363,26 @@
 
 .lane-stack.is-bot .lane-stack-card {
   bottom: calc(var(--stack-position) * var(--card-stack-step));
+}
+
+.district-lane-score {
+  position: absolute;
+  left: 0.24rem;
+  color: rgba(178, 190, 206, 0.84);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: left;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.district-lane.is-bot .district-lane-score {
+  bottom: 0.14rem;
+}
+
+.district-lane.is-human .district-lane-score {
+  top: 0.14rem;
 }
 

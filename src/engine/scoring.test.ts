@@ -130,6 +130,27 @@ describe('scoreGame', () => {
     expect(score.rankTotals).toEqual({ PlayerA: 2, PlayerB: 2 });
     expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 0 });
   });
+
+  it('does not include in-development deeds in ace district bonus matching', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: {
+        developed: ['0', '10'],
+        deed: { cardId: '21', progress: 1, tokens: { Knots: 1 } },
+      },
+      [PLAYER_B]: { developed: ['18'] },
+    });
+    const state = makeGameState({
+      phase: 'GameOver',
+      districts,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+
+    const score = scoreGame(state);
+    expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 0 });
+    expect(score.rankTotals).toEqual({ PlayerA: 4, PlayerB: 6 });
+    expect(score.winner).toBe('PlayerB');
+    expect(score.decidedBy).toBe('rank-total');
+  });
 });
 
 function withStacks(
