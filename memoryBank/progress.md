@@ -20,6 +20,12 @@
   - PPO training
   - search-policy evaluation/benchmarking
   - queued multi-seed train/benchmark workflows
+  - teacher-labeled data generation (`scripts/generate_teacher_data.py`) for distillation
+- Training handoff documentation now exists at `docs/TRAINING_HANDOFF.md` with:
+  - measured benchmark/eval snapshot
+  - in-flight run context
+  - objective next-step decision logic
+  - restart-ready command playbook
 
 ## In Progress
 
@@ -28,7 +34,7 @@
 
 ## Remaining
 
-- Add a clean teacher-data generation and distillation pipeline.
+- Add distillation training loop and evaluation path that consume teacher datasets.
 - Define and enforce model promotion criteria (teacher/champion gate).
 - Improve experiment tracking/reporting for long-running sweeps.
 
