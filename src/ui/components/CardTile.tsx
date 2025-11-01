@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
 import { getCardImage } from '../cardImages';
@@ -75,6 +77,17 @@ export function CardTile({
   const hasDeedTokens = deedTokenEntries.length > 0;
   const deedTokensBySide = splitDeedTokensBySide(deedTokenEntries, perspective);
   const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
+  const progressValue = deedProgress ?? 0;
+  const progressTarget = deedTarget ?? 0;
+  const deedProgressRatio =
+    progressTarget > 0
+      ? Math.max(0, Math.min(1, progressValue / progressTarget))
+      : 0;
+  const deedProgressStyle = hasDeedProgress
+    ? ({
+        '--deed-progress-ratio': deedProgressRatio.toFixed(4),
+      } as CSSProperties)
+    : undefined;
   const cardImage = getCardImage(cardId);
 
   const metadataRow = (
@@ -90,7 +103,12 @@ export function CardTile({
         </div>
       </div>
       {hasDeedProgress ? (
-        <div className="deed-progress" title="development progress" aria-label="development progress">
+        <div
+          className="deed-progress"
+          title="development progress"
+          aria-label="development progress"
+          style={deedProgressStyle}
+        >
           {deedProgress}/{deedTarget}
         </div>
       ) : (
