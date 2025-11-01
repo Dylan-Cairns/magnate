@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from '../../engine/cards';
+import { districtScore } from '../../engine/scoring';
 import { developmentCost, findProperty } from '../../engine/stateHelpers';
 import type { DistrictStack, DistrictState, ObservedPlayerState, PlayerId, Suit } from '../../engine/types';
 import { CardTile, type CardPerspective } from './CardTile';
@@ -37,19 +38,6 @@ function markerSuitTokens(markerSuitMask: readonly Suit[]): Partial<Record<Suit,
     tokens[suit] = 1;
   }
   return tokens;
-}
-
-function districtStackScore(stack: DistrictStack): number {
-  const developedProperties = stack.developed.map(findProperty).filter(isDefined);
-  const baseScore = developedProperties.reduce((total, property) => total + property.rank, 0);
-  const aceBonus = developedProperties
-    .filter((property) => property.rank === 1 && property.suits.length === 1)
-    .reduce((total, aceProperty) => {
-      const aceSuit = aceProperty.suits[0];
-      const matchingCount = developedProperties.filter((property) => property.suits.includes(aceSuit)).length;
-      return total + matchingCount;
-    }, 0);
-  return baseScore + aceBonus;
 }
 
 function DistrictLane({
@@ -139,8 +127,8 @@ export function DistrictColumn({
   botPlayerId: PlayerId;
 }) {
   const markerName = districtMarkerName(district.markerSuitMask);
-  const botDistrictScore = districtStackScore(district.stacks[botPlayerId]);
-  const humanDistrictScore = districtStackScore(district.stacks[humanPlayerId]);
+  const botDistrictScore = districtScore(district.stacks[botPlayerId]);
+  const humanDistrictScore = districtScore(district.stacks[humanPlayerId]);
 
   return (
     <article className="district-column">
@@ -171,10 +159,6 @@ export function DistrictColumn({
       />
     </article>
   );
-}
-
-function isDefined<T>(value: T | undefined): value is T {
-  return value !== undefined;
 }
 
 export function PlayerTokenRail({
