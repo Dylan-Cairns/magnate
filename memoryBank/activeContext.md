@@ -62,15 +62,15 @@
   - MCTS priors can come from learned policy distributions
   - MCTS leaf evaluation can come from learned value head
 - Guidance checkpoint training from teacher datasets is now implemented (`scripts/train_search_guidance.py`).
+- Rollout-search sweep automation is now implemented (`scripts/search_teacher_sweep.py`) with side-swapped eval per preset and ranked summary outputs.
+- Guidance A/B pipeline now defaults eval policy A to `search` (instead of `mcts`) in `scripts/run_guidance_ab_pipeline.py`.
 
 ## Immediate Next Steps
 
-1. Train first guidance checkpoint from strongest teacher data (search T3 baseline or best current MCTS).
-2. Run side-swapped `200+` and `700+` game evals for:
-   - search (with/without guidance)
-   - MCTS (with/without guidance)
-3. Retune search/MCTS around guidance (`temperature`, simulations, depth, root actions) using holdout win rate as objective.
-4. Promote strongest teacher class and lock a guidance-assisted teacher configuration.
+1. Run side-swapped rollout-search sweep (`scripts/search_teacher_sweep.py`) to select best teacher config beyond T1/T2/T3.
+2. Confirm top sweep config on larger holdouts (`200+` then `700+`) against heuristic.
+3. Train guidance checkpoint from the strongest confirmed search teacher data.
+4. Run side-swapped search A/B (no guidance vs guidance) before additional MCTS work.
 5. Proceed to student distillation for fast browser inference once teacher dominance is validated.
 
 _Updated: 2026-02-28._

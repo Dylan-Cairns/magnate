@@ -38,6 +38,9 @@
   - new eval/benchmark/teacher-data CLI flags for guidance checkpoint injection
 - Unattended A/B pipeline script landed:
   - `scripts/run_guidance_ab_pipeline.py` runs teacher-data -> guidance-train -> baseline eval -> guided eval sequentially with fail-fast behavior and manifest output
+  - default eval policy A is now `search` (was `mcts`)
+- Unattended rollout-search sweep script landed:
+  - `scripts/search_teacher_sweep.py` runs side-swapped search-vs-opponent eval for named presets, then writes ranked JSON/Markdown summaries
 - Training handoff documentation now exists at `docs/TRAINING_HANDOFF.md` with:
   - measured benchmark/eval snapshot
   - in-flight run context

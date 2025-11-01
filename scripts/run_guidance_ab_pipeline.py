@@ -106,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--eval-policy-a",
         type=str,
-        default="mcts",
+        default="search",
         help="Policy A used for baseline and guided evals.",
     )
     parser.add_argument(
