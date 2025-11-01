@@ -11,7 +11,7 @@ from typing import Set
 
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import SearchConfig, policy_from_name
+from trainer.policies import MctsConfig, SearchConfig, policy_from_name
 from trainer.teacher_data import collect_teacher_samples
 from trainer.training import write_samples_jsonl
 from trainer.types import PlayerId
@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
         "--teacher-policy",
         type=str,
         default="search",
-        help="Teacher policy (random|heuristic|search|bc|ppo).",
+        help="Teacher policy (random|heuristic|search|mcts|bc|ppo).",
     )
     parser.add_argument(
         "--teacher-checkpoint",
@@ -47,7 +47,7 @@ def parse_args() -> argparse.Namespace:
         "--opponent-policy",
         type=str,
         default="heuristic",
-        help="Opponent policy for non-teacher turns (random|heuristic|search|bc|ppo).",
+        help="Opponent policy for non-teacher turns (random|heuristic|search|mcts|bc|ppo).",
     )
     parser.add_argument(
         "--opponent-checkpoint",
@@ -119,6 +119,36 @@ def parse_args() -> argparse.Namespace:
         default=0.12,
         help="Search rollout epsilon for random exploratory moves.",
     )
+    parser.add_argument(
+        "--mcts-worlds",
+        type=int,
+        default=6,
+        help="MCTS determinized world samples per decision.",
+    )
+    parser.add_argument(
+        "--mcts-simulations",
+        type=int,
+        default=96,
+        help="MCTS simulations per sampled world.",
+    )
+    parser.add_argument(
+        "--mcts-depth",
+        type=int,
+        default=24,
+        help="MCTS simulation depth limit (decision steps).",
+    )
+    parser.add_argument(
+        "--mcts-max-root-actions",
+        type=int,
+        default=8,
+        help="MCTS root actions kept after heuristic pre-ranking.",
+    )
+    parser.add_argument(
+        "--mcts-c-puct",
+        type=float,
+        default=1.25,
+        help="MCTS PUCT exploration coefficient.",
+    )
     return parser.parse_args()
 
 
@@ -133,11 +163,19 @@ def main() -> int:
         max_root_actions=args.search_max_root_actions,
         rollout_epsilon=args.search_rollout_epsilon,
     )
+    mcts_config = MctsConfig(
+        worlds=args.mcts_worlds,
+        simulations=args.mcts_simulations,
+        depth=args.mcts_depth,
+        max_root_actions=args.mcts_max_root_actions,
+        c_puct=args.mcts_c_puct,
+    )
 
     teacher_policy = policy_from_name(
         args.teacher_policy,
         checkpoint_path=args.teacher_checkpoint,
         search_config=search_config,
+        mcts_config=mcts_config,
     )
     opponent_policy = None
     if teacher_player_ids != {"PlayerA", "PlayerB"}:
@@ -145,6 +183,7 @@ def main() -> int:
             args.opponent_policy,
             checkpoint_path=args.opponent_checkpoint,
             search_config=search_config,
+            mcts_config=mcts_config,
         )
 
     try:
@@ -215,6 +254,13 @@ def main() -> int:
                 "depth": args.search_depth,
                 "maxRootActions": args.search_max_root_actions,
                 "rolloutEpsilon": args.search_rollout_epsilon,
+            },
+            "mcts": {
+                "worlds": args.mcts_worlds,
+                "simulations": args.mcts_simulations,
+                "depth": args.mcts_depth,
+                "maxRootActions": args.mcts_max_root_actions,
+                "cPuct": args.mcts_c_puct,
             },
         },
         "results": summary.as_json(),

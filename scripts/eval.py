@@ -11,7 +11,7 @@ from pathlib import Path
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
 from trainer.evaluate import evaluate_matchup
-from trainer.policies import SearchConfig, policy_from_name
+from trainer.policies import MctsConfig, SearchConfig, policy_from_name
 
 DEFAULT_PROGRESS_EVERY_GAMES = 25
 
@@ -29,13 +29,13 @@ def parse_args() -> argparse.Namespace:
         "--player-a-policy",
         type=str,
         default="heuristic",
-        help="Policy name for PlayerA (random|heuristic|search|bc|ppo).",
+        help="Policy name for PlayerA (random|heuristic|search|mcts|bc|ppo).",
     )
     parser.add_argument(
         "--player-b-policy",
         type=str,
         default="random",
-        help="Policy name for PlayerB (random|heuristic|search|bc|ppo).",
+        help="Policy name for PlayerB (random|heuristic|search|mcts|bc|ppo).",
     )
     parser.add_argument(
         "--player-a-checkpoint",
@@ -80,6 +80,36 @@ def parse_args() -> argparse.Namespace:
         help="Search rollout epsilon for random exploratory moves.",
     )
     parser.add_argument(
+        "--mcts-worlds",
+        type=int,
+        default=6,
+        help="MCTS determinized world samples per decision.",
+    )
+    parser.add_argument(
+        "--mcts-simulations",
+        type=int,
+        default=96,
+        help="MCTS simulations per sampled world.",
+    )
+    parser.add_argument(
+        "--mcts-depth",
+        type=int,
+        default=24,
+        help="MCTS simulation depth limit (decision steps).",
+    )
+    parser.add_argument(
+        "--mcts-max-root-actions",
+        type=int,
+        default=8,
+        help="MCTS root actions kept after heuristic pre-ranking.",
+    )
+    parser.add_argument(
+        "--mcts-c-puct",
+        type=float,
+        default=1.25,
+        help="MCTS PUCT exploration coefficient.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=None,
@@ -101,15 +131,24 @@ def main() -> int:
         max_root_actions=args.search_max_root_actions,
         rollout_epsilon=args.search_rollout_epsilon,
     )
+    mcts_config = MctsConfig(
+        worlds=args.mcts_worlds,
+        simulations=args.mcts_simulations,
+        depth=args.mcts_depth,
+        max_root_actions=args.mcts_max_root_actions,
+        c_puct=args.mcts_c_puct,
+    )
     policy_a = policy_from_name(
         args.player_a_policy,
         checkpoint_path=args.player_a_checkpoint,
         search_config=search_config,
+        mcts_config=mcts_config,
     )
     policy_b = policy_from_name(
         args.player_b_policy,
         checkpoint_path=args.player_b_checkpoint,
         search_config=search_config,
+        mcts_config=mcts_config,
     )
 
     try:
@@ -164,6 +203,13 @@ def main() -> int:
                 "depth": args.search_depth,
                 "maxRootActions": args.search_max_root_actions,
                 "rolloutEpsilon": args.search_rollout_epsilon,
+            },
+            "mcts": {
+                "worlds": args.mcts_worlds,
+                "simulations": args.mcts_simulations,
+                "depth": args.mcts_depth,
+                "maxRootActions": args.mcts_max_root_actions,
+                "cPuct": args.mcts_c_puct,
             },
         },
         "results": {
