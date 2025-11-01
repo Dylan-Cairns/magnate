@@ -146,6 +146,7 @@
   border: 1px solid var(--card-image-border);
   border-radius: 5px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .card-image {
@@ -154,6 +155,33 @@
   display: block;
   object-fit: fill;
   object-position: center;
+  position: relative;
+  z-index: 0;
+}
+
+.card-tile.is-in-development {
+  border-color: #2e3740;
+  background: linear-gradient(135deg, #6c7680 0%, #49535d 100%);
+}
+
+.card-tile.is-in-development .card-meta {
+  border: 1px solid rgba(123, 133, 145, 0.92);
+  border-radius: 5px;
+  background: linear-gradient(135deg, #f7faff 0%, #d9e2eb 100%);
+  padding: 0 0.2rem;
+}
+
+.card-tile.is-in-development .card-image-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 13, 22, 0.24);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.card-tile.is-in-development .card-image {
+  filter: brightness(0.5) saturate(0.82);
 }
 
 .card-side-token-rail {
@@ -164,22 +192,18 @@
   flex-direction: column;
   align-items: center;
   gap: 0.16rem;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
 }
 
 .card-side-token-rail-left {
-  left: calc(
-    ((100cqw - var(--card-width)) / -4) - var(--card-padding) -
-      (var(--token-rail-chip-size) / 2) + 0.32rem
-  );
+  left: calc(var(--card-padding) * -1);
+  transform: translate(-50%, -50%);
 }
 
 .card-side-token-rail-right {
-  right: calc(
-    ((100cqw - var(--card-width)) / -4) - var(--card-padding) -
-      (var(--token-rail-chip-size) / 2) + 0.32rem
-  );
+  right: calc(var(--card-padding) * -1);
+  transform: translate(50%, -50%);
 }
 
 .card-side-token-rail .token-chip.compact {
