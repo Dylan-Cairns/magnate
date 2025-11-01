@@ -386,3 +386,9 @@
   top: 0.14rem;
 }
 
+@media (max-width: 2499px) {
+  .district-marker-name {
+    display: none;
+  }
+}
+

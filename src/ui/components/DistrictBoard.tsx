@@ -151,7 +151,7 @@ export function DistrictColumn({
         districtScore={botDistrictScore}
       />
 
-      <header className="district-header">
+      <header className="district-header" title={markerName}>
         <span className="district-id">{district.id}</span>
         <strong className="district-marker-name" title={markerName}>
           {markerName}
