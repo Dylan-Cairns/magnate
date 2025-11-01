@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Tuple
+from typing import Callable, Dict, Mapping
 
 from .env import MagnateBridgeEnv
 from .policies import Policy
 from .types import PlayerId, Winner
+
+ProgressCallback = Callable[[int, int, Mapping[Winner, int], Mapping[str, int]], None]
 
 
 @dataclass(frozen=True)
@@ -38,7 +40,12 @@ def play_game(
         legal = env.legal_actions()
         active_player = legal.active_player_id
         policy = policies[active_player]
-        action_key = policy.choose_action_key(step_result.view, legal.actions, rng)
+        action_key = policy.choose_action_key(
+            step_result.view,
+            legal.actions,
+            rng,
+            state=step_result.state,
+        )
         step_result = env.step(action_key=action_key)
 
     final_score = step_result.state.get("finalScore")
@@ -62,6 +69,8 @@ def evaluate_matchup(
     policy_player_b: Policy,
     games: int,
     seed_prefix: str,
+    progress_every_games: int = 0,
+    on_progress: ProgressCallback | None = None,
 ) -> MatchSummary:
     policies: Dict[PlayerId, Policy] = {
         "PlayerA": policy_player_a,
@@ -92,6 +101,21 @@ def evaluate_matchup(
         elif result.winner == "PlayerB":
             wins_by_policy[policy_player_b.name] += 1
         turn_total += result.turn
+        completed_games = index + 1
+        if (
+            on_progress is not None
+            and progress_every_games > 0
+            and (
+                completed_games % progress_every_games == 0
+                or completed_games == games
+            )
+        ):
+            on_progress(
+                completed_games,
+                games,
+                dict(winners),
+                dict(wins_by_policy),
+            )
 
     average_turn = (turn_total / games) if games > 0 else 0.0
     return MatchSummary(

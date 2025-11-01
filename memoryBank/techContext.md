@@ -36,6 +36,14 @@
   - `python -m scripts.export_ppo_browser_checkpoint`
   - PPO uses PyTorch from `requirements.txt`
   - PPO scaffold entrypoint: `python -m scripts.train_ppo`
+  - deterministic search baseline is available in eval/benchmark via `--player-*-policy search` or `--candidate-policy search`
+  - `scripts.eval` now prints periodic progress updates by default and writes JSON artifacts to `artifacts/evals/`
+  - search knobs:
+    - `--search-worlds`
+    - `--search-rollouts`
+    - `--search-depth`
+    - `--search-max-root-actions`
+    - `--search-rollout-epsilon`
   - browser PPO inference profile is served from `public/models/*.browser.json`
 
 ## Constraints

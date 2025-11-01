@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from trainer.behavior_cloning import BehaviorCloningModel, save_behavior_cloning_checkpoint
-from trainer.policies import BehaviorCloningPolicy, policy_from_name
+from trainer.policies import BehaviorCloningPolicy, DeterminizedSearchPolicy, SearchConfig, policy_from_name
 from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
 
 
@@ -34,6 +34,14 @@ class PolicyFactoryTests(unittest.TestCase):
             save_ppo_checkpoint(model, path)
             policy = policy_from_name("ppo", checkpoint_path=path)
         self.assertEqual(policy.name, f"ppo:{path.name}")
+
+    def test_policy_factory_creates_search_policy(self) -> None:
+        config = SearchConfig(worlds=1, rollouts=1, depth=1, max_root_actions=1, rollout_epsilon=0.0)
+        policy = policy_from_name("search", search_config=config)
+        try:
+            self.assertIsInstance(policy, DeterminizedSearchPolicy)
+        finally:
+            policy.close()
 
 
 if __name__ == "__main__":

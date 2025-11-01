@@ -90,6 +90,12 @@
     - `src/policies/ppoBrowserPolicy.ts` runs candidate-action PPO inference in browser
     - champion browser artifact tracked at `public/models/ppo_champion_2026-02-23_seed7.browser.json`
   - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC), `scripts/finetune.py` (BC -> RL), `scripts/train_ppo.py` (PPO scaffold)
+  - additive search baseline path is implemented:
+    - `search` policy in `trainer/policies.py` with determinized hidden-state sampling and bounded rollout lookahead
+    - state-aware policy selection hooks in eval/training loops
+    - search policy wiring in `scripts/eval.py` and `scripts/benchmark.py` with configurable knobs
+    - `scripts/eval.py` now emits default periodic progress logs and writes JSON artifacts to `artifacts/evals/`
+    - search-focused tests in `trainer_tests/test_search_policy.py`
   - project Python venv bootstrap is standardized (`requirements.txt`, `scripts/setup_python_env.ps1`)
   - unittest coverage in `trainer_tests/`
 - Tooling gates include lint + typecheck + tests.
@@ -111,4 +117,4 @@
 - Bridge/API stability needs explicit guardrails as trainer integration starts.
 - Trained profiles are still placeholders until bridge/runtime inference wiring is complete.
 
-_Updated: 2026-02-24._
+_Updated: 2026-02-27._

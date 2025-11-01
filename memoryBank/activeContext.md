@@ -5,6 +5,7 @@
 - Close remaining rules-parity gaps with scenario-driven integration tests.
 - Keep the UI/controller thin and policy-agnostic so random and trained bots share one action-selection boundary.
 - Preserve a stable TS-Python contract while warm-start training/evaluation loops are exercised through the bridge runtime.
+- Add a phase-1 determinized search baseline as an additive policy path for evaluation/benchmarking without disrupting PPO/BC workflows.
 
 ## Locked Decisions
 
@@ -107,8 +108,12 @@
   - `docs/TRAINING_ENCODING.md`
 - Baseline policy/eval/training scripts are implemented:
   - policies: `trainer/policies.py` (random + heuristic + checkpoint-backed BC + checkpoint-backed PPO)
+    - additive determinized search policy (`search`) with sampled hidden-state worlds and bounded rollout lookahead
   - eval: `trainer/evaluate.py` + `scripts/eval.py`
+    - eval CLI now supports `search` and search knobs (`--search-worlds`, `--search-rollouts`, `--search-depth`, `--search-max-root-actions`, `--search-rollout-epsilon`)
+    - eval now emits default progress updates every 25 games (plus final) and persists result artifacts under `artifacts/evals/`
   - canonical holdout benchmark: `trainer/benchmarking.py` + `scripts/benchmark.py`
+    - benchmark CLI now supports `search` and the same search knobs
     - fixed seed prefixes: `bench-random-holdout`, `bench-heuristic-holdout`
     - default games per matchup: 200
     - selection score: `0.7 * heuristic + 0.3 * random`
@@ -133,8 +138,9 @@
 ## Immediate Next Steps
 
 1. Expand full-turn/full-game scenario coverage for rules parity.
-2. Validate PPO scaffold against BC/heuristic baselines and tune PPO objective/rollout settings.
-3. Improve experiment logging/tracking around checkpoint-selection decisions over long runs.
-4. Add model lifecycle docs for promoting trained checkpoints into browser-ready champion profiles.
+2. Benchmark the new search baseline against heuristic/PPO over larger game counts to estimate real uplift and latency tradeoffs.
+3. Validate PPO scaffold against BC/heuristic baselines and tune PPO objective/rollout settings.
+4. Improve experiment logging/tracking around checkpoint-selection decisions over long runs.
+5. Add model lifecycle docs for promoting trained checkpoints into browser-ready champion profiles.
 
-_Updated: 2026-02-24._
+_Updated: 2026-02-27._
