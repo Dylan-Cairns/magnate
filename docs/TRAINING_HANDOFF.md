@@ -1,4 +1,4 @@
-# Training Handoff (2026-02-27)
+# Training Handoff (2026-02-28)
 
 Use this document as the single restart context for training work in a new chat/session.
 
@@ -11,7 +11,8 @@ Current direction:
 - Keep existing BC/REINFORCE/PPO pipeline intact.
 - Keep rollout-eval search as a strong baseline teacher.
 - Evaluate newly added MCTS for a higher-strength policy tier.
-- Distill stronger search/MCTS behavior into fast student policies later.
+- Use learned guidance (policy prior + value + opponent model) inside search/MCTS to raise teacher strength.
+- Distill stronger search/MCTS behavior into fast student policies after teacher strength is locked.
 
 ## 2. Important Constraints
 
@@ -37,6 +38,18 @@ Current direction:
     - progressive root widening (instead of permanent hard top-K root filtering)
     - cached state-transition stepping in tree search
     - stronger non-terminal value proxy aligned to district/tiebreak pressure
+- Guidance-enabled search/MCTS paths are now implemented:
+  - optional PPO-format guidance checkpoints for:
+    - search root priors
+    - search rollout opponent action modeling
+    - MCTS priors
+    - MCTS leaf value cutoffs
+  - integrated CLI support in:
+    - `scripts.eval`
+    - `scripts.benchmark`
+    - `scripts.generate_teacher_data`
+- Guidance checkpoint training from teacher data:
+  - `scripts/train_search_guidance`
 - Browser bot profiles:
   - `Champion PPO` (default)
   - `Rollout Eval Search` (T3 settings)
@@ -45,7 +58,7 @@ Current direction:
 ### Not yet implemented
 
 - Browser MCTS profile integration (MCTS is currently Python-tooling only)
-- Search/MCTS-to-student distillation training loop
+- Full search/MCTS-to-student distillation training loop with promotion automation
 - Formal promotion gate automation (currently manual artifact review)
 
 ## 4. Measured Results Snapshot
@@ -108,14 +121,13 @@ Scale-up gate:
 
 ## 7. Immediate Next Steps (Ordered)
 
-1. Collect results from the 3x25 MCTS run.
-2. If it passes short-screen gate, run:
-   - `200` games vs heuristic
-   - then `700`
-   - then `2000`
-3. Compare best MCTS config directly against rollout-search baseline on matched seeds.
-4. If MCTS wins clearly, add browser MCTS profile and test UI responsiveness.
-5. After locking teacher class (rollout-search vs MCTS), proceed to distillation planning.
+1. Train a first guidance checkpoint from strongest available teacher data.
+2. Run side-swapped holdouts for:
+   - search (no guidance vs guidance)
+   - MCTS (no guidance vs guidance)
+3. Promote only after `200+`, then `700+`, then `2000` game stability checks.
+4. Lock strongest teacher + guidance config and generate larger teacher datasets.
+5. Proceed to student distillation planning once teacher dominance is confirmed.
 
 ## 8. Useful Commands
 
@@ -137,12 +149,25 @@ python -m scripts.eval --games 200 --seed-prefix eval-mcts-v-heur-200 --player-a
 python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-distill-v1 --teacher-policy search --teacher-players both --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/teacher_data/teacher_distill_v1.jsonl --summary-out artifacts/teacher_data/teacher_distill_v1.summary.json
 ```
 
+### Train guidance checkpoint from teacher data
+
+```powershell
+python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_distill_v1.jsonl --checkpoint-out artifacts/search_guidance_checkpoint_v1.pt --epochs 12 --batch-size 128 --learning-rate 3e-4 --value-loss-coef 0.5 --hidden-dim 256
+```
+
+### Evaluate MCTS with guidance checkpoint
+
+```powershell
+python -m scripts.eval --games 200 --seed-prefix eval-mcts-guidance-v-heur-200 --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --mcts-guidance-checkpoint artifacts/search_guidance_checkpoint_v1.pt --guidance-temperature 1.0 --out artifacts/evals/mcts_guidance_v_heur_200.json
+```
+
 ## 9. Artifact Conventions
 
 - Checkpoints: `artifacts/ppo_checkpoint_<label>_seed<seed>.pt`
 - Benchmarks: `artifacts/benchmarks/<label>.json`
 - Evals: `artifacts/evals/<label>.json`
 - Teacher data: `artifacts/teacher_data/<label>.jsonl` and summary JSON
+- Guidance checkpoints: `artifacts/search_guidance_checkpoint_<label>.pt`
 - Seed prefixes should include run label + seed for reproducibility.
 
 ## 10. Known Risks

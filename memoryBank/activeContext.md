@@ -4,9 +4,9 @@
 
 - Keep rules behavior deterministic and validated in the TypeScript engine.
 - Keep the existing BC/REINFORCE/PPO training path stable.
-- Evaluate and tune the additive `search` policy as a stronger teacher candidate.
-- Evaluate additive `mcts` policy as the next search upgrade candidate.
-- Decide whether to proceed with teacher-data distillation into a fast browser policy.
+- Raise search/MCTS strength using learned guidance (policy prior + value + opponent modeling), not heuristic-only search tuning.
+- Train and tune guidance checkpoints from teacher data, then validate lift on side-swapped holdouts.
+- Decide promotion order: stronger teacher first, then distillation for speed/browser deployment.
 - Keep `docs/TRAINING_HANDOFF.md` as the restart document for training continuity across fresh sessions.
 
 ## Locked Decisions
@@ -56,13 +56,21 @@
   - `random`, `heuristic`
   - checkpoint-backed `bc`, `ppo`
   - additive deterministic `search` and `mcts` baselines with configurable knobs
+- Search/MCTS now support optional PPO-format guidance checkpoints:
+  - search root ranking can use learned policy priors
+  - search rollouts can model opponent actions from learned policy distributions
+  - MCTS priors can come from learned policy distributions
+  - MCTS leaf evaluation can come from learned value head
+- Guidance checkpoint training from teacher datasets is now implemented (`scripts/train_search_guidance.py`).
 
 ## Immediate Next Steps
 
-1. Complete the in-flight 3x25 MCTS run and summarize aggregate win rate after the MCTS upgrades.
-2. Run side-swapped MCTS-vs-heuristic holdouts (`200+` games each side) to verify near-consistent dominance.
-3. If MCTS is clearly stronger than rollout-search, lock MCTS teacher settings and start teacher-data generation.
-4. Build distillation training path (teacher -> fast policy) and only reuse PPO fine-tuning if distillation plateaus.
-5. Sync updated promotion gates/results into `docs/TRAINING_HANDOFF.md`.
+1. Train first guidance checkpoint from strongest teacher data (search T3 baseline or best current MCTS).
+2. Run side-swapped `200+` and `700+` game evals for:
+   - search (with/without guidance)
+   - MCTS (with/without guidance)
+3. Retune search/MCTS around guidance (`temperature`, simulations, depth, root actions) using holdout win rate as objective.
+4. Promote strongest teacher class and lock a guidance-assisted teacher configuration.
+5. Proceed to student distillation for fast browser inference once teacher dominance is validated.
 
-_Updated: 2026-02-27._
+_Updated: 2026-02-28._

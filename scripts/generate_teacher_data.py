@@ -149,6 +149,24 @@ def parse_args() -> argparse.Namespace:
         default=1.25,
         help="MCTS PUCT exploration coefficient.",
     )
+    parser.add_argument(
+        "--search-guidance-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional PPO-format guidance checkpoint for search priors/value/opponent model.",
+    )
+    parser.add_argument(
+        "--mcts-guidance-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional PPO-format guidance checkpoint for MCTS priors/value.",
+    )
+    parser.add_argument(
+        "--guidance-temperature",
+        type=float,
+        default=1.0,
+        help="Softmax temperature used by guidance checkpoints.",
+    )
     return parser.parse_args()
 
 
@@ -176,6 +194,9 @@ def main() -> int:
         checkpoint_path=args.teacher_checkpoint,
         search_config=search_config,
         mcts_config=mcts_config,
+        search_guidance_checkpoint=args.search_guidance_checkpoint,
+        mcts_guidance_checkpoint=args.mcts_guidance_checkpoint,
+        guidance_temperature=args.guidance_temperature,
     )
     opponent_policy = None
     if teacher_player_ids != {"PlayerA", "PlayerB"}:
@@ -184,6 +205,9 @@ def main() -> int:
             checkpoint_path=args.opponent_checkpoint,
             search_config=search_config,
             mcts_config=mcts_config,
+            search_guidance_checkpoint=args.search_guidance_checkpoint,
+            mcts_guidance_checkpoint=args.mcts_guidance_checkpoint,
+            guidance_temperature=args.guidance_temperature,
         )
 
     try:
@@ -261,6 +285,19 @@ def main() -> int:
                 "depth": args.mcts_depth,
                 "maxRootActions": args.mcts_max_root_actions,
                 "cPuct": args.mcts_c_puct,
+            },
+            "guidance": {
+                "searchCheckpoint": (
+                    str(args.search_guidance_checkpoint)
+                    if args.search_guidance_checkpoint
+                    else None
+                ),
+                "mctsCheckpoint": (
+                    str(args.mcts_guidance_checkpoint)
+                    if args.mcts_guidance_checkpoint
+                    else None
+                ),
+                "temperature": args.guidance_temperature,
             },
         },
         "results": summary.as_json(),

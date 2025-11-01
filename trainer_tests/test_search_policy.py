@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import random
+import tempfile
 import unittest
+from pathlib import Path
 
 from trainer.bridge_client import BridgeClient
+from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import DeterminizedSearchPolicy, SearchConfig
+from trainer.policies import DeterminizedSearchPolicy, SearchConfig, policy_from_name
+from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
 
 
 class SearchPolicyTests(unittest.TestCase):
@@ -72,6 +76,40 @@ class SearchPolicyTests(unittest.TestCase):
                 )
         finally:
             policy.close()
+
+    def test_search_guidance_checkpoint_path_is_usable(self) -> None:
+        config = SearchConfig(
+            worlds=1,
+            rollouts=1,
+            depth=2,
+            max_root_actions=3,
+            rollout_epsilon=0.0,
+        )
+        model = CandidateActorCritic(
+            observation_dim=OBSERVATION_DIM,
+            action_feature_dim=ACTION_FEATURE_DIM,
+            hidden_dim=32,
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoint = Path(tmp_dir) / "guidance.pt"
+            save_ppo_checkpoint(model, checkpoint)
+            policy = policy_from_name(
+                "search",
+                search_config=config,
+                search_guidance_checkpoint=checkpoint,
+            )
+            try:
+                step_result = self.env.reset(seed="search-guidance-checkpoint", first_player="PlayerA")
+                legal = self.env.legal_actions()
+                action_key = policy.choose_action_key(
+                    step_result.view,
+                    legal.actions,
+                    random.Random(17),
+                    state=step_result.state,
+                )
+                self.assertIn(action_key, {entry.action_key for entry in legal.actions})
+            finally:
+                policy.close()
 
 
 if __name__ == "__main__":
