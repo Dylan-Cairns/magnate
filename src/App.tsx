@@ -515,7 +515,7 @@ export function App() {
   });
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${optionsMenuOpen ? ' is-options-open' : ''}`}>
       {error && (
         <section className="error-banner">
           <strong>Engine Error:</strong> {error}
@@ -524,75 +524,18 @@ export function App() {
 
       <main className="layout">
         <aside className="actions-pane">
-          <section className="panel brand-panel">
-            <div className="brand-header">
-              <div className="brand-title-block">
-                <h1>Magnate</h1>
-                <p className="brand-subtitle">
-                  For the throne of the Grand Duke
-                </p>
-              </div>
-              <button
-                ref={optionsMenuButtonRef}
-                type="button"
-                className={`hamburger-button${optionsMenuOpen ? ' is-open' : ''}`}
-                aria-label="Game options"
-                aria-controls="brand-options-menu"
-                aria-expanded={optionsMenuOpen}
-                onClick={() => setOptionsMenuOpen((open) => !open)}
-              >
-                <span />
-                <span />
-                <span />
-              </button>
-            </div>
-
-            {optionsMenuOpen ? (
-              <section
-                id="brand-options-menu"
-                ref={optionsMenuRef}
-                className="brand-options-menu"
-                aria-label="Game options"
-              >
-                <div className="brand-controls">
-                  <input
-                    id="seed-input"
-                    aria-label="Seed"
-                    className="seed-input"
-                    value={seedInput}
-                    onChange={(event) => setSeedInput(event.target.value)}
-                  />
-                  <button
-                    className="reset-button"
-                    type="button"
-                    onClick={handleReset}
-                  >
-                    New Game
-                  </button>
-                </div>
-                <div className="bot-profile-controls">
-                  <label htmlFor="bot-profile-select">Bot Profile</label>
-                  <select
-                    id="bot-profile-select"
-                    className="bot-profile-select"
-                    value={botProfileId}
-                    onChange={(event) =>
-                      setBotProfileId(event.target.value as BotProfileId)
-                    }
-                  >
-                    {BOT_PROFILES.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="bot-profile-note">
-                    {resolvedBotProfile.statusText}
+          <div className="brand-row">
+            <section className="panel brand-panel">
+              <div className="brand-header">
+                <div className="brand-title-block">
+                  <h1>Magnate</h1>
+                  <p className="brand-subtitle">
+                    For the throne of the Grand Duke
                   </p>
                 </div>
-              </section>
-            ) : null}
-          </section>
+              </div>
+            </section>
+          </div>
 
           <section className="panel actions-panel">
             <div className="actions-heading">
@@ -1132,8 +1075,86 @@ export function App() {
               </ol>
             )}
           </section>
+
+          <div className="corner-options-anchor">
+            <button
+              ref={optionsMenuButtonRef}
+              type="button"
+              className={`hamburger-button${optionsMenuOpen ? ' is-open' : ''}`}
+              aria-label="Game options"
+              aria-controls="brand-options-menu"
+              aria-expanded={optionsMenuOpen}
+              onClick={() => setOptionsMenuOpen((open) => !open)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+
+            {optionsMenuOpen ? (
+              <section
+                id="brand-options-menu"
+                ref={optionsMenuRef}
+                className="brand-options-menu"
+                aria-label="Game options"
+              >
+                <div className="brand-controls">
+                  <input
+                    id="seed-input"
+                    aria-label="Seed"
+                    className="seed-input"
+                    value={seedInput}
+                    onChange={(event) => setSeedInput(event.target.value)}
+                  />
+                  <button
+                    className="reset-button"
+                    type="button"
+                    onClick={handleReset}
+                  >
+                    New Game
+                  </button>
+                </div>
+                <div className="bot-profile-controls">
+                  <label htmlFor="bot-profile-select">Bot Profile</label>
+                  <select
+                    id="bot-profile-select"
+                    className="bot-profile-select"
+                    value={botProfileId}
+                    onChange={(event) =>
+                      setBotProfileId(event.target.value as BotProfileId)
+                    }
+                  >
+                    {BOT_PROFILES.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="bot-profile-note">
+                    {resolvedBotProfile.statusText}
+                  </p>
+                </div>
+                <a
+                  className="brand-options-link"
+                  href="http://decktet.wikidot.com/game:magnate"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Official Decktet Magnate Rules
+                </a>
+              </section>
+            ) : null}
+          </div>
         </aside>
       </main>
+
+      {optionsMenuOpen ? (
+        <div
+          className="options-backdrop"
+          aria-hidden="true"
+          onClick={closeOptionsMenu}
+        />
+      ) : null}
 
       {actionPicker && (
         <section
