@@ -44,14 +44,10 @@ function DistrictLane({
   playerId,
   stack,
   botPlayerId,
-  districtScore,
-  isLeading,
 }: {
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
-  districtScore: number;
-  isLeading: boolean;
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
@@ -112,12 +108,6 @@ function DistrictLane({
           </div>
         ) : null}
       </div>
-      <span
-        className={`district-lane-score${isLeading ? ' is-leading' : ''}`}
-        aria-label={`District score: ${districtScore}`}
-      >
-        {districtScore}
-      </span>
     </section>
   );
 }
@@ -143,28 +133,38 @@ export function DistrictColumn({
         playerId={botPlayerId}
         stack={district.stacks[botPlayerId]}
         botPlayerId={botPlayerId}
-        districtScore={botDistrictScore}
-        isLeading={botLeadsDistrict}
       />
 
-      <header className="district-header" title={markerName}>
-        <span className="district-id">{district.id}</span>
-        <strong className="district-marker-name" title={markerName}>
-          {markerName}
-        </strong>
-        {district.markerSuitMask.length > 0 ? (
-          <TokenRow className="district-marker-tokens" tokens={markerSuitTokens(district.markerSuitMask)} compact />
-        ) : (
-          <span className="district-marker-tokens district-marker-placeholder" aria-hidden="true" />
-        )}
-      </header>
+      <div className="district-header-wrap">
+        <span
+          className={`district-lane-score district-lane-score-bot${botLeadsDistrict ? ' is-leading' : ''}`}
+          aria-label={`District score: ${botDistrictScore}`}
+        >
+          {botDistrictScore}
+        </span>
+        <header className="district-header" title={markerName}>
+          <span className="district-id">{district.id}</span>
+          <strong className="district-marker-name" title={markerName}>
+            {markerName}
+          </strong>
+          {district.markerSuitMask.length > 0 ? (
+            <TokenRow className="district-marker-tokens" tokens={markerSuitTokens(district.markerSuitMask)} compact />
+          ) : (
+            <span className="district-marker-tokens district-marker-placeholder" aria-hidden="true" />
+          )}
+        </header>
+        <span
+          className={`district-lane-score district-lane-score-human${humanLeadsDistrict ? ' is-leading' : ''}`}
+          aria-label={`District score: ${humanDistrictScore}`}
+        >
+          {humanDistrictScore}
+        </span>
+      </div>
 
       <DistrictLane
         playerId={humanPlayerId}
         stack={district.stacks[humanPlayerId]}
         botPlayerId={botPlayerId}
-        districtScore={humanDistrictScore}
-        isLeading={humanLeadsDistrict}
       />
     </article>
   );
