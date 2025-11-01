@@ -4,7 +4,7 @@
   height: var(--card-height);
   position: relative;
   border-radius: 10px;
-  border: 1px solid var(--card-border);
+  /* border: 1px solid var(--card-border); */
   background: linear-gradient(
     135deg,
     var(--card-bg-start) 0%,
@@ -161,7 +161,10 @@
 }
 
 .card-tile.is-in-development {
-  border-color: #2e3740;
+  border-color: var(--card-border);
+  box-shadow:
+    var(--card-drop-shadow),
+    inset 0 0 0 1px var(--card-inset-border);
   background: linear-gradient(135deg, #6c7680 0%, #49535d 100%);
 }
 
@@ -239,10 +242,15 @@
 .card-tile.is-in-development .card-image-frame::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 1px;
+  border-radius: 4px;
   background: rgba(8, 13, 22, 0.24);
   pointer-events: none;
   z-index: 1;
+}
+
+.card-tile.is-in-development .card-image-frame::after {
+  border-color: var(--card-image-border);
 }
 
 .card-tile.is-in-development .card-image {
