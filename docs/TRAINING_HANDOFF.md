@@ -161,6 +161,12 @@ python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teac
 python -m scripts.eval --games 200 --seed-prefix eval-mcts-guidance-v-heur-200 --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --mcts-guidance-checkpoint artifacts/search_guidance_checkpoint_v1.pt --guidance-temperature 1.0 --out artifacts/evals/mcts_guidance_v_heur_200.json
 ```
 
+### One-command unattended A/B pipeline
+
+```powershell
+python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200
+```
+
 ## 9. Artifact Conventions
 
 - Checkpoints: `artifacts/ppo_checkpoint_<label>_seed<seed>.pt`

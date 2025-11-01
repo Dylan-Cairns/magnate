@@ -36,6 +36,8 @@
   - optional learned leaf value for MCTS depth cutoffs
   - optional learned opponent action modeling in search rollouts
   - new eval/benchmark/teacher-data CLI flags for guidance checkpoint injection
+- Unattended A/B pipeline script landed:
+  - `scripts/run_guidance_ab_pipeline.py` runs teacher-data -> guidance-train -> baseline eval -> guided eval sequentially with fail-fast behavior and manifest output
 - Training handoff documentation now exists at `docs/TRAINING_HANDOFF.md` with:
   - measured benchmark/eval snapshot
   - in-flight run context

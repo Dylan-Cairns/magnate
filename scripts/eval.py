@@ -13,7 +13,7 @@ from trainer.env import MagnateBridgeEnv
 from trainer.evaluate import evaluate_matchup
 from trainer.policies import MctsConfig, SearchConfig, policy_from_name
 
-DEFAULT_PROGRESS_EVERY_GAMES = 5
+DEFAULT_PROGRESS_EVERY_GAMES = 10
 
 
 def parse_args() -> argparse.Namespace:
