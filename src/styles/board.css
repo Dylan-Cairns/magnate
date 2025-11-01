@@ -313,10 +313,20 @@
   border: none;
   border-radius: 0;
   padding: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  gap: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.2rem;
   min-height: 0;
+}
+
+.district-lane.is-bot {
+  justify-content: flex-end;
+}
+
+.district-lane.is-human {
+  justify-content: flex-start;
 }
 
 .card-row-wrap {
@@ -328,6 +338,7 @@
 
 .lane-stack-frame {
   position: relative;
+  width: 100%;
   min-height: 0;
   display: flex;
   justify-content: center;
@@ -366,24 +377,25 @@
 }
 
 .district-lane-score {
-  position: absolute;
-  left: 0.24rem;
+  position: static;
+  align-self: center;
   color: rgba(178, 190, 206, 0.84);
   font-size: 0.74rem;
   font-weight: 600;
-  text-align: left;
+  text-align: center;
   letter-spacing: 0.01em;
   line-height: 1.15;
   pointer-events: none;
   z-index: 4;
 }
 
-.district-lane.is-bot .district-lane-score {
-  bottom: 0.14rem;
+.district-lane-score.is-leading {
+  color: #fff;
+  font-weight: 800;
 }
 
 .district-lane.is-human .district-lane-score {
-  top: 0.14rem;
+  order: -1;
 }
 
 @media (max-width: 2499px) {

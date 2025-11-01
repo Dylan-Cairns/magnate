@@ -1,5 +1,6 @@
 import { findProperty } from './stateHelpers';
 import type {
+  DistrictId,
   DistrictStack,
   FinalScore,
   GameState,
@@ -13,14 +14,14 @@ export function isTerminal(state: GameState): boolean {
 }
 
 export function scoreGame(state: GameState): FinalScore {
-  const districtPoints = createPlayerCounter();
+  const districtWinners = districtWinnersByPlayer(state);
+  const districtPoints = {
+    PlayerA: districtWinners.PlayerA.length,
+    PlayerB: districtWinners.PlayerB.length,
+  };
   const rankTotals = createPlayerCounter();
 
   state.districts.forEach((district) => {
-    const districtScores = {
-      PlayerA: districtScore(district.stacks.PlayerA),
-      PlayerB: districtScore(district.stacks.PlayerB),
-    };
     const districtRankTotals = {
       PlayerA: rankTotal(district.stacks.PlayerA),
       PlayerB: rankTotal(district.stacks.PlayerB),
@@ -28,12 +29,6 @@ export function scoreGame(state: GameState): FinalScore {
 
     rankTotals.PlayerA += districtRankTotals.PlayerA;
     rankTotals.PlayerB += districtRankTotals.PlayerB;
-
-    if (districtScores.PlayerA > districtScores.PlayerB) {
-      districtPoints.PlayerA += 1;
-    } else if (districtScores.PlayerB > districtScores.PlayerA) {
-      districtPoints.PlayerB += 1;
-    }
   });
 
   const resourceTotals = {
@@ -55,6 +50,27 @@ export function scoreGame(state: GameState): FinalScore {
 
 export function scoreLive(state: GameState): FinalScore {
   return scoreGame(state);
+}
+
+export function districtWinnersByPlayer(
+  state: GameState
+): Record<PlayerId, DistrictId[]> {
+  const winners = createPlayerDistrictList();
+
+  state.districts.forEach((district) => {
+    const districtScores = {
+      PlayerA: districtScore(district.stacks.PlayerA),
+      PlayerB: districtScore(district.stacks.PlayerB),
+    };
+
+    if (districtScores.PlayerA > districtScores.PlayerB) {
+      winners.PlayerA.push(district.id);
+    } else if (districtScores.PlayerB > districtScores.PlayerA) {
+      winners.PlayerB.push(district.id);
+    }
+  });
+
+  return winners;
 }
 
 export function districtScore(stack: DistrictStack): number {
@@ -126,6 +142,13 @@ function createPlayerCounter(): Record<PlayerId, number> {
   return {
     PlayerA: 0,
     PlayerB: 0,
+  };
+}
+
+function createPlayerDistrictList(): Record<PlayerId, DistrictId[]> {
+  return {
+    PlayerA: [],
+    PlayerB: [],
   };
 }
 

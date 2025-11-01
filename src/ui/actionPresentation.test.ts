@@ -13,6 +13,7 @@ import type { GameAction } from '../engine/types';
 import {
   actionStableKey,
   buildHumanActionList,
+  buildTradeSourceGroups,
   buildPickerOptions,
   pickerStillLegal,
   pickerTitle,
@@ -61,6 +62,73 @@ describe('buildHumanActionList', () => {
     expect(deedGroups[0].cardId).toBe('6');
     expect(deedGroups[0].districtId).toBe('D1');
     expect(deedGroups[0].options).toHaveLength(2);
+  });
+
+  it('places trade options after non-trade options during pre-card action windows', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 3 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const grouped = buildHumanActionList(legalActions(state));
+    const firstTradeIndex = grouped.findIndex(
+      (item) => item.kind === 'trade-group'
+    );
+    const nonTradeIndex = grouped.findIndex(
+      (item) => item.kind !== 'trade-group'
+    );
+
+    expect(firstTradeIndex).toBeGreaterThan(nonTradeIndex);
+    expect(grouped.slice(firstTradeIndex).every((item) => item.kind === 'trade-group')).toBe(true);
+  });
+
+  it('places trade options before end-turn during post-card action windows', () => {
+    let state = makeGameState({
+      phase: 'ActionWindow',
+      cardPlayedThisTurn: true,
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 3, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    state = withDeed(state, 'D1', PLAYER_A, { cardId: '6', progress: 0, tokens: {} });
+
+    const grouped = buildHumanActionList(legalActions(state));
+    const firstTradeIndex = grouped.findIndex(
+      (item) => item.kind === 'trade-group'
+    );
+    const endTurnIndex = grouped.findIndex(
+      (item) => item.kind === 'action' && item.action.type === 'end-turn'
+    );
+
+    expect(firstTradeIndex).toBeGreaterThanOrEqual(0);
+    expect(endTurnIndex).toBeGreaterThan(firstTradeIndex);
+    expect(grouped.at(-1)).toMatchObject({ kind: 'action', action: { type: 'end-turn' } });
+  });
+});
+
+describe('buildTradeSourceGroups', () => {
+  it('returns grouped trade sources in first-seen action order', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3, Suns: 3 }) }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const groups = buildTradeSourceGroups(legalActions(state));
+    expect(groups).toHaveLength(2);
+    expect(groups.map((group) => group.give)).toEqual(['Moons', 'Suns']);
+    expect(groups.every((group) => group.options.length === 5)).toBe(true);
   });
 });
 

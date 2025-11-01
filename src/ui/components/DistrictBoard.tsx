@@ -45,11 +45,13 @@ function DistrictLane({
   stack,
   botPlayerId,
   districtScore,
+  isLeading,
 }: {
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
   districtScore: number;
+  isLeading: boolean;
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
@@ -109,10 +111,13 @@ function DistrictLane({
             ))}
           </div>
         ) : null}
-        <span className="district-lane-score" aria-label={`District score: ${districtScore}`}>
-          {districtScore}
-        </span>
       </div>
+      <span
+        className={`district-lane-score${isLeading ? ' is-leading' : ''}`}
+        aria-label={`District score: ${districtScore}`}
+      >
+        {districtScore}
+      </span>
     </section>
   );
 }
@@ -129,6 +134,8 @@ export function DistrictColumn({
   const markerName = districtMarkerName(district.markerSuitMask);
   const botDistrictScore = districtScore(district.stacks[botPlayerId]);
   const humanDistrictScore = districtScore(district.stacks[humanPlayerId]);
+  const botLeadsDistrict = botDistrictScore > humanDistrictScore;
+  const humanLeadsDistrict = humanDistrictScore > botDistrictScore;
 
   return (
     <article className="district-column">
@@ -137,6 +144,7 @@ export function DistrictColumn({
         stack={district.stacks[botPlayerId]}
         botPlayerId={botPlayerId}
         districtScore={botDistrictScore}
+        isLeading={botLeadsDistrict}
       />
 
       <header className="district-header" title={markerName}>
@@ -156,6 +164,7 @@ export function DistrictColumn({
         stack={district.stacks[humanPlayerId]}
         botPlayerId={botPlayerId}
         districtScore={humanDistrictScore}
+        isLeading={humanLeadsDistrict}
       />
     </article>
   );
