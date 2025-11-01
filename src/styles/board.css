@@ -1,7 +1,12 @@
 .player-panel {
   border: 1px solid var(--board-border);
   border-radius: 10px;
-  background: var(--player-area-bg);
+  background-color: transparent;
+  background-image: var(--grain-texture), var(--player-area-bg);
+  background-size:
+    220px 220px,
+    auto;
+  background-repeat: repeat, no-repeat;
   backdrop-filter: none;
   padding: var(--panel-padding-compact);
   display: grid;
