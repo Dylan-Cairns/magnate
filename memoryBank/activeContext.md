@@ -38,6 +38,7 @@
 - Champion browser PPO profile is enabled and set as default bot.
 - Browser rollout-eval search profile (T3 config) is wired for direct play/testing.
 - Bot policy failures are surfaced explicitly in the UI (no silent policy fallback).
+- Development-card progress rings now animate only on fill increases using UI-local interpolation; canonical `progress/target` math remains unchanged and deterministic.
 
 ### Bridge
 

@@ -57,4 +57,32 @@ describe('DistrictColumn', () => {
     ];
     expect(leadingScoreMatches).toHaveLength(1);
   });
+
+  it('renders deed progress rings and values for both bot and human lane perspectives', () => {
+    const district: DistrictState = {
+      id: 'D3',
+      markerSuitMask: ['Waves'],
+      stacks: {
+        PlayerA: {
+          developed: [],
+          deed: { cardId: '6', progress: 3, tokens: { Waves: 3 } },
+        },
+        PlayerB: {
+          developed: [],
+          deed: { cardId: '6', progress: 1, tokens: { Waves: 1 } },
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+    );
+
+    const deedProgressLabels = [...html.matchAll(/aria-label="development progress"/g)];
+    expect(deedProgressLabels).toHaveLength(2);
+    expect(html).toContain('>3/2<');
+    expect(html).toContain('>1/2<');
+    expect(html).toContain('card-tile perspective-bot is-in-development');
+    expect(html).toContain('card-tile is-in-development');
+  });
 });
