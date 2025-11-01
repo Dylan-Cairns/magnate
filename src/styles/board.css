@@ -2,11 +2,19 @@
   border: 1px solid var(--board-border);
   border-radius: 10px;
   background-color: transparent;
-  background-image: var(--grain-texture), var(--player-area-bg);
+  background-image:
+    var(--grain-texture),
+    var(--grain-texture),
+    var(--player-area-bg);
   background-size:
-    220px 220px,
+    180px 180px,
+    300px 300px,
     auto;
-  background-repeat: repeat, no-repeat;
+  background-position:
+    0 0,
+    88px 56px,
+    center;
+  background-repeat: repeat, repeat, no-repeat;
   backdrop-filter: none;
   padding: var(--panel-padding-compact);
   display: grid;
