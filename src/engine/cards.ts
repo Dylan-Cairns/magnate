@@ -85,7 +85,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the AUTHOR',
+    name: 'The Author',
     id: '6',
     rank: 'Numeral',
     value: '2',
@@ -94,7 +94,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the DESERT',
+    name: 'The Desert',
     id: '7',
     rank: 'Numeral',
     value: '2',
@@ -103,7 +103,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the ORIGIN',
+    name: 'The Origin',
     id: '8',
     rank: 'Numeral',
     value: '2',
@@ -112,7 +112,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the JOURNEY',
+    name: 'The Journey',
     id: '9',
     rank: 'Numeral',
     value: '3',
@@ -121,7 +121,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the PAINTER',
+    name: 'The Painter',
     id: '10',
     rank: 'Numeral',
     value: '3',
@@ -130,7 +130,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the SAVAGE',
+    name: 'The Savage',
     id: '11',
     rank: 'Numeral',
     value: '3',
@@ -139,7 +139,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the BATTLE',
+    name: 'The Battle',
     id: '12',
     rank: 'Numeral',
     value: '4',
@@ -148,7 +148,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the MOUNTAIN',
+    name: 'The Mountain',
     id: '13',
     rank: 'Numeral',
     value: '4',
@@ -157,7 +157,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the SAILOR',
+    name: 'The Sailor',
     id: '14',
     rank: 'Numeral',
     value: '4',
@@ -166,7 +166,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the DISCOVERY',
+    name: 'The Discovery',
     id: '15',
     rank: 'Numeral',
     value: '5',
@@ -175,7 +175,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the FOREST',
+    name: 'The Forest',
     id: '16',
     rank: 'Numeral',
     value: '5',
@@ -184,7 +184,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the SOLDIER',
+    name: 'The Soldier',
     id: '17',
     rank: 'Numeral',
     value: '5',
@@ -193,7 +193,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the LUNATIC',
+    name: 'The Lunatic',
     id: '18',
     rank: 'Numeral',
     value: '6',
@@ -202,7 +202,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the MARKET',
+    name: 'The Market',
     id: '19',
     rank: 'Numeral',
     value: '6',
@@ -211,7 +211,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the PENITENT',
+    name: 'The Penitent',
     id: '20',
     rank: 'Numeral',
     value: '6',
@@ -220,7 +220,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the CASTLE',
+    name: 'The Castle',
     id: '21',
     rank: 'Numeral',
     value: '7',
@@ -229,7 +229,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the CAVE',
+    name: 'The Cave',
     id: '22',
     rank: 'Numeral',
     value: '7',
@@ -238,7 +238,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the CHANCE MEETING',
+    name: 'The Chance Meeting',
     id: '23',
     rank: 'Numeral',
     value: '7',
@@ -247,7 +247,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the BETRAYAL',
+    name: 'The Betrayal',
     id: '24',
     rank: 'Numeral',
     value: '8',
@@ -256,7 +256,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the DIPLOMAT',
+    name: 'The Diplomat',
     id: '25',
     rank: 'Numeral',
     value: '8',
@@ -265,7 +265,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the MILL',
+    name: 'The Mill',
     id: '26',
     rank: 'Numeral',
     value: '8',
@@ -274,7 +274,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the DARKNESS',
+    name: 'The Darkness',
     id: '27',
     rank: 'Numeral',
     value: '9',
@@ -283,7 +283,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the MERCHANT',
+    name: 'The Merchant',
     id: '28',
     rank: 'Numeral',
     value: '9',
@@ -292,7 +292,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the PACT',
+    name: 'The Pact',
     id: '29',
     rank: 'Numeral',
     value: '9',
@@ -301,7 +301,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the WINDFALL',
+    name: 'The Windfall',
     id: '30',
     rank: 'Crown',
     value: '10',
@@ -310,7 +310,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the END',
+    name: 'The End',
     id: '31',
     rank: 'Crown',
     value: '10',
@@ -319,7 +319,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the HUNTRESS',
+    name: 'The Huntress',
     id: '32',
     rank: 'Crown',
     value: '10',
@@ -328,7 +328,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the BARD',
+    name: 'The Bard',
     id: '33',
     rank: 'Crown',
     value: '10',
@@ -337,7 +337,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the SEA',
+    name: 'The Sea',
     id: '34',
     rank: 'Crown',
     value: '10',
@@ -346,7 +346,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the CALAMITY',
+    name: 'The Calamity',
     id: '35',
     rank: 'Crown',
     value: '10',
@@ -355,7 +355,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the EXCUSE',
+    name: 'The Excuse',
     id: '36',
     rank: 'Excuse',
     value: '0',
@@ -364,7 +364,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: '',
   },
   {
-    name: 'the BORDERLAND',
+    name: 'The Borderland',
     id: '37',
     rank: 'Pawn',
     value: '11',
@@ -373,7 +373,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: 'Wyrms',
   },
   {
-    name: 'the HARVEST',
+    name: 'The Harvest',
     id: '38',
     rank: 'Pawn',
     value: '11',
@@ -382,7 +382,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: 'Leaves',
   },
   {
-    name: 'the LIGHT KEEPER',
+    name: 'The Light Keeper',
     id: '39',
     rank: 'Pawn',
     value: '11',
@@ -391,7 +391,7 @@ const RAW_CARD_OBJECTS: readonly RawCardObject[] = [
     suit3: 'Knots',
   },
   {
-    name: 'the WATCHMAN',
+    name: 'The Watchman',
     id: '40',
     rank: 'Pawn',
     value: '11',

@@ -67,6 +67,11 @@
   font-size: 0.86rem;
 }
 
+.action-list .inline-token-chip,
+.trade-popover .inline-token-chip {
+  box-shadow: none;
+}
+
 .score-grid {
   display: grid;
   gap: 0.3rem;
@@ -314,6 +319,77 @@
   display: grid;
   justify-items: center;
   gap: 0.26rem;
+}
+
+.discard-pile-wrap {
+  justify-content: center;
+}
+
+.discard-pile-wrap .deck-pile-stack:focus-visible {
+  outline: 1px solid var(--accent-soft);
+  outline-offset: 1px;
+}
+
+.discard-pile-popover {
+  left: auto;
+  right: 0;
+  min-width: 13.2rem;
+  max-width: min(17rem, calc(100vw - 1rem));
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+  display: none;
+  pointer-events: auto;
+}
+
+.discard-pile-wrap:hover .discard-pile-popover,
+.discard-pile-wrap:focus-within .discard-pile-popover {
+  display: grid;
+}
+
+.discard-pile-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.discard-pile-item {
+  display: block;
+}
+
+.discard-pile-card-row {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 2.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.3rem;
+  font-size: 0.74rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.discard-pile-card-rank {
+  justify-self: end;
+}
+
+.discard-pile-card-suits {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  width: 2.5rem;
+}
+
+.discard-pile-card-suits .inline-token-chip {
+  margin: 0;
+}
+
+.discard-pile-card-name {
+  font-size: 0.74rem;
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .deck-pile-stack {
