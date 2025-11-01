@@ -48,7 +48,7 @@
   - a dedicated framed image panel (1px gray border)
   - rank/suits and deed progress share a single metadata row
   - image panel sizing follows Decktet source aspect ratio, stretches art with `object-fit: fill`, and draws the 1px frame border via an overlay pseudo-element to avoid edge clipping artifacts
-  - deed-token overlays are retained without reserving a separate top/bottom progress lane
+  - deed-token overlays are retained without reserving a separate top/bottom progress lane, using play-area chip sizing in a centered vertical token column with a semi-opaque connected gray enclosure for readability
 - Official Decktet suit icons are now canonical in `src/ui/suitIcons.tsx`:
   - shared `{Suit}` text tokens drive action-label formatting and inline suit-icon replacement
   - cards, action text, resource/crown rows, district markers, and deed-token chips all render the same SVG set from `src/assets/icons/*.svg`
