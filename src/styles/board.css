@@ -3,9 +3,7 @@
   border-radius: 10px;
   background-color: transparent;
   background-image:
-    var(--grain-texture),
-    var(--grain-texture),
-    var(--player-area-bg);
+    var(--grain-texture), var(--grain-texture), var(--player-area-bg);
   background-size:
     180px 180px,
     300px 300px,
@@ -257,9 +255,7 @@
   border-radius: 6px;
   background-color: transparent;
   background-image:
-    var(--grain-texture),
-    var(--grain-texture),
-    var(--district-divider-bg);
+    var(--grain-texture), var(--grain-texture), var(--district-divider-bg);
   background-size:
     180px 180px,
     300px 300px,
@@ -400,11 +396,10 @@
   min-width: 2.6rem;
   max-width: 4.5rem;
   transform: translateX(-50%);
-  border: 1px solid #6b7380;
+  border: 1px solid #586270;
   background-color: #171d24;
   background-image:
-    var(--grain-texture),
-    var(--grain-texture),
+    var(--grain-texture), var(--grain-texture),
     linear-gradient(145deg, #2b333f, #141a22);
   background-size:
     180px 180px,
@@ -459,4 +454,3 @@
     display: none;
   }
 }
-
