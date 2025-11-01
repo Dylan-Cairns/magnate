@@ -113,6 +113,58 @@ describe('buildHumanActionList', () => {
     expect(endTurnIndex).toBeGreaterThan(firstTradeIndex);
     expect(grouped.at(-1)).toMatchObject({ kind: 'action', action: { type: 'end-turn' } });
   });
+
+  it('orders pre-card action categories by fixed precedence', () => {
+    let state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 3, Knots: 3, Suns: 3 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    state = withDeed(state, 'D1', PLAYER_A, {
+      cardId: '6',
+      progress: 0,
+      tokens: {},
+    });
+
+    const grouped = buildHumanActionList(legalActions(state));
+    expect(actionCategorySequence(grouped)).toEqual([
+      'develop-outright',
+      'buy-deed',
+      'sell-card',
+      'develop-deed',
+      'trade',
+    ]);
+  });
+
+  it('orders post-card action categories by fixed precedence subset', () => {
+    let state = makeGameState({
+      phase: 'ActionWindow',
+      cardPlayedThisTurn: true,
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 3, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    state = withDeed(state, 'D1', PLAYER_A, {
+      cardId: '6',
+      progress: 0,
+      tokens: {},
+    });
+
+    const grouped = buildHumanActionList(legalActions(state));
+    expect(actionCategorySequence(grouped)).toEqual([
+      'develop-deed',
+      'trade',
+      'end-turn',
+    ]);
+  });
 });
 
 describe('buildTradeSourceGroups', () => {
@@ -189,3 +241,28 @@ describe('actionStableKey', () => {
     expect(actionStableKey(base)).toBe(actionStableKey(clone));
   });
 });
+
+function actionCategorySequence(
+  grouped: ReturnType<typeof buildHumanActionList>
+): string[] {
+  const sequence: string[] = [];
+
+  for (const item of grouped) {
+    const category =
+      item.kind === 'action'
+        ? item.action.type
+        : item.kind === 'trade-group'
+          ? 'trade'
+          : item.kind === 'buy-deed-group'
+            ? 'buy-deed'
+            : item.kind === 'develop-deed-group'
+              ? 'develop-deed'
+              : 'develop-outright';
+
+    if (sequence.at(-1) !== category) {
+      sequence.push(category);
+    }
+  }
+
+  return sequence;
+}

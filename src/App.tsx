@@ -11,7 +11,11 @@ import { legalActions } from './engine/actionBuilders';
 import { CARD_BY_ID, type CardId } from './engine/cards';
 import { rngFromSeed } from './engine/rng';
 import { createSession, stepToDecision } from './engine/session';
-import { districtWinnersByPlayer, isTerminal, scoreLive } from './engine/scoring';
+import {
+  districtWinnersByPlayer,
+  isTerminal,
+  scoreLive,
+} from './engine/scoring';
 import type { BotProfileId } from './policies/catalog';
 import {
   BOT_PROFILES,
@@ -37,6 +41,7 @@ import {
   pickerStillLegal,
   pickerTitle,
   type ActionPickerQuery,
+  type HumanActionListItem,
 } from './ui/actionPresentation';
 import {
   canUseTurnReset,
@@ -172,6 +177,15 @@ export function App() {
     () => humanActionItems.findIndex((item) => item.kind === 'trade-group'),
     [humanActionItems]
   );
+  const visibleHumanActionItems = useMemo(() => {
+    if (!hasMultipleTradeSources) {
+      return humanActionItems;
+    }
+    return humanActionItems.filter(
+      (item, index) =>
+        item.kind !== 'trade-group' || index === firstTradeGroupIndex
+    );
+  }, [firstTradeGroupIndex, hasMultipleTradeSources, humanActionItems]);
 
   const actionPickerOptions = useMemo(() => {
     if (!actionPicker || actionPicker.kind === 'trade-source') {
@@ -627,20 +641,44 @@ export function App() {
               ) : activePlayerId === HUMAN_PLAYER ? (
                 <div className="actions-human-layout">
                   <div className="actions-human-main">
-                    {humanActionItems.length === 0 ? (
+                    {visibleHumanActionItems.length === 0 ? (
                       <p className="empty-note">No legal actions.</p>
                     ) : (
                       <div className="action-list">
-                        {humanActionItems.map((item, index) => {
+                        {visibleHumanActionItems.map((item, index) => {
+                          const categoryKey = actionCategoryForItem(item);
+                          const previousCategoryKey =
+                            index > 0
+                              ? actionCategoryForItem(
+                                  visibleHumanActionItems[index - 1]
+                                )
+                              : null;
+                          const showCategory =
+                            previousCategoryKey !== categoryKey;
+                          const categoryLabel =
+                            actionCategoryLabel(categoryKey);
+                          const renderCategorizedAction = (
+                            key: string,
+                            button: ReactNode
+                          ) => (
+                            <div
+                              key={key}
+                              className={`action-entry${showCategory ? ' has-category' : ''}`}
+                            >
+                              {showCategory ? (
+                                <p className="action-category">
+                                  {categoryLabel}
+                                </p>
+                              ) : null}
+                              {button}
+                            </div>
+                          );
+
                           if (item.kind === 'trade-group') {
                             if (hasMultipleTradeSources) {
-                              if (index !== firstTradeGroupIndex) {
-                                return null;
-                              }
-
-                              return (
+                              return renderCategorizedAction(
+                                'trade-source-group',
                                 <button
-                                  key="trade-source-group"
                                   type="button"
                                   className="action-button has-submenu"
                                   onClick={(event) => {
@@ -655,7 +693,6 @@ export function App() {
                                     );
                                   }}
                                 >
-                                  <span className="action-kind">trade</span>
                                   <span className="action-text">
                                     Trade resources
                                   </span>
@@ -665,14 +702,13 @@ export function App() {
 
                             if (item.options.length === 1) {
                               const [onlyOption] = item.options;
-                              return (
+                              return renderCategorizedAction(
+                                `trade-direct-${item.give}`,
                                 <button
-                                  key={`trade-direct-${item.give}`}
                                   type="button"
                                   className="action-button"
                                   onClick={() => handleHumanAction(onlyOption)}
                                 >
-                                  <span className="action-kind">trade</span>
                                   <span className="action-text">
                                     {renderSuitText(
                                       describeAction(
@@ -685,9 +721,9 @@ export function App() {
                               );
                             }
 
-                            return (
+                            return renderCategorizedAction(
+                              `trade-group-${item.give}`,
                               <button
-                                key={`trade-group-${item.give}`}
                                 type="button"
                                 className="action-button has-submenu"
                                 onClick={(event) => {
@@ -706,7 +742,6 @@ export function App() {
                                   );
                                 }}
                               >
-                                <span className="action-kind">trade</span>
                                 <span className="action-text">
                                   {renderSuitText(
                                     `Trade ${SUIT_TEXT_TOKEN[item.give]}x3`
@@ -719,16 +754,13 @@ export function App() {
                           if (item.kind === 'buy-deed-group') {
                             if (item.options.length === 1) {
                               const [onlyOption] = item.options;
-                              return (
+                              return renderCategorizedAction(
+                                `buy-deed-direct-${actionStableKey(onlyOption)}`,
                                 <button
-                                  key={`buy-deed-direct-${actionStableKey(onlyOption)}`}
                                   type="button"
                                   className="action-button"
                                   onClick={() => handleHumanAction(onlyOption)}
                                 >
-                                  <span className="action-kind">
-                                    {onlyOption.type}
-                                  </span>
                                   <span className="action-text">
                                     {renderSuitText(
                                       describeAction(
@@ -741,9 +773,9 @@ export function App() {
                               );
                             }
 
-                            return (
+                            return renderCategorizedAction(
+                              `buy-deed-group-${item.cardId}`,
                               <button
-                                key={`buy-deed-group-${item.cardId}`}
                                 type="button"
                                 className="action-button has-submenu"
                                 onClick={(event) => {
@@ -766,7 +798,6 @@ export function App() {
                                   );
                                 }}
                               >
-                                <span className="action-kind">buy-deed</span>
                                 <span className="action-text">
                                   {renderSuitText(
                                     `Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
@@ -779,16 +810,13 @@ export function App() {
                           if (item.kind === 'develop-deed-group') {
                             if (item.options.length === 1) {
                               const [onlyOption] = item.options;
-                              return (
+                              return renderCategorizedAction(
+                                `develop-deed-direct-${actionStableKey(onlyOption)}`,
                                 <button
-                                  key={`develop-deed-direct-${actionStableKey(onlyOption)}`}
                                   type="button"
                                   className="action-button"
                                   onClick={() => handleHumanAction(onlyOption)}
                                 >
-                                  <span className="action-kind">
-                                    {onlyOption.type}
-                                  </span>
                                   <span className="action-text">
                                     {renderSuitText(
                                       describeAction(
@@ -801,9 +829,9 @@ export function App() {
                               );
                             }
 
-                            return (
+                            return renderCategorizedAction(
+                              `develop-deed-group-${item.cardId}-${item.districtId}`,
                               <button
-                                key={`develop-deed-group-${item.cardId}-${item.districtId}`}
                                 type="button"
                                 className="action-button has-submenu"
                                 onClick={(event) => {
@@ -826,9 +854,6 @@ export function App() {
                                   );
                                 }}
                               >
-                                <span className="action-kind">
-                                  develop-deed
-                                </span>
                                 <span className="action-text">
                                   {renderSuitText(
                                     `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`
@@ -841,16 +866,13 @@ export function App() {
                           if (item.kind === 'develop-outright-group') {
                             if (item.options.length === 1) {
                               const [onlyOption] = item.options;
-                              return (
+                              return renderCategorizedAction(
+                                `develop-outright-direct-${actionStableKey(onlyOption)}`,
                                 <button
-                                  key={`develop-outright-direct-${actionStableKey(onlyOption)}`}
                                   type="button"
                                   className="action-button"
                                   onClick={() => handleHumanAction(onlyOption)}
                                 >
-                                  <span className="action-kind">
-                                    {onlyOption.type}
-                                  </span>
                                   <span className="action-text">
                                     {renderSuitText(
                                       describeAction(
@@ -863,9 +885,9 @@ export function App() {
                               );
                             }
 
-                            return (
+                            return renderCategorizedAction(
+                              `develop-outright-group-${item.cardId}-${item.paymentKey}`,
                               <button
-                                key={`develop-outright-group-${item.cardId}-${item.paymentKey}`}
                                 type="button"
                                 className="action-button has-submenu"
                                 onClick={(event) => {
@@ -892,9 +914,6 @@ export function App() {
                                   );
                                 }}
                               >
-                                <span className="action-kind">
-                                  develop-outright
-                                </span>
                                 <span className="action-text">
                                   {renderSuitText(
                                     `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(item.payment, SUIT_TEXT_TOKEN)})`
@@ -904,16 +923,13 @@ export function App() {
                             );
                           }
 
-                          return (
+                          return renderCategorizedAction(
+                            actionStableKey(item.action),
                             <button
-                              key={actionStableKey(item.action)}
                               type="button"
                               className="action-button"
                               onClick={() => handleHumanAction(item.action)}
                             >
-                              <span className="action-kind">
-                                {item.action.type}
-                              </span>
                               <span className="action-text">
                                 {renderSuitText(
                                   describeAction(item.action, SUIT_TEXT_TOKEN)
@@ -934,8 +950,7 @@ export function App() {
                         className="action-button reset-turn-button"
                         onClick={handleTurnReset}
                       >
-                        <span className="action-kind">reset-turn</span>
-                        <span className="action-text">reset turn</span>
+                        <span className="action-text">Reset turn</span>
                       </button>
                     </div>
                   ) : null}
@@ -1013,7 +1028,10 @@ export function App() {
                     ))
                   )}
                   {showSecondShuffleLabel ? (
-                    <span className="deck-pile-overlay-label" aria-hidden="true">
+                    <span
+                      className="deck-pile-overlay-label"
+                      aria-hidden="true"
+                    >
                       2nd shuffle
                     </span>
                   ) : null}
@@ -1175,6 +1193,42 @@ export function App() {
       )}
     </div>
   );
+}
+
+function actionCategoryForItem(item: HumanActionListItem): string {
+  switch (item.kind) {
+    case 'trade-group':
+      return 'trade';
+    case 'buy-deed-group':
+      return 'buy-deed';
+    case 'develop-deed-group':
+      return 'develop-deed';
+    case 'develop-outright-group':
+      return 'develop-outright';
+    case 'action':
+      return item.action.type;
+  }
+}
+
+function actionCategoryLabel(category: string): string {
+  switch (category) {
+    case 'trade':
+      return 'Trade';
+    case 'buy-deed':
+      return 'Buy Deed';
+    case 'develop-deed':
+      return 'Develop Deed';
+    case 'develop-outright':
+      return 'Develop Outright';
+    case 'sell-card':
+      return 'Sell Card';
+    case 'choose-income-suit':
+      return 'Choose Income';
+    case 'end-turn':
+      return 'End Turn';
+    default:
+      return category;
+  }
 }
 
 function winnerLabel(winner: FinalScore['winner']): string {
