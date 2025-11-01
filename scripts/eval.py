@@ -13,7 +13,7 @@ from trainer.env import MagnateBridgeEnv
 from trainer.evaluate import evaluate_matchup
 from trainer.policies import MctsConfig, SearchConfig, policy_from_name
 
-DEFAULT_PROGRESS_EVERY_GAMES = 25
+DEFAULT_PROGRESS_EVERY_GAMES = 5
 
 
 def parse_args() -> argparse.Namespace:
@@ -154,11 +154,23 @@ def main() -> int:
     try:
         with BridgeClient() as client:
             env = MagnateBridgeEnv(client=client)
-            def on_progress(completed_games: int, total_games: int, winners: dict, _wins_by_policy: dict) -> None:
+
+            def on_progress(
+                completed_games: int,
+                total_games: int,
+                winners: dict,
+                _wins_by_policy: dict,
+            ) -> None:
                 elapsed_minutes = (time.perf_counter() - started_at) / 60.0
                 player_a_wins = int(winners.get("PlayerA", 0))
-                win_rate = (player_a_wins / completed_games) if completed_games > 0 else 0.0
-                pct = (completed_games / total_games * 100.0) if total_games > 0 else 100.0
+                win_rate = (
+                    (player_a_wins / completed_games) if completed_games > 0 else 0.0
+                )
+                pct = (
+                    (completed_games / total_games * 100.0)
+                    if total_games > 0
+                    else 100.0
+                )
                 print(
                     "[eval] progress "
                     f"games={completed_games}/{total_games} "
@@ -195,8 +207,12 @@ def main() -> int:
             "seedPrefix": args.seed_prefix,
             "playerAPolicy": args.player_a_policy,
             "playerBPolicy": args.player_b_policy,
-            "playerACheckpoint": str(args.player_a_checkpoint) if args.player_a_checkpoint else None,
-            "playerBCheckpoint": str(args.player_b_checkpoint) if args.player_b_checkpoint else None,
+            "playerACheckpoint": (
+                str(args.player_a_checkpoint) if args.player_a_checkpoint else None
+            ),
+            "playerBCheckpoint": (
+                str(args.player_b_checkpoint) if args.player_b_checkpoint else None
+            ),
             "search": {
                 "worlds": args.search_worlds,
                 "rollouts": args.search_rollouts,
@@ -236,12 +252,17 @@ def main() -> int:
     return 0
 
 
-def _default_output_path(seed_prefix: str, player_a_policy: str, player_b_policy: str) -> Path:
+def _default_output_path(
+    seed_prefix: str, player_a_policy: str, player_b_policy: str
+) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
     safe_seed_prefix = _slug(seed_prefix)
     safe_player_a = _slug(player_a_policy)
     safe_player_b = _slug(player_b_policy)
-    return Path("artifacts/evals") / f"{stamp}-{safe_seed_prefix}-{safe_player_a}-vs-{safe_player_b}.json"
+    return (
+        Path("artifacts/evals")
+        / f"{stamp}-{safe_seed_prefix}-{safe_player_a}-vs-{safe_player_b}.json"
+    )
 
 
 def _slug(value: str) -> str:
