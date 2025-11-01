@@ -25,6 +25,22 @@ describe('placementAllowed', () => {
     expect(placementAllowed(card, district, PLAYER_A)).toBe(true);
   });
 
+  it('requires suit overlap with the previous property for subsequent Excuse placements', () => {
+    const district = makeDistrict('D5', [], {
+      [PLAYER_A]: { developed: ['6'] },
+      [PLAYER_B]: { developed: [] },
+    });
+
+    const nonMatching = CARD_BY_ID['7'];
+    const matching = CARD_BY_ID['13'];
+    if (nonMatching.kind !== 'Property' || matching.kind !== 'Property') {
+      throw new Error('Expected property test cards.');
+    }
+
+    expect(placementAllowed(nonMatching, district, PLAYER_A)).toBe(false);
+    expect(placementAllowed(matching, district, PLAYER_A)).toBe(true);
+  });
+
   it('requires overlap with previous developed property in the same district', () => {
     const district = makeDistrict('D1', ['Moons'], {
       [PLAYER_A]: { developed: ['6'] },

@@ -296,6 +296,77 @@ describe('legalActions', () => {
     ).toBe(true);
   });
 
+  it('ActionWindow exposes ace buy-deed only when the one-token ace deed cost is affordable', () => {
+    const unaffordable = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['0'],
+          resources: makeResources({ Knots: 0 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    expect(
+      legalActions(unaffordable).some(
+        (action) => action.type === 'buy-deed' && action.cardId === '0'
+      )
+    ).toBe(false);
+
+    const affordable = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['0'],
+          resources: makeResources({ Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    const aceBuys = legalActions(affordable).filter(
+      (action): action is Extract<typeof action, { type: 'buy-deed' }> =>
+        action.type === 'buy-deed' && action.cardId === '0'
+    );
+    expect(aceBuys).toHaveLength(1);
+    expect(aceBuys[0].districtId).toBe('D5');
+  });
+
+  it('ActionWindow exposes ace outright only when three matching tokens are available', () => {
+    const insufficient = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['0'],
+          resources: makeResources({ Knots: 2 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    expect(
+      legalActions(insufficient).some(
+        (action) => action.type === 'develop-outright' && action.cardId === '0'
+      )
+    ).toBe(false);
+
+    const sufficient = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['0'],
+          resources: makeResources({ Knots: 3 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    const aceOutrights = legalActions(sufficient).filter(
+      (action): action is Extract<typeof action, { type: 'develop-outright' }> =>
+        action.type === 'develop-outright' && action.cardId === '0'
+    );
+    expect(aceOutrights).toHaveLength(1);
+    expect(aceOutrights[0].districtId).toBe('D5');
+    expect(aceOutrights[0].payment).toEqual({ Knots: 3 });
+  });
+
   it('ActionWindow blocks first-placement buy/develop actions in districts without pawn-suit overlap', () => {
     const state = makeGameState({
       phase: 'ActionWindow',
@@ -332,5 +403,26 @@ describe('legalActions', () => {
     expect(districtIds.has('D3')).toBe(false);
     expect(districtIds.has('D4')).toBe(false);
     expect(districtIds.has('D5')).toBe(true);
+  });
+
+  it('ActionWindow leaves sell-card as the only card-play option when develop/deed are unavailable', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      cardPlayedThisTurn: false,
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['7'],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const actions = legalActions(state);
+    expect(actions.some((action) => action.type === 'sell-card')).toBe(true);
+    expect(actions.some((action) => action.type === 'buy-deed')).toBe(false);
+    expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
+    expect(actions.some((action) => action.type === 'develop-deed')).toBe(false);
+    expect(actions.some((action) => action.type === 'end-turn')).toBe(false);
   });
 });

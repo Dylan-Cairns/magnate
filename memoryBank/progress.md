@@ -10,6 +10,14 @@
   - legality + reducer action handling
   - phase resolver (`advanceToDecision`)
   - scoring and terminal finalization
+- Added targeted rules edge-case regressions without engine behavior changes:
+  - tax-before-income sequencing + deed-token immunity in one combined test
+  - mixed d10 income edge branches (`1/x`, higher-die ordering, no matching rank)
+  - generated multi-choice income queue ordering and chooser handoff/restore
+  - Excuse subsequent-placement overlap checks
+  - ace buy/develop cost legality paths at action-surface + reducer levels
+  - sell-only pre-card action-surface scenario when develop/deed options are unavailable
+  - full two-turn final-turn countdown progression after second exhaustion
 - Engine state model was simplified:
   - canonical exhaustion source is `deck.reshuffles` (removed duplicated `exhaustionStage`)
   - income-choice return owner is ID-based (`incomeChoiceReturnPlayerId`)
