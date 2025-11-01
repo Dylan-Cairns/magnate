@@ -28,6 +28,7 @@ Current direction:
 - PPO training (`scripts.train_ppo`, `scripts.train_ppo_queue`)
 - Eval and benchmark harnesses (`scripts.eval`, `scripts.benchmark`, queue helpers)
 - Additive search policy in eval/benchmark (`--player-*-policy search`, `--candidate-policy search`)
+- Browser-side additive search bot profiles (T2/T3) for direct UI play/testing (explicit errors, no silent fallback)
 
 ### Not yet implemented
 

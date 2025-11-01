@@ -13,6 +13,8 @@
 - Rules edge-case coverage was expanded with targeted regression tests (tax/income sequencing, mixed-roll handling, income-choice queue order, ace cost paths, Excuse follow-on placement, final-turn countdown).
 - Browser UI is playable with policy-agnostic controller boundaries and a bot profile catalog.
 - Browser PPO inference path is wired, and a champion profile is available as default bot.
+- Browser determinized search policy path is wired into the UI bot catalog (T2/T3 configs) for direct in-browser play/testing.
+- Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
 - Bridge runtime and contract tests are in place.
 - Trainer scaffold is in place for:
   - sample collection + BC warm-start

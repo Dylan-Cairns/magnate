@@ -14,6 +14,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Deterministic engine loop is implemented (`setup`, `legalActions`, `applyAction`, `advanceToDecision`, scoring/terminal).
 - Browser game shell is playable with policy-driven bots.
 - Browser PPO champion profile is enabled and currently default.
+- Browser determinized search profiles are available for direct in-UI play/testing (explicit failure surface, no hidden fallback).
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
 - Trainer supports:
   - random/heuristic evaluation
