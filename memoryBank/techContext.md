@@ -7,54 +7,39 @@
 - React + Vite
 - Vitest
 - ESLint + Prettier
-- Python 3.11+ target for training
+- Python 3.11+ (local `.venv`)
+- PyTorch + NumPy for training
 
-## Project Layout Direction
+## Layout
 
-- TS engine and browser app in this repo.
-- Python trainer scaffold now exists in-repo as a bridge client (`trainer/` + `scripts/*.py`).
-- Shared cross-runtime contract is small and versioned.
-- Browser app entry now exists at `index.html` + `src/main.tsx` with gameplay shell in `src/App.tsx`.
+- Engine + browser app in this repo (`src/`).
+- Bridge runtime in `src/bridge/`.
+- Python trainer/tooling in `trainer/` and `scripts/`.
+- Versioned bridge contract in `contracts/`.
 
 ## Tooling Notes
 
 - Package manager: Yarn
-- Primary scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
-- `lint` now includes `tsc --noEmit` via `yarn typecheck`.
-- Vite base uses relative paths for static hosting compatibility.
-- Python training commands run from a project-local virtualenv (`.venv`):
-  - bootstrap script: `scripts/setup_python_env.ps1`
-  - activate in PowerShell: `.\.venv\Scripts\Activate.ps1`
-  - run script entrypoints as modules once activated (`python -m scripts.<name>`)
-  - `python -m scripts.smoke_trainer`
+- Main JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
+- Python environment bootstrap:
+  - `scripts/setup_python_env.ps1`
+  - activate: `.\.venv\Scripts\Activate.ps1`
+- Python entrypoints run as modules:
   - `python -m scripts.eval`
   - `python -m scripts.benchmark`
-  - `python -m scripts.benchmark_queue`
   - `python -m scripts.train`
   - `python -m scripts.finetune`
-  - `python -m scripts.train_ppo_queue`
-  - `python -m scripts.export_ppo_browser_checkpoint`
-  - PPO uses PyTorch from `requirements.txt`
-  - PPO scaffold entrypoint: `python -m scripts.train_ppo`
-  - deterministic search baseline is available in eval/benchmark via `--player-*-policy search` or `--candidate-policy search`
-  - `scripts.eval` now prints periodic progress updates by default and writes JSON artifacts to `artifacts/evals/`
-  - search knobs:
-    - `--search-worlds`
-    - `--search-rollouts`
-    - `--search-depth`
-    - `--search-max-root-actions`
-    - `--search-rollout-epsilon`
-  - browser PPO inference profile is served from `public/models/*.browser.json`
+  - `python -m scripts.train_ppo`
+  - queue helpers for PPO and benchmark sweeps
 
 ## Constraints
 
-- Static deploy target (no gameplay backend).
-- Deterministic gameplay required for tests, replay, and training.
-- Rules logic remains in TS unless explicitly re-approved otherwise.
+- Static deployment target (no gameplay backend).
+- Deterministic gameplay required for replay/test/training.
+- Rules semantics remain in TS unless explicitly re-approved.
 
 ## Known Gaps
 
-- Full rules-parity scenario coverage is not complete yet.
-- Trainer supports BC warm-start, stabilized seeded RL fine-tuning, and a PPO scaffold path, but experiment automation/tuning depth is still limited.
-- Model-backed trained-policy implementations are not complete yet (UI trained profiles are currently disabled placeholders).
-- Browser/bridge wiring to drive games from `newGame(seed, { firstPlayer })` is not complete yet.
+- Search teacher is strong but expensive at inference time; distillation path is not yet implemented.
+- Experiment tracking and promotion criteria are still lightweight/manual.
+- Long-run training automation exists, but tuning strategy and reporting are not yet standardized.
