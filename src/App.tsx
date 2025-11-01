@@ -143,6 +143,8 @@ export function App() {
     [state]
   );
   const isSecondShuffle = humanView.deck.reshuffles > 0;
+  const showSecondShuffleLabel =
+    isSecondShuffle && !(terminal && humanView.deck.drawCount === 0);
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
   );
@@ -1010,7 +1012,7 @@ export function App() {
                       />
                     ))
                   )}
-                  {isSecondShuffle ? (
+                  {showSecondShuffleLabel ? (
                     <span className="deck-pile-overlay-label" aria-hidden="true">
                       2nd shuffle
                     </span>
