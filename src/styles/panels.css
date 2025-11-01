@@ -520,6 +520,9 @@
   justify-self: end;
   background: var(--side-rail-panel-fill);
   border-color: var(--panel-border);
+  box-shadow:
+    var(--rail-panel-shadow),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .seed-input {
