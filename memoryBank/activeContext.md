@@ -48,6 +48,10 @@
 
 - Bridge environment, encoders, eval/benchmark harnesses, and queue scripts are implemented.
 - Teacher-data collection for distillation is now implemented (`scripts/generate_teacher_data.py`).
+- MCTS policy was upgraded with:
+  - progressive root widening (no permanent hard top-K root lockout)
+  - LRU-style state-transition cache for repeated bridge step transitions
+  - stronger non-terminal value proxy emphasizing district control/tiebreak structure
 - Supported policy families in tooling:
   - `random`, `heuristic`
   - checkpoint-backed `bc`, `ppo`
@@ -55,10 +59,10 @@
 
 ## Immediate Next Steps
 
-1. Finalize a rollout-search teacher configuration based on larger holdout evals.
-2. Run first MCTS-vs-heuristic eval sweep to measure whether MCTS outperforms rollout-search baseline.
-3. Run teacher-data generation with the locked teacher policy config, then build distillation training path (teacher -> fast policy).
-4. Reuse opponent-pool PPO only if distillation still needs RL fine-tuning.
-5. Sync any major training result changes into `docs/TRAINING_HANDOFF.md`.
+1. Complete the in-flight 3x25 MCTS run and summarize aggregate win rate after the MCTS upgrades.
+2. Run side-swapped MCTS-vs-heuristic holdouts (`200+` games each side) to verify near-consistent dominance.
+3. If MCTS is clearly stronger than rollout-search, lock MCTS teacher settings and start teacher-data generation.
+4. Build distillation training path (teacher -> fast policy) and only reuse PPO fine-tuning if distillation plateaus.
+5. Sync updated promotion gates/results into `docs/TRAINING_HANDOFF.md`.
 
 _Updated: 2026-02-27._

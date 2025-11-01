@@ -33,6 +33,10 @@ Current direction:
   - `--player-*-policy mcts`
   - `--candidate-policy mcts`
   - `--teacher-policy mcts`
+  - upgraded implementation details:
+    - progressive root widening (instead of permanent hard top-K root filtering)
+    - cached state-transition stepping in tree search
+    - stronger non-terminal value proxy aligned to district/tiebreak pressure
 - Browser bot profiles:
   - `Champion PPO` (default)
   - `Rollout Eval Search` (T3 settings)
@@ -146,6 +150,7 @@ python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-distil
 - 25-game runs are noisy; they are only screening runs.
 - Current MCTS is determinized-tree search and not full chance-node MCTS.
 - MCTS runtime can increase sharply with `worlds * simulations * depth`.
+- MCTS root widening improves action coverage, but poor prior quality can still slow convergence.
 - Browser MCTS is not yet integrated; only rollout-search and PPO are available in UI.
 
 ---

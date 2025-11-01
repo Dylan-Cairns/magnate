@@ -23,6 +23,10 @@
   - search and MCTS policy evaluation/benchmarking
   - queued multi-seed train/benchmark workflows
   - teacher-labeled data generation (`scripts/generate_teacher_data.py`) for distillation
+- MCTS implementation quality pass landed:
+  - root search now uses progressive widening instead of permanent hard top-K pruning
+  - repeated serialized-state + action transitions are cached to reduce duplicate bridge steps
+  - non-terminal MCTS leaf value is more score-aligned (district pressure and tiebreak structure)
 - Training handoff documentation now exists at `docs/TRAINING_HANDOFF.md` with:
   - measured benchmark/eval snapshot
   - in-flight run context
