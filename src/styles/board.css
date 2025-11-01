@@ -332,6 +332,7 @@
   justify-content: center;
   align-items: flex-start;
   overflow: visible;
+  container-type: inline-size;
 }
 
 .lane-stack-frame.is-bot {

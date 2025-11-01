@@ -2,9 +2,35 @@ import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
 import { getCardImage } from '../cardImages';
 import { SuitIcon } from '../suitIcons';
-import { TokenRow, tokenEntries } from './TokenComponents';
+import { TokenChip, tokenEntries } from './TokenComponents';
 
 export type CardPerspective = 'human' | 'bot';
+
+function splitDeedTokensBySide(
+  entries: Array<{ suit: Suit; count: number }>,
+  perspective: CardPerspective
+): {
+  left: Array<{ suit: Suit; count: number }>;
+  right: Array<{ suit: Suit; count: number }>;
+} {
+  if (entries.length === 1) {
+    return perspective === 'bot'
+      ? { left: [], right: entries }
+      : { left: entries, right: [] };
+  }
+
+  const left: Array<{ suit: Suit; count: number }> = [];
+  const right: Array<{ suit: Suit; count: number }> = [];
+  for (const [index, entry] of entries.entries()) {
+    const placeLeft = perspective === 'bot' ? index % 2 === 1 : index % 2 === 0;
+    if (placeLeft) {
+      left.push(entry);
+    } else {
+      right.push(entry);
+    }
+  }
+  return { left, right };
+}
 
 export function CardTile({
   cardId,
@@ -43,7 +69,9 @@ export function CardTile({
       : card.kind === 'Pawn'
         ? 'P'
         : 'X';
-  const hasDeedTokens = deedTokens ? tokenEntries(deedTokens).length > 0 : false;
+  const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
+  const hasDeedTokens = deedTokenEntries.length > 0;
+  const deedTokensBySide = splitDeedTokensBySide(deedTokenEntries, perspective);
   const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
   const cardImage = getCardImage(cardId);
 
@@ -74,7 +102,20 @@ export function CardTile({
       <div className="card-image-frame" aria-hidden="true">
         <img className="card-image" src={cardImage} alt="" />
       </div>
-      {hasDeedTokens && deedTokens ? <TokenRow tokens={deedTokens} compact className="card-token-row" /> : null}
+      {hasDeedTokens ? (
+        <>
+          <div className="card-side-token-rail card-side-token-rail-left" aria-hidden="true">
+            {deedTokensBySide.left.map((entry) => (
+              <TokenChip key={`left-${cardId}-${entry.suit}`} suit={entry.suit} count={entry.count} compact />
+            ))}
+          </div>
+          <div className="card-side-token-rail card-side-token-rail-right" aria-hidden="true">
+            {deedTokensBySide.right.map((entry) => (
+              <TokenChip key={`right-${cardId}-${entry.suit}`} suit={entry.suit} count={entry.count} compact />
+            ))}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 
