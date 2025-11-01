@@ -156,35 +156,43 @@
   object-position: center;
 }
 
-.card-token-row {
+.card-side-token-rail {
   position: absolute;
-  left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
+  display: flex;
   flex-direction: column;
-  flex-wrap: nowrap;
   align-items: center;
-  justify-content: center;
-  min-height: 0;
   gap: 0.16rem;
-  padding: 0.22rem 0.26rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.79);
-  border: 1px solid rgb(220, 220, 220);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24);
+  z-index: 2;
+  pointer-events: none;
 }
 
-.card-token-row .token-chip.compact {
+.card-side-token-rail-left {
+  left: calc(
+    ((100cqw - var(--card-width)) / -4) - var(--card-padding) -
+      (var(--token-rail-chip-size) / 2) + 0.32rem
+  );
+}
+
+.card-side-token-rail-right {
+  right: calc(
+    ((100cqw - var(--card-width)) / -4) - var(--card-padding) -
+      (var(--token-rail-chip-size) / 2) + 0.32rem
+  );
+}
+
+.card-side-token-rail .token-chip.compact {
   width: var(--token-rail-chip-size);
   height: var(--token-rail-chip-size);
 }
 
-.card-token-row .token-chip.compact .chip-suit-icon {
+.card-side-token-rail .token-chip.compact .chip-suit-icon {
   width: calc(100% - 0.16rem);
   height: calc(100% - 0.16rem);
 }
 
-.card-token-row .token-count {
+.card-side-token-rail .token-count {
   top: -0.3rem;
   right: -0.28rem;
   min-width: 1.02rem;
