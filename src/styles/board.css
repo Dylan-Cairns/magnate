@@ -19,7 +19,9 @@
 .player-panel.is-active {
   border-color: var(--active-border);
   box-shadow:
+    var(--rail-panel-shadow),
     0 0 0 1px var(--active-ring),
+    0 0 14px var(--active-glow-outer),
     inset 0 0 16px var(--active-glow);
 }
 
@@ -238,7 +240,7 @@
   border-radius: 6px;
   background: var(--district-divider-bg);
   box-shadow:
-    var(--container-shadow-soft),
+    var(--rail-panel-shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   padding: 0.24rem 0.22rem;
 }
