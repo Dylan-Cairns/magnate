@@ -1404,7 +1404,7 @@ function CardTile({
         </div>
       </div>
       {hasDeedProgress ? (
-        <div className="deed-progress">
+        <div className="deed-progress" title="development progress" aria-label="development progress">
           {deedProgress}/{deedTarget}
         </div>
       ) : (

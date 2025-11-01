@@ -968,7 +968,7 @@ h1 {
 
 .deed-progress {
   font-size: 0.68rem;
-  color: var(--muted);
+  color: var(--card-ink);
 }
 
 .deed-progress-placeholder {
