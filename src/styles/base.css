@@ -144,20 +144,23 @@ body,
   background-image:
     var(--grain-texture), var(--grain-texture),
     radial-gradient(
-      ellipse 84% 64% at 50% 50%,
-      var(--bg-center-glow) 0%,
-      rgba(78, 109, 156, 0.09) 30%,
-      transparent 72%
+      ellipse 90% 70% at 50% 50%,
+      rgba(78, 108, 157, 0.29) 0%,
+      rgba(47, 68, 104, 0.16) 34%,
+      rgba(14, 21, 36, 0.05) 68%,
+      rgba(8, 13, 24, 0) 80%
     ),
     radial-gradient(
-      ellipse 120% 95% at 16% 17%,
-      var(--page-grain-mid) 0%,
-      transparent 64%
+      ellipse 145% 120% at 50% 50%,
+      rgba(0, 0, 0, 0) 40%,
+      rgba(1, 4, 12, 0.62) 84%,
+      rgba(0, 2, 8, 0.86) 100%
     ),
     radial-gradient(
-      ellipse 116% 90% at 84% 83%,
-      rgba(103, 133, 174, 0.06) 0%,
-      transparent 66%
+      ellipse 122% 96% at 50% 50%,
+      rgba(86, 114, 154, 0.08) 0%,
+      rgba(30, 42, 63, 0.03) 44%,
+      rgba(0, 0, 0, 0) 72%
     ),
     conic-gradient(at 12% 20%, #0000 75%, var(--ring-fill) 0),
     conic-gradient(at 12% 20%, #0000 75%, var(--ring-fill) 0),
@@ -166,8 +169,8 @@ body,
     var(--ring-arcs),
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.02) 0%,
-      rgba(0, 0, 0, 0.18) 100%
+      rgba(255, 255, 255, 0.012) 0%,
+      rgba(0, 0, 0, 0.24) 100%
     );
   background-size:
     var(--grain-scale-a) var(--grain-scale-a),
