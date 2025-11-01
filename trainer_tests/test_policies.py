@@ -5,7 +5,14 @@ import unittest
 from pathlib import Path
 
 from trainer.behavior_cloning import BehaviorCloningModel, save_behavior_cloning_checkpoint
-from trainer.policies import BehaviorCloningPolicy, DeterminizedSearchPolicy, SearchConfig, policy_from_name
+from trainer.policies import (
+    BehaviorCloningPolicy,
+    DeterminizedMctsPolicy,
+    DeterminizedSearchPolicy,
+    MctsConfig,
+    SearchConfig,
+    policy_from_name,
+)
 from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
 
 
@@ -40,6 +47,14 @@ class PolicyFactoryTests(unittest.TestCase):
         policy = policy_from_name("search", search_config=config)
         try:
             self.assertIsInstance(policy, DeterminizedSearchPolicy)
+        finally:
+            policy.close()
+
+    def test_policy_factory_creates_mcts_policy(self) -> None:
+        config = MctsConfig(worlds=1, simulations=4, depth=2, max_root_actions=2, c_puct=1.0)
+        policy = policy_from_name("mcts", mcts_config=config)
+        try:
+            self.assertIsInstance(policy, DeterminizedMctsPolicy)
         finally:
             policy.close()
 
