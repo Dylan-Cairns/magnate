@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
 import { getCardImage } from '../cardImages';
@@ -7,6 +5,30 @@ import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 
 export type CardPerspective = 'human' | 'bot';
+const DEED_PROGRESS_RING_RADIUS = 16;
+const DEED_PROGRESS_RING_CENTER = 18;
+const DEED_PROGRESS_START_ANGLE_DEGREES = -90;
+
+function pointOnProgressRing(angleDegrees: number): { x: number; y: number } {
+  const angleRadians = (angleDegrees * Math.PI) / 180;
+  return {
+    x: DEED_PROGRESS_RING_CENTER + DEED_PROGRESS_RING_RADIUS * Math.cos(angleRadians),
+    y: DEED_PROGRESS_RING_CENTER + DEED_PROGRESS_RING_RADIUS * Math.sin(angleRadians),
+  };
+}
+
+function buildDeedProgressArcPath(progressRatio: number): string | null {
+  if (progressRatio <= 0 || progressRatio >= 1) {
+    return null;
+  }
+  const start = pointOnProgressRing(DEED_PROGRESS_START_ANGLE_DEGREES);
+  const end = pointOnProgressRing(DEED_PROGRESS_START_ANGLE_DEGREES + progressRatio * 360);
+  const largeArcFlag = progressRatio > 0.5 ? 1 : 0;
+  return [
+    `M ${start.x} ${start.y}`,
+    `A ${DEED_PROGRESS_RING_RADIUS} ${DEED_PROGRESS_RING_RADIUS} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
+  ].join(' ');
+}
 
 function splitDeedTokensBySide(
   entries: Array<{ suit: Suit; count: number }>,
@@ -83,11 +105,7 @@ export function CardTile({
     progressTarget > 0
       ? Math.max(0, Math.min(1, progressValue / progressTarget))
       : 0;
-  const deedProgressStyle = hasDeedProgress
-    ? ({
-        '--deed-progress-ratio': deedProgressRatio.toFixed(4),
-      } as CSSProperties)
-    : undefined;
+  const deedProgressArcPath = buildDeedProgressArcPath(deedProgressRatio);
   const cardImage = getCardImage(cardId);
 
   const metadataRow = (
@@ -107,9 +125,28 @@ export function CardTile({
           className="deed-progress"
           title="development progress"
           aria-label="development progress"
-          style={deedProgressStyle}
         >
-          {deedProgress}/{deedTarget}
+          <svg className="deed-progress-ring" viewBox="0 0 36 36" aria-hidden="true">
+            <circle
+              className="deed-progress-ring-track"
+              cx="18"
+              cy="18"
+              r={DEED_PROGRESS_RING_RADIUS}
+            />
+            {deedProgressRatio >= 1 ? (
+              <circle
+                className="deed-progress-ring-value"
+                cx="18"
+                cy="18"
+                r={DEED_PROGRESS_RING_RADIUS}
+              />
+            ) : deedProgressArcPath ? (
+              <path className="deed-progress-ring-value" d={deedProgressArcPath} />
+            ) : null}
+          </svg>
+          <span className="deed-progress-value">
+            {deedProgress}/{deedTarget}
+          </span>
         </div>
       ) : (
         <span className="deed-progress-placeholder" aria-hidden="true" />
