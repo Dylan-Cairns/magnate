@@ -90,7 +90,6 @@
   --shadow-popover: rgba(0, 0, 0, 0.66);
   --popover-cancel-bg: #101722;
   --popover-cancel-bg-hover: #1a2538;
-  --dice-icon-filter: invert(1) brightness(1.8);
   --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
   --card-row-gap: 0.35rem;
   --three-card-row-width: calc(
@@ -1142,7 +1141,8 @@ h1 {
 
 .log-list {
   margin: 0;
-  padding-left: 1.2rem;
+  padding-left: 0;
+  list-style: none;
   display: grid;
   gap: 0.3rem;
   overflow-y: auto;
@@ -1486,11 +1486,18 @@ h1 {
 
 .deck-reshuffles-line {
   margin-bottom: 0.42rem;
+  justify-content: flex-start;
+  align-items: baseline;
+}
+
+.deck-reshuffles-line strong {
+  font-variant-numeric: tabular-nums;
 }
 
 .roll-value {
   margin: 0;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 1.1rem;
   flex-wrap: wrap;
@@ -1503,11 +1510,47 @@ h1 {
   color: var(--ink);
 }
 
+.roll-die-shell {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.roll-die-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0.08rem;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.roll-die-shell-d10::before {
+  inset: 0.2rem;
+  -webkit-mask-image: url('./assets/icons/dodecahedron-mask.png');
+  mask-image: url('./assets/icons/dodecahedron-mask.png');
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.roll-die-shell-d6::before {
+  clip-path: polygon(50% 2%, 89% 25%, 89% 75%, 50% 98%, 11% 75%, 11% 25%);
+}
+
 .roll-die-icon {
-  width: 2rem;
-  height: 2rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  position: relative;
+  z-index: 1;
   object-fit: contain;
-  filter: var(--dice-icon-filter);
+  filter: none;
 }
 
 .roll-tax-chip {
