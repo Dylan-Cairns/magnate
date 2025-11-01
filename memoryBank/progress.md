@@ -31,6 +31,7 @@
   - cards display art in a framed image panel with a 1px gray border
   - rank/suit and in-progress deed value render on one metadata line
   - image panel uses Decktet aspect-ratio sizing with `object-fit: fill`; border is rendered via an overlay frame layer to avoid clipped edges
+  - in-progress deed suit chips now use play-area chip size, render as a centered vertical stack on the card image, and sit in a connected semi-opaque gray enclosure
 - Official Decktet suit SVG icons are now wired across the UI:
   - shared suit-token mapping in `src/ui/suitIcons.tsx` replaces suit emojis in action text, card metadata, and token chips
   - player resources/crowns, district marker tokens, and card/deed chips all render from `src/assets/icons/*.svg`
