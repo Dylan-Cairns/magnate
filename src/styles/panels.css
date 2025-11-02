@@ -232,17 +232,6 @@
   background: var(--popover-cancel-bg-hover);
 }
 
-.trade-confirm-button {
-  margin-top: 0.1rem;
-  text-align: center;
-  font-weight: 600;
-}
-
-.trade-confirm-button:disabled {
-  opacity: 0.56;
-  cursor: default;
-}
-
 .composite-picker-group {
   display: grid;
   gap: 0.35rem;
