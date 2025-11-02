@@ -20,6 +20,7 @@ export function PlayerPanel({
   terminal,
   handSlotCount,
   botPlayerId,
+  animateDeedProgress = true,
 }: {
   title: string;
   player: ObservedPlayerState;
@@ -28,6 +29,7 @@ export function PlayerPanel({
   terminal: boolean;
   handSlotCount: number;
   botPlayerId: PlayerId;
+  animateDeedProgress?: boolean;
 }) {
   const handCardCount = player.handHidden ? player.handCount : player.hand.length;
   const handSlots = Math.max(handSlotCount, handCardCount);
@@ -36,7 +38,7 @@ export function PlayerPanel({
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
 
   return (
-    <section className={`player-panel${isActive ? ' is-active' : ''}`}>
+    <section className={`player-panel${isActive ? ' is-active' : ''}`} data-player-id={player.id}>
       <header className="player-header">
         <div className="player-title-line">
           <h2>{title}</h2>
@@ -63,23 +65,44 @@ export function PlayerPanel({
             {Array.from({ length: handSlots }).map((_, index) => {
               if (player.handHidden) {
                 return index < player.handCount ? (
-                  <CardTile key={`hidden-${player.id}-${index}`} hidden />
+                  <CardTile
+                    key={`hidden-${player.id}-${index}`}
+                    hidden
+                    handOwnerId={player.id}
+                    handSlotKind="hidden"
+                  />
                 ) : (
-                  <CardTile key={`hidden-slot-${player.id}-${index}`} placeholder />
+                  <CardTile
+                    key={`hidden-slot-${player.id}-${index}`}
+                    placeholder
+                    handOwnerId={player.id}
+                    handSlotKind="empty"
+                  />
                 );
               }
 
               const cardId = player.hand[index];
               if (!cardId) {
-                return <CardTile key={`hand-slot-${player.id}-${index}`} placeholder />;
+                return (
+                  <CardTile
+                    key={`hand-slot-${player.id}-${index}`}
+                    placeholder
+                    handOwnerId={player.id}
+                    handSlotKind="empty"
+                  />
+                );
               }
               return (
-                <CardTile
-                  key={`hand-${player.id}-${cardId}-${index}`}
-                  cardId={cardId}
-                  perspective={cardPerspective}
-                />
-              );
+                  <CardTile
+                    key={`hand-${player.id}-${cardId}-${index}`}
+                    cardId={cardId}
+                    perspective={cardPerspective}
+                    handOwnerId={player.id}
+                    handCardId={cardId}
+                    handSlotKind="occupied"
+                    animateDeedProgress={animateDeedProgress}
+                  />
+                );
             })}
           </div>
         </div>

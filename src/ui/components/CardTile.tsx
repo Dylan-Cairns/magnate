@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
-import type { Suit } from '../../engine/types';
+import type { PlayerId, Suit } from '../../engine/types';
 import { getCardImage } from '../cardImages';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
@@ -13,35 +13,10 @@ import {
   shouldAnimateDeedProgress,
   tweenAnimatedDeedProgressRatio,
 } from './deedProgress';
+import { layoutDeedTokensBySide } from './deedTokenLayout';
 
 export type CardPerspective = 'human' | 'bot';
 const LAST_DEED_PROGRESS_RATIO_BY_CARD = new Map<CardId, number>();
-
-function splitDeedTokensBySide(
-  entries: Array<{ suit: Suit; count: number }>,
-  perspective: CardPerspective
-): {
-  left: Array<{ suit: Suit; count: number }>;
-  right: Array<{ suit: Suit; count: number }>;
-} {
-  if (entries.length === 1) {
-    return perspective === 'bot'
-      ? { left: [], right: entries }
-      : { left: entries, right: [] };
-  }
-
-  const left: Array<{ suit: Suit; count: number }> = [];
-  const right: Array<{ suit: Suit; count: number }> = [];
-  for (const [index, entry] of entries.entries()) {
-    const placeLeft = perspective === 'bot' ? index % 2 === 1 : index % 2 === 0;
-    if (placeLeft) {
-      left.push(entry);
-    } else {
-      right.push(entry);
-    }
-  }
-  return { left, right };
-}
 
 export function CardTile({
   cardId,
@@ -52,6 +27,10 @@ export function CardTile({
   deedTarget,
   inDevelopment,
   perspective = 'human',
+  handOwnerId,
+  handCardId,
+  handSlotKind,
+  animateDeedProgress = true,
 }: {
   cardId?: CardId;
   hidden?: boolean;
@@ -61,13 +40,33 @@ export function CardTile({
   deedTarget?: number;
   inDevelopment?: boolean;
   perspective?: CardPerspective;
+  handOwnerId?: PlayerId;
+  handCardId?: CardId;
+  handSlotKind?: 'occupied' | 'hidden' | 'empty';
+  animateDeedProgress?: boolean;
 }) {
   if (placeholder) {
-    return <div className="card-tile card-placeholder" aria-hidden="true" />;
+    return (
+      <div
+        className="card-tile card-placeholder"
+        aria-hidden="true"
+        data-hand-owner-id={handOwnerId}
+        data-hand-card-id={handCardId}
+        data-hand-slot-kind={handSlotKind}
+      />
+    );
   }
 
   if (hidden) {
-    return <div className="card-tile card-back" title="Hidden card" />;
+    return (
+      <div
+        className="card-tile card-back"
+        title="Hidden card"
+        data-hand-owner-id={handOwnerId}
+        data-hand-card-id={handCardId}
+        data-hand-slot-kind={handSlotKind}
+      />
+    );
   }
 
   if (!cardId) {
@@ -85,7 +84,9 @@ export function CardTile({
   const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
   const hasDeedTokens = deedTokenEntries.length > 0;
   const showDeedTokenRails = Boolean(inDevelopment) || hasDeedTokens;
-  const deedTokensBySide = splitDeedTokensBySide(deedTokenEntries, perspective);
+  const deedTokensBySide = layoutDeedTokensBySide(cardId, perspective, deedTokenEntries, {
+    resetWhenEmpty: Boolean(inDevelopment) && deedTokenEntries.length === 0,
+  });
   const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
   const progressValue = deedProgress ?? 0;
   const progressTarget = deedTarget ?? 0;
@@ -118,7 +119,10 @@ export function CardTile({
       }
     }
 
-    if (!shouldAnimateDeedProgress(currentRatio, targetRatio)) {
+    if (
+      !animateDeedProgress
+      || !shouldAnimateDeedProgress(currentRatio, targetRatio)
+    ) {
       animatedRatioRef.current = targetRatio;
       setAnimatedDeedProgressRatio(targetRatio);
       LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, targetRatio);
@@ -161,7 +165,7 @@ export function CardTile({
         animationFrameRef.current = null;
       }
     };
-  }, [cardId, deedProgressRatio]);
+  }, [animateDeedProgress, cardId, deedProgressRatio]);
 
   const displayedDeedProgressRatio = hasDeedProgress ? animatedDeedProgressRatio : deedProgressRatio;
   const deedProgressArcPath = buildDeedProgressArcPath(displayedDeedProgressRatio);
@@ -244,6 +248,9 @@ export function CardTile({
       title={card.name}
       data-card-id={cardId}
       data-in-development={inDevelopment ? 'true' : undefined}
+      data-hand-owner-id={handOwnerId}
+      data-hand-card-id={handCardId}
+      data-hand-slot-kind={handSlotKind}
     >
       {perspective === 'bot' ? imageBody : metadataRow}
       {perspective === 'bot' ? metadataRow : imageBody}

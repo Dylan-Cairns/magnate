@@ -50,6 +50,13 @@ import {
   type TurnResetAnchor,
 } from './ui/turnReset';
 import { getCardImage } from './ui/cardImages';
+import { CardTile, type CardPerspective } from './ui/components/CardTile';
+import {
+  clearAllDeedTokenLayouts,
+  layoutDeedTokensBySide,
+  resetDeedTokenLayout,
+  type DeedTokenSide,
+} from './ui/components/deedTokenLayout';
 import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
@@ -71,9 +78,12 @@ const TRADE_POPOVER_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 10;
 const RESOURCE_FLIGHT_DURATION_MS = 280;
 const RESOURCE_FLIGHT_STAGGER_MS = 75;
+const CARD_FLIGHT_DURATION_MS = 280;
+const CARD_DRAW_FLIGHT_DELAY_MS = CARD_FLIGHT_DURATION_MS;
 const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
-const RESOURCE_FLIGHT_COMMIT_BUFFER_MS = 20;
+const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
+const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 
 type ActionPickerState =
   | (ActionPickerQuery & {
@@ -106,10 +116,54 @@ type PendingResourceFlight = {
   delayMs: number;
 };
 
-type DeedTokenSide = 'left' | 'right';
+type CardFlight = {
+  id: string;
+  visual: 'face' | 'back';
+  cardId?: CardId;
+  isDeed: boolean;
+  perspective: CardPerspective;
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+  startWidth: number;
+  startHeight: number;
+  endWidth: number;
+  endHeight: number;
+  delayMs: number;
+};
 
 function makeSeed(): string {
   return `seed-${Date.now()}`;
+}
+
+function readAnimationsEnabledPreference(): boolean {
+  if (typeof window === 'undefined') {
+    return true;
+  }
+  try {
+    const stored = window.localStorage.getItem(ANIMATIONS_STORAGE_KEY);
+    if (stored === null) {
+      return true;
+    }
+    return stored !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function persistAnimationsEnabledPreference(enabled: boolean): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.localStorage.setItem(
+      ANIMATIONS_STORAGE_KEY,
+      enabled ? 'true' : 'false'
+    );
+  } catch {
+    // Ignore storage failures (for example private browsing restrictions).
+  }
 }
 
 function createInitialState(seed: string): GameState {
@@ -147,32 +201,6 @@ function elementCenter(element: Element): { x: number; y: number } {
 function parsePixelValue(value: string, fallback: number): number {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function splitDeedTokenEntriesBySide(
-  entries: Array<{ suit: Suit; count: number }>,
-  perspective: 'human' | 'bot'
-): {
-  left: Array<{ suit: Suit; count: number }>;
-  right: Array<{ suit: Suit; count: number }>;
-} {
-  if (entries.length === 1) {
-    return perspective === 'bot'
-      ? { left: [], right: entries }
-      : { left: entries, right: [] };
-  }
-
-  const left: Array<{ suit: Suit; count: number }> = [];
-  const right: Array<{ suit: Suit; count: number }> = [];
-  for (const [index, entry] of entries.entries()) {
-    const placeLeft = perspective === 'bot' ? index % 2 === 1 : index % 2 === 0;
-    if (placeLeft) {
-      left.push(entry);
-    } else {
-      right.push(entry);
-    }
-  }
-  return { left, right };
 }
 
 function deedTokenCenterInRail(
@@ -242,8 +270,12 @@ function collectDeedResourceFlights(
   const perspective: 'human' | 'bot' = cardElement.classList.contains('perspective-bot')
     ? 'bot'
     : 'human';
+  const deedTokenEntries = tokenEntries(deedBefore.tokens);
+  if (deedTokenEntries.length === 0) {
+    resetDeedTokenLayout(action.cardId, perspective);
+  }
   const nextTokenEntries = tokenEntries(nextDeedTokens);
-  const nextBySide = splitDeedTokenEntriesBySide(nextTokenEntries, perspective);
+  const nextBySide = layoutDeedTokensBySide(action.cardId, perspective, nextTokenEntries);
   const targetBySuit = new Map<
     Suit,
     { side: DeedTokenSide; index: number; sideCount: number }
@@ -337,12 +369,290 @@ function collectDeedResourceFlights(
   return flights;
 }
 
+function isLaneCardPlayAction(
+  action: GameAction
+): action is Extract<GameAction, { type: 'buy-deed' | 'develop-outright' }> {
+  return action.type === 'buy-deed' || action.type === 'develop-outright';
+}
+
+function stackStepForLane(laneElement: HTMLElement, isBotLane: boolean, cardHeightPx: number): number {
+  const topStackCard = laneElement.querySelector<HTMLElement>('.lane-stack-card:last-child');
+  if (!topStackCard) {
+    return cardHeightPx * 0.24;
+  }
+
+  const stackPosition = Number.parseFloat(topStackCard.style.getPropertyValue('--stack-position'));
+  if (!Number.isFinite(stackPosition) || stackPosition <= 0) {
+    return cardHeightPx * 0.24;
+  }
+
+  const computed = window.getComputedStyle(topStackCard);
+  const offsetPx = parsePixelValue(isBotLane ? computed.bottom : computed.top, 0);
+  if (offsetPx > 0) {
+    return offsetPx / stackPosition;
+  }
+  return cardHeightPx * 0.24;
+}
+
+function laneTargetCenter(
+  laneElement: HTMLElement,
+  cardHeightPx: number
+): { x: number; y: number } | null {
+  const isBotLane = laneElement.classList.contains('is-bot');
+  const topCardTile = laneElement.querySelector<HTMLElement>('.lane-stack-card:last-child .card-tile');
+  if (topCardTile) {
+    const topCenter = elementCenter(topCardTile);
+    const stepPx = stackStepForLane(laneElement, isBotLane, cardHeightPx);
+    return {
+      x: topCenter.x,
+      y: topCenter.y + (isBotLane ? -stepPx : stepPx),
+    };
+  }
+
+  const laneFrame = laneElement.querySelector<HTMLElement>('.lane-stack-frame');
+  if (!laneFrame) {
+    return null;
+  }
+  const frameRect = laneFrame.getBoundingClientRect();
+  return {
+    x: frameRect.left + frameRect.width / 2,
+    y: isBotLane
+      ? frameRect.bottom - (cardHeightPx / 2)
+      : frameRect.top + (cardHeightPx / 2),
+  };
+}
+
+function deckSourceElement(): HTMLElement | null {
+  const deckStack = document.querySelector<HTMLElement>('.deck-pile-stack.is-deck');
+  if (!deckStack) {
+    return null;
+  }
+  const stackCards = deckStack.querySelectorAll<HTMLElement>('.deck-pile-stack-card');
+  if (stackCards.length === 0) {
+    return deckStack;
+  }
+  return stackCards[stackCards.length - 1];
+}
+
+function discardTargetElement(): HTMLElement | null {
+  const discardStack = document.querySelector<HTMLElement>('.deck-pile-stack.is-discard');
+  if (!discardStack) {
+    return null;
+  }
+  const stackCards = discardStack.querySelectorAll<HTMLElement>('.deck-pile-stack-card');
+  if (stackCards.length === 0) {
+    return discardStack;
+  }
+  return stackCards[stackCards.length - 1];
+}
+
+function handSourceElement(playerId: PlayerId, cardId: CardId): HTMLElement | null {
+  const escapedPlayerId = cssEscapeValue(playerId);
+  const escapedCardId = cssEscapeValue(cardId);
+  return (
+    document.querySelector<HTMLElement>(
+      `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="occupied"][data-hand-card-id="${escapedCardId}"]`
+    )
+    ?? document.querySelector<HTMLElement>(
+      `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`
+    )
+  );
+}
+
+function handDrawTargetElement(playerId: PlayerId): HTMLElement | null {
+  const escapedPlayerId = cssEscapeValue(playerId);
+  return (
+    document.querySelector<HTMLElement>(
+      `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="empty"]`
+    )
+    ?? document.querySelector<HTMLElement>(
+      `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`
+    )
+  );
+}
+
+function createCardFlight(
+  makeFlightId: () => string,
+  sourceElement: HTMLElement,
+  targetElement: HTMLElement,
+  visual: 'face' | 'back',
+  options?: {
+    cardId?: CardId;
+    isDeed?: boolean;
+    perspective?: CardPerspective;
+    delayMs?: number;
+  }
+): CardFlight {
+  const sourceRect = sourceElement.getBoundingClientRect();
+  const targetRect = targetElement.getBoundingClientRect();
+  const sourceCenter = elementCenter(sourceElement);
+  const targetCenter = elementCenter(targetElement);
+  return {
+    id: makeFlightId(),
+    visual,
+    cardId: options?.cardId,
+    isDeed: options?.isDeed ?? false,
+    perspective: options?.perspective ?? 'human',
+    startX: sourceCenter.x,
+    startY: sourceCenter.y,
+    endX: targetCenter.x,
+    endY: targetCenter.y,
+    startWidth: sourceRect.width,
+    startHeight: sourceRect.height,
+    endWidth: targetRect.width || sourceRect.width,
+    endHeight: targetRect.height || sourceRect.height,
+    delayMs: options?.delayMs ?? 0,
+  };
+}
+
+function createCardFlightToPoint(
+  makeFlightId: () => string,
+  sourceElement: HTMLElement,
+  target: { x: number; y: number },
+  visual: 'face' | 'back',
+  options?: {
+    cardId?: CardId;
+    isDeed?: boolean;
+    perspective?: CardPerspective;
+    delayMs?: number;
+    endWidth?: number;
+    endHeight?: number;
+  }
+): CardFlight {
+  const sourceRect = sourceElement.getBoundingClientRect();
+  const sourceCenter = elementCenter(sourceElement);
+  return {
+    id: makeFlightId(),
+    visual,
+    cardId: options?.cardId,
+    isDeed: options?.isDeed ?? false,
+    perspective: options?.perspective ?? 'human',
+    startX: sourceCenter.x,
+    startY: sourceCenter.y,
+    endX: target.x,
+    endY: target.y,
+    startWidth: sourceRect.width,
+    startHeight: sourceRect.height,
+    endWidth: options?.endWidth ?? sourceRect.width,
+    endHeight: options?.endHeight ?? sourceRect.height,
+    delayMs: options?.delayMs ?? 0,
+  };
+}
+
+function collectCardPlayFlights(
+  state: GameState,
+  nextState: GameState,
+  action: GameAction,
+  actingPlayerId: PlayerId,
+  makeFlightId: () => string
+): CardFlight[] {
+  if (typeof document === 'undefined') {
+    return [];
+  }
+
+  const flights: CardFlight[] = [];
+
+  if (action.type === 'sell-card') {
+    const sourceElement = handSourceElement(actingPlayerId, action.cardId);
+    const targetElement = discardTargetElement();
+    if (sourceElement && targetElement) {
+      const sourceSlotKind = sourceElement.getAttribute('data-hand-slot-kind');
+      const visual: 'face' | 'back' =
+        sourceSlotKind === 'occupied' ? 'face' : 'back';
+      const perspective: CardPerspective = sourceElement.classList.contains(
+        'perspective-bot'
+      )
+        ? 'bot'
+        : 'human';
+      flights.push(
+        createCardFlight(makeFlightId, sourceElement, targetElement, visual, {
+          cardId: visual === 'face' ? action.cardId : undefined,
+          isDeed: false,
+          perspective,
+        })
+      );
+    }
+  }
+
+  if (isLaneCardPlayAction(action)) {
+    const sourceElement = handSourceElement(actingPlayerId, action.cardId);
+    if (sourceElement) {
+      const escapedPlayerId = cssEscapeValue(actingPlayerId);
+      const escapedDistrictId = cssEscapeValue(action.districtId);
+      const laneElement = document.querySelector<HTMLElement>(
+        `.district-column[data-district-id="${escapedDistrictId}"] .district-lane[data-lane-player-id="${escapedPlayerId}"]`
+      );
+      if (laneElement) {
+        const targetCenter = laneTargetCenter(
+          laneElement,
+          sourceElement.getBoundingClientRect().height
+        );
+        if (targetCenter) {
+          const perspective: CardPerspective = laneElement.classList.contains(
+            'is-bot'
+          )
+            ? 'bot'
+            : 'human';
+          flights.push(
+            createCardFlightToPoint(
+              makeFlightId,
+              sourceElement,
+              targetCenter,
+              'face',
+              {
+                cardId: action.cardId,
+                isDeed: action.type === 'buy-deed',
+                perspective,
+              }
+            )
+          );
+        }
+      }
+    }
+  }
+
+  if (action.type === 'end-turn') {
+    const previousPlayer = state.players.find(
+      (player) => player.id === actingPlayerId
+    );
+    const nextPlayer = nextState.players.find(
+      (player) => player.id === actingPlayerId
+    );
+    const drewCard =
+      previousPlayer &&
+      nextPlayer &&
+      nextPlayer.hand.length === previousPlayer.hand.length + 1;
+    if (drewCard) {
+      const sourceElement = deckSourceElement();
+      const targetElement = handDrawTargetElement(actingPlayerId);
+      if (sourceElement && targetElement) {
+        flights.push(
+          createCardFlight(makeFlightId, sourceElement, targetElement, 'back', {
+            delayMs:
+              flights.length > 0 ? CARD_DRAW_FLIGHT_DELAY_MS : 0,
+          })
+        );
+      }
+    }
+  }
+
+  return flights;
+}
+
 function resourceFlightSettleMs(flights: readonly ResourceFlight[]): number {
   if (flights.length === 0) {
     return 0;
   }
   const maxDelayMs = Math.max(...flights.map((flight) => flight.delayMs));
-  return maxDelayMs + RESOURCE_FLIGHT_DURATION_MS + RESOURCE_FLIGHT_COMMIT_BUFFER_MS;
+  return maxDelayMs + RESOURCE_FLIGHT_DURATION_MS + ACTION_FLIGHT_COMMIT_BUFFER_MS;
+}
+
+function cardFlightSettleMs(flights: readonly CardFlight[]): number {
+  if (flights.length === 0) {
+    return 0;
+  }
+  const maxDelayMs = Math.max(...flights.map((flight) => flight.delayMs));
+  return maxDelayMs + CARD_FLIGHT_DURATION_MS + ACTION_FLIGHT_COMMIT_BUFFER_MS;
 }
 
 export function App() {
@@ -359,7 +669,12 @@ export function App() {
     null
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
+  const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() =>
+    readAnimationsEnabledPreference()
+  );
   const [resourceFlights, setResourceFlights] = useState<ReadonlyArray<ResourceFlight>>([]);
+  const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
+  const [pendingDiscardHoldback, setPendingDiscardHoldback] = useState<number>(0);
   const [actionCommitPending, setActionCommitPending] = useState<boolean>(false);
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
@@ -367,6 +682,7 @@ export function App() {
   const stateRef = useRef(state);
   const actionCommitTimerRef = useRef<number | null>(null);
   const nextResourceFlightId = useRef(0);
+  const nextCardFlightId = useRef(0);
   const actionPopoverRef = useRef<HTMLElement | null>(null);
   const optionsMenuRef = useRef<HTMLElement | null>(null);
   const optionsMenuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -383,9 +699,64 @@ export function App() {
     nextResourceFlightId.current += 1;
     return `resource-flight-${nextResourceFlightId.current}`;
   }, []);
-  const clearResourceFlight = useCallback((flightId: string) => {
-    setResourceFlights((existing) => existing.filter((flight) => flight.id !== flightId));
+  const makeCardFlightId = useCallback(() => {
+    nextCardFlightId.current += 1;
+    return `card-flight-${nextCardFlightId.current}`;
   }, []);
+  const clearAllFlights = useCallback(() => {
+    setResourceFlights([]);
+    setCardFlights([]);
+    setPendingDiscardHoldback(0);
+  }, []);
+  const commitStateAfterAnimations = useCallback(
+    (
+      nextState: GameState,
+      queuedResourceFlights: readonly ResourceFlight[],
+      queuedCardFlights: readonly CardFlight[],
+      options?: {
+        commitBeforeSettle?: boolean;
+        hideDiscardCountUntilSettle?: number;
+      }
+    ) => {
+      const settleMs = Math.max(
+        resourceFlightSettleMs(queuedResourceFlights),
+        cardFlightSettleMs(queuedCardFlights)
+      );
+      if (settleMs <= 0) {
+        setPendingDiscardHoldback(0);
+        setState(nextState);
+        return;
+      }
+
+      if (queuedResourceFlights.length > 0) {
+        setResourceFlights((existing) => [...existing, ...queuedResourceFlights]);
+      }
+      if (queuedCardFlights.length > 0) {
+        setCardFlights((existing) => [...existing, ...queuedCardFlights]);
+      }
+      setPendingDiscardHoldback(
+        Math.max(0, options?.hideDiscardCountUntilSettle ?? 0)
+      );
+      setActionCommitPending(true);
+      if (options?.commitBeforeSettle) {
+        setState(nextState);
+      }
+      if (actionCommitTimerRef.current !== null) {
+        window.clearTimeout(actionCommitTimerRef.current);
+      }
+      actionCommitTimerRef.current = window.setTimeout(() => {
+        if (!options?.commitBeforeSettle) {
+        setState(nextState);
+        }
+        setResourceFlights([]);
+        setCardFlights([]);
+        setPendingDiscardHoldback(0);
+        setActionCommitPending(false);
+        actionCommitTimerRef.current = null;
+      }, settleMs);
+    },
+    []
+  );
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
     () => [optionsMenuRef, optionsMenuButtonRef],
@@ -394,6 +765,10 @@ export function App() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    persistAnimationsEnabledPreference(animationsEnabled);
+  }, [animationsEnabled]);
 
   useEffect(() => {
     return () => {
@@ -547,25 +922,30 @@ export function App() {
 
           const actingPlayerId =
             current.players[current.activePlayerIndex]?.id ?? BOT_PLAYER;
-          const queuedFlights = collectDeedResourceFlights(
+          const queuedResourceFlights = collectDeedResourceFlights(
             current,
             choice,
             actingPlayerId,
             makeResourceFlightId
           );
           const next = stepToDecision(current, choice);
-          if (queuedFlights.length > 0) {
-            setResourceFlights((existing) => [...existing, ...queuedFlights]);
-            setActionCommitPending(true);
-            const settleMs = resourceFlightSettleMs(queuedFlights);
-            actionCommitTimerRef.current = window.setTimeout(() => {
-              setState(next);
-              setActionCommitPending(false);
-              actionCommitTimerRef.current = null;
-            }, settleMs);
-          } else {
+          if (!animationsEnabled) {
+            clearAllFlights();
             setState(next);
+            setError(null);
+            return;
           }
+          const queuedCardFlights = collectCardPlayFlights(
+            current,
+            next,
+            choice,
+            actingPlayerId,
+            makeCardFlightId
+          );
+          commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
+            commitBeforeSettle: choice.type === 'sell-card',
+            hideDiscardCountUntilSettle: choice.type === 'sell-card' ? 1 : 0,
+          });
           setError(null);
         } catch (err) {
           setError(`Bot action failed: ${errorMessage(err)}`);
@@ -582,6 +962,10 @@ export function App() {
   }, [
     actionCommitPending,
     activePlayerId,
+    animationsEnabled,
+    clearAllFlights,
+    commitStateAfterAnimations,
+    makeCardFlightId,
     makeResourceFlightId,
     resolvedBotProfile,
     state,
@@ -637,25 +1021,30 @@ export function App() {
     }
 
     try {
-      const queuedFlights = collectDeedResourceFlights(
+      const next = stepToDecision(state, action);
+      if (!animationsEnabled) {
+        clearAllFlights();
+        setState(next);
+        setError(null);
+        return;
+      }
+      const queuedResourceFlights = collectDeedResourceFlights(
         state,
         action,
         activePlayerId,
         makeResourceFlightId
       );
-      const next = stepToDecision(state, action);
-      if (queuedFlights.length > 0) {
-        setResourceFlights((existing) => [...existing, ...queuedFlights]);
-        setActionCommitPending(true);
-        const settleMs = resourceFlightSettleMs(queuedFlights);
-        actionCommitTimerRef.current = window.setTimeout(() => {
-          setState(next);
-          setActionCommitPending(false);
-          actionCommitTimerRef.current = null;
-        }, settleMs);
-      } else {
-        setState(next);
-      }
+      const queuedCardFlights = collectCardPlayFlights(
+        state,
+        next,
+        action,
+        activePlayerId,
+        makeCardFlightId
+      );
+      commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
+        commitBeforeSettle: action.type === 'sell-card',
+        hideDiscardCountUntilSettle: action.type === 'sell-card' ? 1 : 0,
+      });
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
@@ -669,7 +1058,8 @@ export function App() {
     closeOptionsMenu();
     setTurnResetAnchor(null);
     clearPendingActionCommit();
-    setResourceFlights([]);
+    clearAllFlights();
+    clearAllDeedTokenLayouts();
 
     try {
       setState(createInitialState(seed));
@@ -700,7 +1090,8 @@ export function App() {
     setState(turnResetAnchor.state);
     setError(null);
     setBotThinking(false);
-    setResourceFlights([]);
+    clearAllFlights();
+    clearAllDeedTokenLayouts();
   };
 
   const openTradePicker = (
@@ -813,8 +1204,12 @@ export function App() {
       : deckStackCount === 2
         ? 'overlay-shift-1'
         : 'overlay-shift-0';
-  const discardStackCardIds = humanView.deck.discard.slice(0, 3).reverse();
-  const discardCardDetails = humanView.deck.discard.map((cardId) => {
+  const visibleDiscardCards =
+    pendingDiscardHoldback > 0
+      ? humanView.deck.discard.slice(pendingDiscardHoldback)
+      : humanView.deck.discard;
+  const discardStackCardIds = visibleDiscardCards.slice(0, 3).reverse();
+  const discardCardDetails = visibleDiscardCards.map((cardId) => {
     const card = CARD_BY_ID[cardId];
     const rank =
       card.kind === 'Property' || card.kind === 'Crown'
@@ -1232,6 +1627,7 @@ export function App() {
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
             botPlayerId={BOT_PLAYER}
+            animateDeedProgress={animationsEnabled}
           />
         </aside>
 
@@ -1244,6 +1640,7 @@ export function App() {
                 district={district}
                 humanPlayerId={HUMAN_PLAYER}
                 botPlayerId={BOT_PLAYER}
+                animateDeedProgress={animationsEnabled}
               />
             ))}
           </div>
@@ -1259,6 +1656,7 @@ export function App() {
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
             botPlayerId={BOT_PLAYER}
+            animateDeedProgress={animationsEnabled}
           />
 
           <section className="panel">
@@ -1369,7 +1767,7 @@ export function App() {
                   </section>
                 </div>
                 <strong className="deck-pile-count">
-                  {humanView.deck.discard.length}
+                  {visibleDiscardCards.length}
                 </strong>
               </div>
             </div>
@@ -1452,6 +1850,20 @@ export function App() {
                     {resolvedBotProfile.statusText}
                   </p>
                 </div>
+                <div className="bot-profile-controls animation-controls">
+                  <label htmlFor="animations-toggle">Animations</label>
+                  <label className="animation-toggle-row" htmlFor="animations-toggle">
+                    <input
+                      id="animations-toggle"
+                      type="checkbox"
+                      checked={animationsEnabled}
+                      onChange={(event) =>
+                        setAnimationsEnabled(event.target.checked)
+                      }
+                    />
+                    <span>{animationsEnabled ? 'Enabled' : 'Disabled'}</span>
+                  </label>
+                </div>
                 <a
                   className="brand-options-link"
                   href="http://decktet.wikidot.com/game:magnate"
@@ -1493,7 +1905,6 @@ export function App() {
                     '--resource-flight-duration-ms': `${RESOURCE_FLIGHT_DURATION_MS}ms`,
                   } as CSSProperties
                 }
-                onAnimationEnd={() => clearResourceFlight(flight.id)}
               >
                 <TokenChip
                   suit={flight.suit}
@@ -1501,6 +1912,54 @@ export function App() {
                   compact
                   className="resource-flight-chip"
                 />
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {cardFlights.length > 0 ? (
+        <div className="card-flight-layer" aria-hidden="true">
+          {cardFlights.map((flight) => {
+            const dx = flight.endX - flight.startX;
+            const dy = flight.endY - flight.startY;
+            const scaleX =
+              flight.startWidth > 0 && Number.isFinite(flight.endWidth)
+                ? flight.endWidth / flight.startWidth
+                : 1;
+            const scaleY =
+              flight.startHeight > 0 && Number.isFinite(flight.endHeight)
+                ? flight.endHeight / flight.startHeight
+                : 1;
+            return (
+              <div
+                key={flight.id}
+                className="card-flight"
+                style={
+                  {
+                    '--card-flight-start-x': `${flight.startX}px`,
+                    '--card-flight-start-y': `${flight.startY}px`,
+                    '--card-flight-dx': `${dx}px`,
+                    '--card-flight-dy': `${dy}px`,
+                    '--card-flight-delay-ms': `${flight.delayMs}ms`,
+                    '--card-flight-duration-ms': `${CARD_FLIGHT_DURATION_MS}ms`,
+                    '--card-flight-scale-x': `${Number.isFinite(scaleX) ? scaleX : 1}`,
+                    '--card-flight-scale-y': `${Number.isFinite(scaleY) ? scaleY : 1}`,
+                    width: `${flight.startWidth}px`,
+                    height: `${flight.startHeight}px`,
+                  } as CSSProperties
+                }
+              >
+                {flight.visual === 'face' && flight.cardId ? (
+                  <CardTile
+                    cardId={flight.cardId}
+                    perspective={flight.perspective}
+                    inDevelopment={flight.isDeed}
+                    animateDeedProgress={animationsEnabled}
+                  />
+                ) : (
+                  <CardTile hidden />
+                )}
               </div>
             );
           })}

@@ -17,6 +17,15 @@
 - Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
 - Development-card progress ring fill now animates on upward progress only (including across remounts), with helper-level tests to protect canonical ratio/arc math.
 - Deed-development spend now shows a transient linear chip-flight animation from the acting player's resource rail to the deed token-side target on the in-development card, with deed-token UI updates deferred until flight completion; rules/state semantics remain unchanged.
+- Card-play actions (`buy-deed`, `develop-outright`) now show a transient linear card-flight animation from hand to destination lane, with state commit deferred until animation completion; `buy-deed` flights use deed-colored/in-development card styling.
+- Sell and draw transitions now animate as card flights too:
+  - `sell-card`: acting hand -> discard pile
+  - `end-turn` draw resolution: deck -> acting hand
+- Sell flights now apply state at animation start so the sold card disappears from hand immediately; discard pile rendering is held back until settle so destination update lands with the end of flight. Other flight-backed actions still defer commit until settle.
+- Card flights now scale between source/target rect sizes, so deck/discard-to-hand and hand-to-discard transitions morph cleanly without size snap.
+- Flight overlays now clear at commit-time (not raw animation-end), preventing pre-commit visual gaps/flashes when played cards/deed tokens appear.
+- Deed token side layout now uses stable per-card assignment memory, preventing existing suit tokens from jumping between left/right rails when additional suit tokens are added.
+- Added a persistent UI animation preference toggle in the options menu (stored in `localStorage` as `magnate:animationsEnabled`) that disables flight and deed-progress tweening when turned off.
 - Bridge runtime and contract tests are in place.
 - Trainer scaffold is in place for:
   - sample collection + BC warm-start

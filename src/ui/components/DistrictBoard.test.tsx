@@ -80,6 +80,9 @@ describe('DistrictColumn', () => {
 
     const deedProgressLabels = [...html.matchAll(/aria-label="development progress"/g)];
     expect(deedProgressLabels).toHaveLength(2);
+    expect(html).toContain('data-district-id="D3"');
+    expect(html).toContain('data-lane-player-id="PlayerA"');
+    expect(html).toContain('data-lane-player-id="PlayerB"');
     expect(html).toContain('>3/2<');
     expect(html).toContain('>1/2<');
     expect(html).toContain('card-tile perspective-bot is-in-development');
