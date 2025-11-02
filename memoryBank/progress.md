@@ -29,6 +29,8 @@
 - `develop-outright` action list entries are now card-level; grouped cases present district + payment choices together in one anchored picker with an explicit OK button (instead of sequential popovers or listing every payment permutation directly).
 - Multi-source trade now uses the same combined-picker pattern (source + receive in one anchored picker with OK).
 - Combined pickers now render both selector groups immediately (no “select first” gating), and outright payment options render in a single-column list to prevent overflow.
+- For `develop-outright`, grouped-card entries with a single payment pattern use a district-only picker (payment stays in the action label) and selecting district executes immediately; combined picker is reserved for cards with multiple payment patterns.
+- Combined pickers no longer use OK buttons; they now auto-submit as soon as a valid selection exists in each category.
 - Bridge runtime and contract tests are in place.
 - Trainer scaffold is in place for:
   - sample collection + BC warm-start
