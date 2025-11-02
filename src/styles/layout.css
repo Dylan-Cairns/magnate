@@ -43,7 +43,8 @@
   align-content: stretch;
 }
 
-.actions-pane > .panel {
+.actions-pane > .panel,
+.brand-row > .panel {
   width: calc(100% * var(--side-column-panel-width-factor));
   justify-self: start;
   background: var(--side-rail-panel-fill);

@@ -54,6 +54,7 @@ class BridgeClient:
 
     def close(self) -> None:
         if self._process.poll() is not None:
+            self._close_pipes()
             return
 
         try:
@@ -67,12 +68,23 @@ class BridgeClient:
         except subprocess.TimeoutExpired:
             self._process.kill()
             self._process.wait(timeout=2)
+        finally:
+            self._close_pipes()
 
     def __enter__(self) -> "BridgeClient":
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
+
+    def _close_pipes(self) -> None:
+        for stream in (self._process.stdout, self._process.stderr):
+            if stream is None:
+                continue
+            try:
+                stream.close()
+            except OSError:
+                continue
 
     def _request(self, command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         with self._lock:

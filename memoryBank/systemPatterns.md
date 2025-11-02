@@ -36,6 +36,14 @@ Design expectations:
   - unavailable profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
   - champion trained profiles can be served from static browser artifacts and loaded lazily by the policy
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
+- Additive policy implementations should not replace existing training/eval paths:
+  - new policy kinds (for example `search`) are wired through the same `policy_from_name(...)` factory and existing eval/benchmark harnesses.
+  - policies that spawn external resources (for example bridge subprocesses for simulation) must expose `close()` so scripts can shut them down cleanly.
+  - search-class policies may optionally load PPO-format guidance checkpoints for:
+    - action priors
+    - leaf-value evaluation
+    - rollout opponent action modeling
+  - guidance integration must remain additive (heuristic priors/value remain fallback when no checkpoint is provided).
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
@@ -74,6 +82,10 @@ Design expectations:
 - Deterministic fixtures and seed-based replay paths.
 - Contract tests to protect TS/Python integration behavior.
 - Python bridge-client/encoding/eval scaffolding should have its own tests (`trainer_tests/`) that run against the live bridge process.
+- Search policies should have focused tests for:
+  - deterministic action choice under fixed state + RNG
+  - legal-action guarantees under live bridge legality responses
+  - guidance-checkpoint integration paths for search and MCTS
 
 ## Versioning Pattern
 
