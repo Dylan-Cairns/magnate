@@ -3,9 +3,7 @@
   border-radius: 10px;
   background-color: transparent;
   background-image:
-    var(--grain-texture),
-    var(--grain-texture),
-    var(--player-area-bg);
+    var(--grain-texture), var(--grain-texture), var(--player-area-bg);
   background-size:
     180px 180px,
     300px 300px,
@@ -242,6 +240,10 @@
   gap: var(--space-2);
 }
 
+.district-header-wrap {
+  position: relative;
+}
+
 .district-header {
   position: relative;
   display: flex;
@@ -253,9 +255,7 @@
   border-radius: 6px;
   background-color: transparent;
   background-image:
-    var(--grain-texture),
-    var(--grain-texture),
-    var(--district-divider-bg);
+    var(--grain-texture), var(--grain-texture), var(--district-divider-bg);
   background-size:
     180px 180px,
     300px 300px,
@@ -265,10 +265,21 @@
     88px 56px,
     center;
   background-repeat: repeat, repeat, no-repeat;
+  padding: 0.24rem 0.22rem;
+  z-index: 2;
+  isolation: isolate;
+}
+
+.district-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   box-shadow:
     var(--rail-panel-shadow),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  padding: 0.24rem 0.22rem;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .district-id {
@@ -313,10 +324,22 @@
   border: none;
   border-radius: 0;
   padding: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   gap: 0;
   min-height: 0;
+}
+
+.district-lane.is-bot {
+  justify-content: flex-end;
+  padding-bottom: 1.02rem;
+}
+
+.district-lane.is-human {
+  justify-content: flex-start;
+  padding-top: 1.02rem;
 }
 
 .card-row-wrap {
@@ -327,6 +350,8 @@
 }
 
 .lane-stack-frame {
+  position: relative;
+  width: 100%;
   min-height: 0;
   display: flex;
   justify-content: center;
@@ -364,3 +389,68 @@
   bottom: calc(var(--stack-position) * var(--card-stack-step));
 }
 
+.district-lane-score {
+  position: absolute;
+  left: 50%;
+  width: 33%;
+  min-width: 2.6rem;
+  max-width: 4.5rem;
+  transform: translateX(-50%);
+  border: 1px solid #586270;
+  background-color: #171d24;
+  background-image:
+    var(--grain-texture), var(--grain-texture),
+    linear-gradient(145deg, #2b333f, #141a22);
+  background-size:
+    180px 180px,
+    300px 300px,
+    auto;
+  background-position:
+    0 0,
+    88px 56px,
+    center;
+  background-repeat: repeat, repeat, no-repeat;
+  padding: 0.05rem 0.2rem;
+  color: rgba(178, 190, 206, 0.84);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  pointer-events: none;
+  z-index: 1;
+  isolation: isolate;
+}
+
+.district-lane-score::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--rail-panel-shadow);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.district-lane-score-bot {
+  bottom: 100%;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+}
+
+.district-lane-score-human {
+  top: 100%;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.district-lane-score.is-leading {
+  color: #fff;
+  font-weight: 800;
+}
+
+@media (max-width: 2499px) {
+  .district-marker-name {
+    display: none;
+  }
+}

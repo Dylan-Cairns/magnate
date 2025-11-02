@@ -29,7 +29,12 @@ def collect_episode_samples(
 
         observation_vector = encode_observation(step_result.view)
         action_vectors = encode_action_candidates(legal.actions)
-        action_key = policy.choose_action_key(step_result.view, legal.actions, rng)
+        action_key = policy.choose_action_key(
+            step_result.view,
+            legal.actions,
+            rng,
+            state=step_result.state,
+        )
         action_index = _find_action_index(legal.actions, action_key)
         chosen_action = legal.actions[action_index]
 

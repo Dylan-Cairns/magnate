@@ -240,6 +240,7 @@ def _collect_episode(
                 step_result.view,
                 legal.actions,
                 rng,
+                state=step_result.state,
             )
 
         step_result = env.step(action_key=action_key)

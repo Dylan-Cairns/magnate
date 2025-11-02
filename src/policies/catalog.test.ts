@@ -22,4 +22,8 @@ describe('bot policy catalog', () => {
     expect(BOT_PROFILES.length).toBeGreaterThanOrEqual(2);
     expect(BOT_PROFILES.every((profile) => profile.available)).toBe(true);
   });
+
+  it('includes at least one search profile', () => {
+    expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(true);
+  });
 });

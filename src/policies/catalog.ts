@@ -1,14 +1,18 @@
 import { randomPolicy } from './randomPolicy';
 import { createPpoBrowserPolicy } from './ppoBrowserPolicy';
+import { createSearchPolicy } from './searchPolicy';
 import type { ActionPolicy } from './types';
 
-export type BotProfileId = 'ppo-champion-2026-02-23-seed7' | 'random-legal';
+export type BotProfileId =
+  | 'ppo-champion-2026-02-23-seed7'
+  | 'rollout-eval-search'
+  | 'random-legal';
 
 export interface BotProfile {
   id: BotProfileId;
   label: string;
   description: string;
-  kind: 'random' | 'trained';
+  kind: 'random' | 'trained' | 'search';
   available: boolean;
   policy: ActionPolicy;
 }
@@ -23,6 +27,13 @@ const CHAMPION_MODEL_URL = `${import.meta.env.BASE_URL}models/ppo_champion_2026-
 const championPolicy = createPpoBrowserPolicy({
   modelUrl: CHAMPION_MODEL_URL,
 });
+const rolloutEvalSearchPolicy = createSearchPolicy({
+  worlds: 6,
+  rollouts: 1,
+  depth: 14,
+  maxRootActions: 6,
+  rolloutEpsilon: 0.08,
+});
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   {
@@ -32,6 +43,15 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     kind: 'trained',
     available: true,
     policy: championPolicy,
+  },
+  {
+    id: 'rollout-eval-search',
+    label: 'Rollout Eval Search',
+    description:
+      'Determinized search: worlds=6, depth=14, rootActions=6, rolloutEpsilon=0.08. No fallback on failure.',
+    kind: 'search',
+    available: true,
+    policy: rolloutEvalSearchPolicy,
   },
   {
     id: 'random-legal',

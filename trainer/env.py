@@ -18,10 +18,17 @@ class MagnateBridgeEnv:
 
     def reset(
         self,
-        seed: str,
+        seed: Optional[str] = None,
         first_player: PlayerId = "PlayerA",
+        serialized_state: Optional[Dict] = None,
+        skip_advance_to_decision: bool = False,
     ) -> StateResult:
-        result = self.client.reset(seed=seed, first_player=first_player)
+        result = self.client.reset(
+            seed=seed,
+            first_player=first_player,
+            serialized_state=serialized_state,
+            skip_advance_to_decision=skip_advance_to_decision,
+        )
         self.current_state = result.state
         self.current_view = result.view
         self.terminal = result.terminal
@@ -50,4 +57,3 @@ class MagnateBridgeEnv:
         self.current_view = result.view
         self.terminal = result.terminal
         return result
-
