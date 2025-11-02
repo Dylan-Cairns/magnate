@@ -192,6 +192,10 @@
   gap: 0.45rem;
 }
 
+.trade-choice-list.single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .trade-choice-button,
 .trade-cancel-button {
   border: 1px solid var(--action-border);
@@ -212,6 +216,13 @@
   background: var(--action-bg-hover);
 }
 
+.trade-choice-button.is-selected {
+  border-color: var(--accent-soft);
+  box-shadow:
+    0 0 0 1px rgba(120, 168, 246, 0.45),
+    var(--container-shadow-soft);
+}
+
 .trade-cancel-button {
   background: var(--popover-cancel-bg);
   text-align: center;
@@ -219,6 +230,30 @@
 
 .trade-cancel-button:hover {
   background: var(--popover-cancel-bg-hover);
+}
+
+.trade-confirm-button {
+  margin-top: 0.1rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.trade-confirm-button:disabled {
+  opacity: 0.56;
+  cursor: default;
+}
+
+.composite-picker-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.composite-picker-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .brand-panel {

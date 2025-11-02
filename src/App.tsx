@@ -39,6 +39,7 @@ import {
   cardSummary,
   describeAction,
   formatTokens,
+  paymentSignature,
   pickerStillLegal,
   pickerTitle,
   type ActionPickerQuery,
@@ -91,9 +92,19 @@ type ActionPickerState =
       left: number;
     })
   | {
-      kind: 'trade-source';
+      kind: 'trade-combined';
       top: number;
       left: number;
+      selectedGive?: Suit;
+      selectedReceive?: Suit;
+    }
+  | {
+      kind: 'develop-outright-combined';
+      top: number;
+      left: number;
+      cardId: CardId;
+      selectedDistrictId?: string;
+      selectedPaymentKey?: string;
     };
 
 type ResourceFlight = {
@@ -834,7 +845,11 @@ export function App() {
   }, [firstTradeGroupIndex, hasMultipleTradeSources, humanActionItems]);
 
   const actionPickerOptions = useMemo(() => {
-    if (!actionPicker || actionPicker.kind === 'trade-source') {
+    if (
+      !actionPicker
+      || actionPicker.kind === 'trade-combined'
+      || actionPicker.kind === 'develop-outright-combined'
+    ) {
       return [];
     }
     return buildPickerOptions(
@@ -848,8 +863,11 @@ export function App() {
     if (!actionPicker) {
       return '';
     }
-    if (actionPicker.kind === 'trade-source') {
-      return 'Trade x3 from';
+    if (actionPicker.kind === 'trade-combined') {
+      return 'Trade resources';
+    }
+    if (actionPicker.kind === 'develop-outright-combined') {
+      return `Develop ${cardSummary(actionPicker.cardId, SUIT_TEXT_TOKEN)}`;
     }
     return pickerTitle(toPickerQuery(actionPicker), SUIT_TEXT_TOKEN);
   }, [actionPicker]);
@@ -979,8 +997,48 @@ export function App() {
     }
 
     if (actionPicker) {
-      if (actionPicker.kind === 'trade-source') {
+      if (actionPicker.kind === 'trade-combined') {
         if (!hasMultipleTradeSources) {
+          closeActionPicker();
+          return;
+        }
+        const selectedGiveStillLegal = Boolean(
+          actionPicker.selectedGive
+          && tradeSourceGroups.some((group) => group.give === actionPicker.selectedGive)
+        );
+        if (actionPicker.selectedGive && !selectedGiveStillLegal) {
+          closeActionPicker();
+        }
+        return;
+      }
+      if (actionPicker.kind === 'develop-outright-combined') {
+        const outrightOptions = humanActions.filter(
+          (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
+            action.type === 'develop-outright'
+            && action.cardId === actionPicker.cardId
+        );
+        if (outrightOptions.length <= 1) {
+          closeActionPicker();
+          return;
+        }
+        const selectedDistrictStillLegal = Boolean(
+          actionPicker.selectedDistrictId
+          && outrightOptions.some(
+            (option) => option.districtId === actionPicker.selectedDistrictId
+          )
+        );
+        if (actionPicker.selectedDistrictId && !selectedDistrictStillLegal) {
+          closeActionPicker();
+          return;
+        }
+        const selectedPaymentStillLegal = Boolean(
+          actionPicker.selectedPaymentKey
+          && outrightOptions.some(
+            (option) =>
+              paymentSignature(option.payment) === actionPicker.selectedPaymentKey
+          )
+        );
+        if (actionPicker.selectedPaymentKey && !selectedPaymentStillLegal) {
           closeActionPicker();
         }
         return;
@@ -1103,35 +1161,21 @@ export function App() {
     setActionPicker({ kind: 'trade', give, ...position });
   };
 
-  const openTradeSourcePicker = (
-    trigger: HTMLButtonElement,
-    optionCount: number
-  ) => {
-    const position = pickerPosition(trigger, optionCount);
-    setActionPicker({ kind: 'trade-source', ...position });
-  };
-
-  const selectTradeSource = (give: Suit) => {
-    setActionPicker((current) => {
-      if (!current || current.kind !== 'trade-source') {
-        return current;
-      }
-
-      return {
-        kind: 'trade',
-        give,
-        top: current.top,
-        left: current.left,
-      };
+  const openTradeCombinedPicker = (trigger: HTMLButtonElement) => {
+    const position = pickerPosition(
+      trigger,
+      Math.max(2, tradeSourceGroups.length + 1)
+    );
+    setActionPicker({
+      kind: 'trade-combined',
+      ...position,
     });
   };
 
   const openDistrictPicker = (
     config: {
-      actionType: 'buy-deed' | 'develop-outright';
+      actionType: 'buy-deed';
       cardId: CardId;
-      payment?: Partial<Record<Suit, number>>;
-      paymentKey?: string;
     },
     trigger: HTMLButtonElement,
     optionCount: number
@@ -1141,8 +1185,19 @@ export function App() {
       kind: 'district',
       actionType: config.actionType,
       cardId: config.cardId,
-      payment: config.payment,
-      paymentKey: config.paymentKey,
+      ...position,
+    });
+  };
+
+  const openDevelopOutrightCombinedPicker = (
+    cardId: CardId,
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({
+      kind: 'develop-outright-combined',
+      cardId,
       ...position,
     });
   };
@@ -1226,7 +1281,6 @@ export function App() {
       suitTokenText,
     };
   });
-
   return (
     <div className={`app-shell${optionsMenuOpen ? ' is-options-open' : ''}`}>
       {error && (
@@ -1339,14 +1393,11 @@ export function App() {
                                   className="action-button has-submenu"
                                   onClick={(event) => {
                                     const trigger = event.currentTarget;
-                                    if (actionPicker?.kind === 'trade-source') {
+                                    if (actionPicker?.kind === 'trade-combined') {
                                       closeActionPicker();
                                       return;
                                     }
-                                    openTradeSourcePicker(
-                                      trigger,
-                                      tradeSourceGroups.length
-                                    );
+                                    openTradeCombinedPicker(trigger);
                                   }}
                                 >
                                   <span className="action-text">
@@ -1542,29 +1593,21 @@ export function App() {
                             }
 
                             return renderCategorizedAction(
-                              `develop-outright-group-${item.cardId}-${item.paymentKey}`,
+                              `develop-outright-group-${item.cardId}`,
                               <button
                                 type="button"
                                 className="action-button has-submenu"
                                 onClick={(event) => {
                                   const trigger = event.currentTarget;
                                   if (
-                                    actionPicker?.kind === 'district' &&
-                                    actionPicker.actionType ===
-                                      'develop-outright' &&
-                                    actionPicker.cardId === item.cardId &&
-                                    actionPicker.paymentKey === item.paymentKey
+                                    actionPicker?.kind === 'develop-outright-combined'
+                                    && actionPicker.cardId === item.cardId
                                   ) {
                                     closeActionPicker();
                                     return;
                                   }
-                                  openDistrictPicker(
-                                    {
-                                      actionType: 'develop-outright',
-                                      cardId: item.cardId,
-                                      payment: item.payment,
-                                      paymentKey: item.paymentKey,
-                                    },
+                                  openDevelopOutrightCombinedPicker(
+                                    item.cardId,
                                     trigger,
                                     item.options.length
                                   );
@@ -1572,7 +1615,7 @@ export function App() {
                               >
                                 <span className="action-text">
                                   {renderSuitText(
-                                    `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(item.payment, SUIT_TEXT_TOKEN)})`
+                                    `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
                                   )}
                                 </span>
                               </button>
@@ -1979,23 +2022,234 @@ export function App() {
         >
           <h2>{renderSuitText(actionPickerTitle)}</h2>
 
-          {actionPicker.kind === 'trade-source' ? (
-            tradeSourceGroups.length === 0 ? (
-              <p className="empty-note">No options available.</p>
-            ) : (
-              <div className="trade-choice-list">
-                {tradeSourceGroups.map((group) => (
-                  <button
-                    key={`trade-source-${group.give}`}
-                    type="button"
-                    className="trade-choice-button"
-                    onClick={() => selectTradeSource(group.give)}
-                  >
-                    {renderSuitText(`${SUIT_TEXT_TOKEN[group.give]} x3`)}
-                  </button>
-                ))}
+          {actionPicker.kind === 'trade-combined' ? (
+            <>
+              {(() => {
+                const tradeActions = humanActions.filter(
+                  (action): action is Extract<GameAction, { type: 'trade' }> =>
+                    action.type === 'trade'
+                );
+                const receiveOptions = [...new Set(tradeActions.map((action) => action.receive))];
+                const hasSelectedCombination = Boolean(
+                  actionPicker.selectedGive
+                  && actionPicker.selectedReceive
+                  && tradeActions.some(
+                    (action) =>
+                      action.give === actionPicker.selectedGive
+                      && action.receive === actionPicker.selectedReceive
+                  )
+                );
+                return (
+                  <>
+              <div className="composite-picker-group">
+                <p className="composite-picker-label">Give x3</p>
+                <div className="trade-choice-list">
+                  {tradeSourceGroups.map((group) => (
+                    <button
+                      key={`trade-combined-source-${group.give}`}
+                      type="button"
+                      className={`trade-choice-button${actionPicker.selectedGive === group.give ? ' is-selected' : ''}`}
+                      onClick={() =>
+                        setActionPicker((current) => {
+                          if (!current || current.kind !== 'trade-combined') {
+                            return current;
+                          }
+                          return {
+                            ...current,
+                            selectedGive: group.give,
+                          };
+                        })
+                      }
+                    >
+                      {renderSuitText(`${SUIT_TEXT_TOKEN[group.give]} x3`)}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )
+
+              <div className="composite-picker-group">
+                <p className="composite-picker-label">Receive x1</p>
+                <div className="trade-choice-list">
+                  {receiveOptions.map((receiveSuit) => (
+                    <button
+                      key={`trade-combined-receive-${receiveSuit}`}
+                      type="button"
+                      className={`trade-choice-button${actionPicker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
+                      onClick={() =>
+                        setActionPicker((current) => {
+                          if (!current || current.kind !== 'trade-combined') {
+                            return current;
+                          }
+                          return {
+                            ...current,
+                            selectedReceive: receiveSuit,
+                          };
+                        })
+                      }
+                    >
+                      {renderSuitText(`${SUIT_TEXT_TOKEN[receiveSuit]} x1`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="trade-choice-button trade-confirm-button"
+                disabled={!hasSelectedCombination}
+                onClick={() => {
+                  if (
+                    !actionPicker.selectedGive
+                    || !actionPicker.selectedReceive
+                  ) {
+                    return;
+                  }
+                  const selectedAction = humanActions.find(
+                    (action) =>
+                      action.type === 'trade'
+                      && action.give === actionPicker.selectedGive
+                      && action.receive === actionPicker.selectedReceive
+                  );
+                  if (selectedAction) {
+                    handlePickerSelection(selectedAction);
+                  }
+                }}
+              >
+                OK
+              </button>
+                  </>
+                );
+              })()}
+            </>
+          ) : actionPicker.kind === 'develop-outright-combined' ? (
+            <>
+              {(() => {
+                const outrightOptions = humanActions.filter(
+                  (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
+                    action.type === 'develop-outright'
+                    && action.cardId === actionPicker.cardId
+                );
+                const firstByDistrict = new Map<
+                  string,
+                  Extract<GameAction, { type: 'develop-outright' }>
+                >();
+                for (const option of outrightOptions) {
+                  if (!firstByDistrict.has(option.districtId)) {
+                    firstByDistrict.set(option.districtId, option);
+                  }
+                }
+                const districtOptions = [...firstByDistrict.values()];
+                const firstByPayment = new Map<
+                  string,
+                  Extract<GameAction, { type: 'develop-outright' }>
+                >();
+                for (const option of outrightOptions) {
+                  const key = paymentSignature(option.payment);
+                  if (!firstByPayment.has(key)) {
+                    firstByPayment.set(key, option);
+                  }
+                }
+                const paymentOptions = [...firstByPayment.entries()];
+                const hasSelectedCombination = Boolean(
+                  actionPicker.selectedDistrictId
+                  && actionPicker.selectedPaymentKey
+                  && outrightOptions.some(
+                    (option) =>
+                      option.districtId === actionPicker.selectedDistrictId
+                      && paymentSignature(option.payment)
+                        === actionPicker.selectedPaymentKey
+                  )
+                );
+                return (
+                  <>
+                    <div className="composite-picker-group">
+                      <p className="composite-picker-label">District</p>
+                      <div className="trade-choice-list">
+                        {districtOptions.map((option) => (
+                          <button
+                            key={`develop-outright-district-${option.districtId}`}
+                            type="button"
+                            className={`trade-choice-button${actionPicker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
+                            onClick={() =>
+                              setActionPicker((current) => {
+                                if (
+                                  !current
+                                  || current.kind !== 'develop-outright-combined'
+                                ) {
+                                  return current;
+                                }
+                                return {
+                                  ...current,
+                                  selectedDistrictId: option.districtId,
+                                };
+                              })
+                            }
+                          >
+                            {option.districtId}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="composite-picker-group">
+                      <p className="composite-picker-label">Payment</p>
+                      <div className="trade-choice-list single-column">
+                        {paymentOptions.map(([paymentKey, option]) => (
+                          <button
+                            key={`develop-outright-payment-${paymentKey}`}
+                            type="button"
+                            className={`trade-choice-button${actionPicker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
+                            onClick={() =>
+                              setActionPicker((current) => {
+                                if (
+                                  !current
+                                  || current.kind !== 'develop-outright-combined'
+                                ) {
+                                  return current;
+                                }
+                                return {
+                                  ...current,
+                                  selectedPaymentKey: paymentKey,
+                                };
+                              })
+                            }
+                          >
+                            {renderSuitText(
+                              formatTokens(option.payment, SUIT_TEXT_TOKEN)
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="trade-choice-button trade-confirm-button"
+                      disabled={!hasSelectedCombination}
+                      onClick={() => {
+                        if (
+                          !actionPicker.selectedDistrictId
+                          || !actionPicker.selectedPaymentKey
+                        ) {
+                          return;
+                        }
+                        const selectedAction = outrightOptions.find(
+                          (option) =>
+                            option.districtId === actionPicker.selectedDistrictId
+                            && paymentSignature(option.payment)
+                              === actionPicker.selectedPaymentKey
+                        );
+                        if (selectedAction) {
+                          handlePickerSelection(selectedAction);
+                        }
+                      }}
+                    >
+                      OK
+                    </button>
+                  </>
+                );
+              })()}
+            </>
           ) : actionPickerOptions.length === 0 ? (
             <p className="empty-note">No options available.</p>
           ) : (
@@ -2138,7 +2392,11 @@ function renderSuitText(text: string): ReactNode {
 }
 
 function toPickerQuery(
-  picker: Exclude<ActionPickerState, { kind: 'trade-source' }>
+  picker: Exclude<
+    ActionPickerState,
+    | { kind: 'trade-combined' }
+    | { kind: 'develop-outright-combined' }
+  >
 ): ActionPickerQuery {
   if (picker.kind === 'trade') {
     return { kind: 'trade', give: picker.give };
@@ -2150,11 +2408,22 @@ function toPickerQuery(
       districtId: picker.districtId,
     };
   }
+  if (picker.kind === 'develop-outright-district') {
+    return {
+      kind: 'develop-outright-district',
+      cardId: picker.cardId,
+    };
+  }
+  if (picker.kind === 'develop-outright-payment') {
+    return {
+      kind: 'develop-outright-payment',
+      cardId: picker.cardId,
+      districtId: picker.districtId,
+    };
+  }
   return {
     kind: 'district',
     actionType: picker.actionType,
     cardId: picker.cardId,
-    payment: picker.payment,
-    paymentKey: picker.paymentKey,
   };
 }

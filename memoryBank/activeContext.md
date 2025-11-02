@@ -45,6 +45,8 @@
 - Card flights now interpolate width/height across source and destination anchors so deck/discard size differences animate smoothly instead of snapping.
 - In-development deed token side assignment is now stable per card/perspective in UI layout memory, preventing existing suit tokens from switching columns when new suits are added.
 - Options menu now includes an Animations toggle persisted in browser `localStorage` (`magnate:animationsEnabled`); when disabled, flight animations are skipped and deed-progress rings render without tweening.
+- `develop-outright` action presentation now groups by card (not payment permutation), and grouped cases use a single anchored popover with both district and payment selectors shown immediately plus explicit OK confirmation.
+- Multi-source trade selection now also uses a single anchored popover with source selector + receive selector shown immediately plus explicit OK confirmation.
 
 ### Bridge
 
