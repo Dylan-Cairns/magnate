@@ -401,6 +401,21 @@
   line-height: 1.35;
 }
 
+.animation-controls .animation-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.44rem;
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.animation-controls .animation-toggle-row input {
+  width: 0.92rem;
+  height: 0.92rem;
+  accent-color: var(--accent-soft);
+}
+
 .meta-grid {
   display: grid;
   gap: 0.36rem;

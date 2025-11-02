@@ -44,10 +44,12 @@ function DistrictLane({
   playerId,
   stack,
   botPlayerId,
+  animateDeedProgress = true,
 }: {
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
+  animateDeedProgress?: boolean;
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
@@ -80,7 +82,10 @@ function DistrictLane({
   } as CSSProperties;
 
   return (
-    <section className={`district-lane${playerId === botPlayerId ? ' is-bot' : ' is-human'}`}>
+    <section
+      className={`district-lane${playerId === botPlayerId ? ' is-bot' : ' is-human'}`}
+      data-lane-player-id={playerId}
+    >
       <div className={`lane-stack-frame${playerId === botPlayerId ? ' is-bot' : ''}`}>
         {laneCards.length > 0 ? (
           <div className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`} style={laneStyle}>
@@ -102,6 +107,7 @@ function DistrictLane({
                   deedTarget={laneCard.deedTarget}
                   inDevelopment={laneCard.inDevelopment}
                   perspective={perspective}
+                  animateDeedProgress={animateDeedProgress}
                 />
               </div>
             ))}
@@ -116,10 +122,12 @@ export function DistrictColumn({
   district,
   humanPlayerId,
   botPlayerId,
+  animateDeedProgress = true,
 }: {
   district: DistrictState;
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
+  animateDeedProgress?: boolean;
 }) {
   const markerName = districtMarkerName(district.markerSuitMask);
   const botDistrictScore = districtScore(district.stacks[botPlayerId]);
@@ -128,11 +136,12 @@ export function DistrictColumn({
   const humanLeadsDistrict = humanDistrictScore > botDistrictScore;
 
   return (
-    <article className="district-column">
+    <article className="district-column" data-district-id={district.id}>
       <DistrictLane
         playerId={botPlayerId}
         stack={district.stacks[botPlayerId]}
         botPlayerId={botPlayerId}
+        animateDeedProgress={animateDeedProgress}
       />
 
       <div className="district-header-wrap">
@@ -165,6 +174,7 @@ export function DistrictColumn({
         playerId={humanPlayerId}
         stack={district.stacks[humanPlayerId]}
         botPlayerId={botPlayerId}
+        animateDeedProgress={animateDeedProgress}
       />
     </article>
   );
