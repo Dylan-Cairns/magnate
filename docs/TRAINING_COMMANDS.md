@@ -86,3 +86,23 @@ Use both value and opponent checkpoints from a TD run.
 ```powershell
 python -m scripts.eval_suite --games-per-side 200 --workers 1 --seed-prefix td-search-eval-v1 --candidate-policy td-search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --td-search-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run-dir>/opponent-step-0002000.pt --td-search-opponent-temperature 1.0 --out artifacts/evals/td_search_v_heur_400.json
 ```
+
+## 11) One-Command TD Loop (Collect -> Train -> Eval)
+
+Runs all three stages end-to-end and writes one loop summary artifact.
+
+```powershell
+python -m scripts.run_td_loop --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search
+```
+
+Cloud 8 vCPU profile (single flag):
+
+```powershell
+python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
+```
+
+Quick validation-sized run:
+
+```powershell
+python -m scripts.run_td_loop --run-label td-loop-smoke --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --eval-games-per-side 20 --eval-opponent-policy search --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4
+```
