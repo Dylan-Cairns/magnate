@@ -22,6 +22,9 @@
 - TD Phase 2 orchestration is implemented:
   - `scripts/collect_td_self_play.py` (bridge-driven replay generation)
   - `scripts/train_td.py` (value/opponent training from replay + checkpoint cadence)
+  - `scripts/run_td_loop.py` (single-command collect -> train -> eval orchestration)
+    - includes collect-stage sharding via `--collect-workers` and merged replay summaries
+    - includes `--cloud` fixed 8 vCPU profile (`collect-workers=6`, `eval-workers=6`)
   - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
   - TD replay JSONL I/O helpers in `trainer/td/io.py`
 - TD Phase 3 initial integration is implemented:
@@ -37,6 +40,10 @@
   - no silent winner/probability fallback in training label pipelines
   - stricter payload parsing in encoding/search helpers
   - scripts require active `.venv`, explicit policy args, and required TD checkpoints
+- End-to-end loop automation validated with a small run:
+  - run id `20260301-164449Z-td-loop-smoke`
+  - artifacts under `artifacts/td_loops/20260301-164449Z-td-loop-smoke/`
+  - produced replay, checkpoints, eval artifact, and loop summary successfully
 
 ## Removed (Intentional Cleanup)
 

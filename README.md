@@ -66,6 +66,8 @@ With `.venv` active:
 - TD training run: `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
 - TD checkpoint eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-worlds 8`
 - TD-search checkpoint eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
+- Full loop automation (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search`
+- Full loop automation (cloud 8 vCPU profile): `python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search`
 
 Use `--help` on each script for full options.
 

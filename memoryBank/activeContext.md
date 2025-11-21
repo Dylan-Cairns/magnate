@@ -59,6 +59,11 @@
     - `<stamp>-<label>.value.jsonl`
     - `<stamp>-<label>.opponent.jsonl`
   - `scripts.train_td` trains value/opponent models from replay with checkpoint cadence.
+  - `scripts.run_td_loop` orchestrates:
+    - collect replay -> train checkpoints -> eval checkpoints
+    - loop-level summary artifact under `artifacts/td_loops/<run-id>/loop.summary.json`
+    - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
+    - `--cloud` applies fixed 8 vCPU worker profile for hosted runs
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`
     - `--td-value-checkpoint`
@@ -78,8 +83,7 @@
 1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
 2. Generate warm-start teacher data from promoted search baseline.
 3. Run repeated TD cycles and track promotion gates:
-   - collect replay with `scripts.collect_td_self_play`,
-   - train checkpoints with `scripts.train_td`,
-   - benchmark checkpoints with `scripts.eval_suite` (`td-value` and `td-search` vs heuristic/search).
+   - run `scripts.run_td_loop` for standardized collect/train/eval cycles,
+   - benchmark and rank promoted checkpoints against search baselines.
 
 _Updated: 2026-03-01._
