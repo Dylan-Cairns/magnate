@@ -12,8 +12,8 @@
   - scoring + terminal resolution
 - Rules edge-case coverage was expanded with targeted regression tests (tax/income sequencing, mixed-roll handling, income-choice queue order, ace cost paths, Excuse follow-on placement, final-turn countdown).
 - Browser UI is playable with policy-agnostic controller boundaries and a bot profile catalog.
-- Browser PPO inference path is wired, and a champion profile is available as default bot.
 - Browser rollout-eval search policy path is wired into the UI bot catalog (T3 config) for direct in-browser play/testing.
+- Browser rollout-eval search is now the default web bot profile; legacy browser PPO profile/model wiring was removed.
 - Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
 - Development-card progress ring fill now animates on upward progress only (including across remounts), with helper-level tests to protect canonical ratio/arc math.
 - Deed-development spend now shows a transient linear chip-flight animation from the acting player's resource rail to the deed token-side target on the in-development card, with deed-token UI updates deferred until flight completion; rules/state semantics remain unchanged.
@@ -62,6 +62,22 @@
   - in-flight run context
   - objective next-step decision logic
   - restart-ready command playbook
+- Canonical side-swapped paired-seed eval suite is now implemented:
+  - `scripts/eval_suite.py`
+  - `trainer/eval_suite.py`
+  - reports win rate, Wilson CI, and side gap in one artifact
+- Search/MCTS shared internals are now modularized under `trainer/search/`:
+  - `belief_sampler.py`
+  - `forward_model.py`
+  - `leaf_evaluator.py`
+  - `root_selector.py`
+- Determinized search root action selection now uses progressive widening (no permanent hard top-K lockout).
+- Teacher sample schema now includes optional soft policy targets (`actionProbs`) aligned to legal-action order.
+- Guidance training now consumes soft policy targets when present (fallback to one-hot when absent).
+- Training encoding upgraded to v2:
+  - `trainer/encoding.py` and `src/policies/trainingEncoding.ts` now include hand-composition and endgame/tiebreak features
+  - observation dim is now 206
+  - PPO checkpoints now include and validate `encodingVersion`
 
 ## In Progress
 

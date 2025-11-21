@@ -4,7 +4,6 @@ import json
 import copy
 import math
 import random
-from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
@@ -12,10 +11,20 @@ from typing import Any, Dict, Mapping, Sequence
 import torch
 
 from .behavior_cloning import BehaviorCloningModel, load_behavior_cloning_checkpoint
-from .bridge_client import BridgeClient
 from .encoding import _card_rank, encode_action_candidates, encode_observation
-from .env import MagnateBridgeEnv
 from .ppo_model import CandidateActorCritic, load_ppo_checkpoint
+from .search import (
+    BridgeForwardModel,
+    LeafEvaluator,
+    is_terminal_state,
+    progressive_target_action_count,
+    rank_root_actions,
+    root_priors_by_key,
+    sample_determinized_worlds,
+    select_root_ucb_action,
+    state_active_player_id,
+    terminal_value,
+)
 from .types import KeyedAction, PlayerId
 
 PROPERTY_CARD_IDS: tuple[str, ...] = tuple(str(card_id) for card_id in range(30))
@@ -34,6 +43,9 @@ class Policy:
         raise NotImplementedError
 
     def close(self) -> None:
+        return None
+
+    def root_action_probs(self) -> Mapping[str, float] | None:
         return None
 
 
@@ -225,8 +237,8 @@ class DeterminizedSearchPolicy(Policy):
     def __post_init__(self) -> None:
         self._heuristic_policy = HeuristicPolicy()
         self._random_policy = RandomLegalPolicy()
-        self._sim_client: BridgeClient | None = None
-        self._sim_env: MagnateBridgeEnv | None = None
+        self._forward_model = BridgeForwardModel(step_cache_limit=0)
+        self._last_root_policy: Dict[str, float] | None = None
 
     def choose_action_key(
         self,
@@ -238,53 +250,110 @@ class DeterminizedSearchPolicy(Policy):
         if not legal_actions:
             raise ValueError("Search policy requires at least one legal action.")
         if len(legal_actions) == 1:
+            self._last_root_policy = {legal_actions[0].action_key: 1.0}
             return legal_actions[0].action_key
         if state is None:
             raise ValueError("Search policy requires a serialized state payload.")
 
         root_player = _active_player_id(view)
-        candidates = self._root_candidates(view=view, legal_actions=legal_actions)
+        ranked_actions = self._ranked_root_actions(view=view, legal_actions=legal_actions)
         worlds = self._sample_worlds(state=state, view=view, root_player=root_player, rng=rng)
         root_prior_by_key = self._root_priors_by_key(
             view=view,
             legal_actions=legal_actions,
         )
 
-        best_action = candidates[0]
-        best_score = float("-inf")
-        best_prior = root_prior_by_key.get(best_action.action_key, 0.0)
-        for action in candidates:
-            score = self._evaluate_action_over_worlds(
-                world_states=worlds,
+        if not worlds:
+            fallback = ranked_actions[0].action_key
+            self._last_root_policy = {fallback: 1.0}
+            return fallback
+
+        expanded_count = min(len(ranked_actions), self.config.max_root_actions)
+        expanded_actions = ranked_actions[:expanded_count]
+        expanded_keys = [action.action_key for action in expanded_actions]
+        pending_unvisited = list(expanded_keys)
+
+        visit_count = len(worlds) * self.config.rollouts
+        root_budget = max(1, visit_count * max(1, self.config.max_root_actions))
+
+        root_visits: Dict[str, int] = {action.action_key: 0 for action in ranked_actions}
+        root_value_sum: Dict[str, float] = {action.action_key: 0.0 for action in ranked_actions}
+
+        for visit_index in range(root_budget):
+            target_count = progressive_target_action_count(
+                total_actions=len(ranked_actions),
+                initial_actions=self.config.max_root_actions,
+                visits=visit_index,
+            )
+            while len(expanded_keys) < target_count:
+                next_action = ranked_actions[len(expanded_keys)]
+                expanded_keys.append(next_action.action_key)
+                pending_unvisited.append(next_action.action_key)
+
+            if pending_unvisited:
+                action_key = pending_unvisited.pop(0)
+            else:
+                action_key = select_root_ucb_action(
+                    action_keys=expanded_keys,
+                    visits_by_key=root_visits,
+                    value_sum_by_key=root_value_sum,
+                    priors_by_key=root_prior_by_key,
+                    total_visits=visit_index,
+                    c_puct=1.0,
+                )
+
+            world_index = visit_index % len(worlds)
+            score = self._run_rollout(
+                world_state=worlds[world_index],
                 root_player=root_player,
-                root_action_key=action.action_key,
+                root_action_key=action_key,
                 rng=rng,
             )
-            prior = root_prior_by_key.get(action.action_key, 0.0)
+            root_visits[action_key] += 1
+            root_value_sum[action_key] += score
+
+        best_action = expanded_keys[0]
+        best_visits = root_visits[best_action]
+        best_value = _safe_div(root_value_sum[best_action], best_visits)
+        best_prior = root_prior_by_key.get(best_action, 0.0)
+        for action_key in expanded_keys[1:]:
+            visits = root_visits[action_key]
+            value = _safe_div(root_value_sum[action_key], visits)
+            prior = root_prior_by_key.get(action_key, 0.0)
             if (
-                score > best_score
+                visits > best_visits
                 or (
-                    math.isclose(score, best_score, abs_tol=1e-9)
+                    visits == best_visits
                     and (
-                        prior > best_prior
+                        value > best_value
                         or (
-                            math.isclose(prior, best_prior, abs_tol=1e-9)
-                            and action.action_key < best_action.action_key
+                            math.isclose(value, best_value, abs_tol=1e-9)
+                            and (
+                                prior > best_prior
+                                or (
+                                    math.isclose(prior, best_prior, abs_tol=1e-9)
+                                    and action_key < best_action
+                                )
+                            )
                         )
                     )
                 )
             ):
-                best_score = score
-                best_action = action
+                best_action = action_key
+                best_visits = visits
+                best_value = value
                 best_prior = prior
 
-        return best_action.action_key
+        self._last_root_policy = self._distribution_from_visits(
+            legal_actions=legal_actions,
+            root_visits=root_visits,
+            chosen_action_key=best_action,
+        )
+        return best_action
 
     def close(self) -> None:
-        if self._sim_client is not None:
-            self._sim_client.close()
-            self._sim_client = None
-            self._sim_env = None
+        self._forward_model.close()
+        self._last_root_policy = None
 
     def __del__(self) -> None:
         try:
@@ -292,53 +361,22 @@ class DeterminizedSearchPolicy(Policy):
         except Exception:
             return None
 
-    def _root_candidates(
+    def root_action_probs(self) -> Mapping[str, float] | None:
+        if self._last_root_policy is None:
+            return None
+        return dict(self._last_root_policy)
+
+    def _ranked_root_actions(
         self,
         view: Mapping[str, Any],
         legal_actions: Sequence[KeyedAction],
     ) -> list[KeyedAction]:
-        if self.guidance_model is not None:
-            probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
-            ranked_indices = sorted(
-                range(len(legal_actions)),
-                key=lambda index: (
-                    -probs[index],
-                    legal_actions[index].action_key,
-                ),
-            )
-            ranked = [legal_actions[index] for index in ranked_indices]
-            return ranked[: min(len(ranked), self.config.max_root_actions)]
-
-        ranked = sorted(
-            legal_actions,
-            key=lambda action: (
-                -self._heuristic_policy.score_action(action),
-                action.action_key,
-            ),
+        return rank_root_actions(
+            legal_actions=legal_actions,
+            heuristic_policy=self._heuristic_policy,
+            guidance_model=self.guidance_model,
+            view=view,
         )
-        return ranked[: min(len(ranked), self.config.max_root_actions)]
-
-    def _evaluate_action_over_worlds(
-        self,
-        world_states: Sequence[Dict[str, Any]],
-        root_player: PlayerId,
-        root_action_key: str,
-        rng: random.Random,
-    ) -> float:
-        total = 0.0
-        count = 0
-        for world_state in world_states:
-            for _ in range(self.config.rollouts):
-                total += self._run_rollout(
-                    world_state=world_state,
-                    root_player=root_player,
-                    root_action_key=root_action_key,
-                    rng=rng,
-                )
-                count += 1
-        if count == 0:
-            return 0.0
-        return total / float(count)
 
     def _run_rollout(
         self,
@@ -347,27 +385,23 @@ class DeterminizedSearchPolicy(Policy):
         root_action_key: str,
         rng: random.Random,
     ) -> float:
-        sim_env = self._simulator_env()
-        step_result = sim_env.reset(
-            serialized_state=copy.deepcopy(world_state),
-            skip_advance_to_decision=True,
-        )
-        step_result = sim_env.step(action_key=root_action_key)
+        step_result = self._forward_model.reset_state(world_state)
+        step_result = self._forward_model.step(root_action_key)
 
         depth = 0
         while not step_result.terminal and depth < self.config.depth:
-            legal = sim_env.legal_actions()
+            legal = self._forward_model.legal_actions()
             action_key = self._rollout_action_key(
                 view=step_result.view,
                 legal_actions=legal.actions,
                 rng=rng,
                 root_player=root_player,
             )
-            step_result = sim_env.step(action_key=action_key)
+            step_result = self._forward_model.step(action_key)
             depth += 1
 
         if step_result.terminal:
-            return _terminal_value(step_result.state, root_player)
+            return terminal_value(step_result.state, root_player)
 
         if self.guidance_model is not None:
             active_player = _active_player_id(step_result.view)
@@ -376,7 +410,7 @@ class DeterminizedSearchPolicy(Policy):
                 value = -value
             return max(-1.0, min(1.0, value))
 
-        root_view = sim_env.observation(viewer_id=root_player).view
+        root_view = self._forward_model.observation(viewer_id=root_player).view
         return _value_from_player_view(root_view, root_player)
 
     def _rollout_action_key(
@@ -406,16 +440,12 @@ class DeterminizedSearchPolicy(Policy):
         view: Mapping[str, Any],
         legal_actions: Sequence[KeyedAction],
     ) -> Dict[str, float]:
-        if self.guidance_model is None:
-            return {
-                action.action_key: self._heuristic_policy.score_action(action)
-                for action in legal_actions
-            }
-        probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
-        return {
-            legal_actions[index].action_key: probs[index]
-            for index in range(len(legal_actions))
-        }
+        return root_priors_by_key(
+            legal_actions=legal_actions,
+            heuristic_policy=self._heuristic_policy,
+            guidance_model=self.guidance_model,
+            view=view,
+        )
 
     def _sample_worlds(
         self,
@@ -424,46 +454,31 @@ class DeterminizedSearchPolicy(Policy):
         root_player: PlayerId,
         rng: random.Random,
     ) -> list[Dict[str, Any]]:
-        opponent_player = "PlayerB" if root_player == "PlayerA" else "PlayerA"
-        players_by_id = _player_views_by_id(view)
-        root_view = players_by_id[root_player]
-        opponent_view = players_by_id[opponent_player]
-        root_hand = _as_card_list(root_view.get("hand"))
-        opponent_hand_count = _as_int(opponent_view.get("handCount"))
-        draw_count = _as_int(_as_mapping(view.get("deck")).get("drawCount"))
+        return sample_determinized_worlds(
+            state=state,
+            view=view,
+            root_player=root_player,
+            worlds=self.config.worlds,
+            rng=rng,
+        )
 
-        known_cards = set(root_hand)
-        known_cards.update(_as_card_list(_as_mapping(view.get("deck")).get("discard")))
-        known_cards.update(_district_property_cards(view))
-        hidden_pool = [card_id for card_id in PROPERTY_CARD_IDS if card_id not in known_cards]
-
-        expected_hidden = opponent_hand_count + draw_count
-        if len(hidden_pool) != expected_hidden:
-            raise ValueError(
-                "Determinization card accounting mismatch. "
-                f"expected={expected_hidden}, actual={len(hidden_pool)}"
-            )
-
-        worlds: list[Dict[str, Any]] = []
-        for _ in range(self.config.worlds):
-            shuffled_hidden = list(hidden_pool)
-            rng.shuffle(shuffled_hidden)
-            opponent_hand = shuffled_hidden[:opponent_hand_count]
-            draw_cards = shuffled_hidden[opponent_hand_count : opponent_hand_count + draw_count]
-
-            world_state = copy.deepcopy(dict(state))
-            _replace_player_hand(world_state, root_player, root_hand)
-            _replace_player_hand(world_state, opponent_player, opponent_hand)
-            deck = _as_mapping(world_state.get("deck"))
-            deck["draw"] = draw_cards
-            worlds.append(world_state)
-        return worlds
-
-    def _simulator_env(self) -> MagnateBridgeEnv:
-        if self._sim_env is None:
-            self._sim_client = BridgeClient()
-            self._sim_env = MagnateBridgeEnv(client=self._sim_client)
-        return self._sim_env
+    def _distribution_from_visits(
+        self,
+        *,
+        legal_actions: Sequence[KeyedAction],
+        root_visits: Mapping[str, int],
+        chosen_action_key: str,
+    ) -> Dict[str, float]:
+        total = sum(root_visits.get(action.action_key, 0) for action in legal_actions)
+        if total <= 0:
+            return {
+                action.action_key: (1.0 if action.action_key == chosen_action_key else 0.0)
+                for action in legal_actions
+            }
+        return {
+            action.action_key: root_visits.get(action.action_key, 0) / float(total)
+            for action in legal_actions
+        }
 
 
 @dataclass
@@ -494,12 +509,15 @@ class DeterminizedMctsPolicy(Policy):
 
     def __post_init__(self) -> None:
         self._heuristic_policy = HeuristicPolicy()
-        self._sim_client: BridgeClient | None = None
-        self._sim_env: MagnateBridgeEnv | None = None
-        self._step_cache: OrderedDict[tuple[str, str], Dict[str, Any]] = OrderedDict()
-        self._step_cache_limit = 20_000
-        self._value_cache: OrderedDict[tuple[str, PlayerId], float] = OrderedDict()
-        self._value_cache_limit = 20_000
+        self._forward_model = BridgeForwardModel(step_cache_limit=20_000)
+        self._leaf_evaluator = LeafEvaluator(
+            forward_model=self._forward_model,
+            guidance_model=self.guidance_model,
+            value_cache_limit=20_000,
+        )
+        self._step_cache = self._forward_model.step_cache
+        self._value_cache = self._leaf_evaluator.value_cache
+        self._last_root_policy: Dict[str, float] | None = None
 
     def choose_action_key(
         self,
@@ -511,6 +529,7 @@ class DeterminizedMctsPolicy(Policy):
         if not legal_actions:
             raise ValueError("MCTS policy requires at least one legal action.")
         if len(legal_actions) == 1:
+            self._last_root_policy = {legal_actions[0].action_key: 1.0}
             return legal_actions[0].action_key
         if state is None:
             raise ValueError("MCTS policy requires a serialized state payload.")
@@ -568,15 +587,17 @@ class DeterminizedMctsPolicy(Policy):
                 best_avg_value = avg_value
                 best_prior = prior
 
+        self._last_root_policy = self._distribution_from_visits(
+            legal_actions=legal_actions,
+            root_visits=aggregate_visits,
+            chosen_action_key=best_action.action_key,
+        )
         return best_action.action_key
 
     def close(self) -> None:
-        if self._sim_client is not None:
-            self._sim_client.close()
-            self._sim_client = None
-            self._sim_env = None
-        self._step_cache.clear()
-        self._value_cache.clear()
+        self._forward_model.close()
+        self._leaf_evaluator.clear()
+        self._last_root_policy = None
 
     def __del__(self) -> None:
         try:
@@ -584,28 +605,21 @@ class DeterminizedMctsPolicy(Policy):
         except Exception:
             return None
 
+    def root_action_probs(self) -> Mapping[str, float] | None:
+        if self._last_root_policy is None:
+            return None
+        return dict(self._last_root_policy)
+
     def _ranked_root_actions(
         self,
         legal_actions: Sequence[KeyedAction],
         view: Mapping[str, Any] | None = None,
     ) -> list[KeyedAction]:
-        if self.guidance_model is not None and view is not None:
-            probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
-            ranked_indices = sorted(
-                range(len(legal_actions)),
-                key=lambda index: (
-                    -probs[index],
-                    legal_actions[index].action_key,
-                ),
-            )
-            return [legal_actions[index] for index in ranked_indices]
-
-        return sorted(
-            legal_actions,
-            key=lambda action: (
-                -self._heuristic_policy.score_action(action),
-                action.action_key,
-            ),
+        return rank_root_actions(
+            legal_actions=legal_actions,
+            heuristic_policy=self._heuristic_policy,
+            guidance_model=self.guidance_model,
+            view=view,
         )
 
     def _run_world_search(
@@ -616,8 +630,8 @@ class DeterminizedMctsPolicy(Policy):
     ) -> Dict[str, tuple[int, float]]:
         root_node = _MctsNode(
             state=copy.deepcopy(world_state),
-            terminal=_is_terminal_state(world_state),
-            active_player=_state_active_player_id(world_state),
+            terminal=is_terminal_state(world_state),
+            active_player=state_active_player_id(world_state),
             edges={},
             root_ranked_actions=list(root_candidates),
             expanded=False,
@@ -636,13 +650,13 @@ class DeterminizedMctsPolicy(Policy):
 
     def _simulate(self, node: _MctsNode, root_player: PlayerId, depth_remaining: int) -> float:
         if node.terminal:
-            return _terminal_value(node.state, root_player)
+            return terminal_value(node.state, root_player)
         if depth_remaining <= 0:
             return self._leaf_value(node.state, root_player)
         if not node.expanded:
             self._expand_node(node=node)
             if node.terminal:
-                return _terminal_value(node.state, root_player)
+                return terminal_value(node.state, root_player)
             return self._leaf_value(node.state, root_player)
         if not node.edges:
             return self._leaf_value(node.state, root_player)
@@ -653,8 +667,8 @@ class DeterminizedMctsPolicy(Policy):
             child_state = self._step_state(node.state, edge.action_key)
             edge.child = _MctsNode(
                 state=child_state,
-                terminal=_is_terminal_state(child_state),
-                active_player=_state_active_player_id(child_state),
+                terminal=is_terminal_state(child_state),
+                active_player=state_active_player_id(child_state),
                 edges={},
                 expanded=False,
             )
@@ -699,11 +713,7 @@ class DeterminizedMctsPolicy(Policy):
             node.expanded = True
             return
 
-        sim_env = self._simulator_env()
-        step_result = sim_env.reset(
-            serialized_state=copy.deepcopy(node.state),
-            skip_advance_to_decision=True,
-        )
+        step_result = self._forward_model.reset_state(node.state)
         node.state = step_result.state
         if step_result.terminal:
             node.terminal = True
@@ -712,7 +722,7 @@ class DeterminizedMctsPolicy(Policy):
             node.expanded = True
             return
 
-        legal = sim_env.legal_actions()
+        legal = self._forward_model.legal_actions()
         legal_actions = legal.actions
         if not legal_actions:
             node.edges = {}
@@ -787,97 +797,34 @@ class DeterminizedMctsPolicy(Policy):
         legal_actions: Sequence[KeyedAction],
         view: Mapping[str, Any] | None = None,
     ) -> Dict[str, float]:
-        if not legal_actions:
-            return {}
-        if self.guidance_model is not None and view is not None:
-            probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
-            return {
-                legal_actions[index].action_key: probs[index]
-                for index in range(len(legal_actions))
-            }
-        scores = [self._heuristic_policy.score_action(action) for action in legal_actions]
-        max_score = max(scores)
-        exp_scores = [math.exp(score - max_score) for score in scores]
-        normalizer = sum(exp_scores)
-        if normalizer <= 0.0:
-            uniform = 1.0 / float(len(legal_actions))
-            return {action.action_key: uniform for action in legal_actions}
-        return {
-            action.action_key: exp_scores[index] / normalizer
-            for index, action in enumerate(legal_actions)
-        }
+        return root_priors_by_key(
+            legal_actions=legal_actions,
+            heuristic_policy=self._heuristic_policy,
+            guidance_model=self.guidance_model,
+            view=view,
+        )
 
     def _step_state(self, state: Mapping[str, Any], action_key: str) -> Dict[str, Any]:
-        state_key = _state_cache_key(state)
-        cache_key = (state_key, action_key)
-        cached = self._step_cache.get(cache_key)
-        if cached is not None:
-            self._step_cache.move_to_end(cache_key)
-            return copy.deepcopy(cached)
-
-        sim_env = self._simulator_env()
-        sim_env.reset(
-            serialized_state=copy.deepcopy(dict(state)),
-            skip_advance_to_decision=True,
-        )
-        step_result = sim_env.step(action_key=action_key)
-        next_state = copy.deepcopy(step_result.state)
-        self._step_cache[cache_key] = next_state
-        self._step_cache.move_to_end(cache_key)
-        while len(self._step_cache) > self._step_cache_limit:
-            self._step_cache.popitem(last=False)
-        return copy.deepcopy(next_state)
+        return self._forward_model.step_state_cached(state, action_key)
 
     def _leaf_value(
         self,
         state: Mapping[str, Any],
         root_player: PlayerId,
     ) -> float:
-        if self.guidance_model is None:
-            return _value_from_serialized_state(state, root_player)
-
-        state_key = _state_cache_key(state)
-        cache_key = (state_key, root_player)
-        cached = self._value_cache.get(cache_key)
-        if cached is not None:
-            self._value_cache.move_to_end(cache_key)
-            return cached
-
-        sim_env = self._simulator_env()
-        step_result = sim_env.reset(
-            serialized_state=copy.deepcopy(dict(state)),
-            skip_advance_to_decision=True,
-        )
-        if step_result.terminal:
-            value = _terminal_value(step_result.state, root_player)
-        else:
-            active_player = _active_player_id(step_result.view)
-            value = self.guidance_model.value_from_view(step_result.view)
-            if active_player != root_player:
-                value = -value
-            value = max(-1.0, min(1.0, value))
-
-        self._value_cache[cache_key] = value
-        self._value_cache.move_to_end(cache_key)
-        while len(self._value_cache) > self._value_cache_limit:
-            self._value_cache.popitem(last=False)
-        return value
+        return self._leaf_evaluator.value(state, root_player)
 
     def _root_priors_by_key(
         self,
         view: Mapping[str, Any],
         legal_actions: Sequence[KeyedAction],
     ) -> Dict[str, float]:
-        if self.guidance_model is None:
-            return {
-                action.action_key: self._heuristic_policy.score_action(action)
-                for action in legal_actions
-            }
-        probs = self.guidance_model.policy_probs(view=view, legal_actions=legal_actions)
-        return {
-            legal_actions[index].action_key: probs[index]
-            for index in range(len(legal_actions))
-        }
+        return root_priors_by_key(
+            legal_actions=legal_actions,
+            heuristic_policy=self._heuristic_policy,
+            guidance_model=self.guidance_model,
+            view=view,
+        )
 
     def _sample_worlds(
         self,
@@ -886,46 +833,31 @@ class DeterminizedMctsPolicy(Policy):
         root_player: PlayerId,
         rng: random.Random,
     ) -> list[Dict[str, Any]]:
-        opponent_player = "PlayerB" if root_player == "PlayerA" else "PlayerA"
-        players_by_id = _player_views_by_id(view)
-        root_view = players_by_id[root_player]
-        opponent_view = players_by_id[opponent_player]
-        root_hand = _as_card_list(root_view.get("hand"))
-        opponent_hand_count = _as_int(opponent_view.get("handCount"))
-        draw_count = _as_int(_as_mapping(view.get("deck")).get("drawCount"))
+        return sample_determinized_worlds(
+            state=state,
+            view=view,
+            root_player=root_player,
+            worlds=self.config.worlds,
+            rng=rng,
+        )
 
-        known_cards = set(root_hand)
-        known_cards.update(_as_card_list(_as_mapping(view.get("deck")).get("discard")))
-        known_cards.update(_district_property_cards(view))
-        hidden_pool = [card_id for card_id in PROPERTY_CARD_IDS if card_id not in known_cards]
-
-        expected_hidden = opponent_hand_count + draw_count
-        if len(hidden_pool) != expected_hidden:
-            raise ValueError(
-                "Determinization card accounting mismatch. "
-                f"expected={expected_hidden}, actual={len(hidden_pool)}"
-            )
-
-        worlds: list[Dict[str, Any]] = []
-        for _ in range(self.config.worlds):
-            shuffled_hidden = list(hidden_pool)
-            rng.shuffle(shuffled_hidden)
-            opponent_hand = shuffled_hidden[:opponent_hand_count]
-            draw_cards = shuffled_hidden[opponent_hand_count : opponent_hand_count + draw_count]
-
-            world_state = copy.deepcopy(dict(state))
-            _replace_player_hand(world_state, root_player, root_hand)
-            _replace_player_hand(world_state, opponent_player, opponent_hand)
-            deck = _as_mapping(world_state.get("deck"))
-            deck["draw"] = draw_cards
-            worlds.append(world_state)
-        return worlds
-
-    def _simulator_env(self) -> MagnateBridgeEnv:
-        if self._sim_env is None:
-            self._sim_client = BridgeClient()
-            self._sim_env = MagnateBridgeEnv(client=self._sim_client)
-        return self._sim_env
+    def _distribution_from_visits(
+        self,
+        *,
+        legal_actions: Sequence[KeyedAction],
+        root_visits: Mapping[str, int],
+        chosen_action_key: str,
+    ) -> Dict[str, float]:
+        total = sum(root_visits.get(action.action_key, 0) for action in legal_actions)
+        if total <= 0:
+            return {
+                action.action_key: (1.0 if action.action_key == chosen_action_key else 0.0)
+                for action in legal_actions
+            }
+        return {
+            action.action_key: root_visits.get(action.action_key, 0) / float(total)
+            for action in legal_actions
+        }
 
 
 @dataclass
