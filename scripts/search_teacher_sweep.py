@@ -4,6 +4,7 @@ import argparse
 import json
 import shlex
 import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -114,7 +115,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--opponent-policy",
         type=str,
-        default="heuristic",
+        required=True,
         help="Opponent policy used against search (random|heuristic|search).",
     )
     parser.add_argument(
@@ -150,6 +151,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    _require_supported_runtime(args.python_bin)
     if args.list_packs:
         print(json.dumps(_pack_payload(), indent=2))
         return 0
@@ -157,6 +159,8 @@ def main() -> int:
         raise SystemExit("--jobs must be > 0.")
     if args.workers <= 0:
         raise SystemExit("--workers must be > 0.")
+    if not args.opponent_policy.strip():
+        raise SystemExit("--opponent-policy must be a non-empty string.")
 
     presets = _resolve_presets(pack_name=args.pack, selected=args.presets)
     started_at = time.perf_counter()
@@ -209,49 +213,48 @@ def main() -> int:
         scheduled.append((preset, eval_out, command))
 
     if not args.dry_run:
-        if args.jobs == 1:
-            for preset, eval_out, command in scheduled:
-                row = _run_preset_eval(preset=preset, eval_out=eval_out, command=command)
-                rows.append(row)
-        else:
-            failures: List[str] = []
-            with ThreadPoolExecutor(max_workers=args.jobs) as executor:
-                future_by_preset = {
-                    executor.submit(
-                        _run_preset_eval,
-                        preset=preset,
-                        eval_out=eval_out,
-                        command=command,
-                    ): preset.preset_id
-                    for preset, eval_out, command in scheduled
-                }
-                for future in as_completed(future_by_preset):
-                    preset_id = future_by_preset[future]
-                    try:
-                        row = future.result()
-                    except Exception as exc:
-                        failures.append(f"{preset_id}: {exc}")
-                        continue
+        try:
+            if args.jobs == 1:
+                for preset, eval_out, command in scheduled:
+                    row = _run_preset_eval(preset=preset, eval_out=eval_out, command=command)
                     rows.append(row)
-
-            if failures:
-                for failure in failures:
-                    print(f"[sweep] failed preset {failure}")
-                _write_json(
-                    manifest_path,
-                    _manifest_payload(
-                        run_id=run_id,
-                        args=args,
-                        presets=presets,
-                        started_at_seconds=started_at,
-                        status="failed",
-                        rows=rows,
-                        planned_commands=planned_commands,
-                        manifest_path=manifest_path,
-                        summary_path=summary_path,
-                    ),
-                )
-                return 1
+            else:
+                with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+                    future_by_preset = {
+                        executor.submit(
+                            _run_preset_eval,
+                            preset=preset,
+                            eval_out=eval_out,
+                            command=command,
+                        ): preset.preset_id
+                        for preset, eval_out, command in scheduled
+                    }
+                    for future in as_completed(future_by_preset):
+                        preset_id = future_by_preset[future]
+                        try:
+                            row = future.result()
+                        except Exception as exc:
+                            for pending in future_by_preset:
+                                if pending is not future:
+                                    pending.cancel()
+                            raise RuntimeError(f"Preset {preset_id} failed.") from exc
+                        rows.append(row)
+        except Exception as exc:
+            _write_json(
+                manifest_path,
+                _manifest_payload(
+                    run_id=run_id,
+                    args=args,
+                    presets=presets,
+                    started_at_seconds=started_at,
+                    status="failed",
+                    rows=rows,
+                    planned_commands=planned_commands,
+                    manifest_path=manifest_path,
+                    summary_path=summary_path,
+                ),
+            )
+            raise SystemExit(f"[sweep] failed fast: {exc}") from exc
 
     ranked_rows = sorted(
         rows,
@@ -534,6 +537,15 @@ def _slug(value: str) -> str:
 
 def _join_command(parts: Sequence[str]) -> str:
     return " ".join(shlex.quote(part) for part in parts)
+
+
+def _require_supported_runtime(python_bin: Path) -> None:
+    if sys.version_info < (3, 11):
+        raise SystemExit("Python 3.11+ is required.")
+    if sys.prefix == sys.base_prefix:
+        raise SystemExit("Run this script from the project virtual environment (.venv).")
+    if not python_bin.exists():
+        raise SystemExit(f"--python-bin does not exist: {python_bin}")
 
 
 if __name__ == "__main__":

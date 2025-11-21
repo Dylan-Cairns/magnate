@@ -11,12 +11,24 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
   - keep rollout search as warm-start signal only,
   - deploy a stronger learned bot in this web app.
 
+## Training Ethos
+
+- Fail fast over silent fallback in Python training/eval code.
+- Invalid bridge payloads, missing checkpoints, or malformed policy probabilities are treated as hard errors.
+- Training scripts require explicit policy selection and an active `.venv`.
+
 ## Current Status
 
 - Browser game is playable; default web bot is rollout-eval search.
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
-- Python side now keeps only `random`, `heuristic`, and `search` policy paths.
+- Python policy surface is `random`, `heuristic`, `search`, `td-value`, and `td-search`.
 - TD Phase 1 foundation is implemented in `trainer/td` (models, replay, targets, checkpointing, self-play utilities, value trainer).
+- TD Phase 2 orchestration is implemented:
+  - `scripts.collect_td_self_play` to generate replay artifacts,
+  - `scripts.train_td` to train value/opponent models from replay,
+  - `td-value` policy support in `scripts.eval` and `scripts.eval_suite` for checkpoint benchmarking.
+- TD Phase 3 initial integration is implemented:
+  - `td-search` policy combines determinized search with TD value leaf evaluation and required opponent-model rollout guidance.
 - PPO, MCTS, and guidance/distillation codepaths were intentionally removed.
 
 ## Local Commands
@@ -50,6 +62,10 @@ With `.venv` active:
 - Canonical side-swapped eval: `python -m scripts.eval_suite --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
 - Search sweep: `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse`
 - Teacher data generation (warm-start labels): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
+- TD self-play replay generation: `python -m scripts.collect_td_self_play --games 200 --player-a-policy search --player-b-policy search --out-dir artifacts/td_replay --run-label td-replay-search`
+- TD training run: `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
+- TD checkpoint eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-worlds 8`
+- TD-search checkpoint eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
 
 Use `--help` on each script for full options.
 

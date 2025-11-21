@@ -19,6 +19,24 @@
   - `trainer/td/self_play.py` (self-play trajectory collection + flatten helpers)
   - `trainer/td/train.py` (value batch training + target network sync trainer)
   - TD unit coverage in `trainer_tests/test_td_*.py`
+- TD Phase 2 orchestration is implemented:
+  - `scripts/collect_td_self_play.py` (bridge-driven replay generation)
+  - `scripts/train_td.py` (value/opponent training from replay + checkpoint cadence)
+  - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
+  - TD replay JSONL I/O helpers in `trainer/td/io.py`
+- TD Phase 3 initial integration is implemented:
+  - `td-search` policy path (`trainer/policies.py`) with TD leaf evaluation and required opponent-model rollout guidance
+  - script support for `td-search` args in:
+    - `scripts/eval.py`
+    - `scripts/eval_suite.py`
+    - `scripts/generate_teacher_data.py`
+    - `scripts/collect_td_self_play.py`
+- Fail-fast cleanup pass implemented across Python training/eval:
+  - no silent fallback action when determinization sampling fails
+  - no heuristic fallback inside `td-search` opponent rollout
+  - no silent winner/probability fallback in training label pipelines
+  - stricter payload parsing in encoding/search helpers
+  - scripts require active `.venv`, explicit policy args, and required TD checkpoints
 
 ## Removed (Intentional Cleanup)
 
@@ -37,14 +55,14 @@
 ## In Progress
 
 - Search preset tuning to lock a stable warm-start baseline vs heuristic.
-- TD Phase 2 orchestration (CLI loops, replay population cadence, checkpointed training runs).
+- TD checkpoint iteration/evaluation cycle quality (which `td-value` / `td-search` checkpoints materially beat heuristic/search baselines).
 
 ## Remaining
 
-- Add TD orchestration scripts (self-play replay generation + training entrypoints).
-- Add opponent-model training loop wiring (loss, batching, checkpoint schedule).
-- Integrate TD value + opponent model into search (`td-search` path).
-- Define browser deployment path for TD checkpoint inference.
+- Add online/self-play replay refresh loop (not only offline replay files).
+- Define checkpoint promotion/reporting conventions across TD runs.
+- Improve `td-search` quality (deeper integration than current rollout-guided form, plus caching/throughput improvements).
+- Define browser deployment path for learned TD checkpoint inference.
 
 ## Risks / Watch Items
 

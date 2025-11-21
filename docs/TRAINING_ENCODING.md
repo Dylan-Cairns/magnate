@@ -80,8 +80,12 @@ Feature groups:
 ## Model Contract Note
 
 - PPO/guidance checkpoint contracts were removed during cleanup.
-- TD model checkpoint contracts will be documented when TD modules land.
-- Until then, treat this file as the stable feature-layout contract only.
+- TD checkpoint contracts are implemented in `trainer/td/checkpoint.py`:
+  - value: `magnate_td_value_v1`
+  - opponent: `magnate_td_opponent_v1`
+  - both enforce `encodingVersion == ENCODING_VERSION`
+- Checkpoints include model dims and `stateDict` plus optional optimizer state.
+- Treat this file as the stable feature-layout contract consumed by those checkpoints.
 
 ## Compatibility Rule
 
