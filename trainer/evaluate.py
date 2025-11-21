@@ -69,6 +69,7 @@ def evaluate_matchup(
     policy_player_b: Policy,
     games: int,
     seed_prefix: str,
+    seed_start_index: int = 0,
     progress_every_games: int = 0,
     on_progress: ProgressCallback | None = None,
 ) -> MatchSummary:
@@ -86,7 +87,7 @@ def evaluate_matchup(
     turn_total = 0
     rng = random.Random(0)
     for index in range(games):
-        seed = f"{seed_prefix}-{index}"
+        seed = f"{seed_prefix}-{seed_start_index + index}"
         first_player: PlayerId = "PlayerA" if index % 2 == 0 else "PlayerB"
         result = play_game(
             env=env,

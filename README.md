@@ -44,8 +44,8 @@ macOS/Linux equivalent:
 With `.venv` active:
 
 - Smoke: `python -m scripts.smoke_trainer`
-- Canonical side-swapped eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy search --opponent-policy heuristic`
-- Search sweep (coarse): `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --opponent-policy heuristic --run-label search-coarse`
+- Canonical side-swapped eval: `python -m scripts.eval_suite --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
+- Search sweep (coarse): `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-coarse`
 - Guidance data generation: `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
 - Guidance training: `python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_search.jsonl --checkpoint-out artifacts/search_guidance_checkpoint.pt`
 - Guided vs baseline A/B pipeline: `python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200`
