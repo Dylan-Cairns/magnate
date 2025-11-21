@@ -5,7 +5,7 @@ This file contains copy/paste commands for the active search-first workflow.
 ## 1) Coarse Sweep (Stage A)
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --opponent-policy heuristic --run-label search-coarse
+python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-coarse
 ```
 
 List available packs/presets:
@@ -19,31 +19,31 @@ python -m scripts.search_teacher_sweep --list-packs
 Replace preset ids with top rows from the coarse summary.
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --opponent-policy heuristic --run-label search-confirm
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-confirm
 ```
 
 ## 3) Final Promotion Gate (Stage C)
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --opponent-policy heuristic --run-label search-final
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --jobs 1 --workers 2 --opponent-policy heuristic --run-label search-final
 ```
 
 ## 4) Epsilon Tuning Pass
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack epsilon-v1 --games-per-side 200 --opponent-policy heuristic --run-label search-epsilon
+python -m scripts.search_teacher_sweep --pack epsilon-v1 --games-per-side 200 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-epsilon
 ```
 
 ## 5) Rollout Count Pass
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack rollouts-v1 --games-per-side 200 --opponent-policy heuristic --run-label search-rollouts
+python -m scripts.search_teacher_sweep --pack rollouts-v1 --games-per-side 200 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-rollouts
 ```
 
 ## 6) One-Off Canonical Eval
 
 ```powershell
-python -m scripts.eval_suite --games-per-side 200 --seed-prefix eval-suite-search --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out artifacts/evals/search_v_heur_eval_suite_400.json
+python -m scripts.eval_suite --games-per-side 200 --workers 2 --seed-prefix eval-suite-search --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out artifacts/evals/search_v_heur_eval_suite_400.json
 ```
 
 ## 7) Teacher Data + Guidance Training

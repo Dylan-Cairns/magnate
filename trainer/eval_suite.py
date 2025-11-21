@@ -62,9 +62,12 @@ def evaluate_side_swapped(
     opponent_policy: Policy,
     games_per_side: int,
     seed_prefix: str,
+    seed_start_index: int = 0,
 ) -> SideSwappedEvalSummary:
     if games_per_side <= 0:
         raise ValueError("games_per_side must be > 0.")
+    if seed_start_index < 0:
+        raise ValueError("seed_start_index must be >= 0.")
 
     leg_as_a = evaluate_matchup(
         env=env,
@@ -72,6 +75,7 @@ def evaluate_side_swapped(
         policy_player_b=opponent_policy,
         games=games_per_side,
         seed_prefix=seed_prefix,
+        seed_start_index=seed_start_index,
     )
     leg_as_b = evaluate_matchup(
         env=env,
@@ -79,6 +83,7 @@ def evaluate_side_swapped(
         policy_player_b=candidate_policy,
         games=games_per_side,
         seed_prefix=seed_prefix,
+        seed_start_index=seed_start_index,
     )
 
     candidate_wins_as_a = leg_as_a.winners["PlayerA"]

@@ -33,6 +33,7 @@
 - Canonical side-swapped eval suite is implemented:
   - `scripts/eval_suite.py`
   - `trainer/eval_suite.py`
+  - supports deterministic game sharding via `--workers` (seed-offset shards merged into one artifact)
 - Search/MCTS internals are modularized:
   - `trainer/search/belief_sampler.py`
   - `trainer/search/forward_model.py`
@@ -42,6 +43,7 @@
 - Teacher samples support soft policy targets (`actionProbs`).
 - Encoding is v2 (`OBSERVATION_DIM=206`) with TS parity encoder.
 - Search sweep runner is now eval-suite based with modern pack definitions (`scripts/search_teacher_sweep.py`).
+  - supports preset-level parallelism via `--jobs` and forwards eval sharding via `--workers`
 - Guidance A/B pipeline uses paired eval seeds for baseline vs guided comparison (`scripts/run_guidance_ab_pipeline.py`).
 
 ## Immediate Next Steps

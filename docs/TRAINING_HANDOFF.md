@@ -64,19 +64,19 @@ Stage C (final):
 Coarse sweep:
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --opponent-policy heuristic --run-label search-coarse
+python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-coarse
 ```
 
 Confirm top presets:
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --opponent-policy heuristic --run-label search-confirm
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-confirm
 ```
 
 Final gate:
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --opponent-policy heuristic --run-label search-final
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --jobs 1 --workers 2 --opponent-policy heuristic --run-label search-final
 ```
 
 Guidance pipeline:
