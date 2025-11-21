@@ -22,6 +22,10 @@
 - Browser bot catalog now includes rollout search (default) and random.
 - Legacy browser PPO profile/model path was removed.
 - Bot policy failures are explicit (no silent fallback).
+- Browser rollout-search policy now mirrors Python search root logic:
+  - heuristic prior softmax
+  - progressive root widening
+  - root UCB selection across a fixed visit budget
 
 ### Bridge
 
