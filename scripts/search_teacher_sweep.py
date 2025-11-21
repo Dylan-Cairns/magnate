@@ -37,14 +37,14 @@ class SweepRow:
 
 PACKS: Dict[str, List[SearchPreset]] = {
     "coarse-v1": [
-        SearchPreset("s01", worlds=4, rollouts=1, depth=10, max_root_actions=4, rollout_epsilon=0.08),
-        SearchPreset("s02", worlds=4, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.08),
-        SearchPreset("s03", worlds=6, rollouts=1, depth=12, max_root_actions=6, rollout_epsilon=0.08),
-        SearchPreset("s04", worlds=6, rollouts=1, depth=16, max_root_actions=6, rollout_epsilon=0.08),
-        SearchPreset("s05", worlds=8, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.08),
-        SearchPreset("s06", worlds=8, rollouts=1, depth=18, max_root_actions=8, rollout_epsilon=0.08),
-        SearchPreset("s07", worlds=10, rollouts=1, depth=16, max_root_actions=8, rollout_epsilon=0.08),
-        SearchPreset("s08", worlds=10, rollouts=1, depth=20, max_root_actions=10, rollout_epsilon=0.08),
+        SearchPreset("s01", worlds=4, rollouts=1, depth=10, max_root_actions=4, rollout_epsilon=0.04),
+        SearchPreset("s02", worlds=4, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.04),
+        SearchPreset("s03", worlds=6, rollouts=1, depth=12, max_root_actions=6, rollout_epsilon=0.04),
+        SearchPreset("s04", worlds=6, rollouts=1, depth=16, max_root_actions=6, rollout_epsilon=0.04),
+        SearchPreset("s05", worlds=8, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.04),
+        SearchPreset("s06", worlds=8, rollouts=1, depth=18, max_root_actions=8, rollout_epsilon=0.04),
+        SearchPreset("s07", worlds=10, rollouts=1, depth=16, max_root_actions=8, rollout_epsilon=0.04),
+        SearchPreset("s08", worlds=10, rollouts=1, depth=20, max_root_actions=10, rollout_epsilon=0.04),
     ],
     "epsilon-v1": [
         SearchPreset("e00", worlds=6, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.00),
@@ -53,8 +53,8 @@ PACKS: Dict[str, List[SearchPreset]] = {
         SearchPreset("e12", worlds=6, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.12),
     ],
     "rollouts-v1": [
-        SearchPreset("r1", worlds=6, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.08),
-        SearchPreset("r2", worlds=6, rollouts=2, depth=14, max_root_actions=6, rollout_epsilon=0.08),
+        SearchPreset("r1", worlds=6, rollouts=1, depth=14, max_root_actions=6, rollout_epsilon=0.04),
+        SearchPreset("r2", worlds=6, rollouts=2, depth=14, max_root_actions=6, rollout_epsilon=0.04),
     ],
 }
 

@@ -76,7 +76,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-rollout-epsilon",
         type=float,
-        default=0.08,
+        default=0.04,
         help="Search rollout epsilon for random exploratory moves.",
     )
     parser.add_argument(

@@ -37,7 +37,7 @@ Ship a search-first bot pipeline that clearly outperforms heuristic, then distil
 - `rollouts=1`
 - `depth=14`
 - `max_root_actions=6`
-- `rollout_epsilon=0.08`
+- `rollout_epsilon=0.04`
 
 These are the defaults in current search-oriented scripts unless explicitly overridden.
 

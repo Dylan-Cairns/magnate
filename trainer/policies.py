@@ -131,7 +131,7 @@ class SearchConfig:
     rollouts: int = 1
     depth: int = 14
     max_root_actions: int = 6
-    rollout_epsilon: float = 0.08
+    rollout_epsilon: float = 0.04
 
     def __post_init__(self) -> None:
         if self.worlds <= 0:
