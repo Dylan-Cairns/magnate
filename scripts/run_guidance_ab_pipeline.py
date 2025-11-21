@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-rollouts", type=int, default=1)
     parser.add_argument("--search-depth", type=int, default=14)
     parser.add_argument("--search-max-root-actions", type=int, default=6)
-    parser.add_argument("--search-rollout-epsilon", type=float, default=0.08)
+    parser.add_argument("--search-rollout-epsilon", type=float, default=0.04)
 
     parser.add_argument("--mcts-worlds", type=int, default=6)
     parser.add_argument("--mcts-simulations", type=int, default=192)
