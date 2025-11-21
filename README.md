@@ -1,26 +1,20 @@
-# Magnate (Web) + Bot Training
+# Magnate (Web) + Search-First Training
 
 Single-player Magnate with a deterministic TypeScript engine, browser UI, and Python training stack.
 
 ## Project Direction
 
 - TypeScript engine is the canonical rules implementation.
-- Python training calls the TS engine through a Node bridge.
-- Bridge contract stays intentionally small and versioned.
-- Do not duplicate full rules logic in Python unless throughput proves to be a hard bottleneck.
+- Python training/eval calls TS through a Node bridge.
+- Promotion decisions use side-swapped paired-seed evaluation (`scripts.eval_suite`).
+- Current objective is a search teacher that decisively beats heuristic, then distillation/guidance.
 
 ## Current Status
 
-- Deterministic engine loop is implemented (`setup`, `legalActions`, `applyAction`, `advanceToDecision`, scoring/terminal).
-- Browser game shell is playable with policy-driven bots.
-- Browser rollout-eval search profile is enabled and currently default (explicit failure surface, no hidden fallback).
+- Browser game is playable; default web bot is rollout-eval search.
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
-- Trainer supports:
-  - random/heuristic evaluation
-  - BC warm-start
-  - REINFORCE fine-tuning
-  - PPO training
-  - additive search and MCTS policy evaluation/benchmarking
+- Search and MCTS policies are available in Python tooling with optional PPO-format guidance checkpoints.
+- Legacy BC/REINFORCE benchmark pipeline and browser PPO export path were removed.
 
 ## Local Commands
 
@@ -35,8 +29,8 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 From repo root:
 
-1. Create/update env (PowerShell): `.\scripts\setup_python_env.ps1`
-2. Activate env (PowerShell): `.\.venv\Scripts\Activate.ps1`
+1. `.\scripts\setup_python_env.ps1`
+2. `.\.venv\Scripts\Activate.ps1`
 
 macOS/Linux equivalent:
 
@@ -45,38 +39,27 @@ macOS/Linux equivalent:
 3. `python -m pip install --upgrade pip`
 4. `python -m pip install -r requirements.txt`
 
-## Common Training Commands
+## Training/Eval Quickstart
 
 With `.venv` active:
 
-- Smoke check: `python -m scripts.smoke_trainer`
-- Eval matchup: `python -m scripts.eval --games 50 --player-a-policy heuristic --player-b-policy random`
-- Canonical side-swapped eval suite: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy search --opponent-policy heuristic`
-- Eval MCTS vs heuristic: `python -m scripts.eval --games 200 --player-a-policy mcts --player-b-policy heuristic`
-- Canonical benchmark: `python -m scripts.benchmark --candidate-policy ppo --candidate-checkpoint artifacts/ppo_checkpoint.pt`
-- BC warm-start: `python -m scripts.train --games 50`
-- RL fine-tune from BC: `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300`
-- PPO training: `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32`
-- Teacher-data generation (for distillation): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
-- Train search guidance checkpoint from teacher data: `python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_search.jsonl --checkpoint-out artifacts/search_guidance_checkpoint.pt`
-- Run full unattended guidance A/B pipeline: `python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200`
+- Smoke: `python -m scripts.smoke_trainer`
+- Canonical side-swapped eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy search --opponent-policy heuristic`
+- Search sweep (coarse): `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --opponent-policy heuristic --run-label search-coarse`
+- Guidance data generation: `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
+- Guidance training: `python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_search.jsonl --checkpoint-out artifacts/search_guidance_checkpoint.pt`
+- Guided vs baseline A/B pipeline: `python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200`
 
 Use `--help` on each script for full options.
-
-Guidance-enabled search and MCTS:
-
-- `scripts.eval`, `scripts.benchmark`, and `scripts.generate_teacher_data` now support:
-  - `--search-guidance-checkpoint`
-  - `--mcts-guidance-checkpoint`
-  - `--guidance-temperature`
-- Guidance checkpoints use PPO checkpoint format (`magnate_ppo_policy_v1`) and can be trained with `scripts.train_search_guidance`.
 
 ## Source-of-Truth Docs
 
 - Agent manifest: `AGENTS.md`
 - Memory workflow: `docs/AGENT_GUIDE.md`
-- Training handoff/restart context: `docs/TRAINING_HANDOFF.md`
+- Training handoff/restart: `docs/TRAINING_HANDOFF.md`
+- Search-first training plan: `docs/TRAINING_PLAN_SEARCH_FIRST.md`
+- Command cookbook: `docs/TRAINING_COMMANDS.md`
+- Encoding contract: `docs/TRAINING_ENCODING.md`
 - Memory Bank: `memoryBank/`
 - Rules reference: `memoryBank/magnateRules.md`
 - Bridge contract: `memoryBank/bridgeInterfaceContract.md`
-- Training encoding: `docs/TRAINING_ENCODING.md`

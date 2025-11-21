@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import copy
 import math
 import random
@@ -10,7 +9,6 @@ from typing import Any, Dict, Mapping, Sequence
 
 import torch
 
-from .behavior_cloning import BehaviorCloningModel, load_behavior_cloning_checkpoint
 from .encoding import _card_rank, encode_action_candidates, encode_observation
 from .ppo_model import CandidateActorCritic, load_ppo_checkpoint
 from .search import (
@@ -129,11 +127,11 @@ class HeuristicPolicy(Policy):
 
 @dataclass(frozen=True)
 class SearchConfig:
-    worlds: int = 8
+    worlds: int = 6
     rollouts: int = 1
-    depth: int = 16
+    depth: int = 14
     max_root_actions: int = 6
-    rollout_epsilon: float = 0.12
+    rollout_epsilon: float = 0.08
 
     def __post_init__(self) -> None:
         if self.worlds <= 0:
@@ -861,30 +859,6 @@ class DeterminizedMctsPolicy(Policy):
 
 
 @dataclass
-class BehaviorCloningPolicy(Policy):
-    model: BehaviorCloningModel
-    checkpoint_path: str = ""
-    name: str = "behavior-cloned"
-
-    def choose_action_key(
-        self,
-        view: Dict,
-        legal_actions: Sequence[KeyedAction],
-        rng: random.Random,
-        state: Mapping[str, Any] | None = None,
-    ) -> str:
-        del rng  # deterministic action selection from the trained checkpoint
-        del state
-        if not legal_actions:
-            raise ValueError("Behavior-cloned policy requires at least one legal action.")
-
-        observation_vector = encode_observation(view)
-        action_vectors = encode_action_candidates(legal_actions)
-        action_index = self.model.choose_action_index(observation_vector, action_vectors)
-        return legal_actions[action_index].action_key
-
-
-@dataclass
 class TorchPpoPolicy(Policy):
     model: CandidateActorCritic
     checkpoint_path: str = ""
@@ -958,16 +932,6 @@ def policy_from_name(
             config=mcts_config or MctsConfig(),
             guidance_model=guidance_model,
         )
-    if normalized in ("bc", "behavior-cloned", "behavior_cloned"):
-        if checkpoint_path is None:
-            raise ValueError("Policy 'bc' requires a checkpoint path.")
-        path = Path(checkpoint_path)
-        model = load_behavior_cloning_checkpoint(path)
-        return BehaviorCloningPolicy(
-            model=model,
-            checkpoint_path=str(path),
-            name=f"behavior-cloned:{path.name}",
-        )
     if normalized == "ppo":
         if checkpoint_path is None:
             raise ValueError("Policy 'ppo' requires a checkpoint path.")
@@ -979,7 +943,7 @@ def policy_from_name(
             name=f"ppo:{path.name}",
         )
     raise ValueError(
-        f"Unknown policy name: {name!r}. Expected one of: random, heuristic, search, mcts, bc, ppo."
+        f"Unknown policy name: {name!r}. Expected one of: random, heuristic, search, mcts, ppo."
     )
 
 
@@ -1019,57 +983,6 @@ def _player_views_by_id(view: Mapping[str, Any]) -> Dict[PlayerId, Dict[str, Any
     if "PlayerA" not in out or "PlayerB" not in out:
         raise ValueError("View payload is missing one or more players.")
     return out
-
-
-def _district_property_cards(view: Mapping[str, Any]) -> set[str]:
-    cards: set[str] = set()
-    districts = view.get("districts")
-    if not isinstance(districts, list):
-        return cards
-
-    for district in districts:
-        if not isinstance(district, dict):
-            continue
-        stacks = district.get("stacks")
-        if not isinstance(stacks, dict):
-            continue
-        for player_id in ("PlayerA", "PlayerB"):
-            stack = stacks.get(player_id)
-            if not isinstance(stack, dict):
-                continue
-            for card_id in _as_card_list(stack.get("developed")):
-                cards.add(card_id)
-            deed = stack.get("deed")
-            if isinstance(deed, dict):
-                deed_card = deed.get("cardId")
-                if isinstance(deed_card, str):
-                    cards.add(deed_card)
-    return cards
-
-
-def _replace_player_hand(state: Dict[str, Any], player_id: PlayerId, hand: Sequence[str]) -> None:
-    players = state.get("players")
-    if not isinstance(players, list):
-        raise ValueError("Serialized state is missing players list.")
-    for player in players:
-        if isinstance(player, dict) and player.get("id") == player_id:
-            player["hand"] = list(hand)
-            return
-    raise ValueError(f"Serialized state is missing player {player_id}.")
-
-
-def _terminal_value(state: Mapping[str, Any], root_player: PlayerId) -> float:
-    final_score = state.get("finalScore")
-    if not isinstance(final_score, dict):
-        return 0.0
-    winner = final_score.get("winner")
-    if winner == "Draw":
-        return 0.0
-    if winner == root_player:
-        return 1.0
-    if winner in ("PlayerA", "PlayerB"):
-        return -1.0
-    return 0.0
 
 
 def _value_from_player_view(view: Mapping[str, Any], root_player: PlayerId) -> float:
@@ -1136,36 +1049,6 @@ def _stack_score(stack: Mapping[str, Any]) -> tuple[float, float]:
     return rank_total, progress_total
 
 
-def _developed_rank_total(stack: Mapping[str, Any]) -> float:
-    total = 0.0
-    for card_id in _as_card_list(stack.get("developed")):
-        total += float(_card_rank(card_id))
-    return total
-
-
-def _ace_pressure_proxy(stack: Mapping[str, Any]) -> float:
-    developed = _as_card_list(stack.get("developed"))
-    ace_count = sum(1 for card_id in developed if _card_rank(card_id) == 1)
-    if ace_count <= 0:
-        return 0.0
-    # Aces only score when district properties share suit; use a conservative proxy.
-    return 0.35 * float(ace_count * max(0, len(developed) - 1))
-
-
-def _deed_completion_ratio(stack: Mapping[str, Any]) -> float:
-    deed = stack.get("deed")
-    if not isinstance(deed, dict):
-        return 0.0
-    card_id = str(deed.get("cardId", ""))
-    rank = _card_rank(card_id)
-    if rank <= 0:
-        return 0.0
-    target = 3 if rank == 1 else rank
-    progress = _as_int(deed.get("progress"))
-    clipped = min(max(progress, 0), target)
-    return clipped / float(target)
-
-
 def _resource_total(player_state: Mapping[str, Any]) -> int:
     resources = player_state.get("resources")
     if not isinstance(resources, dict):
@@ -1204,118 +1087,3 @@ def _safe_div(total: float, count: int) -> float:
     if count <= 0:
         return 0.0
     return total / float(count)
-
-
-def _state_cache_key(state: Mapping[str, Any]) -> str:
-    return json.dumps(state, sort_keys=True, separators=(",", ":"))
-
-
-def _is_terminal_state(state: Mapping[str, Any]) -> bool:
-    phase = state.get("phase")
-    if phase == "GameOver":
-        return True
-    return isinstance(state.get("finalScore"), dict)
-
-
-def _state_active_player_id(state: Mapping[str, Any]) -> PlayerId | None:
-    if _is_terminal_state(state):
-        return None
-    players = state.get("players")
-    if not isinstance(players, list):
-        raise ValueError("Serialized state is missing players list.")
-    active_index = _as_int(state.get("activePlayerIndex"))
-    if active_index < 0 or active_index >= len(players):
-        raise ValueError(f"Serialized state activePlayerIndex out of range: {active_index}")
-    active_player = players[active_index]
-    if not isinstance(active_player, dict):
-        raise ValueError("Serialized state active player is not an object.")
-    player_id = active_player.get("id")
-    if player_id not in ("PlayerA", "PlayerB"):
-        raise ValueError(f"Serialized state has invalid active player id: {player_id!r}")
-    return player_id
-
-
-def _value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId) -> float:
-    if _is_terminal_state(state):
-        return _terminal_value(state, root_player)
-
-    opponent = "PlayerB" if root_player == "PlayerA" else "PlayerA"
-    players = state.get("players")
-    if not isinstance(players, list):
-        return 0.0
-
-    root_state = None
-    opponent_state = None
-    for player in players:
-        if not isinstance(player, dict):
-            continue
-        player_id = player.get("id")
-        if player_id == root_player:
-            root_state = player
-        elif player_id == opponent:
-            opponent_state = player
-    if root_state is None or opponent_state is None:
-        return 0.0
-
-    resource_root = _resource_total(root_state)
-    resource_opponent = _resource_total(opponent_state)
-    hand_diff = len(_as_card_list(root_state.get("hand"))) - len(_as_card_list(opponent_state.get("hand")))
-    resource_diff = resource_root - resource_opponent
-
-    districts = state.get("districts")
-    district_count = len(districts) if isinstance(districts, list) else 0
-    district_point_diff = 0.0
-    rank_total_diff = 0.0
-    deed_completion_diff = 0.0
-    if isinstance(districts, list):
-        for district in districts:
-            if not isinstance(district, dict):
-                continue
-            stacks = district.get("stacks")
-            if not isinstance(stacks, dict):
-                continue
-            root_stack = stacks.get(root_player)
-            opponent_stack = stacks.get(opponent)
-            if not isinstance(root_stack, dict) or not isinstance(opponent_stack, dict):
-                continue
-
-            root_developed_rank = _developed_rank_total(root_stack)
-            opponent_developed_rank = _developed_rank_total(opponent_stack)
-            rank_total_diff += root_developed_rank - opponent_developed_rank
-
-            root_district_strength = root_developed_rank + _ace_pressure_proxy(root_stack)
-            opponent_district_strength = opponent_developed_rank + _ace_pressure_proxy(opponent_stack)
-            if root_district_strength > opponent_district_strength:
-                district_point_diff += 1.0
-            elif root_district_strength < opponent_district_strength:
-                district_point_diff -= 1.0
-
-            deed_completion_diff += (
-                _deed_completion_ratio(root_stack) - _deed_completion_ratio(opponent_stack)
-            )
-
-    deck = state.get("deck")
-    reshuffles = _as_int(_as_mapping(deck).get("reshuffles")) if isinstance(deck, dict) else 0
-    final_turns_remaining = _as_int(state.get("finalTurnsRemaining"))
-    endgame = reshuffles >= 2 or final_turns_remaining > 0
-
-    district_term = district_point_diff / float(max(1, district_count))
-    rank_term = math.tanh(rank_total_diff / 16.0)
-    progress_term = math.tanh(deed_completion_diff / 2.5)
-    resource_term = math.tanh(resource_diff / 8.0)
-    hand_term = math.tanh(hand_diff / 3.0)
-
-    district_weight = 0.72 if endgame else 0.6
-    rank_weight = 0.16 if endgame else 0.2
-    progress_weight = 0.05 if endgame else 0.12
-    resource_weight = 0.05
-    hand_weight = 0.02
-
-    score = (
-        (district_weight * district_term)
-        + (rank_weight * rank_term)
-        + (progress_weight * progress_term)
-        + (resource_weight * resource_term)
-        + (hand_weight * hand_term)
-    )
-    return max(-1.0, min(1.0, score))

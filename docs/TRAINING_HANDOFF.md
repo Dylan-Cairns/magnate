@@ -1,205 +1,111 @@
-# Training Handoff (2026-02-28)
+# Training Handoff (2026-03-01)
 
-Use this document as the single restart context for training work in a new chat/session.
+Use this file as the restart context for training work in a new session.
 
-## 1. Goal
+## Goal
 
-Build a bot that is significantly stronger than the current heuristic baseline, with practical browser play options.
+Ship a search-first bot pipeline that clearly outperforms heuristic, then distill/guidance for practical deployment speed.
 
-Current direction:
+## Canonical Approach
 
-- Keep existing BC/REINFORCE/PPO pipeline intact.
-- Keep rollout-eval search as a strong baseline teacher.
-- Evaluate newly added MCTS for a higher-strength policy tier.
-- Use learned guidance (policy prior + value + opponent model) inside search/MCTS to raise teacher strength.
-- Distill stronger search/MCTS behavior into fast student policies after teacher strength is locked.
+1. Tune determinized rollout search first (teacher quality).
+2. Evaluate with side-swapped paired-seed protocol (`scripts.eval_suite`).
+3. Train guidance from teacher data (`scripts.generate_teacher_data` + `scripts.train_search_guidance`).
+4. Re-evaluate search/MCTS with matched paired seeds.
+5. Promote only when stability gates pass at larger sample sizes.
 
-## 2. Important Constraints
+## What Was Removed
 
-- TypeScript engine is canonical for rules.
-- Python consumes TS via bridge; no Python-side rule duplication.
-- Determinism matters for training, eval, and reproducibility.
-- No silent policy fallback; active bot must be explicit.
+- Browser PPO export path (`scripts/export_ppo_browser_checkpoint.py`).
+- BC/REINFORCE training entrypoints (`scripts/train.py`, `scripts/finetune.py`).
+- Legacy benchmark/queue pipeline (`scripts/benchmark.py`, `scripts/benchmark_queue.py`).
+- Legacy BC/reinforcement modules and tests.
+- Legacy named sweep presets (`t1..t8`) and non-canonical two-leg sweep flow.
 
-## 3. Pipeline Status
+## Canonical Scripts
 
-### Implemented and stable
+- Matchup eval (single-seat): `scripts.eval`
+- Side-swapped paired-seed eval: `scripts.eval_suite`
+- Search sweep runner (eval_suite-based): `scripts.search_teacher_sweep`
+- Teacher data collection: `scripts.generate_teacher_data`
+- Guidance training: `scripts.train_search_guidance`
+- End-to-end A/B pipeline: `scripts.run_guidance_ab_pipeline`
 
-- BC warm-start (`scripts.train`)
-- REINFORCE fine-tune (`scripts.finetune`)
-- PPO training (`scripts.train_ppo`, `scripts.train_ppo_queue`)
-- Eval and benchmark harnesses (`scripts.eval`, `scripts.benchmark`, queue helpers)
-- Additive rollout search policy in eval/benchmark (`--player-*-policy search`, `--candidate-policy search`)
-- Additive MCTS policy in eval/benchmark/teacher-data:
-  - `--player-*-policy mcts`
-  - `--candidate-policy mcts`
-  - `--teacher-policy mcts`
-  - upgraded implementation details:
-    - progressive root widening (instead of permanent hard top-K root filtering)
-    - cached state-transition stepping in tree search
-    - stronger non-terminal value proxy aligned to district/tiebreak pressure
-- Guidance-enabled search/MCTS paths are now implemented:
-  - optional PPO-format guidance checkpoints for:
-    - search root priors
-    - search rollout opponent action modeling
-    - MCTS priors
-    - MCTS leaf value cutoffs
-  - integrated CLI support in:
-    - `scripts.eval`
-    - `scripts.benchmark`
-    - `scripts.generate_teacher_data`
-- Guidance checkpoint training from teacher data:
-  - `scripts/train_search_guidance`
-- Browser bot profiles:
-  - `Rollout Eval Search` (T3 settings)
-  - `Random`
+## Default Search Baseline (T3-style)
 
-### Not yet implemented
+- `worlds=6`
+- `rollouts=1`
+- `depth=14`
+- `max_root_actions=6`
+- `rollout_epsilon=0.08`
 
-- Browser MCTS profile integration (MCTS is currently Python-tooling only)
-- Full search/MCTS-to-student distillation training loop with promotion automation
-- Formal promotion gate automation (currently manual artifact review)
+These are the defaults in current search-oriented scripts unless explicitly overridden.
 
-## 4. Measured Results Snapshot
+## Promotion Protocol
 
-### PPO vs heuristic (high-sample)
+Stage A (coarse):
 
-- `ppo_checkpoint_tuneB_seed7.pt`: `1082/2000` => `54.1%`
-- `ppo_checkpoint_tuneB_seed8.pt`: `1024/2000` => `51.2%`
-- `ppo_checkpoint_run_001.pt`: `1028/2000` => `51.4%`
+- Sweep coarse pack with `games_per_side=60` (120 total per preset).
+- Rank by win rate, then side gap, then CI width.
+- Keep top 2-3 presets.
 
-Interpretation:
+Stage B (confirm):
 
-- PPO beats heuristic, but only modestly.
+- Re-run top presets with `games_per_side=200` (400 total).
+- Require low side gap before promoting.
 
-### Rollout search vs heuristic (700-game teacher sweeps)
+Stage C (final):
 
-Source artifacts: `artifacts/evals/search_teacher_t*_v_heur_700.json`
+- Final gate at `games_per_side=1000` (2000 total).
+- Use this result for promotion decisions.
 
-- `t1` (`worlds=2 depth=8 maxRoot=4 eps=0.12`): `68.4%`
-- `t2` (`worlds=4 depth=12 maxRoot=6 eps=0.10`): `74.9%`
-- `t3` (`worlds=6 depth=14 maxRoot=6 eps=0.08`): `79.0%`
+## Command Templates
 
-Interpretation:
-
-- Rollout search is much stronger than heuristic and stronger than PPO.
-
-### MCTS current checkpoint
-
-- Smoke eval completed:
-  - `artifacts/evals/mcts_v_heur_25.json`
-  - `19/25` wins => `76.0%` (`mcts` vs `heuristic`)
-
-Interpretation:
-
-- Promising, but 25 games is too small for strong claims.
-
-## 5. Current Experiment State
-
-Latest request was to run three identical 25-game MCTS evaluations with different seed prefixes to reduce luck effects.
-
-Chained command:
+Coarse sweep:
 
 ```powershell
-python -m scripts.eval --games 25 --seed-prefix eval-mcts-a --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --out artifacts/evals/mcts_a_25.json && python -m scripts.eval --games 25 --seed-prefix eval-mcts-b --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --out artifacts/evals/mcts_b_25.json && python -m scripts.eval --games 25 --seed-prefix eval-mcts-c --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --out artifacts/evals/mcts_c_25.json
+python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --opponent-policy heuristic --run-label search-coarse
 ```
 
-## 6. Decision Logic For MCTS
-
-Short-screen gate (25-game triad):
-
-1. Check all three artifacts (`mcts_a_25.json`, `mcts_b_25.json`, `mcts_c_25.json`).
-2. If each run is at least `23/25` (92%), promote this config to larger-sample evaluation.
-3. If not, retune MCTS config before scaling games.
-
-Scale-up gate:
-
-1. Run best config for `200` games.
-2. If still strong, run `700` then `2000` games.
-3. Use 2000-game results as promotion evidence, not 25-game results.
-
-## 7. Immediate Next Steps (Ordered)
-
-1. Train a first guidance checkpoint from strongest available teacher data.
-2. Run side-swapped holdouts for:
-   - search (no guidance vs guidance)
-   - MCTS (no guidance vs guidance)
-3. Promote only after `200+`, then `700+`, then `2000` game stability checks.
-4. Lock strongest teacher + guidance config and generate larger teacher datasets.
-5. Proceed to student distillation planning once teacher dominance is confirmed.
-
-## 8. Useful Commands
-
-### Summarize recent MCTS eval artifacts
+Confirm top presets:
 
 ```powershell
-Get-ChildItem artifacts\evals\mcts*_25.json | ForEach-Object { $j = Get-Content $_.FullName -Raw | ConvertFrom-Json; $g = [double]$j.games; $w = [double]$j.winners.PlayerA; [PSCustomObject]@{ file=$_.Name; winRate=[math]::Round($w/$g,4); winners=($j.winners | ConvertTo-Json -Compress) } } | Sort-Object file | Format-Table -AutoSize
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --opponent-policy heuristic --run-label search-confirm
 ```
 
-### 200-game MCTS evaluation template
+Final gate:
 
 ```powershell
-python -m scripts.eval --games 200 --seed-prefix eval-mcts-v-heur-200 --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --out artifacts/evals/mcts_v_heur_200.json
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --opponent-policy heuristic --run-label search-final
 ```
 
-### Canonical side-swapped paired-seed evaluation template
-
-```powershell
-python -m scripts.eval_suite --games-per-side 200 --seed-prefix eval-suite-v1 --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/evals/search_v_heur_eval_suite_400.json
-```
-
-### Rollout-search teacher-data generation template
-
-```powershell
-python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-distill-v1 --teacher-policy search --teacher-players both --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/teacher_data/teacher_distill_v1.jsonl --summary-out artifacts/teacher_data/teacher_distill_v1.summary.json
-```
-
-### Side-swapped rollout-search sweep (ranked presets)
-
-```powershell
-python -m scripts.search_teacher_sweep --run-label search-grid-v1 --games 50 --presets t2 t3 t4 t5 t6 --opponent-policy heuristic
-```
-
-Artifacts:
-- Manifest JSON: `artifacts/sweeps/<run-id>-manifest.json`
-- Ranked summary: `artifacts/sweeps/<run-id>-summary.md`
-- Per-preset evals (both sides): `artifacts/evals/<run-id>-<preset>-searchA.json` and `...-searchB.json`
-
-### Train guidance checkpoint from teacher data
-
-```powershell
-python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_distill_v1.jsonl --checkpoint-out artifacts/search_guidance_checkpoint_v1.pt --epochs 12 --batch-size 128 --learning-rate 3e-4 --value-loss-coef 0.5 --hidden-dim 256
-```
-
-### Evaluate MCTS with guidance checkpoint
-
-```powershell
-python -m scripts.eval --games 200 --seed-prefix eval-mcts-guidance-v-heur-200 --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --mcts-guidance-checkpoint artifacts/search_guidance_checkpoint_v1.pt --guidance-temperature 1.0 --out artifacts/evals/mcts_guidance_v_heur_200.json
-```
-
-### One-command unattended A/B pipeline
+Guidance pipeline:
 
 ```powershell
 python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200
 ```
 
-## 9. Artifact Conventions
+The A/B pipeline now uses a shared eval seed prefix for baseline and guided eval_suite runs.
 
-- Checkpoints: `artifacts/ppo_checkpoint_<label>_seed<seed>.pt`
-- Benchmarks: `artifacts/benchmarks/<label>.json`
-- Evals: `artifacts/evals/<label>.json`
-- Teacher data: `artifacts/teacher_data/<label>.jsonl` and summary JSON
-- Guidance checkpoints: `artifacts/search_guidance_checkpoint_<label>.pt`
-- Seed prefixes should include run label + seed for reproducibility.
+## Artifacts
 
-## 10. Known Risks
+- Evals: `artifacts/evals/*.json`
+- Sweeps:
+  - manifest: `artifacts/sweeps/<run-id>-manifest.json`
+  - summary: `artifacts/sweeps/<run-id>-summary.md`
+- Teacher data: `artifacts/teacher_data/*.jsonl` + `*.summary.json`
+- Guidance checkpoints: `artifacts/search_guidance_*.pt`
+- Pipeline manifests: `artifacts/*-pipeline-manifest.json`
 
-- 25-game runs are noisy; they are only screening runs.
-- Current MCTS is determinized-tree search and not full chance-node MCTS.
-- MCTS runtime can increase sharply with `worlds * simulations * depth`.
-- MCTS root widening improves action coverage, but poor prior quality can still slow convergence.
-- Browser MCTS is not yet integrated; rollout-search and random are currently available in UI.
+## Risks / Watch Items
 
----
+- Search quality and latency trade off sharply with `worlds * rollouts * depth`.
+- Side-gap instability means determinization bias or seat dependence; treat as a promotion blocker.
+- Guidance can help strength while increasing per-decision cost if overused.
 
-If resuming in a fresh chat, provide this file plus the latest MCTS eval artifacts under `artifacts/evals/`, then proceed from section 6.
+## Next Session Checklist
+
+1. Read this file and `docs/TRAINING_PLAN_SEARCH_FIRST.md`.
+2. Start with `scripts.search_teacher_sweep --pack coarse-v1`.
+3. Promote only through 120 -> 400 -> 2000 total-game stages.
+4. Keep documentation updated when promotion criteria or defaults change.
