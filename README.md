@@ -54,6 +54,66 @@ macOS/Linux equivalent:
 3. `python -m pip install --upgrade pip`
 4. `python -m pip install -r requirements.txt`
 
+## RunPod Install (CPU)
+
+Use this for Linux CPU pods with a persistent `/workspace` volume.
+
+One-time setup on the persistent volume:
+
+```bash
+cd /workspace
+git clone <your-repo-url> magnate
+cd /workspace/magnate
+
+apt-get update
+apt-get install -y curl ca-certificates gnupg
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get install -y nodejs python3.11 python3.11-venv
+npm install -g yarn
+
+yarn install
+
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+
+# Keep pip temp files on /workspace (many pods have only ~5 GB on /tmp).
+export TMPDIR=/workspace/tmp
+mkdir -p /workspace/tmp
+
+# CPU-only torch install (avoids downloading NVIDIA/CUDA wheels).
+python -m pip install --no-cache-dir \
+  --index-url https://download.pytorch.org/whl/cpu \
+  --extra-index-url https://pypi.org/simple \
+  -r requirements.txt
+```
+
+Each new pod session (same persistent volume):
+
+```bash
+cd /workspace/magnate
+git pull --ff-only
+source .venv/bin/activate
+export TMPDIR=/workspace/tmp
+yarn install
+```
+
+Run smoke first, then full loop:
+
+```bash
+python -m scripts.run_td_loop --run-label td-loop-smoke --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --eval-games-per-side 20 --eval-opponent-policy search --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4
+python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search
+```
+
+For long runs, use `tmux`:
+
+```bash
+tmux new -s train
+# run training command
+# detach: Ctrl+b then d
+# reattach: tmux attach -t train
+```
+
 ## Python Commands (Current)
 
 With `.venv` active:
