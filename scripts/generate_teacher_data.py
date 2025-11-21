@@ -11,7 +11,12 @@ from typing import Set
 
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import MctsConfig, SearchConfig, policy_from_name
+from trainer.policies import (
+    SearchConfig,
+    TDSearchPolicyConfig,
+    TDValuePolicyConfig,
+    policy_from_name,
+)
 from trainer.teacher_data import collect_teacher_samples
 from trainer.training import write_samples_jsonl
 from trainer.types import PlayerId
@@ -34,26 +39,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--teacher-policy",
         type=str,
-        default="search",
-        help="Teacher policy (random|heuristic|search|mcts|bc|ppo).",
-    )
-    parser.add_argument(
-        "--teacher-checkpoint",
-        type=Path,
-        default=None,
-        help="Checkpoint path required when --teacher-policy=bc or ppo.",
+        required=True,
+        help="Teacher policy (random|heuristic|search|td-value|td-search).",
     )
     parser.add_argument(
         "--opponent-policy",
         type=str,
-        default="heuristic",
-        help="Opponent policy for non-teacher turns (random|heuristic|search|mcts|bc|ppo).",
-    )
-    parser.add_argument(
-        "--opponent-checkpoint",
-        type=Path,
         default=None,
-        help="Checkpoint path required when --opponent-policy=bc or ppo.",
+        help="Opponent policy for non-teacher turns (random|heuristic|search|td-value|td-search).",
     )
     parser.add_argument(
         "--teacher-players",
@@ -92,7 +85,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-worlds",
         type=int,
-        default=8,
+        default=6,
         help="Search world samples per decision.",
     )
     parser.add_argument(
@@ -104,7 +97,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-depth",
         type=int,
-        default=16,
+        default=14,
         help="Search rollout depth limit.",
     )
     parser.add_argument(
@@ -116,64 +109,56 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-rollout-epsilon",
         type=float,
-        default=0.12,
+        default=0.04,
         help="Search rollout epsilon for random exploratory moves.",
     )
     parser.add_argument(
-        "--mcts-worlds",
-        type=int,
-        default=6,
-        help="MCTS determinized world samples per decision.",
+        "--td-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Path to TD value checkpoint used when teacher/opponent policy is td-value.",
     )
     parser.add_argument(
-        "--mcts-simulations",
-        type=int,
-        default=96,
-        help="MCTS simulations per sampled world.",
-    )
-    parser.add_argument(
-        "--mcts-depth",
-        type=int,
-        default=24,
-        help="MCTS simulation depth limit (decision steps).",
-    )
-    parser.add_argument(
-        "--mcts-max-root-actions",
+        "--td-worlds",
         type=int,
         default=8,
-        help="MCTS root actions kept after heuristic pre-ranking.",
+        help="Determinization world samples per decision for td-value policy.",
     )
     parser.add_argument(
-        "--mcts-c-puct",
-        type=float,
-        default=1.25,
-        help="MCTS PUCT exploration coefficient.",
-    )
-    parser.add_argument(
-        "--search-guidance-checkpoint",
+        "--td-search-value-checkpoint",
         type=Path,
         default=None,
-        help="Optional PPO-format guidance checkpoint for search priors/value/opponent model.",
+        help="Path to TD value checkpoint used when teacher/opponent policy is td-search.",
     )
     parser.add_argument(
-        "--mcts-guidance-checkpoint",
+        "--td-search-opponent-checkpoint",
         type=Path,
         default=None,
-        help="Optional PPO-format guidance checkpoint for MCTS priors/value.",
+        help="TD opponent checkpoint used when teacher/opponent policy is td-search.",
     )
     parser.add_argument(
-        "--guidance-temperature",
+        "--td-search-opponent-temperature",
         type=float,
         default=1.0,
-        help="Softmax temperature used by guidance checkpoints.",
+        help="Opponent policy temperature for td-search (lower is greedier).",
+    )
+    parser.add_argument(
+        "--td-search-sample-opponent-actions",
+        action="store_true",
+        help="Sample opponent rollout actions from opponent model distribution in td-search.",
     )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    _require_supported_runtime()
+    _validate_policy_args(args)
     started_at = time.perf_counter()
     teacher_player_ids = _parse_teacher_players(args.teacher_players)
+    policies = {args.teacher_policy.strip().lower()}
+    if teacher_player_ids != {"PlayerA", "PlayerB"} and args.opponent_policy is not None:
+        policies.add(args.opponent_policy.strip().lower())
     search_config = SearchConfig(
         worlds=args.search_worlds,
         rollouts=args.search_rollouts,
@@ -181,33 +166,43 @@ def main() -> int:
         max_root_actions=args.search_max_root_actions,
         rollout_epsilon=args.search_rollout_epsilon,
     )
-    mcts_config = MctsConfig(
-        worlds=args.mcts_worlds,
-        simulations=args.mcts_simulations,
-        depth=args.mcts_depth,
-        max_root_actions=args.mcts_max_root_actions,
-        c_puct=args.mcts_c_puct,
+    td_value_config = (
+        TDValuePolicyConfig(
+            checkpoint_path=args.td_value_checkpoint,
+            worlds=args.td_worlds,
+        )
+        if args.td_value_checkpoint is not None
+        else None
+    )
+    td_search_config = (
+        TDSearchPolicyConfig(
+            value_checkpoint_path=args.td_search_value_checkpoint,
+            opponent_checkpoint_path=args.td_search_opponent_checkpoint,
+            worlds=args.search_worlds,
+            rollouts=args.search_rollouts,
+            depth=args.search_depth,
+            max_root_actions=args.search_max_root_actions,
+            rollout_epsilon=args.search_rollout_epsilon,
+            opponent_temperature=args.td_search_opponent_temperature,
+            sample_opponent_actions=args.td_search_sample_opponent_actions,
+        )
+        if "td-search" in policies
+        else None
     )
 
     teacher_policy = policy_from_name(
         args.teacher_policy,
-        checkpoint_path=args.teacher_checkpoint,
         search_config=search_config,
-        mcts_config=mcts_config,
-        search_guidance_checkpoint=args.search_guidance_checkpoint,
-        mcts_guidance_checkpoint=args.mcts_guidance_checkpoint,
-        guidance_temperature=args.guidance_temperature,
+        td_value_config=td_value_config,
+        td_search_config=td_search_config,
     )
     opponent_policy = None
     if teacher_player_ids != {"PlayerA", "PlayerB"}:
         opponent_policy = policy_from_name(
             args.opponent_policy,
-            checkpoint_path=args.opponent_checkpoint,
             search_config=search_config,
-            mcts_config=mcts_config,
-            search_guidance_checkpoint=args.search_guidance_checkpoint,
-            mcts_guidance_checkpoint=args.mcts_guidance_checkpoint,
-            guidance_temperature=args.guidance_temperature,
+            td_value_config=td_value_config,
+            td_search_config=td_search_config,
         )
 
     try:
@@ -222,9 +217,7 @@ def main() -> int:
                 decisions_by_player: dict,
             ) -> None:
                 elapsed_minutes = (time.perf_counter() - started_at) / 60.0
-                pct = (
-                    (completed_games / total_games) * 100.0 if total_games > 0 else 100.0
-                )
+                pct = ((completed_games / total_games) * 100.0) if total_games > 0 else 100.0
                 print(
                     "[teacher-data] progress "
                     f"games={completed_games}/{total_games} "
@@ -265,12 +258,8 @@ def main() -> int:
             "games": args.games,
             "seedPrefix": args.seed_prefix,
             "teacherPolicy": args.teacher_policy,
-            "teacherCheckpoint": str(args.teacher_checkpoint) if args.teacher_checkpoint else None,
             "teacherPlayers": sorted(teacher_player_ids),
             "opponentPolicy": args.opponent_policy if opponent_policy is not None else None,
-            "opponentCheckpoint": (
-                str(args.opponent_checkpoint) if args.opponent_checkpoint else None
-            ),
             "rngSeed": args.rng_seed,
             "search": {
                 "worlds": args.search_worlds,
@@ -279,25 +268,23 @@ def main() -> int:
                 "maxRootActions": args.search_max_root_actions,
                 "rolloutEpsilon": args.search_rollout_epsilon,
             },
-            "mcts": {
-                "worlds": args.mcts_worlds,
-                "simulations": args.mcts_simulations,
-                "depth": args.mcts_depth,
-                "maxRootActions": args.mcts_max_root_actions,
-                "cPuct": args.mcts_c_puct,
+            "tdValue": {
+                "checkpoint": str(args.td_value_checkpoint) if args.td_value_checkpoint else None,
+                "worlds": args.td_worlds,
             },
-            "guidance": {
-                "searchCheckpoint": (
-                    str(args.search_guidance_checkpoint)
-                    if args.search_guidance_checkpoint
+            "tdSearch": {
+                "valueCheckpoint": (
+                    str(args.td_search_value_checkpoint)
+                    if args.td_search_value_checkpoint
                     else None
                 ),
-                "mctsCheckpoint": (
-                    str(args.mcts_guidance_checkpoint)
-                    if args.mcts_guidance_checkpoint
+                "opponentCheckpoint": (
+                    str(args.td_search_opponent_checkpoint)
+                    if args.td_search_opponent_checkpoint
                     else None
                 ),
-                "temperature": args.guidance_temperature,
+                "opponentTemperature": args.td_search_opponent_temperature,
+                "sampleOpponentActions": args.td_search_sample_opponent_actions,
             },
         },
         "results": summary.as_json(),
@@ -362,6 +349,33 @@ def _default_summary_path(samples_path: Path) -> Path:
 def _slug(value: str) -> str:
     compact = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower())
     return compact.strip("-") or "unknown"
+
+
+def _require_supported_runtime() -> None:
+    if sys.version_info < (3, 11):
+        raise SystemExit("Python 3.11+ is required.")
+    if sys.prefix == sys.base_prefix:
+        raise SystemExit("Run this script from the project virtual environment (.venv).")
+
+
+def _validate_policy_args(args: argparse.Namespace) -> None:
+    teacher_players = _parse_teacher_players(args.teacher_players)
+    policies = {args.teacher_policy.strip().lower()}
+    if teacher_players != {"PlayerA", "PlayerB"}:
+        if not isinstance(args.opponent_policy, str) or not args.opponent_policy.strip():
+            raise SystemExit(
+                "--opponent-policy is required when --teacher-players is not 'both'."
+            )
+        policies.add(args.opponent_policy.strip().lower())
+    if "td-value" in policies and args.td_value_checkpoint is None:
+        raise SystemExit("--td-value-checkpoint is required when using td-value policy.")
+    if "td-search" in policies:
+        if args.td_search_value_checkpoint is None:
+            raise SystemExit("--td-search-value-checkpoint is required when using td-search policy.")
+        if args.td_search_opponent_checkpoint is None:
+            raise SystemExit(
+                "--td-search-opponent-checkpoint is required when using td-search policy."
+            )
 
 
 if __name__ == "__main__":

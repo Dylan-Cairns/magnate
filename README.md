@@ -1,27 +1,35 @@
-# Magnate (Web) + Bot Training
+# Magnate (Web) + TD/Keldon Training Pivot
 
 Single-player Magnate with a deterministic TypeScript engine, browser UI, and Python training stack.
 
 ## Project Direction
 
 - TypeScript engine is the canonical rules implementation.
-- Python training calls the TS engine through a Node bridge.
-- Bridge contract stays intentionally small and versioned.
-- Do not duplicate full rules logic in Python unless throughput proves to be a hard bottleneck.
+- Python training/eval calls TS through a Node bridge.
+- Current mission is singular:
+  - build a TD-Gammon / Keldon-like training pipeline,
+  - keep rollout search as warm-start signal only,
+  - deploy a stronger learned bot in this web app.
+
+## Training Ethos
+
+- Fail fast over silent fallback in Python training/eval code.
+- Invalid bridge payloads, missing checkpoints, or malformed policy probabilities are treated as hard errors.
+- Training scripts require explicit policy selection and an active `.venv`.
 
 ## Current Status
 
-- Deterministic engine loop is implemented (`setup`, `legalActions`, `applyAction`, `advanceToDecision`, scoring/terminal).
-- Browser game shell is playable with policy-driven bots.
-- Browser PPO champion profile is enabled and currently default.
-- Browser rollout-eval search profile is available for direct in-UI play/testing (explicit failure surface, no hidden fallback).
+- Browser game is playable; default web bot is rollout-eval search.
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
-- Trainer supports:
-  - random/heuristic evaluation
-  - BC warm-start
-  - REINFORCE fine-tuning
-  - PPO training
-  - additive search and MCTS policy evaluation/benchmarking
+- Python policy surface is `random`, `heuristic`, `search`, `td-value`, and `td-search`.
+- TD Phase 1 foundation is implemented in `trainer/td` (models, replay, targets, checkpointing, self-play utilities, value trainer).
+- TD Phase 2 orchestration is implemented:
+  - `scripts.collect_td_self_play` to generate replay artifacts,
+  - `scripts.train_td` to train value/opponent models from replay,
+  - `td-value` policy support in `scripts.eval` and `scripts.eval_suite` for checkpoint benchmarking.
+- TD Phase 3 initial integration is implemented:
+  - `td-search` policy combines determinized search with TD value leaf evaluation and required opponent-model rollout guidance.
+- PPO, MCTS, and guidance/distillation codepaths were intentionally removed.
 
 ## Local Commands
 
@@ -36,8 +44,8 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 From repo root:
 
-1. Create/update env (PowerShell): `.\scripts\setup_python_env.ps1`
-2. Activate env (PowerShell): `.\.venv\Scripts\Activate.ps1`
+1. `./scripts/setup_python_env.ps1`
+2. `./.venv/Scripts/Activate.ps1`
 
 macOS/Linux equivalent:
 
@@ -46,37 +54,31 @@ macOS/Linux equivalent:
 3. `python -m pip install --upgrade pip`
 4. `python -m pip install -r requirements.txt`
 
-## Common Training Commands
+## Python Commands (Current)
 
 With `.venv` active:
 
-- Smoke check: `python -m scripts.smoke_trainer`
-- Eval matchup: `python -m scripts.eval --games 50 --player-a-policy heuristic --player-b-policy random`
-- Eval MCTS vs heuristic: `python -m scripts.eval --games 200 --player-a-policy mcts --player-b-policy heuristic`
-- Canonical benchmark: `python -m scripts.benchmark --candidate-policy ppo --candidate-checkpoint artifacts/ppo_checkpoint.pt`
-- BC warm-start: `python -m scripts.train --games 50`
-- RL fine-tune from BC: `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300`
-- PPO training: `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32`
-- Teacher-data generation (for distillation): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
-- Train search guidance checkpoint from teacher data: `python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_search.jsonl --checkpoint-out artifacts/search_guidance_checkpoint.pt`
-- Run full unattended guidance A/B pipeline: `python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200`
+- Smoke: `python -m scripts.smoke_trainer`
+- Canonical side-swapped eval: `python -m scripts.eval_suite --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
+- Search sweep: `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse`
+- Teacher data generation (warm-start labels): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
+- TD self-play replay generation: `python -m scripts.collect_td_self_play --games 200 --player-a-policy search --player-b-policy search --out-dir artifacts/td_replay --run-label td-replay-search`
+- TD training run: `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
+- TD checkpoint eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-worlds 8`
+- TD-search checkpoint eval: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
+- Full loop automation (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search`
+- Full loop automation (cloud 8 vCPU profile): `python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search`
 
 Use `--help` on each script for full options.
-
-Guidance-enabled search and MCTS:
-
-- `scripts.eval`, `scripts.benchmark`, and `scripts.generate_teacher_data` now support:
-  - `--search-guidance-checkpoint`
-  - `--mcts-guidance-checkpoint`
-  - `--guidance-temperature`
-- Guidance checkpoints use PPO checkpoint format (`magnate_ppo_policy_v1`) and can be trained with `scripts.train_search_guidance`.
 
 ## Source-of-Truth Docs
 
 - Agent manifest: `AGENTS.md`
 - Memory workflow: `docs/AGENT_GUIDE.md`
-- Training handoff/restart context: `docs/TRAINING_HANDOFF.md`
+- Training handoff/restart: `docs/TRAINING_HANDOFF.md`
+- Training plan: `docs/TRAINING_PLAN_SEARCH_FIRST.md`
+- Command cookbook: `docs/TRAINING_COMMANDS.md`
+- Encoding contract: `docs/TRAINING_ENCODING.md`
 - Memory Bank: `memoryBank/`
 - Rules reference: `memoryBank/magnateRules.md`
 - Bridge contract: `memoryBank/bridgeInterfaceContract.md`
-- Training encoding: `docs/TRAINING_ENCODING.md`

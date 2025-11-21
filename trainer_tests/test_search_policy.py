@@ -8,8 +8,14 @@ from pathlib import Path
 from trainer.bridge_client import BridgeClient
 from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import DeterminizedSearchPolicy, SearchConfig, policy_from_name
-from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
+from trainer.policies import (
+    DeterminizedSearchPolicy,
+    SearchConfig,
+    TDDeterminizedSearchPolicy,
+    TDSearchPolicyConfig,
+)
+from trainer.td.checkpoint import save_opponent_checkpoint, save_value_checkpoint
+from trainer.td.models import OpponentModel, ValueNet
 
 
 class SearchPolicyTests(unittest.TestCase):
@@ -77,37 +83,53 @@ class SearchPolicyTests(unittest.TestCase):
         finally:
             policy.close()
 
-    def test_search_guidance_checkpoint_path_is_usable(self) -> None:
-        config = SearchConfig(
-            worlds=1,
-            rollouts=1,
-            depth=2,
-            max_root_actions=3,
-            rollout_epsilon=0.0,
-        )
-        model = CandidateActorCritic(
-            observation_dim=OBSERVATION_DIM,
-            action_feature_dim=ACTION_FEATURE_DIM,
-            hidden_dim=32,
-        )
+    def test_td_search_is_deterministic_for_fixed_rng(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            checkpoint = Path(tmp_dir) / "guidance.pt"
-            save_ppo_checkpoint(model, checkpoint)
-            policy = policy_from_name(
-                "search",
-                search_config=config,
-                search_guidance_checkpoint=checkpoint,
+            value_path = Path(tmp_dir) / "value.pt"
+            opponent_path = Path(tmp_dir) / "opponent.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=32),
+                output_path=value_path,
+            )
+            save_opponent_checkpoint(
+                model=OpponentModel(
+                    observation_dim=OBSERVATION_DIM,
+                    action_feature_dim=ACTION_FEATURE_DIM,
+                    hidden_dim=32,
+                ),
+                output_path=opponent_path,
+            )
+            policy = TDDeterminizedSearchPolicy(
+                config=TDSearchPolicyConfig(
+                    value_checkpoint_path=value_path,
+                    opponent_checkpoint_path=opponent_path,
+                    worlds=1,
+                    rollouts=1,
+                    depth=2,
+                    max_root_actions=3,
+                    rollout_epsilon=0.0,
+                )
             )
             try:
-                step_result = self.env.reset(seed="search-guidance-checkpoint", first_player="PlayerA")
+                step_result = self.env.reset(seed="td-search-policy-deterministic", first_player="PlayerA")
                 legal = self.env.legal_actions()
-                action_key = policy.choose_action_key(
+
+                action_one = policy.choose_action_key(
                     step_result.view,
                     legal.actions,
-                    random.Random(17),
+                    random.Random(19),
                     state=step_result.state,
                 )
-                self.assertIn(action_key, {entry.action_key for entry in legal.actions})
+                action_two = policy.choose_action_key(
+                    step_result.view,
+                    legal.actions,
+                    random.Random(19),
+                    state=step_result.state,
+                )
+
+                legal_keys = {entry.action_key for entry in legal.actions}
+                self.assertIn(action_one, legal_keys)
+                self.assertEqual(action_one, action_two)
             finally:
                 policy.close()
 
