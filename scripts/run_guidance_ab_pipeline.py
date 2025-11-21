@@ -47,13 +47,13 @@ def parse_args() -> argparse.Namespace:
         "--teacher-policy",
         type=str,
         default="search",
-        help="Teacher policy for data generation (random|heuristic|search|mcts|bc|ppo).",
+        help="Teacher policy for data generation (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--teacher-checkpoint",
         type=Path,
         default=None,
-        help="Optional checkpoint when teacher policy is bc or ppo.",
+        help="Optional checkpoint when teacher policy is ppo.",
     )
     parser.add_argument(
         "--teacher-players",
@@ -72,7 +72,7 @@ def parse_args() -> argparse.Namespace:
         "--opponent-checkpoint",
         type=Path,
         default=None,
-        help="Optional checkpoint when opponent policy is bc or ppo.",
+        help="Optional checkpoint when opponent policy is ppo.",
     )
 
     parser.add_argument("--search-worlds", type=int, default=6)
@@ -119,13 +119,22 @@ def parse_args() -> argparse.Namespace:
         "--eval-a-checkpoint",
         type=Path,
         default=None,
-        help="Optional checkpoint for eval policy A when bc/ppo.",
+        help="Optional checkpoint for eval policy A when ppo.",
     )
     parser.add_argument(
         "--eval-b-checkpoint",
         type=Path,
         default=None,
-        help="Optional checkpoint for eval policy B when bc/ppo.",
+        help="Optional checkpoint for eval policy B when ppo.",
+    )
+    parser.add_argument(
+        "--eval-seed-prefix",
+        type=str,
+        default=None,
+        help=(
+            "Optional paired-seed prefix for baseline and guided eval_suite runs. "
+            "Defaults to <run-label>-eval-suite."
+        ),
     )
 
     parser.add_argument(
@@ -165,8 +174,7 @@ def main() -> int:
 
     python_bin = str(args.python_bin)
     teacher_seed = f"{safe_label}-teacher"
-    base_seed = f"{safe_label}-base"
-    guided_seed = f"{safe_label}-guided"
+    eval_seed = args.eval_seed_prefix or f"{safe_label}-eval-suite"
 
     steps = _build_steps(
         python_bin=python_bin,
@@ -175,9 +183,8 @@ def main() -> int:
         teacher_samples=teacher_samples,
         teacher_summary=teacher_summary,
         guidance_checkpoint=guidance_checkpoint,
-        base_seed=base_seed,
+        eval_seed=eval_seed,
         baseline_eval_out=baseline_eval_out,
-        guided_seed=guided_seed,
         guided_eval_out=guided_eval_out,
     )
 
@@ -263,7 +270,7 @@ def _build_steps(
     guidance_checkpoint: Path,
     base_seed: str,
     baseline_eval_out: Path,
-    guided_seed: str,
+    eval_seed: str,
     guided_eval_out: Path,
 ) -> List[Step]:
     teacher_cmd = [
@@ -345,7 +352,7 @@ def _build_steps(
         "--games-per-side",
         str(args.games),
         "--seed-prefix",
-        base_seed,
+        eval_seed,
         "--candidate-policy",
         args.eval_policy_a,
         "--opponent-policy",
@@ -385,7 +392,7 @@ def _build_steps(
         "--games-per-side",
         str(args.games),
         "--seed-prefix",
-        guided_seed,
+        eval_seed,
         "--candidate-policy",
         args.eval_policy_a,
         "--opponent-policy",
@@ -489,6 +496,11 @@ def _manifest_payload(
                 "playerB": args.eval_policy_b,
                 "playerACheckpoint": str(args.eval_a_checkpoint) if args.eval_a_checkpoint else None,
                 "playerBCheckpoint": str(args.eval_b_checkpoint) if args.eval_b_checkpoint else None,
+                "evalSeedPrefix": (
+                    args.eval_seed_prefix
+                    if args.eval_seed_prefix is not None
+                    else f"{_slug(args.run_label)}-eval-suite"
+                ),
             },
         },
         "steps": steps,

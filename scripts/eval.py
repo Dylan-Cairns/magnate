@@ -29,30 +29,30 @@ def parse_args() -> argparse.Namespace:
         "--player-a-policy",
         type=str,
         default="heuristic",
-        help="Policy name for PlayerA (random|heuristic|search|mcts|bc|ppo).",
+        help="Policy name for PlayerA (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--player-b-policy",
         type=str,
         default="random",
-        help="Policy name for PlayerB (random|heuristic|search|mcts|bc|ppo).",
+        help="Policy name for PlayerB (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--player-a-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --player-a-policy=bc or ppo.",
+        help="Checkpoint path required when --player-a-policy=ppo.",
     )
     parser.add_argument(
         "--player-b-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --player-b-policy=bc or ppo.",
+        help="Checkpoint path required when --player-b-policy=ppo.",
     )
     parser.add_argument(
         "--search-worlds",
         type=int,
-        default=8,
+        default=6,
         help="Search policy world samples per decision.",
     )
     parser.add_argument(
@@ -64,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-depth",
         type=int,
-        default=16,
+        default=14,
         help="Search policy rollout depth limit (decision steps after root action).",
     )
     parser.add_argument(
@@ -76,7 +76,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-rollout-epsilon",
         type=float,
-        default=0.12,
+        default=0.08,
         help="Search rollout epsilon for random exploratory moves.",
     )
     parser.add_argument(

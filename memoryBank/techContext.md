@@ -7,41 +7,42 @@
 - React + Vite
 - Vitest
 - ESLint + Prettier
-- Python 3.11+ (local `.venv`)
-- PyTorch + NumPy for training
+- Python 3.11+ (`.venv`)
+- PyTorch + NumPy
 
 ## Layout
 
-- Engine + browser app in this repo (`src/`).
-- Bridge runtime in `src/bridge/`.
-- Python trainer/tooling in `trainer/` and `scripts/`.
-- Versioned bridge contract in `contracts/`.
+- Engine + browser app: `src/`
+- Bridge runtime: `src/bridge/`
+- Python trainer/tooling: `trainer/`, `scripts/`
+- Bridge contract: `contracts/`
 
 ## Tooling Notes
 
 - Package manager: Yarn
-- Main JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
-- Python environment bootstrap:
+- JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
+- Python bootstrap:
   - `scripts/setup_python_env.ps1`
-  - activate: `.\.venv\Scripts\Activate.ps1`
-- Python entrypoints run as modules:
+  - `.\.venv\Scripts\Activate.ps1`
+- Active Python entrypoints:
   - `python -m scripts.eval`
-  - `python -m scripts.benchmark`
-  - `python -m scripts.train`
-  - `python -m scripts.finetune`
-  - `python -m scripts.train_ppo`
+  - `python -m scripts.eval_suite`
+  - `python -m scripts.search_teacher_sweep`
+  - `python -m scripts.generate_teacher_data`
   - `python -m scripts.train_search_guidance`
-  - queue helpers for PPO and benchmark sweeps
+  - `python -m scripts.run_guidance_ab_pipeline`
+  - `python -m scripts.train_ppo` / `python -m scripts.train_ppo_queue` (kept for PPO-format model workflow)
 
 ## Constraints
 
 - Static deployment target (no gameplay backend).
-- Deterministic gameplay required for replay/test/training.
-- Rules semantics remain in TS unless explicitly re-approved.
+- Deterministic gameplay required for replay/eval/training.
+- Rule semantics stay in TS unless explicitly re-approved.
 
 ## Known Gaps
 
-- Guidance training path now exists, but checkpoint quality and tuning are not yet standardized.
-- Search teacher is stronger than PPO, but still below target dominance; learned priors/value/opponent-model tuning remains in progress.
-- Experiment tracking and promotion criteria are still lightweight/manual (despite canonical side-swapped eval-suite artifacts).
-- Long-run training automation exists, but tuning strategy and reporting are not yet standardized.
+- Promotion thresholds still need repeated high-sample confirmation.
+- Search strength vs latency tuning remains active.
+- Student distillation path is not yet productionized.
+
+_Updated: 2026-03-01._

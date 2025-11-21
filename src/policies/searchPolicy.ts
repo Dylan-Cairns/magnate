@@ -1,5 +1,9 @@
 import { legalActions } from '../engine/actionBuilders';
-import { actionStableKey, toKeyedActions, type KeyedAction } from '../engine/actionSurface';
+import {
+  actionStableKey,
+  toKeyedActions,
+  type KeyedAction,
+} from '../engine/actionSurface';
 import { CARD_BY_ID, PROPERTY_CARDS } from '../engine/cards';
 import { shuffleInPlace } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
@@ -25,7 +29,7 @@ export interface SearchPolicyConfig {
   rolloutEpsilon: number;
 }
 
-export interface SearchPolicyOptions extends Partial<SearchPolicyConfig> {}
+export type SearchPolicyOptions = Partial<SearchPolicyConfig>;
 
 const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   worlds: 4,
@@ -35,7 +39,9 @@ const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   rolloutEpsilon: 0.1,
 };
 
-export function createSearchPolicy(options: SearchPolicyOptions = {}): ActionPolicy {
+export function createSearchPolicy(
+  options: SearchPolicyOptions = {}
+): ActionPolicy {
   const config = resolveSearchConfig(options);
   return {
     selectAction({ view, state, legalActions: candidateActions, random }) {
@@ -47,28 +53,37 @@ export function createSearchPolicy(options: SearchPolicyOptions = {}): ActionPol
       }
 
       const rootPlayer = view.activePlayerId;
-      const rootCandidates = rankRootCandidates(candidateActions, config.maxRootActions);
-      const worldStates = sampleWorldStates(state, view, rootPlayer, config.worlds, random);
+      const rootCandidates = rankRootCandidates(
+        candidateActions,
+        config.maxRootActions
+      );
+      const worldStates = sampleWorldStates(
+        state,
+        view,
+        rootPlayer,
+        config.worlds,
+        random
+      );
 
       let selected = rootCandidates[0];
       let bestScore = Number.NEGATIVE_INFINITY;
       let bestPrior = actionScore(selected.action);
 
       for (const candidate of rootCandidates) {
-        const score = evaluateCandidateAcrossWorlds(worldStates, rootPlayer, candidate.actionKey, config, random);
+        const score = evaluateCandidateAcrossWorlds(
+          worldStates,
+          rootPlayer,
+          candidate.actionKey,
+          config,
+          random
+        );
         const prior = actionScore(candidate.action);
         if (
-          score > bestScore
-          || (
-            approximatelyEqual(score, bestScore)
-            && (
-              prior > bestPrior
-              || (
-                approximatelyEqual(prior, bestPrior)
-                && candidate.actionKey < selected.actionKey
-              )
-            )
-          )
+          score > bestScore ||
+          (approximatelyEqual(score, bestScore) &&
+            (prior > bestPrior ||
+              (approximatelyEqual(prior, bestPrior) &&
+                candidate.actionKey < selected.actionKey)))
         ) {
           selected = candidate;
           bestScore = score;
@@ -82,16 +97,32 @@ export function createSearchPolicy(options: SearchPolicyOptions = {}): ActionPol
 }
 
 function resolveSearchConfig(options: SearchPolicyOptions): SearchPolicyConfig {
-  const worlds = integerWithFloor(options.worlds ?? DEFAULT_SEARCH_POLICY_CONFIG.worlds, 1);
-  const rollouts = integerWithFloor(options.rollouts ?? DEFAULT_SEARCH_POLICY_CONFIG.rollouts, 1);
-  const depth = integerWithFloor(options.depth ?? DEFAULT_SEARCH_POLICY_CONFIG.depth, 1);
+  const worlds = integerWithFloor(
+    options.worlds ?? DEFAULT_SEARCH_POLICY_CONFIG.worlds,
+    1
+  );
+  const rollouts = integerWithFloor(
+    options.rollouts ?? DEFAULT_SEARCH_POLICY_CONFIG.rollouts,
+    1
+  );
+  const depth = integerWithFloor(
+    options.depth ?? DEFAULT_SEARCH_POLICY_CONFIG.depth,
+    1
+  );
   const maxRootActions = integerWithFloor(
     options.maxRootActions ?? DEFAULT_SEARCH_POLICY_CONFIG.maxRootActions,
     1
   );
-  const rolloutEpsilon = options.rolloutEpsilon ?? DEFAULT_SEARCH_POLICY_CONFIG.rolloutEpsilon;
-  if (!Number.isFinite(rolloutEpsilon) || rolloutEpsilon < 0 || rolloutEpsilon > 1) {
-    throw new Error(`Search policy rolloutEpsilon must be in [0, 1]; received ${String(rolloutEpsilon)}.`);
+  const rolloutEpsilon =
+    options.rolloutEpsilon ?? DEFAULT_SEARCH_POLICY_CONFIG.rolloutEpsilon;
+  if (
+    !Number.isFinite(rolloutEpsilon) ||
+    rolloutEpsilon < 0 ||
+    rolloutEpsilon > 1
+  ) {
+    throw new Error(
+      `Search policy rolloutEpsilon must be in [0, 1]; received ${String(rolloutEpsilon)}.`
+    );
   }
   return {
     worlds,
@@ -104,11 +135,15 @@ function resolveSearchConfig(options: SearchPolicyOptions): SearchPolicyConfig {
 
 function integerWithFloor(value: number, floor: number): number {
   if (!Number.isFinite(value)) {
-    throw new Error(`Search policy expected a finite number; received ${String(value)}.`);
+    throw new Error(
+      `Search policy expected a finite number; received ${String(value)}.`
+    );
   }
   const rounded = Math.trunc(value);
   if (rounded < floor) {
-    throw new Error(`Search policy value must be >= ${String(floor)}; received ${String(value)}.`);
+    throw new Error(
+      `Search policy value must be >= ${String(floor)}; received ${String(value)}.`
+    );
   }
   return rounded;
 }
@@ -139,7 +174,13 @@ function evaluateCandidateAcrossWorlds(
   let count = 0;
   for (const worldState of worldStates) {
     for (let index = 0; index < config.rollouts; index += 1) {
-      total += runRollout(worldState, rootPlayer, rootActionKey, config, random);
+      total += runRollout(
+        worldState,
+        rootPlayer,
+        rootActionKey,
+        config,
+        random
+      );
       count += 1;
     }
   }
@@ -164,7 +205,11 @@ function runRollout(
     if (actions.length === 0) {
       break;
     }
-    const nextActionKey = chooseRolloutActionKey(actions, random, config.rolloutEpsilon);
+    const nextActionKey = chooseRolloutActionKey(
+      actions,
+      random,
+      config.rolloutEpsilon
+    );
     state = stepByActionKey(state, nextActionKey);
     depth += 1;
   }
@@ -189,9 +234,13 @@ function chooseRolloutActionKey(
 
 function stepByActionKey(state: GameState, actionKey: string): GameState {
   const actions = legalActions(state);
-  const action = actions.find((candidate) => actionStableKey(candidate) === actionKey);
+  const action = actions.find(
+    (candidate) => actionStableKey(candidate) === actionKey
+  );
   if (!action) {
-    throw new Error(`Search policy rollout could not find legal action for key ${actionKey}.`);
+    throw new Error(
+      `Search policy rollout could not find legal action for key ${actionKey}.`
+    );
   }
   return stepToDecision(state, action);
 }
@@ -219,7 +268,9 @@ function sampleWorldStates(
     knownCards.add(cardId);
   }
 
-  const hiddenPool = PROPERTY_CARD_IDS.filter((cardId) => !knownCards.has(cardId));
+  const hiddenPool = PROPERTY_CARD_IDS.filter(
+    (cardId) => !knownCards.has(cardId)
+  );
   const expectedHiddenCount = opponentHandCount + drawCount;
   if (hiddenPool.length !== expectedHiddenCount) {
     throw new Error(
@@ -232,7 +283,10 @@ function sampleWorldStates(
     const sampledHidden = [...hiddenPool];
     shuffleInPlace(sampledHidden, random);
     const opponentHand = sampledHidden.slice(0, opponentHandCount);
-    const draw = sampledHidden.slice(opponentHandCount, opponentHandCount + drawCount);
+    const draw = sampledHidden.slice(
+      opponentHandCount,
+      opponentHandCount + drawCount
+    );
 
     const world = structuredClone(state) as GameState;
     world.players = world.players.map((player) => {
@@ -253,7 +307,10 @@ function sampleWorldStates(
   return worlds;
 }
 
-function requiredPlayerView(view: PlayerView, playerId: PlayerId): PlayerView['players'][number] {
+function requiredPlayerView(
+  view: PlayerView,
+  playerId: PlayerId
+): PlayerView['players'][number] {
   const player = view.players.find((candidate) => candidate.id === playerId);
   if (!player) {
     throw new Error(`Search policy view is missing player ${playerId}.`);
@@ -355,15 +412,19 @@ function heuristicStateValue(state: GameState, rootPlayer: PlayerId): number {
   const resourceTerm = Math.tanh(resourceDiff / 10);
   const handTerm = Math.tanh(handDiff / 4);
 
-  const score = (0.55 * districtTerm)
-    + (0.2 * rankTerm)
-    + (0.1 * progressTerm)
-    + (0.1 * resourceTerm)
-    + (0.05 * handTerm);
+  const score =
+    0.55 * districtTerm +
+    0.2 * rankTerm +
+    0.1 * progressTerm +
+    0.1 * resourceTerm +
+    0.05 * handTerm;
   return Math.max(-1, Math.min(1, score));
 }
 
-function requiredPlayerState(state: GameState, playerId: PlayerId): PlayerState {
+function requiredPlayerState(
+  state: GameState,
+  playerId: PlayerId
+): PlayerState {
   const player = state.players.find((candidate) => candidate.id === playerId);
   if (!player) {
     throw new Error(`Search policy state is missing player ${playerId}.`);
@@ -379,7 +440,10 @@ function resourceTotal(player: PlayerState): number {
   return total;
 }
 
-function stackScore(stack: DistrictStack): { rankTotal: number; progressTotal: number } {
+function stackScore(stack: DistrictStack): {
+  rankTotal: number;
+  progressTotal: number;
+} {
   let rankTotal = 0;
   let progressTotal = 0;
 

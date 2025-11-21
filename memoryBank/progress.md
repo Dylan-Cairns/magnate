@@ -2,99 +2,45 @@
 
 ## Implemented
 
-- Architecture is locked:
-  - TS engine is canonical.
-  - Python integrates through a small versioned bridge contract.
-- Engine core is implemented and deterministic:
-  - setup/deck lifecycle
-  - legality + reducer transitions
-  - phase resolver (`advanceToDecision`)
-  - scoring + terminal resolution
-- Rules edge-case coverage was expanded with targeted regression tests (tax/income sequencing, mixed-roll handling, income-choice queue order, ace cost paths, Excuse follow-on placement, final-turn countdown).
-- Browser UI is playable with policy-agnostic controller boundaries and a bot profile catalog.
-- Browser rollout-eval search policy path is wired into the UI bot catalog (T3 config) for direct in-browser play/testing.
-- Browser rollout-eval search is now the default web bot profile; legacy browser PPO profile/model wiring was removed.
-- Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
-- Development-card progress ring fill now animates on upward progress only (including across remounts), with helper-level tests to protect canonical ratio/arc math.
-- Deed-development spend now shows a transient linear chip-flight animation from the acting player's resource rail to the deed token-side target on the in-development card, with deed-token UI updates deferred until flight completion; rules/state semantics remain unchanged.
-- Card-play actions (`buy-deed`, `develop-outright`) now show a transient linear card-flight animation from hand to destination lane, with state commit deferred until animation completion; `buy-deed` flights use deed-colored/in-development card styling.
-- Sell and draw transitions now animate as card flights too:
-  - `sell-card`: acting hand -> discard pile
-  - `end-turn` draw resolution: deck -> acting hand
-- Sell flights now apply state at animation start so the sold card disappears from hand immediately; discard pile rendering is held back until settle so destination update lands with the end of flight. Other flight-backed actions still defer commit until settle.
-- Card flights now scale between source/target rect sizes, so deck/discard-to-hand and hand-to-discard transitions morph cleanly without size snap.
-- Flight overlays now clear at commit-time (not raw animation-end), preventing pre-commit visual gaps/flashes when played cards/deed tokens appear.
-- Deed token side layout now uses stable per-card assignment memory, preventing existing suit tokens from jumping between left/right rails when additional suit tokens are added.
-- Added a persistent UI animation preference toggle in the options menu (stored in `localStorage` as `magnate:animationsEnabled`) that disables flight and deed-progress tweening when turned off.
-- `develop-outright` action list entries are now card-level; grouped cases present district + payment choices together in one anchored picker with an explicit OK button (instead of sequential popovers or listing every payment permutation directly).
-- Multi-source trade now uses the same combined-picker pattern (source + receive in one anchored picker with OK).
-- Combined pickers now render both selector groups immediately (no “select first” gating), and outright payment options render in a single-column list to prevent overflow.
-- For `develop-outright`, grouped-card entries with a single payment pattern use a district-only picker (payment stays in the action label) and selecting district executes immediately; combined picker is reserved for cards with multiple payment patterns.
-- Combined pickers no longer use OK buttons; they now auto-submit as soon as a valid selection exists in each category.
-- Bridge runtime and contract tests are in place.
-- Trainer scaffold is in place for:
-  - sample collection + BC warm-start
-  - stabilized REINFORCE fine-tuning
-  - PPO training
-  - search and MCTS policy evaluation/benchmarking
-  - queued multi-seed train/benchmark workflows
-  - teacher-labeled data generation (`scripts/generate_teacher_data.py`) for distillation
-- Guidance training path from teacher data is implemented:
-  - `scripts/train_search_guidance.py`
-  - `trainer/guidance_training.py`
-  - guidance checkpoints reuse PPO checkpoint format (`magnate_ppo_policy_v1`)
-- MCTS implementation quality pass landed:
-  - root search now uses progressive widening instead of permanent hard top-K pruning
-  - repeated serialized-state + action transitions are cached to reduce duplicate bridge steps
-  - non-terminal MCTS leaf value is more score-aligned (district pressure and tiebreak structure)
-- Search/MCTS guidance integration landed:
-  - optional learned policy priors for search and MCTS
-  - optional learned leaf value for MCTS depth cutoffs
-  - optional learned opponent action modeling in search rollouts
-  - new eval/benchmark/teacher-data CLI flags for guidance checkpoint injection
-- Unattended A/B pipeline script landed:
-  - `scripts/run_guidance_ab_pipeline.py` runs teacher-data -> guidance-train -> baseline eval -> guided eval sequentially with fail-fast behavior and manifest output
-  - default eval policy A is now `search` (was `mcts`)
-- Unattended rollout-search sweep script landed:
-  - `scripts/search_teacher_sweep.py` runs side-swapped search-vs-opponent eval for named presets, then writes ranked JSON/Markdown summaries
-- Training handoff documentation now exists at `docs/TRAINING_HANDOFF.md` with:
-  - measured benchmark/eval snapshot
-  - in-flight run context
-  - objective next-step decision logic
-  - restart-ready command playbook
-- Canonical side-swapped paired-seed eval suite is now implemented:
-  - `scripts/eval_suite.py`
-  - `trainer/eval_suite.py`
-  - reports win rate, Wilson CI, and side gap in one artifact
-- Search/MCTS shared internals are now modularized under `trainer/search/`:
-  - `belief_sampler.py`
-  - `forward_model.py`
-  - `leaf_evaluator.py`
-  - `root_selector.py`
-- Determinized search root action selection now uses progressive widening (no permanent hard top-K lockout).
-- Teacher sample schema now includes optional soft policy targets (`actionProbs`) aligned to legal-action order.
-- Guidance training now consumes soft policy targets when present (fallback to one-hot when absent).
-- Training encoding upgraded to v2:
-  - `trainer/encoding.py` and `src/policies/trainingEncoding.ts` now include hand-composition and endgame/tiebreak features
-  - observation dim is now 206
-  - PPO checkpoints now include and validate `encodingVersion`
+- Deterministic TS engine and bridge runtime are in place.
+- Browser app is playable with policy-agnostic bot selection.
+- Default web bot is rollout-eval search; legacy browser PPO path removed.
+- Canonical side-swapped eval suite is implemented (`scripts/eval_suite.py`).
+- Search/MCTS modular internals and guidance integration are implemented.
+- Teacher sample schema includes optional soft policy targets (`actionProbs`).
+- Encoding upgraded to v2 (`OBSERVATION_DIM=206`, `encodingVersion` enforced for PPO-format checkpoints).
+- Search sweep runner was modernized:
+  - now eval-suite based (one artifact per preset with win rate/CI/side-gap)
+  - legacy `t1..t8` presets removed in favor of modern preset packs
+- Guidance A/B pipeline now uses paired eval seeds for cleaner baseline vs guided comparison.
+
+## Removed (Intentional Cleanup)
+
+- `scripts/export_ppo_browser_checkpoint.py`
+- `scripts/benchmark.py`
+- `scripts/benchmark_queue.py`
+- `scripts/train.py`
+- `scripts/finetune.py`
+- `trainer/benchmarking.py`
+- `trainer/behavior_cloning.py`
+- `trainer/reinforcement.py`
+- Legacy BC/reinforcement/benchmark tests.
 
 ## In Progress
 
-- Guidance checkpoint quality tuning and holdout validation.
-- Determining best teacher configuration: heuristic-guided search vs guidance-assisted search/MCTS.
+- Search preset tuning to reach promotion-grade dominance vs heuristic.
+- Guidance checkpoint quality tuning on top of promoted teacher configs.
 
 ## Remaining
 
-- Add full student distillation training/evaluation path with promotion gates for browser deployment.
-- Define and enforce model promotion criteria (teacher/champion gate).
-- Improve experiment tracking/reporting for long-running sweeps.
+- Lock promotion thresholds and enforce them in repeated sweeps.
+- Complete search->student distillation workflow once teacher dominance is stable.
+- Standardize lightweight experiment reporting across multi-run sweeps.
 
 ## Risks / Watch Items
 
-- Guidance can improve search quality but may increase simulation-time compute if overused in deep trees.
-- Search policy strength is improving, but inference latency is high for UI-time play.
-- PPO seed variance remains significant; single-run conclusions are unreliable.
-- Rules parity is strong but still depends on scenario tests staying current as features evolve.
+- Determinized search strength can improve slower than latency cost.
+- Side-gap instability can hide seat bias; treat as a hard promotion risk.
+- Guidance may increase compute if injected too broadly at inference.
 
-_Updated: 2026-02-28._
+_Updated: 2026-03-01._
