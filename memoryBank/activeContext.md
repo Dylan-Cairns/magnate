@@ -5,7 +5,7 @@
 - Keep TypeScript rules deterministic and canonical.
 - Keep rollout search as the temporary warm-start baseline.
 - Use `scripts.eval_suite` as the canonical promotion protocol (paired seeds, side-swapped, CI + side-gap).
-- Keep Python training surface clean while preparing for TD/Keldon implementation.
+- Build Phase 2 of the TD/Keldon stack on top of newly landed TD primitives.
 
 ## Locked Decisions
 
@@ -45,11 +45,22 @@
   - `heuristic`
   - `search`
 - Search sweep runner remains eval-suite based with preset packs (`scripts/search_teacher_sweep.py`).
+- TD Phase 1 primitives are now implemented under `trainer/td/`:
+  - value/opponent model definitions
+  - replay buffers
+  - TD target helpers (`n-step`, `TD(lambda)`)
+  - checkpoint save/load contracts for TD value/opponent models
+  - self-play episode collection into value transitions + opponent samples
+  - value trainer utilities (target network sync + clipped gradient updates)
+- TD-focused unit tests are in place under `trainer_tests/test_td_*.py`.
 
 ## Immediate Next Steps
 
 1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
 2. Generate warm-start teacher data from promoted search baseline.
-3. Implement TD value + opponent-model training pipeline on this cleaned stack.
+3. Build TD Phase 2 orchestration:
+   - replay population CLI/job,
+   - value/opponent train loop CLI with checkpoint cadence,
+   - evaluation harness for TD checkpoints vs baseline search/heuristic.
 
 _Updated: 2026-03-01._

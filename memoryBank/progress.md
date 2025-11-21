@@ -11,6 +11,14 @@
 - Eval throughput controls are in place:
   - `scripts.eval_suite --workers`
   - `scripts.search_teacher_sweep --jobs` (preset-level parallelism)
+- TD Phase 1 foundation is implemented:
+  - `trainer/td/models.py` (ValueNet, OpponentModel)
+  - `trainer/td/replay.py` (value/opponent replay buffers)
+  - `trainer/td/targets.py` (`n-step`, `TD(lambda)` target helpers)
+  - `trainer/td/checkpoint.py` (TD checkpoint contracts and load/save)
+  - `trainer/td/self_play.py` (self-play trajectory collection + flatten helpers)
+  - `trainer/td/train.py` (value batch training + target network sync trainer)
+  - TD unit coverage in `trainer_tests/test_td_*.py`
 
 ## Removed (Intentional Cleanup)
 
@@ -29,14 +37,14 @@
 ## In Progress
 
 - Search preset tuning to lock a stable warm-start baseline vs heuristic.
-- Preparation for TD/Keldon training module implementation.
+- TD Phase 2 orchestration (CLI loops, replay population cadence, checkpointed training runs).
 
 ## Remaining
 
-- Add TD value training loop (bootstrapped from self-play trajectories).
-- Add opponent action model.
+- Add TD orchestration scripts (self-play replay generation + training entrypoints).
+- Add opponent-model training loop wiring (loss, batching, checkpoint schedule).
 - Integrate TD value + opponent model into search (`td-search` path).
-- Define and document TD checkpoint contract.
+- Define browser deployment path for TD checkpoint inference.
 
 ## Risks / Watch Items
 
