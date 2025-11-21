@@ -39,7 +39,7 @@
 
 ## Known Gaps
 
-- TD value/opponent-model training modules are not implemented yet.
+- TD module primitives exist (`trainer/td`), but no end-to-end TD orchestration scripts are wired yet.
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser deployment path for learned TD models is not implemented yet.
 

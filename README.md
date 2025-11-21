@@ -16,6 +16,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Browser game is playable; default web bot is rollout-eval search.
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
 - Python side now keeps only `random`, `heuristic`, and `search` policy paths.
+- TD Phase 1 foundation is implemented in `trainer/td` (models, replay, targets, checkpointing, self-play utilities, value trainer).
 - PPO, MCTS, and guidance/distillation codepaths were intentionally removed.
 
 ## Local Commands
