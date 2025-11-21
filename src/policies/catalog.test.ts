@@ -12,10 +12,10 @@ describe('bot policy catalog', () => {
     expect(() => getBotProfile('unknown-profile')).toThrow('Unknown bot profile');
   });
 
-  it('uses champion profile as default and resolves an available policy', () => {
+  it('uses search profile as default and resolves an available policy', () => {
     const resolved = resolveBotProfile(DEFAULT_BOT_PROFILE_ID);
     expect(resolved.selected.available).toBe(true);
-    expect(resolved.selected.kind).toBe('trained');
+    expect(resolved.selected.kind).toBe('search');
   });
 
   it('keeps all configured profiles available', () => {

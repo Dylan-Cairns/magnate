@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, List, Mapping, MutableMapping, Sequence
 
 from .types import KeyedAction
@@ -50,8 +51,42 @@ MAX_DISTRICT_RANK_SUM = 60.0
 MAX_DEED_PROGRESS = 9.0
 MAX_TOKEN_COUNT = 9.0
 
-OBSERVATION_DIM = 186
+ENCODING_VERSION = 2
+OBSERVATION_DIM = 206
 ACTION_FEATURE_DIM = 40
+
+PROPERTY_SUITS_BY_CARD_ID: Dict[str, tuple[str, ...]] = {
+    "0": ("Knots",),
+    "1": ("Leaves",),
+    "2": ("Moons",),
+    "3": ("Suns",),
+    "4": ("Waves",),
+    "5": ("Wyrms",),
+    "6": ("Moons", "Knots"),
+    "7": ("Suns", "Wyrms"),
+    "8": ("Waves", "Leaves"),
+    "9": ("Moons", "Waves"),
+    "10": ("Suns", "Knots"),
+    "11": ("Leaves", "Wyrms"),
+    "12": ("Wyrms", "Knots"),
+    "13": ("Moons", "Suns"),
+    "14": ("Waves", "Leaves"),
+    "15": ("Suns", "Waves"),
+    "16": ("Moons", "Leaves"),
+    "17": ("Wyrms", "Knots"),
+    "18": ("Moons", "Waves"),
+    "19": ("Leaves", "Knots"),
+    "20": ("Suns", "Wyrms"),
+    "21": ("Suns", "Knots"),
+    "22": ("Waves", "Wyrms"),
+    "23": ("Moons", "Leaves"),
+    "24": ("Wyrms", "Knots"),
+    "25": ("Moons", "Suns"),
+    "26": ("Waves", "Leaves"),
+    "27": ("Waves", "Wyrms"),
+    "28": ("Leaves", "Knots"),
+    "29": ("Moons", "Suns"),
+}
 
 
 def encode_observation(view: Mapping[str, Any]) -> List[float]:
@@ -88,6 +123,17 @@ def encode_observation(view: Mapping[str, Any]) -> List[float]:
 
     vector.extend(_crown_suit_counts(_as_list(active_player.get("crowns", []))))
     vector.extend(_crown_suit_counts(_as_list(opponent_player.get("crowns", []))))
+    vector.extend(_hand_suit_histogram(_as_list(active_player.get("hand", []))))
+    vector.extend(_hand_rank_histogram(_as_list(active_player.get("hand", []))))
+    vector.extend(
+        _endgame_tiebreak_features(
+            view=view,
+            active_player_id=active_player_id,
+            opponent_id=opponent_id,
+            active_player=active_player,
+            opponent_player=opponent_player,
+        )
+    )
 
     districts = sorted(
         _as_list(view.get("districts", [])),
@@ -183,6 +229,73 @@ def _crown_suit_counts(crowns: Sequence[Any]) -> List[float]:
     return [_norm(counts[suit], 3.0) for suit in SUITS]
 
 
+def _hand_suit_histogram(hand: Sequence[Any]) -> List[float]:
+    counts: MutableMapping[str, int] = {suit: 0 for suit in SUITS}
+    for card_id in hand:
+        card_key = _as_str(card_id)
+        for suit in PROPERTY_SUITS_BY_CARD_ID.get(card_key, ()):
+            if suit in counts:
+                counts[suit] += 1
+    return [_norm(counts[suit], MAX_HAND_COUNT * 2.0) for suit in SUITS]
+
+
+def _hand_rank_histogram(hand: Sequence[Any]) -> List[float]:
+    counts = [0] * 10
+    for card_id in hand:
+        rank = _card_rank(_as_str(card_id))
+        if 1 <= rank <= 10:
+            counts[rank - 1] += 1
+    return [_norm(value, MAX_HAND_COUNT) for value in counts]
+
+
+def _endgame_tiebreak_features(
+    *,
+    view: Mapping[str, Any],
+    active_player_id: str,
+    opponent_id: str,
+    active_player: Mapping[str, Any],
+    opponent_player: Mapping[str, Any],
+) -> List[float]:
+    deck = _as_mapping(view.get("deck", {}))
+    reshuffles = _as_int(deck.get("reshuffles", 0))
+    final_turns_remaining = _as_int(view.get("finalTurnsRemaining", 0))
+    endgame_flag = 1.0 if reshuffles >= 2 or final_turns_remaining > 0 else 0.0
+
+    districts = _as_list(view.get("districts", []))
+    district_point_diff = 0.0
+    developed_rank_diff = 0.0
+    for district in districts:
+        district_map = _as_mapping(district)
+        stacks = _as_mapping(district_map.get("stacks", {}))
+        active_stack = _as_mapping(stacks.get(active_player_id, {}))
+        opponent_stack = _as_mapping(stacks.get(opponent_id, {}))
+        active_rank = _developed_rank_sum(active_stack)
+        opponent_rank = _developed_rank_sum(opponent_stack)
+        developed_rank_diff += active_rank - opponent_rank
+        if active_rank > opponent_rank:
+            district_point_diff += 1.0
+        elif active_rank < opponent_rank:
+            district_point_diff -= 1.0
+
+    district_term = district_point_diff / float(max(1, len(districts)))
+    rank_term = math.tanh(developed_rank_diff / 18.0)
+    resource_term = math.tanh((_resource_total(active_player) - _resource_total(opponent_player)) / 10.0)
+    return [
+        endgame_flag,
+        _signed_to_unit_interval(district_term),
+        _signed_to_unit_interval(rank_term),
+        _signed_to_unit_interval(resource_term),
+    ]
+
+
+def _developed_rank_sum(stack: Mapping[str, Any]) -> int:
+    developed = _as_list(stack.get("developed", []))
+    total = 0
+    for card_id in developed:
+        total += _card_rank(_as_str(card_id))
+    return total
+
+
 def _resource_vector(
     resource_map: Mapping[str, Any],
     normalize_by: float = MAX_RESOURCES,
@@ -247,6 +360,11 @@ def _norm(value: int, ceiling: float) -> float:
     return clipped / ceiling
 
 
+def _signed_to_unit_interval(value: float) -> float:
+    clipped = min(max(value, -1.0), 1.0)
+    return (clipped + 1.0) * 0.5
+
+
 def _one_hot(index: int, length: int) -> List[float]:
     out = [0.0] * length
     if 0 <= index < length:
@@ -282,3 +400,11 @@ def _as_str(value: Any) -> str:
     if isinstance(value, str):
         return value
     return ""
+
+
+def _resource_total(player_state: Mapping[str, Any]) -> int:
+    resources = _as_mapping(player_state.get("resources", {}))
+    total = 0
+    for suit in SUITS:
+        total += _as_int(resources.get(suit, 0))
+    return total

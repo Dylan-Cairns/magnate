@@ -37,6 +37,11 @@ def collect_episode_samples(
         )
         action_index = _find_action_index(legal.actions, action_key)
         chosen_action = legal.actions[action_index]
+        action_probs = _action_probs_from_policy(
+            policy=policy,
+            legal_actions=legal.actions,
+            chosen_action_index=action_index,
+        )
 
         staged.append(
             DecisionSample(
@@ -51,6 +56,7 @@ def collect_episode_samples(
                 action_features=action_vectors,
                 winner="Draw",
                 reward=0.0,
+                action_probs=action_probs,
             )
         )
 
@@ -168,6 +174,12 @@ def _decision_sample_from_json(payload: Mapping[str, Any], line_number: int) -> 
             "actionIndex is out of bounds on line "
             f"{line_number}: index={action_index}, candidates={len(action_features)}."
         )
+    action_probs = _optional_float_list(payload.get("actionProbs"), line_number, "actionProbs")
+    if action_probs is not None and len(action_probs) != len(action_features):
+        raise ValueError(
+            "actionProbs length mismatch on line "
+            f"{line_number}: probs={len(action_probs)}, candidates={len(action_features)}."
+        )
 
     return DecisionSample(
         seed=str(payload.get("seed", "")),
@@ -181,6 +193,7 @@ def _decision_sample_from_json(payload: Mapping[str, Any], line_number: int) -> 
         action_features=action_features,
         winner=winner,
         reward=_as_float(payload.get("reward"), line_number, "reward"),
+        action_probs=action_probs,
     )
 
 
@@ -205,3 +218,35 @@ def _as_float(value: Any, line_number: int, field: str) -> float:
     if isinstance(value, (int, float)):
         return float(value)
     raise ValueError(f"{field} must be numeric on line {line_number}.")
+
+
+def _optional_float_list(value: Any, line_number: int, field: str) -> List[float] | None:
+    if value is None:
+        return None
+    return _float_list(value, line_number, field)
+
+
+def _action_probs_from_policy(
+    *,
+    policy: Policy,
+    legal_actions,
+    chosen_action_index: int,
+) -> List[float]:
+    by_key = policy.root_action_probs()
+    if not by_key:
+        return _one_hot_distribution(len(legal_actions), chosen_action_index)
+
+    raw: List[float] = []
+    for action in legal_actions:
+        raw.append(max(0.0, float(by_key.get(action.action_key, 0.0))))
+    total = sum(raw)
+    if total <= 0.0:
+        return _one_hot_distribution(len(legal_actions), chosen_action_index)
+    return [value / total for value in raw]
+
+
+def _one_hot_distribution(size: int, index: int) -> List[float]:
+    out = [0.0] * size
+    if 0 <= index < size:
+        out[index] = 1.0
+    return out

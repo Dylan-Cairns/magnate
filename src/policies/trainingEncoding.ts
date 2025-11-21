@@ -48,8 +48,42 @@ const MAX_DISTRICT_RANK_SUM = 60.0;
 const MAX_DEED_PROGRESS = 9.0;
 const MAX_TOKEN_COUNT = 9.0;
 
-export const OBSERVATION_DIM = 186;
+export const ENCODING_VERSION = 2;
+export const OBSERVATION_DIM = 206;
 export const ACTION_FEATURE_DIM = 40;
+
+const PROPERTY_SUITS_BY_CARD_ID: Readonly<Record<string, readonly Suit[]>> = {
+  '0': ['Knots'],
+  '1': ['Leaves'],
+  '2': ['Moons'],
+  '3': ['Suns'],
+  '4': ['Waves'],
+  '5': ['Wyrms'],
+  '6': ['Moons', 'Knots'],
+  '7': ['Suns', 'Wyrms'],
+  '8': ['Waves', 'Leaves'],
+  '9': ['Moons', 'Waves'],
+  '10': ['Suns', 'Knots'],
+  '11': ['Leaves', 'Wyrms'],
+  '12': ['Wyrms', 'Knots'],
+  '13': ['Moons', 'Suns'],
+  '14': ['Waves', 'Leaves'],
+  '15': ['Suns', 'Waves'],
+  '16': ['Moons', 'Leaves'],
+  '17': ['Wyrms', 'Knots'],
+  '18': ['Moons', 'Waves'],
+  '19': ['Leaves', 'Knots'],
+  '20': ['Suns', 'Wyrms'],
+  '21': ['Suns', 'Knots'],
+  '22': ['Waves', 'Wyrms'],
+  '23': ['Moons', 'Leaves'],
+  '24': ['Wyrms', 'Knots'],
+  '25': ['Moons', 'Suns'],
+  '26': ['Waves', 'Leaves'],
+  '27': ['Waves', 'Wyrms'],
+  '28': ['Leaves', 'Knots'],
+  '29': ['Moons', 'Suns'],
+};
 
 export function encodeObservation(view: PlayerView): number[] {
   const activePlayerId = view.activePlayerId;
@@ -77,6 +111,17 @@ export function encodeObservation(view: PlayerView): number[] {
   vector.push(norm(opponentPlayer?.handCount ?? 0, MAX_HAND_COUNT));
   vector.push(...crownSuitCounts(activePlayer?.crowns));
   vector.push(...crownSuitCounts(opponentPlayer?.crowns));
+  vector.push(...handSuitHistogram(activePlayer?.hand));
+  vector.push(...handRankHistogram(activePlayer?.hand));
+  vector.push(
+    ...endgameTiebreakFeatures({
+      view,
+      activePlayerId,
+      opponentId,
+      activePlayer,
+      opponentPlayer,
+    })
+  );
 
   const districts = [...view.districts].sort((a, b) => a.id.localeCompare(b.id));
   for (const district of districts) {
@@ -181,6 +226,94 @@ function crownSuitCounts(crowns: readonly string[] | undefined): number[] {
   return SUITS.map((suit) => norm(counts[suit], 3.0));
 }
 
+function handSuitHistogram(hand: readonly string[] | undefined): number[] {
+  const counts: Record<Suit, number> = {
+    Moons: 0,
+    Suns: 0,
+    Waves: 0,
+    Leaves: 0,
+    Wyrms: 0,
+    Knots: 0,
+  };
+  for (const cardId of hand ?? []) {
+    for (const suit of PROPERTY_SUITS_BY_CARD_ID[cardId] ?? []) {
+      counts[suit] += 1;
+    }
+  }
+  return SUITS.map((suit) => norm(counts[suit], MAX_HAND_COUNT * 2.0));
+}
+
+function handRankHistogram(hand: readonly string[] | undefined): number[] {
+  const counts = Array(10).fill(0);
+  for (const cardId of hand ?? []) {
+    const rank = cardRankFromId(cardId);
+    if (rank >= 1 && rank <= 10) {
+      counts[rank - 1] += 1;
+    }
+  }
+  return counts.map((value) => norm(value, MAX_HAND_COUNT));
+}
+
+function endgameTiebreakFeatures({
+  view,
+  activePlayerId,
+  opponentId,
+  activePlayer,
+  opponentPlayer,
+}: {
+  view: PlayerView;
+  activePlayerId: PlayerId;
+  opponentId: PlayerId;
+  activePlayer:
+    | {
+        resources: Partial<Record<Suit, number>>;
+      }
+    | undefined;
+  opponentPlayer:
+    | {
+        resources: Partial<Record<Suit, number>>;
+      }
+    | undefined;
+}): number[] {
+  const endgameFlag =
+    view.deck.reshuffles >= 2 || (view.finalTurnsRemaining ?? 0) > 0 ? 1.0 : 0.0;
+
+  let districtPointDiff = 0.0;
+  let developedRankDiff = 0.0;
+  for (const district of view.districts) {
+    const activeStack = district.stacks[activePlayerId];
+    const opponentStack = district.stacks[opponentId];
+    const activeRank = developedRankSum(activeStack);
+    const opponentRank = developedRankSum(opponentStack);
+    developedRankDiff += activeRank - opponentRank;
+    if (activeRank > opponentRank) {
+      districtPointDiff += 1.0;
+    } else if (activeRank < opponentRank) {
+      districtPointDiff -= 1.0;
+    }
+  }
+
+  const districtTerm = districtPointDiff / Math.max(1, view.districts.length);
+  const rankTerm = Math.tanh(developedRankDiff / 18.0);
+  const resourceTerm = Math.tanh(
+    (resourceTotal(activePlayer?.resources) - resourceTotal(opponentPlayer?.resources)) / 10.0
+  );
+  return [
+    endgameFlag,
+    signedToUnitInterval(districtTerm),
+    signedToUnitInterval(rankTerm),
+    signedToUnitInterval(resourceTerm),
+  ];
+}
+
+function developedRankSum(stack: { developed: string[] }): number {
+  let total = 0;
+  for (const cardId of stack.developed) {
+    total += cardRankFromId(cardId);
+  }
+  return total;
+}
+
 function resourceVector(
   resourceMap: Partial<Record<Suit, number>> | Record<string, unknown> | undefined,
   normalizeBy: number = MAX_RESOURCES
@@ -260,6 +393,11 @@ function norm(value: number, ceiling: number): number {
   return clipped / ceiling;
 }
 
+function signedToUnitInterval(value: number): number {
+  const clipped = Math.max(-1.0, Math.min(value, 1.0));
+  return (clipped + 1.0) * 0.5;
+}
+
 function oneHot(index: number, length: number): number[] {
   const out = Array(length).fill(0.0);
   if (index >= 0 && index < length) {
@@ -307,6 +445,17 @@ function sumResourceMap(resourceMap: Record<string, unknown>): number {
   let total = 0;
   for (const value of Object.values(resourceMap)) {
     total += asInt(value);
+  }
+  return total;
+}
+
+function resourceTotal(resourceMap: Partial<Record<Suit, number>> | undefined): number {
+  if (!resourceMap) {
+    return 0;
+  }
+  let total = 0;
+  for (const suit of SUITS) {
+    total += asInt(resourceMap[suit]);
   }
   return total;
 }

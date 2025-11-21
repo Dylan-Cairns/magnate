@@ -13,8 +13,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 - Deterministic engine loop is implemented (`setup`, `legalActions`, `applyAction`, `advanceToDecision`, scoring/terminal).
 - Browser game shell is playable with policy-driven bots.
-- Browser PPO champion profile is enabled and currently default.
-- Browser rollout-eval search profile is available for direct in-UI play/testing (explicit failure surface, no hidden fallback).
+- Browser rollout-eval search profile is enabled and currently default (explicit failure surface, no hidden fallback).
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
 - Trainer supports:
   - random/heuristic evaluation
@@ -52,6 +51,7 @@ With `.venv` active:
 
 - Smoke check: `python -m scripts.smoke_trainer`
 - Eval matchup: `python -m scripts.eval --games 50 --player-a-policy heuristic --player-b-policy random`
+- Canonical side-swapped eval suite: `python -m scripts.eval_suite --games-per-side 200 --candidate-policy search --opponent-policy heuristic`
 - Eval MCTS vs heuristic: `python -m scripts.eval --games 200 --player-a-policy mcts --player-b-policy heuristic`
 - Canonical benchmark: `python -m scripts.benchmark --candidate-policy ppo --candidate-checkpoint artifacts/ppo_checkpoint.pt`
 - BC warm-start: `python -m scripts.train --games 50`

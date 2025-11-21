@@ -43,5 +43,5 @@
 
 - Guidance training path now exists, but checkpoint quality and tuning are not yet standardized.
 - Search teacher is stronger than PPO, but still below target dominance; learned priors/value/opponent-model tuning remains in progress.
-- Experiment tracking and promotion criteria are still lightweight/manual.
+- Experiment tracking and promotion criteria are still lightweight/manual (despite canonical side-swapped eval-suite artifacts).
 - Long-run training automation exists, but tuning strategy and reporting are not yet standardized.

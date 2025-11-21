@@ -93,8 +93,10 @@ def train_guidance_model(
                 observation = torch.tensor(sample.observation, dtype=torch.float32)
                 action_features = torch.tensor(sample.action_features, dtype=torch.float32)
                 logits = model.policy_logits_tensor(observation, action_features)
-                target_index = torch.tensor(sample.action_index, dtype=torch.int64)
-                policy_loss = F.cross_entropy(logits.unsqueeze(0), target_index.unsqueeze(0))
+                target_probs = _policy_target_probs(sample)
+                target = torch.tensor(target_probs, dtype=torch.float32)
+                log_probs = torch.log_softmax(logits, dim=-1)
+                policy_loss = -(target * log_probs).sum()
                 batch_policy.append(policy_loss)
 
                 value = model.value_tensor(observation)
@@ -106,7 +108,8 @@ def train_guidance_model(
                 batch_entropy.append(entropy)
 
                 predicted = int(torch.argmax(logits).item())
-                if predicted == sample.action_index:
+                target_index = _argmax_index(target_probs)
+                if predicted == target_index:
                     correct += 1
                 total += 1
 
@@ -173,6 +176,11 @@ def _validate_samples(
                 "Sample action_index out of bounds. "
                 f"index={sample.action_index}, candidates={len(sample.action_features)}"
             )
+        if sample.action_probs is not None and len(sample.action_probs) != len(sample.action_features):
+            raise ValueError(
+                "Sample action_probs length mismatch. "
+                f"probs={len(sample.action_probs)}, candidates={len(sample.action_features)}"
+            )
         for features in sample.action_features:
             if len(features) != action_feature_dim:
                 raise ValueError(
@@ -198,3 +206,32 @@ def _validate_config(config: GuidanceConfig) -> None:
         raise ValueError("max_grad_norm must be > 0.")
     if config.hidden_dim <= 0:
         raise ValueError("hidden_dim must be > 0.")
+
+
+def _policy_target_probs(sample: DecisionSample) -> list[float]:
+    if sample.action_probs is None:
+        return _one_hot_distribution(len(sample.action_features), sample.action_index)
+    clipped = [max(0.0, float(value)) for value in sample.action_probs]
+    total = sum(clipped)
+    if total <= 0.0:
+        return _one_hot_distribution(len(sample.action_features), sample.action_index)
+    return [value / total for value in clipped]
+
+
+def _argmax_index(values: Sequence[float]) -> int:
+    if not values:
+        return 0
+    best_index = 0
+    best_value = values[0]
+    for index, value in enumerate(values[1:], start=1):
+        if value > best_value:
+            best_index = index
+            best_value = value
+    return best_index
+
+
+def _one_hot_distribution(size: int, index: int) -> list[float]:
+    out = [0.0] * size
+    if 0 <= index < size:
+        out[index] = 1.0
+    return out

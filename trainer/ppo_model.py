@@ -6,6 +6,8 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 import torch
 from torch import nn
 
+from .encoding import ENCODING_VERSION
+
 PPO_CHECKPOINT_TYPE = "magnate_ppo_policy_v1"
 
 
@@ -89,6 +91,7 @@ def save_ppo_checkpoint(
 ) -> None:
     payload: Dict[str, Any] = {
         "checkpointType": PPO_CHECKPOINT_TYPE,
+        "encodingVersion": ENCODING_VERSION,
         "observationDim": int(model.observation_dim),
         "actionFeatureDim": int(model.action_feature_dim),
         "hiddenDim": int(model.hidden_dim),
@@ -114,6 +117,17 @@ def load_ppo_checkpoint(
     if checkpoint_type != PPO_CHECKPOINT_TYPE:
         raise ValueError(
             f"Unsupported checkpoint type {checkpoint_type!r}; expected {PPO_CHECKPOINT_TYPE!r}."
+        )
+    if "encodingVersion" not in raw:
+        raise ValueError(
+            "PPO checkpoint is missing encodingVersion metadata. "
+            "Legacy checkpoints are not compatible with the current training encoding."
+        )
+    encoding_version = _as_positive_int(raw.get("encodingVersion"), "encodingVersion")
+    if encoding_version != ENCODING_VERSION:
+        raise ValueError(
+            "Encoding version mismatch for PPO checkpoint. "
+            f"checkpoint={encoding_version} expected={ENCODING_VERSION}."
         )
 
     observation_dim = _as_positive_int(raw.get("observationDim"), "observationDim")

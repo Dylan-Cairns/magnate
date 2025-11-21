@@ -341,14 +341,14 @@ def _build_steps(
     baseline_cmd = [
         python_bin,
         "-m",
-        "scripts.eval",
-        "--games",
+        "scripts.eval_suite",
+        "--games-per-side",
         str(args.games),
         "--seed-prefix",
         base_seed,
-        "--player-a-policy",
+        "--candidate-policy",
         args.eval_policy_a,
-        "--player-b-policy",
+        "--opponent-policy",
         args.eval_policy_b,
         "--search-worlds",
         str(args.search_worlds),
@@ -374,21 +374,21 @@ def _build_steps(
         str(baseline_eval_out),
     ]
     if args.eval_a_checkpoint is not None:
-        baseline_cmd.extend(["--player-a-checkpoint", str(args.eval_a_checkpoint)])
+        baseline_cmd.extend(["--candidate-checkpoint", str(args.eval_a_checkpoint)])
     if args.eval_b_checkpoint is not None:
-        baseline_cmd.extend(["--player-b-checkpoint", str(args.eval_b_checkpoint)])
+        baseline_cmd.extend(["--opponent-checkpoint", str(args.eval_b_checkpoint)])
 
     guided_cmd = [
         python_bin,
         "-m",
-        "scripts.eval",
-        "--games",
+        "scripts.eval_suite",
+        "--games-per-side",
         str(args.games),
         "--seed-prefix",
         guided_seed,
-        "--player-a-policy",
+        "--candidate-policy",
         args.eval_policy_a,
-        "--player-b-policy",
+        "--opponent-policy",
         args.eval_policy_b,
         "--search-worlds",
         str(args.search_worlds),
@@ -420,9 +420,9 @@ def _build_steps(
         str(guided_eval_out),
     ]
     if args.eval_a_checkpoint is not None:
-        guided_cmd.extend(["--player-a-checkpoint", str(args.eval_a_checkpoint)])
+        guided_cmd.extend(["--candidate-checkpoint", str(args.eval_a_checkpoint)])
     if args.eval_b_checkpoint is not None:
-        guided_cmd.extend(["--player-b-checkpoint", str(args.eval_b_checkpoint)])
+        guided_cmd.extend(["--opponent-checkpoint", str(args.eval_b_checkpoint)])
 
     return [
         Step(name="generate_teacher_data", command=teacher_cmd),

@@ -51,7 +51,6 @@ Current direction:
 - Guidance checkpoint training from teacher data:
   - `scripts/train_search_guidance`
 - Browser bot profiles:
-  - `Champion PPO` (default)
   - `Rollout Eval Search` (T3 settings)
   - `Random`
 
@@ -143,6 +142,12 @@ Get-ChildItem artifacts\evals\mcts*_25.json | ForEach-Object { $j = Get-Content 
 python -m scripts.eval --games 200 --seed-prefix eval-mcts-v-heur-200 --player-a-policy mcts --player-b-policy heuristic --mcts-worlds 6 --mcts-simulations 192 --mcts-depth 20 --mcts-max-root-actions 10 --mcts-c-puct 1.15 --out artifacts/evals/mcts_v_heur_200.json
 ```
 
+### Canonical side-swapped paired-seed evaluation template
+
+```powershell
+python -m scripts.eval_suite --games-per-side 200 --seed-prefix eval-suite-v1 --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/evals/search_v_heur_eval_suite_400.json
+```
+
 ### Rollout-search teacher-data generation template
 
 ```powershell
@@ -193,7 +198,7 @@ python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 20
 - Current MCTS is determinized-tree search and not full chance-node MCTS.
 - MCTS runtime can increase sharply with `worlds * simulations * depth`.
 - MCTS root widening improves action coverage, but poor prior quality can still slow convergence.
-- Browser MCTS is not yet integrated; only rollout-search and PPO are available in UI.
+- Browser MCTS is not yet integrated; rollout-search and random are currently available in UI.
 
 ---
 
