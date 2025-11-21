@@ -2,14 +2,25 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Protocol, Sequence
 
 from trainer.encoding import encode_action_candidates, encode_observation
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import Policy
 from trainer.types import KeyedAction, PlayerId, Winner
 
 from .types import OpponentSample, ValueTransition
+
+SelfPlayProgressCallback = Callable[[int, int, Mapping[str, int]], None]
+
+
+class PolicyLike(Protocol):
+    def choose_action_key(
+        self,
+        view: Dict[str, Any],
+        legal_actions: Sequence[KeyedAction],
+        rng: random.Random,
+        state: Mapping[str, Any] | None = None,
+    ) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -24,7 +35,7 @@ class SelfPlayEpisode:
 
 def collect_self_play_episode(
     env: MagnateBridgeEnv,
-    policies: Mapping[PlayerId, Policy],
+    policies: Mapping[PlayerId, PolicyLike],
     seed: str,
     first_player: PlayerId,
     rng: random.Random,
@@ -101,32 +112,43 @@ def collect_self_play_episode(
 
 def collect_self_play_games(
     env: MagnateBridgeEnv,
-    policy_player_a: Policy,
-    policy_player_b: Policy,
+    policy_player_a: PolicyLike,
+    policy_player_b: PolicyLike,
     games: int,
     seed_prefix: str,
+    progress_every_games: int = 0,
+    on_progress: SelfPlayProgressCallback | None = None,
 ) -> list[SelfPlayEpisode]:
     if games <= 0:
         raise ValueError("games must be > 0.")
 
-    policies: Dict[PlayerId, Policy] = {
+    policies: Dict[PlayerId, PolicyLike] = {
         "PlayerA": policy_player_a,
         "PlayerB": policy_player_b,
     }
     rng = random.Random(0)
     episodes: list[SelfPlayEpisode] = []
+    winners = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
     for index in range(games):
         first_player: PlayerId = "PlayerA" if index % 2 == 0 else "PlayerB"
         seed = f"{seed_prefix}-{index}"
-        episodes.append(
-            collect_self_play_episode(
-                env=env,
-                policies=policies,
-                seed=seed,
-                first_player=first_player,
-                rng=rng,
-            )
+        episode = collect_self_play_episode(
+            env=env,
+            policies=policies,
+            seed=seed,
+            first_player=first_player,
+            rng=rng,
         )
+        episodes.append(episode)
+        winners[episode.winner] += 1
+
+        completed = index + 1
+        if (
+            on_progress is not None
+            and progress_every_games > 0
+            and (completed % progress_every_games == 0 or completed == games)
+        ):
+            on_progress(completed, games, dict(winners))
     return episodes
 
 
@@ -153,11 +175,18 @@ def _find_action_index(actions: Sequence[KeyedAction], action_key: str) -> int:
 
 def _winner_from_state(state: Mapping[str, Any]) -> Winner:
     final_score = state.get("finalScore")
-    if isinstance(final_score, dict):
-        winner = final_score.get("winner")
-        if winner in ("PlayerA", "PlayerB", "Draw"):
-            return winner
-    return "Draw"
+    if not isinstance(final_score, dict):
+        raise ValueError(
+            "Terminal state is missing finalScore. "
+            f"turn={state.get('turn')} phase={state.get('phase')!r}"
+        )
+    winner = final_score.get("winner")
+    if winner in ("PlayerA", "PlayerB", "Draw"):
+        return winner
+    raise ValueError(
+        "Terminal state has invalid finalScore.winner. "
+        f"winner={winner!r} turn={state.get('turn')} phase={state.get('phase')!r}"
+    )
 
 
 def _terminal_reward(*, winner: Winner, player_id: PlayerId) -> float:
@@ -168,7 +197,7 @@ def _terminal_reward(*, winner: Winner, player_id: PlayerId) -> float:
 
 def _as_int(value: Any) -> int:
     if isinstance(value, bool):
-        return int(value)
+        raise ValueError("Expected integer value, got bool.")
     if isinstance(value, (int, float)):
         return int(value)
-    return 0
+    raise ValueError(f"Expected numeric value, got {type(value).__name__}.")

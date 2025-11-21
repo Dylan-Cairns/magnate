@@ -77,18 +77,20 @@ def _district_property_cards(view: Mapping[str, Any]) -> set[str]:
     cards: set[str] = set()
     districts = view.get("districts")
     if not isinstance(districts, list):
-        return cards
+        raise ValueError("View payload is missing districts list.")
 
     for district in districts:
         if not isinstance(district, dict):
-            continue
+            raise ValueError(f"District entry must be an object, got {type(district).__name__}.")
         stacks = district.get("stacks")
         if not isinstance(stacks, dict):
-            continue
+            raise ValueError("District payload is missing stacks object.")
         for player_id in ("PlayerA", "PlayerB"):
             stack = stacks.get(player_id)
             if not isinstance(stack, dict):
-                continue
+                raise ValueError(
+                    f"District stack for {player_id} must be an object, got {type(stack).__name__}."
+                )
             for card_id in _as_card_list(stack.get("developed")):
                 cards.add(card_id)
             deed = stack.get("deed")
@@ -96,6 +98,8 @@ def _district_property_cards(view: Mapping[str, Any]) -> set[str]:
                 deed_card = deed.get("cardId")
                 if isinstance(deed_card, str):
                     cards.add(deed_card)
+            elif deed is not None:
+                raise ValueError(f"District deed must be an object, got {type(deed).__name__}.")
     return cards
 
 
@@ -118,17 +122,18 @@ def _as_mapping(value: Any) -> Dict[str, Any]:
 
 def _as_card_list(value: Any) -> list[str]:
     if not isinstance(value, list):
-        return []
+        raise ValueError(f"Expected list of card ids, got {type(value).__name__}.")
     out: list[str] = []
     for entry in value:
-        if isinstance(entry, str):
-            out.append(entry)
+        if not isinstance(entry, str):
+            raise ValueError(f"Expected card id string, got {type(entry).__name__}.")
+        out.append(entry)
     return out
 
 
 def _as_int(value: Any) -> int:
     if isinstance(value, bool):
-        return int(value)
+        raise ValueError("Expected integer value, got bool.")
     if isinstance(value, (int, float)):
         return int(value)
-    return 0
+    raise ValueError(f"Expected numeric value, got {type(value).__name__}.")

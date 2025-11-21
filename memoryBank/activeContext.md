@@ -5,7 +5,7 @@
 - Keep TypeScript rules deterministic and canonical.
 - Keep rollout search as the temporary warm-start baseline.
 - Use `scripts.eval_suite` as the canonical promotion protocol (paired seeds, side-swapped, CI + side-gap).
-- Build Phase 2 of the TD/Keldon stack on top of newly landed TD primitives.
+- Execute and iterate Phase 2 TD loops (`collect_td_self_play` -> `train_td` -> checkpoint eval).
 
 ## Locked Decisions
 
@@ -13,6 +13,7 @@
 - Python training/eval uses the TS bridge contract, not duplicated rules.
 - Bridge contract remains small and versioned.
 - PPO, MCTS, and guidance codepaths are removed from active scope.
+- Python training/eval paths are fail-fast (no silent fallback labels/actions/probabilities).
 
 ## Current State
 
@@ -53,14 +54,32 @@
   - self-play episode collection into value transitions + opponent samples
   - value trainer utilities (target network sync + clipped gradient updates)
 - TD-focused unit tests are in place under `trainer_tests/test_td_*.py`.
+- TD Phase 2 orchestration is implemented:
+  - `scripts.collect_td_self_play` writes replay artifacts:
+    - `<stamp>-<label>.value.jsonl`
+    - `<stamp>-<label>.opponent.jsonl`
+  - `scripts.train_td` trains value/opponent models from replay with checkpoint cadence.
+  - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
+    - `--candidate-policy td-value` / `--opponent-policy td-value`
+    - `--td-value-checkpoint`
+    - `--td-worlds`
+- TD Phase 3 initial search integration is implemented:
+  - `td-search` policy in `trainer.policies`:
+    - determinized search root logic retained
+    - leaf evaluation replaced with TD value checkpoint
+    - opponent rollout guidance via required opponent checkpoint
+  - surfaced via `scripts.eval`, `scripts.eval_suite`, `scripts.generate_teacher_data`, and `scripts.collect_td_self_play`.
+- Runtime guardrails:
+  - training/eval scripts require active `.venv` and explicit policy flags
+  - `td-search` configuration requires both value and opponent checkpoints
 
 ## Immediate Next Steps
 
 1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
 2. Generate warm-start teacher data from promoted search baseline.
-3. Build TD Phase 2 orchestration:
-   - replay population CLI/job,
-   - value/opponent train loop CLI with checkpoint cadence,
-   - evaluation harness for TD checkpoints vs baseline search/heuristic.
+3. Run repeated TD cycles and track promotion gates:
+   - collect replay with `scripts.collect_td_self_play`,
+   - train checkpoints with `scripts.train_td`,
+   - benchmark checkpoints with `scripts.eval_suite` (`td-value` and `td-search` vs heuristic/search).
 
 _Updated: 2026-03-01._
