@@ -115,25 +115,7 @@ def parse_args() -> argparse.Namespace:
         "--opponent-policy",
         type=str,
         default="heuristic",
-        help="Opponent policy used against search (random|heuristic|search|mcts|ppo).",
-    )
-    parser.add_argument(
-        "--opponent-checkpoint",
-        type=Path,
-        default=None,
-        help="Optional checkpoint for opponent policy when using ppo.",
-    )
-    parser.add_argument(
-        "--search-guidance-checkpoint",
-        type=Path,
-        default=None,
-        help="Optional guidance checkpoint injected into search during eval.",
-    )
-    parser.add_argument(
-        "--guidance-temperature",
-        type=float,
-        default=1.0,
-        help="Guidance softmax temperature (used only when guidance checkpoint is set).",
+        help="Opponent policy used against search (random|heuristic|search).",
     )
     parser.add_argument(
         "--artifact-dir",
@@ -203,9 +185,6 @@ def main() -> int:
             workers=args.workers,
             seed_prefix=f"{safe_label}-{preset.preset_id}",
             opponent_policy=args.opponent_policy,
-            opponent_checkpoint=args.opponent_checkpoint,
-            search_guidance_checkpoint=args.search_guidance_checkpoint,
-            guidance_temperature=args.guidance_temperature,
             preset=preset,
             out_path=eval_out,
         )
@@ -346,13 +325,10 @@ def _build_eval_suite_command(
     workers: int,
     seed_prefix: str,
     opponent_policy: str,
-    opponent_checkpoint: Path | None,
-    search_guidance_checkpoint: Path | None,
-    guidance_temperature: float,
     preset: SearchPreset,
     out_path: Path,
 ) -> List[str]:
-    command = [
+    return [
         python_bin,
         "-m",
         "scripts.eval_suite",
@@ -379,18 +355,6 @@ def _build_eval_suite_command(
         "--out",
         str(out_path),
     ]
-    if opponent_checkpoint is not None:
-        command.extend(["--opponent-checkpoint", str(opponent_checkpoint)])
-    if search_guidance_checkpoint is not None:
-        command.extend(
-            [
-                "--search-guidance-checkpoint",
-                str(search_guidance_checkpoint),
-                "--guidance-temperature",
-                str(guidance_temperature),
-            ]
-        )
-    return command
 
 
 def _run_preset_eval(*, preset: SearchPreset, eval_out: Path, command: List[str]) -> SweepRow:
@@ -424,32 +388,22 @@ def _run_step(*, name: str, command: List[str]) -> int:
 
 
 def _read_eval_suite_row(path: Path, preset: SearchPreset) -> SweepRow:
-    if not path.exists():
-        raise SystemExit(f"Eval-suite artifact not found: {path}")
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"Invalid eval-suite JSON in {path}: {exc}") from exc
-
+    payload = json.loads(path.read_text(encoding="utf-8"))
     results = payload.get("results")
     if not isinstance(results, dict):
-        raise SystemExit(f"Missing 'results' object in {path}")
-
-    ci = results.get("candidateWinRateCi95")
-    if not isinstance(ci, dict):
-        raise SystemExit(f"Missing 'results.candidateWinRateCi95' object in {path}")
+        raise RuntimeError(f"Missing results payload in {path}")
 
     return SweepRow(
         preset=preset,
         artifact=path,
-        candidate_win_rate=_as_float(results.get("candidateWinRate"), path, "candidateWinRate"),
-        ci_low=_as_float(ci.get("low"), path, "candidateWinRateCi95.low"),
-        ci_high=_as_float(ci.get("high"), path, "candidateWinRateCi95.high"),
-        side_gap=_as_float(results.get("sideGap"), path, "sideGap"),
-        candidate_wins=_as_int(results.get("candidateWins"), path, "candidateWins"),
-        opponent_wins=_as_int(results.get("opponentWins"), path, "opponentWins"),
-        draws=_as_int(results.get("draws"), path, "draws"),
-        total_games=_as_int(results.get("totalGames"), path, "totalGames"),
+        candidate_win_rate=float(results["candidateWinRate"]),
+        ci_low=float(results["candidateWinRateCi95"]["low"]),
+        ci_high=float(results["candidateWinRateCi95"]["high"]),
+        side_gap=float(results["sideGap"]),
+        candidate_wins=int(results["candidateWins"]),
+        opponent_wins=int(results["opponentWins"]),
+        draws=int(results["draws"]),
+        total_games=int(results["totalGames"]),
     )
 
 
@@ -457,19 +411,20 @@ def _manifest_payload(
     *,
     run_id: str,
     args: argparse.Namespace,
-    presets: List[SearchPreset],
+    presets: Sequence[SearchPreset],
     started_at_seconds: float,
     status: str,
-    rows: List[SweepRow],
-    planned_commands: List[Dict[str, object]],
+    rows: Sequence[SweepRow],
+    planned_commands: Sequence[Dict[str, object]],
     manifest_path: Path,
     summary_path: Path,
 ) -> Dict[str, object]:
+    elapsed_seconds = time.perf_counter() - started_at_seconds
     return {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "runId": run_id,
         "status": status,
-        "elapsedSeconds": round(time.perf_counter() - started_at_seconds, 3),
+        "elapsedSeconds": round(elapsed_seconds, 3),
         "config": {
             "pythonBin": str(args.python_bin),
             "gamesPerSide": args.games_per_side,
@@ -479,27 +434,10 @@ def _manifest_payload(
             "pack": args.pack,
             "presets": [preset.preset_id for preset in presets],
             "opponentPolicy": args.opponent_policy,
-            "opponentCheckpoint": (
-                str(args.opponent_checkpoint) if args.opponent_checkpoint else None
-            ),
-            "searchGuidanceCheckpoint": (
-                str(args.search_guidance_checkpoint)
-                if args.search_guidance_checkpoint
-                else None
-            ),
-            "guidanceTemperature": args.guidance_temperature,
+            "artifactDir": str(args.artifact_dir),
             "dryRun": bool(args.dry_run),
         },
-        "presetDefinitions": {
-            preset.preset_id: {
-                "worlds": preset.worlds,
-                "rollouts": preset.rollouts,
-                "depth": preset.depth,
-                "maxRootActions": preset.max_root_actions,
-                "rolloutEpsilon": preset.rollout_epsilon,
-            }
-            for preset in presets
-        },
+        "commands": list(planned_commands),
         "results": [
             {
                 "preset": row.preset.preset_id,
@@ -512,7 +450,10 @@ def _manifest_payload(
                 },
                 "artifact": str(row.artifact),
                 "candidateWinRate": row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
+                "candidateWinRateCi95": {
+                    "low": row.ci_low,
+                    "high": row.ci_high,
+                },
                 "sideGap": row.side_gap,
                 "candidateWins": row.candidate_wins,
                 "opponentWins": row.opponent_wins,
@@ -521,7 +462,6 @@ def _manifest_payload(
             }
             for row in rows
         ],
-        "plannedCommands": planned_commands,
         "artifacts": {
             "manifest": str(manifest_path),
             "summary": str(summary_path),
@@ -529,71 +469,71 @@ def _manifest_payload(
     }
 
 
-def _write_summary_markdown(path: Path, *, run_id: str, rows: List[SweepRow]) -> None:
-    lines = [
-        f"# Search Sweep Summary ({run_id})",
-        "",
-        "| Rank | Preset | Worlds | Rollouts | Depth | MaxRoot | Epsilon | WinRate | CI95 | SideGap | CandidateWins | Games |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |",
-    ]
+def _write_summary_markdown(summary_path: Path, *, run_id: str, rows: Sequence[SweepRow]) -> None:
+    lines: List[str] = []
+    lines.append(f"# Search Sweep Summary ({run_id})")
+    lines.append("")
+    if not rows:
+        lines.append("No preset results.")
+        summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return
+
+    lines.append("Ranked by winRate desc, sideGap asc, CI width asc.")
+    lines.append("")
+    lines.append("| rank | preset | worlds | rollouts | depth | maxRoot | eps | winRate | ci95 | sideGap | wins |")
+    lines.append("|---:|:---|---:|---:|---:|---:|---:|---:|:---|---:|:---|")
+
     for rank, row in enumerate(rows, start=1):
         lines.append(
-            "| "
-            f"{rank} | {row.preset.preset_id} | {row.preset.worlds} | {row.preset.rollouts} | "
+            f"| {rank} | {row.preset.preset_id} | {row.preset.worlds} | {row.preset.rollouts} | "
             f"{row.preset.depth} | {row.preset.max_root_actions} | {row.preset.rollout_epsilon:.2f} | "
             f"{row.candidate_win_rate:.3f} | [{row.ci_low:.3f}, {row.ci_high:.3f}] | "
-            f"{row.side_gap:.3f} | {row.candidate_wins} | {row.total_games} |"
+            f"{row.side_gap:.3f} | {row.candidate_wins}/{row.total_games} |"
         )
-    lines.append("")
-    lines.append(
-        "Ranking order: candidate win rate descending, lower side gap, then narrower CI, then preset id."
-    )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines), encoding="utf-8")
+
+    summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _pack_payload() -> Dict[str, object]:
     return {
-        name: [
-            {
-                "preset": preset.preset_id,
-                "worlds": preset.worlds,
-                "rollouts": preset.rollouts,
-                "depth": preset.depth,
-                "maxRootActions": preset.max_root_actions,
-                "rolloutEpsilon": preset.rollout_epsilon,
-            }
-            for preset in presets
-        ]
-        for name, presets in PACKS.items()
+        "packs": {
+            pack_name: [
+                {
+                    "preset": preset.preset_id,
+                    "worlds": preset.worlds,
+                    "rollouts": preset.rollouts,
+                    "depth": preset.depth,
+                    "maxRootActions": preset.max_root_actions,
+                    "rolloutEpsilon": preset.rollout_epsilon,
+                }
+                for preset in presets
+            ]
+            for pack_name, presets in PACKS.items()
+        }
     }
-
-
-def _as_float(value: object, path: Path, label: str) -> float:
-    if not isinstance(value, (int, float)):
-        raise SystemExit(f"Missing numeric field 'results.{label}' in {path}")
-    return float(value)
-
-
-def _as_int(value: object, path: Path, label: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise SystemExit(f"Missing integer field 'results.{label}' in {path}")
-    return value
-
-
-def _join_command(command: List[str]) -> str:
-    return " ".join(shlex.quote(part) for part in command)
-
-
-def _slug(value: str) -> str:
-    safe = "".join(ch if ch.isalnum() else "-" for ch in value.strip().lower())
-    safe = safe.strip("-")
-    return safe or "run"
 
 
 def _write_json(path: Path, payload: Dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _slug(value: str) -> str:
+    out = []
+    for ch in value.strip().lower():
+        if ch.isalnum():
+            out.append(ch)
+        else:
+            out.append("-")
+    compact = "".join(out)
+    while "--" in compact:
+        compact = compact.replace("--", "-")
+    compact = compact.strip("-")
+    return compact or "run"
+
+
+def _join_command(parts: Sequence[str]) -> str:
+    return " ".join(shlex.quote(part) for part in parts)
 
 
 if __name__ == "__main__":

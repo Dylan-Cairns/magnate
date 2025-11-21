@@ -3,27 +3,14 @@ from __future__ import annotations
 import json
 import math
 from collections import OrderedDict
-from typing import Any, Mapping, Protocol
+from typing import Any, Dict, Mapping
 
 from trainer.encoding import _card_rank
-from trainer.search.forward_model import BridgeForwardModel
 from trainer.types import PlayerId
 
 
-class GuidanceValueModel(Protocol):
-    def value_from_view(self, view: Mapping[str, Any]) -> float: ...
-
-
 class LeafEvaluator:
-    def __init__(
-        self,
-        *,
-        forward_model: BridgeForwardModel,
-        guidance_model: GuidanceValueModel | None,
-        value_cache_limit: int = 0,
-    ) -> None:
-        self._forward_model = forward_model
-        self._guidance_model = guidance_model
+    def __init__(self, *, value_cache_limit: int = 0) -> None:
         self._value_cache_limit = max(0, value_cache_limit)
         self._value_cache: OrderedDict[tuple[str, PlayerId], float] = OrderedDict()
 
@@ -35,9 +22,6 @@ class LeafEvaluator:
         self._value_cache.clear()
 
     def value(self, state: Mapping[str, Any], root_player: PlayerId) -> float:
-        if self._guidance_model is None:
-            return value_from_serialized_state(state, root_player)
-
         if self._value_cache_limit > 0:
             state_key = _state_cache_key(state)
             cache_key = (state_key, root_player)
@@ -46,15 +30,7 @@ class LeafEvaluator:
                 self._value_cache.move_to_end(cache_key)
                 return cached
 
-        step_result = self._forward_model.reset_state(state)
-        if step_result.terminal:
-            value = terminal_value(step_result.state, root_player)
-        else:
-            active_player = active_player_id(step_result.view)
-            value = self._guidance_model.value_from_view(step_result.view)
-            if active_player != root_player:
-                value = -value
-            value = max(-1.0, min(1.0, value))
+        value = value_from_serialized_state(state, root_player)
 
         if self._value_cache_limit > 0:
             state_key = _state_cache_key(state)
@@ -220,39 +196,65 @@ def value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId)
                 deed_completion_ratio(root_stack) - deed_completion_ratio(opponent_stack)
             )
 
-    deck = state.get("deck")
-    reshuffles = as_int(as_mapping(deck).get("reshuffles")) if isinstance(deck, dict) else 0
-    final_turns_remaining = as_int(state.get("finalTurnsRemaining"))
-    endgame = reshuffles >= 2 or final_turns_remaining > 0
-
     district_term = district_point_diff / float(max(1, district_count))
-    rank_term = math.tanh(rank_total_diff / 16.0)
-    progress_term = math.tanh(deed_completion_diff / 2.5)
-    resource_term = math.tanh(resource_diff / 8.0)
-    hand_term = math.tanh(hand_diff / 3.0)
-
-    district_weight = 0.72 if endgame else 0.6
-    rank_weight = 0.16 if endgame else 0.2
-    progress_weight = 0.05 if endgame else 0.12
-    resource_weight = 0.05
-    hand_weight = 0.02
+    rank_term = math.tanh(rank_total_diff / 18.0)
+    deed_term = math.tanh(deed_completion_diff / 5.0)
+    resource_term = math.tanh(resource_diff / 10.0)
+    hand_term = math.tanh(hand_diff / 4.0)
 
     score = (
-        (district_weight * district_term)
-        + (rank_weight * rank_term)
-        + (progress_weight * progress_term)
-        + (resource_weight * resource_term)
-        + (hand_weight * hand_term)
+        (0.55 * district_term)
+        + (0.2 * rank_term)
+        + (0.1 * deed_term)
+        + (0.1 * resource_term)
+        + (0.05 * hand_term)
     )
     return max(-1.0, min(1.0, score))
 
 
-def player_views_by_id(view: Mapping[str, Any]) -> dict[PlayerId, dict[str, Any]]:
+def stack_score(stack: Mapping[str, Any]) -> tuple[float, float]:
+    developed = as_card_list(stack.get("developed"))
+    developed_rank = sum(_card_rank(card_id) for card_id in developed)
+
+    deed = as_mapping(stack.get("deed"))
+    deed_card = str(deed.get("cardId", ""))
+    deed_rank = _card_rank(deed_card)
+    deed_progress = as_int(deed.get("progress"))
+
+    progress_ratio = 0.0
+    if deed_card and deed_rank > 0:
+        progress_ratio = min(1.0, deed_progress / float(deed_rank))
+
+    return developed_rank, progress_ratio
+
+
+def developed_rank_total(stack: Mapping[str, Any]) -> int:
+    return sum(_card_rank(card_id) for card_id in as_card_list(stack.get("developed")))
+
+
+def ace_pressure_proxy(stack: Mapping[str, Any]) -> int:
+    developed = as_card_list(stack.get("developed"))
+    non_ace = sum(1 for card_id in developed if _card_rank(card_id) != 1)
+    ace_bonus = sum(1 for card_id in developed if _card_rank(card_id) == 1)
+    return ace_bonus * non_ace
+
+
+def deed_completion_ratio(stack: Mapping[str, Any]) -> float:
+    deed = as_mapping(stack.get("deed"))
+    card_id = str(deed.get("cardId", ""))
+    rank = _card_rank(card_id)
+    if rank <= 0:
+        return 0.0
+    progress = as_int(deed.get("progress"))
+    return min(1.0, max(0.0, progress / float(rank)))
+
+
+def player_views_by_id(view: Mapping[str, Any]) -> Dict[PlayerId, Dict[str, Any]]:
     players = view.get("players")
     if not isinstance(players, list):
         raise ValueError("View payload is missing players list.")
 
-    out: dict[PlayerId, dict[str, Any]] = {}
+    out: Dict[PlayerId, Dict[str, Any]] = {}
     for player in players:
         if not isinstance(player, dict):
             continue
@@ -264,74 +266,26 @@ def player_views_by_id(view: Mapping[str, Any]) -> dict[PlayerId, dict[str, Any]
     return out
 
 
-def stack_score(stack: Mapping[str, Any]) -> tuple[float, float]:
-    rank_total = 0.0
-    progress_total = 0.0
-    for card_id in as_card_list(stack.get("developed")):
-        rank_total += float(_card_rank(card_id))
-
-    deed = stack.get("deed")
-    if isinstance(deed, dict):
-        rank_total += float(_card_rank(str(deed.get("cardId", ""))))
-        progress = as_int(deed.get("progress"))
-        progress_total += float(progress)
-        rank_total += 0.35 * float(progress)
-    return rank_total, progress_total
-
-
-def developed_rank_total(stack: Mapping[str, Any]) -> float:
-    total = 0.0
-    for card_id in as_card_list(stack.get("developed")):
-        total += float(_card_rank(card_id))
-    return total
-
-
-def ace_pressure_proxy(stack: Mapping[str, Any]) -> float:
-    developed = as_card_list(stack.get("developed"))
-    ace_count = sum(1 for card_id in developed if _card_rank(card_id) == 1)
-    if ace_count <= 0:
-        return 0.0
-    return 0.35 * float(ace_count * max(0, len(developed) - 1))
-
-
-def deed_completion_ratio(stack: Mapping[str, Any]) -> float:
-    deed = stack.get("deed")
-    if not isinstance(deed, dict):
-        return 0.0
-    card_id = str(deed.get("cardId", ""))
-    rank = _card_rank(card_id)
-    if rank <= 0:
-        return 0.0
-    target = 3 if rank == 1 else rank
-    progress = as_int(deed.get("progress"))
-    clipped = min(max(progress, 0), target)
-    return clipped / float(target)
-
-
 def resource_total(player_state: Mapping[str, Any]) -> int:
     resources = player_state.get("resources")
     if not isinstance(resources, dict):
         return 0
     total = 0
-    for suit in ("Moons", "Suns", "Waves", "Leaves", "Wyrms", "Knots"):
-        total += as_int(resources.get(suit))
+    for value in resources.values():
+        total += as_int(value)
     return total
 
 
-def as_mapping(value: Any) -> dict[str, Any]:
+def as_mapping(value: Any) -> Dict[str, Any]:
     if isinstance(value, dict):
         return value
-    raise ValueError(f"Expected object mapping, got {type(value).__name__}.")
+    return {}
 
 
 def as_card_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
-    out: list[str] = []
-    for entry in value:
-        if isinstance(entry, str):
-            out.append(entry)
-    return out
+    return [str(card_id) for card_id in value]
 
 
 def as_int(value: Any) -> int:

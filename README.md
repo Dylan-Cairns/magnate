@@ -1,4 +1,4 @@
-# Magnate (Web) + Search-First Training
+# Magnate (Web) + TD/Keldon Training Pivot
 
 Single-player Magnate with a deterministic TypeScript engine, browser UI, and Python training stack.
 
@@ -6,15 +6,17 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 - TypeScript engine is the canonical rules implementation.
 - Python training/eval calls TS through a Node bridge.
-- Promotion decisions use side-swapped paired-seed evaluation (`scripts.eval_suite`).
-- Current objective is a search teacher that decisively beats heuristic, then distillation/guidance.
+- Current mission is singular:
+  - build a TD-Gammon / Keldon-like training pipeline,
+  - keep rollout search as warm-start signal only,
+  - deploy a stronger learned bot in this web app.
 
 ## Current Status
 
 - Browser game is playable; default web bot is rollout-eval search.
 - Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
-- Search and MCTS policies are available in Python tooling with optional PPO-format guidance checkpoints.
-- Legacy BC/REINFORCE benchmark pipeline and browser PPO export path were removed.
+- Python side now keeps only `random`, `heuristic`, and `search` policy paths.
+- PPO, MCTS, and guidance/distillation codepaths were intentionally removed.
 
 ## Local Commands
 
@@ -29,8 +31,8 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 From repo root:
 
-1. `.\scripts\setup_python_env.ps1`
-2. `.\.venv\Scripts\Activate.ps1`
+1. `./scripts/setup_python_env.ps1`
+2. `./.venv/Scripts/Activate.ps1`
 
 macOS/Linux equivalent:
 
@@ -39,16 +41,14 @@ macOS/Linux equivalent:
 3. `python -m pip install --upgrade pip`
 4. `python -m pip install -r requirements.txt`
 
-## Training/Eval Quickstart
+## Python Commands (Current)
 
 With `.venv` active:
 
 - Smoke: `python -m scripts.smoke_trainer`
 - Canonical side-swapped eval: `python -m scripts.eval_suite --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
-- Search sweep (coarse): `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-coarse`
-- Guidance data generation: `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
-- Guidance training: `python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_search.jsonl --checkpoint-out artifacts/search_guidance_checkpoint.pt`
-- Guided vs baseline A/B pipeline: `python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200`
+- Search sweep: `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse`
+- Teacher data generation (warm-start labels): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
 
 Use `--help` on each script for full options.
 
@@ -57,7 +57,7 @@ Use `--help` on each script for full options.
 - Agent manifest: `AGENTS.md`
 - Memory workflow: `docs/AGENT_GUIDE.md`
 - Training handoff/restart: `docs/TRAINING_HANDOFF.md`
-- Search-first training plan: `docs/TRAINING_PLAN_SEARCH_FIRST.md`
+- Training plan: `docs/TRAINING_PLAN_SEARCH_FIRST.md`
 - Command cookbook: `docs/TRAINING_COMMANDS.md`
 - Encoding contract: `docs/TRAINING_ENCODING.md`
 - Memory Bank: `memoryBank/`
