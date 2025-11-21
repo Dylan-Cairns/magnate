@@ -1202,6 +1202,19 @@ export function App() {
     });
   };
 
+  const openDevelopOutrightDistrictOnlyPicker = (
+    cardId: CardId,
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({
+      kind: 'develop-outright-district',
+      cardId,
+      ...position,
+    });
+  };
+
   const openDeedPaymentPicker = (
     config: { cardId: CardId; districtId: string },
     trigger: HTMLButtonElement,
@@ -1592,6 +1605,21 @@ export function App() {
                               );
                             }
 
+                            const firstOptionByPayment = new Map<
+                              string,
+                              Extract<GameAction, { type: 'develop-outright' }>
+                            >();
+                            const districtIds = new Set<string>();
+                            for (const option of item.options) {
+                              districtIds.add(option.districtId);
+                              const paymentKey = paymentSignature(option.payment);
+                              if (!firstOptionByPayment.has(paymentKey)) {
+                                firstOptionByPayment.set(paymentKey, option);
+                              }
+                            }
+                            const paymentOptions = [...firstOptionByPayment.values()];
+                            const hasSinglePaymentPattern = paymentOptions.length === 1;
+
                             return renderCategorizedAction(
                               `develop-outright-group-${item.cardId}`,
                               <button
@@ -1600,10 +1628,21 @@ export function App() {
                                 onClick={(event) => {
                                   const trigger = event.currentTarget;
                                   if (
-                                    actionPicker?.kind === 'develop-outright-combined'
+                                    (
+                                      actionPicker?.kind === 'develop-outright-combined'
+                                      || actionPicker?.kind === 'develop-outright-district'
+                                    )
                                     && actionPicker.cardId === item.cardId
                                   ) {
                                     closeActionPicker();
+                                    return;
+                                  }
+                                  if (hasSinglePaymentPattern) {
+                                    openDevelopOutrightDistrictOnlyPicker(
+                                      item.cardId,
+                                      trigger,
+                                      districtIds.size
+                                    );
                                     return;
                                   }
                                   openDevelopOutrightCombinedPicker(
@@ -1615,7 +1654,9 @@ export function App() {
                               >
                                 <span className="action-text">
                                   {renderSuitText(
-                                    `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
+                                    hasSinglePaymentPattern
+                                      ? `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(paymentOptions[0].payment, SUIT_TEXT_TOKEN)})`
+                                      : `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
                                   )}
                                 </span>
                               </button>
@@ -2030,15 +2071,6 @@ export function App() {
                     action.type === 'trade'
                 );
                 const receiveOptions = [...new Set(tradeActions.map((action) => action.receive))];
-                const hasSelectedCombination = Boolean(
-                  actionPicker.selectedGive
-                  && actionPicker.selectedReceive
-                  && tradeActions.some(
-                    (action) =>
-                      action.give === actionPicker.selectedGive
-                      && action.receive === actionPicker.selectedReceive
-                  )
-                );
                 return (
                   <>
               <div className="composite-picker-group">
@@ -2049,17 +2081,30 @@ export function App() {
                       key={`trade-combined-source-${group.give}`}
                       type="button"
                       className={`trade-choice-button${actionPicker.selectedGive === group.give ? ' is-selected' : ''}`}
-                      onClick={() =>
+                      onClick={() => {
+                        const nextGive = group.give;
+                        const nextReceive = actionPicker.selectedReceive;
+                        if (nextReceive) {
+                          const selectedAction = tradeActions.find(
+                            (action) =>
+                              action.give === nextGive
+                              && action.receive === nextReceive
+                          );
+                          if (selectedAction) {
+                            handlePickerSelection(selectedAction);
+                            return;
+                          }
+                        }
                         setActionPicker((current) => {
                           if (!current || current.kind !== 'trade-combined') {
                             return current;
                           }
                           return {
                             ...current,
-                            selectedGive: group.give,
+                            selectedGive: nextGive,
                           };
-                        })
-                      }
+                        });
+                      }}
                     >
                       {renderSuitText(`${SUIT_TEXT_TOKEN[group.give]} x3`)}
                     </button>
@@ -2075,48 +2120,36 @@ export function App() {
                       key={`trade-combined-receive-${receiveSuit}`}
                       type="button"
                       className={`trade-choice-button${actionPicker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
-                      onClick={() =>
+                      onClick={() => {
+                        const nextReceive = receiveSuit;
+                        const nextGive = actionPicker.selectedGive;
+                        if (nextGive) {
+                          const selectedAction = tradeActions.find(
+                            (action) =>
+                              action.give === nextGive
+                              && action.receive === nextReceive
+                          );
+                          if (selectedAction) {
+                            handlePickerSelection(selectedAction);
+                            return;
+                          }
+                        }
                         setActionPicker((current) => {
                           if (!current || current.kind !== 'trade-combined') {
                             return current;
                           }
                           return {
                             ...current,
-                            selectedReceive: receiveSuit,
+                            selectedReceive: nextReceive,
                           };
-                        })
-                      }
+                        });
+                      }}
                     >
                       {renderSuitText(`${SUIT_TEXT_TOKEN[receiveSuit]} x1`)}
                     </button>
                   ))}
                 </div>
               </div>
-
-              <button
-                type="button"
-                className="trade-choice-button trade-confirm-button"
-                disabled={!hasSelectedCombination}
-                onClick={() => {
-                  if (
-                    !actionPicker.selectedGive
-                    || !actionPicker.selectedReceive
-                  ) {
-                    return;
-                  }
-                  const selectedAction = humanActions.find(
-                    (action) =>
-                      action.type === 'trade'
-                      && action.give === actionPicker.selectedGive
-                      && action.receive === actionPicker.selectedReceive
-                  );
-                  if (selectedAction) {
-                    handlePickerSelection(selectedAction);
-                  }
-                }}
-              >
-                OK
-              </button>
                   </>
                 );
               })()}
@@ -2150,16 +2183,6 @@ export function App() {
                   }
                 }
                 const paymentOptions = [...firstByPayment.entries()];
-                const hasSelectedCombination = Boolean(
-                  actionPicker.selectedDistrictId
-                  && actionPicker.selectedPaymentKey
-                  && outrightOptions.some(
-                    (option) =>
-                      option.districtId === actionPicker.selectedDistrictId
-                      && paymentSignature(option.payment)
-                        === actionPicker.selectedPaymentKey
-                  )
-                );
                 return (
                   <>
                     <div className="composite-picker-group">
@@ -2170,7 +2193,20 @@ export function App() {
                             key={`develop-outright-district-${option.districtId}`}
                             type="button"
                             className={`trade-choice-button${actionPicker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
-                            onClick={() =>
+                            onClick={() => {
+                              const nextDistrictId = option.districtId;
+                              const nextPaymentKey = actionPicker.selectedPaymentKey;
+                              if (nextPaymentKey) {
+                                const selectedAction = outrightOptions.find(
+                                  (candidate) =>
+                                    candidate.districtId === nextDistrictId
+                                    && paymentSignature(candidate.payment) === nextPaymentKey
+                                );
+                                if (selectedAction) {
+                                  handlePickerSelection(selectedAction);
+                                  return;
+                                }
+                              }
                               setActionPicker((current) => {
                                 if (
                                   !current
@@ -2180,10 +2216,10 @@ export function App() {
                                 }
                                 return {
                                   ...current,
-                                  selectedDistrictId: option.districtId,
+                                  selectedDistrictId: nextDistrictId,
                                 };
-                              })
-                            }
+                              });
+                            }}
                           >
                             {option.districtId}
                           </button>
@@ -2199,7 +2235,20 @@ export function App() {
                             key={`develop-outright-payment-${paymentKey}`}
                             type="button"
                             className={`trade-choice-button${actionPicker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
-                            onClick={() =>
+                            onClick={() => {
+                              const nextPaymentKey = paymentKey;
+                              const nextDistrictId = actionPicker.selectedDistrictId;
+                              if (nextDistrictId) {
+                                const selectedAction = outrightOptions.find(
+                                  (candidate) =>
+                                    candidate.districtId === nextDistrictId
+                                    && paymentSignature(candidate.payment) === nextPaymentKey
+                                );
+                                if (selectedAction) {
+                                  handlePickerSelection(selectedAction);
+                                  return;
+                                }
+                              }
                               setActionPicker((current) => {
                                 if (
                                   !current
@@ -2209,10 +2258,10 @@ export function App() {
                                 }
                                 return {
                                   ...current,
-                                  selectedPaymentKey: paymentKey,
+                                  selectedPaymentKey: nextPaymentKey,
                                 };
-                              })
-                            }
+                              });
+                            }}
                           >
                             {renderSuitText(
                               formatTokens(option.payment, SUIT_TEXT_TOKEN)
@@ -2221,31 +2270,6 @@ export function App() {
                         ))}
                       </div>
                     </div>
-
-                    <button
-                      type="button"
-                      className="trade-choice-button trade-confirm-button"
-                      disabled={!hasSelectedCombination}
-                      onClick={() => {
-                        if (
-                          !actionPicker.selectedDistrictId
-                          || !actionPicker.selectedPaymentKey
-                        ) {
-                          return;
-                        }
-                        const selectedAction = outrightOptions.find(
-                          (option) =>
-                            option.districtId === actionPicker.selectedDistrictId
-                            && paymentSignature(option.payment)
-                              === actionPicker.selectedPaymentKey
-                        );
-                        if (selectedAction) {
-                          handlePickerSelection(selectedAction);
-                        }
-                      }}
-                    >
-                      OK
-                    </button>
                   </>
                 );
               })()}

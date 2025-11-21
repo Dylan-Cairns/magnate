@@ -4,43 +4,30 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from trainer.behavior_cloning import BehaviorCloningModel, save_behavior_cloning_checkpoint
+from trainer.encoding import OBSERVATION_DIM
 from trainer.policies import (
-    BehaviorCloningPolicy,
-    DeterminizedMctsPolicy,
     DeterminizedSearchPolicy,
-    MctsConfig,
     SearchConfig,
+    TDDeterminizedSearchPolicy,
+    TDSearchPolicyConfig,
+    TDValuePolicy,
+    TDValuePolicyConfig,
     policy_from_name,
 )
-from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
+from trainer.td.checkpoint import save_value_checkpoint
+from trainer.td.models import OpponentModel, ValueNet
+from trainer.encoding import ACTION_FEATURE_DIM
+from trainer.td.checkpoint import save_opponent_checkpoint
 
 
 class PolicyFactoryTests(unittest.TestCase):
-    def test_bc_policy_requires_checkpoint_path(self) -> None:
-        with self.assertRaises(ValueError):
-            policy_from_name("bc")
+    def test_policy_factory_creates_random_policy(self) -> None:
+        policy = policy_from_name("random")
+        self.assertEqual(policy.name, "random")
 
-    def test_policy_factory_loads_bc_checkpoint(self) -> None:
-        model = BehaviorCloningModel.zeros(observation_dim=2, action_feature_dim=2)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            path = Path(tmp_dir) / "bc.json"
-            save_behavior_cloning_checkpoint(model, path)
-            policy = policy_from_name("bc", checkpoint_path=path)
-
-        self.assertIsInstance(policy, BehaviorCloningPolicy)
-
-    def test_ppo_policy_requires_checkpoint_path(self) -> None:
-        with self.assertRaises(ValueError):
-            policy_from_name("ppo")
-
-    def test_policy_factory_loads_ppo_checkpoint(self) -> None:
-        model = CandidateActorCritic(observation_dim=2, action_feature_dim=2, hidden_dim=8)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            path = Path(tmp_dir) / "ppo.pt"
-            save_ppo_checkpoint(model, path)
-            policy = policy_from_name("ppo", checkpoint_path=path)
-        self.assertEqual(policy.name, f"ppo:{path.name}")
+    def test_policy_factory_creates_heuristic_policy(self) -> None:
+        policy = policy_from_name("heuristic")
+        self.assertEqual(policy.name, "heuristic")
 
     def test_policy_factory_creates_search_policy(self) -> None:
         config = SearchConfig(worlds=1, rollouts=1, depth=1, max_root_actions=1, rollout_epsilon=0.0)
@@ -50,47 +37,111 @@ class PolicyFactoryTests(unittest.TestCase):
         finally:
             policy.close()
 
-    def test_policy_factory_creates_search_policy_with_guidance(self) -> None:
-        config = SearchConfig(worlds=1, rollouts=1, depth=1, max_root_actions=1, rollout_epsilon=0.0)
-        model = CandidateActorCritic(observation_dim=2, action_feature_dim=2, hidden_dim=8)
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            path = Path(tmp_dir) / "guidance.pt"
-            save_ppo_checkpoint(model, path)
-            policy = policy_from_name(
-                "search",
-                search_config=config,
-                search_guidance_checkpoint=path,
-            )
-        try:
-            self.assertIsInstance(policy, DeterminizedSearchPolicy)
-            self.assertIsNotNone(policy.guidance_model)
-        finally:
-            policy.close()
+    def test_policy_factory_rejects_unknown_policy(self) -> None:
+        with self.assertRaises(ValueError):
+            policy_from_name("legacy")
 
-    def test_policy_factory_creates_mcts_policy(self) -> None:
-        config = MctsConfig(worlds=1, simulations=4, depth=2, max_root_actions=2, c_puct=1.0)
-        policy = policy_from_name("mcts", mcts_config=config)
-        try:
-            self.assertIsInstance(policy, DeterminizedMctsPolicy)
-        finally:
-            policy.close()
-
-    def test_policy_factory_creates_mcts_policy_with_guidance(self) -> None:
-        config = MctsConfig(worlds=1, simulations=4, depth=2, max_root_actions=2, c_puct=1.0)
-        model = CandidateActorCritic(observation_dim=2, action_feature_dim=2, hidden_dim=8)
+    def test_policy_factory_creates_td_value_policy(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            path = Path(tmp_dir) / "guidance.pt"
-            save_ppo_checkpoint(model, path)
-            policy = policy_from_name(
-                "mcts",
-                mcts_config=config,
-                mcts_guidance_checkpoint=path,
+            checkpoint_path = Path(tmp_dir) / "value.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=32),
+                output_path=checkpoint_path,
             )
-        try:
-            self.assertIsInstance(policy, DeterminizedMctsPolicy)
-            self.assertIsNotNone(policy.guidance_model)
-        finally:
-            policy.close()
+            policy = policy_from_name(
+                "td-value",
+                td_value_config=TDValuePolicyConfig(
+                    checkpoint_path=checkpoint_path,
+                    worlds=2,
+                ),
+            )
+            try:
+                self.assertIsInstance(policy, TDValuePolicy)
+            finally:
+                policy.close()
+
+    def test_policy_factory_creates_td_search_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            value_path = Path(tmp_dir) / "value.pt"
+            opponent_path = Path(tmp_dir) / "opponent.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=32),
+                output_path=value_path,
+            )
+            save_opponent_checkpoint(
+                model=OpponentModel(
+                    observation_dim=OBSERVATION_DIM,
+                    action_feature_dim=ACTION_FEATURE_DIM,
+                    hidden_dim=32,
+                ),
+                output_path=opponent_path,
+            )
+            policy = policy_from_name(
+                "td-search",
+                td_search_config=TDSearchPolicyConfig(
+                    value_checkpoint_path=value_path,
+                    opponent_checkpoint_path=opponent_path,
+                    worlds=1,
+                    rollouts=1,
+                    depth=1,
+                    max_root_actions=1,
+                    rollout_epsilon=0.0,
+                ),
+            )
+            try:
+                self.assertIsInstance(policy, TDDeterminizedSearchPolicy)
+            finally:
+                policy.close()
+
+    def test_td_search_config_requires_opponent_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            value_path = Path(tmp_dir) / "value.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=16),
+                output_path=value_path,
+            )
+            with self.assertRaises(TypeError):
+                TDSearchPolicyConfig(
+                    value_checkpoint_path=value_path,
+                    worlds=1,
+                    rollouts=1,
+                    depth=1,
+                    max_root_actions=1,
+                    rollout_epsilon=0.0,
+                )
+
+    def test_td_search_config_accepts_opponent_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            value_path = Path(tmp_dir) / "value.pt"
+            opponent_path = Path(tmp_dir) / "opponent.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=16),
+                output_path=value_path,
+            )
+            save_opponent_checkpoint(
+                model=OpponentModel(
+                    observation_dim=OBSERVATION_DIM,
+                    action_feature_dim=ACTION_FEATURE_DIM,
+                    hidden_dim=16,
+                ),
+                output_path=opponent_path,
+            )
+            policy = policy_from_name(
+                "td-search",
+                td_search_config=TDSearchPolicyConfig(
+                    value_checkpoint_path=value_path,
+                    opponent_checkpoint_path=opponent_path,
+                    worlds=1,
+                    rollouts=1,
+                    depth=1,
+                    max_root_actions=1,
+                    rollout_epsilon=0.0,
+                ),
+            )
+            try:
+                self.assertIsInstance(policy, TDDeterminizedSearchPolicy)
+            finally:
+                policy.close()
 
 
 if __name__ == "__main__":

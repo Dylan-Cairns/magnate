@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass, replace
 from typing import Callable, Dict, Mapping, Sequence, Set
@@ -87,6 +88,11 @@ def collect_teacher_samples(
                 action_vectors = encode_action_candidates(legal.actions)
                 action_index = _find_action_index(legal.actions, action_key)
                 chosen_action = legal.actions[action_index]
+                action_probs = _action_probs_from_policy(
+                    policy=active_policy,
+                    legal_actions=legal.actions,
+                    chosen_action_index=action_index,
+                )
                 staged.append(
                     DecisionSample(
                         seed=seed,
@@ -100,6 +106,7 @@ def collect_teacher_samples(
                         action_features=action_vectors,
                         winner="Draw",
                         reward=0.0,
+                        action_probs=action_probs,
                     )
                 )
                 decisions_by_player[active_player] += 1
@@ -147,11 +154,18 @@ def _require_opponent_policy(opponent_policy: Policy | None) -> Policy:
 
 def _winner_from_state(state: Mapping[str, object]) -> Winner:
     final_score = state.get("finalScore")
-    if isinstance(final_score, dict):
-        winner = final_score.get("winner")
-        if winner in ("PlayerA", "PlayerB", "Draw"):
-            return winner
-    return "Draw"
+    if not isinstance(final_score, dict):
+        raise ValueError(
+            "Terminal state is missing finalScore. "
+            f"turn={state.get('turn')} phase={state.get('phase')!r}"
+        )
+    winner = final_score.get("winner")
+    if winner in ("PlayerA", "PlayerB", "Draw"):
+        return winner
+    raise ValueError(
+        "Terminal state has invalid finalScore.winner. "
+        f"winner={winner!r} turn={state.get('turn')} phase={state.get('phase')!r}"
+    )
 
 
 def _attach_reward(sample: DecisionSample, winner: Winner) -> DecisionSample:
@@ -169,3 +183,36 @@ def _find_action_index(actions, action_key: str) -> int:
         if action.action_key == action_key:
             return index
     raise ValueError(f"Selected action key was not present in legal actions: {action_key}")
+
+
+def _action_probs_from_policy(
+    *,
+    policy: Policy,
+    legal_actions,
+    chosen_action_index: int,
+) -> list[float]:
+    by_key = policy.root_action_probs()
+    if not by_key:
+        raise ValueError(
+            "Policy did not provide root_action_probs for teacher sample. "
+            f"policy={getattr(policy, 'name', type(policy).__name__)}"
+        )
+
+    raw: list[float] = []
+    for action in legal_actions:
+        value = float(by_key.get(action.action_key, 0.0))
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(
+                "Policy returned invalid root action probability. "
+                f"policy={getattr(policy, 'name', type(policy).__name__)} "
+                f"actionKey={action.action_key!r} value={value}"
+            )
+        raw.append(value)
+    total = sum(raw)
+    if total <= 0.0:
+        raise ValueError(
+            "Policy root_action_probs sum must be > 0 for teacher sample. "
+            f"policy={getattr(policy, 'name', type(policy).__name__)} "
+            f"actions={len(legal_actions)} chosenIndex={chosen_action_index}"
+        )
+    return [value / total for value in raw]

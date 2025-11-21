@@ -10,68 +10,49 @@ from pathlib import Path
 
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
-from trainer.evaluate import evaluate_matchup
 from trainer.policies import (
     SearchConfig,
     TDSearchPolicyConfig,
     TDValuePolicyConfig,
     policy_from_name,
 )
-
-DEFAULT_PROGRESS_EVERY_GAMES = 10
+from trainer.td import (
+    collect_self_play_games,
+    flatten_opponent_samples,
+    flatten_value_transitions,
+    write_opponent_samples_jsonl,
+    write_value_transitions_jsonl,
+)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Evaluate Magnate policies.")
-    parser.add_argument("--games", type=int, default=50, help="Number of games to run.")
+    parser = argparse.ArgumentParser(
+        description="Collect TD self-play replay artifacts (value transitions + opponent samples)."
+    )
+    parser.add_argument("--games", type=int, default=200, help="Number of self-play games.")
     parser.add_argument(
         "--seed-prefix",
         type=str,
-        default="eval",
+        default="td-self-play",
         help="Seed prefix used to derive deterministic per-game seeds.",
     )
     parser.add_argument(
         "--player-a-policy",
         type=str,
         required=True,
-        help="Policy name for PlayerA (random|heuristic|search|td-value|td-search).",
+        help="Policy for PlayerA (random|heuristic|search|td-value|td-search).",
     )
     parser.add_argument(
         "--player-b-policy",
         type=str,
         required=True,
-        help="Policy name for PlayerB (random|heuristic|search|td-value|td-search).",
+        help="Policy for PlayerB (random|heuristic|search|td-value|td-search).",
     )
-    parser.add_argument(
-        "--search-worlds",
-        type=int,
-        default=6,
-        help="Search policy world samples per decision.",
-    )
-    parser.add_argument(
-        "--search-rollouts",
-        type=int,
-        default=1,
-        help="Search policy rollouts per action per sampled world.",
-    )
-    parser.add_argument(
-        "--search-depth",
-        type=int,
-        default=14,
-        help="Search policy rollout depth limit (decision steps after root action).",
-    )
-    parser.add_argument(
-        "--search-max-root-actions",
-        type=int,
-        default=6,
-        help="Search policy candidate root actions kept after heuristic pre-ranking.",
-    )
-    parser.add_argument(
-        "--search-rollout-epsilon",
-        type=float,
-        default=0.04,
-        help="Search rollout epsilon for random exploratory moves.",
-    )
+    parser.add_argument("--search-worlds", type=int, default=6)
+    parser.add_argument("--search-rollouts", type=int, default=1)
+    parser.add_argument("--search-depth", type=int, default=14)
+    parser.add_argument("--search-max-root-actions", type=int, default=6)
+    parser.add_argument("--search-rollout-epsilon", type=float, default=0.04)
     parser.add_argument(
         "--td-value-checkpoint",
         type=Path,
@@ -108,13 +89,40 @@ def parse_args() -> argparse.Namespace:
         help="Sample opponent rollout actions from opponent model distribution in td-search.",
     )
     parser.add_argument(
-        "--out",
+        "--out-dir",
+        type=Path,
+        default=Path("artifacts/td_replay"),
+        help="Output directory for replay artifacts.",
+    )
+    parser.add_argument(
+        "--run-label",
+        type=str,
+        default="td-self-play",
+        help="Run label used in default artifact names.",
+    )
+    parser.add_argument(
+        "--value-out",
         type=Path,
         default=None,
-        help=(
-            "Output JSON artifact path. "
-            "Default: artifacts/evals/<utc-timestamp>-<seed-prefix>-<player-a>-vs-<player-b>.json"
-        ),
+        help="Optional explicit value-transition JSONL path.",
+    )
+    parser.add_argument(
+        "--opponent-out",
+        type=Path,
+        default=None,
+        help="Optional explicit opponent-sample JSONL path.",
+    )
+    parser.add_argument(
+        "--summary-out",
+        type=Path,
+        default=None,
+        help="Optional explicit summary JSON path.",
+    )
+    parser.add_argument(
+        "--progress-every-games",
+        type=int,
+        default=25,
+        help="Print progress every N completed games (0 disables).",
     )
     return parser.parse_args()
 
@@ -124,7 +132,17 @@ def main() -> int:
     _require_supported_runtime()
     _validate_policy_args(args)
     policies = {args.player_a_policy.strip().lower(), args.player_b_policy.strip().lower()}
+    if args.games <= 0:
+        raise SystemExit("--games must be > 0.")
+
     started_at = time.perf_counter()
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
+    safe_label = _slug(args.run_label)
+
+    value_out = args.value_out or (args.out_dir / f"{stamp}-{safe_label}.value.jsonl")
+    opponent_out = args.opponent_out or (args.out_dir / f"{stamp}-{safe_label}.opponent.jsonl")
+    summary_out = args.summary_out or (args.out_dir / f"{stamp}-{safe_label}.summary.json")
+
     search_config = SearchConfig(
         worlds=args.search_worlds,
         rollouts=args.search_rollouts,
@@ -173,46 +191,45 @@ def main() -> int:
         with BridgeClient() as client:
             env = MagnateBridgeEnv(client=client)
 
-            def on_progress(
-                completed_games: int,
-                total_games: int,
-                winners: dict,
-                _wins_by_policy: dict,
-            ) -> None:
+            def on_progress(completed_games: int, total_games: int, winners: dict) -> None:
                 elapsed_minutes = (time.perf_counter() - started_at) / 60.0
-                player_a_wins = int(winners.get("PlayerA", 0))
-                win_rate = (player_a_wins / completed_games) if completed_games > 0 else 0.0
-                pct = (completed_games / total_games * 100.0) if total_games > 0 else 100.0
+                pct = ((completed_games / total_games) * 100.0) if total_games > 0 else 100.0
                 print(
-                    "[eval] progress "
+                    "[td-self-play] progress "
                     f"games={completed_games}/{total_games} "
                     f"pct={pct:.1f}% "
-                    f"playerAWinRate={win_rate:.3f} "
+                    f"winsA={int(winners.get('PlayerA', 0))} "
+                    f"winsB={int(winners.get('PlayerB', 0))} "
+                    f"draw={int(winners.get('Draw', 0))} "
                     f"elapsedMin={elapsed_minutes:.1f}",
                     file=sys.stderr,
                     flush=True,
                 )
 
-            summary = evaluate_matchup(
+            episodes = collect_self_play_games(
                 env=env,
                 policy_player_a=policy_a,
                 policy_player_b=policy_b,
                 games=args.games,
                 seed_prefix=args.seed_prefix,
-                progress_every_games=DEFAULT_PROGRESS_EVERY_GAMES,
-                on_progress=on_progress,
+                progress_every_games=args.progress_every_games,
+                on_progress=on_progress if args.progress_every_games > 0 else None,
             )
     finally:
-        policy_a.close()
-        policy_b.close()
+        _close_unique(policy_a, policy_b)
 
-    output_path = args.out or _default_output_path(
-        seed_prefix=args.seed_prefix,
-        player_a_policy=args.player_a_policy,
-        player_b_policy=args.player_b_policy,
-    )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    value_transitions = flatten_value_transitions(episodes)
+    opponent_samples = flatten_opponent_samples(episodes)
+    write_value_transitions_jsonl(value_transitions, value_out)
+    write_opponent_samples_jsonl(opponent_samples, opponent_out)
+
+    winners = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
+    turn_total = 0
+    for episode in episodes:
+        winners[episode.winner] += 1
+        turn_total += int(episode.turns)
+
+    summary_payload = {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "config": {
             "games": args.games,
@@ -246,22 +263,32 @@ def main() -> int:
             },
         },
         "results": {
-            "games": summary.games,
-            "winners": summary.winners,
-            "winsByPolicy": summary.wins_by_policy,
-            "averageTurn": summary.average_turn,
+            "games": len(episodes),
+            "winners": winners,
+            "averageTurn": (turn_total / float(len(episodes))) if episodes else 0.0,
+            "valueTransitions": len(value_transitions),
+            "opponentSamples": len(opponent_samples),
+        },
+        "artifacts": {
+            "valueTransitions": str(value_out),
+            "opponentSamples": str(opponent_out),
+            "summary": str(summary_out),
         },
     }
-    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    summary_out.parent.mkdir(parents=True, exist_ok=True)
+    summary_out.write_text(json.dumps(summary_payload, indent=2), encoding="utf-8")
 
     print(
         json.dumps(
             {
-                "artifact": str(output_path),
-                "games": payload["results"]["games"],
-                "winners": payload["results"]["winners"],
-                "winsByPolicy": payload["results"]["winsByPolicy"],
-                "averageTurn": payload["results"]["averageTurn"],
+                "valueTransitionsArtifact": str(value_out),
+                "opponentSamplesArtifact": str(opponent_out),
+                "summaryArtifact": str(summary_out),
+                "games": summary_payload["results"]["games"],
+                "winners": summary_payload["results"]["winners"],
+                "averageTurn": summary_payload["results"]["averageTurn"],
+                "valueTransitions": summary_payload["results"]["valueTransitions"],
+                "opponentSamples": summary_payload["results"]["opponentSamples"],
             },
             indent=2,
         )
@@ -269,12 +296,16 @@ def main() -> int:
     return 0
 
 
-def _default_output_path(seed_prefix: str, player_a_policy: str, player_b_policy: str) -> Path:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
-    safe_seed_prefix = _slug(seed_prefix)
-    safe_player_a = _slug(player_a_policy)
-    safe_player_b = _slug(player_b_policy)
-    return Path("artifacts/evals") / f"{stamp}-{safe_seed_prefix}-{safe_player_a}-vs-{safe_player_b}.json"
+def _close_unique(*policies) -> None:
+    seen: set[int] = set()
+    for policy in policies:
+        if policy is None:
+            continue
+        key = id(policy)
+        if key in seen:
+            continue
+        seen.add(key)
+        policy.close()
 
 
 def _slug(value: str) -> str:

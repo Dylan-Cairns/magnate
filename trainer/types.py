@@ -47,6 +47,7 @@ class DecisionSample:
     action_features: List[List[float]]
     winner: Winner
     reward: float
+    action_probs: Optional[List[float]] = None
 
     def as_json(self) -> Dict[str, Any]:
         return {
@@ -59,6 +60,7 @@ class DecisionSample:
             "actionIndex": self.action_index,
             "observation": self.observation,
             "actionFeatures": self.action_features,
+            "actionProbs": self.action_probs,
             "winner": self.winner,
             "reward": self.reward,
         }
@@ -68,4 +70,3 @@ def require_mapping(value: Any, label: str) -> Mapping[str, Any]:
     if not isinstance(value, dict):
         raise TypeError(f"{label} must be an object, got {type(value).__name__}.")
     return value
-

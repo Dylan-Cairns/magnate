@@ -2,81 +2,79 @@
 
 ## Implemented
 
-- Architecture is locked:
-  - TS engine is canonical.
-  - Python integrates through a small versioned bridge contract.
-- Engine core is implemented and deterministic:
-  - setup/deck lifecycle
-  - legality + reducer transitions
-  - phase resolver (`advanceToDecision`)
-  - scoring + terminal resolution
-- Rules edge-case coverage was expanded with targeted regression tests (tax/income sequencing, mixed-roll handling, income-choice queue order, ace cost paths, Excuse follow-on placement, final-turn countdown).
-- Browser UI is playable with policy-agnostic controller boundaries and a bot profile catalog.
-- Browser PPO inference path is wired, and a champion profile is available as default bot.
-- Browser rollout-eval search policy path is wired into the UI bot catalog (T3 config) for direct in-browser play/testing.
-- Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
-- Development-card progress ring fill now animates on upward progress only (including across remounts), with helper-level tests to protect canonical ratio/arc math.
-- Deed-development spend now shows a transient linear chip-flight animation from the acting player's resource rail to the deed token-side target on the in-development card, with deed-token UI updates deferred until flight completion; rules/state semantics remain unchanged.
-- Card-play actions (`buy-deed`, `develop-outright`) now show a transient linear card-flight animation from hand to destination lane, with state commit deferred until animation completion; `buy-deed` flights use deed-colored/in-development card styling.
-- Sell and draw transitions now animate as card flights too:
-  - `sell-card`: acting hand -> discard pile
-  - `end-turn` draw resolution: deck -> acting hand
-- Sell flights now apply state at animation start so the sold card disappears from hand immediately; discard pile rendering is held back until settle so destination update lands with the end of flight. Other flight-backed actions still defer commit until settle.
-- Card flights now scale between source/target rect sizes, so deck/discard-to-hand and hand-to-discard transitions morph cleanly without size snap.
-- Flight overlays now clear at commit-time (not raw animation-end), preventing pre-commit visual gaps/flashes when played cards/deed tokens appear.
-- Deed token side layout now uses stable per-card assignment memory, preventing existing suit tokens from jumping between left/right rails when additional suit tokens are added.
-- Added a persistent UI animation preference toggle in the options menu (stored in `localStorage` as `magnate:animationsEnabled`) that disables flight and deed-progress tweening when turned off.
-- `develop-outright` action list entries are now card-level; grouped cases present district + payment choices together in one anchored picker with an explicit OK button (instead of sequential popovers or listing every payment permutation directly).
-- Multi-source trade now uses the same combined-picker pattern (source + receive in one anchored picker with OK).
-- Combined pickers now render both selector groups immediately (no “select first” gating), and outright payment options render in a single-column list to prevent overflow.
-- Bridge runtime and contract tests are in place.
-- Trainer scaffold is in place for:
-  - sample collection + BC warm-start
-  - stabilized REINFORCE fine-tuning
-  - PPO training
-  - search and MCTS policy evaluation/benchmarking
-  - queued multi-seed train/benchmark workflows
-  - teacher-labeled data generation (`scripts/generate_teacher_data.py`) for distillation
-- Guidance training path from teacher data is implemented:
+- Deterministic TS engine and bridge runtime are in place.
+- Browser app is playable with policy-agnostic bot selection.
+- Default web bot is rollout-eval search.
+- Canonical side-swapped eval suite is implemented (`scripts/eval_suite.py`).
+- Search root logic parity was implemented between Python and browser TS policy.
+- Search sweep runner is eval-suite based (`scripts/search_teacher_sweep.py`).
+- Eval throughput controls are in place:
+  - `scripts.eval_suite --workers`
+  - `scripts.search_teacher_sweep --jobs` (preset-level parallelism)
+- TD Phase 1 foundation is implemented:
+  - `trainer/td/models.py` (ValueNet, OpponentModel)
+  - `trainer/td/replay.py` (value/opponent replay buffers)
+  - `trainer/td/targets.py` (`n-step`, `TD(lambda)` target helpers)
+  - `trainer/td/checkpoint.py` (TD checkpoint contracts and load/save)
+  - `trainer/td/self_play.py` (self-play trajectory collection + flatten helpers)
+  - `trainer/td/train.py` (value batch training + target network sync trainer)
+  - TD unit coverage in `trainer_tests/test_td_*.py`
+- TD Phase 2 orchestration is implemented:
+  - `scripts/collect_td_self_play.py` (bridge-driven replay generation)
+  - `scripts/train_td.py` (value/opponent training from replay + checkpoint cadence)
+  - `scripts/run_td_loop.py` (single-command collect -> train -> eval orchestration)
+    - includes collect-stage sharding via `--collect-workers` and merged replay summaries
+    - includes `--cloud` fixed 8 vCPU profile (`collect-workers=6`, `eval-workers=6`)
+  - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
+  - TD replay JSONL I/O helpers in `trainer/td/io.py`
+- TD Phase 3 initial integration is implemented:
+  - `td-search` policy path (`trainer/policies.py`) with TD leaf evaluation and required opponent-model rollout guidance
+  - script support for `td-search` args in:
+    - `scripts/eval.py`
+    - `scripts/eval_suite.py`
+    - `scripts/generate_teacher_data.py`
+    - `scripts/collect_td_self_play.py`
+- Fail-fast cleanup pass implemented across Python training/eval:
+  - no silent fallback action when determinization sampling fails
+  - no heuristic fallback inside `td-search` opponent rollout
+  - no silent winner/probability fallback in training label pipelines
+  - stricter payload parsing in encoding/search helpers
+  - scripts require active `.venv`, explicit policy args, and required TD checkpoints
+- End-to-end loop automation validated with a small run:
+  - run id `20260301-164449Z-td-loop-smoke`
+  - artifacts under `artifacts/td_loops/20260301-164449Z-td-loop-smoke/`
+  - produced replay, checkpoints, eval artifact, and loop summary successfully
+
+## Removed (Intentional Cleanup)
+
+- PPO training stack:
+  - `scripts/train_ppo.py`
+  - `scripts/train_ppo_queue.py`
+  - `trainer/ppo_model.py`
+  - `trainer/ppo_training.py`
+- MCTS policy stack (policy + CLI surface + tests).
+- Guidance/distillation stack:
   - `scripts/train_search_guidance.py`
+  - `scripts/run_guidance_ab_pipeline.py`
   - `trainer/guidance_training.py`
-  - guidance checkpoints reuse PPO checkpoint format (`magnate_ppo_policy_v1`)
-- MCTS implementation quality pass landed:
-  - root search now uses progressive widening instead of permanent hard top-K pruning
-  - repeated serialized-state + action transitions are cached to reduce duplicate bridge steps
-  - non-terminal MCTS leaf value is more score-aligned (district pressure and tiebreak structure)
-- Search/MCTS guidance integration landed:
-  - optional learned policy priors for search and MCTS
-  - optional learned leaf value for MCTS depth cutoffs
-  - optional learned opponent action modeling in search rollouts
-  - new eval/benchmark/teacher-data CLI flags for guidance checkpoint injection
-- Unattended A/B pipeline script landed:
-  - `scripts/run_guidance_ab_pipeline.py` runs teacher-data -> guidance-train -> baseline eval -> guided eval sequentially with fail-fast behavior and manifest output
-  - default eval policy A is now `search` (was `mcts`)
-- Unattended rollout-search sweep script landed:
-  - `scripts/search_teacher_sweep.py` runs side-swapped search-vs-opponent eval for named presets, then writes ranked JSON/Markdown summaries
-- Training handoff documentation now exists at `docs/TRAINING_HANDOFF.md` with:
-  - measured benchmark/eval snapshot
-  - in-flight run context
-  - objective next-step decision logic
-  - restart-ready command playbook
+- Related PPO/MCTS/guidance tests and documentation references.
 
 ## In Progress
 
-- Guidance checkpoint quality tuning and holdout validation.
-- Determining best teacher configuration: heuristic-guided search vs guidance-assisted search/MCTS.
+- Search preset tuning to lock a stable warm-start baseline vs heuristic.
+- TD checkpoint iteration/evaluation cycle quality (which `td-value` / `td-search` checkpoints materially beat heuristic/search baselines).
 
 ## Remaining
 
-- Add full student distillation training/evaluation path with promotion gates for browser deployment.
-- Define and enforce model promotion criteria (teacher/champion gate).
-- Improve experiment tracking/reporting for long-running sweeps.
+- Add online/self-play replay refresh loop (not only offline replay files).
+- Define checkpoint promotion/reporting conventions across TD runs.
+- Improve `td-search` quality (deeper integration than current rollout-guided form, plus caching/throughput improvements).
+- Define browser deployment path for learned TD checkpoint inference.
 
 ## Risks / Watch Items
 
-- Guidance can improve search quality but may increase simulation-time compute if overused in deep trees.
-- Search policy strength is improving, but inference latency is high for UI-time play.
-- PPO seed variance remains significant; single-run conclusions are unreliable.
-- Rules parity is strong but still depends on scenario tests staying current as features evolve.
+- Search-only strength can plateau below strong-human target.
+- Side-gap instability can hide seat bias; treat as a hard promotion risk.
+- Warm-start data can encode heuristic biases; TD training must move beyond it.
 
-_Updated: 2026-02-28._
+_Updated: 2026-03-01._
