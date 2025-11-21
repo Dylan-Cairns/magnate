@@ -9,6 +9,8 @@
 - Search/MCTS modular internals and guidance integration are implemented.
 - Teacher sample schema includes optional soft policy targets (`actionProbs`).
 - Encoding upgraded to v2 (`OBSERVATION_DIM=206`, `encodingVersion` enforced for PPO-format checkpoints).
+- TS web search policy upgraded to Python-parity root search behavior
+  (progressive widening + root UCB + softmax priors over heuristic scores).
 - Search sweep runner was modernized:
   - now eval-suite based (one artifact per preset with win rate/CI/side-gap)
   - legacy `t1..t8` presets removed in favor of modern preset packs
