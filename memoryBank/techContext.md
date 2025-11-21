@@ -23,15 +23,13 @@
 - JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
 - Python bootstrap:
   - `scripts/setup_python_env.ps1`
-  - `.\.venv\Scripts\Activate.ps1`
+  - `./.venv/Scripts/Activate.ps1`
 - Active Python entrypoints:
   - `python -m scripts.eval`
   - `python -m scripts.eval_suite` (`--workers` for deterministic parallel sharding)
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
-  - `python -m scripts.train_search_guidance`
-  - `python -m scripts.run_guidance_ab_pipeline`
-  - `python -m scripts.train_ppo` / `python -m scripts.train_ppo_queue` (kept for PPO-format model workflow)
+  - `python -m scripts.smoke_trainer`
 
 ## Constraints
 
@@ -41,8 +39,8 @@
 
 ## Known Gaps
 
-- Promotion thresholds still need repeated high-sample confirmation.
-- Search strength vs latency tuning remains active.
-- Student distillation path is not yet productionized.
+- TD value/opponent-model training modules are not implemented yet.
+- Search baseline promotion thresholds still need repeated confirmation.
+- Browser deployment path for learned TD models is not implemented yet.
 
 _Updated: 2026-03-01._

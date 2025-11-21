@@ -11,7 +11,7 @@ from typing import Set
 
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import MctsConfig, SearchConfig, policy_from_name
+from trainer.policies import SearchConfig, policy_from_name
 from trainer.teacher_data import collect_teacher_samples
 from trainer.training import write_samples_jsonl
 from trainer.types import PlayerId
@@ -35,25 +35,13 @@ def parse_args() -> argparse.Namespace:
         "--teacher-policy",
         type=str,
         default="search",
-        help="Teacher policy (random|heuristic|search|mcts|ppo).",
-    )
-    parser.add_argument(
-        "--teacher-checkpoint",
-        type=Path,
-        default=None,
-        help="Checkpoint path required when --teacher-policy=ppo.",
+        help="Teacher policy (random|heuristic|search).",
     )
     parser.add_argument(
         "--opponent-policy",
         type=str,
         default="heuristic",
-        help="Opponent policy for non-teacher turns (random|heuristic|search|mcts|ppo).",
-    )
-    parser.add_argument(
-        "--opponent-checkpoint",
-        type=Path,
-        default=None,
-        help="Checkpoint path required when --opponent-policy=ppo.",
+        help="Opponent policy for non-teacher turns (random|heuristic|search).",
     )
     parser.add_argument(
         "--teacher-players",
@@ -119,54 +107,6 @@ def parse_args() -> argparse.Namespace:
         default=0.04,
         help="Search rollout epsilon for random exploratory moves.",
     )
-    parser.add_argument(
-        "--mcts-worlds",
-        type=int,
-        default=6,
-        help="MCTS determinized world samples per decision.",
-    )
-    parser.add_argument(
-        "--mcts-simulations",
-        type=int,
-        default=96,
-        help="MCTS simulations per sampled world.",
-    )
-    parser.add_argument(
-        "--mcts-depth",
-        type=int,
-        default=24,
-        help="MCTS simulation depth limit (decision steps).",
-    )
-    parser.add_argument(
-        "--mcts-max-root-actions",
-        type=int,
-        default=8,
-        help="MCTS root actions kept after heuristic pre-ranking.",
-    )
-    parser.add_argument(
-        "--mcts-c-puct",
-        type=float,
-        default=1.25,
-        help="MCTS PUCT exploration coefficient.",
-    )
-    parser.add_argument(
-        "--search-guidance-checkpoint",
-        type=Path,
-        default=None,
-        help="Optional PPO-format guidance checkpoint for search priors/value/opponent model.",
-    )
-    parser.add_argument(
-        "--mcts-guidance-checkpoint",
-        type=Path,
-        default=None,
-        help="Optional PPO-format guidance checkpoint for MCTS priors/value.",
-    )
-    parser.add_argument(
-        "--guidance-temperature",
-        type=float,
-        default=1.0,
-        help="Softmax temperature used by guidance checkpoints.",
-    )
     return parser.parse_args()
 
 
@@ -181,33 +121,16 @@ def main() -> int:
         max_root_actions=args.search_max_root_actions,
         rollout_epsilon=args.search_rollout_epsilon,
     )
-    mcts_config = MctsConfig(
-        worlds=args.mcts_worlds,
-        simulations=args.mcts_simulations,
-        depth=args.mcts_depth,
-        max_root_actions=args.mcts_max_root_actions,
-        c_puct=args.mcts_c_puct,
-    )
 
     teacher_policy = policy_from_name(
         args.teacher_policy,
-        checkpoint_path=args.teacher_checkpoint,
         search_config=search_config,
-        mcts_config=mcts_config,
-        search_guidance_checkpoint=args.search_guidance_checkpoint,
-        mcts_guidance_checkpoint=args.mcts_guidance_checkpoint,
-        guidance_temperature=args.guidance_temperature,
     )
     opponent_policy = None
     if teacher_player_ids != {"PlayerA", "PlayerB"}:
         opponent_policy = policy_from_name(
             args.opponent_policy,
-            checkpoint_path=args.opponent_checkpoint,
             search_config=search_config,
-            mcts_config=mcts_config,
-            search_guidance_checkpoint=args.search_guidance_checkpoint,
-            mcts_guidance_checkpoint=args.mcts_guidance_checkpoint,
-            guidance_temperature=args.guidance_temperature,
         )
 
     try:
@@ -222,9 +145,7 @@ def main() -> int:
                 decisions_by_player: dict,
             ) -> None:
                 elapsed_minutes = (time.perf_counter() - started_at) / 60.0
-                pct = (
-                    (completed_games / total_games) * 100.0 if total_games > 0 else 100.0
-                )
+                pct = ((completed_games / total_games) * 100.0) if total_games > 0 else 100.0
                 print(
                     "[teacher-data] progress "
                     f"games={completed_games}/{total_games} "
@@ -265,12 +186,8 @@ def main() -> int:
             "games": args.games,
             "seedPrefix": args.seed_prefix,
             "teacherPolicy": args.teacher_policy,
-            "teacherCheckpoint": str(args.teacher_checkpoint) if args.teacher_checkpoint else None,
             "teacherPlayers": sorted(teacher_player_ids),
             "opponentPolicy": args.opponent_policy if opponent_policy is not None else None,
-            "opponentCheckpoint": (
-                str(args.opponent_checkpoint) if args.opponent_checkpoint else None
-            ),
             "rngSeed": args.rng_seed,
             "search": {
                 "worlds": args.search_worlds,
@@ -278,26 +195,6 @@ def main() -> int:
                 "depth": args.search_depth,
                 "maxRootActions": args.search_max_root_actions,
                 "rolloutEpsilon": args.search_rollout_epsilon,
-            },
-            "mcts": {
-                "worlds": args.mcts_worlds,
-                "simulations": args.mcts_simulations,
-                "depth": args.mcts_depth,
-                "maxRootActions": args.mcts_max_root_actions,
-                "cPuct": args.mcts_c_puct,
-            },
-            "guidance": {
-                "searchCheckpoint": (
-                    str(args.search_guidance_checkpoint)
-                    if args.search_guidance_checkpoint
-                    else None
-                ),
-                "mctsCheckpoint": (
-                    str(args.mcts_guidance_checkpoint)
-                    if args.mcts_guidance_checkpoint
-                    else None
-                ),
-                "temperature": args.guidance_temperature,
             },
         },
         "results": summary.as_json(),

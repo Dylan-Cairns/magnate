@@ -4,48 +4,44 @@
 
 - Deterministic TS engine and bridge runtime are in place.
 - Browser app is playable with policy-agnostic bot selection.
-- Default web bot is rollout-eval search; legacy browser PPO path removed.
+- Default web bot is rollout-eval search.
 - Canonical side-swapped eval suite is implemented (`scripts/eval_suite.py`).
-- Search/MCTS modular internals and guidance integration are implemented.
-- Teacher sample schema includes optional soft policy targets (`actionProbs`).
-- Encoding upgraded to v2 (`OBSERVATION_DIM=206`, `encodingVersion` enforced for PPO-format checkpoints).
-- TS web search policy upgraded to Python-parity root search behavior
-  (progressive widening + root UCB + softmax priors over heuristic scores).
-- Search sweep runner was modernized:
-  - now eval-suite based (one artifact per preset with win rate/CI/side-gap)
-  - legacy `t1..t8` presets removed in favor of modern preset packs
-- Eval throughput controls added:
-  - `scripts.eval_suite` now supports `--workers` deterministic shard parallelism
-  - `scripts.search_teacher_sweep` now supports `--jobs` and forwards `--workers`
-- Guidance A/B pipeline now uses paired eval seeds for cleaner baseline vs guided comparison.
+- Search root logic parity was implemented between Python and browser TS policy.
+- Search sweep runner is eval-suite based (`scripts/search_teacher_sweep.py`).
+- Eval throughput controls are in place:
+  - `scripts.eval_suite --workers`
+  - `scripts.search_teacher_sweep --jobs` (preset-level parallelism)
 
 ## Removed (Intentional Cleanup)
 
-- `scripts/export_ppo_browser_checkpoint.py`
-- `scripts/benchmark.py`
-- `scripts/benchmark_queue.py`
-- `scripts/train.py`
-- `scripts/finetune.py`
-- `trainer/benchmarking.py`
-- `trainer/behavior_cloning.py`
-- `trainer/reinforcement.py`
-- Legacy BC/reinforcement/benchmark tests.
+- PPO training stack:
+  - `scripts/train_ppo.py`
+  - `scripts/train_ppo_queue.py`
+  - `trainer/ppo_model.py`
+  - `trainer/ppo_training.py`
+- MCTS policy stack (policy + CLI surface + tests).
+- Guidance/distillation stack:
+  - `scripts/train_search_guidance.py`
+  - `scripts/run_guidance_ab_pipeline.py`
+  - `trainer/guidance_training.py`
+- Related PPO/MCTS/guidance tests and documentation references.
 
 ## In Progress
 
-- Search preset tuning to reach promotion-grade dominance vs heuristic.
-- Guidance checkpoint quality tuning on top of promoted teacher configs.
+- Search preset tuning to lock a stable warm-start baseline vs heuristic.
+- Preparation for TD/Keldon training module implementation.
 
 ## Remaining
 
-- Lock promotion thresholds and enforce them in repeated sweeps.
-- Complete search->student distillation workflow once teacher dominance is stable.
-- Standardize lightweight experiment reporting across multi-run sweeps.
+- Add TD value training loop (bootstrapped from self-play trajectories).
+- Add opponent action model.
+- Integrate TD value + opponent model into search (`td-search` path).
+- Define and document TD checkpoint contract.
 
 ## Risks / Watch Items
 
-- Determinized search strength can improve slower than latency cost.
+- Search-only strength can plateau below strong-human target.
 - Side-gap instability can hide seat bias; treat as a hard promotion risk.
-- Guidance may increase compute if injected too broadly at inference.
+- Warm-start data can encode heuristic biases; TD training must move beyond it.
 
 _Updated: 2026-03-01._

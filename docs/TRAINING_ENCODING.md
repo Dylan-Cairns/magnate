@@ -77,15 +77,15 @@ Feature groups:
    - has district id
    - card is property
 
-## Checkpoint Contract
+## Model Contract Note
 
-- PPO/guidance checkpoint type: `magnate_ppo_policy_v1` (`trainer/ppo_model.py`)
-- Checkpoints must include `encodingVersion` and it must match `ENCODING_VERSION`.
-- Legacy checkpoints without `encodingVersion` are rejected.
+- PPO/guidance checkpoint contracts were removed during cleanup.
+- TD model checkpoint contracts will be documented when TD modules land.
+- Until then, treat this file as the stable feature-layout contract only.
 
 ## Compatibility Rule
 
 - Any change to observation or action candidate layout requires:
   - encoder updates in both Python and TS parity code
-  - checkpoint compatibility/version update
+  - model/checkpoint contract update for active training models
   - documentation update in this file

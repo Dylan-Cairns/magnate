@@ -1,20 +1,20 @@
-# Search-First Training Plan
+# Search Warm-Start Plan
 
-This is the active plan for reaching a bot that decisively outperforms heuristic.
+This file defines the post-cleanup plan before TD implementation lands.
 
 ## Objective
 
-Build the strongest practical teacher quickly:
+Use rollout search only for warm-start leverage:
 
-1. Improve determinized rollout search through evaluation-driven tuning.
-2. Stabilize results with side-swapped paired-seed evidence.
-3. Add guidance/distillation only after teacher strength is validated.
+1. establish the strongest practical search baseline vs heuristic,
+2. collect high-quality warm-start decision data,
+3. transition to TD value + opponent-model training.
 
 ## Why This Plan
 
-- Current search path already outperforms legacy policy training.
-- Determinization + lookahead quality has high immediate leverage.
-- Promotion decisions need robust statistics, not short noisy runs.
+- The repo is intentionally stripped of PPO/MCTS/guidance paths.
+- Search is useful for immediate signal, but not the long-run ceiling.
+- TD/Keldon approach is the target architecture for stronger play.
 
 ## Evaluation Standard
 
@@ -45,11 +45,11 @@ Never promote based on one-seat or tiny-sample runs.
 ### Stage C: Promotion Gate
 
 - Run best preset at `games_per_side = 1000` (2000 total).
-- Use this as promotion evidence.
+- Use this as the warm-start teacher baseline.
 
 ## Parameter-Tuning Order
 
-To avoid 5D grid explosion:
+To avoid a full 5D sweep:
 
 1. Structure first:
    - tune `worlds`, `depth`, `max_root_actions`
@@ -59,27 +59,25 @@ To avoid 5D grid explosion:
 3. Extra compute last:
    - tune `rollouts` (`rollouts-v1` pack)
 
-## Promotion Targets
-
-Use these as operational gates (adjust only with explicit team decision):
+## Promotion Targets for Search Baseline
 
 - Stage B (400 total):
   - strong candidate if win rate >= 0.78
   - side gap <= 0.06
 - Stage C (2000 total):
-  - promotion target win rate >= 0.85
+  - baseline target win rate >= 0.85
   - CI low >= 0.82
   - side gap <= 0.04
 
-## When to Stop Tuning and Add Infra
+## Exit Criteria to TD Build Phase
 
-Switch to additional infrastructure work only if:
+Move to TD implementation when:
 
-- best confirmed search config plateaus below target strength, or
-- runtime costs are unacceptable at winning configs.
+- a stable search baseline is confirmed, and
+- warm-start teacher data quality is acceptable.
 
-Priority order for next infra:
+First TD priorities:
 
-1. Explicit dice/chance expectation in lookahead.
-2. Stronger opponent-response modeling.
-3. Further value/policy guidance improvements.
+1. value network with TD targets,
+2. opponent action prediction model,
+3. integration into `td-search` rollout/leaf evaluation.

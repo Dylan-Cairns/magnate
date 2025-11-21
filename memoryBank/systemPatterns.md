@@ -34,16 +34,11 @@ Design expectations:
 - Bot profile selection should resolve through a small catalog:
   - available profiles use their own policy implementation
   - unavailable profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
-  - current browser profiles prioritize deterministic search-based play over legacy model artifact loading
+  - current browser profiles prioritize deterministic search-based play
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
 - Additive policy implementations should not replace existing training/eval paths:
-  - new policy kinds (for example `search`) are wired through the same `policy_from_name(...)` factory and existing eval harnesses.
-  - policies that spawn external resources (for example bridge subprocesses for simulation) must expose `close()` so scripts can shut them down cleanly.
-  - search-class policies may optionally load PPO-format guidance checkpoints for:
-    - action priors
-    - leaf-value evaluation
-    - rollout opponent action modeling
-  - guidance integration must remain additive (heuristic priors/value remain fallback when no checkpoint is provided).
+  - policy kinds are wired through one factory (`policy_from_name(...)`)
+  - policies that spawn external resources (for example bridge subprocesses for simulation) expose `close()`
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
@@ -68,12 +63,22 @@ Design expectations:
 
 - Bridge is the runtime boundary between TS engine and Python trainer.
 - Contract is versioned and intentionally small.
-- Stable items: request/response envelope, commands, action IDs, observation layout metadata, model I/O names.
+- Stable items: request/response envelope, commands, action IDs, observation layout metadata.
 - Runtime transport is NDJSON over stdin/stdout via `src/bridge/cli.ts`.
 - Command handling lives in `src/bridge/runtime.ts` and returns strict success/error envelopes.
 - Canonical bridge action surface comes from `src/engine/actionSurface.ts`:
   - stable action keys
   - canonical legal-action ordering by lexicographic action key
+
+## Training Pattern
+
+- Current baseline policy is determinized rollout search.
+- Search is treated as warm-start infrastructure, not final architecture.
+- Canonical evaluation is side-swapped paired-seed runs (`scripts.eval_suite`).
+- Python policy surface is intentionally narrow during TD pivot:
+  - `random`
+  - `heuristic`
+  - `search`
 
 ## Testing Pattern
 
@@ -81,12 +86,9 @@ Design expectations:
 - Unit tests for visibility boundaries (hidden opponent hand, hidden draw order).
 - Deterministic fixtures and seed-based replay paths.
 - Contract tests to protect TS/Python integration behavior.
-- Python bridge-client/encoding/eval scaffolding should have its own tests (`trainer_tests/`) that run against the live bridge process.
-- Search policies should have focused tests for:
-  - deterministic action choice under fixed state + RNG
-  - legal-action guarantees under live bridge legality responses
-  - guidance-checkpoint integration paths for search and MCTS
-- Side-swapped promotion evals should run through a single canonical pipeline:
+- Python bridge-client/encoding/eval scaffolding has focused tests in `trainer_tests/`.
+- Search policies have focused tests for deterministic action choice and legal-action guarantees.
+- Side-swapped promotion evals run through a single canonical pipeline:
   - paired seeds with swapped policy seats
   - Wilson confidence interval reporting
   - explicit side-gap reporting
