@@ -16,7 +16,7 @@ Keep the repo focused on one direction:
 2. Use search teacher to generate warm-start decision data.
 3. Run TD replay collection + TD training + TD checkpoint eval cycles.
 4. Evaluate `td-search` checkpoints (TD-guided search) against heuristic/search baselines.
-5. Use benchmark-gated begin/end evaluation (`run_td_loop --eval-benchmark-opponents ...`) for promotion decisions.
+5. Use gate-first then certify-panel evaluation for promotion decisions (`run_td_loop` default flow).
 
 ## Value Semantics (Locked)
 
@@ -126,19 +126,13 @@ python -m scripts.collect_td_self_play --games 200 --seed-prefix td-replay --pla
 Full TD loop orchestration (8 vCPU cloud profile):
 
 ```powershell
-python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search
+python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-workers 6 --gate-max-games-per-side 400 --certify-workers 6 --certify-games-per-side 400 --certify-opponents search heuristic
 ```
 
-Built-in begin/end improvement comparison:
+Local gate/certify loop:
 
 ```powershell
-python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --train-save-every-steps 200 --eval-games-per-side 200 --eval-opponent-policy search --eval-first-last-checkpoints
-```
-
-Begin/end benchmark-gated comparison (recommended for promotion decisions):
-
-```powershell
-python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --train-save-every-steps 200 --eval-games-per-side 200 --eval-opponent-policy search --eval-first-last-checkpoints --eval-benchmark-opponents search heuristic --eval-benchmark-games-per-side 200 --eval-benchmark-min-delta-win-rate 0.02 --eval-benchmark-min-end-win-rate 0.55 --eval-benchmark-max-end-side-gap 0.08
+python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
 ```
 
 TD training:
@@ -150,13 +144,13 @@ python -m scripts.train_td --value-replay artifacts/td_replay/<stamp-run>.value.
 TD checkpoint eval:
 
 ```powershell
-python -m scripts.eval_suite --games-per-side 200 --workers 1 --seed-prefix td-eval-v1 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-worlds 8 --out artifacts/evals/td_value_v_heur_400.json
+python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 1 --seed-prefix td-eval-v1 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-worlds 8 --out artifacts/evals/td_value_v_heur_400.json
 ```
 
 TD-search checkpoint eval:
 
 ```powershell
-python -m scripts.eval_suite --games-per-side 200 --workers 1 --seed-prefix td-search-eval-v1 --candidate-policy td-search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --td-search-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run-dir>/opponent-step-0002000.pt --out artifacts/evals/td_search_v_heur_400.json
+python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 1 --seed-prefix td-search-eval-v1 --candidate-policy td-search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --td-search-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run-dir>/opponent-step-0002000.pt --out artifacts/evals/td_search_v_heur_400.json
 ```
 
 ## Artifacts
@@ -178,4 +172,4 @@ python -m scripts.eval_suite --games-per-side 200 --workers 1 --seed-prefix td-s
 1. Read this file and `docs/TRAINING_PLAN_SEARCH_FIRST.md`.
 2. Confirm a promoted search baseline via `scripts.search_teacher_sweep`.
 3. Generate a clean warm-start dataset with `scripts.generate_teacher_data`.
-4. Run Phase 2/3 TD loops (`collect_td_self_play` -> `train_td` -> `eval_suite --candidate-policy td-value|td-search`) and rank checkpoints.
+4. Run Phase 2/3 TD loops (`collect_td_self_play` -> `train_td` -> `run_td_loop` gate/certify promotion) and rank checkpoints.

@@ -335,6 +335,8 @@ def _build_eval_suite_command(
         python_bin,
         "-m",
         "scripts.eval_suite",
+        "--mode",
+        "certify",
         "--games-per-side",
         str(games_per_side),
         "--workers",

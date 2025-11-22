@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import math
 import unittest
 
-from scripts.eval_suite import _merge_shard_results, _split_games
+from scripts.eval_suite import (
+    _merge_shard_results,
+    _split_games,
+    _sprt_boundaries,
+    _sprt_log_likelihood_ratio,
+)
 
 
 class EvalSuiteScriptTests(unittest.TestCase):
@@ -92,6 +98,28 @@ class EvalSuiteScriptTests(unittest.TestCase):
             merged["legs"]["candidateAsPlayerB"]["policyBySeat"],
             {"PlayerA": "heuristic", "PlayerB": "search"},
         )
+
+    def test_sprt_boundaries_and_llr_move_in_expected_direction(self) -> None:
+        accept, reject = _sprt_boundaries(alpha=0.05, beta=0.10)
+        self.assertGreater(accept, 0.0)
+        self.assertLess(reject, 0.0)
+
+        llr_strong = _sprt_log_likelihood_ratio(
+            successes=60,
+            trials=100,
+            h0=0.50,
+            h1=0.55,
+        )
+        llr_weak = _sprt_log_likelihood_ratio(
+            successes=45,
+            trials=100,
+            h0=0.50,
+            h1=0.55,
+        )
+        self.assertGreater(llr_strong, 0.0)
+        self.assertLess(llr_weak, 0.0)
+        self.assertTrue(math.isfinite(llr_strong))
+        self.assertTrue(math.isfinite(llr_weak))
 
 
 if __name__ == "__main__":

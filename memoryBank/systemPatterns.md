@@ -78,8 +78,10 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-  - Current active loop is offline replay generation (`collect_td_self_play`) followed by checkpointed training (`train_td`) and side-swapped eval (`eval_suite`).
-- Canonical evaluation is side-swapped paired-seed runs (`scripts.eval_suite`).
+  - Current active loop is chunked offline replay generation + checkpointed training, followed by gate/certify evaluation.
+- Canonical evaluation is `scripts.eval_suite` with explicit modes:
+  - `--mode gate` for sequential side-swapped paired-seed SPRT gating
+  - `--mode certify` for fixed-size side-swapped confidence suites
 - Python policy surface is intentionally narrow during TD pivot:
   - `random`
   - `heuristic`
