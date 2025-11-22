@@ -80,6 +80,15 @@
   - training/eval scripts require active `.venv` and explicit policy flags
   - `td-search` configuration requires both value and opponent checkpoints
 
+### TD Value Semantics
+
+- `V(obs)` is locked to active-player perspective:
+  - model output is expected outcome for `obs.activePlayerId`.
+- TD replay collection is aligned with that definition (active-player observations).
+- Any root-player search/eval leaf score must convert with:
+  - `v_root = v_active` if `activePlayerId == rootPlayer`
+  - `v_root = -v_active` otherwise
+
 ## Immediate Next Steps
 
 1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
@@ -88,4 +97,4 @@
    - run `scripts.run_td_loop` for standardized collect/train/eval cycles,
    - benchmark and rank promoted checkpoints against search baselines.
 
-_Updated: 2026-03-01._
+_Updated: 2026-03-02._
