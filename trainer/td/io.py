@@ -28,6 +28,26 @@ def write_value_transitions_jsonl(
                     "done=False requires next_observation. "
                     f"entry={index}"
                 )
+            has_episode = transition.episode_id is not None
+            has_timestep = transition.timestep is not None
+            if has_episode != has_timestep:
+                raise ValueError(
+                    "Invalid value transition while writing JSONL: "
+                    "episode_id and timestep must both be set or both be None. "
+                    f"entry={index}"
+                )
+            if transition.episode_id is not None and transition.episode_id == "":
+                raise ValueError(
+                    "Invalid value transition while writing JSONL: "
+                    "episode_id must be non-empty when set. "
+                    f"entry={index}"
+                )
+            if transition.timestep is not None and transition.timestep < 0:
+                raise ValueError(
+                    "Invalid value transition while writing JSONL: "
+                    "timestep must be >= 0 when set. "
+                    f"entry={index}"
+                )
             payload = {
                 "observation": list(transition.observation),
                 "reward": float(transition.reward),
@@ -39,6 +59,9 @@ def write_value_transitions_jsonl(
                 ),
                 "playerId": transition.player_id,
             }
+            if transition.episode_id is not None:
+                payload["episodeId"] = transition.episode_id
+                payload["timestep"] = int(transition.timestep)
             handle.write(json.dumps(payload) + "\n")
 
 
@@ -116,12 +139,15 @@ def _value_transition_from_json(
             f"on line {line_number}."
         )
     player_id = _as_player_id(payload.get("playerId"), line_number, "playerId")
+    episode_id, timestep = _as_episode_step(payload, line_number)
     return ValueTransition(
         observation=observation,
         reward=reward,
         done=done,
         next_observation=next_observation,
         player_id=player_id,
+        episode_id=episode_id,
+        timestep=timestep,
     )
 
 
@@ -186,3 +212,33 @@ def _as_player_id(value: Any, line_number: int, field: str) -> PlayerId:
     if value not in ("PlayerA", "PlayerB"):
         raise ValueError(f"{field} must be PlayerA|PlayerB on line {line_number}.")
     return value
+
+
+def _as_episode_step(
+    payload: Mapping[str, Any],
+    line_number: int,
+) -> tuple[str | None, int | None]:
+    episode_raw = payload.get("episodeId")
+    timestep_raw = payload.get("timestep")
+    has_episode = episode_raw is not None
+    has_timestep = timestep_raw is not None
+    if not has_episode and not has_timestep:
+        return None, None
+    if has_episode != has_timestep:
+        raise ValueError(
+            "episodeId and timestep must either both be present or both be absent "
+            f"on line {line_number}."
+        )
+    if not isinstance(episode_raw, str) or episode_raw == "":
+        raise ValueError(
+            f"episodeId must be a non-empty string on line {line_number}."
+        )
+    if isinstance(timestep_raw, bool) or not isinstance(timestep_raw, int):
+        raise ValueError(
+            f"timestep must be an integer on line {line_number}."
+        )
+    if timestep_raw < 0:
+        raise ValueError(
+            f"timestep must be >= 0 on line {line_number}."
+        )
+    return episode_raw, timestep_raw

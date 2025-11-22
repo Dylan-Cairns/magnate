@@ -12,6 +12,9 @@ This file contains copy/paste commands for the current cleanup state:
 - Policy roles must be explicit (`--candidate-policy`, `--opponent-policy`, `--player-a-policy`, `--player-b-policy`, `--teacher-policy`).
 - `td-search` now requires both `--td-search-value-checkpoint` and `--td-search-opponent-checkpoint`.
 - Search/TD training paths no longer silently fall back to heuristic action selection.
+- TD value training target mode is explicit:
+  - default: `--value-target-mode td0`
+  - sequence-aware TD(lambda): `--value-target-mode td-lambda --td-lambda 0.7`
 
 ## 1) Coarse Search Sweep (Warm-Start Teacher Tuning)
 
@@ -71,6 +74,12 @@ Replace `<stamp-run-label>` with the replay artifact stem from step 7.
 python -m scripts.train_td --value-replay artifacts/td_replay/<stamp-run-label>.value.jsonl --opponent-replay artifacts/td_replay/<stamp-run-label>.opponent.jsonl --steps 2000 --value-batch-size 128 --opponent-batch-size 64 --target-sync-interval 200 --save-every-steps 200 --progress-every-steps 20 --out-dir artifacts/td_checkpoints --run-label td-v1
 ```
 
+TD(lambda) training variant (sequence-aware replay required):
+
+```powershell
+python -m scripts.train_td --value-replay artifacts/td_replay/<stamp-run-label>.value.jsonl --opponent-replay artifacts/td_replay/<stamp-run-label>.opponent.jsonl --steps 2000 --value-target-mode td-lambda --td-lambda 0.7 --value-batch-size 128 --opponent-batch-size 64 --target-sync-interval 200 --save-every-steps 200 --progress-every-steps 20 --out-dir artifacts/td_checkpoints --run-label td-v1-lambda
+```
+
 ## 9) TD Checkpoint Eval (Phase 2)
 
 Replace checkpoint path with a saved value checkpoint from step 8.
@@ -93,6 +102,12 @@ Runs all three stages end-to-end and writes one loop summary artifact.
 
 ```powershell
 python -m scripts.run_td_loop --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search
+```
+
+TD(lambda) loop variant:
+
+```powershell
+python -m scripts.run_td_loop --run-label td-loop-r1-lambda --collect-games 2000 --train-steps 20000 --train-value-target-mode td-lambda --train-td-lambda 0.7 --eval-games-per-side 200 --eval-opponent-policy search
 ```
 
 Cloud 8 vCPU profile (single flag):

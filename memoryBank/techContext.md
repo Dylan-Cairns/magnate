@@ -29,7 +29,7 @@
   - `python -m scripts.eval_suite` (`--workers` for deterministic parallel sharding)
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
-  - `python -m scripts.run_td_loop` (collect -> train -> eval orchestration; `--collect-workers` shards replay collection across CPUs; `--cloud` applies fixed 8 vCPU worker profile; `--eval-first-last-checkpoints` emits begin/end improvement summary)
+  - `python -m scripts.run_td_loop` (collect -> train -> eval orchestration; `--collect-workers` shards replay collection across CPUs; `--cloud` applies fixed 8 vCPU worker profile; `--eval-first-last-checkpoints` emits begin/end improvement summary; `--train-value-target-mode td-lambda` enables TD(lambda) path)
   - `python -m scripts.smoke_trainer`
 
 ## Constraints
