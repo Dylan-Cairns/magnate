@@ -74,6 +74,7 @@
   - `td-search` policy in `trainer.policies`:
     - determinized search root logic retained
     - leaf evaluation replaced with TD value checkpoint
+    - non-terminal TD leaf values are interpreted in active-player perspective and converted to root perspective via sign flip when needed
     - opponent rollout guidance via required opponent checkpoint
   - surfaced via `scripts.eval`, `scripts.eval_suite`, `scripts.generate_teacher_data`, and `scripts.collect_td_self_play`.
 - Runtime guardrails:

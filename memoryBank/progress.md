@@ -36,6 +36,9 @@
     - `scripts/eval_suite.py`
     - `scripts/generate_teacher_data.py`
     - `scripts/collect_td_self_play.py`
+- TD leaf perspective correctness fix landed:
+  - `td-value` / `td-search` now evaluate non-terminal leaves from active-player observations and convert to root-player perspective with explicit sign handling
+  - focused unit tests added for root/active perspective conversion behavior
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout
@@ -79,4 +82,4 @@
 - Side-gap instability can hide seat bias; treat as a hard promotion risk.
 - Warm-start data can encode heuristic biases; TD training must move beyond it.
 
-_Updated: 2026-03-01._
+_Updated: 2026-03-02._

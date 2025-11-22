@@ -502,14 +502,19 @@ class TDValuePolicy(Policy):
         if step_result.terminal:
             return terminal_value(step_result.state, root_player)
 
-        root_view = self._forward_model.observation(viewer_id=root_player).view
+        active_player = _active_player_id(step_result.view)
         observation = torch.tensor(
-            encode_observation(root_view),
+            encode_observation(step_result.view),
             dtype=torch.float32,
         )
         with torch.no_grad():
-            value = float(self._model(observation).item())
-        return max(-1.0, min(1.0, value))
+            active_value = float(self._model(observation).item())
+        root_value = _active_value_to_root_value(
+            active_value=active_value,
+            active_player=active_player,
+            root_player=root_player,
+        )
+        return max(-1.0, min(1.0, root_value))
 
     def _distribution_from_scores(
         self,
@@ -598,11 +603,16 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
         if step_result.terminal:
             return terminal_value(step_result.state, root_player)
 
-        root_view = self._forward_model.observation(viewer_id=root_player).view
-        observation = torch.tensor(encode_observation(root_view), dtype=torch.float32)
+        active_player = _active_player_id(step_result.view)
+        observation = torch.tensor(encode_observation(step_result.view), dtype=torch.float32)
         with torch.no_grad():
-            value = float(self._value_model(observation).item())
-        return max(-1.0, min(1.0, value))
+            active_value = float(self._value_model(observation).item())
+        root_value = _active_value_to_root_value(
+            active_value=active_value,
+            active_player=active_player,
+            root_player=root_player,
+        )
+        return max(-1.0, min(1.0, root_value))
 
     def _opponent_rollout_action_key(
         self,
@@ -802,3 +812,14 @@ def _safe_div(total: float, count: int) -> float:
     if count <= 0:
         return 0.0
     return total / float(count)
+
+
+def _active_value_to_root_value(
+    *,
+    active_value: float,
+    active_player: PlayerId,
+    root_player: PlayerId,
+) -> float:
+    if active_player == root_player:
+        return active_value
+    return -active_value
