@@ -122,6 +122,12 @@ Cloud run with built-in begin/end improvement report (no separate checkpoint swe
 python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --train-save-every-steps 200 --eval-games-per-side 200 --eval-opponent-policy search --eval-first-last-checkpoints --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
 ```
 
+Cloud run with confidence-gated benchmark panel (begin vs end over fixed opponents):
+
+```powershell
+python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --train-save-every-steps 200 --eval-games-per-side 200 --eval-opponent-policy search --eval-first-last-checkpoints --eval-benchmark-opponents search heuristic --eval-benchmark-games-per-side 200 --eval-benchmark-min-delta-win-rate 0.02 --eval-benchmark-min-end-win-rate 0.55 --eval-benchmark-max-end-side-gap 0.08 --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
+```
+
 Quick validation-sized run:
 
 ```powershell

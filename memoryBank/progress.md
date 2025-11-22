@@ -54,6 +54,10 @@
   - value replay rows now carry `episodeId` + `timestep`
   - `scripts.train_td` supports `--value-target-mode td-lambda --td-lambda <0..1>`
   - TD(lambda) training uses contiguous per-episode/per-player sequence indexing with fail-fast invariants
+- Confidence protocol automation landed:
+  - `scripts.run_td_loop` supports benchmark begin/end panels with fixed opponent sets via `--eval-benchmark-opponents`
+  - panel emits per-opponent delta/CI/side-gap checks and overall pass/fail gate in `loop.summary.json`
+  - configurable thresholds for min delta win rate, min end win rate, max end side gap, optional CI separation
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout
