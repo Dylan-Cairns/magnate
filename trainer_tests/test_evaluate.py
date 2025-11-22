@@ -32,8 +32,25 @@ class EvaluateTests(unittest.TestCase):
             2,
         )
         self.assertGreater(summary.average_turn, 0.0)
+        self.assertEqual(summary.policy_name_by_seat["PlayerA"], "heuristic")
+        self.assertEqual(summary.policy_name_by_seat["PlayerB"], "random")
+
+    def test_evaluate_matchup_tracks_seat_wins_when_policy_names_match(self) -> None:
+        summary = evaluate_matchup(
+            env=self.env,
+            policy_player_a=RandomLegalPolicy(),
+            policy_player_b=RandomLegalPolicy(),
+            games=4,
+            seed_prefix="eval-test-same-policy",
+        )
+        self.assertEqual(summary.policy_name_by_seat["PlayerA"], "random")
+        self.assertEqual(summary.policy_name_by_seat["PlayerB"], "random")
+        self.assertEqual(set(summary.wins_by_seat.keys()), {"PlayerA", "PlayerB"})
+        self.assertEqual(
+            summary.wins_by_seat["PlayerA"] + summary.wins_by_seat["PlayerB"],
+            summary.winners["PlayerA"] + summary.winners["PlayerB"],
+        )
 
 
 if __name__ == "__main__":
     unittest.main()
-

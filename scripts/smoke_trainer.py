@@ -36,7 +36,8 @@ def main() -> int:
                 {
                     "games": summary.games,
                     "winners": summary.winners,
-                    "winsByPolicy": summary.wins_by_policy,
+                    "winsBySeat": summary.wins_by_seat,
+                    "policyBySeat": summary.policy_name_by_seat,
                     "averageTurn": summary.average_turn,
                 }
             ),

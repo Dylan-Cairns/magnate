@@ -25,13 +25,15 @@ class EvalSuiteScriptTests(unittest.TestCase):
                 "candidateAsPlayerA": {
                     "games": 2,
                     "winners": {"PlayerA": 1, "PlayerB": 0, "Draw": 1},
-                    "winsByPolicy": {"search": 1, "heuristic": 0},
+                    "winsBySeat": {"PlayerA": 1, "PlayerB": 0},
+                    "policyBySeat": {"PlayerA": "search", "PlayerB": "heuristic"},
                     "averageTurn": 11.0,
                 },
                 "candidateAsPlayerB": {
                     "games": 2,
                     "winners": {"PlayerA": 1, "PlayerB": 1, "Draw": 0},
-                    "winsByPolicy": {"search": 1, "heuristic": 1},
+                    "winsBySeat": {"PlayerA": 1, "PlayerB": 1},
+                    "policyBySeat": {"PlayerA": "heuristic", "PlayerB": "search"},
                     "averageTurn": 13.0,
                 },
             },
@@ -50,13 +52,15 @@ class EvalSuiteScriptTests(unittest.TestCase):
                 "candidateAsPlayerA": {
                     "games": 2,
                     "winners": {"PlayerA": 1, "PlayerB": 1, "Draw": 0},
-                    "winsByPolicy": {"search": 1, "heuristic": 1},
+                    "winsBySeat": {"PlayerA": 1, "PlayerB": 1},
+                    "policyBySeat": {"PlayerA": "search", "PlayerB": "heuristic"},
                     "averageTurn": 10.0,
                 },
                 "candidateAsPlayerB": {
                     "games": 2,
                     "winners": {"PlayerA": 0, "PlayerB": 1, "Draw": 1},
-                    "winsByPolicy": {"search": 1, "heuristic": 0},
+                    "winsBySeat": {"PlayerA": 0, "PlayerB": 1},
+                    "policyBySeat": {"PlayerA": "heuristic", "PlayerB": "search"},
                     "averageTurn": 10.0,
                 },
             },
@@ -72,6 +76,22 @@ class EvalSuiteScriptTests(unittest.TestCase):
         self.assertAlmostEqual(float(merged["candidateWinRateAsPlayerA"]), 0.5)
         self.assertAlmostEqual(float(merged["candidateWinRateAsPlayerB"]), 0.5)
         self.assertAlmostEqual(float(merged["sideGap"]), 0.0)
+        self.assertEqual(
+            merged["legs"]["candidateAsPlayerA"]["winsBySeat"],
+            {"PlayerA": 2, "PlayerB": 1},
+        )
+        self.assertEqual(
+            merged["legs"]["candidateAsPlayerA"]["policyBySeat"],
+            {"PlayerA": "search", "PlayerB": "heuristic"},
+        )
+        self.assertEqual(
+            merged["legs"]["candidateAsPlayerB"]["winsBySeat"],
+            {"PlayerA": 1, "PlayerB": 2},
+        )
+        self.assertEqual(
+            merged["legs"]["candidateAsPlayerB"]["policyBySeat"],
+            {"PlayerA": "heuristic", "PlayerB": "search"},
+        )
 
 
 if __name__ == "__main__":

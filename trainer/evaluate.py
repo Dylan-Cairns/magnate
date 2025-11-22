@@ -8,7 +8,7 @@ from .env import MagnateBridgeEnv
 from .policies import Policy
 from .types import PlayerId, Winner
 
-ProgressCallback = Callable[[int, int, Mapping[Winner, int], Mapping[str, int]], None]
+ProgressCallback = Callable[[int, int, Mapping[Winner, int], Mapping[PlayerId, int]], None]
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,8 @@ class GameResult:
 class MatchSummary:
     games: int
     winners: Dict[Winner, int]
-    wins_by_policy: Dict[str, int]
+    wins_by_seat: Dict[PlayerId, int]
+    policy_name_by_seat: Dict[PlayerId, str]
     average_turn: float
 
 
@@ -79,9 +80,13 @@ def evaluate_matchup(
     }
 
     winners: Dict[Winner, int] = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
-    wins_by_policy = {
-        policy_player_a.name: 0,
-        policy_player_b.name: 0,
+    wins_by_seat: Dict[PlayerId, int] = {
+        "PlayerA": 0,
+        "PlayerB": 0,
+    }
+    policy_name_by_seat: Dict[PlayerId, str] = {
+        "PlayerA": policy_player_a.name,
+        "PlayerB": policy_player_b.name,
     }
 
     turn_total = 0
@@ -98,9 +103,9 @@ def evaluate_matchup(
         )
         winners[result.winner] += 1
         if result.winner == "PlayerA":
-            wins_by_policy[policy_player_a.name] += 1
+            wins_by_seat["PlayerA"] += 1
         elif result.winner == "PlayerB":
-            wins_by_policy[policy_player_b.name] += 1
+            wins_by_seat["PlayerB"] += 1
         turn_total += result.turn
         completed_games = index + 1
         if (
@@ -115,13 +120,14 @@ def evaluate_matchup(
                 completed_games,
                 games,
                 dict(winners),
-                dict(wins_by_policy),
+                dict(wins_by_seat),
             )
 
     average_turn = (turn_total / games) if games > 0 else 0.0
     return MatchSummary(
         games=games,
         winners=winners,
-        wins_by_policy=wins_by_policy,
+        wins_by_seat=wins_by_seat,
+        policy_name_by_seat=policy_name_by_seat,
         average_turn=average_turn,
     )
