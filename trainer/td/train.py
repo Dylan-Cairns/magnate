@@ -70,7 +70,18 @@ def train_value_batch(
     for transition in transitions:
         if len(transition.observation) != observation_dim:
             raise ValueError("All transition observations must have the same dimension.")
-        if transition.next_observation is not None and len(transition.next_observation) != observation_dim:
+        if transition.done and transition.next_observation is not None:
+            raise ValueError(
+                "Terminal transition must have next_observation=None."
+            )
+        if (not transition.done) and transition.next_observation is None:
+            raise ValueError(
+                "Non-terminal transition must include next_observation."
+            )
+        if (
+            transition.next_observation is not None
+            and len(transition.next_observation) != observation_dim
+        ):
             raise ValueError("All transition next_observation values must match observation dimension.")
     obs_tensor = torch.tensor([transition.observation for transition in transitions], dtype=torch.float32)
     next_obs_tensor = torch.tensor(

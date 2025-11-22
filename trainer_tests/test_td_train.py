@@ -136,6 +136,54 @@ class TDTrainTests(unittest.TestCase):
         self.assertEqual(summary.step, 1)
         self.assertGreaterEqual(summary.loss, 0.0)
 
+    def test_train_value_batch_rejects_non_terminal_without_next_observation(self) -> None:
+        model = ValueNet(observation_dim=4, hidden_dim=16)
+        target_model = ValueNet(observation_dim=4, hidden_dim=16)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        transitions = [
+            ValueTransition(
+                observation=[0.1, 0.2, 0.3, 0.4],
+                reward=0.0,
+                done=False,
+                next_observation=None,
+                player_id="PlayerA",
+            )
+        ]
+        with self.assertRaises(ValueError):
+            train_value_batch(
+                model=model,
+                target_model=target_model,
+                optimizer=optimizer,
+                transitions=transitions,
+                gamma=0.99,
+                max_grad_norm=1.0,
+                use_huber_loss=True,
+            )
+
+    def test_train_value_batch_rejects_terminal_with_next_observation(self) -> None:
+        model = ValueNet(observation_dim=4, hidden_dim=16)
+        target_model = ValueNet(observation_dim=4, hidden_dim=16)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        transitions = [
+            ValueTransition(
+                observation=[0.1, 0.2, 0.3, 0.4],
+                reward=1.0,
+                done=True,
+                next_observation=[0.2, 0.3, 0.4, 0.5],
+                player_id="PlayerA",
+            )
+        ]
+        with self.assertRaises(ValueError):
+            train_value_batch(
+                model=model,
+                target_model=target_model,
+                optimizer=optimizer,
+                transitions=transitions,
+                gamma=0.99,
+                max_grad_norm=1.0,
+                use_huber_loss=True,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

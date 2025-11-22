@@ -15,7 +15,19 @@ def write_value_transitions_jsonl(
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
-        for transition in transitions:
+        for index, transition in enumerate(transitions, start=1):
+            if transition.done and transition.next_observation is not None:
+                raise ValueError(
+                    "Invalid value transition while writing JSONL: "
+                    "done=True requires next_observation=None. "
+                    f"entry={index}"
+                )
+            if (not transition.done) and transition.next_observation is None:
+                raise ValueError(
+                    "Invalid value transition while writing JSONL: "
+                    "done=False requires next_observation. "
+                    f"entry={index}"
+                )
             payload = {
                 "observation": list(transition.observation),
                 "reward": float(transition.reward),
@@ -92,6 +104,16 @@ def _value_transition_from_json(
             next_observation_raw,
             line_number,
             "nextObservation",
+        )
+    if done and next_observation is not None:
+        raise ValueError(
+            "done=True requires nextObservation to be null "
+            f"on line {line_number}."
+        )
+    if (not done) and next_observation is None:
+        raise ValueError(
+            "done=False requires nextObservation "
+            f"on line {line_number}."
         )
     player_id = _as_player_id(payload.get("playerId"), line_number, "playerId")
     return ValueTransition(

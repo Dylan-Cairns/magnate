@@ -39,6 +39,10 @@
 - TD leaf perspective correctness fix landed:
   - `td-value` / `td-search` now evaluate non-terminal leaves from active-player observations and convert to root-player perspective with explicit sign handling
   - focused unit tests added for root/active perspective conversion behavior
+- TD replay integrity hardening landed:
+  - replay JSONL read/write now fail fast on invalid `done`/`nextObservation` combinations
+  - value training batch ingestion now rejects malformed terminal/non-terminal transition shape
+  - targeted unit tests added for strict transition invariants
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout
