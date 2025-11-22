@@ -71,9 +71,15 @@ def parse_args() -> argparse.Namespace:
         "--cloud",
         action="store_true",
         help=(
-            "Use fixed cloud worker profile for 8 vCPU: "
-            "collect-workers=6, gate-workers=6, certify-workers=6."
+            "Apply preset worker/thread profile for cloud machines."
         ),
+    )
+    parser.add_argument(
+        "--cloud-vcpus",
+        type=int,
+        default=8,
+        choices=(8, 16, 32),
+        help="vCPU preset used when --cloud is set (8|16|32).",
     )
 
     parser.add_argument(
@@ -132,6 +138,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-warm-start-opponent-checkpoint", type=Path, default=None)
     parser.add_argument("--train-save-every-steps", type=int, default=1000)
     parser.add_argument("--train-progress-every-steps", type=int, default=50)
+    parser.add_argument(
+        "--train-num-threads",
+        type=int,
+        default=None,
+        help=(
+            "Optional torch intra-op CPU thread count for scripts.train_td. "
+            "If --cloud is set and this is omitted, defaults to --cloud-vcpus."
+        ),
+    )
+    parser.add_argument(
+        "--train-num-interop-threads",
+        type=int,
+        default=None,
+        help=(
+            "Optional torch inter-op CPU thread count for scripts.train_td. "
+            "If --cloud is set and this is omitted, defaults to 1."
+        ),
+    )
 
     parser.add_argument(
         "--eval-candidate-policy",
@@ -186,9 +210,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.cloud:
-        args.collect_workers = 6
-        args.gate_workers = 6
-        args.certify_workers = 6
+        _apply_cloud_profile(args)
 
     _require_supported_runtime(args.python_bin)
     _validate_args(args)
@@ -773,6 +795,10 @@ def _build_train_command(
         "--summary-out",
         str(train_summary_path),
     ]
+    if args.train_num_threads is not None:
+        command.extend(["--num-threads", str(args.train_num_threads)])
+    if args.train_num_interop_threads is not None:
+        command.extend(["--num-interop-threads", str(args.train_num_interop_threads)])
     if args.train_use_mse_loss:
         command.append("--use-mse-loss")
     if args.train_disable_value:
@@ -1025,6 +1051,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "pythonBin": str(args.python_bin),
         "cloud": bool(args.cloud),
+        "cloudVcpus": args.cloud_vcpus,
         "chunksPerGate": args.chunks_per_gate,
         "collect": {
             "gamesPerChunk": args.collect_games,
@@ -1058,6 +1085,8 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "tdLambda": args.train_td_lambda,
             "saveEverySteps": args.train_save_every_steps,
             "progressEverySteps": args.train_progress_every_steps,
+            "numThreads": args.train_num_threads,
+            "numInteropThreads": args.train_num_interop_threads,
             "useMseLoss": bool(args.train_use_mse_loss),
             "disableValue": bool(args.train_disable_value),
             "disableOpponent": bool(args.train_disable_opponent),
@@ -1118,6 +1147,10 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--collect-workers must be > 0.")
     if args.train_steps <= 0:
         raise SystemExit("--train-steps must be > 0.")
+    if args.train_num_threads is not None and args.train_num_threads <= 0:
+        raise SystemExit("--train-num-threads must be > 0 when provided.")
+    if args.train_num_interop_threads is not None and args.train_num_interop_threads <= 0:
+        raise SystemExit("--train-num-interop-threads must be > 0 when provided.")
     if args.train_td_lambda < 0.0 or args.train_td_lambda > 1.0:
         raise SystemExit("--train-td-lambda must be in [0, 1].")
     if args.gate_workers <= 0:
@@ -1193,6 +1226,22 @@ def _slug(value: str) -> str:
 
 def _join_command(parts: Sequence[str]) -> str:
     return " ".join(shlex.quote(part) for part in parts)
+
+
+def _recommended_cloud_worker_count(vcpus: int) -> int:
+    # Keep one quarter of cores free to reduce scheduler contention and bridge overhead.
+    return max(1, (vcpus * 3) // 4)
+
+
+def _apply_cloud_profile(args: argparse.Namespace) -> None:
+    workers = _recommended_cloud_worker_count(args.cloud_vcpus)
+    args.collect_workers = workers
+    args.gate_workers = workers
+    args.certify_workers = workers
+    if args.train_num_threads is None:
+        args.train_num_threads = args.cloud_vcpus
+    if args.train_num_interop_threads is None:
+        args.train_num_interop_threads = 1
 
 
 if __name__ == "__main__":

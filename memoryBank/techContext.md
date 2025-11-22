@@ -29,7 +29,7 @@
   - `python -m scripts.eval_suite` (required `--mode gate|certify`; `--workers` for deterministic parallel sharding)
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
-  - `python -m scripts.run_td_loop` (chunked collect/train -> gate -> optional certify orchestration; `--chunks-per-gate`, `--collect-workers`, `--gate-workers`, `--certify-workers`; `--cloud` applies fixed 8 vCPU worker profile; `--train-value-target-mode td-lambda` enables TD(lambda) path)
+  - `python -m scripts.run_td_loop` (chunked collect/train -> gate -> optional certify orchestration; `--chunks-per-gate`, `--collect-workers`, `--gate-workers`, `--certify-workers`; `--cloud --cloud-vcpus 8|16|32` applies preset worker/thread profile; `--train-value-target-mode td-lambda` enables TD(lambda) path)
   - `python -m scripts.smoke_trainer`
 
 ## Constraints

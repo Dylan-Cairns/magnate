@@ -132,12 +132,28 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional explicit summary path (defaults inside run directory).",
     )
+    parser.add_argument(
+        "--num-threads",
+        type=int,
+        default=None,
+        help="Optional torch intra-op CPU thread count.",
+    )
+    parser.add_argument(
+        "--num-interop-threads",
+        type=int,
+        default=None,
+        help="Optional torch inter-op CPU thread count.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     _validate_args(args)
+    if args.num_threads is not None:
+        torch.set_num_threads(args.num_threads)
+    if args.num_interop_threads is not None:
+        torch.set_num_interop_threads(args.num_interop_threads)
 
     rng = torch.Generator().manual_seed(args.seed)
     del rng  # Reserved for future direct torch sampling paths.
@@ -339,6 +355,8 @@ def main() -> int:
                 if args.warm_start_opponent_checkpoint
                 else None
             ),
+            "numThreads": args.num_threads,
+            "numInteropThreads": args.num_interop_threads,
         },
         "results": {
             "valueReplaySize": len(value_replay),
@@ -430,6 +448,10 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--save-every-steps must be >= 0.")
     if args.progress_every_steps < 0:
         raise SystemExit("--progress-every-steps must be >= 0.")
+    if args.num_threads is not None and args.num_threads <= 0:
+        raise SystemExit("--num-threads must be > 0 when provided.")
+    if args.num_interop_threads is not None and args.num_interop_threads <= 0:
+        raise SystemExit("--num-interop-threads must be > 0 when provided.")
 
     train_value = not args.disable_value
     train_opponent = not args.disable_opponent
