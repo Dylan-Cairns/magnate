@@ -432,8 +432,10 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
     leg_a_turn_total = 0.0
     leg_b_turn_total = 0.0
 
-    wins_by_policy_a: Dict[str, int] = defaultdict(int)
-    wins_by_policy_b: Dict[str, int] = defaultdict(int)
+    wins_by_seat_a: Dict[str, int] = {"PlayerA": 0, "PlayerB": 0}
+    wins_by_seat_b: Dict[str, int] = {"PlayerA": 0, "PlayerB": 0}
+    policy_by_seat_a: Dict[str, str] | None = None
+    policy_by_seat_b: Dict[str, str] | None = None
     leg_a_winners: Dict[str, int] = defaultdict(int)
     leg_b_winners: Dict[str, int] = defaultdict(int)
 
@@ -450,10 +452,32 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
         candidate_wins_as_a += int(leg_a["winners"]["PlayerA"])
         candidate_wins_as_b += int(leg_b["winners"]["PlayerB"])
 
-        for key, value in leg_a["winsByPolicy"].items():
-            wins_by_policy_a[str(key)] += int(value)
-        for key, value in leg_b["winsByPolicy"].items():
-            wins_by_policy_b[str(key)] += int(value)
+        if policy_by_seat_a is None:
+            policy_by_seat_a = {
+                "PlayerA": str(leg_a["policyBySeat"]["PlayerA"]),
+                "PlayerB": str(leg_a["policyBySeat"]["PlayerB"]),
+            }
+        elif policy_by_seat_a != {
+            "PlayerA": str(leg_a["policyBySeat"]["PlayerA"]),
+            "PlayerB": str(leg_a["policyBySeat"]["PlayerB"]),
+        }:
+            raise RuntimeError("Shard results use inconsistent policyBySeat for candidateAsPlayerA.")
+
+        if policy_by_seat_b is None:
+            policy_by_seat_b = {
+                "PlayerA": str(leg_b["policyBySeat"]["PlayerA"]),
+                "PlayerB": str(leg_b["policyBySeat"]["PlayerB"]),
+            }
+        elif policy_by_seat_b != {
+            "PlayerA": str(leg_b["policyBySeat"]["PlayerA"]),
+            "PlayerB": str(leg_b["policyBySeat"]["PlayerB"]),
+        }:
+            raise RuntimeError("Shard results use inconsistent policyBySeat for candidateAsPlayerB.")
+
+        wins_by_seat_a["PlayerA"] += int(leg_a["winsBySeat"]["PlayerA"])
+        wins_by_seat_a["PlayerB"] += int(leg_a["winsBySeat"]["PlayerB"])
+        wins_by_seat_b["PlayerA"] += int(leg_b["winsBySeat"]["PlayerA"])
+        wins_by_seat_b["PlayerB"] += int(leg_b["winsBySeat"]["PlayerB"])
 
         for key, value in leg_a["winners"].items():
             leg_a_winners[str(key)] += int(value)
@@ -493,13 +517,15 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
             "candidateAsPlayerA": {
                 "games": leg_a_games,
                 "winners": dict(leg_a_winners),
-                "winsByPolicy": dict(wins_by_policy_a),
+                "winsBySeat": dict(wins_by_seat_a),
+                "policyBySeat": dict(policy_by_seat_a or {}),
                 "averageTurn": (leg_a_turn_total / float(max(1, leg_a_games))),
             },
             "candidateAsPlayerB": {
                 "games": leg_b_games,
                 "winners": dict(leg_b_winners),
-                "winsByPolicy": dict(wins_by_policy_b),
+                "winsBySeat": dict(wins_by_seat_b),
+                "policyBySeat": dict(policy_by_seat_b or {}),
                 "averageTurn": (leg_b_turn_total / float(max(1, leg_b_games))),
             },
         },

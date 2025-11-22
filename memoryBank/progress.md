@@ -43,6 +43,10 @@
   - replay JSONL read/write now fail fast on invalid `done`/`nextObservation` combinations
   - value training batch ingestion now rejects malformed terminal/non-terminal transition shape
   - targeted unit tests added for strict transition invariants
+- Eval/reporting seat-collision fix landed:
+  - matchup/leg summaries now consistently use seat-keyed fields (`winsBySeat`, `policyBySeat`)
+  - shard-merge logic validates `policyBySeat` consistency across shards
+  - removed residual name-keyed `winsByPolicy` references from scripts/tests/smoke path
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout
