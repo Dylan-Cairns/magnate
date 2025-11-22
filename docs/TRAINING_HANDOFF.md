@@ -123,10 +123,10 @@ TD replay generation:
 python -m scripts.collect_td_self_play --games 200 --seed-prefix td-replay --player-a-policy search --player-b-policy search --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out-dir artifacts/td_replay --run-label td-replay-search
 ```
 
-Full TD loop orchestration (8 vCPU cloud profile):
+Full TD loop orchestration (cloud profile):
 
 ```powershell
-python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-workers 6 --gate-max-games-per-side 400 --certify-workers 6 --certify-games-per-side 400 --certify-opponents search heuristic
+python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
 ```
 
 Local gate/certify loop:

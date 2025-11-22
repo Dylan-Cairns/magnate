@@ -68,7 +68,8 @@
     - certify panel only on gate pass (`eval_suite --mode certify`)
     - explicit promotion decision in `loop.summary.json`
     - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
-    - `--cloud` applies fixed 8 vCPU worker profile for hosted runs
+    - `--cloud` applies a preset profile sized by `--cloud-vcpus` (8/16/32) for hosted runs
+    - train-stage torch CPU threads are configurable via `--train-num-threads` and `--train-num-interop-threads`
     - shard merge deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`

@@ -102,7 +102,7 @@ Run smoke first, then full loop:
 
 ```bash
 python -m scripts.run_td_loop --run-label td-loop-smoke --chunks-per-gate 1 --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --gate-workers 1 --gate-batch-games-per-side 4 --gate-max-games-per-side 8 --certify-games-per-side 10 --certify-opponents search --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4
-python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-workers 6 --gate-max-games-per-side 400 --certify-workers 6 --certify-games-per-side 400 --certify-opponents search heuristic
+python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
 ```
 
 For long runs, use `tmux`:
@@ -127,7 +127,7 @@ With `.venv` active:
 - TD checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-worlds 8`
 - TD-search checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
 - Full loop automation (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic`
-- Full loop automation (cloud 8 vCPU profile): `python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-workers 6 --gate-max-games-per-side 400 --certify-workers 6 --certify-games-per-side 400 --certify-opponents search heuristic`
+- Full loop automation (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic`
 
 Use `--help` on each script for full options.
 

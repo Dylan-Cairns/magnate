@@ -111,10 +111,10 @@ TD(lambda) loop variant:
 python -m scripts.run_td_loop --run-label td-loop-r1-lambda --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --train-value-target-mode td-lambda --train-td-lambda 0.7 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
 ```
 
-Cloud 8 vCPU profile (single flag):
+Cloud profile (8/16/32 vCPU via `--cloud-vcpus`):
 
 ```powershell
-python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-workers 6 --gate-max-games-per-side 400 --certify-workers 6 --certify-games-per-side 400 --certify-opponents search heuristic --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
+python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
 ```
 
 Quick validation-sized run:
