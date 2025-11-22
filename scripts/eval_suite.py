@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import os
 import re
 import sys
+import time
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Mapping
 
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
-from trainer.eval_suite import evaluate_side_swapped, wilson_interval
+from trainer.eval_suite import wilson_interval
 from trainer.policies import (
     SearchConfig,
     TDSearchPolicyConfig,
@@ -20,25 +23,34 @@ from trainer.policies import (
     policy_from_name,
 )
 
+TERMINAL_GATE_STATUSES = frozenset(("accepted", "rejected", "completed"))
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run canonical side-swapped paired-seed evaluation and report "
-            "win rate, Wilson CI, and side-gap."
+            "Run canonical side-swapped paired-seed evaluation. "
+            "Mode is required: gate (sequential SPRT) or certify (fixed-size)."
         )
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        required=True,
+        choices=("gate", "certify"),
+        help="Evaluation mode: gate (sequential SPRT) or certify (fixed-size report).",
     )
     parser.add_argument(
         "--games-per-side",
         type=int,
-        default=100,
-        help="Games with candidate on each seat (total games = 2x).",
+        default=400,
+        help="Games with candidate on each seat for certify mode (total games = 2x).",
     )
     parser.add_argument(
         "--seed-prefix",
         type=str,
         default="eval-suite",
-        help="Shared seed prefix used for both side-swapped legs.",
+        help="Shared seed prefix used for side-swapped legs.",
     )
     parser.add_argument(
         "--candidate-policy",
@@ -98,7 +110,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Output JSON artifact path. "
-            "Default: artifacts/evals/<utc>-<seed-prefix>-suite-<candidate>-vs-<opponent>.json"
+            "Default: artifacts/evals/<utc>-<seed-prefix>-<mode>-<candidate>-vs-<opponent>.json"
         ),
     )
     parser.add_argument(
@@ -113,6 +125,39 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Seed index offset for deterministic sharding.",
     )
+    parser.add_argument(
+        "--progress-every-games",
+        type=int,
+        default=10,
+        help=(
+            "Print in-run progress every N games per leg per shard. "
+            "Set to 0 to disable."
+        ),
+    )
+    parser.add_argument(
+        "--progress-log-seconds",
+        type=float,
+        default=30.0,
+        help=(
+            "Minimum seconds between progress log lines for the same leg/shard. "
+            "Final completion logs are always emitted."
+        ),
+    )
+
+    # Gate-mode sequential test controls.
+    parser.add_argument("--gate-h0-win-rate", type=float, default=0.50)
+    parser.add_argument("--gate-h1-win-rate", type=float, default=0.55)
+    parser.add_argument("--gate-alpha", type=float, default=0.05)
+    parser.add_argument("--gate-beta", type=float, default=0.10)
+    parser.add_argument("--gate-batch-games-per-side", type=int, default=25)
+    parser.add_argument("--gate-max-games-per-side", type=int, default=400)
+    parser.add_argument("--gate-max-side-gap", type=float, default=0.08)
+    parser.add_argument(
+        "--resume-from-artifact",
+        type=Path,
+        default=None,
+        help="Gate mode only: resume/update this artifact in place.",
+    )
     return parser.parse_args()
 
 
@@ -120,64 +165,72 @@ def main() -> int:
     args = parse_args()
     _require_supported_runtime()
     _validate_policy_args(args)
-    if args.workers <= 0:
-        raise SystemExit("--workers must be > 0.")
-    if args.seed_start_index < 0:
-        raise SystemExit("--seed-start-index must be >= 0.")
-    if args.games_per_side <= 0:
-        raise SystemExit("--games-per-side must be > 0.")
-
-    results = _evaluate_results(args)
+    _validate_args(args)
 
     output_path = args.out or _default_output_path(
         seed_prefix=args.seed_prefix,
+        mode=args.mode,
         candidate_policy=args.candidate_policy,
         opponent_policy=args.opponent_policy,
     )
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if args.mode == "gate":
+        payload = _run_gate_mode(args=args, output_path=output_path)
+        results = payload.get("results") if isinstance(payload, dict) else None
+        if not isinstance(results, dict):
+            raise SystemExit("Gate artifact is missing results payload.")
+        decision = payload.get("decision") if isinstance(payload, dict) else None
+        status = str(payload.get("status")) if isinstance(payload, dict) else "unknown"
+        decision_state = (
+            str(decision.get("state"))
+            if isinstance(decision, dict) and isinstance(decision.get("state"), str)
+            else status
+        )
+        print(
+            json.dumps(
+                {
+                    "artifact": str(output_path),
+                    "mode": args.mode,
+                    "status": status,
+                    "decision": decision_state,
+                    "candidateWinRate": results["candidateWinRate"],
+                    "candidateWinRateCi95": results["candidateWinRateCi95"],
+                    "sideGap": results["sideGap"],
+                    "candidateWins": results["candidateWins"],
+                    "opponentWins": results["opponentWins"],
+                    "draws": results["draws"],
+                    "totalGames": results["totalGames"],
+                    "gamesPerSide": results["gamesPerSide"],
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    results = _evaluate_results(
+        args=args,
+        games_per_side=args.games_per_side,
+        seed_start_index=args.seed_start_index,
+        seed_prefix=args.seed_prefix,
+        workers=args.workers,
+    )
     payload = {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "config": {
-            "gamesPerSide": args.games_per_side,
-            "seedPrefix": args.seed_prefix,
-            "seedStartIndex": args.seed_start_index,
-            "workers": args.workers,
-            "candidatePolicy": args.candidate_policy,
-            "opponentPolicy": args.opponent_policy,
-            "search": {
-                "worlds": args.search_worlds,
-                "rollouts": args.search_rollouts,
-                "depth": args.search_depth,
-                "maxRootActions": args.search_max_root_actions,
-                "rolloutEpsilon": args.search_rollout_epsilon,
-            },
-            "tdValue": {
-                "checkpoint": str(args.td_value_checkpoint) if args.td_value_checkpoint else None,
-                "worlds": args.td_worlds,
-            },
-            "tdSearch": {
-                "valueCheckpoint": (
-                    str(args.td_search_value_checkpoint)
-                    if args.td_search_value_checkpoint
-                    else None
-                ),
-                "opponentCheckpoint": (
-                    str(args.td_search_opponent_checkpoint)
-                    if args.td_search_opponent_checkpoint
-                    else None
-                ),
-                "opponentTemperature": args.td_search_opponent_temperature,
-                "sampleOpponentActions": args.td_search_sample_opponent_actions,
-            },
-        },
+        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "status": "completed",
+        "mode": "certify",
+        "config": _base_config_payload(args),
         "results": results,
     }
-    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json_atomic(output_path, payload)
 
     print(
         json.dumps(
             {
                 "artifact": str(output_path),
+                "mode": "certify",
+                "status": "completed",
                 "candidateWinRate": payload["results"]["candidateWinRate"],
                 "candidateWinRateCi95": payload["results"]["candidateWinRateCi95"],
                 "sideGap": payload["results"]["sideGap"],
@@ -192,12 +245,348 @@ def main() -> int:
     return 0
 
 
-def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
-    if args.workers == 1:
-        return _run_eval_shard(
-            games_per_side=args.games_per_side,
+def _run_gate_mode(*, args: argparse.Namespace, output_path: Path) -> Dict[str, object]:
+    artifact_path = _resolve_gate_artifact_path(args=args, output_path=output_path)
+
+    payload: Dict[str, object]
+    if artifact_path.exists():
+        payload = _read_json_object(artifact_path, label="gate artifact")
+        _validate_gate_resume_payload(args=args, payload=payload)
+    else:
+        payload = _new_gate_payload(args=args, artifact_path=artifact_path)
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        _write_json_atomic(artifact_path, payload)
+
+    status = str(payload.get("status", ""))
+    if status in TERMINAL_GATE_STATUSES:
+        return payload
+
+    while True:
+        progress = payload.get("progress")
+        if not isinstance(progress, dict):
+            raise SystemExit("Gate artifact progress payload is invalid.")
+        completed_games_per_side = int(progress.get("gamesPerSideCompleted", 0))
+        if completed_games_per_side < 0:
+            raise SystemExit("Gate artifact has negative gamesPerSideCompleted.")
+        if completed_games_per_side >= args.gate_max_games_per_side:
+            payload = _finalize_gate_at_cap(args=args, payload=payload)
+            _write_json_atomic(artifact_path, payload)
+            return payload
+
+        remaining = args.gate_max_games_per_side - completed_games_per_side
+        batch_games_per_side = min(args.gate_batch_games_per_side, remaining)
+        batch_seed_start_index = args.seed_start_index + completed_games_per_side
+
+        batch_result = _evaluate_results(
+            args=args,
+            games_per_side=batch_games_per_side,
+            seed_start_index=batch_seed_start_index,
             seed_prefix=args.seed_prefix,
-            seed_start_index=args.seed_start_index,
+            workers=args.workers,
+        )
+
+        existing_results = payload.get("results")
+        if isinstance(existing_results, dict):
+            merged = _merge_shard_results([existing_results, batch_result])
+        else:
+            merged = batch_result
+
+        candidate_wins = int(merged["candidateWins"])
+        total_games = int(merged["totalGames"])
+        llr = _sprt_log_likelihood_ratio(
+            successes=candidate_wins,
+            trials=total_games,
+            h0=args.gate_h0_win_rate,
+            h1=args.gate_h1_win_rate,
+        )
+        accept_boundary, reject_boundary = _sprt_boundaries(alpha=args.gate_alpha, beta=args.gate_beta)
+
+        decision_state = "running"
+        decision_reason = "insufficient_evidence"
+        side_gap = float(merged["sideGap"])
+        next_completed_games_per_side = completed_games_per_side + batch_games_per_side
+
+        if llr <= reject_boundary:
+            decision_state = "rejected"
+            decision_reason = "sprt_reject"
+        elif llr >= accept_boundary and side_gap <= args.gate_max_side_gap:
+            decision_state = "accepted"
+            decision_reason = "sprt_accept"
+        elif llr >= accept_boundary and side_gap > args.gate_max_side_gap:
+            decision_state = "rejected"
+            decision_reason = "side_gap_exceeded"
+        elif next_completed_games_per_side >= args.gate_max_games_per_side:
+            if side_gap > args.gate_max_side_gap:
+                decision_state = "rejected"
+                decision_reason = "max_games_reached_side_gap_exceeded"
+            else:
+                decision_state = "completed"
+                decision_reason = "max_games_reached_inconclusive"
+
+        history = payload.get("history")
+        if not isinstance(history, list):
+            raise SystemExit("Gate artifact history payload is invalid.")
+        history.append(
+            {
+                "batchIndex": len(history) + 1,
+                "seedStartIndex": batch_seed_start_index,
+                "gamesPerSideBatch": batch_games_per_side,
+                "gamesPerSideCompleted": next_completed_games_per_side,
+                "candidateWins": int(merged["candidateWins"]),
+                "opponentWins": int(merged["opponentWins"]),
+                "draws": int(merged["draws"]),
+                "totalGames": int(merged["totalGames"]),
+                "candidateWinRate": float(merged["candidateWinRate"]),
+                "candidateWinRateCi95": {
+                    "low": float(merged["candidateWinRateCi95"]["low"]),
+                    "high": float(merged["candidateWinRateCi95"]["high"]),
+                },
+                "sideGap": float(merged["sideGap"]),
+                "logLikelihoodRatio": llr,
+                "acceptBoundary": accept_boundary,
+                "rejectBoundary": reject_boundary,
+                "decision": decision_state,
+                "decisionReason": decision_reason,
+                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+        payload["updatedAtUtc"] = datetime.now(timezone.utc).isoformat()
+        payload["status"] = decision_state if decision_state in TERMINAL_GATE_STATUSES else "running"
+        payload["results"] = merged
+        payload["progress"] = {
+            "gamesPerSideCompleted": next_completed_games_per_side,
+            "gamesPerSideRemaining": max(0, args.gate_max_games_per_side - next_completed_games_per_side),
+            "batchesCompleted": len(history),
+            "nextSeedStartIndex": args.seed_start_index + next_completed_games_per_side,
+        }
+        payload["sprt"] = {
+            "h0WinRate": args.gate_h0_win_rate,
+            "h1WinRate": args.gate_h1_win_rate,
+            "alpha": args.gate_alpha,
+            "beta": args.gate_beta,
+            "acceptBoundary": accept_boundary,
+            "rejectBoundary": reject_boundary,
+            "logLikelihoodRatio": llr,
+        }
+        payload["decision"] = {
+            "state": decision_state,
+            "reason": decision_reason,
+            "maxSideGap": args.gate_max_side_gap,
+        }
+
+        _write_json_atomic(artifact_path, payload)
+
+        if decision_state in TERMINAL_GATE_STATUSES:
+            return payload
+
+
+def _resolve_gate_artifact_path(*, args: argparse.Namespace, output_path: Path) -> Path:
+    if args.resume_from_artifact is not None:
+        if args.out is not None and args.resume_from_artifact.resolve() != output_path.resolve():
+            raise SystemExit("--resume-from-artifact and --out must reference the same path.")
+        return args.resume_from_artifact
+    return output_path
+
+
+def _new_gate_payload(*, args: argparse.Namespace, artifact_path: Path) -> Dict[str, object]:
+    accept_boundary, reject_boundary = _sprt_boundaries(alpha=args.gate_alpha, beta=args.gate_beta)
+    return {
+        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "status": "running",
+        "mode": "gate",
+        "artifact": str(artifact_path),
+        "config": {
+            **_base_config_payload(args),
+            "gate": {
+                "h0WinRate": args.gate_h0_win_rate,
+                "h1WinRate": args.gate_h1_win_rate,
+                "alpha": args.gate_alpha,
+                "beta": args.gate_beta,
+                "batchGamesPerSide": args.gate_batch_games_per_side,
+                "maxGamesPerSide": args.gate_max_games_per_side,
+                "maxSideGap": args.gate_max_side_gap,
+            },
+        },
+        "progress": {
+            "gamesPerSideCompleted": 0,
+            "gamesPerSideRemaining": args.gate_max_games_per_side,
+            "batchesCompleted": 0,
+            "nextSeedStartIndex": args.seed_start_index,
+        },
+        "sprt": {
+            "h0WinRate": args.gate_h0_win_rate,
+            "h1WinRate": args.gate_h1_win_rate,
+            "alpha": args.gate_alpha,
+            "beta": args.gate_beta,
+            "acceptBoundary": accept_boundary,
+            "rejectBoundary": reject_boundary,
+            "logLikelihoodRatio": 0.0,
+        },
+        "decision": {
+            "state": "running",
+            "reason": "not_started",
+            "maxSideGap": args.gate_max_side_gap,
+        },
+        "history": [],
+        "results": None,
+    }
+
+
+def _validate_gate_resume_payload(*, args: argparse.Namespace, payload: Dict[str, object]) -> None:
+    mode = payload.get("mode")
+    if mode != "gate":
+        raise SystemExit("Resume artifact mode mismatch: expected gate mode artifact.")
+
+    status = str(payload.get("status", ""))
+    if status and status not in TERMINAL_GATE_STATUSES and status != "running":
+        raise SystemExit(f"Resume artifact has unknown status: {status!r}")
+
+    config = payload.get("config")
+    if not isinstance(config, dict):
+        raise SystemExit("Resume artifact is missing config payload.")
+
+    expected = _base_config_payload(args)
+    expected_keys = (
+        "mode",
+        "seedPrefix",
+        "seedStartIndex",
+        "workers",
+        "candidatePolicy",
+        "opponentPolicy",
+    )
+    for key in expected_keys:
+        if config.get(key) != expected.get(key):
+            raise SystemExit(
+                "Resume artifact config mismatch for "
+                f"{key}: expected={expected.get(key)!r} actual={config.get(key)!r}"
+            )
+
+    gate_cfg = config.get("gate")
+    if not isinstance(gate_cfg, dict):
+        raise SystemExit("Resume artifact is missing gate config payload.")
+    expected_gate = {
+        "h0WinRate": args.gate_h0_win_rate,
+        "h1WinRate": args.gate_h1_win_rate,
+        "alpha": args.gate_alpha,
+        "beta": args.gate_beta,
+        "batchGamesPerSide": args.gate_batch_games_per_side,
+        "maxGamesPerSide": args.gate_max_games_per_side,
+        "maxSideGap": args.gate_max_side_gap,
+    }
+    for key, value in expected_gate.items():
+        if gate_cfg.get(key) != value:
+            raise SystemExit(
+                "Resume artifact gate config mismatch for "
+                f"{key}: expected={value!r} actual={gate_cfg.get(key)!r}"
+            )
+
+
+def _finalize_gate_at_cap(*, args: argparse.Namespace, payload: Dict[str, object]) -> Dict[str, object]:
+    results = payload.get("results")
+    if not isinstance(results, dict):
+        payload["updatedAtUtc"] = datetime.now(timezone.utc).isoformat()
+        payload["status"] = "completed"
+        payload["decision"] = {
+            "state": "completed",
+            "reason": "max_games_reached_no_results",
+            "maxSideGap": args.gate_max_side_gap,
+        }
+        return payload
+
+    side_gap = float(results["sideGap"])
+    if side_gap > args.gate_max_side_gap:
+        decision_state = "rejected"
+        decision_reason = "max_games_reached_side_gap_exceeded"
+    else:
+        decision_state = "completed"
+        decision_reason = "max_games_reached_inconclusive"
+
+    payload["updatedAtUtc"] = datetime.now(timezone.utc).isoformat()
+    payload["status"] = decision_state
+    payload["decision"] = {
+        "state": decision_state,
+        "reason": decision_reason,
+        "maxSideGap": args.gate_max_side_gap,
+    }
+    return payload
+
+
+def _sprt_boundaries(*, alpha: float, beta: float) -> tuple[float, float]:
+    accept = math.log((1.0 - beta) / alpha)
+    reject = math.log(beta / (1.0 - alpha))
+    return accept, reject
+
+
+def _sprt_log_likelihood_ratio(*, successes: int, trials: int, h0: float, h1: float) -> float:
+    if trials <= 0:
+        return 0.0
+    failures = trials - successes
+
+    # Guard against log(0) when p is exactly 0 or 1.
+    def _safe_log(x: float) -> float:
+        epsilon = 1e-12
+        return math.log(max(epsilon, min(1.0 - epsilon, x)))
+
+    return (
+        successes * (_safe_log(h1) - _safe_log(h0))
+        + failures * (_safe_log(1.0 - h1) - _safe_log(1.0 - h0))
+    )
+
+
+def _base_config_payload(args: argparse.Namespace) -> Dict[str, object]:
+    return {
+        "mode": args.mode,
+        "gamesPerSide": args.games_per_side,
+        "seedPrefix": args.seed_prefix,
+        "seedStartIndex": args.seed_start_index,
+        "workers": args.workers,
+        "progressEveryGames": args.progress_every_games,
+        "progressLogSeconds": args.progress_log_seconds,
+        "candidatePolicy": args.candidate_policy,
+        "opponentPolicy": args.opponent_policy,
+        "search": {
+            "worlds": args.search_worlds,
+            "rollouts": args.search_rollouts,
+            "depth": args.search_depth,
+            "maxRootActions": args.search_max_root_actions,
+            "rolloutEpsilon": args.search_rollout_epsilon,
+        },
+        "tdValue": {
+            "checkpoint": str(args.td_value_checkpoint) if args.td_value_checkpoint else None,
+            "worlds": args.td_worlds,
+        },
+        "tdSearch": {
+            "valueCheckpoint": (
+                str(args.td_search_value_checkpoint)
+                if args.td_search_value_checkpoint
+                else None
+            ),
+            "opponentCheckpoint": (
+                str(args.td_search_opponent_checkpoint)
+                if args.td_search_opponent_checkpoint
+                else None
+            ),
+            "opponentTemperature": args.td_search_opponent_temperature,
+            "sampleOpponentActions": args.td_search_sample_opponent_actions,
+        },
+    }
+
+
+def _evaluate_results(
+    *,
+    args: argparse.Namespace,
+    games_per_side: int,
+    seed_start_index: int,
+    seed_prefix: str,
+    workers: int,
+) -> Dict[str, object]:
+    if workers == 1:
+        return _run_eval_shard(
+            games_per_side=games_per_side,
+            seed_prefix=seed_prefix,
+            seed_start_index=seed_start_index,
             candidate_policy=args.candidate_policy,
             opponent_policy=args.opponent_policy,
             search_worlds=args.search_worlds,
@@ -211,14 +600,16 @@ def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
             td_search_opponent_checkpoint=args.td_search_opponent_checkpoint,
             td_search_opponent_temperature=args.td_search_opponent_temperature,
             td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
+            progress_every_games=args.progress_every_games,
+            progress_log_seconds=args.progress_log_seconds,
         )
 
-    worker_count = min(args.workers, args.games_per_side)
+    worker_count = min(workers, games_per_side)
     if worker_count == 1:
         return _run_eval_shard(
-            games_per_side=args.games_per_side,
-            seed_prefix=args.seed_prefix,
-            seed_start_index=args.seed_start_index,
+            games_per_side=games_per_side,
+            seed_prefix=seed_prefix,
+            seed_start_index=seed_start_index,
             candidate_policy=args.candidate_policy,
             opponent_policy=args.opponent_policy,
             search_worlds=args.search_worlds,
@@ -232,18 +623,20 @@ def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
             td_search_opponent_checkpoint=args.td_search_opponent_checkpoint,
             td_search_opponent_temperature=args.td_search_opponent_temperature,
             td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
+            progress_every_games=args.progress_every_games,
+            progress_log_seconds=args.progress_log_seconds,
         )
 
-    shard_sizes = _split_games(args.games_per_side, worker_count)
+    shard_sizes = _split_games(games_per_side, worker_count)
 
     payloads: List[Dict[str, object]] = []
-    seed_index = args.seed_start_index
+    shard_seed_start_index = seed_start_index
     for shard_games in shard_sizes:
         payloads.append(
             {
                 "gamesPerSide": shard_games,
-                "seedPrefix": args.seed_prefix,
-                "seedStartIndex": seed_index,
+                "seedPrefix": seed_prefix,
+                "seedStartIndex": shard_seed_start_index,
                 "candidatePolicy": args.candidate_policy,
                 "opponentPolicy": args.opponent_policy,
                 "searchWorlds": args.search_worlds,
@@ -269,15 +662,35 @@ def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
                 ),
                 "tdSearchOpponentTemperature": args.td_search_opponent_temperature,
                 "tdSearchSampleOpponentActions": args.td_search_sample_opponent_actions,
+                "progressEveryGames": args.progress_every_games,
+                "progressLogSeconds": args.progress_log_seconds,
             }
         )
-        seed_index += shard_games
+        shard_seed_start_index += shard_games
 
     shard_results: List[Dict[str, object]] = []
+    shard_done = 0
     with ProcessPoolExecutor(max_workers=worker_count) as executor:
         futures = [executor.submit(_evaluate_shard, payload) for payload in payloads]
         for future in as_completed(futures):
-            shard_results.append(future.result())
+            result = future.result()
+            shard_results.append(result)
+            shard_done += 1
+            print(
+                json.dumps(
+                    {
+                        "event": "evalShardComplete",
+                        "completedShards": shard_done,
+                        "totalShards": worker_count,
+                        "gamesPerSide": result["gamesPerSide"],
+                        "candidateWins": result["candidateWins"],
+                        "opponentWins": result["opponentWins"],
+                        "draws": result["draws"],
+                        "candidateWinRate": result["candidateWinRate"],
+                    }
+                ),
+                flush=True,
+            )
 
     return _merge_shard_results(shard_results)
 
@@ -300,6 +713,8 @@ def _run_eval_shard(
     td_search_opponent_checkpoint: Path | None,
     td_search_opponent_temperature: float,
     td_search_sample_opponent_actions: bool,
+    progress_every_games: int,
+    progress_log_seconds: float,
 ) -> Dict[str, object]:
     policies = {candidate_policy.strip().lower(), opponent_policy.strip().lower()}
     search_config = SearchConfig(
@@ -346,9 +761,46 @@ def _run_eval_shard(
         td_search_config=td_search_config,
     )
 
+    shard_started = time.perf_counter()
+
     try:
         with BridgeClient() as client:
             env = MagnateBridgeEnv(client=client)
+            last_log_at: Dict[str, float] = {}
+
+            def _on_progress(
+                leg: str,
+                completed: int,
+                total: int,
+                winners: Dict[str, int],
+                wins_by_seat: Dict[str, int],
+            ) -> None:
+                now = time.perf_counter()
+                elapsed = now - shard_started
+                previous = last_log_at.get(leg, 0.0)
+                if completed < total and progress_log_seconds > 0 and (now - previous) < progress_log_seconds:
+                    return
+                last_log_at[leg] = now
+                print(
+                    json.dumps(
+                        {
+                            "event": "evalProgress",
+                            "pid": os.getpid(),
+                            "seedStartIndex": seed_start_index,
+                            "gamesPerSideShard": games_per_side,
+                            "leg": leg,
+                            "completedGames": completed,
+                            "totalGames": total,
+                            "winners": winners,
+                            "winsBySeat": wins_by_seat,
+                            "elapsedSeconds": round(elapsed, 2),
+                        }
+                    ),
+                    flush=True,
+                )
+
+            from trainer.eval_suite import evaluate_side_swapped
+
             summary = evaluate_side_swapped(
                 env=env,
                 candidate_policy=candidate,
@@ -356,6 +808,8 @@ def _run_eval_shard(
                 games_per_side=games_per_side,
                 seed_prefix=seed_prefix,
                 seed_start_index=seed_start_index,
+                progress_every_games=progress_every_games,
+                on_progress=_on_progress if progress_every_games > 0 else None,
             )
     finally:
         candidate.close()
@@ -394,6 +848,8 @@ def _evaluate_shard(payload: Dict[str, object]) -> Dict[str, object]:
         ),
         td_search_opponent_temperature=float(payload["tdSearchOpponentTemperature"]),
         td_search_sample_opponent_actions=bool(payload["tdSearchSampleOpponentActions"]),
+        progress_every_games=int(payload["progressEveryGames"]),
+        progress_log_seconds=float(payload["progressLogSeconds"]),
     )
 
 
@@ -452,26 +908,23 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
         candidate_wins_as_a += int(leg_a["winners"]["PlayerA"])
         candidate_wins_as_b += int(leg_b["winners"]["PlayerB"])
 
-        if policy_by_seat_a is None:
-            policy_by_seat_a = {
-                "PlayerA": str(leg_a["policyBySeat"]["PlayerA"]),
-                "PlayerB": str(leg_a["policyBySeat"]["PlayerB"]),
-            }
-        elif policy_by_seat_a != {
+        candidate_policy_by_seat_a = {
             "PlayerA": str(leg_a["policyBySeat"]["PlayerA"]),
             "PlayerB": str(leg_a["policyBySeat"]["PlayerB"]),
-        }:
+        }
+        candidate_policy_by_seat_b = {
+            "PlayerA": str(leg_b["policyBySeat"]["PlayerA"]),
+            "PlayerB": str(leg_b["policyBySeat"]["PlayerB"]),
+        }
+
+        if policy_by_seat_a is None:
+            policy_by_seat_a = candidate_policy_by_seat_a
+        elif policy_by_seat_a != candidate_policy_by_seat_a:
             raise RuntimeError("Shard results use inconsistent policyBySeat for candidateAsPlayerA.")
 
         if policy_by_seat_b is None:
-            policy_by_seat_b = {
-                "PlayerA": str(leg_b["policyBySeat"]["PlayerA"]),
-                "PlayerB": str(leg_b["policyBySeat"]["PlayerB"]),
-            }
-        elif policy_by_seat_b != {
-            "PlayerA": str(leg_b["policyBySeat"]["PlayerA"]),
-            "PlayerB": str(leg_b["policyBySeat"]["PlayerB"]),
-        }:
+            policy_by_seat_b = candidate_policy_by_seat_b
+        elif policy_by_seat_b != candidate_policy_by_seat_b:
             raise RuntimeError("Shard results use inconsistent policyBySeat for candidateAsPlayerB.")
 
         wins_by_seat_a["PlayerA"] += int(leg_a["winsBySeat"]["PlayerA"])
@@ -532,12 +985,32 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
     }
 
 
-def _default_output_path(seed_prefix: str, candidate_policy: str, opponent_policy: str) -> Path:
+def _default_output_path(seed_prefix: str, mode: str, candidate_policy: str, opponent_policy: str) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
     safe_seed = _slug(seed_prefix)
+    safe_mode = _slug(mode)
     safe_candidate = _slug(candidate_policy)
     safe_opponent = _slug(opponent_policy)
-    return Path("artifacts/evals") / f"{stamp}-{safe_seed}-suite-{safe_candidate}-vs-{safe_opponent}.json"
+    return Path("artifacts/evals") / (
+        f"{stamp}-{safe_seed}-{safe_mode}-suite-{safe_candidate}-vs-{safe_opponent}.json"
+    )
+
+
+def _write_json_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temp_path.replace(path)
+
+
+def _read_json_object(path: Path, *, label: str) -> Dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"Invalid JSON in {label}: {path}") from error
+    if not isinstance(payload, dict):
+        raise SystemExit(f"{label} must be a JSON object: {path}")
+    return payload
 
 
 def _slug(value: str) -> str:
@@ -561,6 +1034,43 @@ def _validate_policy_args(args: argparse.Namespace) -> None:
             raise SystemExit("--td-search-value-checkpoint is required when using td-search policy.")
         if args.td_search_opponent_checkpoint is None:
             raise SystemExit("--td-search-opponent-checkpoint is required when using td-search policy.")
+
+
+def _validate_args(args: argparse.Namespace) -> None:
+    if args.workers <= 0:
+        raise SystemExit("--workers must be > 0.")
+    if args.seed_start_index < 0:
+        raise SystemExit("--seed-start-index must be >= 0.")
+    if args.progress_every_games < 0:
+        raise SystemExit("--progress-every-games must be >= 0.")
+    if args.progress_log_seconds < 0:
+        raise SystemExit("--progress-log-seconds must be >= 0.")
+
+    if args.mode == "certify":
+        if args.games_per_side <= 0:
+            raise SystemExit("--games-per-side must be > 0.")
+        if args.resume_from_artifact is not None:
+            raise SystemExit("--resume-from-artifact is supported only in --mode gate.")
+        return
+
+    if args.gate_h0_win_rate < 0.0 or args.gate_h0_win_rate > 1.0:
+        raise SystemExit("--gate-h0-win-rate must be in [0, 1].")
+    if args.gate_h1_win_rate < 0.0 or args.gate_h1_win_rate > 1.0:
+        raise SystemExit("--gate-h1-win-rate must be in [0, 1].")
+    if args.gate_h0_win_rate >= args.gate_h1_win_rate:
+        raise SystemExit("--gate-h0-win-rate must be strictly less than --gate-h1-win-rate.")
+    if args.gate_alpha <= 0.0 or args.gate_alpha >= 1.0:
+        raise SystemExit("--gate-alpha must be in (0, 1).")
+    if args.gate_beta <= 0.0 or args.gate_beta >= 1.0:
+        raise SystemExit("--gate-beta must be in (0, 1).")
+    if args.gate_batch_games_per_side <= 0:
+        raise SystemExit("--gate-batch-games-per-side must be > 0.")
+    if args.gate_max_games_per_side <= 0:
+        raise SystemExit("--gate-max-games-per-side must be > 0.")
+    if args.gate_batch_games_per_side > args.gate_max_games_per_side:
+        raise SystemExit("--gate-batch-games-per-side must be <= --gate-max-games-per-side.")
+    if args.gate_max_side_gap < 0.0 or args.gate_max_side_gap > 1.0:
+        raise SystemExit("--gate-max-side-gap must be in [0, 1].")
 
 
 if __name__ == "__main__":

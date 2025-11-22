@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Dict
+from typing import Callable, Dict, Mapping
 
 from .env import MagnateBridgeEnv
 from .evaluate import MatchSummary, evaluate_matchup
 from .policies import Policy
-from .types import Winner
+from .types import PlayerId, Winner
+
+SideSwappedProgressCallback = Callable[
+    [str, int, int, Mapping[Winner, int], Mapping[PlayerId, int]],
+    None,
+]
 
 
 @dataclass(frozen=True)
@@ -63,6 +68,8 @@ def evaluate_side_swapped(
     games_per_side: int,
     seed_prefix: str,
     seed_start_index: int = 0,
+    progress_every_games: int = 0,
+    on_progress: SideSwappedProgressCallback | None = None,
 ) -> SideSwappedEvalSummary:
     if games_per_side <= 0:
         raise ValueError("games_per_side must be > 0.")
@@ -76,6 +83,18 @@ def evaluate_side_swapped(
         games=games_per_side,
         seed_prefix=seed_prefix,
         seed_start_index=seed_start_index,
+        progress_every_games=progress_every_games,
+        on_progress=(
+            (lambda completed, total, winners, wins_by_seat: on_progress(
+                "candidateAsPlayerA",
+                completed,
+                total,
+                winners,
+                wins_by_seat,
+            ))
+            if on_progress is not None
+            else None
+        ),
     )
     leg_as_b = evaluate_matchup(
         env=env,
@@ -84,6 +103,18 @@ def evaluate_side_swapped(
         games=games_per_side,
         seed_prefix=seed_prefix,
         seed_start_index=seed_start_index,
+        progress_every_games=progress_every_games,
+        on_progress=(
+            (lambda completed, total, winners, wins_by_seat: on_progress(
+                "candidateAsPlayerB",
+                completed,
+                total,
+                winners,
+                wins_by_seat,
+            ))
+            if on_progress is not None
+            else None
+        ),
     )
 
     candidate_wins_as_a = leg_as_a.winners["PlayerA"]
