@@ -67,6 +67,10 @@
     - `--cloud` applies fixed 8 vCPU worker profile for hosted runs
     - shard merge now deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
     - `--eval-first-last-checkpoints` evaluates earliest + latest checkpoints and writes begin/end delta in loop summary output
+    - optional benchmark-gated begin/end panel:
+      - `--eval-benchmark-opponents ...`
+      - thresholded pass/fail decision in `loop.summary.json`
+      - per-opponent begin/end artifacts + CI/side-gap/delta checks
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`
     - `--td-value-checkpoint`

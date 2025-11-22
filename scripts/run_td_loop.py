@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,18 @@ class EvalRow:
     opponent_wins: int
     draws: int
     total_games: int
+
+
+@dataclass(frozen=True)
+class BenchmarkComparison:
+    opponent_policy: str
+    begin: EvalRow
+    end: EvalRow
+    delta_candidate_win_rate: float
+    delta_side_gap: float
+    ci_overlap: bool
+    passed: bool
+    checks: Dict[str, bool]
 
 
 def parse_args() -> argparse.Namespace:
@@ -146,6 +158,56 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-td-worlds", type=int, default=8)
     parser.add_argument("--eval-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--eval-td-search-sample-opponent-actions", action="store_true")
+    parser.add_argument(
+        "--eval-benchmark-opponents",
+        type=str,
+        nargs="+",
+        default=None,
+        choices=("random", "heuristic", "search"),
+        help=(
+            "Optional benchmark panel opponents for begin-vs-end checkpoint comparison. "
+            "When set, run_td_loop evaluates earliest and latest selected checkpoints "
+            "against each listed opponent and reports pass/fail gates."
+        ),
+    )
+    parser.add_argument(
+        "--eval-benchmark-games-per-side",
+        type=int,
+        default=None,
+        help="Games per side for benchmark panel (defaults to --eval-games-per-side).",
+    )
+    parser.add_argument(
+        "--eval-benchmark-workers",
+        type=int,
+        default=None,
+        help="Workers for benchmark panel evals (defaults to --eval-workers).",
+    )
+    parser.add_argument(
+        "--eval-benchmark-min-delta-win-rate",
+        type=float,
+        default=0.02,
+        help="Minimum required end-begin candidate win-rate delta per benchmark opponent.",
+    )
+    parser.add_argument(
+        "--eval-benchmark-min-end-win-rate",
+        type=float,
+        default=0.55,
+        help="Minimum required end checkpoint candidate win rate per benchmark opponent.",
+    )
+    parser.add_argument(
+        "--eval-benchmark-max-end-side-gap",
+        type=float,
+        default=0.08,
+        help="Maximum allowed end checkpoint side gap per benchmark opponent.",
+    )
+    parser.add_argument(
+        "--eval-benchmark-require-ci-separation",
+        action="store_true",
+        help=(
+            "Require begin/end 95 percent CI non-overlap in the improvement direction "
+            "(end ci low > begin ci high) to pass each benchmark opponent."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -236,6 +298,22 @@ def main() -> int:
     )
     by_step_rows = sorted(eval_rows, key=lambda row: row.step)
     improvement = _compute_improvement(by_step_rows)
+    benchmark = None
+    if args.eval_benchmark_opponents:
+        if len(by_step_rows) < 2:
+            raise SystemExit(
+                "Benchmark panel requires at least two evaluated checkpoints. "
+                "Use --eval-first-last-checkpoints or --eval-all-checkpoints."
+            )
+        selected_by_step: Dict[int, LoopCheckpoint] = {checkpoint.step: checkpoint for checkpoint in selected}
+        benchmark = _run_benchmark_panel(
+            python_bin=args.python_bin,
+            args=args,
+            selected_by_step=selected_by_step,
+            begin_step=by_step_rows[0].step,
+            end_step=by_step_rows[-1].step,
+            eval_dir=eval_dir,
+        )
 
     loop_elapsed = time.perf_counter() - loop_started
     payload: Dict[str, Any] = {
@@ -288,6 +366,8 @@ def main() -> int:
         ],
         "improvement": improvement,
     }
+    if benchmark is not None:
+        payload["benchmark"] = benchmark
     loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     best = ranked_rows[0]
@@ -302,6 +382,11 @@ def main() -> int:
                 "bestCi95": {"low": best.ci_low, "high": best.ci_high},
                 "bestSideGap": best.side_gap,
                 "improvement": improvement,
+                "benchmarkPassed": (
+                    bool(benchmark["overallPassed"])
+                    if isinstance(benchmark, dict) and "overallPassed" in benchmark
+                    else None
+                ),
             },
             indent=2,
         )
@@ -696,23 +781,28 @@ def _build_eval_command(
     args: argparse.Namespace,
     checkpoint: LoopCheckpoint,
     eval_out: Path,
+    opponent_policy: str | None = None,
+    games_per_side: int | None = None,
+    workers: int | None = None,
+    seed_prefix: str | None = None,
+    seed_start_index: int | None = None,
 ) -> List[str]:
     command = [
         str(python_bin),
         "-m",
         "scripts.eval_suite",
         "--games-per-side",
-        str(args.eval_games_per_side),
+        str(games_per_side if games_per_side is not None else args.eval_games_per_side),
         "--workers",
-        str(args.eval_workers),
+        str(workers if workers is not None else args.eval_workers),
         "--seed-prefix",
-        args.eval_seed_prefix,
+        seed_prefix if seed_prefix is not None else args.eval_seed_prefix,
         "--seed-start-index",
-        str(args.eval_seed_start_index),
+        str(seed_start_index if seed_start_index is not None else args.eval_seed_start_index),
         "--candidate-policy",
         args.eval_candidate_policy,
         "--opponent-policy",
-        args.eval_opponent_policy,
+        opponent_policy if opponent_policy is not None else args.eval_opponent_policy,
         "--search-worlds",
         str(args.eval_search_worlds),
         "--search-rollouts",
@@ -826,6 +916,182 @@ def _compute_improvement(rows_by_step: Sequence[EvalRow]) -> Dict[str, Any] | No
     }
 
 
+def _run_benchmark_panel(
+    *,
+    python_bin: Path,
+    args: argparse.Namespace,
+    selected_by_step: Mapping[int, LoopCheckpoint],
+    begin_step: int,
+    end_step: int,
+    eval_dir: Path,
+) -> Dict[str, Any]:
+    begin_checkpoint = selected_by_step.get(begin_step)
+    end_checkpoint = selected_by_step.get(end_step)
+    if begin_checkpoint is None or end_checkpoint is None:
+        raise SystemExit(
+            "Unable to resolve begin/end checkpoints for benchmark panel. "
+            f"beginStep={begin_step} endStep={end_step}"
+        )
+
+    benchmark_games = (
+        args.eval_benchmark_games_per_side
+        if args.eval_benchmark_games_per_side is not None
+        else args.eval_games_per_side
+    )
+    benchmark_workers = (
+        args.eval_benchmark_workers
+        if args.eval_benchmark_workers is not None
+        else args.eval_workers
+    )
+    comparisons: List[BenchmarkComparison] = []
+
+    for opponent_policy in args.eval_benchmark_opponents:
+        begin_out = eval_dir / (
+            f"benchmark-{opponent_policy}-begin-step-{begin_step:07d}.json"
+        )
+        end_out = eval_dir / (
+            f"benchmark-{opponent_policy}-end-step-{end_step:07d}.json"
+        )
+
+        begin_command = _build_eval_command(
+            python_bin=python_bin,
+            args=args,
+            checkpoint=begin_checkpoint,
+            eval_out=begin_out,
+            opponent_policy=opponent_policy,
+            games_per_side=benchmark_games,
+            workers=benchmark_workers,
+            seed_prefix=f"{args.eval_seed_prefix}-bench-{opponent_policy}-begin",
+        )
+        end_command = _build_eval_command(
+            python_bin=python_bin,
+            args=args,
+            checkpoint=end_checkpoint,
+            eval_out=end_out,
+            opponent_policy=opponent_policy,
+            games_per_side=benchmark_games,
+            workers=benchmark_workers,
+            seed_prefix=f"{args.eval_seed_prefix}-bench-{opponent_policy}-end",
+        )
+        _run_step(
+            name=f"benchmark-{opponent_policy}-begin@{begin_step:07d}",
+            command=begin_command,
+        )
+        _run_step(
+            name=f"benchmark-{opponent_policy}-end@{end_step:07d}",
+            command=end_command,
+        )
+        begin_row = _read_eval_row(begin_out, begin_step)
+        end_row = _read_eval_row(end_out, end_step)
+        comparisons.append(
+            _evaluate_benchmark_comparison(
+                opponent_policy=opponent_policy,
+                begin=begin_row,
+                end=end_row,
+                min_delta_win_rate=args.eval_benchmark_min_delta_win_rate,
+                min_end_win_rate=args.eval_benchmark_min_end_win_rate,
+                max_end_side_gap=args.eval_benchmark_max_end_side_gap,
+                require_ci_separation=bool(args.eval_benchmark_require_ci_separation),
+            )
+        )
+
+    overall_passed = all(comparison.passed for comparison in comparisons)
+    return {
+        "protocol": {
+            "opponents": list(args.eval_benchmark_opponents),
+            "candidatePolicy": args.eval_candidate_policy,
+            "gamesPerSide": benchmark_games,
+            "workers": benchmark_workers,
+            "beginStep": begin_step,
+            "endStep": end_step,
+            "thresholds": {
+                "minDeltaWinRate": args.eval_benchmark_min_delta_win_rate,
+                "minEndWinRate": args.eval_benchmark_min_end_win_rate,
+                "maxEndSideGap": args.eval_benchmark_max_end_side_gap,
+                "requireCiSeparation": bool(args.eval_benchmark_require_ci_separation),
+            },
+        },
+        "comparisons": [
+            {
+                "opponentPolicy": comparison.opponent_policy,
+                "begin": _eval_row_payload(comparison.begin),
+                "end": _eval_row_payload(comparison.end),
+                "deltaCandidateWinRate": comparison.delta_candidate_win_rate,
+                "deltaSideGap": comparison.delta_side_gap,
+                "ciOverlap": comparison.ci_overlap,
+                "checks": dict(comparison.checks),
+                "passed": comparison.passed,
+            }
+            for comparison in comparisons
+        ],
+        "overallPassed": overall_passed,
+    }
+
+
+def _evaluate_benchmark_comparison(
+    *,
+    opponent_policy: str,
+    begin: EvalRow,
+    end: EvalRow,
+    min_delta_win_rate: float,
+    min_end_win_rate: float,
+    max_end_side_gap: float,
+    require_ci_separation: bool,
+) -> BenchmarkComparison:
+    delta_win_rate = end.candidate_win_rate - begin.candidate_win_rate
+    delta_side_gap = end.side_gap - begin.side_gap
+    ci_overlap = _intervals_overlap(
+        begin_low=begin.ci_low,
+        begin_high=begin.ci_high,
+        end_low=end.ci_low,
+        end_high=end.ci_high,
+    )
+    ci_separation_pass = True
+    if require_ci_separation:
+        ci_separation_pass = end.ci_low > begin.ci_high
+
+    checks = {
+        "deltaWinRate": delta_win_rate >= min_delta_win_rate,
+        "endWinRate": end.candidate_win_rate >= min_end_win_rate,
+        "endSideGap": end.side_gap <= max_end_side_gap,
+        "ciSeparation": ci_separation_pass,
+    }
+    return BenchmarkComparison(
+        opponent_policy=opponent_policy,
+        begin=begin,
+        end=end,
+        delta_candidate_win_rate=delta_win_rate,
+        delta_side_gap=delta_side_gap,
+        ci_overlap=ci_overlap,
+        passed=all(checks.values()),
+        checks=checks,
+    )
+
+
+def _intervals_overlap(
+    *,
+    begin_low: float,
+    begin_high: float,
+    end_low: float,
+    end_high: float,
+) -> bool:
+    return not (end_high < begin_low or begin_high < end_low)
+
+
+def _eval_row_payload(row: EvalRow) -> Dict[str, Any]:
+    return {
+        "step": row.step,
+        "artifact": str(row.artifact),
+        "candidateWinRate": row.candidate_win_rate,
+        "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
+        "sideGap": row.side_gap,
+        "candidateWins": row.candidate_wins,
+        "opponentWins": row.opponent_wins,
+        "draws": row.draws,
+        "totalGames": row.total_games,
+    }
+
+
 def _read_eval_row(path: Path, step: int) -> EvalRow:
     payload = _read_json(path, label=f"eval artifact for step {step}")
     results = payload.get("results")
@@ -904,6 +1170,23 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "tdWorlds": args.eval_td_worlds,
             "tdSearchOpponentTemperature": args.eval_td_search_opponent_temperature,
             "tdSearchSampleOpponentActions": bool(args.eval_td_search_sample_opponent_actions),
+            "benchmark": {
+                "opponents": list(args.eval_benchmark_opponents or []),
+                "gamesPerSide": (
+                    args.eval_benchmark_games_per_side
+                    if args.eval_benchmark_games_per_side is not None
+                    else args.eval_games_per_side
+                ),
+                "workers": (
+                    args.eval_benchmark_workers
+                    if args.eval_benchmark_workers is not None
+                    else args.eval_workers
+                ),
+                "minDeltaWinRate": args.eval_benchmark_min_delta_win_rate,
+                "minEndWinRate": args.eval_benchmark_min_end_win_rate,
+                "maxEndSideGap": args.eval_benchmark_max_end_side_gap,
+                "requireCiSeparation": bool(args.eval_benchmark_require_ci_separation),
+            },
         },
     }
 
@@ -932,6 +1215,19 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--eval-workers must be > 0.")
     if args.eval_seed_start_index < 0:
         raise SystemExit("--eval-seed-start-index must be >= 0.")
+    if args.eval_benchmark_games_per_side is not None and args.eval_benchmark_games_per_side <= 0:
+        raise SystemExit("--eval-benchmark-games-per-side must be > 0.")
+    if args.eval_benchmark_workers is not None and args.eval_benchmark_workers <= 0:
+        raise SystemExit("--eval-benchmark-workers must be > 0.")
+    if args.eval_benchmark_min_delta_win_rate < -1.0 or args.eval_benchmark_min_delta_win_rate > 1.0:
+        raise SystemExit("--eval-benchmark-min-delta-win-rate must be in [-1, 1].")
+    if args.eval_benchmark_min_end_win_rate < 0.0 or args.eval_benchmark_min_end_win_rate > 1.0:
+        raise SystemExit("--eval-benchmark-min-end-win-rate must be in [0, 1].")
+    if args.eval_benchmark_max_end_side_gap < 0.0 or args.eval_benchmark_max_end_side_gap > 1.0:
+        raise SystemExit("--eval-benchmark-max-end-side-gap must be in [0, 1].")
+    if args.eval_benchmark_opponents:
+        if len(set(args.eval_benchmark_opponents)) != len(args.eval_benchmark_opponents):
+            raise SystemExit("--eval-benchmark-opponents must not contain duplicates.")
     if args.train_disable_value and args.train_disable_opponent:
         raise SystemExit("At least one of value/opponent training must be enabled.")
 
