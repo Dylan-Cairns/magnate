@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -51,6 +52,59 @@ class TDIOTests(unittest.TestCase):
             write_opponent_samples_jsonl(samples, path)
             loaded = read_opponent_samples_jsonl(path)
         self.assertEqual(loaded, samples)
+
+    def test_read_value_transition_rejects_done_with_next_observation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "bad-value.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "observation": [0.1, 0.2],
+                        "reward": 1.0,
+                        "done": True,
+                        "nextObservation": [0.3, 0.4],
+                        "playerId": "PlayerA",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                read_value_transitions_jsonl(path)
+
+    def test_read_value_transition_rejects_non_terminal_without_next_observation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "bad-value.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "observation": [0.1, 0.2],
+                        "reward": 0.0,
+                        "done": False,
+                        "nextObservation": None,
+                        "playerId": "PlayerA",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                read_value_transitions_jsonl(path)
+
+    def test_write_value_transitions_rejects_non_terminal_without_next_observation(self) -> None:
+        transitions = [
+            ValueTransition(
+                observation=[0.1, 0.2],
+                reward=0.0,
+                done=False,
+                next_observation=None,
+                player_id="PlayerA",
+            )
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "value.jsonl"
+            with self.assertRaises(ValueError):
+                write_value_transitions_jsonl(transitions, path)
 
 
 if __name__ == "__main__":
