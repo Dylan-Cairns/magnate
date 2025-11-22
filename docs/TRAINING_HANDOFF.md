@@ -17,6 +17,15 @@ Keep the repo focused on one direction:
 3. Run TD replay collection + TD training + TD checkpoint eval cycles.
 4. Evaluate `td-search` checkpoints (TD-guided search) against heuristic/search baselines.
 
+## Value Semantics (Locked)
+
+- `V(obs)` is defined as the expected outcome for the **active player in `obs`**.
+- Training replay for value transitions is collected from active-player observations.
+- Search/eval paths that need root-player perspective must convert active-player value using:
+  - `v_root = v_active` when `activePlayerId == rootPlayer`
+  - `v_root = -v_active` when `activePlayerId != rootPlayer`
+- This sign-conversion is required for every non-terminal TD leaf evaluation.
+
 ## Fail-Fast Policy (Locked)
 
 - No silent fallback action selection in training/eval pipelines.
