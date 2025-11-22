@@ -91,6 +91,9 @@
 - Any root-player search/eval leaf score must convert with:
   - `v_root = v_active` if `activePlayerId == rootPlayer`
   - `v_root = -v_active` otherwise
+- TD training target modes:
+  - default TD(0): `target = reward + gamma * (1 - done) * V_target(next_obs)`
+  - optional TD(lambda): enabled with sequence-aware replay rows (`episodeId`, `timestep`) and `scripts.train_td --value-target-mode td-lambda --td-lambda <0..1>`
 
 ## Immediate Next Steps
 

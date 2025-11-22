@@ -107,6 +107,8 @@ class TDSelfPlayTests(unittest.TestCase):
         self.assertEqual(first_transition.player_id, "PlayerA")
         self.assertEqual(first_transition.observation, [1.0, 0.0])
         self.assertEqual(first_transition.next_observation, [0.5, 0.5])
+        self.assertEqual(first_transition.episode_id, "seed-1")
+        self.assertEqual(first_transition.timestep, 0)
 
         terminal_a = episode.value_transitions[1]
         terminal_b = episode.value_transitions[2]
@@ -114,6 +116,10 @@ class TDSelfPlayTests(unittest.TestCase):
         self.assertTrue(terminal_b.done)
         self.assertEqual(terminal_a.reward, 1.0)
         self.assertEqual(terminal_b.reward, -1.0)
+        self.assertEqual(terminal_a.episode_id, "seed-1")
+        self.assertEqual(terminal_a.timestep, 1)
+        self.assertEqual(terminal_b.episode_id, "seed-1")
+        self.assertEqual(terminal_b.timestep, 0)
 
     @patch("trainer.td.self_play.encode_action_candidates", return_value=[[0.0]])
     @patch("trainer.td.self_play.encode_observation", return_value=[0.0, 0.0])

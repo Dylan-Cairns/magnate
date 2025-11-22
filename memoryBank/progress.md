@@ -47,6 +47,13 @@
   - matchup/leg summaries now consistently use seat-keyed fields (`winsBySeat`, `policyBySeat`)
   - shard-merge logic validates `policyBySeat` consistency across shards
   - removed residual name-keyed `winsByPolicy` references from scripts/tests/smoke path
+- TD target-mode decision is now explicit:
+  - one-step TD(0) remains default in `trainer.td.train`
+  - `scripts.train_td` summary records `valueTargetMode`
+- Sequence-aware replay + TD(lambda) landed:
+  - value replay rows now carry `episodeId` + `timestep`
+  - `scripts.train_td` supports `--value-target-mode td-lambda --td-lambda <0..1>`
+  - TD(lambda) training uses contiguous per-episode/per-player sequence indexing with fail-fast invariants
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout

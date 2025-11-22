@@ -101,6 +101,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-opponent-weight-decay", type=float, default=1e-5)
     parser.add_argument("--train-max-grad-norm", type=float, default=1.0)
     parser.add_argument("--train-target-sync-interval", type=int, default=200)
+    parser.add_argument(
+        "--train-value-target-mode",
+        type=str,
+        choices=("td0", "td-lambda"),
+        default="td0",
+    )
+    parser.add_argument("--train-td-lambda", type=float, default=0.7)
     parser.add_argument("--train-use-mse-loss", action="store_true")
     parser.add_argument("--train-disable-value", action="store_true")
     parser.add_argument("--train-disable-opponent", action="store_true")
@@ -648,6 +655,10 @@ def _build_train_command(
         str(args.train_max_grad_norm),
         "--target-sync-interval",
         str(args.train_target_sync_interval),
+        "--value-target-mode",
+        args.train_value_target_mode,
+        "--td-lambda",
+        str(args.train_td_lambda),
         "--save-every-steps",
         str(args.train_save_every_steps),
         "--progress-every-steps",
@@ -866,6 +877,8 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "opponentWeightDecay": args.train_opponent_weight_decay,
             "maxGradNorm": args.train_max_grad_norm,
             "targetSyncInterval": args.train_target_sync_interval,
+            "valueTargetMode": args.train_value_target_mode,
+            "tdLambda": args.train_td_lambda,
             "saveEverySteps": args.train_save_every_steps,
             "progressEverySteps": args.train_progress_every_steps,
             "useMseLoss": bool(args.train_use_mse_loss),
@@ -911,6 +924,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--collect-workers must be > 0.")
     if args.train_steps <= 0:
         raise SystemExit("--train-steps must be > 0.")
+    if args.train_td_lambda < 0.0 or args.train_td_lambda > 1.0:
+        raise SystemExit("--train-td-lambda must be in [0, 1].")
     if args.eval_games_per_side <= 0:
         raise SystemExit("--eval-games-per-side must be > 0.")
     if args.eval_workers <= 0:

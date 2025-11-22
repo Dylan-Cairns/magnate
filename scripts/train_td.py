@@ -16,11 +16,15 @@ from trainer.td import (
     OpponentModel,
     OpponentReplayBuffer,
     OpponentTrainConfig,
+    TD_VALUE_TARGET_MODE_TD_LAMBDA,
+    TD_VALUE_TARGET_MODES,
+    TD_VALUE_TARGET_MODE,
     TDOpponentTrainer,
     TDTrainConfig,
     TDValueTrainer,
     ValueNet,
     ValueReplayBuffer,
+    build_value_sequence_index,
     load_opponent_checkpoint,
     load_value_checkpoint,
     read_opponent_samples_jsonl,
@@ -58,6 +62,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--opponent-weight-decay", type=float, default=1e-5)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
     parser.add_argument("--target-sync-interval", type=int, default=200)
+    parser.add_argument(
+        "--value-target-mode",
+        type=str,
+        choices=sorted(TD_VALUE_TARGET_MODES),
+        default=TD_VALUE_TARGET_MODE,
+        help="Value target mode: td0 or td-lambda.",
+    )
+    parser.add_argument(
+        "--td-lambda",
+        type=float,
+        default=0.7,
+        help="Lambda used when --value-target-mode=td-lambda.",
+    )
     parser.add_argument(
         "--use-mse-loss",
         action="store_true",
@@ -152,6 +169,7 @@ def main() -> int:
     value_target_model = None
     value_optimizer = None
     value_trainer = None
+    value_sequence_index = None
     if train_value:
         if args.warm_start_value_checkpoint is not None:
             value_model, _ = load_value_checkpoint(path=args.warm_start_value_checkpoint)
@@ -177,8 +195,14 @@ def main() -> int:
                 max_grad_norm=args.max_grad_norm,
                 target_sync_interval=args.target_sync_interval,
                 use_huber_loss=(not args.use_mse_loss),
+                value_target_mode=args.value_target_mode,
+                td_lambda=args.td_lambda,
             ),
         )
+        if args.value_target_mode == TD_VALUE_TARGET_MODE_TD_LAMBDA:
+            value_sequence_index = build_value_sequence_index(
+                transitions=value_replay.as_list(),
+            )
 
     opponent_model = None
     opponent_optimizer = None
@@ -220,7 +244,13 @@ def main() -> int:
                 batch_size=args.value_batch_size,
                 rng=py_rng,
             )
-            value_summary = value_trainer.train_batch(transitions=transitions)
+            if args.value_target_mode == TD_VALUE_TARGET_MODE_TD_LAMBDA:
+                value_summary = value_trainer.train_batch(
+                    transitions=transitions,
+                    sequence_index=value_sequence_index,
+                )
+            else:
+                value_summary = value_trainer.train_batch(transitions=transitions)
             latest_value_summary = {
                 "step": value_summary.step,
                 "loss": value_summary.loss,
@@ -294,6 +324,8 @@ def main() -> int:
             "opponentWeightDecay": args.opponent_weight_decay,
             "maxGradNorm": args.max_grad_norm,
             "targetSyncInterval": args.target_sync_interval,
+            "valueTargetMode": args.value_target_mode,
+            "tdLambda": args.td_lambda,
             "valueLoss": "mse" if args.use_mse_loss else "huber",
             "saveEverySteps": args.save_every_steps,
             "progressEverySteps": args.progress_every_steps,
@@ -388,6 +420,12 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--max-grad-norm must be > 0.")
     if args.target_sync_interval <= 0:
         raise SystemExit("--target-sync-interval must be > 0.")
+    if args.value_target_mode not in TD_VALUE_TARGET_MODES:
+        raise SystemExit(
+            f"--value-target-mode must be one of {sorted(TD_VALUE_TARGET_MODES)}."
+        )
+    if args.td_lambda < 0.0 or args.td_lambda > 1.0:
+        raise SystemExit("--td-lambda must be in [0, 1].")
     if args.save_every_steps < 0:
         raise SystemExit("--save-every-steps must be >= 0.")
     if args.progress_every_steps < 0:

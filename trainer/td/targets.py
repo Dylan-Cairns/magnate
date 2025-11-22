@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Sequence
 
+# TD target helpers used by value training.
+# - `td_lambda_targets` is used when `scripts.train_td --value-target-mode td-lambda`
+#   is selected and replay rows include contiguous episode/timestep identity.
+# - `n_step_bootstrap_targets` remains available for future sequence-mode options.
+
 
 def _validate_common_inputs(
     *,
@@ -27,6 +32,7 @@ def n_step_bootstrap_targets(
     gamma: float,
     n_steps: int,
 ) -> list[float]:
+    """Compute fixed-horizon n-step bootstrap targets for contiguous trajectories."""
     horizon = _validate_common_inputs(
         rewards=rewards,
         dones=dones,
@@ -71,6 +77,7 @@ def td_lambda_targets(
     gamma: float,
     lambda_: float,
 ) -> list[float]:
+    """Compute TD(lambda) targets for contiguous trajectories."""
     horizon = _validate_common_inputs(
         rewards=rewards,
         dones=dones,

@@ -46,6 +46,14 @@ def collect_self_play_episode(
         "PlayerA": None,
         "PlayerB": None,
     }
+    pending_timestep_by_player: Dict[PlayerId, int | None] = {
+        "PlayerA": None,
+        "PlayerB": None,
+    }
+    next_timestep_by_player: Dict[PlayerId, int] = {
+        "PlayerA": 0,
+        "PlayerB": 0,
+    }
     value_transitions: list[ValueTransition] = []
     opponent_samples: list[OpponentSample] = []
 
@@ -56,7 +64,13 @@ def collect_self_play_episode(
 
         observation_vector = encode_observation(step_result.view)
         prior_observation = pending_observation_by_player[active_player]
+        prior_timestep = pending_timestep_by_player[active_player]
         if prior_observation is not None:
+            if prior_timestep is None:
+                raise ValueError(
+                    "Missing timestep for pending observation transition. "
+                    f"seed={seed} activePlayer={active_player}"
+                )
             value_transitions.append(
                 ValueTransition(
                     observation=prior_observation,
@@ -64,6 +78,8 @@ def collect_self_play_episode(
                     done=False,
                     next_observation=observation_vector,
                     player_id=active_player,
+                    episode_id=seed,
+                    timestep=prior_timestep,
                 )
             )
 
@@ -84,12 +100,20 @@ def collect_self_play_episode(
             )
         )
         pending_observation_by_player[active_player] = observation_vector
+        pending_timestep_by_player[active_player] = next_timestep_by_player[active_player]
+        next_timestep_by_player[active_player] += 1
         step_result = env.step(action_key=action_key)
 
     winner = _winner_from_state(step_result.state)
     for player_id, observation_vector in pending_observation_by_player.items():
         if observation_vector is None:
             continue
+        timestep = pending_timestep_by_player[player_id]
+        if timestep is None:
+            raise ValueError(
+                "Missing timestep for terminal transition. "
+                f"seed={seed} playerId={player_id}"
+            )
         value_transitions.append(
             ValueTransition(
                 observation=observation_vector,
@@ -97,6 +121,8 @@ def collect_self_play_episode(
                 done=True,
                 next_observation=None,
                 player_id=player_id,
+                episode_id=seed,
+                timestep=timestep,
             )
         )
 
