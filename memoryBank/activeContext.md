@@ -65,6 +65,7 @@
     - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
     - `--cloud` applies fixed 8 vCPU worker profile for hosted runs
     - shard merge now deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
+    - `--eval-first-last-checkpoints` evaluates earliest + latest checkpoints and writes begin/end delta in loop summary output
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`
     - `--td-value-checkpoint`

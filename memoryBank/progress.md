@@ -26,6 +26,7 @@
     - includes collect-stage sharding via `--collect-workers` and merged replay summaries
     - includes `--cloud` fixed 8 vCPU profile (`collect-workers=6`, `eval-workers=6`)
     - sharded replay merge now appends + deletes shard JSONL files to avoid large temporary disk spikes
+    - includes `--eval-first-last-checkpoints` and an `improvement` summary block (`fromStep`, `toStep`, win-rate delta, side-gap delta)
   - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
   - TD replay JSONL I/O helpers in `trainer/td/io.py`
 - TD Phase 3 initial integration is implemented:
