@@ -64,6 +64,7 @@
     - loop-level summary artifact under `artifacts/td_loops/<run-id>/loop.summary.json`
     - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
     - `--cloud` applies fixed 8 vCPU worker profile for hosted runs
+    - shard merge now deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`
     - `--td-value-checkpoint`
