@@ -161,19 +161,21 @@ export async function loadTdValueModelFromIndexUrl(
   const indexPayload = await fetchJson(absoluteIndexUrl);
   const index = parseModelPackIndex(indexPayload);
 
-  if (index.packs.length === 0) {
-    throw new Error('TD value model-pack index does not include any packs.');
+  const tdValuePacks = index.packs.filter(
+    (entry) => entry.modelType === TD_VALUE_MODEL_TYPE
+  );
+  if (tdValuePacks.length === 0) {
+    throw new Error(
+      'TD value model-pack index does not include any td-value-v1 packs.'
+    );
   }
 
-  let selected = index.packs[0];
+  let selected = tdValuePacks[0];
   if (typeof index.defaultPackId === 'string' && index.defaultPackId.length > 0) {
-    const match = index.packs.find((entry) => entry.id === index.defaultPackId);
-    if (!match) {
-      throw new Error(
-        `TD value model-pack index defaultPackId was not found in packs: ${index.defaultPackId}`
-      );
+    const match = tdValuePacks.find((entry) => entry.id === index.defaultPackId);
+    if (match) {
+      selected = match;
     }
-    selected = match;
   }
 
   const manifestUrl = resolveManifestUrl(absoluteIndexUrl, selected.manifestPath);

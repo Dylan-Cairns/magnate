@@ -1,10 +1,12 @@
 import { randomPolicy } from './randomPolicy';
 import { createSearchPolicy } from './searchPolicy';
+import { createTdSearchPolicy } from './tdSearchPolicy';
 import { createTdValuePolicy } from './tdValuePolicy';
 import type { ActionPolicy } from './types';
 
 export type BotProfileId =
   | 'rollout-eval-search'
+  | 'td-search-browser'
   | 'td-value-browser'
   | 'random-legal';
 
@@ -12,7 +14,7 @@ export interface BotProfile {
   id: BotProfileId;
   label: string;
   description: string;
-  kind: 'random' | 'search' | 'td-value';
+  kind: 'random' | 'search' | 'td-value' | 'td-search';
   available: boolean;
   policy: ActionPolicy;
 }
@@ -33,6 +35,15 @@ const rolloutEvalSearchPolicy = createSearchPolicy({
 const tdValueBrowserPolicy = createTdValuePolicy({
   worlds: 8,
 });
+const tdSearchBrowserPolicy = createTdSearchPolicy({
+  worlds: 6,
+  rollouts: 1,
+  depth: 14,
+  maxRootActions: 6,
+  rolloutEpsilon: 0.04,
+  opponentTemperature: 1.0,
+  sampleOpponentActions: false,
+});
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   {
@@ -43,6 +54,15 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     kind: 'search',
     available: true,
     policy: rolloutEvalSearchPolicy,
+  },
+  {
+    id: 'td-search-browser',
+    label: 'TD Search (Browser)',
+    description:
+      'Loads exported TD search model pack (value + opponent) from public/model-packs and uses model-guided rollouts.',
+    kind: 'td-search',
+    available: true,
+    policy: tdSearchBrowserPolicy,
   },
   {
     id: 'td-value-browser',

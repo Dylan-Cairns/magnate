@@ -5,7 +5,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 ## At A Glance
 
 - Browser game is playable; default bot is rollout-search.
-- Browser includes a selectable `TD Value (Browser)` profile backed by static model-pack artifacts.
+- Browser includes selectable `TD Value (Browser)` and `TD Search (Browser)` profiles backed by static model-pack artifacts.
 - TypeScript engine is the canonical rules implementation.
 - Python training/eval calls the engine through the Node bridge.
 - Main training loop: `scripts.run_td_loop` (`collect -> train -> promotion eval`).
@@ -111,6 +111,8 @@ With `.venv` active:
 - Full loop automation (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
 - Export browser model pack from latest promoted loop: `python -m scripts.export_browser_model_pack --latest-promoted --set-default`
 - Export browser model pack from explicit checkpoint: `python -m scripts.export_browser_model_pack --value-checkpoint artifacts/td_loops/<run>/chunks/value-step-0030000.pt --pack-id td-value-<run>-step-30000 --set-default`
+- Export browser TD-search pack from latest promoted loop: `python -m scripts.export_browser_td_search_pack --latest-promoted`
+- Export browser TD-search pack from explicit checkpoints: `python -m scripts.export_browser_td_search_pack --value-checkpoint artifacts/td_loops/<run>/chunks/value-step-0030000.pt --opponent-checkpoint artifacts/td_loops/<run>/chunks/opponent-step-0030000.pt --pack-id td-search-<run>-step-30000`
 
 Use `--help` on each script for full options.
 

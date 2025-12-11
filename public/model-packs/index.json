@@ -1,8 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAtUtc": "2026-03-05T17:41:50.808443+00:00",
+  "generatedAtUtc": "2026-03-05T18:08:41.764888+00:00",
   "defaultPackId": "td-value-20260305-024747z-step-30000",
   "packs": [
+    {
+      "id": "td-search-20260305-024747z-step-30000",
+      "label": "TD Search 20260305-024747Z step 30000",
+      "modelType": "td-search-v1",
+      "manifestPath": "model-packs/td-search-20260305-024747z-step-30000/manifest.json",
+      "createdAtUtc": "2026-03-05T18:08:41.764888+00:00",
+      "sourceRunId": null,
+      "sourceValueCheckpoint": "artifacts\\td_loops\\20260305-024747Z-td-loop-r2-overnight\\chunks\\value-step-0030000.pt",
+      "sourceOpponentCheckpoint": "artifacts\\td_loops\\20260305-024747Z-td-loop-r2-overnight\\chunks\\opponent-step-0030000.pt"
+    },
     {
       "id": "td-value-20260305-024747z-step-30000",
       "label": "TD Value 20260305-024747Z step 30000",

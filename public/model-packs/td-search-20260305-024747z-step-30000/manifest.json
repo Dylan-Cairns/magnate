@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "packId": "td-search-20260305-024747z-step-30000",
+  "label": "TD Search 20260305-024747Z step 30000",
+  "createdAtUtc": "2026-03-05T18:08:41.764888+00:00",
+  "model": {
+    "modelType": "td-search-v1",
+    "weightsPath": "weights.json",
+    "value": {
+      "checkpointType": "magnate_td_value_v1",
+      "encodingVersion": 2,
+      "observationDim": 206,
+      "hiddenDim": 256,
+      "requiredStateDictKeys": [
+        "encoder.0.weight",
+        "encoder.0.bias",
+        "encoder.2.weight",
+        "encoder.2.bias",
+        "encoder.4.weight",
+        "encoder.4.bias"
+      ]
+    },
+    "opponent": {
+      "checkpointType": "magnate_td_opponent_v1",
+      "encodingVersion": 2,
+      "observationDim": 206,
+      "actionFeatureDim": 40,
+      "hiddenDim": 256,
+      "requiredStateDictKeys": [
+        "obs_encoder.0.weight",
+        "obs_encoder.0.bias",
+        "obs_encoder.2.weight",
+        "obs_encoder.2.bias",
+        "action_encoder.0.weight",
+        "action_encoder.0.bias",
+        "policy_head.0.weight",
+        "policy_head.0.bias",
+        "policy_head.2.weight",
+        "policy_head.2.bias"
+      ]
+    }
+  },
+  "source": {
+    "runId": null,
+    "valueCheckpoint": "artifacts\\td_loops\\20260305-024747Z-td-loop-r2-overnight\\chunks\\value-step-0030000.pt",
+    "opponentCheckpoint": "artifacts\\td_loops\\20260305-024747Z-td-loop-r2-overnight\\chunks\\opponent-step-0030000.pt",
+    "checkpointMetadata": {
+      "step": 30000,
+      "value": {
+        "step": 30000
+      },
+      "opponent": {
+        "step": 30000
+      }
+    }
+  }
+}
