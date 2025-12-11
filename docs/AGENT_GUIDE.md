@@ -10,7 +10,6 @@ Use this guide with `AGENTS.md`.
 - `memoryBank/magnateRules.md`: rules source of truth.
 - `memoryBank/bridgeInterfaceContract.md`: TS-Python contract.
 - `memoryBank/activeContext.md`: current focus and immediate next steps.
-- `memoryBank/progress.md`: what is done vs. what remains.
 
 ## When To Update
 
@@ -33,5 +32,5 @@ Update Memory Bank files when:
 Before handoff, confirm:
 
 - Current focus is accurate in `activeContext.md`.
-- Remaining work is accurate in `progress.md`.
+- Implemented/remaining status is accurate in `activeContext.md`.
 - Any changed contract/architecture is reflected in its source file.
