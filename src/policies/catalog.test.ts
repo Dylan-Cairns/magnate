@@ -26,4 +26,10 @@ describe('bot policy catalog', () => {
   it('includes at least one search profile', () => {
     expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(true);
   });
+
+  it('includes a browser td-value profile', () => {
+    expect(BOT_PROFILES.some((profile) => profile.id === 'td-value-browser')).toBe(
+      true
+    );
+  });
 });

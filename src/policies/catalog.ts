@@ -1,14 +1,18 @@
 import { randomPolicy } from './randomPolicy';
 import { createSearchPolicy } from './searchPolicy';
+import { createTdValuePolicy } from './tdValuePolicy';
 import type { ActionPolicy } from './types';
 
-export type BotProfileId = 'rollout-eval-search' | 'random-legal';
+export type BotProfileId =
+  | 'rollout-eval-search'
+  | 'td-value-browser'
+  | 'random-legal';
 
 export interface BotProfile {
   id: BotProfileId;
   label: string;
   description: string;
-  kind: 'random' | 'search';
+  kind: 'random' | 'search' | 'td-value';
   available: boolean;
   policy: ActionPolicy;
 }
@@ -26,6 +30,9 @@ const rolloutEvalSearchPolicy = createSearchPolicy({
   maxRootActions: 12,
   rolloutEpsilon: 0.0,
 });
+const tdValueBrowserPolicy = createTdValuePolicy({
+  worlds: 8,
+});
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   {
@@ -36,6 +43,15 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     kind: 'search',
     available: true,
     policy: rolloutEvalSearchPolicy,
+  },
+  {
+    id: 'td-value-browser',
+    label: 'TD Value (Browser)',
+    description:
+      'Loads exported TD value model pack from public/model-packs and scores legal actions across determinized worlds.',
+    kind: 'td-value',
+    available: true,
+    policy: tdValueBrowserPolicy,
   },
   {
     id: 'random-legal',
