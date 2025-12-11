@@ -38,6 +38,7 @@
     - collect per chunk reduced (`1500 -> 800`)
     - train steps per chunk increased (`15000 -> 30000`)
     - promotion eval fixed to `200` games/side (`400` total)
+  - overnight runner script now auto-resolves warm-start checkpoints from the most recent promoted TD loop summary (no manual checkpoint path edits between runs)
   - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
   - TD replay JSONL I/O helpers in `trainer/td/io.py`
 - TD Phase 3 initial integration is implemented:
