@@ -7,7 +7,7 @@ cleanup() {
 trap cleanup EXIT
 
 python -m scripts.run_td_loop \
-  --cloud --cloud-vcpus 32 \
+  --cloud --cloud-vcpus 16 \
   --run-label td-loop-r2-overnight \
   --chunks-per-gate 3 \
   --collect-games 1500 \
