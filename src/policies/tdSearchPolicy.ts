@@ -16,14 +16,14 @@ import {
   encodeObservation,
 } from './trainingEncoding';
 import {
-  loadTdSearchModelFromIndexUrl,
+  DEFAULT_TD_SEARCH_MODEL_INDEX_PATH,
+  preloadTdSearchBrowserModel,
+} from './modelRuntimeCache';
+import {
   type LoadedTdSearchModel,
 } from './tdSearchModelPack';
-import { resolvePublicAssetUrl } from './tdValueModelPack';
 
 const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
-
-export const DEFAULT_TD_SEARCH_MODEL_INDEX_PATH = 'model-packs/index.json';
 
 export interface TdSearchPolicyConfig {
   worlds: number;
@@ -56,12 +56,10 @@ export function createTdSearchPolicy(
   const config = resolveTdSearchConfig(options);
   const configuredLoader =
     options.loadModel ??
-    (async (): Promise<LoadedTdSearchModel> => {
-      const indexPath =
-        options.modelIndexPath ?? DEFAULT_TD_SEARCH_MODEL_INDEX_PATH;
-      const indexUrl = resolvePublicAssetUrl(indexPath);
-      return loadTdSearchModelFromIndexUrl(indexUrl);
-    });
+    (() =>
+      preloadTdSearchBrowserModel(
+        options.modelIndexPath ?? DEFAULT_TD_SEARCH_MODEL_INDEX_PATH
+      ));
 
   let modelPromise: Promise<LoadedTdSearchModel> | null = null;
   function getModel(): Promise<LoadedTdSearchModel> {

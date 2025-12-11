@@ -51,6 +51,10 @@ import {
   type TurnResetAnchor,
 } from './ui/turnReset';
 import { getCardImage } from './ui/cardImages';
+import {
+  preloadStartupAssets,
+  type StartupPreloadProgress,
+} from './ui/startupPreload';
 import { CardTile, type CardPerspective } from './ui/components/CardTile';
 import {
   clearAllDeedTokenLayouts,
@@ -85,6 +89,12 @@ const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
 const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
+const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
+  completed: 0,
+  total: 1,
+  percent: 0,
+  message: 'Loading card images and bot models...',
+};
 
 type ActionPickerState =
   | (ActionPickerQuery & {
@@ -687,6 +697,11 @@ export function App() {
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
   const [pendingDiscardHoldback, setPendingDiscardHoldback] = useState<number>(0);
   const [actionCommitPending, setActionCommitPending] = useState<boolean>(false);
+  const [startupPreloadReady, setStartupPreloadReady] = useState<boolean>(false);
+  const [startupPreloadError, setStartupPreloadError] = useState<string | null>(null);
+  const [startupPreloadAttempt, setStartupPreloadAttempt] = useState<number>(0);
+  const [startupPreloadProgress, setStartupPreloadProgress] =
+    useState<StartupPreloadProgress>(STARTUP_PRELOAD_INITIAL_PROGRESS);
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
 
@@ -699,6 +714,10 @@ export function App() {
   const optionsMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
+  const retryStartupPreload = useCallback(
+    () => setStartupPreloadAttempt((current) => current + 1),
+    []
+  );
   const clearPendingActionCommit = useCallback(() => {
     if (actionCommitTimerRef.current !== null) {
       window.clearTimeout(actionCommitTimerRef.current);
@@ -789,6 +808,38 @@ export function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStartupPreloadReady(false);
+    setStartupPreloadError(null);
+    setStartupPreloadProgress(STARTUP_PRELOAD_INITIAL_PROGRESS);
+
+    void preloadStartupAssets({
+      onProgress(progress) {
+        if (cancelled) {
+          return;
+        }
+        setStartupPreloadProgress(progress);
+      },
+    })
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        setStartupPreloadReady(true);
+      })
+      .catch((err) => {
+        if (cancelled) {
+          return;
+        }
+        setStartupPreloadError(errorMessage(err));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [startupPreloadAttempt]);
 
   const terminal = isTerminal(state);
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
@@ -897,7 +948,12 @@ export function App() {
   }, [activePlayerId, state, turnResetAnchor]);
 
   useEffect(() => {
-    if (terminal || activePlayerId !== BOT_PLAYER || actionCommitPending) {
+    if (
+      terminal
+      || activePlayerId !== BOT_PLAYER
+      || actionCommitPending
+      || !startupPreloadReady
+    ) {
       setBotThinking(false);
       return;
     }
@@ -987,6 +1043,7 @@ export function App() {
     makeResourceFlightId,
     resolvedBotProfile,
     state,
+    startupPreloadReady,
     terminal,
   ]);
 
@@ -1294,6 +1351,11 @@ export function App() {
       suitTokenText,
     };
   });
+  const startupPreloadPercent = clamp(startupPreloadProgress.percent, 0, 100);
+  const startupPreloadCompleted = Math.min(
+    startupPreloadProgress.completed,
+    startupPreloadProgress.total
+  );
   return (
     <div className={`app-shell${optionsMenuOpen ? ' is-options-open' : ''}`}>
       {error && (
@@ -1968,6 +2030,51 @@ export function App() {
           aria-hidden="true"
           onClick={closeOptionsMenu}
         />
+      ) : null}
+
+      {!startupPreloadReady ? (
+        <div className="startup-preload-overlay" role="presentation">
+          <section
+            className="panel startup-preload-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="startup-preload-title"
+          >
+            <h2 id="startup-preload-title">
+              {startupPreloadError ? 'Loading Failed' : 'Preparing Game Assets'}
+            </h2>
+            <p className="startup-preload-message">
+              {startupPreloadError
+                ? `Could not preload assets: ${startupPreloadError}`
+                : startupPreloadProgress.message}
+            </p>
+            <div
+              className="startup-preload-progress"
+              role="progressbar"
+              aria-label="Startup asset preload progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={startupPreloadPercent}
+            >
+              <span
+                className="startup-preload-progress-fill"
+                style={{ width: `${startupPreloadPercent}%` }}
+              />
+            </div>
+            <p className="startup-preload-progress-text">
+              {startupPreloadCompleted} / {startupPreloadProgress.total}
+            </p>
+            {startupPreloadError ? (
+              <button
+                type="button"
+                className="reset-button startup-preload-retry"
+                onClick={retryStartupPreload}
+              >
+                Retry
+              </button>
+            ) : null}
+          </section>
+        </div>
       ) : null}
 
       {resourceFlights.length > 0 ? (

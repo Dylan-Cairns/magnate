@@ -1,20 +1,18 @@
 import { randomPolicy } from './randomPolicy';
 import { createSearchPolicy } from './searchPolicy';
 import { createTdSearchPolicy } from './tdSearchPolicy';
-import { createTdValuePolicy } from './tdValuePolicy';
 import type { ActionPolicy } from './types';
 
 export type BotProfileId =
   | 'rollout-eval-search'
   | 'td-search-browser'
-  | 'td-value-browser'
   | 'random-legal';
 
 export interface BotProfile {
   id: BotProfileId;
   label: string;
   description: string;
-  kind: 'random' | 'search' | 'td-value' | 'td-search';
+  kind: 'random' | 'search' | 'td-search';
   available: boolean;
   policy: ActionPolicy;
 }
@@ -32,9 +30,6 @@ const rolloutEvalSearchPolicy = createSearchPolicy({
   maxRootActions: 12,
   rolloutEpsilon: 0.0,
 });
-const tdValueBrowserPolicy = createTdValuePolicy({
-  worlds: 8,
-});
 const tdSearchBrowserPolicy = createTdSearchPolicy({
   worlds: 6,
   rollouts: 1,
@@ -47,31 +42,22 @@ const tdSearchBrowserPolicy = createTdSearchPolicy({
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   {
-    id: 'rollout-eval-search',
-    label: 'Rollout Eval Search',
-    description:
-      'Default bot. Determinized search: worlds=96, depth=32, rootActions=14, rolloutEpsilon=0.0, rollouts=12. No fallback on failure.',
-    kind: 'search',
-    available: true,
-    policy: rolloutEvalSearchPolicy,
-  },
-  {
     id: 'td-search-browser',
     label: 'TD Search (Browser)',
     description:
-      'Loads exported TD search model pack (value + opponent) from public/model-packs and uses model-guided rollouts.',
+      'Default bot. Loads exported TD search model pack (value + opponent) from public/model-packs and uses model-guided rollouts.',
     kind: 'td-search',
     available: true,
     policy: tdSearchBrowserPolicy,
   },
   {
-    id: 'td-value-browser',
-    label: 'TD Value (Browser)',
+    id: 'rollout-eval-search',
+    label: 'Rollout Eval Search',
     description:
-      'Loads exported TD value model pack from public/model-packs and scores legal actions across determinized worlds.',
-    kind: 'td-value',
+      'Determinized search: worlds=96, depth=32, rootActions=14, rolloutEpsilon=0.0, rollouts=12. No fallback on failure.',
+    kind: 'search',
     available: true,
-    policy: tdValueBrowserPolicy,
+    policy: rolloutEvalSearchPolicy,
   },
   {
     id: 'random-legal',
@@ -83,7 +69,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   },
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-eval-search';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-browser';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);
