@@ -53,6 +53,10 @@
   - `heuristic`
   - `search`
 - Search sweep runner remains eval-suite based with preset packs (`scripts/search_teacher_sweep.py`).
+  - default Python subprocess resolution is cross-platform:
+    - `sys.executable` first
+    - then `.venv/bin/python` (Unix)
+    - then `.venv/Scripts/python.exe` (Windows)
 - TD Phase 1 primitives are now implemented under `trainer/td/`:
   - value/opponent model definitions
   - replay buffers
@@ -70,6 +74,8 @@
     - multiple collect/train chunks (`--chunks-per-loop`)
     - single fixed-size promotion eval on latest checkpoint (`eval_suite --mode certify`)
     - explicit promotion decision in `loop.summary.json`
+    - replay regime is explicit and currently `chunk-local` (recorded in config and per-chunk rows)
+    - promotion CI floor default is non-trivial (`--promotion-min-ci-low 0.5`)
     - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
     - `--cloud` applies a preset profile sized by `--cloud-vcpus` (8/16/32) for hosted runs
     - train-stage torch CPU threads are configurable via `--train-num-threads` and `--train-num-interop-threads`
@@ -88,7 +94,9 @@
   - surfaced via `scripts.eval`, `scripts.eval_suite`, `scripts.generate_teacher_data`, and `scripts.collect_td_self_play`.
 - Runtime guardrails:
   - training/eval scripts require active `.venv` and explicit policy flags
+  - `scripts.train_td` now enforces Python 3.11+ and active `.venv` at startup
   - `scripts.eval_suite` requires explicit `--mode gate|certify`
+  - `scripts.generate_teacher_data` enforces teacher policy support for root action probabilities (`search|td-value|td-search`)
   - `td-search` configuration requires both value and opponent checkpoints
   - TD value transitions are strict: `done=False` requires `nextObservation`; `done=True` requires `nextObservation=null`
 
