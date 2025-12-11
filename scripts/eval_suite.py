@@ -8,7 +8,7 @@ import re
 import sys
 import time
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Mapping
@@ -135,13 +135,46 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--progress-log-seconds",
+        "--progress-log-minutes",
         type=float,
         default=30.0,
         help=(
-            "Minimum seconds between progress log lines for the same leg/shard. "
+            "Minimum minutes between progress log lines for the same leg/shard. "
             "Final completion logs are always emitted."
         ),
+    )
+    parser.add_argument(
+        "--progress-log-seconds",
+        type=float,
+        default=None,
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--progress-out",
+        type=Path,
+        default=None,
+        help=(
+            "Optional progress artifact path updated during evaluation. "
+            "Default: sibling eval.progress.json next to --out artifact."
+        ),
+    )
+    parser.add_argument(
+        "--worker-torch-threads",
+        type=int,
+        default=1,
+        help="Torch intra-op thread count per worker process.",
+    )
+    parser.add_argument(
+        "--worker-torch-interop-threads",
+        type=int,
+        default=1,
+        help="Torch inter-op thread count per worker process.",
+    )
+    parser.add_argument(
+        "--worker-blas-threads",
+        type=int,
+        default=1,
+        help="BLAS/OpenMP thread count per worker process.",
     )
 
     # Gate-mode sequential test controls.
@@ -163,6 +196,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.progress_log_seconds is not None:
+        args.progress_log_minutes = args.progress_log_seconds / 60.0
     _require_supported_runtime()
     _validate_policy_args(args)
     _validate_args(args)
@@ -173,9 +208,10 @@ def main() -> int:
         candidate_policy=args.candidate_policy,
         opponent_policy=args.opponent_policy,
     )
+    progress_path = _resolve_progress_path(args=args, output_path=output_path)
 
     if args.mode == "gate":
-        payload = _run_gate_mode(args=args, output_path=output_path)
+        payload = _run_gate_mode(args=args, output_path=output_path, progress_path=progress_path)
         results = payload.get("results") if isinstance(payload, dict) else None
         if not isinstance(results, dict):
             raise SystemExit("Gate artifact is missing results payload.")
@@ -213,6 +249,8 @@ def main() -> int:
         seed_start_index=args.seed_start_index,
         seed_prefix=args.seed_prefix,
         workers=args.workers,
+        progress_path=progress_path,
+        progress_label="certify",
     )
     payload = {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
@@ -224,6 +262,24 @@ def main() -> int:
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     _write_json_atomic(output_path, payload)
+    _write_eval_progress(
+        progress_path,
+        {
+            "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "mode": "certify",
+            "status": "completed",
+            "artifact": str(output_path),
+            "results": {
+                "candidateWinRate": payload["results"]["candidateWinRate"],
+                "candidateWinRateCi95": payload["results"]["candidateWinRateCi95"],
+                "sideGap": payload["results"]["sideGap"],
+                "candidateWins": payload["results"]["candidateWins"],
+                "opponentWins": payload["results"]["opponentWins"],
+                "draws": payload["results"]["draws"],
+                "totalGames": payload["results"]["totalGames"],
+            },
+        },
+    )
 
     print(
         json.dumps(
@@ -245,7 +301,12 @@ def main() -> int:
     return 0
 
 
-def _run_gate_mode(*, args: argparse.Namespace, output_path: Path) -> Dict[str, object]:
+def _run_gate_mode(
+    *,
+    args: argparse.Namespace,
+    output_path: Path,
+    progress_path: Path,
+) -> Dict[str, object]:
     artifact_path = _resolve_gate_artifact_path(args=args, output_path=output_path)
 
     payload: Dict[str, object]
@@ -283,6 +344,8 @@ def _run_gate_mode(*, args: argparse.Namespace, output_path: Path) -> Dict[str, 
             seed_start_index=batch_seed_start_index,
             seed_prefix=args.seed_prefix,
             workers=args.workers,
+            progress_path=progress_path,
+            progress_label=f"gate-batch-{len(history) + 1}",
         )
 
         existing_results = payload.get("results")
@@ -376,6 +439,18 @@ def _run_gate_mode(*, args: argparse.Namespace, output_path: Path) -> Dict[str, 
         }
 
         _write_json_atomic(artifact_path, payload)
+        _write_eval_progress(
+            progress_path,
+            {
+                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                "mode": "gate",
+                "status": str(payload["status"]),
+                "artifact": str(artifact_path),
+                "progress": dict(payload["progress"]),
+                "decision": dict(payload["decision"]),
+                "results": dict(payload["results"]) if isinstance(payload.get("results"), dict) else None,
+            },
+        )
 
         if decision_state in TERMINAL_GATE_STATUSES:
             return payload
@@ -543,7 +618,10 @@ def _base_config_payload(args: argparse.Namespace) -> Dict[str, object]:
         "seedStartIndex": args.seed_start_index,
         "workers": args.workers,
         "progressEveryGames": args.progress_every_games,
-        "progressLogSeconds": args.progress_log_seconds,
+        "progressLogMinutes": args.progress_log_minutes,
+        "workerTorchThreads": args.worker_torch_threads,
+        "workerTorchInteropThreads": args.worker_torch_interop_threads,
+        "workerBlasThreads": args.worker_blas_threads,
         "candidatePolicy": args.candidate_policy,
         "opponentPolicy": args.opponent_policy,
         "search": {
@@ -581,9 +659,27 @@ def _evaluate_results(
     seed_start_index: int,
     seed_prefix: str,
     workers: int,
+    progress_path: Path,
+    progress_label: str,
 ) -> Dict[str, object]:
+    started = time.perf_counter()
+    _write_eval_progress(
+        progress_path,
+        {
+            "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "status": "running",
+            "mode": args.mode,
+            "label": progress_label,
+            "artifact": str(args.out) if args.out is not None else None,
+            "gamesPerSide": games_per_side,
+            "workers": workers,
+            "completedShards": 0,
+            "totalShards": max(1, min(workers, games_per_side)),
+            "elapsedMinutes": 0.0,
+        },
+    )
     if workers == 1:
-        return _run_eval_shard(
+        summary = _run_eval_shard(
             games_per_side=games_per_side,
             seed_prefix=seed_prefix,
             seed_start_index=seed_start_index,
@@ -601,12 +697,37 @@ def _evaluate_results(
             td_search_opponent_temperature=args.td_search_opponent_temperature,
             td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
             progress_every_games=args.progress_every_games,
-            progress_log_seconds=args.progress_log_seconds,
+            progress_log_minutes=args.progress_log_minutes,
+            worker_torch_threads=args.worker_torch_threads,
+            worker_torch_interop_threads=args.worker_torch_interop_threads,
+            worker_blas_threads=args.worker_blas_threads,
         )
+        elapsed_minutes = (time.perf_counter() - started) / 60.0
+        _write_eval_progress(
+            progress_path,
+            {
+                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                "status": "completed",
+                "mode": args.mode,
+                "label": progress_label,
+                "gamesPerSide": games_per_side,
+                "workers": 1,
+                "completedShards": 1,
+                "totalShards": 1,
+                "elapsedMinutes": round(elapsed_minutes, 3),
+                "candidateWins": summary["candidateWins"],
+                "opponentWins": summary["opponentWins"],
+                "draws": summary["draws"],
+                "totalGames": summary["totalGames"],
+                "candidateWinRate": summary["candidateWinRate"],
+                "sideGap": summary["sideGap"],
+            },
+        )
+        return summary
 
     worker_count = min(workers, games_per_side)
     if worker_count == 1:
-        return _run_eval_shard(
+        summary = _run_eval_shard(
             games_per_side=games_per_side,
             seed_prefix=seed_prefix,
             seed_start_index=seed_start_index,
@@ -624,8 +745,33 @@ def _evaluate_results(
             td_search_opponent_temperature=args.td_search_opponent_temperature,
             td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
             progress_every_games=args.progress_every_games,
-            progress_log_seconds=args.progress_log_seconds,
+            progress_log_minutes=args.progress_log_minutes,
+            worker_torch_threads=args.worker_torch_threads,
+            worker_torch_interop_threads=args.worker_torch_interop_threads,
+            worker_blas_threads=args.worker_blas_threads,
         )
+        elapsed_minutes = (time.perf_counter() - started) / 60.0
+        _write_eval_progress(
+            progress_path,
+            {
+                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                "status": "completed",
+                "mode": args.mode,
+                "label": progress_label,
+                "gamesPerSide": games_per_side,
+                "workers": 1,
+                "completedShards": 1,
+                "totalShards": 1,
+                "elapsedMinutes": round(elapsed_minutes, 3),
+                "candidateWins": summary["candidateWins"],
+                "opponentWins": summary["opponentWins"],
+                "draws": summary["draws"],
+                "totalGames": summary["totalGames"],
+                "candidateWinRate": summary["candidateWinRate"],
+                "sideGap": summary["sideGap"],
+            },
+        )
+        return summary
 
     shard_sizes = _split_games(games_per_side, worker_count)
 
@@ -663,36 +809,103 @@ def _evaluate_results(
                 "tdSearchOpponentTemperature": args.td_search_opponent_temperature,
                 "tdSearchSampleOpponentActions": args.td_search_sample_opponent_actions,
                 "progressEveryGames": args.progress_every_games,
-                "progressLogSeconds": args.progress_log_seconds,
+                "progressLogMinutes": args.progress_log_minutes,
+                "workerTorchThreads": args.worker_torch_threads,
+                "workerTorchInteropThreads": args.worker_torch_interop_threads,
+                "workerBlasThreads": args.worker_blas_threads,
             }
         )
         shard_seed_start_index += shard_games
 
     shard_results: List[Dict[str, object]] = []
     shard_done = 0
+    heartbeat_seconds = max(0.0, args.progress_log_minutes * 60.0)
+    next_heartbeat = started + heartbeat_seconds if heartbeat_seconds > 0 else float("inf")
     with ProcessPoolExecutor(max_workers=worker_count) as executor:
-        futures = [executor.submit(_evaluate_shard, payload) for payload in payloads]
-        for future in as_completed(futures):
-            result = future.result()
-            shard_results.append(result)
-            shard_done += 1
-            print(
-                json.dumps(
+        pending = {executor.submit(_evaluate_shard, payload) for payload in payloads}
+        while pending:
+            done, pending = wait(pending, timeout=2.0, return_when=FIRST_COMPLETED)
+            for future in done:
+                result = future.result()
+                shard_results.append(result)
+                shard_done += 1
+                print(
+                    json.dumps(
+                        {
+                            "event": "evalShardComplete",
+                            "completedShards": shard_done,
+                            "totalShards": worker_count,
+                            "gamesPerSide": result["gamesPerSide"],
+                            "candidateWins": result["candidateWins"],
+                            "opponentWins": result["opponentWins"],
+                            "draws": result["draws"],
+                            "candidateWinRate": result["candidateWinRate"],
+                        }
+                    ),
+                    flush=True,
+                )
+                elapsed_minutes = (time.perf_counter() - started) / 60.0
+                _write_eval_progress(
+                    progress_path,
                     {
-                        "event": "evalShardComplete",
+                        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                        "status": "running",
+                        "mode": args.mode,
+                        "label": progress_label,
+                        "gamesPerSide": games_per_side,
+                        "workers": worker_count,
                         "completedShards": shard_done,
                         "totalShards": worker_count,
-                        "gamesPerSide": result["gamesPerSide"],
-                        "candidateWins": result["candidateWins"],
-                        "opponentWins": result["opponentWins"],
-                        "draws": result["draws"],
-                        "candidateWinRate": result["candidateWinRate"],
-                    }
-                ),
-                flush=True,
-            )
+                        "elapsedMinutes": round(elapsed_minutes, 3),
+                    },
+                )
 
-    return _merge_shard_results(shard_results)
+            now = time.perf_counter()
+            if now >= next_heartbeat:
+                elapsed_minutes = (now - started) / 60.0
+                print(
+                    f"[eval-suite] heartbeat label={progress_label} "
+                    f"shards={shard_done}/{worker_count} elapsedMin={elapsed_minutes:.1f}",
+                    flush=True,
+                )
+                _write_eval_progress(
+                    progress_path,
+                    {
+                        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                        "status": "running",
+                        "mode": args.mode,
+                        "label": progress_label,
+                        "gamesPerSide": games_per_side,
+                        "workers": worker_count,
+                        "completedShards": shard_done,
+                        "totalShards": worker_count,
+                        "elapsedMinutes": round(elapsed_minutes, 3),
+                    },
+                )
+                next_heartbeat = now + heartbeat_seconds
+    summary = _merge_shard_results(shard_results)
+    elapsed_minutes = (time.perf_counter() - started) / 60.0
+    _write_eval_progress(
+        progress_path,
+        {
+            "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+            "status": "completed",
+            "mode": args.mode,
+            "label": progress_label,
+            "gamesPerSide": games_per_side,
+            "workers": worker_count,
+            "completedShards": worker_count,
+            "totalShards": worker_count,
+            "elapsedMinutes": round(elapsed_minutes, 3),
+            "candidateWins": summary["candidateWins"],
+            "opponentWins": summary["opponentWins"],
+            "draws": summary["draws"],
+            "totalGames": summary["totalGames"],
+            "candidateWinRate": summary["candidateWinRate"],
+            "sideGap": summary["sideGap"],
+        },
+    )
+    return summary
 
 
 def _run_eval_shard(
@@ -714,8 +927,16 @@ def _run_eval_shard(
     td_search_opponent_temperature: float,
     td_search_sample_opponent_actions: bool,
     progress_every_games: int,
-    progress_log_seconds: float,
+    progress_log_minutes: float,
+    worker_torch_threads: int,
+    worker_torch_interop_threads: int,
+    worker_blas_threads: int,
 ) -> Dict[str, object]:
+    _configure_worker_threads(
+        torch_threads=worker_torch_threads,
+        torch_interop_threads=worker_torch_interop_threads,
+        blas_threads=worker_blas_threads,
+    )
     policies = {candidate_policy.strip().lower(), opponent_policy.strip().lower()}
     search_config = SearchConfig(
         worlds=search_worlds,
@@ -778,6 +999,7 @@ def _run_eval_shard(
                 now = time.perf_counter()
                 elapsed = now - shard_started
                 previous = last_log_at.get(leg, 0.0)
+                progress_log_seconds = max(0.0, progress_log_minutes * 60.0)
                 if completed < total and progress_log_seconds > 0 and (now - previous) < progress_log_seconds:
                     return
                 last_log_at[leg] = now
@@ -793,7 +1015,7 @@ def _run_eval_shard(
                             "totalGames": total,
                             "winners": winners,
                             "winsBySeat": wins_by_seat,
-                            "elapsedSeconds": round(elapsed, 2),
+                            "elapsedMinutes": round(elapsed / 60.0, 2),
                         }
                     ),
                     flush=True,
@@ -849,7 +1071,10 @@ def _evaluate_shard(payload: Dict[str, object]) -> Dict[str, object]:
         td_search_opponent_temperature=float(payload["tdSearchOpponentTemperature"]),
         td_search_sample_opponent_actions=bool(payload["tdSearchSampleOpponentActions"]),
         progress_every_games=int(payload["progressEveryGames"]),
-        progress_log_seconds=float(payload["progressLogSeconds"]),
+        progress_log_minutes=float(payload["progressLogMinutes"]),
+        worker_torch_threads=int(payload["workerTorchThreads"]),
+        worker_torch_interop_threads=int(payload["workerTorchInteropThreads"]),
+        worker_blas_threads=int(payload["workerBlasThreads"]),
     )
 
 
@@ -985,6 +1210,44 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
     }
 
 
+def _configure_worker_threads(
+    *,
+    torch_threads: int,
+    torch_interop_threads: int,
+    blas_threads: int,
+) -> None:
+    thread_count = str(max(1, int(blas_threads)))
+    for key in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+        "VECLIB_MAXIMUM_THREADS",
+    ):
+        os.environ[key] = thread_count
+    try:
+        import torch
+
+        torch.set_num_threads(max(1, int(torch_threads)))
+        torch.set_num_interop_threads(max(1, int(torch_interop_threads)))
+    except Exception:
+        # Keep eval runnable even if torch thread controls are unavailable.
+        pass
+
+
+def _resolve_progress_path(*, args: argparse.Namespace, output_path: Path) -> Path:
+    if args.progress_out is not None:
+        return args.progress_out
+    return output_path.with_name("eval.progress.json")
+
+
+def _write_eval_progress(path: Path, payload: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    temp_path.replace(path)
+
+
 def _default_output_path(seed_prefix: str, mode: str, candidate_policy: str, opponent_policy: str) -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
     safe_seed = _slug(seed_prefix)
@@ -1043,8 +1306,14 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--seed-start-index must be >= 0.")
     if args.progress_every_games < 0:
         raise SystemExit("--progress-every-games must be >= 0.")
-    if args.progress_log_seconds < 0:
-        raise SystemExit("--progress-log-seconds must be >= 0.")
+    if args.progress_log_minutes < 0:
+        raise SystemExit("--progress-log-minutes must be >= 0.")
+    if args.worker_torch_threads <= 0:
+        raise SystemExit("--worker-torch-threads must be > 0.")
+    if args.worker_torch_interop_threads <= 0:
+        raise SystemExit("--worker-torch-interop-threads must be > 0.")
+    if args.worker_blas_threads <= 0:
+        raise SystemExit("--worker-blas-threads must be > 0.")
 
     if args.mode == "certify":
         if args.games_per_side <= 0:

@@ -429,7 +429,7 @@ def _manifest_payload(
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "runId": run_id,
         "status": status,
-        "elapsedSeconds": round(elapsed_seconds, 3),
+        "elapsedMinutes": round(elapsed_seconds / 60.0, 3),
         "config": {
             "pythonBin": str(args.python_bin),
             "gamesPerSide": args.games_per_side,

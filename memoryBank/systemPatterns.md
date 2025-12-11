@@ -80,8 +80,8 @@ Design expectations:
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
   - Current active loop is chunked offline replay generation + checkpointed training, followed by gate/certify evaluation.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
-  - `--mode gate` for sequential side-swapped paired-seed SPRT gating
-  - `--mode certify` for fixed-size side-swapped confidence suites
+  - loop default: `--mode certify` for fixed-size side-swapped promotion evals
+  - `--mode gate` remains optional/manual, not part of default loop orchestration
 - Python policy surface is intentionally narrow during TD pivot:
   - `random`
   - `heuristic`
