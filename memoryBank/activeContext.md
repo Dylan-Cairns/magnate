@@ -3,7 +3,7 @@
 ## Current Focus
 
 - Keep TypeScript rules deterministic and canonical.
-- Iterate TD loops using chunked `collect -> train` with single fixed-size promotion eval.
+- Iterate TD loops using chunked `collect -> train` with two fixed-size promotion eval windows and pooled decisioning.
 - Improve model quality against search baseline while keeping loop runtime practical.
 
 ## Locked Decisions
@@ -11,7 +11,7 @@
 - TS engine is canonical gameplay truth.
 - Python training/eval calls TS through the bridge contract (`contracts/magnate_bridge.v1.json`).
 - Training/eval scripts are fail-fast (no silent fallback labels/actions/probabilities).
-- Default promotion decision uses one side-swapped certify eval (`200` games/side).
+- Default promotion decision uses pooled side-swapped certify eval windows (`200` games/side per window).
 
 ## Implemented Snapshot
 
@@ -23,7 +23,7 @@
   - replay collection: `scripts.collect_td_self_play`
   - training: `scripts.train_td`
   - loop orchestration: `scripts.run_td_loop`
-- `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), and explicit promotion thresholds.
+- `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), explicit promotion thresholds, and pooled multi-window promotion evals (`--eval-seed-start-indices`).
 - Overnight runner auto-resolves warm start from latest promoted loop summary (`scripts/run_overnight_td_loop_r2.sh`).
 
 ## Remaining
@@ -39,4 +39,4 @@
 2. Track promotion outcomes and side-gap stability across runs.
 3. Rank promoted checkpoints against search baseline with certify evals.
 
-_Updated: 2026-03-05._
+_Updated: 2026-03-06._

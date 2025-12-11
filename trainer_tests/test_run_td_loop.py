@@ -17,6 +17,7 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             promotion_min_win_rate=0.55,
             promotion_max_side_gap=0.08,
             promotion_min_ci_low=0.50,
+            promotion_max_window_side_gap=0.10,
         )
 
     def test_promotion_passes_when_all_thresholds_pass(self) -> None:
@@ -31,8 +32,10 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             opponent_wins=320,
             draws=0,
             total_games=800,
+            candidate_win_rate_as_player_a=0.61,
+            candidate_win_rate_as_player_b=0.59,
         )
-        result = _promotion_decision(eval_row=row, args=self._args())
+        result = _promotion_decision(eval_row=row, eval_windows=[row], args=self._args())
         self.assertTrue(result["promoted"])
         self.assertTrue(all(result["checks"].values()))
 
@@ -48,10 +51,13 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             opponent_wins=320,
             draws=0,
             total_games=800,
+            candidate_win_rate_as_player_a=0.70,
+            candidate_win_rate_as_player_b=0.49,
         )
-        result = _promotion_decision(eval_row=row, args=self._args())
+        result = _promotion_decision(eval_row=row, eval_windows=[row], args=self._args())
         self.assertFalse(result["promoted"])
         self.assertFalse(result["checks"]["maxSideGap"])
+        self.assertFalse(result["checks"]["maxWindowSideGap"])
 
     def test_promotion_fails_when_ci_low_too_small(self) -> None:
         row = EvalRow(
@@ -65,12 +71,14 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             opponent_wins=336,
             draws=0,
             total_games=800,
+            candidate_win_rate_as_player_a=0.60,
+            candidate_win_rate_as_player_b=0.56,
         )
-        result = _promotion_decision(eval_row=row, args=self._args())
+        result = _promotion_decision(eval_row=row, eval_windows=[row], args=self._args())
         self.assertFalse(result["promoted"])
         self.assertFalse(result["checks"]["minCiLow"])
 
-    def test_promotion_reason_reflects_single_eval_flow(self) -> None:
+    def test_promotion_reason_reflects_pooled_eval_flow(self) -> None:
         row = EvalRow(
             artifact=Path("promotion_eval.json"),
             opponent_policy="search",
@@ -82,9 +90,11 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             opponent_wins=400,
             draws=0,
             total_games=800,
+            candidate_win_rate_as_player_a=0.51,
+            candidate_win_rate_as_player_b=0.49,
         )
-        result = _promotion_decision(eval_row=row, args=self._args())
-        self.assertEqual(result["reason"], "single_eval_failed")
+        result = _promotion_decision(eval_row=row, eval_windows=[row], args=self._args())
+        self.assertEqual(result["reason"], "pooled_eval_failed")
 
     def test_recommended_cloud_worker_count_scales_by_profile(self) -> None:
         self.assertEqual(_recommended_cloud_worker_count(8), 4)
