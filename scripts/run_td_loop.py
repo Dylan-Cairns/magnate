@@ -35,18 +35,11 @@ class EvalRow:
     total_games: int
 
 
-@dataclass(frozen=True)
-class CertifyComparison:
-    row: EvalRow
-    checks: Dict[str, bool]
-    passed: bool
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run TD loop in gate-first mode: multiple collect/train chunks, "
-            "then gate eval and optional certify panel."
+            "Run TD loop with chunked collect/train, followed by one fixed-size "
+            "promotion eval (no gate/certify split)."
         )
     )
     parser.add_argument(
@@ -70,9 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cloud",
         action="store_true",
-        help=(
-            "Apply preset worker/thread profile for cloud machines."
-        ),
+        help="Apply preset worker/thread profile for cloud machines.",
     )
     parser.add_argument(
         "--cloud-vcpus",
@@ -83,13 +74,19 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--chunks-per-gate",
+        "--chunks-per-loop",
         type=int,
         default=3,
-        help="Number of collect/train chunks before a gate decision.",
+        help="Number of collect/train chunks before promotion eval.",
+    )
+    parser.add_argument(
+        "--chunks-per-gate",
+        type=int,
+        default=None,
+        help=argparse.SUPPRESS,
     )
 
-    parser.add_argument("--collect-games", type=int, default=1500)
+    parser.add_argument("--collect-games", type=int, default=800)
     parser.add_argument(
         "--collect-workers",
         type=int,
@@ -112,7 +109,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collect-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--collect-td-search-sample-opponent-actions", action="store_true")
 
-    parser.add_argument("--train-steps", type=int, default=15000)
+    parser.add_argument("--train-steps", type=int, default=30000)
     parser.add_argument("--train-value-batch-size", type=int, default=128)
     parser.add_argument("--train-opponent-batch-size", type=int, default=64)
     parser.add_argument("--train-seed", type=int, default=0)
@@ -144,7 +141,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional torch intra-op CPU thread count for scripts.train_td. "
-            "If --cloud is set and this is omitted, defaults to --cloud-vcpus."
+            "If --cloud is set and omitted, defaults to --cloud-vcpus."
         ),
     )
     parser.add_argument(
@@ -153,7 +150,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional torch inter-op CPU thread count for scripts.train_td. "
-            "If --cloud is set and this is omitted, defaults to 1."
+            "If --cloud is set and omitted, defaults to 1."
         ),
     )
 
@@ -163,6 +160,21 @@ def parse_args() -> argparse.Namespace:
         choices=("td-search", "td-value"),
         default="td-search",
     )
+    parser.add_argument(
+        "--eval-opponent-policy",
+        type=str,
+        choices=("random", "heuristic", "search"),
+        default="search",
+    )
+    parser.add_argument("--eval-games-per-side", type=int, default=200)
+    parser.add_argument("--eval-workers", type=int, default=1)
+    parser.add_argument("--eval-seed-prefix", type=str, default="td-loop-eval")
+    parser.add_argument("--eval-seed-start-index", type=int, default=0)
+    parser.add_argument("--eval-progress-every-games", type=int, default=10)
+    parser.add_argument("--eval-progress-log-minutes", type=float, default=30.0)
+    parser.add_argument("--eval-worker-torch-threads", type=int, default=1)
+    parser.add_argument("--eval-worker-torch-interop-threads", type=int, default=1)
+    parser.add_argument("--eval-worker-blas-threads", type=int, default=1)
     parser.add_argument("--eval-search-worlds", type=int, default=6)
     parser.add_argument("--eval-search-rollouts", type=int, default=1)
     parser.add_argument("--eval-search-depth", type=int, default=14)
@@ -172,43 +184,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--eval-td-search-sample-opponent-actions", action="store_true")
 
-    parser.add_argument("--gate-workers", type=int, default=1)
-    parser.add_argument("--gate-seed-prefix", type=str, default="td-loop-gate")
-    parser.add_argument("--gate-seed-start-index", type=int, default=0)
-    parser.add_argument("--gate-h0-win-rate", type=float, default=0.50)
-    parser.add_argument("--gate-h1-win-rate", type=float, default=0.55)
-    parser.add_argument("--gate-alpha", type=float, default=0.05)
-    parser.add_argument("--gate-beta", type=float, default=0.10)
-    parser.add_argument("--gate-batch-games-per-side", type=int, default=25)
-    parser.add_argument("--gate-max-games-per-side", type=int, default=400)
-    parser.add_argument("--gate-max-side-gap", type=float, default=0.08)
+    parser.add_argument("--promotion-min-win-rate", type=float, default=0.55)
+    parser.add_argument("--promotion-max-side-gap", type=float, default=0.08)
+    parser.add_argument("--promotion-min-ci-low", type=float, default=0.0)
 
-    parser.add_argument("--certify-workers", type=int, default=1)
-    parser.add_argument("--certify-games-per-side", type=int, default=400)
     parser.add_argument(
-        "--certify-opponents",
-        type=str,
-        nargs="+",
-        default=["search", "heuristic"],
-        choices=("random", "heuristic", "search"),
-        help="Opponent panel for certify mode.",
+        "--progress-heartbeat-minutes",
+        type=float,
+        default=30.0,
+        help="Emit parent stage heartbeat every N minutes (0 disables).",
     )
-    parser.add_argument("--certify-seed-prefix", type=str, default="td-loop-certify")
-    parser.add_argument(
-        "--certify-seed-start-index",
-        type=int,
-        default=100000,
-        help="Seed index offset for certify panel (disjoint from gate seeds).",
-    )
-    parser.add_argument("--certify-min-win-rate", type=float, default=0.55)
-    parser.add_argument("--certify-max-side-gap", type=float, default=0.08)
-    parser.add_argument("--certify-min-ci-low", type=float, default=0.50)
 
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.chunks_per_gate is not None:
+        args.chunks_per_loop = args.chunks_per_gate
     if args.cloud:
         _apply_cloud_profile(args)
 
@@ -221,6 +214,7 @@ def main() -> int:
     chunks_dir = run_dir / "chunks"
     eval_dir = run_dir / "evals"
     loop_summary_path = run_dir / "loop.summary.json"
+    progress_path = run_dir / "progress.json"
     for path in (run_dir, chunks_dir, eval_dir):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -232,7 +226,7 @@ def main() -> int:
     warm_value = args.train_warm_start_value_checkpoint
     warm_opponent = args.train_warm_start_opponent_checkpoint
 
-    for chunk_index in range(1, args.chunks_per_gate + 1):
+    for chunk_index in range(1, args.chunks_per_loop + 1):
         chunk_label = f"chunk-{chunk_index:03d}"
         chunk_dir = chunks_dir / chunk_label
         replay_dir = chunk_dir / "replay"
@@ -253,6 +247,7 @@ def main() -> int:
             collect_summary_path=collect_summary_path,
             run_id=f"{run_id}-{chunk_label}",
             seed_prefix=f"{args.collect_seed_prefix}-{chunk_label}",
+            heartbeat_minutes=args.progress_heartbeat_minutes,
         )
 
         train_summary_path = train_dir / "summary.json"
@@ -268,7 +263,12 @@ def main() -> int:
             warm_start_value=warm_value,
             warm_start_opponent=warm_opponent,
         )
-        _run_step(name=f"train[{chunk_label}]", command=train_command)
+        _run_step(
+            name=f"train[{chunk_label}]",
+            command=train_command,
+            heartbeat_minutes=args.progress_heartbeat_minutes,
+            progress_path=progress_path,
+        )
 
         train_summary = _read_json(train_summary_path, label=f"train summary {chunk_label}")
         checkpoints = _checkpoints_from_train_summary(train_summary)
@@ -308,105 +308,56 @@ def main() -> int:
     if latest_checkpoint is None:
         raise SystemExit("No latest checkpoint available after chunk training.")
 
-    gate_artifact = eval_dir / "gate.json"
-    gate_command = _build_eval_command(
+    eval_artifact = eval_dir / "promotion_eval.json"
+    eval_command = _build_eval_command(
         python_bin=args.python_bin,
         args=args,
         checkpoint=latest_checkpoint,
-        mode="gate",
-        opponent_policy="search",
-        seed_prefix=args.gate_seed_prefix,
-        seed_start_index=args.gate_seed_start_index,
-        workers=args.gate_workers,
-        games_per_side=args.gate_max_games_per_side,
-        out_path=gate_artifact,
+        opponent_policy=args.eval_opponent_policy,
+        seed_prefix=args.eval_seed_prefix,
+        seed_start_index=args.eval_seed_start_index,
+        workers=args.eval_workers,
+        games_per_side=args.eval_games_per_side,
+        out_path=eval_artifact,
     )
-    commands["gate"] = gate_command
-    _run_step(name="gate", command=gate_command)
-    gate_payload = _read_json(gate_artifact, label="gate artifact")
-    gate_outcome = _read_gate_outcome(gate_payload=gate_payload, artifact=gate_artifact)
-
-    certify_payload: Dict[str, Any] = {
-        "ran": False,
-        "overallPassed": False,
-        "comparisons": [],
-    }
-    commands["certify"] = []
-
-    if gate_outcome["decision"] == "accepted":
-        certify_payload["ran"] = True
-        seed_index = args.certify_seed_start_index
-        comparisons: List[CertifyComparison] = []
-        certify_commands: List[List[str]] = []
-
-        for opponent_policy in args.certify_opponents:
-            certify_artifact = eval_dir / f"certify-{opponent_policy}.json"
-            certify_command = _build_eval_command(
-                python_bin=args.python_bin,
-                args=args,
-                checkpoint=latest_checkpoint,
-                mode="certify",
-                opponent_policy=opponent_policy,
-                seed_prefix=f"{args.certify_seed_prefix}-{opponent_policy}",
-                seed_start_index=seed_index,
-                workers=args.certify_workers,
-                games_per_side=args.certify_games_per_side,
-                out_path=certify_artifact,
-            )
-            certify_commands.append(certify_command)
-            _run_step(name=f"certify[{opponent_policy}]", command=certify_command)
-            row = _read_eval_row(
-                path=certify_artifact,
-                opponent_policy=opponent_policy,
-            )
-            comparisons.append(_evaluate_certify_result(row=row, args=args))
-            seed_index += args.certify_games_per_side
-
-        commands["certify"] = certify_commands
-        certify_payload["comparisons"] = [
-            {
-                "opponentPolicy": comparison.row.opponent_policy,
-                "artifact": str(comparison.row.artifact),
-                "candidateWinRate": comparison.row.candidate_win_rate,
-                "candidateWinRateCi95": {
-                    "low": comparison.row.ci_low,
-                    "high": comparison.row.ci_high,
-                },
-                "sideGap": comparison.row.side_gap,
-                "candidateWins": comparison.row.candidate_wins,
-                "opponentWins": comparison.row.opponent_wins,
-                "draws": comparison.row.draws,
-                "totalGames": comparison.row.total_games,
-                "checks": dict(comparison.checks),
-                "passed": comparison.passed,
-            }
-            for comparison in comparisons
-        ]
-        certify_payload["overallPassed"] = all(comparison.passed for comparison in comparisons)
-
-    promotion = _promotion_decision(
-        gate_decision=gate_outcome["decision"],
-        gate_reason=gate_outcome["reason"],
-        certify=certify_payload,
+    commands["promotionEval"] = eval_command
+    _run_step(
+        name="promotion-eval",
+        command=eval_command,
+        heartbeat_minutes=args.progress_heartbeat_minutes,
+        progress_path=progress_path,
     )
 
-    loop_elapsed = time.perf_counter() - loop_started
+    eval_row = _read_eval_row(path=eval_artifact, opponent_policy=args.eval_opponent_policy)
+    promotion = _promotion_decision(eval_row=eval_row, args=args)
+
+    loop_elapsed_minutes = (time.perf_counter() - loop_started) / 60.0
     payload: Dict[str, Any] = {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "runId": run_id,
-        "elapsedSeconds": round(loop_elapsed, 3),
+        "elapsedMinutes": round(loop_elapsed_minutes, 3),
         "config": _config_payload(args),
         "commands": commands,
         "artifacts": {
             "runDir": str(run_dir),
             "loopSummary": str(loop_summary_path),
+            "progress": str(progress_path),
             "chunksDir": str(chunks_dir),
             "evalDir": str(eval_dir),
-            "gateArtifact": str(gate_artifact),
+            "promotionEvalArtifact": str(eval_artifact),
         },
         "chunks": chunk_rows,
-        "gate": gate_outcome,
-        "certify": certify_payload,
+        "evaluation": {
+            "opponentPolicy": args.eval_opponent_policy,
+            "artifact": str(eval_artifact),
+            "candidateWinRate": eval_row.candidate_win_rate,
+            "candidateWinRateCi95": {"low": eval_row.ci_low, "high": eval_row.ci_high},
+            "sideGap": eval_row.side_gap,
+            "candidateWins": eval_row.candidate_wins,
+            "opponentWins": eval_row.opponent_wins,
+            "draws": eval_row.draws,
+            "totalGames": eval_row.total_games,
+        },
         "promotion": promotion,
     }
     loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -417,10 +368,10 @@ def main() -> int:
                 "runId": run_id,
                 "runDir": str(run_dir),
                 "loopSummary": str(loop_summary_path),
-                "gateDecision": gate_outcome["decision"],
-                "gateReason": gate_outcome["reason"],
-                "certifyRan": bool(certify_payload["ran"]),
-                "certifyPassed": bool(certify_payload["overallPassed"]),
+                "promotionOpponent": args.eval_opponent_policy,
+                "candidateWinRate": eval_row.candidate_win_rate,
+                "candidateWinRateCi95": {"low": eval_row.ci_low, "high": eval_row.ci_high},
+                "sideGap": eval_row.side_gap,
                 "promoted": bool(promotion["promoted"]),
                 "promotionReason": promotion["reason"],
             },
@@ -506,6 +457,7 @@ def _run_collect_stage(
     collect_summary_path: Path,
     run_id: str,
     seed_prefix: str,
+    heartbeat_minutes: float,
 ) -> Dict[str, Any]:
     if args.collect_workers == 1:
         command = _build_collect_command(
@@ -518,7 +470,7 @@ def _run_collect_stage(
             opponent_out=collect_opponent_path,
             summary_out=collect_summary_path,
         )
-        _run_step(name=f"collect[{run_id}]", command=command)
+        _run_step(name=f"collect[{run_id}]", command=command, heartbeat_minutes=heartbeat_minutes)
         return {"mode": "single", "commands": [command]}
 
     worker_count = min(args.collect_workers, args.collect_games)
@@ -553,7 +505,12 @@ def _run_collect_stage(
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         futures = {
-            executor.submit(_run_step, name=f"collect[{run_id} {index + 1}/{worker_count}]", command=command): index
+            executor.submit(
+                _run_step,
+                name=f"collect[{run_id} {index + 1}/{worker_count}]",
+                command=command,
+                heartbeat_minutes=heartbeat_minutes,
+            ): index
             for index, command in enumerate(shard_commands)
         }
         for future in as_completed(futures):
@@ -817,7 +774,6 @@ def _build_eval_command(
     python_bin: Path,
     args: argparse.Namespace,
     checkpoint: LoopCheckpoint,
-    mode: str,
     opponent_policy: str,
     seed_prefix: str,
     seed_start_index: int,
@@ -830,7 +786,9 @@ def _build_eval_command(
         "-m",
         "scripts.eval_suite",
         "--mode",
-        mode,
+        "certify",
+        "--games-per-side",
+        str(games_per_side),
         "--workers",
         str(workers),
         "--seed-prefix",
@@ -853,30 +811,19 @@ def _build_eval_command(
         str(args.eval_search_rollout_epsilon),
         "--td-worlds",
         str(args.eval_td_worlds),
+        "--progress-every-games",
+        str(args.eval_progress_every_games),
+        "--progress-log-minutes",
+        str(args.eval_progress_log_minutes),
+        "--worker-torch-threads",
+        str(args.eval_worker_torch_threads),
+        "--worker-torch-interop-threads",
+        str(args.eval_worker_torch_interop_threads),
+        "--worker-blas-threads",
+        str(args.eval_worker_blas_threads),
         "--out",
         str(out_path),
     ]
-    if mode == "certify":
-        command.extend(["--games-per-side", str(games_per_side)])
-    else:
-        command.extend(
-            [
-                "--gate-h0-win-rate",
-                str(args.gate_h0_win_rate),
-                "--gate-h1-win-rate",
-                str(args.gate_h1_win_rate),
-                "--gate-alpha",
-                str(args.gate_alpha),
-                "--gate-beta",
-                str(args.gate_beta),
-                "--gate-batch-games-per-side",
-                str(args.gate_batch_games_per_side),
-                "--gate-max-games-per-side",
-                str(args.gate_max_games_per_side),
-                "--gate-max-side-gap",
-                str(args.gate_max_side_gap),
-            ]
-        )
 
     if args.eval_candidate_policy == "td-search":
         if checkpoint.value_path is None or checkpoint.opponent_path is None:
@@ -895,6 +842,7 @@ def _build_eval_command(
         if checkpoint.value_path is None:
             raise SystemExit("td-value evaluation requires a value checkpoint.")
         command.extend(["--td-value-checkpoint", str(checkpoint.value_path)])
+
     return command
 
 
@@ -950,43 +898,11 @@ def _select_latest_checkpoint(
     return eligible[-1]
 
 
-def _read_gate_outcome(*, gate_payload: Dict[str, Any], artifact: Path) -> Dict[str, Any]:
-    status = str(gate_payload.get("status", "unknown"))
-    decision = gate_payload.get("decision")
-    if not isinstance(decision, dict):
-        raise SystemExit(f"Gate artifact is missing decision payload: {artifact}")
-    decision_state = str(decision.get("state", status))
-    decision_reason = str(decision.get("reason", "unknown"))
-
-    results = gate_payload.get("results")
-    if not isinstance(results, dict):
-        raise SystemExit(f"Gate artifact is missing results payload: {artifact}")
-
-    row = _row_from_results(path=artifact, opponent_policy="search", results=results)
-    return {
-        "artifact": str(artifact),
-        "status": status,
-        "decision": decision_state,
-        "reason": decision_reason,
-        "candidateWinRate": row.candidate_win_rate,
-        "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
-        "sideGap": row.side_gap,
-        "candidateWins": row.candidate_wins,
-        "opponentWins": row.opponent_wins,
-        "draws": row.draws,
-        "totalGames": row.total_games,
-    }
-
-
 def _read_eval_row(*, path: Path, opponent_policy: str) -> EvalRow:
     payload = _read_json(path, label=f"eval artifact {path.name}")
     results = payload.get("results")
     if not isinstance(results, dict):
         raise SystemExit(f"Eval artifact is missing results payload: {path}")
-    return _row_from_results(path=path, opponent_policy=opponent_policy, results=results)
-
-
-def _row_from_results(*, path: Path, opponent_policy: str, results: Dict[str, Any]) -> EvalRow:
     return EvalRow(
         artifact=path,
         opponent_policy=opponent_policy,
@@ -1001,49 +917,20 @@ def _row_from_results(*, path: Path, opponent_policy: str, results: Dict[str, An
     )
 
 
-def _evaluate_certify_result(*, row: EvalRow, args: argparse.Namespace) -> CertifyComparison:
+def _promotion_decision(*, eval_row: EvalRow, args: argparse.Namespace) -> Dict[str, Any]:
     checks = {
-        "minWinRate": row.candidate_win_rate >= args.certify_min_win_rate,
-        "maxSideGap": row.side_gap <= args.certify_max_side_gap,
-        "minCiLow": row.ci_low >= args.certify_min_ci_low,
+        "minWinRate": eval_row.candidate_win_rate >= args.promotion_min_win_rate,
+        "maxSideGap": eval_row.side_gap <= args.promotion_max_side_gap,
+        "minCiLow": eval_row.ci_low >= args.promotion_min_ci_low,
     }
-    return CertifyComparison(
-        row=row,
-        checks=checks,
-        passed=all(checks.values()),
-    )
-
-
-def _promotion_decision(
-    *,
-    gate_decision: str,
-    gate_reason: str,
-    certify: Dict[str, Any],
-) -> Dict[str, Any]:
-    if gate_decision != "accepted":
-        return {
-            "promoted": False,
-            "reason": f"gate_{gate_decision}:{gate_reason}",
-        }
-    if not bool(certify.get("ran")):
-        return {
-            "promoted": False,
-            "reason": "gate_accepted_but_certify_not_run",
-        }
-    if not bool(certify.get("overallPassed")):
-        failed = [
-            row["opponentPolicy"]
-            for row in certify.get("comparisons", [])
-            if not bool(row.get("passed"))
-        ]
-        return {
-            "promoted": False,
-            "reason": "certify_failed",
-            "failedOpponents": failed,
-        }
     return {
-        "promoted": True,
-        "reason": "gate_and_certify_passed",
+        "promoted": bool(all(checks.values())),
+        "checks": checks,
+        "reason": (
+            "single_eval_passed"
+            if all(checks.values())
+            else "single_eval_failed"
+        ),
     }
 
 
@@ -1052,7 +939,8 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
         "pythonBin": str(args.python_bin),
         "cloud": bool(args.cloud),
         "cloudVcpus": args.cloud_vcpus,
-        "chunksPerGate": args.chunks_per_gate,
+        "chunksPerLoop": args.chunks_per_loop,
+        "progressHeartbeatMinutes": args.progress_heartbeat_minutes,
         "collect": {
             "gamesPerChunk": args.collect_games,
             "workers": args.collect_workers,
@@ -1091,8 +979,18 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "disableValue": bool(args.train_disable_value),
             "disableOpponent": bool(args.train_disable_opponent),
         },
-        "eval": {
+        "evaluation": {
             "candidatePolicy": args.eval_candidate_policy,
+            "opponentPolicy": args.eval_opponent_policy,
+            "gamesPerSide": args.eval_games_per_side,
+            "workers": args.eval_workers,
+            "seedPrefix": args.eval_seed_prefix,
+            "seedStartIndex": args.eval_seed_start_index,
+            "progressEveryGames": args.eval_progress_every_games,
+            "progressLogMinutes": args.eval_progress_log_minutes,
+            "workerTorchThreads": args.eval_worker_torch_threads,
+            "workerTorchInteropThreads": args.eval_worker_torch_interop_threads,
+            "workerBlasThreads": args.eval_worker_blas_threads,
             "search": {
                 "worlds": args.eval_search_worlds,
                 "rollouts": args.eval_search_rollouts,
@@ -1104,27 +1002,10 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "tdSearchOpponentTemperature": args.eval_td_search_opponent_temperature,
             "tdSearchSampleOpponentActions": bool(args.eval_td_search_sample_opponent_actions),
         },
-        "gate": {
-            "workers": args.gate_workers,
-            "seedPrefix": args.gate_seed_prefix,
-            "seedStartIndex": args.gate_seed_start_index,
-            "h0WinRate": args.gate_h0_win_rate,
-            "h1WinRate": args.gate_h1_win_rate,
-            "alpha": args.gate_alpha,
-            "beta": args.gate_beta,
-            "batchGamesPerSide": args.gate_batch_games_per_side,
-            "maxGamesPerSide": args.gate_max_games_per_side,
-            "maxSideGap": args.gate_max_side_gap,
-        },
-        "certify": {
-            "workers": args.certify_workers,
-            "gamesPerSide": args.certify_games_per_side,
-            "opponents": list(args.certify_opponents),
-            "seedPrefix": args.certify_seed_prefix,
-            "seedStartIndex": args.certify_seed_start_index,
-            "minWinRate": args.certify_min_win_rate,
-            "maxSideGap": args.certify_max_side_gap,
-            "minCiLow": args.certify_min_ci_low,
+        "promotion": {
+            "minWinRate": args.promotion_min_win_rate,
+            "maxSideGap": args.promotion_max_side_gap,
+            "minCiLow": args.promotion_min_ci_low,
         },
     }
 
@@ -1139,8 +1020,8 @@ def _require_supported_runtime(python_bin: Path) -> None:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
-    if args.chunks_per_gate <= 0:
-        raise SystemExit("--chunks-per-gate must be > 0.")
+    if args.chunks_per_loop <= 0:
+        raise SystemExit("--chunks-per-loop must be > 0.")
     if args.collect_games <= 0:
         raise SystemExit("--collect-games must be > 0.")
     if args.collect_workers <= 0:
@@ -1153,58 +1034,121 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--train-num-interop-threads must be > 0 when provided.")
     if args.train_td_lambda < 0.0 or args.train_td_lambda > 1.0:
         raise SystemExit("--train-td-lambda must be in [0, 1].")
-    if args.gate_workers <= 0:
-        raise SystemExit("--gate-workers must be > 0.")
-    if args.gate_seed_start_index < 0:
-        raise SystemExit("--gate-seed-start-index must be >= 0.")
-    if args.gate_h0_win_rate < 0.0 or args.gate_h0_win_rate > 1.0:
-        raise SystemExit("--gate-h0-win-rate must be in [0, 1].")
-    if args.gate_h1_win_rate < 0.0 or args.gate_h1_win_rate > 1.0:
-        raise SystemExit("--gate-h1-win-rate must be in [0, 1].")
-    if args.gate_h0_win_rate >= args.gate_h1_win_rate:
-        raise SystemExit("--gate-h0-win-rate must be strictly less than --gate-h1-win-rate.")
-    if args.gate_alpha <= 0.0 or args.gate_alpha >= 1.0:
-        raise SystemExit("--gate-alpha must be in (0, 1).")
-    if args.gate_beta <= 0.0 or args.gate_beta >= 1.0:
-        raise SystemExit("--gate-beta must be in (0, 1).")
-    if args.gate_batch_games_per_side <= 0:
-        raise SystemExit("--gate-batch-games-per-side must be > 0.")
-    if args.gate_max_games_per_side <= 0:
-        raise SystemExit("--gate-max-games-per-side must be > 0.")
-    if args.gate_batch_games_per_side > args.gate_max_games_per_side:
-        raise SystemExit("--gate-batch-games-per-side must be <= --gate-max-games-per-side.")
-    if args.gate_max_side_gap < 0.0 or args.gate_max_side_gap > 1.0:
-        raise SystemExit("--gate-max-side-gap must be in [0, 1].")
 
-    if args.certify_workers <= 0:
-        raise SystemExit("--certify-workers must be > 0.")
-    if args.certify_games_per_side <= 0:
-        raise SystemExit("--certify-games-per-side must be > 0.")
-    if args.certify_seed_start_index < 0:
-        raise SystemExit("--certify-seed-start-index must be >= 0.")
-    if args.certify_min_win_rate < 0.0 or args.certify_min_win_rate > 1.0:
-        raise SystemExit("--certify-min-win-rate must be in [0, 1].")
-    if args.certify_max_side_gap < 0.0 or args.certify_max_side_gap > 1.0:
-        raise SystemExit("--certify-max-side-gap must be in [0, 1].")
-    if args.certify_min_ci_low < 0.0 or args.certify_min_ci_low > 1.0:
-        raise SystemExit("--certify-min-ci-low must be in [0, 1].")
-    if len(set(args.certify_opponents)) != len(args.certify_opponents):
-        raise SystemExit("--certify-opponents must not contain duplicates.")
+    if args.eval_games_per_side <= 0:
+        raise SystemExit("--eval-games-per-side must be > 0.")
+    if args.eval_workers <= 0:
+        raise SystemExit("--eval-workers must be > 0.")
+    if args.eval_seed_start_index < 0:
+        raise SystemExit("--eval-seed-start-index must be >= 0.")
+    if args.eval_progress_every_games < 0:
+        raise SystemExit("--eval-progress-every-games must be >= 0.")
+    if args.eval_progress_log_minutes < 0.0:
+        raise SystemExit("--eval-progress-log-minutes must be >= 0.")
+    if args.eval_worker_torch_threads <= 0:
+        raise SystemExit("--eval-worker-torch-threads must be > 0.")
+    if args.eval_worker_torch_interop_threads <= 0:
+        raise SystemExit("--eval-worker-torch-interop-threads must be > 0.")
+    if args.eval_worker_blas_threads <= 0:
+        raise SystemExit("--eval-worker-blas-threads must be > 0.")
+
+    if args.promotion_min_win_rate < 0.0 or args.promotion_min_win_rate > 1.0:
+        raise SystemExit("--promotion-min-win-rate must be in [0, 1].")
+    if args.promotion_max_side_gap < 0.0 or args.promotion_max_side_gap > 1.0:
+        raise SystemExit("--promotion-max-side-gap must be in [0, 1].")
+    if args.promotion_min_ci_low < 0.0 or args.promotion_min_ci_low > 1.0:
+        raise SystemExit("--promotion-min-ci-low must be in [0, 1].")
+
+    if args.progress_heartbeat_minutes < 0.0:
+        raise SystemExit("--progress-heartbeat-minutes must be >= 0.")
 
     if args.train_disable_value and args.train_disable_opponent:
         raise SystemExit("At least one of value/opponent training must be enabled.")
 
 
-def _run_step(*, name: str, command: Sequence[str]) -> None:
+def _run_step(
+    *,
+    name: str,
+    command: Sequence[str],
+    heartbeat_minutes: float = 0.0,
+    progress_path: Path | None = None,
+) -> None:
     print(f"[td-loop] step {name}: {_join_command(command)}")
     started = time.perf_counter()
-    completed = subprocess.run(command)
-    elapsed = time.perf_counter() - started
-    if completed.returncode != 0:
-        raise SystemExit(
-            f"[td-loop] failed step={name} returnCode={completed.returncode} elapsedMin={elapsed / 60.0:.1f}"
+    process = subprocess.Popen(command)
+
+    heartbeat_seconds = max(0.0, heartbeat_minutes * 60.0)
+    next_heartbeat = started + heartbeat_seconds if heartbeat_seconds > 0 else float("inf")
+
+    if progress_path is not None:
+        _write_progress(
+            progress_path,
+            {
+                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                "step": name,
+                "status": "running",
+                "elapsedMinutes": 0.0,
+            },
         )
-    print(f"[td-loop] completed step={name} elapsedMin={elapsed / 60.0:.1f}")
+
+    while True:
+        return_code = process.poll()
+        if return_code is not None:
+            break
+
+        now = time.perf_counter()
+        if now >= next_heartbeat:
+            elapsed_minutes = (now - started) / 60.0
+            print(f"[td-loop] heartbeat step={name} elapsedMin={elapsed_minutes:.1f}")
+            if progress_path is not None:
+                _write_progress(
+                    progress_path,
+                    {
+                        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                        "step": name,
+                        "status": "running",
+                        "elapsedMinutes": round(elapsed_minutes, 3),
+                    },
+                )
+            next_heartbeat = now + heartbeat_seconds
+        time.sleep(2.0)
+
+    elapsed_minutes = (time.perf_counter() - started) / 60.0
+    if return_code != 0:
+        if progress_path is not None:
+            _write_progress(
+                progress_path,
+                {
+                    "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                    "step": name,
+                    "status": "failed",
+                    "elapsedMinutes": round(elapsed_minutes, 3),
+                    "returnCode": int(return_code),
+                },
+            )
+        raise SystemExit(
+            f"[td-loop] failed step={name} returnCode={return_code} elapsedMin={elapsed_minutes:.1f}"
+        )
+
+    if progress_path is not None:
+        _write_progress(
+            progress_path,
+            {
+                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
+                "step": name,
+                "status": "completed",
+                "elapsedMinutes": round(elapsed_minutes, 3),
+                "returnCode": int(return_code),
+            },
+        )
+    print(f"[td-loop] completed step={name} elapsedMin={elapsed_minutes:.1f}")
+
+
+def _write_progress(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    tmp_path.replace(path)
 
 
 def _read_json(path: Path, *, label: str) -> Dict[str, Any]:
@@ -1229,15 +1173,14 @@ def _join_command(parts: Sequence[str]) -> str:
 
 
 def _recommended_cloud_worker_count(vcpus: int) -> int:
-    # Keep one quarter of cores free to reduce scheduler contention and bridge overhead.
-    return max(1, (vcpus * 3) // 4)
+    # Keep workers moderate for eval inference to reduce oversubscription.
+    return max(1, vcpus // 2)
 
 
 def _apply_cloud_profile(args: argparse.Namespace) -> None:
     workers = _recommended_cloud_worker_count(args.cloud_vcpus)
     args.collect_workers = workers
-    args.gate_workers = workers
-    args.certify_workers = workers
+    args.eval_workers = workers
     if args.train_num_threads is None:
         args.train_num_threads = args.cloud_vcpus
     if args.train_num_interop_threads is None:

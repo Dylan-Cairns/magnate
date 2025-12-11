@@ -364,7 +364,7 @@ def main() -> int:
             "latestValue": latest_value_summary,
             "latestOpponent": latest_opponent_summary,
             "checkpoints": checkpoint_paths,
-            "elapsedSeconds": time.perf_counter() - started_at,
+            "elapsedMinutes": (time.perf_counter() - started_at) / 60.0,
         },
         "artifacts": {
             "runDir": str(run_dir),
