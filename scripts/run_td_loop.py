@@ -10,6 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from math import sqrt
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -35,13 +36,15 @@ class EvalRow:
     opponent_wins: int
     draws: int
     total_games: int
+    candidate_win_rate_as_player_a: float
+    candidate_win_rate_as_player_b: float
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run TD loop with chunked collect/train, followed by one fixed-size "
-            "promotion eval (no gate/certify split)."
+            "Run TD loop with chunked collect/train, followed by fixed-size "
+            "promotion eval windows and pooled promotion checks."
         )
     )
     parser.add_argument(
@@ -88,7 +91,7 @@ def parse_args() -> argparse.Namespace:
         help=argparse.SUPPRESS,
     )
 
-    parser.add_argument("--collect-games", type=int, default=800)
+    parser.add_argument("--collect-games", type=int, default=1200)
     parser.add_argument(
         "--collect-workers",
         type=int,
@@ -111,7 +114,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collect-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--collect-td-search-sample-opponent-actions", action="store_true")
 
-    parser.add_argument("--train-steps", type=int, default=30000)
+    parser.add_argument("--train-steps", type=int, default=20000)
     parser.add_argument("--train-value-batch-size", type=int, default=128)
     parser.add_argument("--train-opponent-batch-size", type=int, default=64)
     parser.add_argument("--train-seed", type=int, default=0)
@@ -171,7 +174,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-games-per-side", type=int, default=200)
     parser.add_argument("--eval-workers", type=int, default=1)
     parser.add_argument("--eval-seed-prefix", type=str, default="td-loop-eval")
-    parser.add_argument("--eval-seed-start-index", type=int, default=0)
+    parser.add_argument("--eval-seed-start-index", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--eval-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[0, 10000],
+        help="Seed index windows for promotion evals; results are pooled for promotion.",
+    )
     parser.add_argument("--eval-progress-every-games", type=int, default=10)
     parser.add_argument("--eval-progress-log-minutes", type=float, default=30.0)
     parser.add_argument("--eval-worker-torch-threads", type=int, default=1)
@@ -189,6 +199,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--promotion-min-win-rate", type=float, default=0.55)
     parser.add_argument("--promotion-max-side-gap", type=float, default=0.08)
     parser.add_argument("--promotion-min-ci-low", type=float, default=0.5)
+    parser.add_argument(
+        "--promotion-max-window-side-gap",
+        type=float,
+        default=0.10,
+        help="Each eval window must stay at or below this side gap.",
+    )
 
     parser.add_argument(
         "--progress-heartbeat-minutes",
@@ -204,6 +220,8 @@ def main() -> int:
     args = parse_args()
     if args.chunks_per_gate is not None:
         args.chunks_per_loop = args.chunks_per_gate
+    if args.eval_seed_start_index is not None:
+        args.eval_seed_start_indices = [args.eval_seed_start_index]
     if args.cloud:
         _apply_cloud_profile(args)
 
@@ -311,28 +329,35 @@ def main() -> int:
     if latest_checkpoint is None:
         raise SystemExit("No latest checkpoint available after chunk training.")
 
-    eval_artifact = eval_dir / "promotion_eval.json"
-    eval_command = _build_eval_command(
-        python_bin=args.python_bin,
-        args=args,
-        checkpoint=latest_checkpoint,
-        opponent_policy=args.eval_opponent_policy,
-        seed_prefix=args.eval_seed_prefix,
-        seed_start_index=args.eval_seed_start_index,
-        workers=args.eval_workers,
-        games_per_side=args.eval_games_per_side,
-        out_path=eval_artifact,
-    )
-    commands["promotionEval"] = eval_command
-    _run_step(
-        name="promotion-eval",
-        command=eval_command,
-        heartbeat_minutes=args.progress_heartbeat_minutes,
-        progress_path=progress_path,
-    )
+    eval_rows: List[EvalRow] = []
+    promotion_eval_commands: List[List[str]] = []
+    promotion_eval_artifacts: List[str] = []
+    for index, seed_start_index in enumerate(args.eval_seed_start_indices, start=1):
+        eval_artifact = eval_dir / f"promotion_eval.seed-{seed_start_index:06d}.json"
+        eval_command = _build_eval_command(
+            python_bin=args.python_bin,
+            args=args,
+            checkpoint=latest_checkpoint,
+            opponent_policy=args.eval_opponent_policy,
+            seed_prefix=args.eval_seed_prefix,
+            seed_start_index=seed_start_index,
+            workers=args.eval_workers,
+            games_per_side=args.eval_games_per_side,
+            out_path=eval_artifact,
+        )
+        promotion_eval_commands.append(eval_command)
+        promotion_eval_artifacts.append(str(eval_artifact))
+        _run_step(
+            name=f"promotion-eval[{index}/{len(args.eval_seed_start_indices)} seed={seed_start_index}]",
+            command=eval_command,
+            heartbeat_minutes=args.progress_heartbeat_minutes,
+            progress_path=progress_path,
+        )
+        eval_rows.append(_read_eval_row(path=eval_artifact, opponent_policy=args.eval_opponent_policy))
+    commands["promotionEvals"] = promotion_eval_commands
 
-    eval_row = _read_eval_row(path=eval_artifact, opponent_policy=args.eval_opponent_policy)
-    promotion = _promotion_decision(eval_row=eval_row, args=args)
+    pooled_eval_row = _pool_eval_rows(eval_rows=eval_rows, opponent_policy=args.eval_opponent_policy)
+    promotion = _promotion_decision(eval_row=pooled_eval_row, eval_windows=eval_rows, args=args)
 
     loop_elapsed_minutes = (time.perf_counter() - loop_started) / 60.0
     payload: Dict[str, Any] = {
@@ -347,19 +372,39 @@ def main() -> int:
             "progress": str(progress_path),
             "chunksDir": str(chunks_dir),
             "evalDir": str(eval_dir),
-            "promotionEvalArtifact": str(eval_artifact),
+            "promotionEvalArtifact": promotion_eval_artifacts[0],
+            "promotionEvalArtifacts": promotion_eval_artifacts,
         },
         "chunks": chunk_rows,
         "evaluation": {
             "opponentPolicy": args.eval_opponent_policy,
-            "artifact": str(eval_artifact),
-            "candidateWinRate": eval_row.candidate_win_rate,
-            "candidateWinRateCi95": {"low": eval_row.ci_low, "high": eval_row.ci_high},
-            "sideGap": eval_row.side_gap,
-            "candidateWins": eval_row.candidate_wins,
-            "opponentWins": eval_row.opponent_wins,
-            "draws": eval_row.draws,
-            "totalGames": eval_row.total_games,
+            "windows": [
+                {
+                    "seedStartIndex": seed_start_index,
+                    "artifact": str(row.artifact),
+                    "candidateWinRate": row.candidate_win_rate,
+                    "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
+                    "candidateWinRateAsPlayerA": row.candidate_win_rate_as_player_a,
+                    "candidateWinRateAsPlayerB": row.candidate_win_rate_as_player_b,
+                    "sideGap": row.side_gap,
+                    "candidateWins": row.candidate_wins,
+                    "opponentWins": row.opponent_wins,
+                    "draws": row.draws,
+                    "totalGames": row.total_games,
+                }
+                for seed_start_index, row in zip(args.eval_seed_start_indices, eval_rows)
+            ],
+            "pooled": {
+                "candidateWinRate": pooled_eval_row.candidate_win_rate,
+                "candidateWinRateCi95": {"low": pooled_eval_row.ci_low, "high": pooled_eval_row.ci_high},
+                "candidateWinRateAsPlayerA": pooled_eval_row.candidate_win_rate_as_player_a,
+                "candidateWinRateAsPlayerB": pooled_eval_row.candidate_win_rate_as_player_b,
+                "sideGap": pooled_eval_row.side_gap,
+                "candidateWins": pooled_eval_row.candidate_wins,
+                "opponentWins": pooled_eval_row.opponent_wins,
+                "draws": pooled_eval_row.draws,
+                "totalGames": pooled_eval_row.total_games,
+            },
         },
         "promotion": promotion,
     }
@@ -372,9 +417,10 @@ def main() -> int:
                 "runDir": str(run_dir),
                 "loopSummary": str(loop_summary_path),
                 "promotionOpponent": args.eval_opponent_policy,
-                "candidateWinRate": eval_row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": eval_row.ci_low, "high": eval_row.ci_high},
-                "sideGap": eval_row.side_gap,
+                "evalWindows": len(eval_rows),
+                "candidateWinRate": pooled_eval_row.candidate_win_rate,
+                "candidateWinRateCi95": {"low": pooled_eval_row.ci_low, "high": pooled_eval_row.ci_high},
+                "sideGap": pooled_eval_row.side_gap,
                 "promoted": bool(promotion["promoted"]),
                 "promotionReason": promotion["reason"],
             },
@@ -917,22 +963,73 @@ def _read_eval_row(*, path: Path, opponent_policy: str) -> EvalRow:
         opponent_wins=int(results["opponentWins"]),
         draws=int(results["draws"]),
         total_games=int(results["totalGames"]),
+        candidate_win_rate_as_player_a=float(results["candidateWinRateAsPlayerA"]),
+        candidate_win_rate_as_player_b=float(results["candidateWinRateAsPlayerB"]),
     )
 
 
-def _promotion_decision(*, eval_row: EvalRow, args: argparse.Namespace) -> Dict[str, Any]:
+def _pool_eval_rows(*, eval_rows: Sequence[EvalRow], opponent_policy: str) -> EvalRow:
+    if not eval_rows:
+        raise SystemExit("No eval rows to pool for promotion decision.")
+    total_games = sum(row.total_games for row in eval_rows)
+    if total_games <= 0:
+        raise SystemExit("Pooled eval total games must be > 0.")
+
+    candidate_wins = sum(row.candidate_wins for row in eval_rows)
+    opponent_wins = sum(row.opponent_wins for row in eval_rows)
+    draws = sum(row.draws for row in eval_rows)
+    candidate_win_rate = float(candidate_wins) / float(total_games)
+    ci_low, ci_high = _wilson_interval_95(successes=candidate_wins, trials=total_games)
+
+    weighted_rate_a = (
+        sum(row.candidate_win_rate_as_player_a * row.total_games for row in eval_rows)
+        / float(total_games)
+    )
+    weighted_rate_b = (
+        sum(row.candidate_win_rate_as_player_b * row.total_games for row in eval_rows)
+        / float(total_games)
+    )
+
+    return EvalRow(
+        artifact=Path("pooled"),
+        opponent_policy=opponent_policy,
+        candidate_win_rate=candidate_win_rate,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        side_gap=abs(weighted_rate_a - weighted_rate_b),
+        candidate_wins=candidate_wins,
+        opponent_wins=opponent_wins,
+        draws=draws,
+        total_games=total_games,
+        candidate_win_rate_as_player_a=weighted_rate_a,
+        candidate_win_rate_as_player_b=weighted_rate_b,
+    )
+
+
+def _promotion_decision(*, eval_row: EvalRow, eval_windows: Sequence[EvalRow], args: argparse.Namespace) -> Dict[str, Any]:
+    window_checks = [
+        {
+            "artifact": str(row.artifact),
+            "sideGap": row.side_gap,
+            "maxWindowSideGap": row.side_gap <= args.promotion_max_window_side_gap,
+        }
+        for row in eval_windows
+    ]
     checks = {
         "minWinRate": eval_row.candidate_win_rate >= args.promotion_min_win_rate,
         "maxSideGap": eval_row.side_gap <= args.promotion_max_side_gap,
         "minCiLow": eval_row.ci_low >= args.promotion_min_ci_low,
+        "maxWindowSideGap": all(window_check["maxWindowSideGap"] for window_check in window_checks),
     }
+    promoted = bool(all(checks.values()))
     return {
-        "promoted": bool(all(checks.values())),
+        "promoted": promoted,
         "checks": checks,
+        "windowChecks": window_checks,
         "reason": (
-            "single_eval_passed"
-            if all(checks.values())
-            else "single_eval_failed"
+            "pooled_eval_passed"
+            if promoted
+            else "pooled_eval_failed"
         ),
     }
 
@@ -989,7 +1086,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "gamesPerSide": args.eval_games_per_side,
             "workers": args.eval_workers,
             "seedPrefix": args.eval_seed_prefix,
-            "seedStartIndex": args.eval_seed_start_index,
+            "seedStartIndices": list(args.eval_seed_start_indices),
             "progressEveryGames": args.eval_progress_every_games,
             "progressLogMinutes": args.eval_progress_log_minutes,
             "workerTorchThreads": args.eval_worker_torch_threads,
@@ -1010,6 +1107,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "minWinRate": args.promotion_min_win_rate,
             "maxSideGap": args.promotion_max_side_gap,
             "minCiLow": args.promotion_min_ci_low,
+            "maxWindowSideGap": args.promotion_max_window_side_gap,
         },
     }
 
@@ -1043,8 +1141,10 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--eval-games-per-side must be > 0.")
     if args.eval_workers <= 0:
         raise SystemExit("--eval-workers must be > 0.")
-    if args.eval_seed_start_index < 0:
-        raise SystemExit("--eval-seed-start-index must be >= 0.")
+    if not args.eval_seed_start_indices:
+        raise SystemExit("--eval-seed-start-indices must contain at least one value.")
+    if any(seed < 0 for seed in args.eval_seed_start_indices):
+        raise SystemExit("--eval-seed-start-indices must be >= 0.")
     if args.eval_progress_every_games < 0:
         raise SystemExit("--eval-progress-every-games must be >= 0.")
     if args.eval_progress_log_minutes < 0.0:
@@ -1062,6 +1162,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--promotion-max-side-gap must be in [0, 1].")
     if args.promotion_min_ci_low < 0.0 or args.promotion_min_ci_low > 1.0:
         raise SystemExit("--promotion-min-ci-low must be in [0, 1].")
+    if args.promotion_max_window_side_gap < 0.0 or args.promotion_max_window_side_gap > 1.0:
+        raise SystemExit("--promotion-max-window-side-gap must be in [0, 1].")
 
     if args.progress_heartbeat_minutes < 0.0:
         raise SystemExit("--progress-heartbeat-minutes must be >= 0.")
@@ -1179,6 +1281,24 @@ def _join_command(parts: Sequence[str]) -> str:
 def _recommended_cloud_worker_count(vcpus: int) -> int:
     # Keep workers moderate for eval inference to reduce oversubscription.
     return max(1, vcpus // 2)
+
+
+def _wilson_interval_95(*, successes: int, trials: int) -> tuple[float, float]:
+    if trials <= 0:
+        raise SystemExit("Wilson interval requires trials > 0.")
+    p_hat = float(successes) / float(trials)
+    z = 1.959963984540054
+    z2_over_n = (z * z) / float(trials)
+    denom = 1.0 + z2_over_n
+    center = (p_hat + (z * z) / (2.0 * float(trials))) / denom
+    margin = (
+        z
+        * sqrt((p_hat * (1.0 - p_hat) / float(trials)) + ((z * z) / (4.0 * float(trials) * float(trials))))
+        / denom
+    )
+    low = max(0.0, center - margin)
+    high = min(1.0, center + margin)
+    return low, high
 
 
 def _apply_cloud_profile(args: argparse.Namespace) -> None:
