@@ -2,35 +2,12 @@
 
 Single-player Magnate with a deterministic TypeScript engine, browser UI, and Python training stack.
 
-## Project Direction
+## At A Glance
 
+- Browser game is playable; default bot is rollout-search.
 - TypeScript engine is the canonical rules implementation.
-- Python training/eval calls TS through a Node bridge.
-- Current mission is singular:
-  - build a TD-Gammon / Keldon-like training pipeline,
-  - keep rollout search as warm-start signal only,
-  - deploy a stronger learned bot in this web app.
-
-## Training Ethos
-
-- Fail fast over silent fallback in Python training/eval code.
-- Invalid bridge payloads, missing checkpoints, or malformed policy probabilities are treated as hard errors.
-- Training scripts require explicit policy selection and an active `.venv`.
-
-## Current Status
-
-- Browser game is playable; default web bot is rollout-eval search.
-- Bridge runtime is implemented (`metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`).
-- Python policy surface is `random`, `heuristic`, `search`, `td-value`, and `td-search`.
-- TD Phase 1 foundation is implemented in `trainer/td` (models, replay, targets, checkpointing, self-play utilities, value trainer).
-- TD Phase 2 orchestration is implemented:
-  - `scripts.collect_td_self_play` to generate replay artifacts,
-  - `scripts.train_td` to train value/opponent models from replay,
-  - `td-value` policy support in `scripts.eval` and `scripts.eval_suite` for checkpoint benchmarking.
-  - `scripts.run_td_loop` currently uses a `chunk-local` replay regime (each chunk trains on that chunk's fresh replay artifacts).
-- TD Phase 3 initial integration is implemented:
-  - `td-search` policy combines determinized search with TD value leaf evaluation and required opponent-model rollout guidance.
-- PPO, MCTS, and guidance/distillation codepaths were intentionally removed.
+- Python training/eval calls the engine through the Node bridge.
+- Main training loop: `scripts.run_td_loop` (`collect -> train -> promotion eval`).
 
 ## Local Commands
 
@@ -136,12 +113,6 @@ Use `--help` on each script for full options.
 
 ## Source-of-Truth Docs
 
-- Agent manifest: `AGENTS.md`
-- Memory workflow: `docs/AGENT_GUIDE.md`
-- Training handoff/restart: `docs/TRAINING_HANDOFF.md`
-- Training plan: `docs/TRAINING_PLAN_SEARCH_FIRST.md`
-- Command cookbook: `docs/TRAINING_COMMANDS.md`
-- Encoding contract: `docs/TRAINING_ENCODING.md`
 - Memory Bank: `memoryBank/`
 - Rules reference: `memoryBank/magnateRules.md`
 - Bridge contract: `memoryBank/bridgeInterfaceContract.md`

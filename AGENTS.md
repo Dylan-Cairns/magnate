@@ -27,6 +27,20 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 - Prefer targeted tests for touched behavior.
 - Keep docs aligned with code changes.
 
+## Project Context
+
+- Browser app is playable; default bot is rollout-search.
+- Training loop is TD-focused and runs as `collect -> train -> promotion eval`.
+- Primary loop orchestration is `python -m scripts.run_td_loop`.
+- Current Python policy surface: `random`, `heuristic`, `search`, `td-value`, `td-search`.
+
+## Training Runtime Expectations
+
+- Python training/eval is fail-fast:
+  - invalid bridge payloads, missing checkpoints, or malformed policy probabilities are hard errors.
+- Training scripts require explicit policy selection and active `.venv`.
+- Prefer promoted checkpoints as warm start for subsequent loops.
+
 ## Reference Map
 
 - Overview: `README.md`
