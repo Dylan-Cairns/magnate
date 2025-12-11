@@ -35,6 +35,10 @@ Design expectations:
   - available profiles use their own policy implementation
   - unavailable profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
   - current browser profiles prioritize deterministic search-based play
+- Browser model-backed policies should load from static model-pack artifacts:
+  - `public/model-packs/index.json` selects default pack
+  - each pack provides `manifest.json` + `weights.json`
+  - loader validates schema/checkpoint/encoding/dim compatibility before policy use
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
 - Additive policy implementations should not replace existing training/eval paths:
   - policy kinds are wired through one factory (`policy_from_name(...)`)
@@ -78,6 +82,7 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
+  - Browser deployment path now includes `td-value` static model-pack export/load.
   - Current active loop is chunked offline replay generation + checkpointed training, followed by one fixed-size certify evaluation.
   - Replay regime in loop orchestration is currently explicit `chunk-local`.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
