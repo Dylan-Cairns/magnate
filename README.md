@@ -70,6 +70,7 @@ apt-get install -y curl ca-certificates gnupg
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs python3.11 python3.11-venv
 npm install -g yarn
+npm install -g npm@11.11.0
 
 yarn install
 
