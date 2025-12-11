@@ -149,6 +149,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    _require_supported_runtime()
     _validate_args(args)
     if args.num_threads is not None:
         torch.set_num_threads(args.num_threads)
@@ -486,6 +487,13 @@ def _metric_or_na(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value:.4f}"
+
+
+def _require_supported_runtime() -> None:
+    if sys.version_info < (3, 11):
+        raise SystemExit("Python 3.11+ is required.")
+    if sys.prefix == sys.base_prefix:
+        raise SystemExit("Run this script from the project virtual environment (.venv).")
 
 
 if __name__ == "__main__":

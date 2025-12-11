@@ -49,6 +49,12 @@ python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-pe
 python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 1 --seed-prefix eval-suite-search --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out artifacts/evals/search_v_heur_eval_suite_400.json
 ```
 
+Manual promotion-style eval (checkpoint candidate vs search baseline):
+
+```powershell
+python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --seed-prefix td-promo-manual --candidate-policy td-search --opponent-policy search --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --td-search-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run-dir>/opponent-step-0002000.pt --out artifacts/evals/td_search_v_search_400.json
+```
+
 ## 5) Warm-Start Teacher Data Generation
 
 ```powershell
@@ -97,28 +103,29 @@ Use both value and opponent checkpoints from a TD run.
 python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 1 --seed-prefix td-search-eval-v1 --candidate-policy td-search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --td-search-value-checkpoint artifacts/td_checkpoints/<run-dir>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run-dir>/opponent-step-0002000.pt --td-search-opponent-temperature 1.0 --out artifacts/evals/td_search_v_heur_400.json
 ```
 
-## 11) One-Command TD Loop (Chunked Collect/Train -> Gate -> Certify)
+## 11) One-Command TD Loop (Chunked Collect/Train -> Single Promotion Eval)
 
-Runs all three stages end-to-end and writes one loop summary artifact.
+Runs chunked collect/train and then one fixed-size promotion eval against `--eval-opponent-policy`.
+Replay regime is explicitly `chunk-local` (each chunk trains only on its fresh replay files).
 
 ```powershell
-python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
+python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5
 ```
 
 TD(lambda) loop variant:
 
 ```powershell
-python -m scripts.run_td_loop --run-label td-loop-r1-lambda --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --train-value-target-mode td-lambda --train-td-lambda 0.7 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
+python -m scripts.run_td_loop --run-label td-loop-r1-lambda --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --train-value-target-mode td-lambda --train-td-lambda 0.7 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5
 ```
 
 Cloud profile (8/16/32 vCPU via `--cloud-vcpus`):
 
 ```powershell
-python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
+python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30 --collect-search-worlds 6 --collect-search-depth 14 --collect-search-max-root-actions 6 --eval-search-worlds 6 --eval-search-depth 14 --eval-search-max-root-actions 6
 ```
 
 Quick validation-sized run:
 
 ```powershell
-python -m scripts.run_td_loop --run-label td-loop-smoke --chunks-per-gate 1 --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --gate-workers 1 --gate-batch-games-per-side 4 --gate-max-games-per-side 8 --certify-games-per-side 10 --certify-opponents search --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4
+python -m scripts.run_td_loop --run-label td-loop-smoke --chunks-per-loop 1 --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --eval-games-per-side 10 --eval-opponent-policy search --eval-workers 1 --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4 --promotion-min-ci-low 0.5
 ```

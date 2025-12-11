@@ -27,6 +27,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
   - `scripts.collect_td_self_play` to generate replay artifacts,
   - `scripts.train_td` to train value/opponent models from replay,
   - `td-value` policy support in `scripts.eval` and `scripts.eval_suite` for checkpoint benchmarking.
+  - `scripts.run_td_loop` currently uses a `chunk-local` replay regime (each chunk trains on that chunk's fresh replay artifacts).
 - TD Phase 3 initial integration is implemented:
   - `td-search` policy combines determinized search with TD value leaf evaluation and required opponent-model rollout guidance.
 - PPO, MCTS, and guidance/distillation codepaths were intentionally removed.
@@ -102,8 +103,8 @@ yarn install
 Run smoke first, then full loop:
 
 ```bash
-python -m scripts.run_td_loop --run-label td-loop-smoke --chunks-per-gate 1 --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --gate-workers 1 --gate-batch-games-per-side 4 --gate-max-games-per-side 8 --certify-games-per-side 10 --certify-opponents search --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4
-python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic
+python -m scripts.run_td_loop --run-label td-loop-smoke --chunks-per-loop 1 --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --eval-games-per-side 10 --eval-opponent-policy search --eval-workers 1 --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4 --promotion-min-ci-low 0.5
+python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30
 ```
 
 For long runs, use `tmux`:
@@ -121,14 +122,15 @@ With `.venv` active:
 
 - Smoke: `python -m scripts.smoke_trainer`
 - Canonical side-swapped eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
+- Manual promotion-style eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy td-search --opponent-policy search --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
 - Search sweep: `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse`
-- Teacher data generation (warm-start labels): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
+- Teacher data generation (warm-start labels; teacher policy must emit root action probabilities): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
 - TD self-play replay generation: `python -m scripts.collect_td_self_play --games 200 --player-a-policy search --player-b-policy search --out-dir artifacts/td_replay --run-label td-replay-search`
 - TD training run: `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
 - TD checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-worlds 8`
 - TD-search checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
-- Full loop automation (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic`
-- Full loop automation (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r1 --chunks-per-gate 3 --collect-games 1500 --train-steps 15000 --gate-max-games-per-side 400 --certify-games-per-side 400 --certify-opponents search heuristic`
+- Full loop automation (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5`
+- Full loop automation (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
 
 Use `--help` on each script for full options.
 
