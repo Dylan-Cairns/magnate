@@ -15,7 +15,8 @@ describe('bot policy catalog', () => {
   it('uses search profile as default and resolves an available policy', () => {
     const resolved = resolveBotProfile(DEFAULT_BOT_PROFILE_ID);
     expect(resolved.selected.available).toBe(true);
-    expect(resolved.selected.kind).toBe('search');
+    expect(resolved.selected.id).toBe('td-search-browser');
+    expect(resolved.selected.kind).toBe('td-search');
   });
 
   it('keeps all configured profiles available', () => {
@@ -27,10 +28,9 @@ describe('bot policy catalog', () => {
     expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(true);
   });
 
-  it('includes a browser td-value profile', () => {
-    expect(BOT_PROFILES.some((profile) => profile.id === 'td-value-browser')).toBe(
-      true
-    );
+  it('does not include a browser td-value profile', () => {
+    const profileIds = BOT_PROFILES.map((profile) => profile.id);
+    expect(profileIds).not.toContain('td-value-browser');
   });
 
   it('includes a browser td-search profile', () => {

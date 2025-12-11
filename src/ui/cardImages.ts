@@ -81,6 +81,12 @@ export const CARD_IMAGE_FILE_BY_ID = Object.freeze(
 );
 export const CARD_IMAGE_BY_ID = Object.freeze(mapByCardId(CARD_IMAGE_BY_NAME));
 export const CARD_BACK_IMAGE = resolveCardImageFile(CARD_BACK_IMAGE_FILE);
+export const ALL_CARD_IMAGE_URLS = Object.freeze(
+  Array.from(new Set([...Object.values(CARD_IMAGE_BY_ID), CARD_BACK_IMAGE]))
+);
+const PRELOADED_CARD_IMAGE_URLS = new Set<string>();
+const PRELOADED_CARD_IMAGE_BY_URL = new Map<string, HTMLImageElement>();
+const CARD_IMAGE_PRELOAD_PROMISE_BY_URL = new Map<string, Promise<void>>();
 
 export function getCardImageFile(cardId: CardId): string {
   return CARD_IMAGE_FILE_BY_ID[cardId];
@@ -88,4 +94,78 @@ export function getCardImageFile(cardId: CardId): string {
 
 export function getCardImage(cardId: CardId): string {
   return CARD_IMAGE_BY_ID[cardId];
+}
+
+export function isCardImageUrlReady(url: string): boolean {
+  return PRELOADED_CARD_IMAGE_URLS.has(url);
+}
+
+export function preloadCardImageUrl(url: string): Promise<void> {
+  if (PRELOADED_CARD_IMAGE_URLS.has(url)) {
+    return Promise.resolve();
+  }
+
+  const existing = CARD_IMAGE_PRELOAD_PROMISE_BY_URL.get(url);
+  if (existing) {
+    return existing;
+  }
+
+  if (typeof Image === 'undefined') {
+    PRELOADED_CARD_IMAGE_URLS.add(url);
+    return Promise.resolve();
+  }
+
+  const created = new Promise<void>((resolve, reject) => {
+    const image = new Image();
+    let settled = false;
+
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      PRELOADED_CARD_IMAGE_URLS.add(url);
+      PRELOADED_CARD_IMAGE_BY_URL.set(url, image);
+      resolve();
+    };
+    const fail = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(new Error(`Failed to preload card image: ${url}`));
+    };
+
+    image.onload = () => {
+      if (typeof image.decode === 'function') {
+        image.decode().catch(() => undefined).finally(finish);
+        return;
+      }
+      finish();
+    };
+    image.onerror = fail;
+    image.src = url;
+
+    if (image.complete) {
+      if (image.naturalWidth > 0 || image.naturalHeight > 0) {
+        finish();
+      } else {
+        fail();
+      }
+    }
+  });
+
+  CARD_IMAGE_PRELOAD_PROMISE_BY_URL.set(url, created);
+  created.catch(() => {
+    if (CARD_IMAGE_PRELOAD_PROMISE_BY_URL.get(url) === created) {
+      CARD_IMAGE_PRELOAD_PROMISE_BY_URL.delete(url);
+    }
+  });
+  return created;
 }

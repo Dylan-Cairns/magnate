@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
-import { getCardImage } from '../cardImages';
+import {
+  CARD_BACK_IMAGE,
+  getCardImage,
+  isCardImageUrlReady,
+  preloadCardImageUrl,
+} from '../cardImages';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import {
@@ -74,6 +79,7 @@ export function CardTile({
   }
 
   const card = CARD_BY_ID[cardId];
+  const cardImage = getCardImage(cardId);
   const suits = card.kind === 'Excuse' ? [] : [...card.suits];
   const rank =
     card.kind === 'Property' || card.kind === 'Crown'
@@ -91,10 +97,42 @@ export function CardTile({
   const progressValue = deedProgress ?? 0;
   const progressTarget = deedTarget ?? 0;
   const deedProgressRatio = canonicalDeedProgressRatio(progressValue, progressTarget);
+  const [cardImageReady, setCardImageReady] = useState<boolean>(() =>
+    isCardImageUrlReady(cardImage)
+  );
   const [animatedDeedProgressRatio, setAnimatedDeedProgressRatio] = useState<number>(deedProgressRatio);
   const animatedRatioRef = useRef(animatedDeedProgressRatio);
   const initializedRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (isCardImageUrlReady(cardImage)) {
+      setCardImageReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setCardImageReady(false);
+    void preloadCardImageUrl(cardImage)
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        setCardImageReady(true);
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setCardImageReady(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cardImage]);
 
   useEffect(() => {
     animatedRatioRef.current = animatedDeedProgressRatio;
@@ -169,7 +207,7 @@ export function CardTile({
 
   const displayedDeedProgressRatio = hasDeedProgress ? animatedDeedProgressRatio : deedProgressRatio;
   const deedProgressArcPath = buildDeedProgressArcPath(displayedDeedProgressRatio);
-  const cardImage = getCardImage(cardId);
+  const displayedCardImage = cardImageReady ? cardImage : CARD_BACK_IMAGE;
 
   const metadataRow = (
     <div className="card-row card-meta">
@@ -215,7 +253,7 @@ export function CardTile({
   const imageBody = (
     <div className="card-row card-body">
       <div className="card-image-frame" aria-hidden="true">
-        <img className="card-image" src={cardImage} alt="" />
+        <img className="card-image" src={displayedCardImage} alt="" />
       </div>
       {showDeedTokenRails ? (
         <>

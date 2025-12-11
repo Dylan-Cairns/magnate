@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { CARD_BY_ID, type CardId } from '../engine/cards';
 import {
+  ALL_CARD_IMAGE_URLS,
   CARD_BACK_IMAGE,
   CARD_BACK_IMAGE_FILE,
   CARD_IMAGE_BY_ID,
   CARD_IMAGE_FILE_BY_ID,
   getCardImage,
   getCardImageFile,
+  isCardImageUrlReady,
+  preloadCardImageUrl,
 } from './cardImages';
 
 const EXPECTED_CARD_IMAGE_FILE_BY_ID: Record<CardId, string> = {
@@ -80,5 +83,21 @@ describe('cardImages', () => {
   it('resolves the card back image URL', () => {
     expect(CARD_BACK_IMAGE_FILE).toBe('back.png');
     expect(CARD_BACK_IMAGE).toContain(CARD_BACK_IMAGE_FILE);
+  });
+
+  it('exposes preload URL list for all card art and card back', () => {
+    const uniqueUrls = new Set(ALL_CARD_IMAGE_URLS);
+    expect(uniqueUrls.size).toBe(ALL_CARD_IMAGE_URLS.length);
+    expect(ALL_CARD_IMAGE_URLS).toContain(CARD_BACK_IMAGE);
+    for (const imageUrl of Object.values(CARD_IMAGE_BY_ID)) {
+      expect(ALL_CARD_IMAGE_URLS).toContain(imageUrl);
+    }
+  });
+
+  it('tracks readiness when preloading a card image url', async () => {
+    const exampleImage = CARD_IMAGE_BY_ID['0'];
+    expect(isCardImageUrlReady(exampleImage)).toBe(false);
+    await preloadCardImageUrl(exampleImage);
+    expect(isCardImageUrlReady(exampleImage)).toBe(true);
   });
 });
