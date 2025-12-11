@@ -32,4 +32,10 @@ describe('bot policy catalog', () => {
       true
     );
   });
+
+  it('includes a browser td-search profile', () => {
+    expect(BOT_PROFILES.some((profile) => profile.id === 'td-search-browser')).toBe(
+      true
+    );
+  });
 });

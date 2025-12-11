@@ -82,7 +82,7 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-  - Browser deployment path now includes `td-value` static model-pack export/load.
+  - Browser deployment path now includes `td-value` and `td-search` static model-pack export/load.
   - Current active loop is chunked offline replay generation + checkpointed training, followed by one fixed-size certify evaluation.
   - Replay regime in loop orchestration is currently explicit `chunk-local`.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
