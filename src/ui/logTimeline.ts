@@ -6,6 +6,10 @@ import type {
   ResourcePool,
   Suit,
 } from '../engine/types';
+import {
+  deriveTurnCycleEvents,
+  type TurnCycleTaxSummary,
+} from './turnCycleEvents';
 
 const SUIT_ORDER: readonly Suit[] = [
   'Moons',
@@ -29,52 +33,32 @@ export function transitionLogEntries(
     return engineEntries;
   }
 
-  return [
-    ...engineEntries,
-    ...resolveTurnCycleEntries(previousState, nextState),
-  ];
+  return [...engineEntries, ...resolveTurnCycleEntries(previousState, nextState, action)];
 }
 
 function resolveTurnCycleEntries(
   previousState: GameState,
-  nextState: GameState
+  nextState: GameState,
+  action: Extract<GameAction, { type: 'end-turn' }>
 ): GameLogEntry[] {
-  const roll = nextState.lastIncomeRoll;
-  if (!roll) {
+  const cycle = deriveTurnCycleEvents(previousState, nextState, action);
+  if (!cycle) {
     return [];
   }
 
-  const playerId = cycleOwner(previousState, nextState);
-  if (!playerId) {
-    return [];
-  }
-
-  const incomeResult = Math.max(roll.die1, roll.die2);
-  const taxSuit = nextState.lastTaxSuit;
-  const postTaxResources = new Map<PlayerId, ResourcePool>();
-  const taxLossByPlayer = new Map<PlayerId, number>();
-
-  for (const player of previousState.players) {
-    const postTax = taxSuit
-      ? {
-          ...player.resources,
-          [taxSuit]: Math.min(player.resources[taxSuit], 1),
-        }
-      : player.resources;
-    postTaxResources.set(player.id, postTax);
-    if (taxSuit) {
-      taxLossByPlayer.set(player.id, player.resources[taxSuit] - postTax[taxSuit]);
-    }
-  }
-
-  const taxSummary = summarizeTax(nextState, taxLossByPlayer);
-  const incomeSummaries = summarizeIncome(nextState, postTaxResources);
+  const postTaxResources = postTaxResourcesByPlayer(previousState, cycle.tax);
+  const taxSummary = summarizeTax(cycle.tax);
+  const incomeSummaries = summarizeIncome(
+    nextState,
+    postTaxResources,
+    cycle.pendingChoices.length
+  );
 
   const taxEntries: GameLogEntry[] = [];
   if (taxSummary) {
     taxEntries.push({
       turn: nextState.turn,
-      player: playerId,
+      player: cycle.cycleOwner,
       phase: 'TaxCheck',
       summary: taxSummary,
     });
@@ -83,62 +67,59 @@ function resolveTurnCycleEntries(
   return [
     {
       turn: nextState.turn,
-      player: playerId,
+      player: cycle.cycleOwner,
       phase: 'TaxCheck',
-      summary: `Roll d10 ${roll.die1}/${roll.die2} (income ${incomeResult})`,
+      summary: `Roll d10 ${cycle.roll.die1}/${cycle.roll.die2} (income ${cycle.incomeRank})`,
     },
     ...taxEntries,
     ...incomeSummaries.map((summary) => ({
       turn: nextState.turn,
-      player: playerId,
+      player: cycle.cycleOwner,
       phase: 'CollectIncome' as const,
       summary,
     })),
   ];
 }
 
-function cycleOwner(
+function postTaxResourcesByPlayer(
   previousState: GameState,
-  nextState: GameState
-): PlayerId | undefined {
-  if (nextState.incomeChoiceReturnPlayerId) {
-    return nextState.incomeChoiceReturnPlayerId;
+  tax: TurnCycleTaxSummary | null
+): Map<PlayerId, ResourcePool> {
+  const resources = new Map<PlayerId, ResourcePool>();
+  for (const player of previousState.players) {
+    if (!tax) {
+      resources.set(player.id, player.resources);
+      continue;
+    }
+    resources.set(player.id, {
+      ...player.resources,
+      [tax.suit]: Math.min(player.resources[tax.suit], 1),
+    });
   }
-  const nextActive = nextState.players[nextState.activePlayerIndex];
-  if (nextActive) {
-    return nextActive.id;
-  }
-  return previousState.players[previousState.activePlayerIndex]?.id;
+  return resources;
 }
 
-function summarizeTax(
-  nextState: GameState,
-  taxLossByPlayer: Map<PlayerId, number>
-): string | null {
-  const taxSuit = nextState.lastTaxSuit;
-  if (!taxSuit) {
+function summarizeTax(tax: TurnCycleTaxSummary | null): string | null {
+  if (!tax) {
     return null;
   }
 
-  const losses = nextState.players.map((player) => ({
-    playerId: player.id,
-    loss: taxLossByPlayer.get(player.id) ?? 0,
-  }));
-  const totalLoss = losses.reduce((sum, entry) => sum + entry.loss, 0);
+  const totalLoss = tax.lossesByPlayer.reduce((sum, entry) => sum + entry.count, 0);
   if (totalLoss <= 0) {
-    return `Tax ${taxSuit} (no losses)`;
+    return `Tax ${tax.suit} (no losses)`;
   }
 
-  const details = losses
-    .filter((entry) => entry.loss > 0)
-    .map((entry) => `${entry.playerId} -${entry.loss}`)
+  const details = tax.lossesByPlayer
+    .filter((entry) => entry.count > 0)
+    .map((entry) => `${entry.playerId} -${entry.count}`)
     .join(', ');
-  return `Tax ${taxSuit} (${details})`;
+  return `Tax ${tax.suit} (${details})`;
 }
 
 function summarizeIncome(
   nextState: GameState,
-  postTaxResources: Map<PlayerId, ResourcePool>
+  postTaxResources: Map<PlayerId, ResourcePool>,
+  pendingChoiceCount: number
 ): string[] {
   const byPlayer = nextState.players.map((player) => {
     const baseline = postTaxResources.get(player.id) ?? player.resources;
@@ -146,7 +127,6 @@ function summarizeIncome(
     return `Income ${player.id} ${formatDelta(delta)}`;
   });
 
-  const pendingChoiceCount = nextState.pendingIncomeChoices?.length ?? 0;
   if (pendingChoiceCount > 0) {
     byPlayer.push(`Income pending choices ${pendingChoiceCount}`);
   }
