@@ -4,7 +4,7 @@ set -euo pipefail
 log_dir="artifacts/logs"
 mkdir -p "$log_dir"
 run_stamp="$(date -u +%Y%m%d-%H%M%SZ)"
-log_path="$log_dir/${run_stamp}-run_overnight_td_loop_r2.log"
+log_path="$log_dir/${run_stamp}-run_overnight_td_loop_selfplay.log"
 status_path="${log_path%.log}.status"
 
 exec > >(tee -a "$log_path") 2>&1
@@ -87,17 +87,17 @@ if [[ -n "$latest_promoted_paths" ]]; then
     )
   fi
 else
-  echo "No promoted prior loop found; running without warm start."
+  echo "No promoted prior loop found; relying on self-play loop default warm-start resolution."
 fi
 
-python -m scripts.run_td_loop \
-  --cloud --cloud-vcpus 16 \
-  --run-label td-loop-r2-overnight \
-  --chunks-per-loop 3 \
-  --collect-games 1200 \
-  --train-steps 20000 \
+python -m scripts.run_td_loop_selfplay \
+  --cloud --cloud-vcpus 8 \
+  --run-label td-loop-selfplay-r1-overnight \
+  --chunks-per-loop 6 \
+  --collect-games 600 \
+  --train-steps 10000 \
   "${warm_start_args[@]}" \
   --eval-games-per-side 200 \
-  --eval-opponent-policy search \
+  --incumbent-eval-games-per-side 200 \
   --progress-heartbeat-minutes 30 \
   --eval-progress-log-minutes 30
