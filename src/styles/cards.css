@@ -474,11 +474,12 @@
   position: absolute;
   left: var(--resource-flight-start-x);
   top: var(--resource-flight-start-y);
+  transform: translate(-50%, -50%);
   will-change: transform, opacity;
   animation-duration: var(--resource-flight-duration-ms);
   animation-timing-function: linear;
   animation-delay: var(--resource-flight-delay-ms);
-  animation-fill-mode: forwards;
+  animation-fill-mode: both;
 }
 
 .resource-flight.is-transfer {
