@@ -24,6 +24,68 @@
   grid-template-rows: minmax(0, 1fr) var(--card-meta-height);
 }
 
+.card-tile.is-income-highlighted {
+  isolation: isolate;
+  outline: 2px solid var(--active-border);
+  outline-offset: 2px;
+  box-shadow:
+    var(--card-drop-shadow),
+    inset 0 0 0 1px var(--card-inset-border),
+    0 0 0 1px var(--active-ring),
+    0 0 20px var(--active-glow-outer),
+    inset 0 0 14px var(--active-glow);
+  animation: income-card-pulse 900ms ease-in-out infinite;
+}
+
+.lane-stack-card .card-tile.is-income-highlighted::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  border: 2px solid var(--active-border);
+  box-shadow:
+    0 0 0 1px var(--active-ring),
+    0 0 24px var(--active-glow-outer),
+    inset 0 0 16px var(--active-glow);
+  pointer-events: none;
+  z-index: 8;
+  animation: income-card-outline-pulse 900ms ease-in-out infinite;
+}
+
+@keyframes income-card-pulse {
+  0%,
+  100% {
+    box-shadow:
+      var(--card-drop-shadow),
+      inset 0 0 0 1px var(--card-inset-border),
+      0 0 0 1px var(--active-ring),
+      0 0 20px var(--active-glow-outer),
+      inset 0 0 14px var(--active-glow);
+  }
+
+  50% {
+    box-shadow:
+      var(--card-drop-shadow),
+      inset 0 0 0 1px var(--card-inset-border),
+      0 0 0 3px var(--active-ring),
+      0 0 28px var(--active-glow-outer),
+      inset 0 0 22px var(--active-glow);
+  }
+}
+
+@keyframes income-card-outline-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.012);
+  }
+}
+
 .card-back {
   border-style: solid;
   border-color: var(--card-back-border);
@@ -382,6 +444,25 @@
   padding: 0.03rem 0.2rem;
 }
 
+.token-chip.is-tax-pulsing {
+  box-shadow:
+    0 0 0 1px var(--active-ring),
+    0 0 18px var(--active-glow-outer),
+    inset 0 0 16px var(--active-glow);
+  animation: tax-source-pulse 360ms ease-in-out infinite;
+}
+
+@keyframes tax-source-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+}
+
 .resource-flight-layer {
   position: fixed;
   inset: 0;
@@ -394,11 +475,19 @@
   left: var(--resource-flight-start-x);
   top: var(--resource-flight-start-y);
   will-change: transform, opacity;
-  animation-name: resource-chip-flight;
   animation-duration: var(--resource-flight-duration-ms);
   animation-timing-function: linear;
   animation-delay: var(--resource-flight-delay-ms);
   animation-fill-mode: forwards;
+}
+
+.resource-flight.is-transfer {
+  animation-name: resource-chip-flight;
+}
+
+.resource-flight.is-tax-loss {
+  animation-name: tax-chip-loss;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.24, 1);
 }
 
 .token-chip.compact.resource-flight-chip {
@@ -429,6 +518,40 @@
   }
 }
 
+@keyframes tax-chip-loss {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  45% {
+    transform: translate(
+        calc(-50% + (var(--resource-flight-dx) * 0.45)),
+        calc(-50% + (var(--resource-flight-dy) * 0.45))
+      )
+      scale(1);
+    opacity: 0.92;
+  }
+
+  74% {
+    transform: translate(
+        calc(-50% + (var(--resource-flight-dx) * 0.74)),
+        calc(-50% + (var(--resource-flight-dy) * 0.74))
+      )
+      scale(0.98);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--resource-flight-dx)),
+        calc(-50% + var(--resource-flight-dy))
+      )
+      scale(0.92);
+    opacity: 0;
+  }
+}
+
 .card-flight-layer {
   position: fixed;
   inset: 0;
@@ -450,6 +573,10 @@
   filter: drop-shadow(var(--card-stack-drop-shadow));
 }
 
+.card-flight.is-draw {
+  animation-name: draw-card-flight;
+}
+
 .card-flight .card-tile {
   width: 100%;
   height: 100%;
@@ -467,5 +594,30 @@
         calc(-50% + var(--card-flight-dy))
       )
       scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+  }
+}
+
+@keyframes draw-card-flight {
+  0% {
+    transform: translate(-50%, -50%) scale(1, 1);
+    opacity: 1;
+  }
+
+  88% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+    opacity: 0;
   }
 }

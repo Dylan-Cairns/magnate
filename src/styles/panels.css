@@ -507,6 +507,51 @@
   justify-self: end;
 }
 
+.turn-cycle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.turn-cycle-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgb(8, 12, 19);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.44),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: var(--accent-soft);
+  padding: 0.58rem 1.15rem;
+  font-size: 1.8rem;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.turn-cycle-label {
+  color: var(--accent-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.turn-cycle-banner-chip {
+  width: 2.15rem;
+  height: 2.15rem;
+  box-shadow: none;
+}
+
+.turn-cycle-income-rank {
+  color: var(--ink);
+  font-size: 2rem;
+  line-height: 1;
+}
+
 .brand-controls {
   display: flex;
   align-items: center;
