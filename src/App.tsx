@@ -66,7 +66,11 @@ import {
 import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
-import { TokenChip, tokenEntries } from './ui/components/TokenComponents';
+import {
+  SUIT_TOKEN_BG,
+  TokenChip,
+  tokenEntries,
+} from './ui/components/TokenComponents';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
 import { transitionLogEntries } from './ui/logTimeline';
 import {
@@ -91,6 +95,18 @@ const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
 const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
+const SUIT_LOG_CODE: Record<Suit, string> = {
+  Moons: 'mo',
+  Suns: 'su',
+  Waves: 'wa',
+  Leaves: 'le',
+  Wyrms: 'wy',
+  Knots: 'kn',
+};
+const SUIT_NAME_PATTERN = /\b(Moons|Suns|Waves|Leaves|Wyrms|Knots)\b/g;
+const CARD_ACTION_PATTERN = /\b(buy deed|sell|advance|develop)\s+(\d+)\b/gi;
+const INCOME_CHOICE_PATTERN = /\bincome choice\s+(\d+):([A-Za-z]+)\b/gi;
+const SUIT_CODE_PATTERN = /\b(mo|su|wa|le|wy|kn)\b/g;
 const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   completed: 0,
   total: 1,
@@ -191,6 +207,27 @@ function persistAnimationsEnabledPreference(enabled: boolean): void {
 
 function createInitialState(seed: string): GameState {
   return createSession(seed, HUMAN_PLAYER);
+}
+
+function withSeedLogPrefix(
+  state: GameState,
+  entries: readonly GameLogEntry[]
+): ReadonlyArray<GameLogEntry> {
+  const seedSummary = `Seed ${state.seed}`;
+  if (entries[0]?.summary === seedSummary) {
+    return [...entries];
+  }
+  const activePlayerId =
+    state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
+  return [
+    {
+      turn: state.turn,
+      player: activePlayerId,
+      phase: state.phase,
+      summary: seedSummary,
+    },
+    ...entries,
+  ];
 }
 
 function botRandomForState(state: GameState, profileId: string): () => number {
@@ -706,7 +743,7 @@ export function App() {
     createInitialState(seedInput)
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
-    () => [...state.log]
+    () => withSeedLogPrefix(state, state.log)
   );
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
@@ -1252,7 +1289,7 @@ export function App() {
     try {
       const initialState = createInitialState(seed);
       setState(initialState);
-      setTimelineLog([...initialState.log]);
+      setTimelineLog(withSeedLogPrefix(initialState, initialState.log));
       setError(null);
       setBotThinking(false);
     } catch (err) {
@@ -1279,7 +1316,9 @@ export function App() {
     clearPendingActionCommit();
     setState(turnResetAnchor.state);
     setTimelineLog(
-      turnResetTimelineAnchor ? [...turnResetTimelineAnchor] : [...turnResetAnchor.state.log]
+      turnResetTimelineAnchor
+        ? [...turnResetTimelineAnchor]
+        : withSeedLogPrefix(turnResetAnchor.state, turnResetAnchor.state.log)
     );
     setError(null);
     setBotThinking(false);
@@ -1450,9 +1489,15 @@ export function App() {
               <div className="brand-header">
                 <div className="brand-title-block">
                   <h1>Magnate</h1>
-                  <p className="brand-subtitle">
-                    For the throne of the Grand Duke
-                  </p>
+                  <p className="brand-subtitle">A Decktet game</p>
+                  <a
+                    className="brand-options-link"
+                    href="http://decktet.wikidot.com/game:magnate"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Rules
+                  </a>
                 </div>
               </div>
             </section>
@@ -2014,16 +2059,34 @@ export function App() {
                     </div>
                     <ol className="log-turn-entries">
                       {group.entries.map((entry, entryIndex) => (
-                        <li
-                          key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
-                          className="log-turn-entry"
-                        >
-                          <span className="log-summary">
-                            {entry.player !== group.player
-                              ? sentenceCaseSummary(`[${entry.player}] ${entry.summary}`)
-                              : sentenceCaseSummary(entry.summary)}
-                          </span>
-                        </li>
+                        (() => {
+                          const seedValue = seedSummaryValue(entry.summary);
+                          if (seedValue !== null) {
+                            return (
+                              <li
+                                key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
+                                className="log-turn-entry log-turn-entry-seed"
+                              >
+                                <div className="log-turn-head">
+                                  <span className="log-turn">Seed</span>
+                                  <span className="log-player">{seedValue}</span>
+                                </div>
+                              </li>
+                            );
+                          }
+                          return (
+                            <li
+                              key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
+                              className="log-turn-entry"
+                            >
+                              <span className="log-summary">
+                                {entry.player !== group.player
+                                  ? renderLogSummary(`[${entry.player}] ${entry.summary}`)
+                                  : renderLogSummary(entry.summary)}
+                              </span>
+                            </li>
+                          );
+                        })()
                       ))}
                     </ol>
                   </li>
@@ -2091,8 +2154,8 @@ export function App() {
                   </p>
                 </div>
                 <div className="bot-profile-controls animation-controls">
-                  <label htmlFor="animations-toggle">Animations</label>
                   <label className="animation-toggle-row" htmlFor="animations-toggle">
+                    <span>Animations</span>
                     <input
                       id="animations-toggle"
                       type="checkbox"
@@ -2101,17 +2164,8 @@ export function App() {
                         setAnimationsEnabled(event.target.checked)
                       }
                     />
-                    <span>{animationsEnabled ? 'Enabled' : 'Disabled'}</span>
                   </label>
                 </div>
-                <a
-                  className="brand-options-link"
-                  href="http://decktet.wikidot.com/game:magnate"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Official Decktet Magnate Rules
-                </a>
               </section>
             ) : null}
           </div>
@@ -2659,6 +2713,119 @@ function sentenceCaseSummary(summary: string): string {
     return summary;
   }
   return `${prefix}${rest.slice(0, 1).toUpperCase()}${rest.slice(1)}`;
+}
+
+function formatLogSummary(summary: string): string {
+  let next = summary;
+
+  next = next.replace(
+    INCOME_CHOICE_PATTERN,
+    (_match, rawCardId: string, rawSuit: string) => {
+      const cardLabel = formatCardIdForLog(rawCardId);
+      const suitCode = suitNameToCode(rawSuit);
+      return `income choice ${cardLabel}:${suitCode ?? rawSuit}`;
+    }
+  );
+
+  next = next.replace(
+    CARD_ACTION_PATTERN,
+    (_match, verb: string, rawCardId: string) =>
+      `${verb} ${formatCardIdForLog(rawCardId)}`
+  );
+
+  next = next.replace(SUIT_NAME_PATTERN, (_match, suitName: string) => {
+    const suit = suitName as Suit;
+    return SUIT_LOG_CODE[suit] ?? suitName;
+  });
+
+  return sentenceCaseSummary(next);
+}
+
+function renderLogSummary(summary: string): ReactNode {
+  const text = formatLogSummary(summary);
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+
+  for (const match of text.matchAll(SUIT_CODE_PATTERN)) {
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      nodes.push(text.slice(cursor, index));
+    }
+
+    const suitCode = match[0] as 'mo' | 'su' | 'wa' | 'le' | 'wy' | 'kn';
+    const suit = suitCodeToSuit(suitCode);
+    nodes.push(
+      <span
+        key={`log-suit-${index}-${suitCode}`}
+        className="log-suit-code"
+        style={suit ? { color: SUIT_TOKEN_BG[suit] } : undefined}
+      >
+        {suitCode}
+      </span>
+    );
+    cursor = index + suitCode.length;
+  }
+
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+
+  return nodes.length > 0 ? <>{nodes}</> : text;
+}
+
+function formatCardIdForLog(rawCardId: string): string {
+  const card = CARD_BY_ID[rawCardId as CardId];
+  if (!card) {
+    return rawCardId;
+  }
+  if (card.kind !== 'Property' && card.kind !== 'Crown') {
+    return rawCardId;
+  }
+  const suitCodes = card.suits.map((suit) => SUIT_LOG_CODE[suit]).join(' ');
+  return `${card.rank} ${suitCodes} (${rawCardId})`;
+}
+
+function suitNameToCode(value: string): string | null {
+  if (
+    value !== 'Moons' &&
+    value !== 'Suns' &&
+    value !== 'Waves' &&
+    value !== 'Leaves' &&
+    value !== 'Wyrms' &&
+    value !== 'Knots'
+  ) {
+    return null;
+  }
+  return SUIT_LOG_CODE[value];
+}
+
+function suitCodeToSuit(
+  value: 'mo' | 'su' | 'wa' | 'le' | 'wy' | 'kn'
+): Suit | null {
+  switch (value) {
+    case 'mo':
+      return 'Moons';
+    case 'su':
+      return 'Suns';
+    case 'wa':
+      return 'Waves';
+    case 'le':
+      return 'Leaves';
+    case 'wy':
+      return 'Wyrms';
+    case 'kn':
+      return 'Knots';
+    default:
+      return null;
+  }
+}
+
+function seedSummaryValue(summary: string): string | null {
+  const prefix = 'Seed ';
+  if (!summary.startsWith(prefix)) {
+    return null;
+  }
+  return summary.slice(prefix.length);
 }
 
 function toPickerQuery(
