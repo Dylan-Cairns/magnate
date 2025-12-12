@@ -4,7 +4,7 @@ import { SUITS } from '../../engine/stateHelpers';
 import type { ResourcePool, Suit } from '../../engine/types';
 import { SuitIcon } from '../suitIcons';
 
-const SUIT_TOKEN_BG: Record<Suit, string> = {
+export const SUIT_TOKEN_BG: Record<Suit, string> = {
   Moons: '#e4e7eb',
   Suns: '#f7cc95',
   Waves: '#cfe3f5',

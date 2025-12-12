@@ -158,10 +158,20 @@
   line-height: 1.24;
 }
 
+.log-turn-entry-seed {
+  font-size: inherit;
+  line-height: inherit;
+}
+
 .log-summary {
   min-width: 0;
   align-self: start;
   overflow-wrap: anywhere;
+}
+
+.log-suit-code {
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .empty-note {
@@ -316,6 +326,12 @@
   color: var(--muted);
   font-size: 0.82rem;
   letter-spacing: 0.07em;
+}
+
+.brand-title-block .brand-options-link {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
 }
 
 .hamburger-button {
@@ -534,7 +550,7 @@
 .animation-controls .animation-toggle-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.44rem;
+  gap: 0.32rem;
   color: var(--ink);
   font-size: 0.84rem;
   line-height: 1.25;
