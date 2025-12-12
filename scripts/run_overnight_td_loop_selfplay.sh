@@ -37,6 +37,15 @@ echo "[overnight] startedAtUtc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "[overnight] logPath=${log_path}"
 echo "[overnight] statusPath=${status_path}"
 
+# Avoid CPU oversubscription when running multiple concurrent collector processes.
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export PYTHONUNBUFFERED=1
+echo "[overnight] thread caps: OMP=${OMP_NUM_THREADS} MKL=${MKL_NUM_THREADS} OPENBLAS=${OPENBLAS_NUM_THREADS} NUMEXPR=${NUMEXPR_NUM_THREADS}"
+echo "[overnight] python unbuffered output enabled"
+
 latest_promoted_paths="$(
 python - <<'PY'
 import json
@@ -92,9 +101,11 @@ fi
 
 python -m scripts.run_td_loop_selfplay \
   --cloud --cloud-vcpus 8 \
+  --collect-workers 2 \
   --run-label td-loop-selfplay-r1-overnight \
   --chunks-per-loop 6 \
   --collect-games 600 \
+  --collect-progress-every-games 10 \
   --train-steps 10000 \
   "${warm_start_args[@]}" \
   --eval-games-per-side 200 \
