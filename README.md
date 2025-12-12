@@ -7,7 +7,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Browser game is playable; default bot is rollout-search.
 - TypeScript engine is the canonical rules implementation.
 - Python training/eval calls the engine through the Node bridge.
-- Main training loop: `scripts.run_td_loop` (`collect -> train -> promotion eval`).
+- Loop progression: bootstrap/recalibrate with `scripts.run_td_loop`, then continue with self-play-focused `scripts.run_td_loop_selfplay`.
 
 ## Local Commands
 
@@ -77,11 +77,11 @@ export TMPDIR=/workspace/tmp
 yarn install
 ```
 
-Run smoke first, then full loop:
+Run smoke first, then bootstrap, then self-play loop:
 
 ```bash
 python -m scripts.run_td_loop --run-label td-loop-smoke --chunks-per-loop 1 --collect-games 12 --collect-search-worlds 2 --collect-search-depth 8 --collect-search-max-root-actions 4 --train-steps 30 --train-save-every-steps 15 --train-hidden-dim 64 --train-value-batch-size 32 --train-opponent-batch-size 16 --eval-games-per-side 10 --eval-opponent-policy search --eval-workers 1 --eval-search-worlds 2 --eval-search-depth 8 --eval-search-max-root-actions 4 --promotion-min-ci-low 0.5
-python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30
+python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30
 # New self-play loop (requires promoted warm start or explicit warm-start checkpoints):
 python -m scripts.run_td_loop_selfplay --cloud --cloud-vcpus 16 --run-label td-loop-selfplay-r1 --chunks-per-loop 6 --collect-games 600 --train-steps 10000 --eval-games-per-side 200 --incumbent-eval-games-per-side 200 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30
 ```
@@ -108,8 +108,8 @@ With `.venv` active:
 - TD training run: `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
 - TD checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-value --opponent-policy heuristic --td-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-worlds 8`
 - TD-search checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
-- Full loop automation (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5`
-- Full loop automation (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 800 --train-steps 30000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
+- Bootstrap/recalibration loop (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5`
+- Bootstrap/recalibration loop (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
 - Self-play loop automation (cloud profile): `python -m scripts.run_td_loop_selfplay --cloud --cloud-vcpus 16 --run-label td-loop-selfplay-r1 --chunks-per-loop 6 --collect-games 600 --train-steps 10000 --eval-games-per-side 200 --incumbent-eval-games-per-side 200 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
 
 Use `--help` on each script for full options.
