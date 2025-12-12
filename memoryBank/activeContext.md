@@ -3,8 +3,9 @@
 ## Current Focus
 
 - Keep TypeScript rules deterministic and canonical.
-- Iterate TD loops using chunked `collect -> train` with two fixed-size promotion eval windows and pooled decisioning.
-- Improve model quality against search baseline while keeping loop runtime practical.
+- Continue the self-play-focused TD loop after recent cadence/threshold recalibration.
+- Use `scripts.run_td_loop` for bootstrap/recalibration passes, then advance primarily with `scripts.run_td_loop_selfplay`.
+- Improve model quality against search baseline and incumbent td-search while keeping runtime practical.
 
 ## Locked Decisions
 
@@ -22,7 +23,8 @@
 - TD pipeline is operational:
   - replay collection: `scripts.collect_td_self_play`
   - training: `scripts.train_td`
-  - loop orchestration: `scripts.run_td_loop`
+  - bootstrap/recalibration orchestration: `scripts.run_td_loop`
+  - self-play-forward orchestration: `scripts.run_td_loop_selfplay`
 - `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), explicit promotion thresholds, and pooled multi-window promotion evals (`--eval-seed-start-indices`).
 - Added `scripts.run_td_loop_selfplay` as a separate post-bootstrap loop: shorter collect/train cadence, td-search-heavy mixed collection, promoted opponent-pool sampling, and dual promotion gates (baseline vs `search` plus candidate vs incumbent `td-search`).
 - Overnight runner auto-resolves warm start from latest promoted loop summary (`scripts/run_overnight_td_loop_r2.sh`).
@@ -38,8 +40,8 @@
 
 ## Immediate Next Steps
 
-1. Continue overnight loop iterations with promoted warm starts.
-2. Track promotion outcomes and side-gap stability across runs.
-3. Rank promoted checkpoints against search baseline with certify evals.
+1. Continue overnight self-play loop iterations with promoted warm starts.
+2. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
+3. Re-run bootstrap/recalibration loop only when balance or cadence retuning is needed.
 
-_Updated: 2026-03-06._
+_Updated: 2026-03-07._
