@@ -4,6 +4,7 @@ import { createTdSearchPolicy } from './tdSearchPolicy';
 import type { ActionPolicy } from './types';
 
 export type BotProfileId =
+  | 'td-search-fast'
   | 'rollout-eval-search'
   | 'td-search-browser'
   | 'random-legal';
@@ -14,6 +15,7 @@ export interface BotProfile {
   description: string;
   kind: 'random' | 'search' | 'td-search';
   available: boolean;
+  turnDelayMs: number;
   policy: ActionPolicy;
 }
 
@@ -30,6 +32,15 @@ const rolloutEvalSearchPolicy = createSearchPolicy({
   maxRootActions: 12,
   rolloutEpsilon: 0.0,
 });
+const tdSearchFastPolicy = createTdSearchPolicy({
+  worlds: 1,
+  rollouts: 1,
+  depth: 6,
+  maxRootActions: 4,
+  rolloutEpsilon: 0.01,
+  opponentTemperature: 1.0,
+  sampleOpponentActions: false,
+});
 const tdSearchBrowserPolicy = createTdSearchPolicy({
   worlds: 6,
   rollouts: 1,
@@ -42,21 +53,33 @@ const tdSearchBrowserPolicy = createTdSearchPolicy({
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   {
+    id: 'td-search-fast',
+    label: 'TD Search Fast',
+    description:
+      'Default bot. Faster model-guided td-search settings for snappier turns: worlds=3, depth=9, rootActions=4, rollouts=1.',
+    kind: 'td-search',
+    available: true,
+    turnDelayMs: 175,
+    policy: tdSearchFastPolicy,
+  },
+  {
     id: 'td-search-browser',
     label: 'TD Search (Browser)',
     description:
-      'Default bot. Loads exported TD search model pack (value + opponent) from public/model-packs and uses model-guided rollouts.',
+      'Model-guided td-search with stronger but slower browser settings: worlds=6, depth=14, rootActions=6, rollouts=1.',
     kind: 'td-search',
     available: true,
+    turnDelayMs: 450,
     policy: tdSearchBrowserPolicy,
   },
   {
     id: 'rollout-eval-search',
     label: 'Rollout Eval Search',
     description:
-      'Determinized search: worlds=96, depth=32, rootActions=14, rolloutEpsilon=0.0, rollouts=12. No fallback on failure.',
+      'Determinized search: worlds=64, depth=28, rootActions=12, rolloutEpsilon=0.0, rollouts=8. No fallback on failure.',
     kind: 'search',
     available: true,
+    turnDelayMs: 450,
     policy: rolloutEvalSearchPolicy,
   },
   {
@@ -65,11 +88,12 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     description: 'Uniform random choice among legal actions.',
     kind: 'random',
     available: true,
+    turnDelayMs: 250,
     policy: randomPolicy,
   },
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-browser';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-fast';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);

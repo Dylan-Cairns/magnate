@@ -16,8 +16,8 @@
 
 ## Implemented Snapshot
 
-- Browser app is playable; default bot is now browser `td-search`.
-- Browser app loads exported model packs from static `public/model-packs/` artifacts; UI currently exposes `td-search`, rollout-search, and random profiles.
+- Browser app is playable; default bot is now browser `td-search fast`.
+- Browser app loads exported model packs from static `public/model-packs/` artifacts; UI currently exposes `td-search fast`, `td-search (browser)`, rollout-search, and random profiles.
 - Browser startup now preloads card images and TD model packs behind a centered modal with blurred backdrop; bot turns are blocked until preload completes.
 - Browser bootstrap now renders an immediate loading shell from `index.html` and lazy-loads the React `App` module, so first paint is no longer gated on eager engine/policy module evaluation.
 - Bridge runtime commands are stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
@@ -39,7 +39,7 @@
 - Keep calibrating loop cadence/thresholds from repeated overnight results.
 - Improve `td-search` strength and throughput.
 - Wire an online replay refresh loop (beyond chunk-local offline replay files).
-- Tune browser `td-search` latency/throughput now that model-backed play is the default profile.
+- Tune browser `td-search` latency/throughput now that `td-search fast` is the default profile.
 
 ## Immediate Next Steps
 

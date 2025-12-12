@@ -4,8 +4,8 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## At A Glance
 
-- Browser game is playable; default bot is rollout-search.
-- Browser includes selectable `TD Value (Browser)` and `TD Search (Browser)` profiles backed by static model-pack artifacts.
+- Browser game is playable; default bot is `TD Search Fast`.
+- Browser includes selectable `TD Search Fast`, `TD Search (Browser)`, `Rollout Eval Search`, and `Random legal` profiles.
 - TypeScript engine is the canonical rules implementation.
 - Python training/eval calls the engine through the Node bridge.
 - Loop progression: bootstrap/recalibrate with `scripts.run_td_loop`, then continue with self-play-focused `scripts.run_td_loop_selfplay`.
