@@ -82,9 +82,9 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-  - Browser deployment path now includes `td-value` and `td-search` static model-pack export/load.
-  - Current active loop is chunked offline replay generation + checkpointed training, followed by one fixed-size certify evaluation.
-  - Replay regime in loop orchestration is currently explicit `chunk-local`.
+- Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation + checkpointed training, followed by two fixed-size certify windows with pooled promotion checks.
+- Current forward loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection to td-search-heavy mixed opponents and incumbent head-to-head promotion checks.
+- Replay regime in loop orchestration is explicit `chunk-local` (bootstrap) and `chunk-local-selfplay-mixed` (self-play loop).
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
   - loop default: `--mode certify` for fixed-size side-swapped promotion evals
   - `--mode gate` remains optional/manual, not part of default loop orchestration
@@ -108,7 +108,7 @@ Design expectations:
 - Contract tests to protect TS/Python integration behavior.
 - Python bridge-client/encoding/eval scaffolding has focused tests in `trainer_tests/`.
 - Search policies have focused tests for deterministic action choice and legal-action guarantees.
-- Side-swapped promotion evals run through a single canonical pipeline:
+- Side-swapped promotion evals run through a canonical pooled-window pipeline:
   - paired seeds with swapped policy seats
   - Wilson confidence interval reporting
   - explicit side-gap reporting
