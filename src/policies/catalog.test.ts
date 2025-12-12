@@ -12,10 +12,10 @@ describe('bot policy catalog', () => {
     expect(() => getBotProfile('unknown-profile')).toThrow('Unknown bot profile');
   });
 
-  it('uses search profile as default and resolves an available policy', () => {
+  it('uses td-search fast as default and resolves an available policy', () => {
     const resolved = resolveBotProfile(DEFAULT_BOT_PROFILE_ID);
     expect(resolved.selected.available).toBe(true);
-    expect(resolved.selected.id).toBe('td-search-browser');
+    expect(resolved.selected.id).toBe('td-search-fast');
     expect(resolved.selected.kind).toBe('td-search');
   });
 
@@ -35,6 +35,12 @@ describe('bot policy catalog', () => {
 
   it('includes a browser td-search profile', () => {
     expect(BOT_PROFILES.some((profile) => profile.id === 'td-search-browser')).toBe(
+      true
+    );
+  });
+
+  it('includes a fast td-search profile', () => {
+    expect(BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')).toBe(
       true
     );
   });
