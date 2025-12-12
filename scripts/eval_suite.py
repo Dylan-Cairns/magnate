@@ -105,6 +105,30 @@ def parse_args() -> argparse.Namespace:
         help="Sample opponent rollout actions from opponent model distribution in td-search.",
     )
     parser.add_argument(
+        "--candidate-td-search-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search value checkpoint override for candidate policy.",
+    )
+    parser.add_argument(
+        "--candidate-td-search-opponent-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search opponent checkpoint override for candidate policy.",
+    )
+    parser.add_argument(
+        "--opponent-td-search-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search value checkpoint override for opponent policy.",
+    )
+    parser.add_argument(
+        "--opponent-td-search-opponent-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search opponent checkpoint override for opponent policy.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=None,
@@ -647,6 +671,26 @@ def _base_config_payload(args: argparse.Namespace) -> Dict[str, object]:
                 if args.td_search_opponent_checkpoint
                 else None
             ),
+            "candidateValueCheckpoint": (
+                str(_effective_candidate_td_search_value_checkpoint(args))
+                if _effective_candidate_td_search_value_checkpoint(args) is not None
+                else None
+            ),
+            "candidateOpponentCheckpoint": (
+                str(_effective_candidate_td_search_opponent_checkpoint(args))
+                if _effective_candidate_td_search_opponent_checkpoint(args) is not None
+                else None
+            ),
+            "opponentValueCheckpoint": (
+                str(_effective_opponent_td_search_value_checkpoint(args))
+                if _effective_opponent_td_search_value_checkpoint(args) is not None
+                else None
+            ),
+            "opponentOpponentCheckpoint": (
+                str(_effective_opponent_td_search_opponent_checkpoint(args))
+                if _effective_opponent_td_search_opponent_checkpoint(args) is not None
+                else None
+            ),
             "opponentTemperature": args.td_search_opponent_temperature,
             "sampleOpponentActions": args.td_search_sample_opponent_actions,
         },
@@ -693,8 +737,18 @@ def _evaluate_results(
             search_rollout_epsilon=args.search_rollout_epsilon,
             td_value_checkpoint=args.td_value_checkpoint,
             td_worlds=args.td_worlds,
-            td_search_value_checkpoint=args.td_search_value_checkpoint,
-            td_search_opponent_checkpoint=args.td_search_opponent_checkpoint,
+            candidate_td_search_value_checkpoint=_effective_candidate_td_search_value_checkpoint(
+                args
+            ),
+            candidate_td_search_opponent_checkpoint=_effective_candidate_td_search_opponent_checkpoint(
+                args
+            ),
+            opponent_td_search_value_checkpoint=_effective_opponent_td_search_value_checkpoint(
+                args
+            ),
+            opponent_td_search_opponent_checkpoint=_effective_opponent_td_search_opponent_checkpoint(
+                args
+            ),
             td_search_opponent_temperature=args.td_search_opponent_temperature,
             td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
             progress_every_games=args.progress_every_games,
@@ -741,8 +795,18 @@ def _evaluate_results(
             search_rollout_epsilon=args.search_rollout_epsilon,
             td_value_checkpoint=args.td_value_checkpoint,
             td_worlds=args.td_worlds,
-            td_search_value_checkpoint=args.td_search_value_checkpoint,
-            td_search_opponent_checkpoint=args.td_search_opponent_checkpoint,
+            candidate_td_search_value_checkpoint=_effective_candidate_td_search_value_checkpoint(
+                args
+            ),
+            candidate_td_search_opponent_checkpoint=_effective_candidate_td_search_opponent_checkpoint(
+                args
+            ),
+            opponent_td_search_value_checkpoint=_effective_opponent_td_search_value_checkpoint(
+                args
+            ),
+            opponent_td_search_opponent_checkpoint=_effective_opponent_td_search_opponent_checkpoint(
+                args
+            ),
             td_search_opponent_temperature=args.td_search_opponent_temperature,
             td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
             progress_every_games=args.progress_every_games,
@@ -805,6 +869,26 @@ def _evaluate_results(
                 "tdSearchOpponentCheckpoint": (
                     str(args.td_search_opponent_checkpoint)
                     if args.td_search_opponent_checkpoint is not None
+                    else None
+                ),
+                "candidateTdSearchValueCheckpoint": (
+                    str(_effective_candidate_td_search_value_checkpoint(args))
+                    if _effective_candidate_td_search_value_checkpoint(args) is not None
+                    else None
+                ),
+                "candidateTdSearchOpponentCheckpoint": (
+                    str(_effective_candidate_td_search_opponent_checkpoint(args))
+                    if _effective_candidate_td_search_opponent_checkpoint(args) is not None
+                    else None
+                ),
+                "opponentTdSearchValueCheckpoint": (
+                    str(_effective_opponent_td_search_value_checkpoint(args))
+                    if _effective_opponent_td_search_value_checkpoint(args) is not None
+                    else None
+                ),
+                "opponentTdSearchOpponentCheckpoint": (
+                    str(_effective_opponent_td_search_opponent_checkpoint(args))
+                    if _effective_opponent_td_search_opponent_checkpoint(args) is not None
                     else None
                 ),
                 "tdSearchOpponentTemperature": args.td_search_opponent_temperature,
@@ -923,8 +1007,10 @@ def _run_eval_shard(
     search_rollout_epsilon: float,
     td_value_checkpoint: Path | None,
     td_worlds: int,
-    td_search_value_checkpoint: Path | None,
-    td_search_opponent_checkpoint: Path | None,
+    candidate_td_search_value_checkpoint: Path | None,
+    candidate_td_search_opponent_checkpoint: Path | None,
+    opponent_td_search_value_checkpoint: Path | None,
+    opponent_td_search_opponent_checkpoint: Path | None,
     td_search_opponent_temperature: float,
     td_search_sample_opponent_actions: bool,
     progress_every_games: int,
@@ -938,7 +1024,8 @@ def _run_eval_shard(
         torch_interop_threads=worker_torch_interop_threads,
         blas_threads=worker_blas_threads,
     )
-    policies = {candidate_policy.strip().lower(), opponent_policy.strip().lower()}
+    candidate_policy_name = candidate_policy.strip().lower()
+    opponent_policy_name = opponent_policy.strip().lower()
     search_config = SearchConfig(
         worlds=search_worlds,
         rollouts=search_rollouts,
@@ -954,10 +1041,10 @@ def _run_eval_shard(
         if td_value_checkpoint is not None
         else None
     )
-    td_search_config = (
+    candidate_td_search_config = (
         TDSearchPolicyConfig(
-            value_checkpoint_path=td_search_value_checkpoint,
-            opponent_checkpoint_path=td_search_opponent_checkpoint,
+            value_checkpoint_path=candidate_td_search_value_checkpoint,
+            opponent_checkpoint_path=candidate_td_search_opponent_checkpoint,
             worlds=search_worlds,
             rollouts=search_rollouts,
             depth=search_depth,
@@ -966,7 +1053,22 @@ def _run_eval_shard(
             opponent_temperature=td_search_opponent_temperature,
             sample_opponent_actions=td_search_sample_opponent_actions,
         )
-        if "td-search" in policies
+        if candidate_policy_name == "td-search"
+        else None
+    )
+    opponent_td_search_config = (
+        TDSearchPolicyConfig(
+            value_checkpoint_path=opponent_td_search_value_checkpoint,
+            opponent_checkpoint_path=opponent_td_search_opponent_checkpoint,
+            worlds=search_worlds,
+            rollouts=search_rollouts,
+            depth=search_depth,
+            max_root_actions=search_max_root_actions,
+            rollout_epsilon=search_rollout_epsilon,
+            opponent_temperature=td_search_opponent_temperature,
+            sample_opponent_actions=td_search_sample_opponent_actions,
+        )
+        if opponent_policy_name == "td-search"
         else None
     )
 
@@ -974,13 +1076,13 @@ def _run_eval_shard(
         candidate_policy,
         search_config=search_config,
         td_value_config=td_value_config,
-        td_search_config=td_search_config,
+        td_search_config=candidate_td_search_config,
     )
     opponent = policy_from_name(
         opponent_policy,
         search_config=search_config,
         td_value_config=td_value_config,
-        td_search_config=td_search_config,
+        td_search_config=opponent_td_search_config,
     )
 
     shard_started = time.perf_counter()
@@ -1059,14 +1161,24 @@ def _evaluate_shard(payload: Dict[str, object]) -> Dict[str, object]:
             else None
         ),
         td_worlds=int(payload["tdWorlds"]),
-        td_search_value_checkpoint=(
-            Path(str(payload["tdSearchValueCheckpoint"]))
-            if payload.get("tdSearchValueCheckpoint")
+        candidate_td_search_value_checkpoint=(
+            Path(str(payload["candidateTdSearchValueCheckpoint"]))
+            if payload.get("candidateTdSearchValueCheckpoint")
             else None
         ),
-        td_search_opponent_checkpoint=(
-            Path(str(payload["tdSearchOpponentCheckpoint"]))
-            if payload.get("tdSearchOpponentCheckpoint")
+        candidate_td_search_opponent_checkpoint=(
+            Path(str(payload["candidateTdSearchOpponentCheckpoint"]))
+            if payload.get("candidateTdSearchOpponentCheckpoint")
+            else None
+        ),
+        opponent_td_search_value_checkpoint=(
+            Path(str(payload["opponentTdSearchValueCheckpoint"]))
+            if payload.get("opponentTdSearchValueCheckpoint")
+            else None
+        ),
+        opponent_td_search_opponent_checkpoint=(
+            Path(str(payload["opponentTdSearchOpponentCheckpoint"]))
+            if payload.get("opponentTdSearchOpponentCheckpoint")
             else None
         ),
         td_search_opponent_temperature=float(payload["tdSearchOpponentTemperature"]),
@@ -1289,15 +1401,50 @@ def _require_supported_runtime() -> None:
         raise SystemExit("Run this script from the project virtual environment (.venv).")
 
 
+def _effective_candidate_td_search_value_checkpoint(args: argparse.Namespace) -> Path | None:
+    return args.candidate_td_search_value_checkpoint or args.td_search_value_checkpoint
+
+
+def _effective_candidate_td_search_opponent_checkpoint(args: argparse.Namespace) -> Path | None:
+    return args.candidate_td_search_opponent_checkpoint or args.td_search_opponent_checkpoint
+
+
+def _effective_opponent_td_search_value_checkpoint(args: argparse.Namespace) -> Path | None:
+    return args.opponent_td_search_value_checkpoint or args.td_search_value_checkpoint
+
+
+def _effective_opponent_td_search_opponent_checkpoint(args: argparse.Namespace) -> Path | None:
+    return args.opponent_td_search_opponent_checkpoint or args.td_search_opponent_checkpoint
+
+
 def _validate_policy_args(args: argparse.Namespace) -> None:
-    policies = {args.candidate_policy.strip().lower(), args.opponent_policy.strip().lower()}
+    candidate_policy = args.candidate_policy.strip().lower()
+    opponent_policy = args.opponent_policy.strip().lower()
+    policies = {candidate_policy, opponent_policy}
     if "td-value" in policies and args.td_value_checkpoint is None:
         raise SystemExit("--td-value-checkpoint is required when using td-value policy.")
-    if "td-search" in policies:
-        if args.td_search_value_checkpoint is None:
-            raise SystemExit("--td-search-value-checkpoint is required when using td-search policy.")
-        if args.td_search_opponent_checkpoint is None:
-            raise SystemExit("--td-search-opponent-checkpoint is required when using td-search policy.")
+    if candidate_policy == "td-search":
+        if _effective_candidate_td_search_value_checkpoint(args) is None:
+            raise SystemExit(
+                "Candidate td-search requires --candidate-td-search-value-checkpoint "
+                "or --td-search-value-checkpoint."
+            )
+        if _effective_candidate_td_search_opponent_checkpoint(args) is None:
+            raise SystemExit(
+                "Candidate td-search requires --candidate-td-search-opponent-checkpoint "
+                "or --td-search-opponent-checkpoint."
+            )
+    if opponent_policy == "td-search":
+        if _effective_opponent_td_search_value_checkpoint(args) is None:
+            raise SystemExit(
+                "Opponent td-search requires --opponent-td-search-value-checkpoint "
+                "or --td-search-value-checkpoint."
+            )
+        if _effective_opponent_td_search_opponent_checkpoint(args) is None:
+            raise SystemExit(
+                "Opponent td-search requires --opponent-td-search-opponent-checkpoint "
+                "or --td-search-opponent-checkpoint."
+            )
 
 
 def _validate_args(args: argparse.Namespace) -> None:
