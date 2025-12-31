@@ -489,7 +489,7 @@
 
 .resource-flight.is-tax-loss {
   animation-name: tax-chip-loss;
-  animation-timing-function: cubic-bezier(0.2, 0.7, 0.24, 1);
+  animation-timing-function: linear;
 }
 
 .token-chip.compact.resource-flight-chip {
@@ -522,25 +522,7 @@
 
 @keyframes tax-chip-loss {
   0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-
-  45% {
-    transform: translate(
-        calc(-50% + (var(--resource-flight-dx) * 0.45)),
-        calc(-50% + (var(--resource-flight-dy) * 0.45))
-      )
-      scale(1);
-    opacity: 0.92;
-  }
-
-  74% {
-    transform: translate(
-        calc(-50% + (var(--resource-flight-dx) * 0.74)),
-        calc(-50% + (var(--resource-flight-dy) * 0.74))
-      )
-      scale(0.98);
+    transform: translate(-50%, -50%);
     opacity: 1;
   }
 
@@ -548,8 +530,7 @@
     transform: translate(
         calc(-50% + var(--resource-flight-dx)),
         calc(-50% + var(--resource-flight-dy))
-      )
-      scale(0.92);
+      );
     opacity: 0;
   }
 }

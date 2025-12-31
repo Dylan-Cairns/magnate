@@ -102,8 +102,8 @@ const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
 const TURN_CYCLE_TEXT_ONLY_MS = 2000;
 const TURN_CYCLE_INCOME_PRE_FLIGHT_MS = 3000;
 const TURN_CYCLE_STAGE_GAP_MS = 220;
-const TURN_CYCLE_TAX_PULSE_MS = 700;
 const TURN_CYCLE_TAX_FLIGHT_DURATION_MS = 900;
+const TURN_CYCLE_TAX_FLIGHT_STAGGER_MS = 920;
 const TURN_CYCLE_INCOME_FLIGHT_DURATION_MS = 560;
 const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
 const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
@@ -190,6 +190,10 @@ type TurnCycleVisualPlan = {
   taxFlightLaunchAtMs: number | null;
   taxResourcesApplyAtMs: number | null;
   taxPulseTargets: ReadonlyArray<{
+    playerId: PlayerId;
+    suit: Suit;
+  }>;
+  taxFlightTokens: ReadonlyArray<{
     playerId: PlayerId;
     suit: Suit;
   }>;
@@ -420,34 +424,42 @@ function collectTurnCycleAnimationPlan(
   let taxFlightLaunchAtMs: number | null = null;
   let taxResourcesApplyAtMs: number | null = null;
   const taxPulseTargets: Array<{ playerId: PlayerId; suit: Suit }> = [];
+  const taxFlightTokens: Array<{ playerId: PlayerId; suit: Suit }> = [];
   const taxLossesByPlayer: Array<{ playerId: PlayerId; count: number }> = [];
   let taxSuit: Suit | null = null;
   if (cycle.tax) {
-    taxLabelAtMs = cursorMs;
-    taxLabelHideAtMs = cursorMs + TURN_CYCLE_TEXT_ONLY_MS;
+    const taxLabelAtTime = cursorMs;
+    const taxLabelHideAtTime = taxLabelAtTime + TURN_CYCLE_TEXT_ONLY_MS;
+    taxLabelAtMs = taxLabelAtTime;
+    taxLabelHideAtMs = taxLabelHideAtTime;
     taxSuit = cycle.tax.suit;
     const taxedPlayers = cycle.tax.lossesByPlayer.filter((entry) => entry.count > 0);
     taxLossesByPlayer.push(...taxedPlayers);
     if (taxedPlayers.length > 0) {
-      taxPulseStartAtMs = taxLabelHideAtMs;
-      taxPulseEndAtMs = taxPulseStartAtMs + TURN_CYCLE_TAX_PULSE_MS;
-      taxPulseTargets.push(
-        ...taxedPlayers.map((entry) => ({
-          playerId: entry.playerId,
-          suit: cycle.tax!.suit,
-        }))
-      );
+      taxPulseStartAtMs = taxLabelAtTime;
+      taxPulseEndAtMs = taxLabelHideAtTime;
+      for (const taxedPlayer of taxedPlayers) {
+        taxPulseTargets.push({
+          playerId: taxedPlayer.playerId,
+          suit: cycle.tax.suit,
+        });
+        for (let count = 0; count < taxedPlayer.count; count += 1) {
+          taxFlightTokens.push({
+            playerId: taxedPlayer.playerId,
+            suit: cycle.tax.suit,
+          });
+        }
+      }
     }
-    const taxAnimationStartMs =
-      (taxPulseEndAtMs !== null ? taxPulseEndAtMs + 120 : taxLabelHideAtMs);
-    taxFlightLaunchAtMs = taxedPlayers.length > 0 ? taxAnimationStartMs : null;
+    const taxAnimationStartMs = taxLabelHideAtTime + 120;
+    taxFlightLaunchAtMs = taxFlightTokens.length > 0 ? taxAnimationStartMs : null;
     const taxAnimationEndMs =
-      taxedPlayers.length > 0
+      taxFlightTokens.length > 0
         ? taxAnimationStartMs
-          + ((taxedPlayers.length - 1) * RESOURCE_FLIGHT_STAGGER_MS)
+          + ((taxFlightTokens.length - 1) * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS)
           + TURN_CYCLE_TAX_FLIGHT_DURATION_MS
         : taxAnimationStartMs;
-    taxResourcesApplyAtMs = taxedPlayers.length > 0 ? taxAnimationEndMs : null;
+    taxResourcesApplyAtMs = taxFlightTokens.length > 0 ? taxAnimationEndMs : null;
     cursorMs = taxAnimationEndMs + TURN_CYCLE_STAGE_GAP_MS;
   }
 
@@ -484,6 +496,7 @@ function collectTurnCycleAnimationPlan(
       taxFlightLaunchAtMs,
       taxResourcesApplyAtMs,
       taxPulseTargets,
+      taxFlightTokens,
       taxLossesByPlayer,
       incomeLabelAtMs,
       incomeLabelHideAtMs,
@@ -527,7 +540,7 @@ function buildTaxLossFlightsFromDom(
       startY: source.y,
       endX: source.x,
       endY: viewportCenterY,
-      delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
+      delayMs: index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
       durationMs: TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
       variant: 'tax-loss',
     });
@@ -1276,10 +1289,10 @@ export function App() {
             clearTaxPulseElements();
           });
         }
-        if (plan.taxFlightLaunchAtMs !== null && plan.taxPulseTargets.length > 0) {
+        if (plan.taxFlightLaunchAtMs !== null && plan.taxFlightTokens.length > 0) {
           queue(plan.taxFlightLaunchAtMs, () => {
             const taxFlights = buildTaxLossFlightsFromDom(
-              plan.taxPulseTargets,
+              plan.taxFlightTokens,
               makeResourceFlightId
             );
             if (taxFlights.length === 0) {
