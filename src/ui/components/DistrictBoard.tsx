@@ -193,9 +193,11 @@ export function DistrictColumn({
 export function PlayerTokenRail({
   player,
   side,
+  highlightedCrownSuits,
 }: {
   player: ObservedPlayerState;
   side: 'human' | 'bot';
+  highlightedCrownSuits?: ReadonlySet<Suit>;
 }) {
   const crowns = (
     <div className="token-rail-group">
@@ -206,6 +208,7 @@ export function PlayerTokenRail({
           acc[suit] = (acc[suit] ?? 0) + 1;
           return acc;
         }, {})}
+        highlightedSuits={highlightedCrownSuits}
         compact
       />
     </div>

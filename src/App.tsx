@@ -211,6 +211,10 @@ type TurnCycleVisualPlan = {
   taxSuit: Suit | null;
   incomeRank: number;
   highlightCardIds: ReadonlyArray<CardId>;
+  highlightCrowns: ReadonlyArray<{
+    playerId: PlayerId;
+    suit: Suit;
+  }>;
 };
 
 type CardFlight = {
@@ -474,9 +478,27 @@ function collectTurnCycleAnimationPlan(
       : incomeAnimationStartMs;
 
   const highlightCardIds = [...new Set(cycle.incomeHighlights.map((entry) => entry.cardId))];
+  const highlightCrowns: Array<{ playerId: PlayerId; suit: Suit }> = [];
+  const highlightCrownKeys = new Set<string>();
+  for (const token of cycle.incomeTokens) {
+    if (token.source.kind !== 'crown') {
+      continue;
+    }
+    const key = `${token.playerId}:${token.suit}`;
+    if (highlightCrownKeys.has(key)) {
+      continue;
+    }
+    highlightCrownKeys.add(key);
+    highlightCrowns.push({
+      playerId: token.playerId,
+      suit: token.suit,
+    });
+  }
   const incomeHighlightStartAtMs = incomeLabelAtMs;
+  const hasIncomeHighlightTargets =
+    highlightCardIds.length > 0 || highlightCrowns.length > 0;
   const minimumHighlightDurationMs =
-    highlightCardIds.length > 0
+    hasIncomeHighlightTargets
       ? TURN_CYCLE_INCOME_PRE_FLIGHT_MS + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
       : 0;
   const incomeHighlightEndAtMs = Math.max(
@@ -508,6 +530,7 @@ function collectTurnCycleAnimationPlan(
       taxSuit,
       incomeRank: cycle.incomeRank,
       highlightCardIds,
+      highlightCrowns,
     },
     totalDurationMs: hideAllAtMs + ACTION_FLIGHT_COMMIT_BUFFER_MS,
     incomeAnimationEndMs,
@@ -1173,6 +1196,8 @@ export function App() {
     useState<TurnCycleOverlayState | null>(null);
   const [incomeHighlightCardIds, setIncomeHighlightCardIds] =
     useState<ReadonlyArray<CardId>>([]);
+  const [incomeHighlightCrowns, setIncomeHighlightCrowns] =
+    useState<ReadonlyArray<{ playerId: PlayerId; suit: Suit }>>([]);
   const [incomeResourcePreviewByPlayer, setIncomeResourcePreviewByPlayer] =
     useState<Partial<Record<PlayerId, ResourcePool>> | null>(null);
   const [pendingDiscardHoldback, setPendingDiscardHoldback] = useState<number>(0);
@@ -1255,6 +1280,7 @@ export function App() {
     clearTaxPulseElements();
     setTurnCycleOverlay(null);
     setIncomeHighlightCardIds([]);
+    setIncomeHighlightCrowns([]);
     setIncomeResourcePreviewByPlayer(null);
   }, [clearTaxPulseElements]);
   const scheduleTurnCycleVisuals = useCallback(
@@ -1322,14 +1348,17 @@ export function App() {
 
       queue(plan.incomeHighlightStartAtMs, () => {
         setIncomeHighlightCardIds(plan.highlightCardIds);
+        setIncomeHighlightCrowns(plan.highlightCrowns);
       });
       queue(plan.incomeHighlightEndAtMs, () => {
         setIncomeHighlightCardIds([]);
+        setIncomeHighlightCrowns([]);
       });
       queue(plan.hideAllAtMs, () => {
         clearTaxPulseElements();
         setTurnCycleOverlay(null);
         setIncomeHighlightCardIds([]);
+        setIncomeHighlightCrowns([]);
       });
     },
     [
@@ -1530,6 +1559,16 @@ export function App() {
     () => new Set([...incomeHighlightCardIds, ...pendingIncomeChoiceCardIds]),
     [incomeHighlightCardIds, pendingIncomeChoiceCardIds]
   );
+  const incomeHighlightCrownSuitsByPlayer = useMemo(() => {
+    const byPlayer = new Map<PlayerId, Set<Suit>>([
+      [HUMAN_PLAYER, new Set<Suit>()],
+      [BOT_PLAYER, new Set<Suit>()],
+    ]);
+    for (const target of incomeHighlightCrowns) {
+      byPlayer.get(target.playerId)?.add(target.suit);
+    }
+    return byPlayer;
+  }, [incomeHighlightCrowns]);
 
   const humanActions = useMemo(() => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
@@ -2581,7 +2620,11 @@ export function App() {
         </aside>
 
         <section className="board-pane">
-          <PlayerTokenRail player={botRailPlayer} side="bot" />
+          <PlayerTokenRail
+            player={botRailPlayer}
+            side="bot"
+            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(BOT_PLAYER)}
+          />
           <div className="district-strip" aria-label="District board">
             {humanView.districts.map((district) => (
               <DistrictColumn
@@ -2594,7 +2637,11 @@ export function App() {
               />
             ))}
           </div>
-          <PlayerTokenRail player={humanRailPlayer} side="human" />
+          <PlayerTokenRail
+            player={humanRailPlayer}
+            side="human"
+            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(HUMAN_PLAYER)}
+          />
         </section>
 
         <aside className="info-pane">
