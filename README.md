@@ -1,4 +1,4 @@
-# Magnate (Web) + TD/Keldon Training Pivot
+# Magnate
 
 Single-player Magnate with a deterministic TypeScript engine, browser UI, and Python training stack.
 
