@@ -112,6 +112,9 @@ const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
 const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
 const TERMINAL_CLEANUP_FLIGHT_DURATION_MS = 900;
 const TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX = 220;
+const RESOLUTION_WARNING_BASE_WIDTH_PX = 1920;
+const RESOLUTION_WARNING_BASE_HEIGHT_PX = 1080;
+const RESOLUTION_WARNING_THRESHOLD_SCALE = 0.9;
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 const SUIT_LOG_CODE: Record<Suit, string> = {
   Moons: 'mo',
@@ -245,6 +248,19 @@ function makeSeed(): string {
   return `seed-${Date.now()}`;
 }
 
+function shouldShowResolutionWarningOnLoad(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const minimumWidthPx =
+    RESOLUTION_WARNING_BASE_WIDTH_PX * RESOLUTION_WARNING_THRESHOLD_SCALE;
+  const minimumHeightPx =
+    RESOLUTION_WARNING_BASE_HEIGHT_PX * RESOLUTION_WARNING_THRESHOLD_SCALE;
+  const resolutionWidth = window.screen?.width ?? window.innerWidth;
+  const resolutionHeight = window.screen?.height ?? window.innerHeight;
+  return resolutionWidth <= minimumWidthPx || resolutionHeight <= minimumHeightPx;
+}
+
 function readAnimationsEnabledPreference(): boolean {
   if (typeof window === 'undefined') {
     return true;
@@ -349,7 +365,7 @@ function deedTokenCenterInRail(
   }
 
   const totalHeight = sideCount * tokenSizePx + (sideCount - 1) * gapPx;
-  const firstTokenCenterOffset = (-totalHeight / 2) + (tokenSizePx / 2);
+  const firstTokenCenterOffset = -totalHeight / 2 + tokenSizePx / 2;
   return {
     x: railCenter.x,
     y: railCenter.y + firstTokenCenterOffset + index * (tokenSizePx + gapPx),
@@ -449,8 +465,8 @@ function collectTerminalCleanupFlights(
       }
 
       const cardElement =
-        districtCardElementForPlayer(player.id, district.id, deed.cardId)
-        ?? document.querySelector<HTMLElement>(
+        districtCardElementForPlayer(player.id, district.id, deed.cardId) ??
+        document.querySelector<HTMLElement>(
           `.district-strip .card-tile[data-card-id="${cssEscapeValue(deed.cardId)}"][data-in-development="true"]`
         );
       if (!cardElement) {
@@ -548,7 +564,9 @@ function collectTurnCycleAnimationPlan(
     taxLabelAtMs = taxLabelAtTime;
     taxLabelHideAtMs = taxLabelHideAtTime;
     taxSuit = cycle.tax.suit;
-    const taxedPlayers = cycle.tax.lossesByPlayer.filter((entry) => entry.count > 0);
+    const taxedPlayers = cycle.tax.lossesByPlayer.filter(
+      (entry) => entry.count > 0
+    );
     taxLossesByPlayer.push(...taxedPlayers);
     if (taxedPlayers.length > 0) {
       taxPulseStartAtMs = taxLabelAtTime;
@@ -567,14 +585,16 @@ function collectTurnCycleAnimationPlan(
       }
     }
     const taxAnimationStartMs = taxLabelHideAtTime + 120;
-    taxFlightLaunchAtMs = taxFlightTokens.length > 0 ? taxAnimationStartMs : null;
+    taxFlightLaunchAtMs =
+      taxFlightTokens.length > 0 ? taxAnimationStartMs : null;
     const taxAnimationEndMs =
       taxFlightTokens.length > 0
-        ? taxAnimationStartMs
-          + ((taxFlightTokens.length - 1) * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS)
-          + TURN_CYCLE_TAX_FLIGHT_DURATION_MS
+        ? taxAnimationStartMs +
+          (taxFlightTokens.length - 1) * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS +
+          TURN_CYCLE_TAX_FLIGHT_DURATION_MS
         : taxAnimationStartMs;
-    taxResourcesApplyAtMs = taxFlightTokens.length > 0 ? taxAnimationEndMs : null;
+    taxResourcesApplyAtMs =
+      taxFlightTokens.length > 0 ? taxAnimationEndMs : null;
     cursorMs = taxAnimationEndMs + TURN_CYCLE_STAGE_GAP_MS;
   }
 
@@ -583,12 +603,14 @@ function collectTurnCycleAnimationPlan(
   const incomeAnimationStartMs = incomeLabelHideAtMs;
   const incomeAnimationEndMs =
     cycle.incomeTokens.length > 0
-      ? incomeAnimationStartMs
-        + ((cycle.incomeTokens.length - 1) * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS)
-        + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
+      ? incomeAnimationStartMs +
+        (cycle.incomeTokens.length - 1) * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS +
+        TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
       : incomeAnimationStartMs;
 
-  const highlightCardIds = [...new Set(cycle.incomeHighlights.map((entry) => entry.cardId))];
+  const highlightCardIds = [
+    ...new Set(cycle.incomeHighlights.map((entry) => entry.cardId)),
+  ];
   const highlightCrowns: Array<{ playerId: PlayerId; suit: Suit }> = [];
   const highlightCrownKeys = new Set<string>();
   for (const token of cycle.incomeTokens) {
@@ -608,17 +630,17 @@ function collectTurnCycleAnimationPlan(
   const incomeHighlightStartAtMs = incomeLabelAtMs;
   const hasIncomeHighlightTargets =
     highlightCardIds.length > 0 || highlightCrowns.length > 0;
-  const minimumHighlightDurationMs =
-    hasIncomeHighlightTargets
-      ? TURN_CYCLE_INCOME_PRE_FLIGHT_MS + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
-      : 0;
+  const minimumHighlightDurationMs = hasIncomeHighlightTargets
+    ? TURN_CYCLE_INCOME_PRE_FLIGHT_MS + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
+    : 0;
   const incomeHighlightEndAtMs = Math.max(
     incomeHighlightStartAtMs + minimumHighlightDurationMs,
     incomeAnimationEndMs
   );
 
   const hideAllAtMs =
-    Math.max(incomeHighlightEndAtMs, incomeAnimationEndMs) + TURN_CYCLE_POST_INCOME_HOLD_MS;
+    Math.max(incomeHighlightEndAtMs, incomeAnimationEndMs) +
+    TURN_CYCLE_POST_INCOME_HOLD_MS;
 
   return {
     visualPlan: {
@@ -662,7 +684,10 @@ function buildTaxLossFlightsFromDom(
   const viewportCenterY = window.innerHeight / 2;
   const flights: ResourceFlight[] = [];
   for (const [index, target] of targets.entries()) {
-    const sourceElement = resourceTokenElementForPlayer(target.playerId, target.suit);
+    const sourceElement = resourceTokenElementForPlayer(
+      target.playerId,
+      target.suit
+    );
     if (!sourceElement) {
       continue;
     }
@@ -701,7 +726,10 @@ function buildIncomeFlightsFromDom(
             token.source.cardId
           )
         : crownTokenElementForPlayer(token.playerId, token.suit);
-    const targetElement = resourceTokenElementForPlayer(token.playerId, token.suit);
+    const targetElement = resourceTokenElementForPlayer(
+      token.playerId,
+      token.suit
+    );
     if (!sourceElement || !targetElement) {
       continue;
     }
@@ -760,18 +788,25 @@ function collectDeedResourceFlights(
     return [];
   }
 
-  const district = state.districts.find((candidate) => candidate.id === action.districtId);
+  const district = state.districts.find(
+    (candidate) => candidate.id === action.districtId
+  );
   const deedBefore = district?.stacks[actingPlayerId]?.deed;
   if (!deedBefore || deedBefore.cardId !== action.cardId) {
     return [];
   }
 
-  const nextDeedTokens: Partial<Record<Suit, number>> = { ...deedBefore.tokens };
+  const nextDeedTokens: Partial<Record<Suit, number>> = {
+    ...deedBefore.tokens,
+  };
   for (const entry of tokenEntries(action.tokens)) {
-    nextDeedTokens[entry.suit] = (nextDeedTokens[entry.suit] ?? 0) + entry.count;
+    nextDeedTokens[entry.suit] =
+      (nextDeedTokens[entry.suit] ?? 0) + entry.count;
   }
 
-  const perspective: 'human' | 'bot' = cardElement.classList.contains('perspective-bot')
+  const perspective: 'human' | 'bot' = cardElement.classList.contains(
+    'perspective-bot'
+  )
     ? 'bot'
     : 'human';
   const deedTokenEntries = tokenEntries(deedBefore.tokens);
@@ -779,7 +814,11 @@ function collectDeedResourceFlights(
     resetDeedTokenLayout(action.cardId, perspective);
   }
   const nextTokenEntries = tokenEntries(nextDeedTokens);
-  const nextBySide = layoutDeedTokensBySide(action.cardId, perspective, nextTokenEntries);
+  const nextBySide = layoutDeedTokensBySide(
+    action.cardId,
+    perspective,
+    nextTokenEntries
+  );
   const targetBySuit = new Map<
     Suit,
     { side: DeedTokenSide; index: number; sideCount: number }
@@ -890,7 +929,10 @@ function collectIncomeChoiceResourceFlights(
     action.districtId,
     action.cardId
   );
-  const targetElement = resourceTokenElementForPlayer(action.playerId, action.suit);
+  const targetElement = resourceTokenElementForPlayer(
+    action.playerId,
+    action.suit
+  );
   if (!sourceElement || !targetElement) {
     return [];
   }
@@ -918,8 +960,15 @@ function isLaneCardPlayAction(
   return action.type === 'buy-deed' || action.type === 'develop-outright';
 }
 
-function stackStepForLane(laneElement: HTMLElement, isBotLane: boolean, cardHeightPx: number): number {
-  const stackStepValue = window.getComputedStyle(laneElement).getPropertyValue('--card-stack-step').trim();
+function stackStepForLane(
+  laneElement: HTMLElement,
+  isBotLane: boolean,
+  cardHeightPx: number
+): number {
+  const stackStepValue = window
+    .getComputedStyle(laneElement)
+    .getPropertyValue('--card-stack-step')
+    .trim();
   if (stackStepValue.length > 0) {
     const probe = document.createElement('div');
     probe.style.position = 'absolute';
@@ -938,18 +987,25 @@ function stackStepForLane(laneElement: HTMLElement, isBotLane: boolean, cardHeig
     }
   }
 
-  const topStackCard = laneElement.querySelector<HTMLElement>('.lane-stack-card:last-child');
+  const topStackCard = laneElement.querySelector<HTMLElement>(
+    '.lane-stack-card:last-child'
+  );
   if (!topStackCard) {
     return cardHeightPx * 0.24;
   }
 
-  const stackPosition = Number.parseFloat(topStackCard.style.getPropertyValue('--stack-position'));
+  const stackPosition = Number.parseFloat(
+    topStackCard.style.getPropertyValue('--stack-position')
+  );
   if (!Number.isFinite(stackPosition) || stackPosition <= 0) {
     return cardHeightPx * 0.24;
   }
 
   const computed = window.getComputedStyle(topStackCard);
-  const offsetPx = parsePixelValue(isBotLane ? computed.bottom : computed.top, 0);
+  const offsetPx = parsePixelValue(
+    isBotLane ? computed.bottom : computed.top,
+    0
+  );
   if (offsetPx > 0) {
     return offsetPx / stackPosition;
   }
@@ -961,7 +1017,9 @@ function laneTargetCenter(
   cardHeightPx: number
 ): { x: number; y: number } | null {
   const isBotLane = laneElement.classList.contains('is-bot');
-  const topCardTile = laneElement.querySelector<HTMLElement>('.lane-stack-card:last-child .card-tile');
+  const topCardTile = laneElement.querySelector<HTMLElement>(
+    '.lane-stack-card:last-child .card-tile'
+  );
   if (topCardTile) {
     const topCenter = elementCenter(topCardTile);
     const stepPx = stackStepForLane(laneElement, isBotLane, cardHeightPx);
@@ -979,17 +1037,21 @@ function laneTargetCenter(
   return {
     x: frameRect.left + frameRect.width / 2,
     y: isBotLane
-      ? frameRect.bottom - (cardHeightPx / 2)
-      : frameRect.top + (cardHeightPx / 2),
+      ? frameRect.bottom - cardHeightPx / 2
+      : frameRect.top + cardHeightPx / 2,
   };
 }
 
 function deckSourceElement(): HTMLElement | null {
-  const deckStack = document.querySelector<HTMLElement>('.deck-pile-stack.is-deck');
+  const deckStack = document.querySelector<HTMLElement>(
+    '.deck-pile-stack.is-deck'
+  );
   if (!deckStack) {
     return null;
   }
-  const stackCards = deckStack.querySelectorAll<HTMLElement>('.deck-pile-stack-card');
+  const stackCards = deckStack.querySelectorAll<HTMLElement>(
+    '.deck-pile-stack-card'
+  );
   if (stackCards.length === 0) {
     return deckStack;
   }
@@ -997,29 +1059,36 @@ function deckSourceElement(): HTMLElement | null {
 }
 
 function discardTargetElement(): HTMLElement | null {
-  const discardStack = document.querySelector<HTMLElement>('.deck-pile-stack.is-discard');
+  const discardStack = document.querySelector<HTMLElement>(
+    '.deck-pile-stack.is-discard'
+  );
   if (!discardStack) {
     return null;
   }
-  const stackCards = discardStack.querySelectorAll<HTMLElement>('.deck-pile-stack-card');
+  const stackCards = discardStack.querySelectorAll<HTMLElement>(
+    '.deck-pile-stack-card'
+  );
   if (stackCards.length === 0) {
     return discardStack;
   }
   return stackCards[stackCards.length - 1];
 }
 
-function handSourceElement(playerId: PlayerId, cardId: CardId): HTMLElement | null {
+function handSourceElement(
+  playerId: PlayerId,
+  cardId: CardId
+): HTMLElement | null {
   const escapedPlayerId = cssEscapeValue(playerId);
   const escapedCardId = cssEscapeValue(cardId);
   const panelSelector = `.player-panel[data-player-id="${escapedPlayerId}"]`;
   return (
     document.querySelector<HTMLElement>(
       `${panelSelector} .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="occupied"][data-hand-card-id="${escapedCardId}"]`
-    )
-    ?? document.querySelector<HTMLElement>(
+    ) ??
+    document.querySelector<HTMLElement>(
       `${panelSelector} .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="occupied"][data-card-id="${escapedCardId}"]`
-    )
-    ?? document.querySelector<HTMLElement>(
+    ) ??
+    document.querySelector<HTMLElement>(
       `${panelSelector} .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`
     )
   );
@@ -1030,8 +1099,8 @@ function handDrawTargetElement(playerId: PlayerId): HTMLElement | null {
   return (
     document.querySelector<HTMLElement>(
       `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="empty"]`
-    )
-    ?? document.querySelector<HTMLElement>(
+    ) ??
+    document.querySelector<HTMLElement>(
       `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`
     )
   );
@@ -1160,17 +1229,17 @@ function collectCardPlayFlights(
         `.district-column[data-district-id="${escapedDistrictId}"]`
       );
       const fallbackTargetElement =
-        laneElement?.querySelector<HTMLElement>('.lane-stack-frame')
-        ?? laneElement
-        ?? districtColumn;
+        laneElement?.querySelector<HTMLElement>('.lane-stack-frame') ??
+        laneElement ??
+        districtColumn;
       const targetCenter =
         (laneElement
           ? laneTargetCenter(
               laneElement,
               sourceElement.getBoundingClientRect().height
             )
-          : null)
-        ?? (fallbackTargetElement ? elementCenter(fallbackTargetElement) : null);
+          : null) ??
+        (fallbackTargetElement ? elementCenter(fallbackTargetElement) : null);
       if (targetCenter) {
         const perspective: CardPerspective = laneElement
           ? laneElement.classList.contains('is-bot')
@@ -1213,8 +1282,7 @@ function collectCardPlayFlights(
       if (sourceElement && targetElement) {
         flights.push(
           createCardFlight(makeFlightId, sourceElement, targetElement, 'back', {
-            delayMs:
-              flights.length > 0 ? CARD_DRAW_FLIGHT_DELAY_MS : 0,
+            delayMs: flights.length > 0 ? CARD_DRAW_FLIGHT_DELAY_MS : 0,
             variant: 'draw',
           })
         );
@@ -1231,23 +1299,24 @@ function resourceFlightSettleMs(flights: readonly ResourceFlight[]): number {
   }
   const latestEndMs = Math.max(
     ...flights.map(
-      (flight) => flight.delayMs + (flight.durationMs ?? RESOURCE_FLIGHT_DURATION_MS)
+      (flight) =>
+        flight.delayMs + (flight.durationMs ?? RESOURCE_FLIGHT_DURATION_MS)
     )
   );
   return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
 }
 
-function shouldCommitBeforeAnimationSettle(
-  action: GameAction
-): boolean {
+function shouldCommitBeforeAnimationSettle(action: GameAction): boolean {
   return (
-    action.type === 'sell-card'
-    || action.type === 'end-turn'
-    || action.type === 'choose-income-suit'
+    action.type === 'sell-card' ||
+    action.type === 'end-turn' ||
+    action.type === 'choose-income-suit'
   );
 }
 
-function shouldAllowHumanActionsDuringAnimationSettle(action: GameAction): boolean {
+function shouldAllowHumanActionsDuringAnimationSettle(
+  action: GameAction
+): boolean {
   return action.type === 'end-turn' || action.type === 'choose-income-suit';
 }
 
@@ -1294,19 +1363,19 @@ function cardFlightSettleMs(flights: readonly CardFlight[]): number {
   }
   const latestEndMs = Math.max(
     ...flights.map(
-      (flight) => flight.delayMs + (flight.durationMs ?? CARD_FLIGHT_DURATION_MS)
+      (flight) =>
+        flight.delayMs + (flight.durationMs ?? CARD_FLIGHT_DURATION_MS)
     )
   );
   return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
 }
 
 export function App() {
-  const [seedInput, setSeedInput] = useState<string>(() => makeSeed());
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(
     DEFAULT_BOT_PROFILE_ID
   );
   const [state, setState] = useState<GameState>(() =>
-    createInitialState(seedInput)
+    createInitialState(makeSeed())
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
     () => withSeedLogPrefix(state, state.log)
@@ -1320,25 +1389,38 @@ export function App() {
   const [animationsEnabled, setAnimationsEnabled] = useState<boolean>(() =>
     readAnimationsEnabledPreference()
   );
-  const [resourceFlights, setResourceFlights] = useState<ReadonlyArray<ResourceFlight>>([]);
+  const [resourceFlights, setResourceFlights] = useState<
+    ReadonlyArray<ResourceFlight>
+  >([]);
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
   const [turnCycleOverlay, setTurnCycleOverlay] =
     useState<TurnCycleOverlayState | null>(null);
-  const [incomeHighlightCardIds, setIncomeHighlightCardIds] =
-    useState<ReadonlyArray<CardId>>([]);
-  const [incomeHighlightCrowns, setIncomeHighlightCrowns] =
-    useState<ReadonlyArray<{ playerId: PlayerId; suit: Suit }>>([]);
+  const [incomeHighlightCardIds, setIncomeHighlightCardIds] = useState<
+    ReadonlyArray<CardId>
+  >([]);
+  const [incomeHighlightCrowns, setIncomeHighlightCrowns] = useState<
+    ReadonlyArray<{ playerId: PlayerId; suit: Suit }>
+  >([]);
   const [incomeResourcePreviewByPlayer, setIncomeResourcePreviewByPlayer] =
     useState<Partial<Record<PlayerId, ResourcePool>> | null>(null);
-  const [pendingDiscardHoldback, setPendingDiscardHoldback] = useState<number>(0);
-  const [actionCommitPending, setActionCommitPending] = useState<boolean>(false);
-  const [allowHumanActionsWhileCommitPending, setAllowHumanActionsWhileCommitPending] =
+  const [pendingDiscardHoldback, setPendingDiscardHoldback] =
+    useState<number>(0);
+  const [actionCommitPending, setActionCommitPending] =
     useState<boolean>(false);
-  const [startupPreloadReady, setStartupPreloadReady] = useState<boolean>(false);
-  const [startupPreloadError, setStartupPreloadError] = useState<string | null>(null);
+  const [
+    allowHumanActionsWhileCommitPending,
+    setAllowHumanActionsWhileCommitPending,
+  ] = useState<boolean>(false);
+  const [startupPreloadReady, setStartupPreloadReady] =
+    useState<boolean>(false);
+  const [startupPreloadError, setStartupPreloadError] = useState<string | null>(
+    null
+  );
   const [startupPreloadAttempt, setStartupPreloadAttempt] = useState<number>(0);
   const [startupPreloadProgress, setStartupPreloadProgress] =
     useState<StartupPreloadProgress>(STARTUP_PRELOAD_INITIAL_PROGRESS);
+  const [resolutionWarningOpen, setResolutionWarningOpen] =
+    useState<boolean>(shouldShowResolutionWarningOnLoad);
   const [terminalWinnerOverlayWinner, setTerminalWinnerOverlayWinner] =
     useState<FinalScore['winner'] | null>(null);
   const [turnResetAnchor, setTurnResetAnchor] =
@@ -1356,6 +1438,7 @@ export function App() {
   const actionPopoverRef = useRef<HTMLElement | null>(null);
   const optionsMenuRef = useRef<HTMLElement | null>(null);
   const optionsMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const seedInputRef = useRef<HTMLInputElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const retryStartupPreload = useCallback(
@@ -1401,7 +1484,10 @@ export function App() {
       clearTaxPulseElements();
       const pulsingElements: HTMLElement[] = [];
       for (const target of targets) {
-        const element = resourceTokenElementForPlayer(target.playerId, target.suit);
+        const element = resourceTokenElementForPlayer(
+          target.playerId,
+          target.suit
+        );
         if (!element) {
           continue;
         }
@@ -1445,7 +1531,10 @@ export function App() {
             setTurnCycleOverlay(null);
           });
         }
-        if (plan.taxPulseStartAtMs !== null && plan.taxPulseTargets.length > 0) {
+        if (
+          plan.taxPulseStartAtMs !== null &&
+          plan.taxPulseTargets.length > 0
+        ) {
           queue(plan.taxPulseStartAtMs, () => {
             applyTaxPulseTargets(plan.taxPulseTargets);
           });
@@ -1455,7 +1544,10 @@ export function App() {
             clearTaxPulseElements();
           });
         }
-        if (plan.taxFlightLaunchAtMs !== null && plan.taxFlightTokens.length > 0) {
+        if (
+          plan.taxFlightLaunchAtMs !== null &&
+          plan.taxFlightTokens.length > 0
+        ) {
           queue(plan.taxFlightLaunchAtMs, () => {
             const taxFlights = buildTaxLossFlightsFromDom(
               plan.taxFlightTokens,
@@ -1517,11 +1609,7 @@ export function App() {
     clearTerminalWinnerOverlay();
   }, [clearTerminalWinnerOverlay, clearTurnCycleVisuals]);
   const commitImmediateTransition = useCallback(
-    (
-      previousState: GameState,
-      nextState: GameState,
-      action?: GameAction
-    ) => {
+    (previousState: GameState, nextState: GameState, action?: GameAction) => {
       setTimelineLog((existing) => [
         ...existing,
         ...transitionLogEntries(previousState, nextState, action),
@@ -1567,7 +1655,10 @@ export function App() {
       }
 
       if (queuedResourceFlights.length > 0) {
-        setResourceFlights((existing) => [...existing, ...queuedResourceFlights]);
+        setResourceFlights((existing) => [
+          ...existing,
+          ...queuedResourceFlights,
+        ]);
       }
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
@@ -1731,12 +1822,10 @@ export function App() {
     if (!allowHumanActionsWhileCommitPending) {
       return [] as readonly GameAction[];
     }
-    return humanActions.filter((action) => action.type === 'choose-income-suit');
-  }, [
-    actionCommitPending,
-    allowHumanActionsWhileCommitPending,
-    humanActions,
-  ]);
+    return humanActions.filter(
+      (action) => action.type === 'choose-income-suit'
+    );
+  }, [actionCommitPending, allowHumanActionsWhileCommitPending, humanActions]);
 
   const humanActionItems = useMemo(
     () => buildHumanActionList(humanActionsAcceptingInput),
@@ -1763,9 +1852,9 @@ export function App() {
 
   const actionPickerOptions = useMemo(() => {
     if (
-      !actionPicker
-      || actionPicker.kind === 'trade-combined'
-      || actionPicker.kind === 'develop-outright-combined'
+      !actionPicker ||
+      actionPicker.kind === 'trade-combined' ||
+      actionPicker.kind === 'develop-outright-combined'
     ) {
       return [];
     }
@@ -1796,16 +1885,16 @@ export function App() {
   const isTurnCycleAnimationLock =
     actionCommitPending && allowHumanActionsWhileCommitPending;
   const showBotThinkingDuringIncomeChoiceLock =
-    isTurnCycleAnimationLock
-    && activePlayerId === BOT_PLAYER
-    && state.phase === 'CollectIncome'
-    && (state.pendingIncomeChoices?.length ?? 0) > 0;
+    isTurnCycleAnimationLock &&
+    activePlayerId === BOT_PLAYER &&
+    state.phase === 'CollectIncome' &&
+    (state.pendingIncomeChoices?.length ?? 0) > 0;
   const hideBotWaitMessageDuringTurnCycleLock =
     isTurnCycleAnimationLock && !showBotThinkingDuringIncomeChoiceLock;
   const humanActionUiBlockedByAnimation =
-    activePlayerId === HUMAN_PLAYER
-    && actionCommitPending
-    && humanActionsAcceptingInput.length === 0;
+    activePlayerId === HUMAN_PLAYER &&
+    actionCommitPending &&
+    humanActionsAcceptingInput.length === 0;
   const humanActionUiBlockedByTurnCycleAnimation =
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
 
@@ -1837,10 +1926,10 @@ export function App() {
 
   useEffect(() => {
     if (
-      terminal
-      || activePlayerId !== BOT_PLAYER
-      || actionCommitPending
-      || !startupPreloadReady
+      terminal ||
+      activePlayerId !== BOT_PLAYER ||
+      actionCommitPending ||
+      !startupPreloadReady
     ) {
       setBotThinking(false);
       return;
@@ -1925,73 +2014,96 @@ export function App() {
           const queuedResourceFlights = [...queuedActionResourceFlights];
           if (terminalCleanupPlan) {
             queuedResourceFlights.push(...terminalCleanupPlan.resourceFlights);
-            queuedCardFlights = [...queuedCardFlights, ...terminalCleanupPlan.cardFlights];
+            queuedCardFlights = [
+              ...queuedCardFlights,
+              ...terminalCleanupPlan.cardFlights,
+            ];
           }
-          const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(choice);
+          const shouldCommitBeforeSettle =
+            shouldCommitBeforeAnimationSettle(choice);
           const allowHumanActionsDuringSettle =
             shouldAllowHumanActionsDuringAnimationSettle(choice);
           scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
           if (choice.type === 'end-turn' && turnCyclePlan) {
-            setIncomeResourcePreviewByPlayer(buildResourcePreviewByPlayer(current));
+            setIncomeResourcePreviewByPlayer(
+              buildResourcePreviewByPlayer(current)
+            );
             const visualPlan = turnCyclePlan.visualPlan;
             if (
-              visualPlan.taxFlightLaunchAtMs !== null
-              && visualPlan.taxFlightTokens.length > 0
+              visualPlan.taxFlightLaunchAtMs !== null &&
+              visualPlan.taxFlightTokens.length > 0
             ) {
-              for (const [index, token] of visualPlan.taxFlightTokens.entries()) {
+              for (const [
+                index,
+                token,
+              ] of visualPlan.taxFlightTokens.entries()) {
                 const taxStepAtMs =
-                  visualPlan.taxFlightLaunchAtMs
-                  + index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS;
-                const taxTimerId = window.setTimeout(() => {
-                  setIncomeResourcePreviewByPlayer((existing) =>
-                    applySingleTaxLossToPreview(existing, token)
-                  );
-                }, Math.max(0, taxStepAtMs));
+                  visualPlan.taxFlightLaunchAtMs +
+                  index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS;
+                const taxTimerId = window.setTimeout(
+                  () => {
+                    setIncomeResourcePreviewByPlayer((existing) =>
+                      applySingleTaxLossToPreview(existing, token)
+                    );
+                  },
+                  Math.max(0, taxStepAtMs)
+                );
                 turnCycleVisualTimerRefs.current.push(taxTimerId);
               }
             } else if (
-              visualPlan.taxResourcesApplyAtMs !== null
-              && visualPlan.taxSuit
-              && visualPlan.taxLossesByPlayer.length > 0
+              visualPlan.taxResourcesApplyAtMs !== null &&
+              visualPlan.taxSuit &&
+              visualPlan.taxLossesByPlayer.length > 0
             ) {
-              const taxTimerId = window.setTimeout(() => {
-                setIncomeResourcePreviewByPlayer((existing) => {
-                  let preview = existing;
-                  for (const loss of visualPlan.taxLossesByPlayer) {
-                    for (let count = 0; count < loss.count; count += 1) {
-                      preview = applySingleTaxLossToPreview(preview, {
-                        playerId: loss.playerId,
-                        suit: visualPlan.taxSuit!,
-                      });
+              const taxTimerId = window.setTimeout(
+                () => {
+                  setIncomeResourcePreviewByPlayer((existing) => {
+                    let preview = existing;
+                    for (const loss of visualPlan.taxLossesByPlayer) {
+                      for (let count = 0; count < loss.count; count += 1) {
+                        preview = applySingleTaxLossToPreview(preview, {
+                          playerId: loss.playerId,
+                          suit: visualPlan.taxSuit!,
+                        });
+                      }
                     }
-                  }
-                  return preview;
-                });
-              }, Math.max(0, visualPlan.taxResourcesApplyAtMs));
+                    return preview;
+                  });
+                },
+                Math.max(0, visualPlan.taxResourcesApplyAtMs)
+              );
               turnCycleVisualTimerRefs.current.push(taxTimerId);
             }
             const previewResources = buildResourcePreviewByPlayer(next);
-            const timerId = window.setTimeout(() => {
-              setIncomeResourcePreviewByPlayer(previewResources);
-            }, Math.max(0, turnCyclePlan.incomeAnimationEndMs));
+            const timerId = window.setTimeout(
+              () => {
+                setIncomeResourcePreviewByPlayer(previewResources);
+              },
+              Math.max(0, turnCyclePlan.incomeAnimationEndMs)
+            );
             turnCycleVisualTimerRefs.current.push(timerId);
           }
-          commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
-            commitBeforeSettle: shouldCommitBeforeSettle,
-            hideDiscardCountUntilSettle: choice.type === 'sell-card' ? 1 : 0,
-            allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
-            extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
-            onSettle:
-              enteredTerminal
+          commitStateAfterAnimations(
+            next,
+            queuedResourceFlights,
+            queuedCardFlights,
+            {
+              commitBeforeSettle: shouldCommitBeforeSettle,
+              hideDiscardCountUntilSettle: choice.type === 'sell-card' ? 1 : 0,
+              allowHumanActionsWhileCommitPending:
+                allowHumanActionsDuringSettle,
+              extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
+              onSettle: enteredTerminal
                 ? () => {
                     setTerminalWinnerOverlayWinner(
                       (next.finalScore ?? scoreLive(next)).winner
                     );
                   }
                 : undefined,
-            previousState: current,
-            action: choice,
-          });
+              previousState: current,
+              action: choice,
+            }
+          );
           setError(null);
         } catch (err) {
           setError(`Bot action failed: ${errorMessage(err)}`);
@@ -2038,8 +2150,10 @@ export function App() {
           return;
         }
         const selectedGiveStillLegal = Boolean(
-          actionPicker.selectedGive
-          && tradeSourceGroups.some((group) => group.give === actionPicker.selectedGive)
+          actionPicker.selectedGive &&
+          tradeSourceGroups.some(
+            (group) => group.give === actionPicker.selectedGive
+          )
         );
         if (actionPicker.selectedGive && !selectedGiveStillLegal) {
           closeActionPicker();
@@ -2048,17 +2162,19 @@ export function App() {
       }
       if (actionPicker.kind === 'develop-outright-combined') {
         const outrightOptions = humanActionsAcceptingInput.filter(
-          (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
-            action.type === 'develop-outright'
-            && action.cardId === actionPicker.cardId
+          (
+            action
+          ): action is Extract<GameAction, { type: 'develop-outright' }> =>
+            action.type === 'develop-outright' &&
+            action.cardId === actionPicker.cardId
         );
         if (outrightOptions.length <= 1) {
           closeActionPicker();
           return;
         }
         const selectedDistrictStillLegal = Boolean(
-          actionPicker.selectedDistrictId
-          && outrightOptions.some(
+          actionPicker.selectedDistrictId &&
+          outrightOptions.some(
             (option) => option.districtId === actionPicker.selectedDistrictId
           )
         );
@@ -2067,10 +2183,11 @@ export function App() {
           return;
         }
         const selectedPaymentStillLegal = Boolean(
-          actionPicker.selectedPaymentKey
-          && outrightOptions.some(
+          actionPicker.selectedPaymentKey &&
+          outrightOptions.some(
             (option) =>
-              paymentSignature(option.payment) === actionPicker.selectedPaymentKey
+              paymentSignature(option.payment) ===
+              actionPicker.selectedPaymentKey
           )
         );
         if (actionPicker.selectedPaymentKey && !selectedPaymentStillLegal) {
@@ -2115,7 +2232,8 @@ export function App() {
     }
     if (actionCommitPending) {
       const canActDuringCommit =
-        allowHumanActionsWhileCommitPending && action.type === 'choose-income-suit';
+        allowHumanActionsWhileCommitPending &&
+        action.type === 'choose-income-suit';
       if (!canActDuringCommit) {
         return;
       }
@@ -2161,9 +2279,13 @@ export function App() {
       const queuedResourceFlights = [...queuedActionResourceFlights];
       if (terminalCleanupPlan) {
         queuedResourceFlights.push(...terminalCleanupPlan.resourceFlights);
-        queuedCardFlights = [...queuedCardFlights, ...terminalCleanupPlan.cardFlights];
+        queuedCardFlights = [
+          ...queuedCardFlights,
+          ...terminalCleanupPlan.cardFlights,
+        ];
       }
-      const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(action);
+      const shouldCommitBeforeSettle =
+        shouldCommitBeforeAnimationSettle(action);
       const allowHumanActionsDuringSettle =
         shouldAllowHumanActionsDuringAnimationSettle(action);
       scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
@@ -2171,63 +2293,76 @@ export function App() {
         setIncomeResourcePreviewByPlayer(buildResourcePreviewByPlayer(state));
         const visualPlan = turnCyclePlan.visualPlan;
         if (
-          visualPlan.taxFlightLaunchAtMs !== null
-          && visualPlan.taxFlightTokens.length > 0
+          visualPlan.taxFlightLaunchAtMs !== null &&
+          visualPlan.taxFlightTokens.length > 0
         ) {
           for (const [index, token] of visualPlan.taxFlightTokens.entries()) {
             const taxStepAtMs =
-              visualPlan.taxFlightLaunchAtMs
-              + index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS;
-            const taxTimerId = window.setTimeout(() => {
-              setIncomeResourcePreviewByPlayer((existing) =>
-                applySingleTaxLossToPreview(existing, token)
-              );
-            }, Math.max(0, taxStepAtMs));
+              visualPlan.taxFlightLaunchAtMs +
+              index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS;
+            const taxTimerId = window.setTimeout(
+              () => {
+                setIncomeResourcePreviewByPlayer((existing) =>
+                  applySingleTaxLossToPreview(existing, token)
+                );
+              },
+              Math.max(0, taxStepAtMs)
+            );
             turnCycleVisualTimerRefs.current.push(taxTimerId);
           }
         } else if (
-          visualPlan.taxResourcesApplyAtMs !== null
-          && visualPlan.taxSuit
-          && visualPlan.taxLossesByPlayer.length > 0
+          visualPlan.taxResourcesApplyAtMs !== null &&
+          visualPlan.taxSuit &&
+          visualPlan.taxLossesByPlayer.length > 0
         ) {
-          const taxTimerId = window.setTimeout(() => {
-            setIncomeResourcePreviewByPlayer((existing) => {
-              let preview = existing;
-              for (const loss of visualPlan.taxLossesByPlayer) {
-                for (let count = 0; count < loss.count; count += 1) {
-                  preview = applySingleTaxLossToPreview(preview, {
-                    playerId: loss.playerId,
-                    suit: visualPlan.taxSuit!,
-                  });
+          const taxTimerId = window.setTimeout(
+            () => {
+              setIncomeResourcePreviewByPlayer((existing) => {
+                let preview = existing;
+                for (const loss of visualPlan.taxLossesByPlayer) {
+                  for (let count = 0; count < loss.count; count += 1) {
+                    preview = applySingleTaxLossToPreview(preview, {
+                      playerId: loss.playerId,
+                      suit: visualPlan.taxSuit!,
+                    });
+                  }
                 }
-              }
-              return preview;
-            });
-          }, Math.max(0, visualPlan.taxResourcesApplyAtMs));
+                return preview;
+              });
+            },
+            Math.max(0, visualPlan.taxResourcesApplyAtMs)
+          );
           turnCycleVisualTimerRefs.current.push(taxTimerId);
         }
         const previewResources = buildResourcePreviewByPlayer(next);
-        const timerId = window.setTimeout(() => {
-          setIncomeResourcePreviewByPlayer(previewResources);
-        }, Math.max(0, turnCyclePlan.incomeAnimationEndMs));
+        const timerId = window.setTimeout(
+          () => {
+            setIncomeResourcePreviewByPlayer(previewResources);
+          },
+          Math.max(0, turnCyclePlan.incomeAnimationEndMs)
+        );
         turnCycleVisualTimerRefs.current.push(timerId);
       }
-      commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
-        commitBeforeSettle: shouldCommitBeforeSettle,
-        hideDiscardCountUntilSettle: action.type === 'sell-card' ? 1 : 0,
-        allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
-        extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
-        onSettle:
-          enteredTerminal
+      commitStateAfterAnimations(
+        next,
+        queuedResourceFlights,
+        queuedCardFlights,
+        {
+          commitBeforeSettle: shouldCommitBeforeSettle,
+          hideDiscardCountUntilSettle: action.type === 'sell-card' ? 1 : 0,
+          allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
+          extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
+          onSettle: enteredTerminal
             ? () => {
                 setTerminalWinnerOverlayWinner(
                   (next.finalScore ?? scoreLive(next)).winner
                 );
               }
             : undefined,
-        previousState: state,
-        action,
-      });
+          previousState: state,
+          action,
+        }
+      );
       setError(null);
     } catch (err) {
       setError(errorMessage(err));
@@ -2235,8 +2370,11 @@ export function App() {
   };
 
   const handleReset = () => {
-    const seed = seedInput.trim() || makeSeed();
-    setSeedInput(seed);
+    const specifiedSeed = seedInputRef.current?.value.trim() ?? '';
+    if (seedInputRef.current) {
+      seedInputRef.current.value = '';
+    }
+    const seed = specifiedSeed || makeSeed();
     closeActionPicker();
     closeOptionsMenu();
     setTurnResetAnchor(null);
@@ -2525,10 +2663,11 @@ export function App() {
                 <div className="actions-human-layout">
                   <div className="actions-human-main">
                     {humanActionUiBlockedByTurnCycleAnimation ? (
-                      <p className="empty-note">Resolving income and taxation...</p>
-                    ) : humanActionUiBlockedByAnimation ? (
-                      null
-                    ) : visibleHumanActionItems.length === 0 ? (
+                      <p className="empty-note">
+                        Resolving income and taxation...
+                      </p>
+                    ) : humanActionUiBlockedByAnimation ? null : visibleHumanActionItems.length ===
+                      0 ? (
                       <p className="empty-note">No legal actions.</p>
                     ) : (
                       <div className="action-list">
@@ -2570,7 +2709,9 @@ export function App() {
                                   className="action-button has-submenu"
                                   onClick={(event) => {
                                     const trigger = event.currentTarget;
-                                    if (actionPicker?.kind === 'trade-combined') {
+                                    if (
+                                      actionPicker?.kind === 'trade-combined'
+                                    ) {
                                       closeActionPicker();
                                       return;
                                     }
@@ -2776,13 +2917,18 @@ export function App() {
                             const districtIds = new Set<string>();
                             for (const option of item.options) {
                               districtIds.add(option.districtId);
-                              const paymentKey = paymentSignature(option.payment);
+                              const paymentKey = paymentSignature(
+                                option.payment
+                              );
                               if (!firstOptionByPayment.has(paymentKey)) {
                                 firstOptionByPayment.set(paymentKey, option);
                               }
                             }
-                            const paymentOptions = [...firstOptionByPayment.values()];
-                            const hasSinglePaymentPattern = paymentOptions.length === 1;
+                            const paymentOptions = [
+                              ...firstOptionByPayment.values(),
+                            ];
+                            const hasSinglePaymentPattern =
+                              paymentOptions.length === 1;
 
                             return renderCategorizedAction(
                               `develop-outright-group-${item.cardId}`,
@@ -2792,11 +2938,11 @@ export function App() {
                                 onClick={(event) => {
                                   const trigger = event.currentTarget;
                                   if (
-                                    (
-                                      actionPicker?.kind === 'develop-outright-combined'
-                                      || actionPicker?.kind === 'develop-outright-district'
-                                    )
-                                    && actionPicker.cardId === item.cardId
+                                    (actionPicker?.kind ===
+                                      'develop-outright-combined' ||
+                                      actionPicker?.kind ===
+                                        'develop-outright-district') &&
+                                    actionPicker.cardId === item.cardId
                                   ) {
                                     closeActionPicker();
                                     return;
@@ -2885,7 +3031,9 @@ export function App() {
           <PlayerTokenRail
             player={botRailPlayer}
             side="bot"
-            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(BOT_PLAYER)}
+            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
+              BOT_PLAYER
+            )}
           />
           <div className="district-strip" aria-label="District board">
             {humanView.districts.map((district) => (
@@ -2902,7 +3050,9 @@ export function App() {
           <PlayerTokenRail
             player={humanRailPlayer}
             side="human"
-            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(HUMAN_PLAYER)}
+            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
+              HUMAN_PLAYER
+            )}
           />
         </section>
 
@@ -3039,15 +3189,19 @@ export function App() {
             ) : (
               <ol className="log-list">
                 {recentLogGroups.map((group, groupIndex) => (
-                  <li key={`${group.turn}-${groupIndex}`} className="log-turn-group">
+                  <li
+                    key={`${group.turn}-${groupIndex}`}
+                    className="log-turn-group"
+                  >
                     <div className="log-turn-head">
                       <span className="log-turn">T{group.turn}</span>
                       <span className="log-player">
-                        {group.player} ({group.player === HUMAN_PLAYER ? 'You' : 'Bot'})
+                        {group.player} (
+                        {group.player === HUMAN_PLAYER ? 'You' : 'Bot'})
                       </span>
                     </div>
                     <ol className="log-turn-entries">
-                      {group.entries.map((entry, entryIndex) => (
+                      {group.entries.map((entry, entryIndex) =>
                         (() => {
                           const seedValue = seedSummaryValue(entry.summary);
                           if (seedValue !== null) {
@@ -3058,7 +3212,9 @@ export function App() {
                               >
                                 <div className="log-turn-head">
                                   <span className="log-turn">Seed</span>
-                                  <span className="log-player">{seedValue}</span>
+                                  <span className="log-player">
+                                    {seedValue}
+                                  </span>
                                 </div>
                               </li>
                             );
@@ -3070,13 +3226,15 @@ export function App() {
                             >
                               <span className="log-summary">
                                 {entry.player !== group.player
-                                  ? renderLogSummary(`[${entry.player}] ${entry.summary}`)
+                                  ? renderLogSummary(
+                                      `[${entry.player}] ${entry.summary}`
+                                    )
                                   : renderLogSummary(entry.summary)}
                               </span>
                             </li>
                           );
                         })()
-                      ))}
+                      )}
                     </ol>
                   </li>
                 ))}
@@ -3111,8 +3269,10 @@ export function App() {
                     id="seed-input"
                     aria-label="Seed"
                     className="seed-input"
-                    value={seedInput}
-                    onChange={(event) => setSeedInput(event.target.value)}
+                    ref={seedInputRef}
+                    autoComplete="off"
+                    defaultValue=""
+                    placeholder="seed (blank=random)"
                   />
                   <button
                     className="reset-button"
@@ -3143,7 +3303,10 @@ export function App() {
                   </p>
                 </div>
                 <div className="bot-profile-controls animation-controls">
-                  <label className="animation-toggle-row" htmlFor="animations-toggle">
+                  <label
+                    className="animation-toggle-row"
+                    htmlFor="animations-toggle"
+                  >
                     <span>Animations</span>
                     <input
                       id="animations-toggle"
@@ -3213,6 +3376,34 @@ export function App() {
                 Retry
               </button>
             ) : null}
+          </section>
+        </div>
+      ) : null}
+
+      {resolutionWarningOpen ? (
+        <div className="resolution-warning-overlay" role="presentation">
+          <section
+            className="app-bootstrap-card resolution-warning-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resolution-warning-title"
+          >
+            <h2 id="resolution-warning-title" className="app-bootstrap-title">
+              Display Warning
+            </h2>
+            <p className="app-bootstrap-copy resolution-warning-message">
+              The UI was designed with a minimum size of 1920 x 1080p and will
+              likely be unusable at smaller resolutions :(
+            </p>
+            <div className="resolution-warning-actions">
+              <button
+                type="button"
+                className="reset-button"
+                onClick={() => setResolutionWarningOpen(false)}
+              >
+                OK
+              </button>
+            </div>
           </section>
         </div>
       ) : null}
@@ -3373,86 +3564,98 @@ export function App() {
                   (action): action is Extract<GameAction, { type: 'trade' }> =>
                     action.type === 'trade'
                 );
-                const receiveOptions = [...new Set(tradeActions.map((action) => action.receive))];
+                const receiveOptions = [
+                  ...new Set(tradeActions.map((action) => action.receive)),
+                ];
                 return (
                   <>
-              <div className="composite-picker-group">
-                <p className="composite-picker-label">Give x3</p>
-                <div className="trade-choice-list">
-                  {tradeSourceGroups.map((group) => (
-                    <button
-                      key={`trade-combined-source-${group.give}`}
-                      type="button"
-                      className={`trade-choice-button${actionPicker.selectedGive === group.give ? ' is-selected' : ''}`}
-                      onClick={() => {
-                        const nextGive = group.give;
-                        const nextReceive = actionPicker.selectedReceive;
-                        if (nextReceive) {
-                          const selectedAction = tradeActions.find(
-                            (action) =>
-                              action.give === nextGive
-                              && action.receive === nextReceive
-                          );
-                          if (selectedAction) {
-                            handlePickerSelection(selectedAction);
-                            return;
-                          }
-                        }
-                        setActionPicker((current) => {
-                          if (!current || current.kind !== 'trade-combined') {
-                            return current;
-                          }
-                          return {
-                            ...current,
-                            selectedGive: nextGive,
-                          };
-                        });
-                      }}
-                    >
-                      {renderSuitText(`${SUIT_TEXT_TOKEN[group.give]} x3`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                    <div className="composite-picker-group">
+                      <p className="composite-picker-label">Give x3</p>
+                      <div className="trade-choice-list">
+                        {tradeSourceGroups.map((group) => (
+                          <button
+                            key={`trade-combined-source-${group.give}`}
+                            type="button"
+                            className={`trade-choice-button${actionPicker.selectedGive === group.give ? ' is-selected' : ''}`}
+                            onClick={() => {
+                              const nextGive = group.give;
+                              const nextReceive = actionPicker.selectedReceive;
+                              if (nextReceive) {
+                                const selectedAction = tradeActions.find(
+                                  (action) =>
+                                    action.give === nextGive &&
+                                    action.receive === nextReceive
+                                );
+                                if (selectedAction) {
+                                  handlePickerSelection(selectedAction);
+                                  return;
+                                }
+                              }
+                              setActionPicker((current) => {
+                                if (
+                                  !current ||
+                                  current.kind !== 'trade-combined'
+                                ) {
+                                  return current;
+                                }
+                                return {
+                                  ...current,
+                                  selectedGive: nextGive,
+                                };
+                              });
+                            }}
+                          >
+                            {renderSuitText(
+                              `${SUIT_TEXT_TOKEN[group.give]} x3`
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-              <div className="composite-picker-group">
-                <p className="composite-picker-label">Receive x1</p>
-                <div className="trade-choice-list">
-                  {receiveOptions.map((receiveSuit) => (
-                    <button
-                      key={`trade-combined-receive-${receiveSuit}`}
-                      type="button"
-                      className={`trade-choice-button${actionPicker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
-                      onClick={() => {
-                        const nextReceive = receiveSuit;
-                        const nextGive = actionPicker.selectedGive;
-                        if (nextGive) {
-                          const selectedAction = tradeActions.find(
-                            (action) =>
-                              action.give === nextGive
-                              && action.receive === nextReceive
-                          );
-                          if (selectedAction) {
-                            handlePickerSelection(selectedAction);
-                            return;
-                          }
-                        }
-                        setActionPicker((current) => {
-                          if (!current || current.kind !== 'trade-combined') {
-                            return current;
-                          }
-                          return {
-                            ...current,
-                            selectedReceive: nextReceive,
-                          };
-                        });
-                      }}
-                    >
-                      {renderSuitText(`${SUIT_TEXT_TOKEN[receiveSuit]} x1`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                    <div className="composite-picker-group">
+                      <p className="composite-picker-label">Receive x1</p>
+                      <div className="trade-choice-list">
+                        {receiveOptions.map((receiveSuit) => (
+                          <button
+                            key={`trade-combined-receive-${receiveSuit}`}
+                            type="button"
+                            className={`trade-choice-button${actionPicker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
+                            onClick={() => {
+                              const nextReceive = receiveSuit;
+                              const nextGive = actionPicker.selectedGive;
+                              if (nextGive) {
+                                const selectedAction = tradeActions.find(
+                                  (action) =>
+                                    action.give === nextGive &&
+                                    action.receive === nextReceive
+                                );
+                                if (selectedAction) {
+                                  handlePickerSelection(selectedAction);
+                                  return;
+                                }
+                              }
+                              setActionPicker((current) => {
+                                if (
+                                  !current ||
+                                  current.kind !== 'trade-combined'
+                                ) {
+                                  return current;
+                                }
+                                return {
+                                  ...current,
+                                  selectedReceive: nextReceive,
+                                };
+                              });
+                            }}
+                          >
+                            {renderSuitText(
+                              `${SUIT_TEXT_TOKEN[receiveSuit]} x1`
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </>
                 );
               })()}
@@ -3461,9 +3664,14 @@ export function App() {
             <>
               {(() => {
                 const outrightOptions = humanActionsAcceptingInput.filter(
-                  (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
-                    action.type === 'develop-outright'
-                    && action.cardId === actionPicker.cardId
+                  (
+                    action
+                  ): action is Extract<
+                    GameAction,
+                    { type: 'develop-outright' }
+                  > =>
+                    action.type === 'develop-outright' &&
+                    action.cardId === actionPicker.cardId
                 );
                 const firstByDistrict = new Map<
                   string,
@@ -3498,12 +3706,14 @@ export function App() {
                             className={`trade-choice-button${actionPicker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
                             onClick={() => {
                               const nextDistrictId = option.districtId;
-                              const nextPaymentKey = actionPicker.selectedPaymentKey;
+                              const nextPaymentKey =
+                                actionPicker.selectedPaymentKey;
                               if (nextPaymentKey) {
                                 const selectedAction = outrightOptions.find(
                                   (candidate) =>
-                                    candidate.districtId === nextDistrictId
-                                    && paymentSignature(candidate.payment) === nextPaymentKey
+                                    candidate.districtId === nextDistrictId &&
+                                    paymentSignature(candidate.payment) ===
+                                      nextPaymentKey
                                 );
                                 if (selectedAction) {
                                   handlePickerSelection(selectedAction);
@@ -3512,8 +3722,8 @@ export function App() {
                               }
                               setActionPicker((current) => {
                                 if (
-                                  !current
-                                  || current.kind !== 'develop-outright-combined'
+                                  !current ||
+                                  current.kind !== 'develop-outright-combined'
                                 ) {
                                   return current;
                                 }
@@ -3540,12 +3750,14 @@ export function App() {
                             className={`trade-choice-button${actionPicker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
                             onClick={() => {
                               const nextPaymentKey = paymentKey;
-                              const nextDistrictId = actionPicker.selectedDistrictId;
+                              const nextDistrictId =
+                                actionPicker.selectedDistrictId;
                               if (nextDistrictId) {
                                 const selectedAction = outrightOptions.find(
                                   (candidate) =>
-                                    candidate.districtId === nextDistrictId
-                                    && paymentSignature(candidate.payment) === nextPaymentKey
+                                    candidate.districtId === nextDistrictId &&
+                                    paymentSignature(candidate.payment) ===
+                                      nextPaymentKey
                                 );
                                 if (selectedAction) {
                                   handlePickerSelection(selectedAction);
@@ -3554,8 +3766,8 @@ export function App() {
                               }
                               setActionPicker((current) => {
                                 if (
-                                  !current
-                                  || current.kind !== 'develop-outright-combined'
+                                  !current ||
+                                  current.kind !== 'develop-outright-combined'
                                 ) {
                                   return current;
                                 }
@@ -3880,8 +4092,7 @@ function seedSummaryValue(summary: string): string | null {
 function toPickerQuery(
   picker: Exclude<
     ActionPickerState,
-    | { kind: 'trade-combined' }
-    | { kind: 'develop-outright-combined' }
+    { kind: 'trade-combined' } | { kind: 'develop-outright-combined' }
   >
 ): ActionPickerQuery {
   if (picker.kind === 'trade') {
