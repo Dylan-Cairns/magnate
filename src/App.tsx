@@ -1587,14 +1587,27 @@ export function App() {
     }
     return legalActions(state);
   }, [activePlayerId, state, terminal]);
+  const humanActionsAcceptingInput = useMemo(() => {
+    if (!actionCommitPending) {
+      return humanActions;
+    }
+    if (!allowHumanActionsWhileCommitPending) {
+      return [] as readonly GameAction[];
+    }
+    return humanActions.filter((action) => action.type === 'choose-income-suit');
+  }, [
+    actionCommitPending,
+    allowHumanActionsWhileCommitPending,
+    humanActions,
+  ]);
 
   const humanActionItems = useMemo(
-    () => buildHumanActionList(humanActions),
-    [humanActions]
+    () => buildHumanActionList(humanActionsAcceptingInput),
+    [humanActionsAcceptingInput]
   );
   const tradeSourceGroups = useMemo(
-    () => buildTradeSourceGroups(humanActions),
-    [humanActions]
+    () => buildTradeSourceGroups(humanActionsAcceptingInput),
+    [humanActionsAcceptingInput]
   );
   const hasMultipleTradeSources = tradeSourceGroups.length > 1;
   const firstTradeGroupIndex = useMemo(
@@ -1621,10 +1634,10 @@ export function App() {
     }
     return buildPickerOptions(
       toPickerQuery(actionPicker),
-      humanActions,
+      humanActionsAcceptingInput,
       SUIT_TEXT_TOKEN
     );
-  }, [actionPicker, humanActions]);
+  }, [actionPicker, humanActionsAcceptingInput]);
 
   const actionPickerTitle = useMemo((): string => {
     if (!actionPicker) {
@@ -1652,6 +1665,12 @@ export function App() {
     && (state.pendingIncomeChoices?.length ?? 0) > 0;
   const hideBotWaitMessageDuringTurnCycleLock =
     isTurnCycleAnimationLock && !showBotThinkingDuringIncomeChoiceLock;
+  const humanActionUiBlockedByAnimation =
+    activePlayerId === HUMAN_PLAYER
+    && actionCommitPending
+    && humanActionsAcceptingInput.length === 0;
+  const humanActionUiBlockedByTurnCycleAnimation =
+    humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
 
   useEffect(() => {
     if (
@@ -1845,6 +1864,10 @@ export function App() {
       closeActionPicker();
       return;
     }
+    if (humanActionUiBlockedByAnimation) {
+      closeActionPicker();
+      return;
+    }
 
     if (actionPicker) {
       if (actionPicker.kind === 'trade-combined') {
@@ -1862,7 +1885,7 @@ export function App() {
         return;
       }
       if (actionPicker.kind === 'develop-outright-combined') {
-        const outrightOptions = humanActions.filter(
+        const outrightOptions = humanActionsAcceptingInput.filter(
           (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
             action.type === 'develop-outright'
             && action.cardId === actionPicker.cardId
@@ -1895,7 +1918,7 @@ export function App() {
       }
       const stillLegal = pickerStillLegal(
         toPickerQuery(actionPicker),
-        humanActions
+        humanActionsAcceptingInput
       );
       if (!stillLegal) {
         closeActionPicker();
@@ -1903,11 +1926,12 @@ export function App() {
     }
   }, [
     activePlayerId,
-    humanActions,
+    humanActionsAcceptingInput,
     terminal,
     actionPicker,
     closeActionPicker,
     hasMultipleTradeSources,
+    humanActionUiBlockedByAnimation,
   ]);
 
   useDismissableLayer({
@@ -2319,7 +2343,11 @@ export function App() {
               ) : activePlayerId === HUMAN_PLAYER ? (
                 <div className="actions-human-layout">
                   <div className="actions-human-main">
-                    {visibleHumanActionItems.length === 0 ? (
+                    {humanActionUiBlockedByTurnCycleAnimation ? (
+                      <p className="empty-note">Resolving income and taxation...</p>
+                    ) : humanActionUiBlockedByAnimation ? (
+                      null
+                    ) : visibleHumanActionItems.length === 0 ? (
                       <p className="empty-note">No legal actions.</p>
                     ) : (
                       <div className="action-list">
@@ -3129,7 +3157,7 @@ export function App() {
           {actionPicker.kind === 'trade-combined' ? (
             <>
               {(() => {
-                const tradeActions = humanActions.filter(
+                const tradeActions = humanActionsAcceptingInput.filter(
                   (action): action is Extract<GameAction, { type: 'trade' }> =>
                     action.type === 'trade'
                 );
@@ -3220,7 +3248,7 @@ export function App() {
           ) : actionPicker.kind === 'develop-outright-combined' ? (
             <>
               {(() => {
-                const outrightOptions = humanActions.filter(
+                const outrightOptions = humanActionsAcceptingInput.filter(
                   (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
                     action.type === 'develop-outright'
                     && action.cardId === actionPicker.cardId
