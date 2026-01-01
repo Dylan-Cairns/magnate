@@ -396,7 +396,7 @@
   padding: 0.62rem;
   display: grid;
   gap: 0.55rem;
-  z-index: 35;
+  z-index: 149;
 }
 
 .brand-options-link {
@@ -417,7 +417,7 @@
   justify-self: end;
   display: flex;
   justify-content: flex-end;
-  z-index: 40;
+  z-index: 148;
 }
 
 .corner-options-anchor .brand-options-menu {
@@ -431,7 +431,7 @@
 .options-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 146;
   backdrop-filter: blur(3px);
   background: rgba(4, 7, 12, 0.2);
 }
