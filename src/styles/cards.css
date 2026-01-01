@@ -511,6 +511,11 @@
   animation-timing-function: linear;
 }
 
+.resource-flight.is-terminal-clear {
+  animation-name: terminal-clear-resource-flight;
+  animation-timing-function: ease-in;
+}
+
 .token-chip.compact.resource-flight-chip {
   width: var(--token-rail-chip-size);
   height: var(--token-rail-chip-size);
@@ -554,6 +559,21 @@
   }
 }
 
+@keyframes terminal-clear-resource-flight {
+  0% {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--resource-flight-dx)),
+        calc(-50% + var(--resource-flight-dy))
+      );
+    opacity: 0;
+  }
+}
+
 .card-flight-layer {
   position: fixed;
   inset: 0;
@@ -577,6 +597,10 @@
 
 .card-flight.is-draw {
   animation-name: draw-card-flight;
+}
+
+.card-flight.is-terminal-clear {
+  animation-name: terminal-clear-card-flight;
 }
 
 .card-flight .card-tile {
@@ -620,6 +644,22 @@
         calc(-50% + var(--card-flight-dy))
       )
       scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+    opacity: 0;
+  }
+}
+
+@keyframes terminal-clear-card-flight {
+  0% {
+    transform: translate(-50%, -50%) scale(1, 1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(0.96, 0.96);
     opacity: 0;
   }
 }
