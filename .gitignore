@@ -5,6 +5,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.tmp/
+.pip-cache/
+.npm-cache/
+.yarn-cache/
 artifacts/
 *.pyc
 *.pyo
