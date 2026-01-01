@@ -19,6 +19,14 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
 
+## GitHub Pages Deploy
+
+- CI deploy workflow: `.github/workflows/deploy_pages.yml`
+- Trigger: push to `main` (or manual `workflow_dispatch`)
+- Deploy gates: `yarn test`, `yarn lint`, then `yarn build`
+- Artifact: `dist/` uploaded to GitHub Pages
+- One-time repo setting: in GitHub, set Pages source to `GitHub Actions`
+
 ## Python Setup
 
 From repo root:

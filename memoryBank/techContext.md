@@ -21,6 +21,7 @@
 
 - Package manager: Yarn
 - JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
+- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` runs on pushes to `main` (and manual dispatch), then gates deployment on `yarn test` + `yarn lint` before `yarn build`.
 - Python bootstrap:
   - `scripts/setup_python_env.ps1`
   - `./.venv/Scripts/Activate.ps1`
