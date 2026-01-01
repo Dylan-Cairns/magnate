@@ -565,6 +565,11 @@
   line-height: 1;
 }
 
+.turn-cycle-winner-name {
+  color: var(--accent-soft);
+  text-transform: uppercase;
+}
+
 .brand-controls {
   display: flex;
   align-items: center;
