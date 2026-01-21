@@ -1006,7 +1006,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
 
 def _require_supported_runtime(python_bin: Path) -> None:
     if sys.version_info < (3, 11):
-        raise SystemExit("Python 3.11+ is required.")
+        raise SystemExit("Python 3.12+ is required.")
     if sys.prefix == sys.base_prefix:
         raise SystemExit("Run this script from the project virtual environment (.venv).")
     if not python_bin.exists():

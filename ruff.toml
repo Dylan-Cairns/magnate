@@ -1,0 +1,15 @@
+target-version = "py312"
+line-length = 100
+src = ["scripts", "trainer", "trainer_tests"]
+extend-exclude = [
+  ".venv",
+  "artifacts",
+  "node_modules",
+  ".tmp",
+  ".pip-cache",
+  ".npm-cache",
+  ".yarn-cache",
+]
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
