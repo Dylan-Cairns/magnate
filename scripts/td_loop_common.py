@@ -4,6 +4,8 @@ import argparse
 import json
 import shlex
 import subprocess
+import sys
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -192,7 +194,19 @@ def run_step(
 ) -> None:
     print(f"{log_prefix} step {name}: {join_command(command)}")
     started = time.perf_counter()
-    process = subprocess.Popen(command)
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        bufsize=1,
+    )
+    output_thread = _start_output_pump(
+        process=process,
+        output_prefix=f"{log_prefix} output step={name} | ",
+    )
 
     heartbeat_seconds = max(0.0, heartbeat_minutes * 60.0)
     next_heartbeat = started + heartbeat_seconds if heartbeat_seconds > 0 else float("inf")
@@ -230,6 +244,11 @@ def run_step(
             next_heartbeat = now + heartbeat_seconds
         time.sleep(2.0)
 
+    if output_thread is not None:
+        output_thread.join(timeout=5.0)
+    if process.stdout is not None:
+        process.stdout.close()
+
     elapsed_minutes = (time.perf_counter() - started) / 60.0
     if return_code != 0:
         if progress_path is not None:
@@ -260,6 +279,33 @@ def run_step(
             },
         )
     print(f"{log_prefix} completed step={name} elapsedMin={elapsed_minutes:.1f}")
+
+
+def _start_output_pump(
+    *,
+    process: subprocess.Popen[str],
+    output_prefix: str,
+) -> threading.Thread | None:
+    if process.stdout is None:
+        return None
+
+    def pump() -> None:
+        assert process.stdout is not None
+        for raw_line in process.stdout:
+            line = raw_line.rstrip("\r\n")
+            if line:
+                sys.stdout.write(f"{output_prefix}{line}\n")
+            else:
+                sys.stdout.write(f"{output_prefix.rstrip()}\n")
+            sys.stdout.flush()
+
+    thread = threading.Thread(
+        target=pump,
+        name=f"magnate-step-output-{process.pid}",
+        daemon=True,
+    )
+    thread.start()
+    return thread
 
 
 def write_progress(path: Path, payload: Dict[str, Any]) -> None:
