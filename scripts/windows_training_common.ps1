@@ -353,6 +353,7 @@ function Invoke-MagnateLoggedCommand {
       [System.IO.StreamWriter]$Writer,
 
       [Parameter(Mandatory = $true)]
+      [AllowEmptyString()]
       [string]$Line,
 
       [switch]$EchoToConsole
