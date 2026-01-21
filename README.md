@@ -66,12 +66,15 @@ Both wrappers:
 - require Node `22.12.0+`, `yarn install`, and a populated `.venv`
 - set repo-local temp/cache dirs plus BLAS/OpenMP thread caps
 - log full output under `artifacts/logs/`
-- pin the Dell laptop profile:
-  - `collect-workers=2`
-  - `eval-workers=2`
-  - `incumbent-eval-workers=2` for self-play
-  - `train-num-threads=4`
+- auto-size the laptop runtime profile from logical CPU count
+- default to `-CpuTargetPercent 60` with `-ReserveLogicalCores 2`
+- scale these loop args from that budget:
+  - `collect-workers`
+  - `eval-workers`
+  - `incumbent-eval-workers` for self-play
+  - `train-num-threads`
   - `train-num-interop-threads=1`
+- keep search-cost tuning explicit through loop args such as `--collect-search-worlds` and `--collect-search-depth`
 
 To inspect the resolved command without running it:
 
@@ -79,10 +82,22 @@ To inspect the resolved command without running it:
 .\scripts\run_td_loop_selfplay_laptop.ps1 -DryRun
 ```
 
+To push the laptop a bit harder while still leaving some headroom:
+
+```powershell
+.\scripts\run_td_loop_selfplay_laptop.ps1 -CpuTargetPercent 70 -DryRun
+```
+
 To override or append loop arguments, pass them via `-LoopArgs`. Later args win, so you can intentionally override the wrapper defaults:
 
 ```powershell
 .\scripts\run_td_loop_selfplay_laptop.ps1 -LoopArgs @('--run-label', 'td-loop-selfplay-laptop-test', '--collect-games', '300')
+```
+
+To benchmark laptop-friendly collect search profiles before a longer self-play run:
+
+```powershell
+python -m scripts.benchmark_collect_search_profiles --workers 4 --games 8
 ```
 
 ## RunPod Install (CPU)
