@@ -70,8 +70,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cloud", action="store_true")
     parser.add_argument("--cloud-vcpus", type=int, default=8, choices=(8, 16, 32))
 
-    # Shorter cadence than bootstrap loop.
-    parser.add_argument("--chunks-per-loop", type=int, default=6)
+    # Keep chunk-local training/eval, but wait longer before promotion eval.
+    parser.add_argument("--chunks-per-loop", type=int, default=18)
     parser.add_argument("--collect-games", type=int, default=600)
     parser.add_argument(
         "--collect-workers",
