@@ -3,7 +3,7 @@
 ## Current Focus
 
 - Keep TypeScript rules deterministic and canonical.
-- Continue the self-play-focused TD loop after recent cadence/threshold recalibration, using a longer `18`-chunk promotion cadence.
+- Continue the self-play-focused TD loop after recent cadence/threshold recalibration, using a `12`-chunk promotion cadence.
 - Use `scripts.run_td_loop` for bootstrap/recalibration passes, then advance primarily with `scripts.run_td_loop_selfplay`.
 - Improve model quality against search baseline and incumbent td-search while keeping runtime practical.
 
@@ -32,7 +32,7 @@
 - `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), explicit promotion thresholds, and pooled multi-window promotion evals (`--eval-seed-start-indices`).
 - Added `scripts.run_td_loop_selfplay` as a separate post-bootstrap loop: chunk-local td-search-heavy mixed collection, promoted opponent-pool sampling, and dual promotion gates (baseline vs `search` plus candidate vs incumbent `td-search`).
 - `scripts.run_td_loop_selfplay` collection now supports shard parallelism via `--collect-workers` (cloud profile sets this automatically) while preserving profile-level mixed-opponent collection semantics.
-- `scripts.run_td_loop_selfplay` now defaults to `18` chunks before promotion eval so each candidate accumulates materially more collect/train work before certify gating.
+- `scripts.run_td_loop_selfplay` now defaults to `12` chunks before promotion eval so each candidate accumulates materially more collect/train work before certify gating.
 - Added `scripts.benchmark_selfplay_collect_setup` to benchmark single-vs-sharded self-play collect throughput on the current machine and recommend a safe `--collect-workers` setting.
 - Added `scripts.benchmark_collect_search_profiles` to benchmark laptop-friendly td-search collect throughput across a small `search-worlds` / `search-depth` profile matrix.
 - Added Windows laptop entrypoints (`scripts/run_td_loop_bootstrap_laptop.ps1`, `scripts/run_td_loop_selfplay_laptop.ps1`) so local Dell runs can use repo-local temp/cache dirs, manifest-backed warm-start fallback, and an auto-sized CPU budget (`-CpuTargetPercent`, `-ReserveLogicalCores`) without changing the RunPod bash launchers.
@@ -50,7 +50,7 @@
 ## Immediate Next Steps
 
 1. Use the new Windows laptop wrappers for local bootstrap/self-play runs while preserving the existing RunPod bash launchers for cloud re-entry.
-2. Continue overnight self-play loop iterations with promoted warm starts and the `18`-chunk cadence.
+2. Continue overnight self-play loop iterations with promoted warm starts and the `12`-chunk cadence.
 3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
 
-_Updated: 2026-04-13._
+_Updated: 2026-04-14._

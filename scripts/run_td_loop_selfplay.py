@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cloud-vcpus", type=int, default=8, choices=(8, 16, 32))
 
     # Keep chunk-local training/eval, but wait longer before promotion eval.
-    parser.add_argument("--chunks-per-loop", type=int, default=18)
+    parser.add_argument("--chunks-per-loop", type=int, default=12)
     parser.add_argument("--collect-games", type=int, default=600)
     parser.add_argument(
         "--collect-workers",
