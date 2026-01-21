@@ -76,6 +76,15 @@ Both wrappers:
   - `train-num-interop-threads=1`
 - keep search-cost tuning explicit through loop args such as `--collect-search-worlds` and `--collect-search-depth`
 
+Interrupted self-play runs can now be resumed from the latest fully completed chunk:
+
+```powershell
+python -m scripts.resume_td_loop_selfplay --run-id <interrupted-selfplay-run-id>
+.\scripts\resume_td_loop_selfplay_laptop.ps1 -RunId <interrupted-selfplay-run-id>
+```
+
+The resume helper reuses the interrupted run directory, restarts the next incomplete chunk from scratch, then finishes the remaining chunks plus both promotion eval gates.
+
 To inspect the resolved command without running it:
 
 ```powershell
@@ -182,6 +191,8 @@ With `.venv` active:
 - Bootstrap/recalibration loop (Windows laptop wrapper): `.\scripts\run_td_loop_bootstrap_laptop.ps1`
 - Self-play loop automation (cloud profile): `python -m scripts.run_td_loop_selfplay --cloud --cloud-vcpus 16 --run-label td-loop-selfplay-r1 --chunks-per-loop 12 --collect-games 600 --train-steps 10000 --eval-games-per-side 200 --incumbent-eval-games-per-side 200 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
 - Self-play loop automation (Windows laptop wrapper): `.\scripts\run_td_loop_selfplay_laptop.ps1`
+- Self-play loop resume: `python -m scripts.resume_td_loop_selfplay --run-id <interrupted-selfplay-run-id>`
+- Self-play loop resume (Windows laptop wrapper): `.\scripts\resume_td_loop_selfplay_laptop.ps1 -RunId <interrupted-selfplay-run-id>`
 
 Use `--help` on each script for full options.
 
