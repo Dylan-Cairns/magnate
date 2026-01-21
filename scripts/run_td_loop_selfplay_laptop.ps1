@@ -1,6 +1,10 @@
 [CmdletBinding()]
 param(
   [switch]$DryRun,
+  [ValidateRange(25.0, 100.0)]
+  [double]$CpuTargetPercent = 60.0,
+  [ValidateRange(0, 64)]
+  [int]$ReserveLogicalCores = 2,
   [string[]]$LoopArgs = @()
 )
 
@@ -13,6 +17,9 @@ $repoRoot = Get-MagnateRepoRoot -ScriptRoot $PSScriptRoot
 $cacheInfo = Initialize-MagnateLocalCaches -RepoRoot $repoRoot
 $python = Get-MagnateVenvPython -RepoRoot $repoRoot
 $runtime = Assert-MagnateNode22Runtime -RepoRoot $repoRoot
+$cpuProfile = Get-MagnateLaptopRuntimeProfile `
+  -CpuTargetPercent $CpuTargetPercent `
+  -ReserveLogicalCores $ReserveLogicalCores
 $warmStart = Get-MagnateWarmStartPair -RepoRoot $repoRoot -AllowManifestFallback
 
 if ($null -eq $warmStart) {
@@ -26,6 +33,8 @@ Write-Host "[laptop] warmStartSource=$($warmStart.SourceLabel)"
 Write-Host "[laptop] warmStartRunId=$($warmStart.RunId)"
 Write-Host "[laptop] tempDir=$($cacheInfo.TempDir)"
 Write-Host "[laptop] threadCaps=OMP=$env:OMP_NUM_THREADS MKL=$env:MKL_NUM_THREADS OPENBLAS=$env:OPENBLAS_NUM_THREADS NUMEXPR=$env:NUMEXPR_NUM_THREADS"
+Write-Host "[laptop] cpuProfile=logical=$($cpuProfile.LogicalProcessors) physical=$($cpuProfile.PhysicalCores) targetPercent=$($cpuProfile.CpuTargetPercent) reserveLogicalCores=$($cpuProfile.ReserveLogicalCores) stageSlots=$($cpuProfile.StageSlots)"
+Write-Host "[laptop] runtimeProfile=collectWorkers=$($cpuProfile.CollectWorkers) evalWorkers=$($cpuProfile.EvalWorkers) incumbentEvalWorkers=$($cpuProfile.IncumbentEvalWorkers) trainThreads=$($cpuProfile.TrainThreads) trainInteropThreads=$($cpuProfile.TrainInteropThreads)"
 
 $command = @(
   $python,
@@ -38,15 +47,15 @@ $command = @(
   "--collect-games",
   "600",
   "--collect-workers",
-  "2",
+  "$($cpuProfile.CollectWorkers)",
   "--collect-progress-every-games",
   "10",
   "--train-steps",
   "10000",
   "--train-num-threads",
-  "4",
+  "$($cpuProfile.TrainThreads)",
   "--train-num-interop-threads",
-  "1",
+  "$($cpuProfile.TrainInteropThreads)",
   "--train-warm-start-value-checkpoint",
   $warmStart.ValuePath,
   "--train-warm-start-opponent-checkpoint",
@@ -54,7 +63,7 @@ $command = @(
   "--eval-games-per-side",
   "200",
   "--eval-workers",
-  "2",
+  "$($cpuProfile.EvalWorkers)",
   "--eval-worker-torch-threads",
   "1",
   "--eval-worker-torch-interop-threads",
@@ -64,7 +73,7 @@ $command = @(
   "--incumbent-eval-games-per-side",
   "200",
   "--incumbent-eval-workers",
-  "2",
+  "$($cpuProfile.IncumbentEvalWorkers)",
   "--progress-heartbeat-minutes",
   "30",
   "--eval-progress-log-minutes",
