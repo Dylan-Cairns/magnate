@@ -12,7 +12,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## Local Commands
 
-- Install JS deps: `yarn`
+- Install JS deps: `yarn install`
 - Dev server: `yarn dev`
 - Bridge runtime: `yarn bridge`
 - Test: `yarn test`
@@ -27,19 +27,63 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Artifact: `dist/` uploaded to GitHub Pages
 - One-time repo setting: in GitHub, set Pages source to `GitHub Actions`
 
-## Python Setup
+## Windows Laptop Setup
 
 From repo root:
 
-1. `./scripts/setup_python_env.ps1`
-2. `./.venv/Scripts/Activate.ps1`
+1. Install/use Node `22.12.0` with `nvm`:
+   `nvm install 22.12.0`
+   `nvm use 22.12.0`
+2. Install Yarn classic if needed:
+   `npm install -g yarn`
+3. Install JS deps:
+   `yarn install`
+4. Install Python deps:
+   `.\scripts\setup_python_env.ps1`
+5. Activate the venv when you want an interactive Python shell:
+   `.\.venv\Scripts\Activate.ps1`
 
-macOS/Linux equivalent:
+`setup_python_env.ps1` is the recommended Windows path for local training. It installs CPU-only PyTorch from the official CPU wheel index and routes temp/cache files into repo-local `.tmp/`, `.pip-cache/`, `.npm-cache/`, and `.yarn-cache/` folders so Windows installs do not explode the default temp directory.
+
+## macOS/Linux Python Setup
+
+Manual equivalent:
 
 1. `python3 -m venv .venv`
 2. `source .venv/bin/activate`
 3. `python -m pip install --upgrade pip`
-4. `python -m pip install -r requirements.txt`
+4. `python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r requirements.txt`
+
+## Windows Laptop Training
+
+Use the dedicated PowerShell wrappers so the laptop-safe worker/thread settings stay separate from the RunPod/Linux scripts.
+
+- Bootstrap/recalibration loop: `.\scripts\run_td_loop_bootstrap_laptop.ps1`
+- Self-play loop: `.\scripts\run_td_loop_selfplay_laptop.ps1`
+
+Both wrappers:
+
+- require Node `22.12.0+`, `yarn install`, and a populated `.venv`
+- set repo-local temp/cache dirs plus BLAS/OpenMP thread caps
+- log full output under `artifacts/logs/`
+- pin the Dell laptop profile:
+  - `collect-workers=2`
+  - `eval-workers=2`
+  - `incumbent-eval-workers=2` for self-play
+  - `train-num-threads=4`
+  - `train-num-interop-threads=1`
+
+To inspect the resolved command without running it:
+
+```powershell
+.\scripts\run_td_loop_selfplay_laptop.ps1 -DryRun
+```
+
+To override or append loop arguments, pass them via `-LoopArgs`. Later args win, so you can intentionally override the wrapper defaults:
+
+```powershell
+.\scripts\run_td_loop_selfplay_laptop.ps1 -LoopArgs @('--run-label', 'td-loop-selfplay-laptop-test', '--collect-games', '300')
+```
 
 ## RunPod Install (CPU)
 
@@ -54,7 +98,7 @@ cd /workspace/magnate
 
 apt-get update
 apt-get install -y curl ca-certificates gnupg
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs python3.11 python3.11-venv
 npm install -g yarn
 npm install -g npm@11.11.0
@@ -83,6 +127,7 @@ cd /workspace/magnate
 git pull --ff-only
 source .venv/bin/activate
 export TMPDIR=/workspace/tmp
+npm install -g yarn
 yarn install
 ```
 
@@ -119,7 +164,9 @@ With `.venv` active:
 - TD-search checkpoint eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --candidate-policy td-search --opponent-policy heuristic --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
 - Bootstrap/recalibration loop (local defaults): `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5`
 - Bootstrap/recalibration loop (cloud profile): `python -m scripts.run_td_loop --cloud --cloud-vcpus 16 --run-label td-loop-r2-overnight --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
+- Bootstrap/recalibration loop (Windows laptop wrapper): `.\scripts\run_td_loop_bootstrap_laptop.ps1`
 - Self-play loop automation (cloud profile): `python -m scripts.run_td_loop_selfplay --cloud --cloud-vcpus 16 --run-label td-loop-selfplay-r1 --chunks-per-loop 18 --collect-games 600 --train-steps 10000 --eval-games-per-side 200 --incumbent-eval-games-per-side 200 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
+- Self-play loop automation (Windows laptop wrapper): `.\scripts\run_td_loop_selfplay_laptop.ps1`
 
 Use `--help` on each script for full options.
 

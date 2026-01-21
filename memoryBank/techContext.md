@@ -2,7 +2,7 @@
 
 ## Stack
 
-- Node.js 22 LTS
+- Node.js 22.12+ LTS
 - TypeScript (strict)
 - React + Vite
 - Vitest
@@ -21,9 +21,9 @@
 
 - Package manager: Yarn
 - JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
-- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` runs on pushes to `main` (and manual dispatch), then gates deployment on `yarn test` + `yarn lint` before `yarn build`.
+- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` runs on pushes to `main` (and manual dispatch), then gates deployment on `yarn test` + `yarn lint` before `yarn build` using Node `22.12.0`.
 - Python bootstrap:
-  - `scripts/setup_python_env.ps1`
+  - `scripts/setup_python_env.ps1` (Windows local path; CPU-only PyTorch install via the official CPU wheel index, repo-local temp/cache dirs)
   - `./.venv/Scripts/Activate.ps1`
 - Active Python entrypoints:
   - `python -m scripts.eval`
@@ -32,6 +32,8 @@
   - `python -m scripts.generate_teacher_data` (teacher policy must support root action probabilities for label generation)
   - `python -m scripts.run_td_loop` (bootstrap/recalibration loop: chunked collect/train -> multi-window promotion eval orchestration with pooled promotion checks; `--chunks-per-loop`, `--collect-workers`, `--eval-workers`, `--eval-seed-start-indices`; `--cloud --cloud-vcpus 8|16|32` applies preset worker/thread profile; `--progress-heartbeat-minutes` uses minute-based stage heartbeats; `--train-value-target-mode td-lambda` enables TD(lambda) path; default `--promotion-min-ci-low` is `0.5`; replay regime `chunk-local`)
   - `python -m scripts.run_td_loop_selfplay` (primary post-bootstrap loop: mixed td-search-heavy collection, promoted opponent pool usage, and dual promotion gates vs fixed `search` baseline plus incumbent `td-search`; defaults to `18` chunks before promotion eval; replay regime `chunk-local-selfplay-mixed`)
+  - `.\scripts\run_td_loop_bootstrap_laptop.ps1` (Windows laptop wrapper: temp/cache env setup, manifest-backed warm-start fallback, `collect-workers=2`, `eval-workers=2`, `train-num-threads=4`)
+  - `.\scripts\run_td_loop_selfplay_laptop.ps1` (Windows laptop wrapper: temp/cache env setup, manifest-backed warm start, `collect-workers=2`, `eval-workers=2`, `incumbent-eval-workers=2`, `train-num-threads=4`)
   - `python -m scripts.resume_td_loop_run` (resume from interrupted chunk-003 training + promotion eval; supports cloud/thread scaling overrides via `--cloud --cloud-vcpus 8|16|32`, `--train-num-threads`, `--train-num-interop-threads`, and `--eval-workers`)
   - `python -m scripts.smoke_trainer`
 
