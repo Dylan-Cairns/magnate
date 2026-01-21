@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $repoRoot = Get-MagnateRepoRoot -ScriptRoot $PSScriptRoot
 $cacheInfo = Initialize-MagnateLocalCaches -RepoRoot $repoRoot
 $venvPath = Join-Path $repoRoot ".venv"
-$requirementsPath = Join-Path $repoRoot "requirements.txt"
+$requirementsPath = Join-Path $repoRoot "requirements-dev.txt"
 $venvPython = Join-Path $venvPath "Scripts\python.exe"
 $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
 
@@ -50,5 +50,6 @@ if (-not $SkipTorchVerification) {
 Write-Host ""
 Write-Host "Python environment is ready."
 Write-Host "Activate with: .\.venv\Scripts\Activate.ps1"
+Write-Host "Python lint: .\.venv\Scripts\python.exe -m ruff check scripts trainer trainer_tests"
 Write-Host "Use Node 22.12.0+ in this shell before running yarn or training wrappers: nvm use 22.12.0"
 Write-Host "JS dependencies remain a separate step: yarn install"

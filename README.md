@@ -17,6 +17,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Bridge runtime: `yarn bridge`
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
+- Python lint: `python -m ruff check scripts trainer trainer_tests`
 - Format: `yarn format`
 
 ## GitHub Pages Deploy
@@ -43,7 +44,7 @@ From repo root:
 5. Activate the venv when you want an interactive Python shell:
    `.\.venv\Scripts\Activate.ps1`
 
-`setup_python_env.ps1` is the recommended Windows path for local training. It installs CPU-only PyTorch from the official CPU wheel index and routes temp/cache files into repo-local `.tmp/`, `.pip-cache/`, `.npm-cache/`, and `.yarn-cache/` folders so Windows installs do not explode the default temp directory.
+`setup_python_env.ps1` is the recommended Windows path for local training. It installs the Python dev environment from `requirements-dev.txt` (including Ruff), installs CPU-only PyTorch from the official CPU wheel index, and routes temp/cache files into repo-local `.tmp/`, `.pip-cache/`, `.npm-cache/`, and `.yarn-cache/` folders so Windows installs do not explode the default temp directory.
 
 ## macOS/Linux Python Setup
 
@@ -52,7 +53,7 @@ Manual equivalent:
 1. `python3 -m venv .venv`
 2. `source .venv/bin/activate`
 3. `python -m pip install --upgrade pip`
-4. `python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r requirements.txt`
+4. `python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r requirements-dev.txt`
 
 ## Windows Laptop Training
 
@@ -123,13 +124,13 @@ cd /workspace/magnate
 apt-get update
 apt-get install -y curl ca-certificates gnupg
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs python3.11 python3.11-venv
+apt-get install -y nodejs python3.12 python3.12-venv
 npm install -g yarn
 npm install -g npm@11.11.0
 
 yarn install
 
-python3.11 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 
@@ -178,6 +179,8 @@ tmux new -s train
 With `.venv` active:
 
 - Smoke: `python -m scripts.smoke_trainer`
+- Python lint: `python -m ruff check scripts trainer trainer_tests`
+- Python lint autofix: `python -m ruff check --fix scripts trainer trainer_tests`
 - Canonical side-swapped eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
 - Manual promotion-style eval: `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy td-search --opponent-policy search --td-search-value-checkpoint artifacts/td_checkpoints/<run>/value-step-0002000.pt --td-search-opponent-checkpoint artifacts/td_checkpoints/<run>/opponent-step-0002000.pt`
 - Search sweep: `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse`

@@ -491,7 +491,7 @@ def _metric_or_na(value: float | None) -> str:
 
 def _require_supported_runtime() -> None:
     if sys.version_info < (3, 11):
-        raise SystemExit("Python 3.11+ is required.")
+        raise SystemExit("Python 3.12+ is required.")
     if sys.prefix == sys.base_prefix:
         raise SystemExit("Run this script from the project virtual environment (.venv).")
 
