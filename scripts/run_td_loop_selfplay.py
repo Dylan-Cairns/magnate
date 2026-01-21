@@ -7,7 +7,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from math import sqrt
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -27,6 +26,15 @@ from scripts.td_loop_common import (
     run_step,
     select_latest_checkpoint,
 )
+from scripts.td_loop_selfplay_common import (
+    EvalRow,
+    _build_eval_command_vs_incumbent,
+    _build_eval_command_vs_search,
+    _eval_payload,
+    _pool_eval_rows,
+    _promotion_decision,
+    _read_eval_row,
+)
 
 REPLAY_REGIME = "chunk-local-selfplay-mixed"
 
@@ -42,19 +50,34 @@ class CollectProfile:
 
 
 @dataclass(frozen=True)
-class EvalRow:
-    artifact: Path
-    opponent_policy: str
-    candidate_win_rate: float
-    ci_low: float
-    ci_high: float
-    side_gap: float
-    candidate_wins: int
-    opponent_wins: int
-    draws: int
-    total_games: int
-    candidate_win_rate_as_player_a: float
-    candidate_win_rate_as_player_b: float
+class RunContext:
+    run_id: str
+    run_dir: Path
+    chunks_dir: Path
+    eval_dir: Path
+    loop_summary_path: Path
+    progress_path: Path
+    incumbent_checkpoint: PoolCheckpoint
+    latest_checkpoint: LoopCheckpoint
+    loop_started: float
+
+
+@dataclass(frozen=True)
+class ChunkExecutionResult:
+    chunk_label: str
+    latest_checkpoint: LoopCheckpoint
+    command_row: Dict[str, Any]
+    chunk_row: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PromotionStageResult:
+    baseline_windows: List[Dict[str, Any]]
+    incumbent_windows: List[Dict[str, Any]]
+    pooled_baseline: EvalRow
+    pooled_incumbent: EvalRow
+    promotion: Dict[str, Any]
+    commands: Dict[str, Any]
 
 
 def parse_args() -> argparse.Namespace:
@@ -212,7 +235,52 @@ def main() -> int:
         _apply_cloud_profile(args)
     _require_supported_runtime(args.python_bin)
     _validate_args(args)
+    return run_selfplay_loop(args)
 
+
+def run_selfplay_loop(args: argparse.Namespace) -> int:
+    context = initialize_selfplay_run(args)
+    commands: Dict[str, Any] = {"chunks": []}
+    chunk_rows: List[Dict[str, Any]] = []
+    latest_checkpoint = context.latest_checkpoint
+
+    for chunk_index in range(1, args.chunks_per_loop + 1):
+        chunk_result = run_selfplay_chunk(
+            args=args,
+            run_id=context.run_id,
+            chunk_index=chunk_index,
+            chunks_dir=context.chunks_dir,
+            latest_checkpoint=latest_checkpoint,
+            progress_path=context.progress_path,
+        )
+        latest_checkpoint = chunk_result.latest_checkpoint
+        commands["chunks"].append(chunk_result.command_row)
+        chunk_rows.append(chunk_result.chunk_row)
+
+    promotion_stage = run_promotion_stage(
+        args=args,
+        eval_dir=context.eval_dir,
+        latest_checkpoint=latest_checkpoint,
+        incumbent_checkpoint=context.incumbent_checkpoint,
+        progress_path=context.progress_path,
+    )
+    commands["promotionEvals"] = promotion_stage.commands
+
+    loop_elapsed_minutes = (time.perf_counter() - context.loop_started) / 60.0
+    payload = build_selfplay_loop_summary(
+        args=args,
+        context=context,
+        commands=commands,
+        chunk_rows=chunk_rows,
+        promotion_stage=promotion_stage,
+        elapsed_minutes=loop_elapsed_minutes,
+    )
+    context.loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(json.dumps(build_selfplay_terminal_report(context=context, promotion_stage=promotion_stage), indent=2))
+    return 0
+
+
+def initialize_selfplay_run(args: argparse.Namespace) -> RunContext:
     promoted_pool = load_promoted_checkpoints(
         artifact_dir=args.artifact_dir,
         max_entries=args.collect_opponent_pool_size,
@@ -236,107 +304,127 @@ def main() -> int:
     for path in (run_dir, chunks_dir, eval_dir):
         path.mkdir(parents=True, exist_ok=True)
 
-    loop_started = time.perf_counter()
-    commands: Dict[str, Any] = {"chunks": []}
-    chunk_rows: List[Dict[str, Any]] = []
-
-    latest_checkpoint = LoopCheckpoint(
-        step=0,
-        value_path=warm_value,
-        opponent_path=warm_opponent,
+    return RunContext(
+        run_id=run_id,
+        run_dir=run_dir,
+        chunks_dir=chunks_dir,
+        eval_dir=eval_dir,
+        loop_summary_path=loop_summary_path,
+        progress_path=progress_path,
+        incumbent_checkpoint=incumbent_checkpoint,
+        latest_checkpoint=LoopCheckpoint(
+            step=0,
+            value_path=warm_value,
+            opponent_path=warm_opponent,
+        ),
+        loop_started=time.perf_counter(),
     )
 
-    for chunk_index in range(1, args.chunks_per_loop + 1):
-        chunk_label = f"chunk-{chunk_index:03d}"
-        chunk_dir = chunks_dir / chunk_label
-        replay_dir = chunk_dir / "replay"
-        train_dir = chunk_dir / "train"
-        for path in (chunk_dir, replay_dir, train_dir):
-            path.mkdir(parents=True, exist_ok=True)
 
-        collect_value_path = replay_dir / "self_play.value.jsonl"
-        collect_opponent_path = replay_dir / "self_play.opponent.jsonl"
-        collect_summary_path = replay_dir / "self_play.summary.json"
+def run_selfplay_chunk(
+    *,
+    args: argparse.Namespace,
+    run_id: str,
+    chunk_index: int,
+    chunks_dir: Path,
+    latest_checkpoint: LoopCheckpoint,
+    progress_path: Path,
+) -> ChunkExecutionResult:
+    chunk_label = f"chunk-{chunk_index:03d}"
+    chunk_dir = chunks_dir / chunk_label
+    replay_dir = chunk_dir / "replay"
+    train_dir = chunk_dir / "train"
+    for path in (chunk_dir, replay_dir, train_dir):
+        path.mkdir(parents=True, exist_ok=True)
 
-        promoted_pool = load_promoted_checkpoints(
-            artifact_dir=args.artifact_dir,
-            max_entries=args.collect_opponent_pool_size,
-            require_paths=True,
-        )
-        collect_profiles = _build_collect_profiles(
-            args=args,
-            candidate=PoolCheckpoint(
-                run_id=run_id,
-                generated_at_utc=datetime.now(timezone.utc).isoformat(),
-                value_path=latest_checkpoint.value_path,
-                opponent_path=latest_checkpoint.opponent_path,
-            ),
-            promoted_pool=promoted_pool,
-        )
-        collect_commands = _run_collect_profiles(
-            python_bin=args.python_bin,
-            args=args,
-            profiles=collect_profiles,
-            replay_dir=replay_dir,
-            run_id=f"{run_id}-{chunk_label}",
-            collect_value_path=collect_value_path,
-            collect_opponent_path=collect_opponent_path,
-            collect_summary_path=collect_summary_path,
-            heartbeat_minutes=args.progress_heartbeat_minutes,
-            progress_path=progress_path,
-        )
+    collect_value_path = replay_dir / "self_play.value.jsonl"
+    collect_opponent_path = replay_dir / "self_play.opponent.jsonl"
+    collect_summary_path = replay_dir / "self_play.summary.json"
+    train_summary_path = train_dir / "summary.json"
+    train_checkpoint_root = train_dir / "checkpoints"
 
-        train_summary_path = train_dir / "summary.json"
-        train_checkpoint_root = train_dir / "checkpoints"
-        train_command = build_train_command(
-            python_bin=args.python_bin,
-            args=args,
-            value_replay=collect_value_path,
-            opponent_replay=collect_opponent_path,
-            train_summary_path=train_summary_path,
-            train_checkpoint_root=train_checkpoint_root,
-            run_id=f"{run_id}-{chunk_label}",
-            warm_start_value=latest_checkpoint.value_path,
-            warm_start_opponent=latest_checkpoint.opponent_path,
-        )
-        run_step(
-            name=f"train[{chunk_label}]",
-            command=train_command,
-            heartbeat_minutes=args.progress_heartbeat_minutes,
-            progress_path=progress_path,
-            log_prefix="[td-loop-selfplay]",
-        )
+    promoted_pool = load_promoted_checkpoints(
+        artifact_dir=args.artifact_dir,
+        max_entries=args.collect_opponent_pool_size,
+        require_paths=True,
+    )
+    collect_profiles = _build_collect_profiles(
+        args=args,
+        candidate=PoolCheckpoint(
+            run_id=run_id,
+            generated_at_utc=datetime.now(timezone.utc).isoformat(),
+            value_path=latest_checkpoint.value_path,
+            opponent_path=latest_checkpoint.opponent_path,
+        ),
+        promoted_pool=promoted_pool,
+    )
+    collect_commands = _run_collect_profiles(
+        python_bin=args.python_bin,
+        args=args,
+        profiles=collect_profiles,
+        replay_dir=replay_dir,
+        run_id=f"{run_id}-{chunk_label}",
+        collect_value_path=collect_value_path,
+        collect_opponent_path=collect_opponent_path,
+        collect_summary_path=collect_summary_path,
+        heartbeat_minutes=args.progress_heartbeat_minutes,
+        progress_path=progress_path,
+    )
+    train_command = build_train_command(
+        python_bin=args.python_bin,
+        args=args,
+        value_replay=collect_value_path,
+        opponent_replay=collect_opponent_path,
+        train_summary_path=train_summary_path,
+        train_checkpoint_root=train_checkpoint_root,
+        run_id=f"{run_id}-{chunk_label}",
+        warm_start_value=latest_checkpoint.value_path,
+        warm_start_opponent=latest_checkpoint.opponent_path,
+    )
+    run_step(
+        name=f"train[{chunk_label}]",
+        command=train_command,
+        heartbeat_minutes=args.progress_heartbeat_minutes,
+        progress_path=progress_path,
+        log_prefix="[td-loop-selfplay]",
+    )
 
-        train_summary = read_json(
-            train_summary_path, label=f"train summary {chunk_label}"
-        )
-        checkpoints = checkpoints_from_train_summary(train_summary)
-        latest_checkpoint = select_latest_checkpoint(
-            checkpoints=checkpoints,
-            candidate_policy="td-search",
-        )
+    train_summary = read_json(train_summary_path, label=f"train summary {chunk_label}")
+    checkpoints = checkpoints_from_train_summary(train_summary)
+    next_checkpoint = select_latest_checkpoint(
+        checkpoints=checkpoints,
+        candidate_policy="td-search",
+    )
+    return ChunkExecutionResult(
+        chunk_label=chunk_label,
+        latest_checkpoint=next_checkpoint,
+        command_row={
+            "chunk": chunk_label,
+            "collectProfiles": collect_commands,
+            "train": train_command,
+        },
+        chunk_row={
+            "chunk": chunk_label,
+            "replayRegime": REPLAY_REGIME,
+            "collectSummary": str(collect_summary_path),
+            "trainSummary": str(train_summary_path),
+            "latestCheckpoint": {
+                "step": next_checkpoint.step,
+                "value": str(next_checkpoint.value_path),
+                "opponent": str(next_checkpoint.opponent_path),
+            },
+        },
+    )
 
-        commands["chunks"].append(
-            {
-                "chunk": chunk_label,
-                "collectProfiles": collect_commands,
-                "train": train_command,
-            }
-        )
-        chunk_rows.append(
-            {
-                "chunk": chunk_label,
-                "replayRegime": REPLAY_REGIME,
-                "collectSummary": str(collect_summary_path),
-                "trainSummary": str(train_summary_path),
-                "latestCheckpoint": {
-                    "step": latest_checkpoint.step,
-                    "value": str(latest_checkpoint.value_path),
-                    "opponent": str(latest_checkpoint.opponent_path),
-                },
-            }
-        )
 
+def run_promotion_stage(
+    *,
+    args: argparse.Namespace,
+    eval_dir: Path,
+    latest_checkpoint: LoopCheckpoint,
+    incumbent_checkpoint: PoolCheckpoint,
+    progress_path: Path,
+) -> PromotionStageResult:
     baseline_windows = _run_eval_windows_vs_search(
         args=args,
         python_bin=args.python_bin,
@@ -352,21 +440,10 @@ def main() -> int:
         incumbent=incumbent_checkpoint,
         progress_path=progress_path,
     )
-    commands["promotionEvals"] = {
-        "baselineVsSearch": [window["command"] for window in baseline_windows],
-        "candidateVsIncumbent": [window["command"] for window in incumbent_windows],
-    }
-
     baseline_rows = [window["row"] for window in baseline_windows]
     incumbent_rows = [window["row"] for window in incumbent_windows]
-    pooled_baseline = _pool_eval_rows(
-        eval_rows=baseline_rows,
-        opponent_policy="search",
-    )
-    pooled_incumbent = _pool_eval_rows(
-        eval_rows=incumbent_rows,
-        opponent_policy="td-search",
-    )
+    pooled_baseline = _pool_eval_rows(eval_rows=baseline_rows, opponent_policy="search")
+    pooled_incumbent = _pool_eval_rows(eval_rows=incumbent_rows, opponent_policy="td-search")
     promotion = _promotion_decision(
         baseline_eval=pooled_baseline,
         baseline_windows=baseline_rows,
@@ -374,51 +451,82 @@ def main() -> int:
         incumbent_windows=incumbent_rows,
         args=args,
     )
+    return PromotionStageResult(
+        baseline_windows=baseline_windows,
+        incumbent_windows=incumbent_windows,
+        pooled_baseline=pooled_baseline,
+        pooled_incumbent=pooled_incumbent,
+        promotion=promotion,
+        commands={
+            "baselineVsSearch": [window["command"] for window in baseline_windows],
+            "candidateVsIncumbent": [window["command"] for window in incumbent_windows],
+        },
+    )
 
-    loop_elapsed_minutes = (time.perf_counter() - loop_started) / 60.0
-    payload: Dict[str, Any] = {
+
+def build_selfplay_loop_summary(
+    *,
+    args: argparse.Namespace,
+    context: RunContext,
+    commands: Dict[str, Any],
+    chunk_rows: Sequence[Dict[str, Any]],
+    promotion_stage: PromotionStageResult,
+    elapsed_minutes: float,
+) -> Dict[str, Any]:
+    baseline_rows = [window["row"] for window in promotion_stage.baseline_windows]
+    incumbent_rows = [window["row"] for window in promotion_stage.incumbent_windows]
+    return {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "runId": run_id,
-        "elapsedMinutes": round(loop_elapsed_minutes, 3),
+        "runId": context.run_id,
+        "elapsedMinutes": round(elapsed_minutes, 3),
         "config": _config_payload(args),
         "commands": commands,
         "artifacts": {
-            "runDir": str(run_dir),
-            "loopSummary": str(loop_summary_path),
-            "progress": str(progress_path),
-            "chunksDir": str(chunks_dir),
-            "evalDir": str(eval_dir),
+            "runDir": str(context.run_dir),
+            "loopSummary": str(context.loop_summary_path),
+            "progress": str(context.progress_path),
+            "chunksDir": str(context.chunks_dir),
+            "evalDir": str(context.eval_dir),
         },
-        "chunks": chunk_rows,
+        "chunks": list(chunk_rows),
         "evaluation": {
-            "baselineVsSearch": _eval_payload(args.eval_seed_start_indices, baseline_rows, pooled_baseline),
+            "baselineVsSearch": _eval_payload(
+                args.eval_seed_start_indices,
+                baseline_rows,
+                promotion_stage.pooled_baseline,
+            ),
             "candidateVsIncumbent": _eval_payload(
                 args.incumbent_eval_seed_start_indices,
                 incumbent_rows,
-                pooled_incumbent,
+                promotion_stage.pooled_incumbent,
             ),
         },
-        "promotion": promotion,
+        "promotion": promotion_stage.promotion,
     }
-    loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    print(
-        json.dumps(
-            {
-                "runId": run_id,
-                "runDir": str(run_dir),
-                "loopSummary": str(loop_summary_path),
-                "baselineWinRate": pooled_baseline.candidate_win_rate,
-                "baselineCi95": {"low": pooled_baseline.ci_low, "high": pooled_baseline.ci_high},
-                "incumbentWinRate": pooled_incumbent.candidate_win_rate,
-                "incumbentCi95": {"low": pooled_incumbent.ci_low, "high": pooled_incumbent.ci_high},
-                "promoted": bool(promotion["promoted"]),
-                "promotionReason": promotion["reason"],
-            },
-            indent=2,
-        )
-    )
-    return 0
+
+def build_selfplay_terminal_report(
+    *,
+    context: RunContext,
+    promotion_stage: PromotionStageResult,
+) -> Dict[str, Any]:
+    return {
+        "runId": context.run_id,
+        "runDir": str(context.run_dir),
+        "loopSummary": str(context.loop_summary_path),
+        "baselineWinRate": promotion_stage.pooled_baseline.candidate_win_rate,
+        "baselineCi95": {
+            "low": promotion_stage.pooled_baseline.ci_low,
+            "high": promotion_stage.pooled_baseline.ci_high,
+        },
+        "incumbentWinRate": promotion_stage.pooled_incumbent.candidate_win_rate,
+        "incumbentCi95": {
+            "low": promotion_stage.pooled_incumbent.ci_low,
+            "high": promotion_stage.pooled_incumbent.ci_high,
+        },
+        "promoted": bool(promotion_stage.promotion["promoted"]),
+        "promotionReason": promotion_stage.promotion["reason"],
+    }
 
 
 def _resolve_warm_start(
@@ -1003,286 +1111,6 @@ def _run_eval_windows_vs_incumbent(
     return rows
 
 
-def _build_eval_command_vs_search(
-    *,
-    python_bin: Path,
-    args: argparse.Namespace,
-    checkpoint: LoopCheckpoint,
-    out_path: Path,
-    seed_prefix: str,
-    seed_start_index: int,
-    workers: int,
-    games_per_side: int,
-) -> List[str]:
-    command = [
-        str(python_bin),
-        "-m",
-        "scripts.eval_suite",
-        "--mode",
-        "certify",
-        "--games-per-side",
-        str(games_per_side),
-        "--workers",
-        str(workers),
-        "--seed-prefix",
-        seed_prefix,
-        "--seed-start-index",
-        str(seed_start_index),
-        "--candidate-policy",
-        "td-search",
-        "--opponent-policy",
-        "search",
-        "--search-worlds",
-        str(args.eval_search_worlds),
-        "--search-rollouts",
-        str(args.eval_search_rollouts),
-        "--search-depth",
-        str(args.eval_search_depth),
-        "--search-max-root-actions",
-        str(args.eval_search_max_root_actions),
-        "--search-rollout-epsilon",
-        str(args.eval_search_rollout_epsilon),
-        "--td-worlds",
-        str(args.eval_td_worlds),
-        "--progress-every-games",
-        str(args.eval_progress_every_games),
-        "--progress-log-minutes",
-        str(args.eval_progress_log_minutes),
-        "--worker-torch-threads",
-        str(args.eval_worker_torch_threads),
-        "--worker-torch-interop-threads",
-        str(args.eval_worker_torch_interop_threads),
-        "--worker-blas-threads",
-        str(args.eval_worker_blas_threads),
-        "--out",
-        str(out_path),
-        "--td-search-value-checkpoint",
-        str(checkpoint.value_path),
-        "--td-search-opponent-checkpoint",
-        str(checkpoint.opponent_path),
-        "--td-search-opponent-temperature",
-        str(args.eval_td_search_opponent_temperature),
-    ]
-    if args.eval_td_search_sample_opponent_actions:
-        command.append("--td-search-sample-opponent-actions")
-    return command
-
-
-def _build_eval_command_vs_incumbent(
-    *,
-    python_bin: Path,
-    args: argparse.Namespace,
-    checkpoint: LoopCheckpoint,
-    incumbent: PoolCheckpoint,
-    out_path: Path,
-    seed_prefix: str,
-    seed_start_index: int,
-    workers: int,
-    games_per_side: int,
-) -> List[str]:
-    command = [
-        str(python_bin),
-        "-m",
-        "scripts.eval_suite",
-        "--mode",
-        "certify",
-        "--games-per-side",
-        str(games_per_side),
-        "--workers",
-        str(workers),
-        "--seed-prefix",
-        seed_prefix,
-        "--seed-start-index",
-        str(seed_start_index),
-        "--candidate-policy",
-        "td-search",
-        "--opponent-policy",
-        "td-search",
-        "--search-worlds",
-        str(args.eval_search_worlds),
-        "--search-rollouts",
-        str(args.eval_search_rollouts),
-        "--search-depth",
-        str(args.eval_search_depth),
-        "--search-max-root-actions",
-        str(args.eval_search_max_root_actions),
-        "--search-rollout-epsilon",
-        str(args.eval_search_rollout_epsilon),
-        "--td-worlds",
-        str(args.eval_td_worlds),
-        "--progress-every-games",
-        str(args.eval_progress_every_games),
-        "--progress-log-minutes",
-        str(args.eval_progress_log_minutes),
-        "--worker-torch-threads",
-        str(args.eval_worker_torch_threads),
-        "--worker-torch-interop-threads",
-        str(args.eval_worker_torch_interop_threads),
-        "--worker-blas-threads",
-        str(args.eval_worker_blas_threads),
-        "--out",
-        str(out_path),
-        "--candidate-td-search-value-checkpoint",
-        str(checkpoint.value_path),
-        "--candidate-td-search-opponent-checkpoint",
-        str(checkpoint.opponent_path),
-        "--opponent-td-search-value-checkpoint",
-        str(incumbent.value_path),
-        "--opponent-td-search-opponent-checkpoint",
-        str(incumbent.opponent_path),
-        "--td-search-opponent-temperature",
-        str(args.eval_td_search_opponent_temperature),
-    ]
-    if args.eval_td_search_sample_opponent_actions:
-        command.append("--td-search-sample-opponent-actions")
-    return command
-
-
-def _read_eval_row(path: Path, *, opponent_policy: str) -> EvalRow:
-    payload = read_json(path, label=f"eval artifact {path.name}")
-    results = payload.get("results")
-    if not isinstance(results, dict):
-        raise SystemExit(f"Eval artifact is missing results payload: {path}")
-    return EvalRow(
-        artifact=path,
-        opponent_policy=opponent_policy,
-        candidate_win_rate=float(results["candidateWinRate"]),
-        ci_low=float(results["candidateWinRateCi95"]["low"]),
-        ci_high=float(results["candidateWinRateCi95"]["high"]),
-        side_gap=float(results["sideGap"]),
-        candidate_wins=int(results["candidateWins"]),
-        opponent_wins=int(results["opponentWins"]),
-        draws=int(results["draws"]),
-        total_games=int(results["totalGames"]),
-        candidate_win_rate_as_player_a=float(results["candidateWinRateAsPlayerA"]),
-        candidate_win_rate_as_player_b=float(results["candidateWinRateAsPlayerB"]),
-    )
-
-
-def _pool_eval_rows(*, eval_rows: Sequence[EvalRow], opponent_policy: str) -> EvalRow:
-    total_games = sum(row.total_games for row in eval_rows)
-    if total_games <= 0:
-        raise SystemExit("Pooled eval total games must be > 0.")
-
-    candidate_wins = sum(row.candidate_wins for row in eval_rows)
-    opponent_wins = sum(row.opponent_wins for row in eval_rows)
-    draws = sum(row.draws for row in eval_rows)
-    candidate_win_rate = float(candidate_wins) / float(total_games)
-    ci_low, ci_high = _wilson_interval_95(successes=candidate_wins, trials=total_games)
-    weighted_rate_a = (
-        sum(row.candidate_win_rate_as_player_a * row.total_games for row in eval_rows)
-        / float(total_games)
-    )
-    weighted_rate_b = (
-        sum(row.candidate_win_rate_as_player_b * row.total_games for row in eval_rows)
-        / float(total_games)
-    )
-    return EvalRow(
-        artifact=Path("pooled"),
-        opponent_policy=opponent_policy,
-        candidate_win_rate=candidate_win_rate,
-        ci_low=ci_low,
-        ci_high=ci_high,
-        side_gap=abs(weighted_rate_a - weighted_rate_b),
-        candidate_wins=candidate_wins,
-        opponent_wins=opponent_wins,
-        draws=draws,
-        total_games=total_games,
-        candidate_win_rate_as_player_a=weighted_rate_a,
-        candidate_win_rate_as_player_b=weighted_rate_b,
-    )
-
-
-def _promotion_decision(
-    *,
-    baseline_eval: EvalRow,
-    baseline_windows: Sequence[EvalRow],
-    incumbent_eval: EvalRow,
-    incumbent_windows: Sequence[EvalRow],
-    args: argparse.Namespace,
-) -> Dict[str, Any]:
-    baseline_window_checks = [
-        {
-            "artifact": str(row.artifact),
-            "sideGap": row.side_gap,
-            "maxWindowSideGap": row.side_gap <= args.promotion_max_window_side_gap,
-        }
-        for row in baseline_windows
-    ]
-    baseline_checks = {
-        "minWinRate": baseline_eval.candidate_win_rate >= args.promotion_min_win_rate,
-        "maxSideGap": baseline_eval.side_gap <= args.promotion_max_side_gap,
-        "minCiLow": baseline_eval.ci_low >= args.promotion_min_ci_low,
-        "maxWindowSideGap": all(
-            window_check["maxWindowSideGap"] for window_check in baseline_window_checks
-        ),
-    }
-
-    incumbent_window_checks = [
-        {
-            "artifact": str(row.artifact),
-            "sideGap": row.side_gap,
-            "maxWindowSideGap": row.side_gap <= args.promotion_incumbent_max_window_side_gap,
-        }
-        for row in incumbent_windows
-    ]
-    incumbent_checks = {
-        "minWinRate": incumbent_eval.candidate_win_rate >= args.promotion_incumbent_min_win_rate,
-        "maxSideGap": incumbent_eval.side_gap <= args.promotion_incumbent_max_side_gap,
-        "minCiLow": incumbent_eval.ci_low >= args.promotion_incumbent_min_ci_low,
-        "maxWindowSideGap": all(
-            window_check["maxWindowSideGap"] for window_check in incumbent_window_checks
-        ),
-    }
-    promoted = bool(all(baseline_checks.values()) and all(incumbent_checks.values()))
-    return {
-        "promoted": promoted,
-        "checks": {
-            "baselineVsSearch": baseline_checks,
-            "candidateVsIncumbent": incumbent_checks,
-        },
-        "windowChecks": {
-            "baselineVsSearch": baseline_window_checks,
-            "candidateVsIncumbent": incumbent_window_checks,
-        },
-        "reason": "dual_gate_passed" if promoted else "dual_gate_failed",
-    }
-
-
-def _eval_payload(
-    seed_indices: Sequence[int], rows: Sequence[EvalRow], pooled: EvalRow
-) -> Dict[str, Any]:
-    return {
-        "windows": [
-            {
-                "seedStartIndex": seed_start_index,
-                "artifact": str(row.artifact),
-                "candidateWinRate": row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
-                "candidateWinRateAsPlayerA": row.candidate_win_rate_as_player_a,
-                "candidateWinRateAsPlayerB": row.candidate_win_rate_as_player_b,
-                "sideGap": row.side_gap,
-                "candidateWins": row.candidate_wins,
-                "opponentWins": row.opponent_wins,
-                "draws": row.draws,
-                "totalGames": row.total_games,
-            }
-            for seed_start_index, row in zip(seed_indices, rows)
-        ],
-        "pooled": {
-            "candidateWinRate": pooled.candidate_win_rate,
-            "candidateWinRateCi95": {"low": pooled.ci_low, "high": pooled.ci_high},
-            "candidateWinRateAsPlayerA": pooled.candidate_win_rate_as_player_a,
-            "candidateWinRateAsPlayerB": pooled.candidate_win_rate_as_player_b,
-            "sideGap": pooled.side_gap,
-            "candidateWins": pooled.candidate_wins,
-            "opponentWins": pooled.opponent_wins,
-            "draws": pooled.draws,
-            "totalGames": pooled.total_games,
-        },
-    }
-
-
 def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "pythonBin": str(args.python_bin),
@@ -1476,24 +1304,6 @@ def _validate_args(args: argparse.Namespace) -> None:
 
 def _slug(value: str) -> str:
     return "".join(ch if ch.isalnum() else "-" for ch in value.strip().lower()).strip("-") or "run"
-
-
-def _wilson_interval_95(*, successes: int, trials: int) -> tuple[float, float]:
-    if trials <= 0:
-        raise SystemExit("Wilson interval requires trials > 0.")
-    p_hat = float(successes) / float(trials)
-    z = 1.959963984540054
-    z2_over_n = (z * z) / float(trials)
-    denom = 1.0 + z2_over_n
-    center = (p_hat + (z * z) / (2.0 * float(trials))) / denom
-    margin = (
-        z
-        * sqrt((p_hat * (1.0 - p_hat) / float(trials)) + ((z * z) / (4.0 * float(trials) * float(trials))))
-        / denom
-    )
-    low = max(0.0, center - margin)
-    high = min(1.0, center + margin)
-    return low, high
 
 
 if __name__ == "__main__":
