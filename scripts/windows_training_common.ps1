@@ -165,7 +165,6 @@ function Get-MagnateLaptopRuntimeProfile {
     )
   )
   $stageSlots = [Math]::Min($availableBudget, $targetSlots)
-
   return [pscustomobject]@{
     LogicalProcessors = $logicalProcessors
     PhysicalCores = $physicalCores
