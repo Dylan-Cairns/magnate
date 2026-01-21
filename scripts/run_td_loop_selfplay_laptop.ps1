@@ -49,7 +49,7 @@ $command = @(
   "--collect-workers",
   "$($cpuProfile.CollectWorkers)",
   "--collect-progress-every-games",
-  "10",
+  "3",
   "--train-steps",
   "10000",
   "--train-num-threads",

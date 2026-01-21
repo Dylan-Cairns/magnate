@@ -22,6 +22,7 @@
 - Browser bootstrap now renders an immediate loading shell from `index.html` and lazy-loads the React `App` module, so first paint is no longer gated on eager engine/policy module evaluation.
 - GitHub Pages deploy automation is now in place via `.github/workflows/deploy_pages.yml` (push to `main`, gated by `yarn test` + `yarn lint`).
 - Bridge runtime commands are stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
+- Python bridge client now drains bridge stderr in a background thread to avoid long-run Windows pipe stalls during self-play collection.
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.
 - TD pipeline is operational:

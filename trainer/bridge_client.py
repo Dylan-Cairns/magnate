@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 import json
 import os
 import subprocess
@@ -35,7 +36,10 @@ class BridgeClient:
         self._cwd = Path(cwd) if cwd else Path(__file__).resolve().parents[1]
         self._command = list(command) if command else _default_bridge_command(self._cwd)
         self._lock = threading.Lock()
+        self._stderr_tail: deque[str] = deque(maxlen=200)
+        self._stderr_tail_lock = threading.Lock()
         self._process = self._start_process()
+        self._stderr_thread = self._start_stderr_drain()
 
     def _start_process(self) -> subprocess.Popen[str]:
         process = subprocess.Popen(
@@ -52,9 +56,40 @@ class BridgeClient:
             raise RuntimeError("Failed to open bridge process pipes.")
         return process
 
+    def _start_stderr_drain(self) -> threading.Thread | None:
+        if self._process.stderr is None:
+            return None
+        thread = threading.Thread(
+            target=self._drain_stderr,
+            args=(self._process.stderr,),
+            daemon=True,
+            name="magnate-bridge-stderr",
+        )
+        thread.start()
+        return thread
+
+    def _drain_stderr(self, stream: Any) -> None:
+        try:
+            while True:
+                line = stream.readline()
+                if line == "":
+                    break
+                cleaned = line.rstrip("\r\n")
+                with self._stderr_tail_lock:
+                    self._stderr_tail.append(cleaned)
+        except Exception:
+            return None
+
+    def _stderr_snapshot(self) -> str:
+        with self._stderr_tail_lock:
+            if not self._stderr_tail:
+                return ""
+            return "\n".join(self._stderr_tail).strip()
+
     def close(self) -> None:
         if self._process.poll() is not None:
             self._close_pipes()
+            self._join_stderr_thread()
             return
 
         try:
@@ -70,6 +105,7 @@ class BridgeClient:
             self._process.wait(timeout=2)
         finally:
             self._close_pipes()
+            self._join_stderr_thread()
 
     def __enter__(self) -> "BridgeClient":
         return self
@@ -85,6 +121,12 @@ class BridgeClient:
                 stream.close()
             except OSError:
                 continue
+
+    def _join_stderr_thread(self) -> None:
+        if self._stderr_thread is None:
+            return
+        self._stderr_thread.join(timeout=0.5)
+        self._stderr_thread = None
 
     def _request(self, command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         with self._lock:
@@ -105,9 +147,7 @@ class BridgeClient:
 
             line = self._process.stdout.readline()
             if line == "":
-                stderr = ""
-                if self._process.stderr is not None:
-                    stderr = self._process.stderr.read().strip()
+                stderr = self._stderr_snapshot()
                 raise RuntimeError(
                     "Bridge process terminated unexpectedly while waiting for response. "
                     f"stderr={stderr!r}"
