@@ -3,7 +3,12 @@ from __future__ import annotations
 import unittest
 
 from trainer.bridge_client import BridgeClient
-from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM, encode_action_candidates, encode_observation
+from trainer.encoding import (
+    ACTION_FEATURE_DIM,
+    OBSERVATION_DIM,
+    encode_action_candidates,
+    encode_observation,
+)
 from trainer.env import MagnateBridgeEnv
 
 

@@ -7,8 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import torch
-
-from trainer.encoding import OBSERVATION_DIM
+from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.policies import (
     DeterminizedSearchPolicy,
     SearchConfig,
@@ -18,10 +17,8 @@ from trainer.policies import (
     TDValuePolicyConfig,
     policy_from_name,
 )
-from trainer.td.checkpoint import save_value_checkpoint
+from trainer.td.checkpoint import save_opponent_checkpoint, save_value_checkpoint
 from trainer.td.models import OpponentModel, ValueNet
-from trainer.encoding import ACTION_FEATURE_DIM
-from trainer.td.checkpoint import save_opponent_checkpoint
 from trainer.types import KeyedAction, LegalActionsResult, StateResult
 
 

@@ -10,15 +10,14 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import torch
-
 from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.td import (
+    TD_VALUE_TARGET_MODE,
+    TD_VALUE_TARGET_MODE_TD_LAMBDA,
+    TD_VALUE_TARGET_MODES,
     OpponentModel,
     OpponentReplayBuffer,
     OpponentTrainConfig,
-    TD_VALUE_TARGET_MODE_TD_LAMBDA,
-    TD_VALUE_TARGET_MODES,
-    TD_VALUE_TARGET_MODE,
     TDOpponentTrainer,
     TDTrainConfig,
     TDValueTrainer,

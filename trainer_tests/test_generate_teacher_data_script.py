@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from argparse import Namespace
 import unittest
+from argparse import Namespace
 
 from scripts.generate_teacher_data import _validate_policy_args
 

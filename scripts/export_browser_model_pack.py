@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, MutableMapping, Sequence
 
 import torch
-
 from trainer.encoding import ENCODING_VERSION, OBSERVATION_DIM
 from trainer.td.checkpoint import TD_VALUE_CHECKPOINT_TYPE, load_value_checkpoint
 

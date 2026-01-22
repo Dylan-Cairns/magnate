@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 
 import torch
-
 from trainer.td.checkpoint import (
     load_opponent_checkpoint,
     load_value_checkpoint,
