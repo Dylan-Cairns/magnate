@@ -37,7 +37,7 @@
 - Added `scripts.run_td_loop_selfplay` as a separate post-bootstrap loop: chunk-local td-search-heavy mixed collection, promoted opponent-pool sampling, and dual promotion gates (baseline vs `search` plus candidate vs incumbent `td-search`).
 - `scripts.run_td_loop_selfplay` collection now supports shard parallelism via `--collect-workers` (cloud profile sets this automatically) while preserving profile-level mixed-opponent collection semantics.
 - `scripts.run_td_loop_selfplay` now defaults to `12` chunks before promotion eval so each candidate accumulates materially more collect/train work before certify gating.
-- Bootstrap and self-play TD loops now share generic eval row parsing, pooled-window payload building, and promotion-gate evaluation through `scripts/td_loop_eval_common.py`; self-play-specific eval command wiring remains in `scripts/td_loop_selfplay_common.py`.
+- Bootstrap, bootstrap-resume, and self-play TD paths now share generic eval row parsing, pooled-window payload building, and promotion-gate evaluation through `scripts/td_loop_eval_common.py`; self-play-specific dual-gate eval command wiring now lives in `scripts/td_loop_selfplay_eval.py`.
 - `scripts.run_td_loop_selfplay` orchestration is now split into explicit run-setup, per-chunk execution, promotion-stage, summary, and terminal-report helpers, and targeted orchestration tests plus a self-play smoke test pin the refactor.
 - Added `scripts.benchmark_selfplay_collect_setup` to benchmark single-vs-sharded self-play collect throughput on the current machine and recommend a safe `--collect-workers` setting.
 - Added `scripts.benchmark_collect_search_profiles` to benchmark laptop-friendly td-search collect throughput across a small `search-worlds` / `search-depth` profile matrix.

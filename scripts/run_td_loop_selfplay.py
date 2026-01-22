@@ -32,7 +32,7 @@ from scripts.td_loop_eval_common import (
     pool_eval_rows,
     read_eval_row,
 )
-from scripts.td_loop_selfplay_common import (
+from scripts.td_loop_selfplay_eval import (
     _build_eval_command_vs_incumbent,
     _build_eval_command_vs_search,
     _promotion_decision,

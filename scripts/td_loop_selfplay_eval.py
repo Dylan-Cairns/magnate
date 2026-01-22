@@ -9,10 +9,7 @@ from scripts.td_loop_common import LoopCheckpoint
 from scripts.td_loop_eval_common import (
     EvalRow,
     PromotionThresholds,
-    build_eval_payload,
     evaluate_promotion_gate,
-    pool_eval_rows,
-    read_eval_row,
 )
 
 
@@ -192,15 +189,3 @@ def _promotion_decision(
         },
         "reason": "dual_gate_passed" if promoted else "dual_gate_failed",
     }
-
-
-def _read_eval_row(path: Path, *, opponent_policy: str) -> EvalRow:
-    return read_eval_row(path, opponent_policy=opponent_policy)
-
-
-def _pool_eval_rows(*, eval_rows: Sequence[EvalRow], opponent_policy: str) -> EvalRow:
-    return pool_eval_rows(eval_rows=eval_rows, opponent_policy=opponent_policy)
-
-
-def _eval_payload(seed_indices: Sequence[int], rows: Sequence[EvalRow], pooled: EvalRow) -> Dict[str, Any]:
-    return build_eval_payload(seed_indices, rows, pooled)
