@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Mapping, Protocol, Sequence
+from typing import Any, Callable, Dict, Mapping, Protocol, Sequence
 
 from trainer.encoding import encode_action_candidates, encode_observation
 from trainer.env import MagnateBridgeEnv
