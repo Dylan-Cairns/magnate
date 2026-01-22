@@ -26,14 +26,16 @@ from scripts.td_loop_common import (
     run_step,
     select_latest_checkpoint,
 )
-from scripts.td_loop_selfplay_common import (
+from scripts.td_loop_eval_common import (
     EvalRow,
+    build_eval_payload,
+    pool_eval_rows,
+    read_eval_row,
+)
+from scripts.td_loop_selfplay_common import (
     _build_eval_command_vs_incumbent,
     _build_eval_command_vs_search,
-    _eval_payload,
-    _pool_eval_rows,
     _promotion_decision,
-    _read_eval_row,
 )
 
 REPLAY_REGIME = "chunk-local-selfplay-mixed"
@@ -442,8 +444,8 @@ def run_promotion_stage(
     )
     baseline_rows = [window["row"] for window in baseline_windows]
     incumbent_rows = [window["row"] for window in incumbent_windows]
-    pooled_baseline = _pool_eval_rows(eval_rows=baseline_rows, opponent_policy="search")
-    pooled_incumbent = _pool_eval_rows(eval_rows=incumbent_rows, opponent_policy="td-search")
+    pooled_baseline = pool_eval_rows(eval_rows=baseline_rows, opponent_policy="search")
+    pooled_incumbent = pool_eval_rows(eval_rows=incumbent_rows, opponent_policy="td-search")
     promotion = _promotion_decision(
         baseline_eval=pooled_baseline,
         baseline_windows=baseline_rows,
@@ -490,12 +492,12 @@ def build_selfplay_loop_summary(
         },
         "chunks": list(chunk_rows),
         "evaluation": {
-            "baselineVsSearch": _eval_payload(
+            "baselineVsSearch": build_eval_payload(
                 args.eval_seed_start_indices,
                 baseline_rows,
                 promotion_stage.pooled_baseline,
             ),
-            "candidateVsIncumbent": _eval_payload(
+            "candidateVsIncumbent": build_eval_payload(
                 args.incumbent_eval_seed_start_indices,
                 incumbent_rows,
                 promotion_stage.pooled_incumbent,
@@ -1072,7 +1074,7 @@ def _run_eval_windows_vs_search(
             progress_path=progress_path,
             log_prefix="[td-loop-selfplay]",
         )
-        rows.append({"command": command, "row": _read_eval_row(out_path, opponent_policy="search")})
+        rows.append({"command": command, "row": read_eval_row(out_path, opponent_policy="search")})
     return rows
 
 
@@ -1107,7 +1109,7 @@ def _run_eval_windows_vs_incumbent(
             progress_path=progress_path,
             log_prefix="[td-loop-selfplay]",
         )
-        rows.append({"command": command, "row": _read_eval_row(out_path, opponent_policy="td-search")})
+        rows.append({"command": command, "row": read_eval_row(out_path, opponent_policy="td-search")})
     return rows
 
 
