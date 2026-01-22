@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Mapping, Sequence
 
 import torch
 

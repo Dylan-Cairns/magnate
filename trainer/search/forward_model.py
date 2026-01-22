@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import json
 from collections import OrderedDict
-from collections.abc import Mapping
 
 from trainer.bridge_client import BridgeClient
 from trainer.bridge_payloads import PlayerId, SerializedStatePayload

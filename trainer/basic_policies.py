@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from .bridge_payloads import PlayerViewPayload, SerializedStatePayload
 from .encoding import _card_rank

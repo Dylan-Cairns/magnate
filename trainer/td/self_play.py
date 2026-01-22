@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Dict, Protocol
 
 from trainer.bridge_payloads import PlayerViewPayload, SerializedStatePayload

@@ -9,8 +9,14 @@ from typing import cast
 from unittest.mock import patch
 
 import torch
-
-from trainer.bridge_payloads import GameActionPayload, GamePhase, PlayerId, PlayerViewPayload, ResourcePoolPayload, SerializedStatePayload
+from trainer.bridge_payloads import (
+    GameActionPayload,
+    GamePhase,
+    PlayerId,
+    PlayerViewPayload,
+    ResourcePoolPayload,
+    SerializedStatePayload,
+)
 from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.policies import (
     DeterminizedSearchPolicy,
