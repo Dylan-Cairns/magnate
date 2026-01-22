@@ -1,14 +1,27 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Mapping, MutableMapping, Sequence
+from collections.abc import Mapping, Sequence
 
+from .bridge_payloads import (
+    ActionId,
+    DistrictPayload,
+    DistrictStackPayload,
+    GameActionPayload,
+    GamePhase,
+    ObservedPlayerPayload,
+    PlayerId,
+    PlayerViewPayload,
+    ResourcePoolPayload,
+    Suit,
+    SuitCountsPayload,
+)
 from .types import KeyedAction
 
-SUITS: Sequence[str] = ("Moons", "Suns", "Waves", "Leaves", "Wyrms", "Knots")
-SUIT_INDEX: Dict[str, int] = {suit: i for i, suit in enumerate(SUITS)}
+SUITS: tuple[Suit, ...] = ("Moons", "Suns", "Waves", "Leaves", "Wyrms", "Knots")
+SUIT_INDEX: dict[str, int] = {suit: i for i, suit in enumerate(SUITS)}
 
-PHASES: Sequence[str] = (
+PHASES: tuple[GamePhase, ...] = (
     "StartTurn",
     "TaxCheck",
     "CollectIncome",
@@ -16,9 +29,9 @@ PHASES: Sequence[str] = (
     "DrawCard",
     "GameOver",
 )
-PHASE_INDEX: Dict[str, int] = {phase: i for i, phase in enumerate(PHASES)}
+PHASE_INDEX: dict[GamePhase, int] = {phase: i for i, phase in enumerate(PHASES)}
 
-ACTION_IDS: Sequence[str] = (
+ACTION_IDS: tuple[ActionId, ...] = (
     "buy-deed",
     "choose-income-suit",
     "develop-deed",
@@ -27,12 +40,12 @@ ACTION_IDS: Sequence[str] = (
     "sell-card",
     "trade",
 )
-ACTION_ID_INDEX: Dict[str, int] = {action_id: i for i, action_id in enumerate(ACTION_IDS)}
+ACTION_ID_INDEX: dict[ActionId, int] = {action_id: i for i, action_id in enumerate(ACTION_IDS)}
 
-PLAYER_IDS: Sequence[str] = ("PlayerA", "PlayerB")
-PLAYER_INDEX: Dict[str, int] = {player_id: i for i, player_id in enumerate(PLAYER_IDS)}
+PLAYER_IDS: tuple[PlayerId, ...] = ("PlayerA", "PlayerB")
+PLAYER_INDEX: dict[str, int] = {player_id: i for i, player_id in enumerate(PLAYER_IDS)}
 
-CROWN_SUIT_BY_CARD_ID: Dict[str, str] = {
+CROWN_SUIT_BY_CARD_ID: dict[str, Suit] = {
     "30": "Knots",
     "31": "Leaves",
     "32": "Moons",
@@ -55,7 +68,7 @@ ENCODING_VERSION = 2
 OBSERVATION_DIM = 206
 ACTION_FEATURE_DIM = 40
 
-PROPERTY_SUITS_BY_CARD_ID: Dict[str, tuple[str, ...]] = {
+PROPERTY_SUITS_BY_CARD_ID: dict[str, tuple[Suit, ...]] = {
     "0": ("Knots",),
     "1": ("Leaves",),
     "2": ("Moons",),
@@ -89,47 +102,42 @@ PROPERTY_SUITS_BY_CARD_ID: Dict[str, tuple[str, ...]] = {
 }
 
 
-def encode_observation(view: Mapping[str, Any]) -> List[float]:
-    active_player_id = _as_str(view.get("activePlayerId"))
-    if active_player_id not in PLAYER_IDS:
-        raise ValueError(f"Invalid activePlayerId in view: {active_player_id!r}")
-    opponent_id = "PlayerB" if active_player_id == "PlayerA" else "PlayerA"
-    players_raw = _as_list(view.get("players"))
-    players: Dict[str, Mapping[str, Any]] = {}
-    for player in players_raw:
-        player_map = _as_mapping(player)
-        player_id = _as_str(player_map.get("id"))
-        players[player_id] = player_map
-    active_player = _as_mapping(players.get(active_player_id))
-    opponent_player = _as_mapping(players.get(opponent_id))
+def encode_observation(view: PlayerViewPayload) -> list[float]:
+    active_player_id = view["activePlayerId"]
+    opponent_id = _opponent_player_id(active_player_id)
+    players = _player_views_by_id(view)
+    active_player = players[active_player_id]
+    opponent_player = players[opponent_id]
 
-    vector: List[float] = []
+    vector: list[float] = []
 
-    vector.extend(_one_hot(PHASE_INDEX.get(_as_str(view.get("phase")), -1), len(PHASES)))
-    vector.append(_norm(_as_int(view.get("turn")), MAX_TURN))
-    vector.append(_bool(view.get("cardPlayedThisTurn")))
-    vector.append(_norm(_as_optional_int(view.get("finalTurnsRemaining"), default=0), 2.0))
+    vector.extend(_one_hot(PHASE_INDEX.get(view["phase"], -1), len(PHASES)))
+    vector.append(_norm(view["turn"], MAX_TURN))
+    vector.append(_bool(view["cardPlayedThisTurn"]))
+    vector.append(_norm(view.get("finalTurnsRemaining", 0), 2.0))
 
-    deck = _as_mapping(view.get("deck"))
-    vector.append(_norm(_as_int(deck.get("drawCount")), MAX_DECK_SIZE))
-    vector.append(_norm(len(_as_list(deck.get("discard"))), MAX_DECK_SIZE))
-    vector.append(_norm(_as_int(deck.get("reshuffles")), 2.0))
+    deck = view["deck"]
+    vector.append(_norm(deck["drawCount"], MAX_DECK_SIZE))
+    vector.append(_norm(len(deck["discard"]), MAX_DECK_SIZE))
+    vector.append(_norm(deck["reshuffles"], 2.0))
 
-    roll = _as_mapping(view.get("lastIncomeRoll"))
-    vector.append(_norm(_as_int(roll.get("die1")), 10.0))
-    vector.append(_norm(_as_int(roll.get("die2")), 10.0))
+    roll = view.get("lastIncomeRoll")
+    if roll is None:
+        raise ValueError("View payload is missing lastIncomeRoll.")
+    vector.append(_norm(roll["die1"], 10.0))
+    vector.append(_norm(roll["die2"], 10.0))
 
-    vector.extend(_suit_one_hot(_as_optional_str(view.get("lastTaxSuit"), default="")))
-    vector.extend(_resource_vector(_as_mapping(active_player.get("resources"))))
-    vector.extend(_resource_vector(_as_mapping(opponent_player.get("resources"))))
+    vector.extend(_suit_one_hot(view.get("lastTaxSuit", "")))
+    vector.extend(_resource_vector(active_player["resources"]))
+    vector.extend(_resource_vector(opponent_player["resources"]))
 
-    vector.append(_norm(_as_int(active_player.get("handCount")), MAX_HAND_COUNT))
-    vector.append(_norm(_as_int(opponent_player.get("handCount")), MAX_HAND_COUNT))
+    vector.append(_norm(active_player["handCount"], MAX_HAND_COUNT))
+    vector.append(_norm(opponent_player["handCount"], MAX_HAND_COUNT))
 
-    vector.extend(_crown_suit_counts(_as_list(active_player.get("crowns"))))
-    vector.extend(_crown_suit_counts(_as_list(opponent_player.get("crowns"))))
-    vector.extend(_hand_suit_histogram(_as_list(active_player.get("hand"))))
-    vector.extend(_hand_rank_histogram(_as_list(active_player.get("hand"))))
+    vector.extend(_crown_suit_counts(active_player["crowns"]))
+    vector.extend(_crown_suit_counts(opponent_player["crowns"]))
+    vector.extend(_hand_suit_histogram(active_player["hand"]))
+    vector.extend(_hand_rank_histogram(active_player["hand"]))
     vector.extend(
         _endgame_tiebreak_features(
             view=view,
@@ -140,19 +148,13 @@ def encode_observation(view: Mapping[str, Any]) -> List[float]:
         )
     )
 
-    districts = sorted(
-        _as_list(view.get("districts")),
-        key=lambda district: str(_as_mapping(district).get("id", "")),
-    )
+    districts = sorted(view["districts"], key=lambda district: district["id"])
     for district in districts:
-        district_map = _as_mapping(district)
-        marker_suits = _as_list(district_map.get("markerSuitMask"))
-        vector.extend(_suit_count_vector(marker_suits, normalize_by=3.0))
+        vector.extend(_suit_count_vector(district["markerSuitMask"], normalize_by=3.0))
 
-        stacks = _as_mapping(district_map.get("stacks"))
+        stacks = district["stacks"]
         for player_id in (active_player_id, opponent_id):
-            stack = _as_mapping(stacks.get(player_id))
-            vector.extend(_district_stack_features(stack))
+            vector.extend(_district_stack_features(stacks[player_id]))
 
     if len(vector) != OBSERVATION_DIM:
         raise ValueError(
@@ -161,34 +163,36 @@ def encode_observation(view: Mapping[str, Any]) -> List[float]:
     return vector
 
 
-def encode_action_candidates(actions: Sequence[KeyedAction]) -> List[List[float]]:
-    vectors = [encode_action(action) for action in actions]
-    return vectors
+def encode_action_candidates(actions: Sequence[KeyedAction]) -> list[list[float]]:
+    return [encode_action(action) for action in actions]
 
 
-def encode_action(action: KeyedAction) -> List[float]:
-    payload = _as_mapping(action.action)
-    vector: List[float] = []
+def encode_action(action: KeyedAction) -> list[float]:
+    payload = action.action
+    card_id = _action_card_id(payload)
+    district_id = _action_district_id(payload)
+    player_id = _action_player_id(payload)
+    suit = _action_suit(payload)
+    give = payload["give"] if payload["type"] == "trade" else ""
+    receive = payload["receive"] if payload["type"] == "trade" else ""
+    token_map = _action_suit_counts(payload)
 
+    vector: list[float] = []
     vector.extend(_one_hot(ACTION_ID_INDEX.get(action.action_id, -1), len(ACTION_IDS)))
 
-    card_id = _as_str(payload.get("cardId", ""))
     card_rank = _card_rank(card_id)
     vector.append(_norm(_card_numeric_id(card_id), MAX_CARD_ID))
     vector.append(_norm(card_rank, 10.0))
 
-    district_id = _as_str(payload.get("districtId", ""))
     vector.append(_norm(_district_index(district_id), 5.0))
+    vector.extend(_one_hot(PLAYER_INDEX.get(player_id, -1), len(PLAYER_IDS)))
+    vector.extend(_suit_one_hot(suit))
+    vector.extend(_suit_one_hot(give))
+    vector.extend(_suit_one_hot(receive))
 
-    vector.extend(_one_hot(PLAYER_INDEX.get(_as_str(payload.get("playerId", "")), -1), 2))
-    vector.extend(_suit_one_hot(_as_str(payload.get("suit", ""))))
-    vector.extend(_suit_one_hot(_as_str(payload.get("give", ""))))
-    vector.extend(_suit_one_hot(_as_str(payload.get("receive", ""))))
-
-    token_map = _as_mapping(payload.get("payment", payload.get("tokens", {})))
-    token_vector = _resource_vector(token_map, normalize_by=MAX_TOKEN_COUNT)
+    token_vector = _suit_count_payload_vector(token_map, normalize_by=MAX_TOKEN_COUNT)
     vector.extend(token_vector)
-    vector.append(_norm(sum(_as_int(value) for value in token_map.values()), MAX_TOKEN_COUNT))
+    vector.append(_norm(_suit_count_payload_total(token_map), MAX_TOKEN_COUNT))
 
     vector.append(1.0 if card_id else 0.0)
     vector.append(1.0 if district_id else 0.0)
@@ -201,53 +205,51 @@ def encode_action(action: KeyedAction) -> List[float]:
     return vector
 
 
-def _district_stack_features(stack: Mapping[str, Any]) -> List[float]:
-    developed = _as_list(stack.get("developed"))
-    developed_ranks = [_card_rank(_as_str(card_id)) for card_id in developed if _is_property_card(_as_str(card_id))]
+def _district_stack_features(stack: DistrictStackPayload) -> list[float]:
+    developed = stack["developed"]
+    developed_ranks = [_card_rank(card_id) for card_id in developed if _is_property_card(card_id)]
     developed_count = len(developed)
     developed_rank_sum = sum(developed_ranks)
 
-    deed = _as_optional_mapping(stack.get("deed"))
-    deed_present = bool(deed)
-    deed_card_id = _as_str(deed.get("cardId", ""))
-    deed_progress = _as_optional_int(deed.get("progress"), default=0)
+    deed = stack.get("deed")
+    deed_present = deed is not None
+    deed_card_id = deed["cardId"] if deed is not None else ""
+    deed_progress = deed["progress"] if deed is not None else 0
     deed_target = _development_target(deed_card_id)
-    deed_tokens = _as_optional_mapping(deed.get("tokens"))
+    deed_tokens: SuitCountsPayload = deed["tokens"] if deed is not None else {}
 
-    features: List[float] = [
+    features: list[float] = [
         _norm(developed_count, MAX_DISTRICT_STACK),
         _norm(developed_rank_sum, MAX_DISTRICT_RANK_SUM),
         1.0 if deed_present else 0.0,
         _norm(deed_progress, MAX_DEED_PROGRESS),
         _norm(deed_target, MAX_DEED_PROGRESS),
     ]
-    features.extend(_resource_vector(deed_tokens, normalize_by=MAX_TOKEN_COUNT))
+    features.extend(_suit_count_payload_vector(deed_tokens, normalize_by=MAX_TOKEN_COUNT))
     return features
 
 
-def _crown_suit_counts(crowns: Sequence[Any]) -> List[float]:
-    counts: MutableMapping[str, int] = {suit: 0 for suit in SUITS}
+def _crown_suit_counts(crowns: Sequence[str]) -> list[float]:
+    counts: dict[Suit, int] = {suit: 0 for suit in SUITS}
     for card_id in crowns:
-        suit = CROWN_SUIT_BY_CARD_ID.get(_as_str(card_id))
-        if suit:
+        suit = CROWN_SUIT_BY_CARD_ID.get(card_id)
+        if suit is not None:
             counts[suit] += 1
     return [_norm(counts[suit], 3.0) for suit in SUITS]
 
 
-def _hand_suit_histogram(hand: Sequence[Any]) -> List[float]:
-    counts: MutableMapping[str, int] = {suit: 0 for suit in SUITS}
+def _hand_suit_histogram(hand: Sequence[str]) -> list[float]:
+    counts: dict[Suit, int] = {suit: 0 for suit in SUITS}
     for card_id in hand:
-        card_key = _as_str(card_id)
-        for suit in PROPERTY_SUITS_BY_CARD_ID.get(card_key, ()):
-            if suit in counts:
-                counts[suit] += 1
+        for suit in PROPERTY_SUITS_BY_CARD_ID.get(card_id, ()):
+            counts[suit] += 1
     return [_norm(counts[suit], MAX_HAND_COUNT * 2.0) for suit in SUITS]
 
 
-def _hand_rank_histogram(hand: Sequence[Any]) -> List[float]:
+def _hand_rank_histogram(hand: Sequence[str]) -> list[float]:
     counts = [0] * 10
     for card_id in hand:
-        rank = _card_rank(_as_str(card_id))
+        rank = _card_rank(card_id)
         if 1 <= rank <= 10:
             counts[rank - 1] += 1
     return [_norm(value, MAX_HAND_COUNT) for value in counts]
@@ -255,25 +257,23 @@ def _hand_rank_histogram(hand: Sequence[Any]) -> List[float]:
 
 def _endgame_tiebreak_features(
     *,
-    view: Mapping[str, Any],
-    active_player_id: str,
-    opponent_id: str,
-    active_player: Mapping[str, Any],
-    opponent_player: Mapping[str, Any],
-) -> List[float]:
-    deck = _as_mapping(view.get("deck"))
-    reshuffles = _as_int(deck.get("reshuffles"))
-    final_turns_remaining = _as_optional_int(view.get("finalTurnsRemaining"), default=0)
+    view: PlayerViewPayload,
+    active_player_id: PlayerId,
+    opponent_id: PlayerId,
+    active_player: ObservedPlayerPayload,
+    opponent_player: ObservedPlayerPayload,
+) -> list[float]:
+    deck = view["deck"]
+    reshuffles = deck["reshuffles"]
+    final_turns_remaining = view.get("finalTurnsRemaining", 0)
     endgame_flag = 1.0 if reshuffles >= 2 or final_turns_remaining > 0 else 0.0
 
-    districts = _as_list(view.get("districts"))
     district_point_diff = 0.0
     developed_rank_diff = 0.0
-    for district in districts:
-        district_map = _as_mapping(district)
-        stacks = _as_mapping(district_map.get("stacks"))
-        active_stack = _as_mapping(stacks.get(active_player_id))
-        opponent_stack = _as_mapping(stacks.get(opponent_id))
+    for district in view["districts"]:
+        stacks = district["stacks"]
+        active_stack = stacks[active_player_id]
+        opponent_stack = stacks[opponent_id]
         active_rank = _developed_rank_sum(active_stack)
         opponent_rank = _developed_rank_sum(opponent_stack)
         developed_rank_diff += active_rank - opponent_rank
@@ -282,7 +282,7 @@ def _endgame_tiebreak_features(
         elif active_rank < opponent_rank:
             district_point_diff -= 1.0
 
-    district_term = district_point_diff / float(max(1, len(districts)))
+    district_term = district_point_diff / float(max(1, len(view["districts"])))
     rank_term = math.tanh(developed_rank_diff / 18.0)
     resource_term = math.tanh((_resource_total(active_player) - _resource_total(opponent_player)) / 10.0)
     return [
@@ -293,31 +293,73 @@ def _endgame_tiebreak_features(
     ]
 
 
-def _developed_rank_sum(stack: Mapping[str, Any]) -> int:
-    developed = _as_list(stack.get("developed"))
-    total = 0
-    for card_id in developed:
-        total += _card_rank(_as_str(card_id))
-    return total
+def _developed_rank_sum(stack: DistrictStackPayload) -> int:
+    return sum(_card_rank(card_id) for card_id in stack["developed"])
 
 
 def _resource_vector(
-    resource_map: Mapping[str, Any],
+    resource_map: ResourcePoolPayload,
     normalize_by: float = MAX_RESOURCES,
-) -> List[float]:
-    return [_norm(_as_optional_int(resource_map.get(suit), default=0), normalize_by) for suit in SUITS]
+) -> list[float]:
+    return [_norm(resource_map[suit], normalize_by) for suit in SUITS]
 
 
-def _suit_count_vector(suits: Sequence[Any], normalize_by: float = 1.0) -> List[float]:
-    counts: MutableMapping[str, int] = {suit: 0 for suit in SUITS}
+def _suit_count_payload_vector(
+    suit_counts: SuitCountsPayload,
+    normalize_by: float = 1.0,
+) -> list[float]:
+    return [_norm(suit_counts.get(suit, 0), normalize_by) for suit in SUITS]
+
+
+def _suit_count_vector(suits: Sequence[Suit], normalize_by: float = 1.0) -> list[float]:
+    counts: dict[Suit, int] = {suit: 0 for suit in SUITS}
     for suit in suits:
-        suit_name = _as_str(suit)
-        if suit_name in counts:
-            counts[suit_name] += 1
+        counts[suit] += 1
     return [_norm(counts[suit], normalize_by) for suit in SUITS]
 
 
-def _suit_one_hot(suit: str) -> List[float]:
+def _suit_count_payload_total(suit_counts: SuitCountsPayload) -> int:
+    return sum(suit_counts.get(suit, 0) for suit in SUITS)
+
+
+def _action_card_id(payload: GameActionPayload) -> str:
+    return payload["cardId"] if "cardId" in payload else ""
+
+
+def _action_district_id(payload: GameActionPayload) -> str:
+    return payload["districtId"] if "districtId" in payload else ""
+
+
+def _action_player_id(payload: GameActionPayload) -> PlayerId | str:
+    return payload["playerId"] if payload["type"] == "choose-income-suit" else ""
+
+
+def _action_suit(payload: GameActionPayload) -> Suit | str:
+    return payload["suit"] if payload["type"] == "choose-income-suit" else ""
+
+
+def _action_suit_counts(payload: GameActionPayload) -> SuitCountsPayload:
+    if payload["type"] == "develop-deed":
+        return payload["tokens"]
+    if payload["type"] == "develop-outright":
+        return payload["payment"]
+    return {}
+
+
+def _player_views_by_id(view: PlayerViewPayload) -> dict[PlayerId, ObservedPlayerPayload]:
+    players_by_id: dict[PlayerId, ObservedPlayerPayload] = {}
+    for player in view["players"]:
+        players_by_id[player["id"]] = player
+    if "PlayerA" not in players_by_id or "PlayerB" not in players_by_id:
+        raise ValueError("View payload is missing one or more players.")
+    return players_by_id
+
+
+def _opponent_player_id(player_id: PlayerId) -> PlayerId:
+    return "PlayerB" if player_id == "PlayerA" else "PlayerA"
+
+
+def _suit_one_hot(suit: Suit | str) -> list[float]:
     return _one_hot(SUIT_INDEX.get(suit, -1), len(SUITS))
 
 
@@ -370,64 +412,16 @@ def _signed_to_unit_interval(value: float) -> float:
     return (clipped + 1.0) * 0.5
 
 
-def _one_hot(index: int, length: int) -> List[float]:
+def _one_hot(index: int, length: int) -> list[float]:
     out = [0.0] * length
     if 0 <= index < length:
         out[index] = 1.0
     return out
 
 
-def _bool(value: Any) -> float:
-    return 1.0 if bool(value) else 0.0
+def _bool(value: bool) -> float:
+    return 1.0 if value else 0.0
 
 
-def _as_list(value: Any) -> List[Any]:
-    if isinstance(value, list):
-        return value
-    raise ValueError(f"Expected list, got {type(value).__name__}.")
-
-
-def _as_mapping(value: Any) -> Mapping[str, Any]:
-    if isinstance(value, dict):
-        return value
-    raise ValueError(f"Expected object mapping, got {type(value).__name__}.")
-
-
-def _as_optional_mapping(value: Any) -> Mapping[str, Any]:
-    if value is None:
-        return {}
-    return _as_mapping(value)
-
-
-def _as_int(value: Any) -> int:
-    if isinstance(value, bool):
-        raise ValueError("Expected integer value, got bool.")
-    if isinstance(value, (int, float)):
-        return int(value)
-    raise ValueError(f"Expected numeric value, got {type(value).__name__}.")
-
-
-def _as_optional_int(value: Any, *, default: int) -> int:
-    if value is None:
-        return default
-    return _as_int(value)
-
-
-def _as_str(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    raise ValueError(f"Expected string value, got {type(value).__name__}.")
-
-
-def _as_optional_str(value: Any, *, default: str) -> str:
-    if value is None:
-        return default
-    return _as_str(value)
-
-
-def _resource_total(player_state: Mapping[str, Any]) -> int:
-    resources = _as_mapping(player_state.get("resources"))
-    total = 0
-    for suit in SUITS:
-        total += _as_optional_int(resources.get(suit), default=0)
-    return total
+def _resource_total(player_state: ObservedPlayerPayload) -> int:
+    return sum(player_state["resources"][suit] for suit in SUITS)

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping
+from typing import Iterable, List, Mapping
 
 from trainer.types import PlayerId
 
-from .types import OpponentSample, ValueTransition
+from .types import OpponentSample, OpponentSamplePayload, ValueTransition, ValueTransitionPayload
 
 
 def write_value_transitions_jsonl(
@@ -48,7 +48,7 @@ def write_value_transitions_jsonl(
                     "timestep must be >= 0 when set. "
                     f"entry={index}"
                 )
-            payload = {
+            payload: ValueTransitionPayload = {
                 "observation": list(transition.observation),
                 "reward": float(transition.reward),
                 "done": bool(transition.done),
@@ -94,7 +94,7 @@ def write_opponent_samples_jsonl(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         for sample in samples:
-            payload = {
+            payload: OpponentSamplePayload = {
                 "observation": list(sample.observation),
                 "actionFeatures": [list(features) for features in sample.action_features],
                 "actionIndex": int(sample.action_index),
@@ -120,7 +120,7 @@ def read_opponent_samples_jsonl(input_path: Path) -> list[OpponentSample]:
 
 
 def _value_transition_from_json(
-    payload: Mapping[str, Any],
+    payload: Mapping[str, object],
     line_number: int,
 ) -> ValueTransition:
     observation = _float_list(payload.get("observation"), line_number, "observation")
@@ -146,19 +146,30 @@ def _value_transition_from_json(
         )
     player_id = _as_player_id(payload.get("playerId"), line_number, "playerId")
     episode_id, timestep = _as_episode_step(payload, line_number)
+    transition_payload: ValueTransitionPayload = {
+        "observation": observation,
+        "reward": reward,
+        "done": done,
+        "nextObservation": next_observation,
+        "playerId": player_id,
+    }
+    if episode_id is not None:
+        transition_payload["episodeId"] = episode_id
+    if timestep is not None:
+        transition_payload["timestep"] = timestep
     return ValueTransition(
-        observation=observation,
-        reward=reward,
-        done=done,
-        next_observation=next_observation,
-        player_id=player_id,
-        episode_id=episode_id,
-        timestep=timestep,
+        observation=transition_payload["observation"],
+        reward=transition_payload["reward"],
+        done=transition_payload["done"],
+        next_observation=transition_payload["nextObservation"],
+        player_id=transition_payload["playerId"],
+        episode_id=transition_payload.get("episodeId"),
+        timestep=transition_payload.get("timestep"),
     )
 
 
 def _opponent_sample_from_json(
-    payload: Mapping[str, Any],
+    payload: Mapping[str, object],
     line_number: int,
 ) -> OpponentSample:
     observation = _float_list(payload.get("observation"), line_number, "observation")
@@ -177,15 +188,21 @@ def _opponent_sample_from_json(
             f"index={action_index}, candidates={len(action_features)}."
         )
     player_id = _as_player_id(payload.get("playerId"), line_number, "playerId")
+    sample_payload: OpponentSamplePayload = {
+        "observation": observation,
+        "actionFeatures": action_features,
+        "actionIndex": action_index,
+        "playerId": player_id,
+    }
     return OpponentSample(
-        observation=observation,
-        action_features=action_features,
-        action_index=action_index,
-        player_id=player_id,
+        observation=sample_payload["observation"],
+        action_features=sample_payload["actionFeatures"],
+        action_index=sample_payload["actionIndex"],
+        player_id=sample_payload["playerId"],
     )
 
 
-def _float_list(value: Any, line_number: int, field: str) -> List[float]:
+def _float_list(value: object, line_number: int, field: str) -> List[float]:
     if not isinstance(value, list):
         raise ValueError(f"{field} must be a list on line {line_number}.")
     out: List[float] = []
@@ -194,13 +211,13 @@ def _float_list(value: Any, line_number: int, field: str) -> List[float]:
     return out
 
 
-def _as_int(value: Any, line_number: int, field: str) -> int:
+def _as_int(value: object, line_number: int, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field} must be an integer on line {line_number}.")
     return value
 
 
-def _as_float(value: Any, line_number: int, field: str) -> float:
+def _as_float(value: object, line_number: int, field: str) -> float:
     if isinstance(value, bool):
         raise ValueError(f"{field} must be numeric on line {line_number}.")
     if isinstance(value, (int, float)):
@@ -208,20 +225,20 @@ def _as_float(value: Any, line_number: int, field: str) -> float:
     raise ValueError(f"{field} must be numeric on line {line_number}.")
 
 
-def _as_bool(value: Any, line_number: int, field: str) -> bool:
+def _as_bool(value: object, line_number: int, field: str) -> bool:
     if not isinstance(value, bool):
         raise ValueError(f"{field} must be boolean on line {line_number}.")
     return value
 
 
-def _as_player_id(value: Any, line_number: int, field: str) -> PlayerId:
+def _as_player_id(value: object, line_number: int, field: str) -> PlayerId:
     if value not in ("PlayerA", "PlayerB"):
         raise ValueError(f"{field} must be PlayerA|PlayerB on line {line_number}.")
     return value
 
 
 def _as_episode_step(
-    payload: Mapping[str, Any],
+    payload: Mapping[str, object],
     line_number: int,
 ) -> tuple[str | None, int | None]:
     episode_raw = payload.get("episodeId")

@@ -29,10 +29,13 @@
   - `./.venv/Scripts/Activate.ps1`
   - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`
   - Static analysis runs from the repo venv: `.\.venv\Scripts\python -m pyright -p .`
+  - Checked-in pyright scope currently covers `trainer/` plus trainer-side tests in `trainer_tests/`; eval-suite script tests remain excluded because `scripts/` is still outside the typed rollout
 - Python bridge typing:
   - `trainer/bridge_payloads.py` defines the consumed TS bridge payload subset as `TypedDict`/`Literal` models
   - `trainer/bridge_parsing.py` validates and narrows raw bridge JSON once at ingress
   - `trainer/bridge_client.py` and `trainer/env.py` expose typed payloads to policy/search/training code
+  - `trainer/encoding.py` and `trainer/search/leaf_evaluator.py` now consume the typed bridge payload models directly instead of generic nested mappings
+  - Trainer-owned JSON/checkpoint edges also use explicit payload models (`trainer/types.py`, `trainer/td/types.py`, `trainer/td/checkpoint.py`)
 - Active Python entrypoints:
   - `python -m scripts.eval`
   - `python -m scripts.eval_suite` (loop default is fixed-size certify flow; `--workers` for deterministic parallel sharding; per-worker thread caps via `--worker-torch-threads`, `--worker-torch-interop-threads`, `--worker-blas-threads`; supports separate td-search checkpoints per side via `--candidate-td-search-*` and `--opponent-td-search-*`)

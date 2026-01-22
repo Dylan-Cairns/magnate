@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import cast
 
 import torch
 from trainer.td.models import OpponentModel, ValueNet
@@ -93,8 +94,8 @@ class TDTrainTests(unittest.TestCase):
         ]
 
         _loss, prediction_mean, target_mean = train_value_batch(
-            model=model,
-            target_model=target_model,
+            model=cast(ValueNet, model),
+            target_model=cast(ValueNet, target_model),
             optimizer=optimizer,
             transitions=transitions,
             gamma=0.5,
@@ -271,8 +272,8 @@ class TDTrainTests(unittest.TestCase):
         ]
         sequence_index = build_value_sequence_index(transitions=transitions)
         _loss, prediction_mean, target_mean = train_value_batch(
-            model=model,
-            target_model=target_model,
+            model=cast(ValueNet, model),
+            target_model=cast(ValueNet, target_model),
             optimizer=optimizer,
             transitions=transitions,
             gamma=1.0,
