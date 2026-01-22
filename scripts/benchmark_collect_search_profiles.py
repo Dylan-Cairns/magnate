@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
-
 DEFAULT_PROFILE_SPECS = (
     "current:6:14",
     "balanced:4:12",

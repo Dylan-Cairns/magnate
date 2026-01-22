@@ -3,14 +3,13 @@ from __future__ import annotations
 import unittest
 
 import torch
-
 from trainer.td.models import OpponentModel, ValueNet
 from trainer.td.train import (
+    TD_VALUE_TARGET_MODE_TD_LAMBDA,
     OpponentTrainConfig,
     TDOpponentTrainer,
     TDTrainConfig,
     TDValueTrainer,
-    TD_VALUE_TARGET_MODE_TD_LAMBDA,
     build_value_sequence_index,
     train_opponent_batch,
     train_value_batch,

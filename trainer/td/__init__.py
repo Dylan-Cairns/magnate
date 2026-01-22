@@ -26,15 +26,15 @@ from .self_play import (
 )
 from .targets import n_step_bootstrap_targets, td_lambda_targets
 from .train import (
-    OpponentTrainConfig,
-    OpponentTrainStepSummary,
-    TDTrainConfig,
-    TDTrainStepSummary,
     TD_VALUE_TARGET_MODE,
     TD_VALUE_TARGET_MODE_TD0,
     TD_VALUE_TARGET_MODE_TD_LAMBDA,
     TD_VALUE_TARGET_MODES,
+    OpponentTrainConfig,
+    OpponentTrainStepSummary,
     TDOpponentTrainer,
+    TDTrainConfig,
+    TDTrainStepSummary,
     TDValueTrainer,
     build_value_sequence_index,
     hard_sync,

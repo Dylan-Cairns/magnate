@@ -18,14 +18,6 @@ from scripts.run_td_loop_selfplay import (
     _run_collect_profiles,
     _validate_args,
 )
-from scripts.td_loop_selfplay_common import (
-    _build_eval_command_vs_incumbent,
-    _build_eval_command_vs_search,
-    _eval_payload,
-    _pool_eval_rows,
-    _promotion_decision,
-    _read_eval_row,
-)
 from scripts.td_loop_common import (
     LoopCheckpoint,
     build_train_command,
@@ -33,6 +25,14 @@ from scripts.td_loop_common import (
     read_json,
     run_step,
     select_latest_checkpoint,
+)
+from scripts.td_loop_selfplay_common import (
+    _build_eval_command_vs_incumbent,
+    _build_eval_command_vs_search,
+    _eval_payload,
+    _pool_eval_rows,
+    _promotion_decision,
+    _read_eval_row,
 )
 
 

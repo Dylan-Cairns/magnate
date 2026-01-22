@@ -23,7 +23,7 @@
 - GitHub Pages deploy automation is now in place via `.github/workflows/deploy_pages.yml` (push to `main`, gated by `yarn test` + `yarn lint`).
 - Bridge runtime commands are stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python trainer/eval runtime now standardizes on Python `3.12+`; Windows local setup already provisions `.venv` with `3.12`, and runtime guards/docs now match that floor.
-- Local Python setup now installs `requirements-dev.txt`, and the repo includes a minimal Ruff baseline (`ruff.toml`) targeting Python `3.12`.
+- Local Python setup now installs `requirements-dev.txt`, and the repo includes a Ruff baseline (`ruff.toml`) targeting Python `3.12` with high-signal lint checks plus import sorting.
 - Python bridge client now drains bridge stderr in a background thread to avoid long-run Windows pipe stalls during self-play collection.
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.

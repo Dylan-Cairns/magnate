@@ -5,12 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.opponent_pool import PoolCheckpoint
 from scripts.resume_td_loop_selfplay import (
     _build_collect_profiles_from_templates,
     _collect_templates_from_summary,
     _discover_resume_state,
 )
-from scripts.opponent_pool import PoolCheckpoint
 
 
 class ResumeTdLoopSelfplayTests(unittest.TestCase):

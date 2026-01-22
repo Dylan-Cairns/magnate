@@ -3,7 +3,6 @@ from __future__ import annotations
 import unittest
 
 import torch
-
 from trainer.td.models import OpponentModel, ValueNet
 
 
