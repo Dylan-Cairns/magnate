@@ -26,13 +26,15 @@ from scripts.td_loop_common import (
     run_step,
     select_latest_checkpoint,
 )
+from scripts.td_loop_eval_common import (
+    build_eval_payload,
+    pool_eval_rows,
+    read_eval_row,
+)
 from scripts.td_loop_selfplay_common import (
     _build_eval_command_vs_incumbent,
     _build_eval_command_vs_search,
-    _eval_payload,
-    _pool_eval_rows,
     _promotion_decision,
-    _read_eval_row,
 )
 
 
@@ -337,11 +339,11 @@ def main() -> int:
 
     baseline_rows = [window["row"] for window in baseline_windows]
     incumbent_rows = [window["row"] for window in incumbent_windows]
-    pooled_baseline = _pool_eval_rows(
+    pooled_baseline = pool_eval_rows(
         eval_rows=baseline_rows,
         opponent_policy="search",
     )
-    pooled_incumbent = _pool_eval_rows(
+    pooled_incumbent = pool_eval_rows(
         eval_rows=incumbent_rows,
         opponent_policy="td-search",
     )
@@ -376,12 +378,12 @@ def main() -> int:
         },
         "chunks": chunk_rows,
         "evaluation": {
-            "baselineVsSearch": _eval_payload(
+            "baselineVsSearch": build_eval_payload(
                 resolved_args.eval_seed_start_indices,
                 baseline_rows,
                 pooled_baseline,
             ),
-            "candidateVsIncumbent": _eval_payload(
+            "candidateVsIncumbent": build_eval_payload(
                 resolved_args.incumbent_eval_seed_start_indices,
                 incumbent_rows,
                 pooled_incumbent,
@@ -729,7 +731,7 @@ def _run_or_load_eval_windows_vs_search(
                 "[td-loop-selfplay-resume] existing baseline eval artifact found, skipping: "
                 f"{out_path}"
             )
-        rows.append({"command": command, "row": _read_eval_row(out_path, opponent_policy="search")})
+        rows.append({"command": command, "row": read_eval_row(out_path, opponent_policy="search")})
     return rows
 
 
@@ -770,7 +772,7 @@ def _run_or_load_eval_windows_vs_incumbent(
                 "[td-loop-selfplay-resume] existing incumbent eval artifact found, skipping: "
                 f"{out_path}"
             )
-        rows.append({"command": command, "row": _read_eval_row(out_path, opponent_policy="td-search")})
+        rows.append({"command": command, "row": read_eval_row(out_path, opponent_policy="td-search")})
     return rows
 
 
