@@ -4,9 +4,9 @@ import math
 from dataclasses import dataclass
 from typing import Callable, Dict, Mapping
 
+from .basic_policies import Policy
 from .env import MagnateBridgeEnv
 from .evaluate import MatchSummary, evaluate_matchup
-from .policies import Policy
 from .types import PlayerId, Winner
 
 SideSwappedProgressCallback = Callable[

@@ -4,8 +4,8 @@ import random
 from dataclasses import dataclass
 from typing import Callable, Dict, Mapping
 
+from .basic_policies import Policy
 from .env import MagnateBridgeEnv
-from .policies import Policy
 from .types import PlayerId, Winner
 
 ProgressCallback = Callable[[int, int, Mapping[Winner, int], Mapping[PlayerId, int]], None]
