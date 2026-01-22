@@ -1,0 +1,25 @@
+{
+  "pythonVersion": "3.12",
+  "venvPath": ".",
+  "venv": ".venv",
+  "include": ["trainer"],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "artifacts",
+    "node_modules",
+    ".tmp",
+    ".pip-cache",
+    ".npm-cache",
+    ".yarn-cache",
+    "scripts",
+    "trainer_tests"
+  ],
+  "reportPrivateImportUsage": "none",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["."]
+    }
+  ]
+}

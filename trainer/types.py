@@ -1,23 +1,30 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Mapping, Optional
+from typing import Any, List, Mapping, Optional
 
-PlayerId = Literal["PlayerA", "PlayerB"]
-Winner = Literal["PlayerA", "PlayerB", "Draw"]
+from .bridge_payloads import (
+    ActionId,
+    GameActionPayload,
+    GamePhase,
+    PlayerId,
+    PlayerViewPayload,
+    SerializedStatePayload,
+    Winner,
+)
 
 
 @dataclass(frozen=True)
 class KeyedAction:
-    action_id: str
+    action_id: ActionId
     action_key: str
-    action: Dict[str, Any]
+    action: GameActionPayload
 
 
 @dataclass(frozen=True)
 class StateResult:
-    state: Dict[str, Any]
-    view: Dict[str, Any]
+    state: SerializedStatePayload
+    view: PlayerViewPayload
     terminal: bool
 
 
@@ -25,12 +32,12 @@ class StateResult:
 class LegalActionsResult:
     actions: List[KeyedAction]
     active_player_id: PlayerId
-    phase: str
+    phase: GamePhase
 
 
 @dataclass(frozen=True)
 class ObservationResult:
-    view: Dict[str, Any]
+    view: PlayerViewPayload
     legal_action_mask: Optional[List[str]]
 
 
@@ -49,7 +56,7 @@ class DecisionSample:
     reward: float
     action_probs: Optional[List[float]] = None
 
-    def as_json(self) -> Dict[str, Any]:
+    def as_json(self) -> dict[str, Any]:
         return {
             "seed": self.seed,
             "turn": self.turn,
@@ -66,7 +73,7 @@ class DecisionSample:
         }
 
 
-def require_mapping(value: Any, label: str) -> Mapping[str, Any]:
-    if not isinstance(value, dict):
+def require_mapping(value: Any, label: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
         raise TypeError(f"{label} must be an object, got {type(value).__name__}.")
     return value

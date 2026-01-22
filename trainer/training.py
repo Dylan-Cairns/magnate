@@ -5,12 +5,14 @@ import math
 import random
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any, Dict, List
 
 from .basic_policies import Policy
+from .bridge_payloads import SerializedStatePayload
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
-from .types import DecisionSample, PlayerId, Winner
+from .types import DecisionSample, KeyedAction, PlayerId, Winner
 
 
 def collect_episode_samples(
@@ -47,8 +49,8 @@ def collect_episode_samples(
         staged.append(
             DecisionSample(
                 seed=seed,
-                turn=int(step_result.state.get("turn", 0)),
-                phase=str(step_result.state.get("phase", "")),
+                turn=step_result.state["turn"],
+                phase=step_result.state["phase"],
                 active_player_id=active_player,
                 action_key=action_key,
                 action_id=chosen_action.action_id,
@@ -119,27 +121,21 @@ def read_samples_jsonl(input_path: Path) -> List[DecisionSample]:
     return samples
 
 
-def _find_action_index(actions, action_key: str) -> int:
+def _find_action_index(actions: Sequence[KeyedAction], action_key: str) -> int:
     for index, action in enumerate(actions):
         if action.action_key == action_key:
             return index
     raise ValueError(f"Selected action key was not present in legal actions: {action_key}")
 
 
-def _winner_from_state(state: Mapping[str, object]) -> Winner:
+def _winner_from_state(state: SerializedStatePayload) -> Winner:
     final_score = state.get("finalScore")
-    if not isinstance(final_score, dict):
+    if final_score is None:
         raise ValueError(
             "Terminal state is missing finalScore. "
-            f"turn={state.get('turn')} phase={state.get('phase')!r}"
+            f"turn={state['turn']} phase={state['phase']!r}"
         )
-    winner = final_score.get("winner")
-    if winner in ("PlayerA", "PlayerB", "Draw"):
-        return winner
-    raise ValueError(
-        "Terminal state has invalid finalScore.winner. "
-        f"winner={winner!r} turn={state.get('turn')} phase={state.get('phase')!r}"
-    )
+    return final_score["winner"]
 
 
 def _attach_reward(sample: DecisionSample, winner: Winner) -> DecisionSample:
@@ -237,7 +233,7 @@ def _optional_float_list(value: Any, line_number: int, field: str) -> List[float
 def _action_probs_from_policy(
     *,
     policy: Policy,
-    legal_actions,
+    legal_actions: Sequence[KeyedAction],
     chosen_action_index: int,
 ) -> List[float]:
     by_key = policy.root_action_probs()
