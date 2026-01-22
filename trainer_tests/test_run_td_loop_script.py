@@ -421,6 +421,38 @@ class RunTdLoopScriptTests(unittest.TestCase):
         self.assertEqual(printed["runId"], "run-123")
         self.assertTrue(printed["promoted"])
 
+    def test_run_td_loop_raises_without_writing_summary_when_chunk_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value_path, opponent_path = self._make_checkpoints(root)
+            args = self._base_args(root, value_path=value_path, opponent_path=opponent_path)
+            run_dir = root / "artifacts" / "run-123"
+            chunks_dir = run_dir / "chunks"
+            eval_dir = run_dir / "evals"
+            for path in (run_dir, chunks_dir, eval_dir):
+                path.mkdir(parents=True, exist_ok=True)
+            context = RunContext(
+                run_id="run-123",
+                run_dir=run_dir,
+                chunks_dir=chunks_dir,
+                eval_dir=eval_dir,
+                loop_summary_path=run_dir / "loop.summary.json",
+                progress_path=run_dir / "progress.json",
+                loop_started=time.perf_counter(),
+                warm_value=value_path,
+                warm_opponent=opponent_path,
+            )
+
+            with patch("scripts.run_td_loop.initialize_td_loop_run", return_value=context), patch(
+                "scripts.run_td_loop.run_td_loop_chunk",
+                side_effect=SystemExit("chunk failed"),
+            ), patch("builtins.print") as mocked_print:
+                with self.assertRaises(SystemExit):
+                    run_td_loop(args)
+
+        self.assertFalse(context.loop_summary_path.exists())
+        mocked_print.assert_not_called()
+
 
 class RunTdLoopSmokeTests(unittest.TestCase):
     def test_script_smoke_runs_small_td_loop(self) -> None:
