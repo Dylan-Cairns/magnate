@@ -25,6 +25,8 @@ Update Memory Bank files when:
 - Keep docs concise and decision-focused.
 - Prefer durable facts over changelog noise.
 - Avoid tracking volatile details (for example exact test counts).
+- Keep operational runbook material in `memoryBank/techContext.md`; keep `README.md` brief and link out.
+- Keep `memoryBank/activeContext.md` focused on current work, not release-note history.
 - Keep `README.md`, `AGENTS.md`, and relevant Memory Bank files aligned in the same pass.
 
 ## Minimum End-of-Task Check
