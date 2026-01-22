@@ -6,13 +6,13 @@ import random
 from dataclasses import replace
 from pathlib import Path
 from collections.abc import Mapping, Sequence
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from .basic_policies import Policy
-from .bridge_payloads import SerializedStatePayload
+from .bridge_payloads import ActionId, GamePhase, SerializedStatePayload
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
-from .types import DecisionSample, KeyedAction, PlayerId, Winner
+from .types import DecisionSample, DecisionSamplePayload, KeyedAction, PlayerId, Winner
 
 
 def collect_episode_samples(
@@ -148,14 +148,9 @@ def _attach_reward(sample: DecisionSample, winner: Winner) -> DecisionSample:
     return replace(sample, winner=winner, reward=reward)
 
 
-def _decision_sample_from_json(payload: Mapping[str, Any], line_number: int) -> DecisionSample:
-    active_player_id = payload.get("activePlayerId")
-    if active_player_id not in ("PlayerA", "PlayerB"):
-        raise ValueError(f"Invalid activePlayerId on line {line_number}: {active_player_id!r}")
-
-    winner = payload.get("winner")
-    if winner not in ("PlayerA", "PlayerB", "Draw"):
-        raise ValueError(f"Invalid winner on line {line_number}: {winner!r}")
+def _decision_sample_from_json(payload: Mapping[str, object], line_number: int) -> DecisionSample:
+    active_player_id = _as_player_id(payload.get("activePlayerId"), line_number, "activePlayerId")
+    winner = _as_winner(payload.get("winner"), line_number, "winner")
 
     observation = _float_list(payload.get("observation"), line_number, "observation")
     action_features_raw = payload.get("actionFeatures")
@@ -185,23 +180,37 @@ def _decision_sample_from_json(payload: Mapping[str, Any], line_number: int) -> 
             f"{line_number}: probs={len(action_probs)}, candidates={len(action_features)}."
         )
 
+    decision_payload: DecisionSamplePayload = {
+        "seed": str(payload.get("seed", "")),
+        "turn": _as_int(payload.get("turn"), line_number, "turn"),
+        "phase": _as_game_phase(payload.get("phase"), line_number, "phase"),
+        "activePlayerId": active_player_id,
+        "actionKey": str(payload.get("actionKey", "")),
+        "actionId": _as_action_id(payload.get("actionId"), line_number, "actionId"),
+        "actionIndex": action_index,
+        "observation": observation,
+        "actionFeatures": action_features,
+        "winner": winner,
+        "reward": _as_float(payload.get("reward"), line_number, "reward"),
+        "actionProbs": action_probs,
+    }
     return DecisionSample(
-        seed=str(payload.get("seed", "")),
-        turn=_as_int(payload.get("turn"), line_number, "turn"),
-        phase=str(payload.get("phase", "")),
-        active_player_id=active_player_id,
-        action_key=str(payload.get("actionKey", "")),
-        action_id=str(payload.get("actionId", "")),
-        action_index=action_index,
-        observation=observation,
-        action_features=action_features,
-        winner=winner,
-        reward=_as_float(payload.get("reward"), line_number, "reward"),
-        action_probs=action_probs,
+        seed=decision_payload["seed"],
+        turn=decision_payload["turn"],
+        phase=decision_payload["phase"],
+        active_player_id=decision_payload["activePlayerId"],
+        action_key=decision_payload["actionKey"],
+        action_id=decision_payload["actionId"],
+        action_index=decision_payload["actionIndex"],
+        observation=decision_payload["observation"],
+        action_features=decision_payload["actionFeatures"],
+        winner=decision_payload["winner"],
+        reward=decision_payload["reward"],
+        action_probs=decision_payload["actionProbs"],
     )
 
 
-def _float_list(value: Any, line_number: int, field: str) -> List[float]:
+def _float_list(value: object, line_number: int, field: str) -> List[float]:
     if not isinstance(value, list):
         raise ValueError(f"{field} must be a list on line {line_number}.")
     out: List[float] = []
@@ -210,13 +219,13 @@ def _float_list(value: Any, line_number: int, field: str) -> List[float]:
     return out
 
 
-def _as_int(value: Any, line_number: int, field: str) -> int:
+def _as_int(value: object, line_number: int, field: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field} must be an integer on line {line_number}.")
     return value
 
 
-def _as_float(value: Any, line_number: int, field: str) -> float:
+def _as_float(value: object, line_number: int, field: str) -> float:
     if isinstance(value, bool):
         raise ValueError(f"{field} must be numeric on line {line_number}.")
     if isinstance(value, (int, float)):
@@ -224,10 +233,49 @@ def _as_float(value: Any, line_number: int, field: str) -> float:
     raise ValueError(f"{field} must be numeric on line {line_number}.")
 
 
-def _optional_float_list(value: Any, line_number: int, field: str) -> List[float] | None:
+def _optional_float_list(value: object, line_number: int, field: str) -> List[float] | None:
     if value is None:
         return None
     return _float_list(value, line_number, field)
+
+
+def _as_player_id(value: object, line_number: int, field: str) -> PlayerId:
+    if value not in ("PlayerA", "PlayerB"):
+        raise ValueError(f"Invalid {field} on line {line_number}: {value!r}")
+    return value
+
+
+def _as_winner(value: object, line_number: int, field: str) -> Winner:
+    if value not in ("PlayerA", "PlayerB", "Draw"):
+        raise ValueError(f"Invalid {field} on line {line_number}: {value!r}")
+    return value
+
+
+def _as_game_phase(value: object, line_number: int, field: str) -> GamePhase:
+    if value not in (
+        "StartTurn",
+        "TaxCheck",
+        "CollectIncome",
+        "ActionWindow",
+        "DrawCard",
+        "GameOver",
+    ):
+        raise ValueError(f"Invalid {field} on line {line_number}: {value!r}")
+    return value
+
+
+def _as_action_id(value: object, line_number: int, field: str) -> ActionId:
+    if value not in (
+        "buy-deed",
+        "choose-income-suit",
+        "develop-deed",
+        "develop-outright",
+        "end-turn",
+        "sell-card",
+        "trade",
+    ):
+        raise ValueError(f"Invalid {field} on line {line_number}: {value!r}")
+    return value
 
 
 def _action_probs_from_policy(

@@ -30,6 +30,9 @@
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Trainer policy internals are now split across focused modules (`trainer/basic_policies.py`, `trainer/value_policy.py`, `trainer/search_policy.py`, `trainer/policy_factory.py`); `trainer/policies.py` remains the stable public facade for scripts/tests.
 - Core trainer policy/search flow now consumes the typed bridge boundary directly: the policy interface, search determinization helpers, forward model, teacher-data collection, self-play collection, and evaluation/training sampling paths no longer rely on raw `Dict[str, Any]` bridge payloads at their main entry points.
+- Core model-facing internals now use the typed bridge payloads directly: `trainer/encoding.py` and `trainer/search/leaf_evaluator.py` no longer treat state/view payloads as generic nested mappings.
+- Trainer-owned JSON/checkpoint edges are now typed too: `DecisionSample` JSONL, TD replay JSONL (`trainer/td/io.py`), and TD checkpoint payloads (`trainer/td/checkpoint.py`) now parse into explicit payload models instead of leaking `Any` through the trainer package.
+- Checked-in static analysis now covers both `trainer/` and the corresponding trainer-side tests under `trainer_tests/`; eval-suite script tests remain outside that checked-in pyright scope because the `scripts/` tree is still intentionally excluded.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.
 - TD pipeline is operational:
   - replay collection: `scripts.collect_td_self_play`
@@ -60,13 +63,13 @@
 - Improve `td-search` strength and throughput.
 - Wire an online replay refresh loop (beyond chunk-local offline replay files).
 - Tune browser `td-search` latency/throughput now that `td-search fast` is the default profile.
-- Continue shrinking untyped/dynamic payload handling outside explicit JSON/file I/O boundaries in the Python trainer stack.
+- Continue shrinking untyped/dynamic payload handling in the remaining Python script/orchestration layer outside the typed `trainer/` package.
 
 ## Immediate Next Steps
 
 1. Use the Windows laptop wrappers for local runs while preserving the existing RunPod bash launchers for cloud re-entry.
 2. Continue overnight self-play loop iterations with promoted warm starts and the `12`-chunk cadence.
 3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
-4. Extend the typed bridge-boundary approach incrementally into the remaining Python JSON/file I/O helpers as future trainer changes touch them.
+4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 
 _Updated: 2026-04-20._

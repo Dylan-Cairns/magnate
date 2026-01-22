@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import random
 import unittest
+from typing import cast
 from unittest.mock import patch
 
+from trainer.bridge_payloads import GameActionPayload, PlayerId, PlayerViewPayload, ResourcePoolPayload, SerializedStatePayload
+from trainer.env import MagnateBridgeEnv
 from trainer.td.self_play import (
     SelfPlayEpisode,
     collect_self_play_episode,
@@ -12,6 +15,98 @@ from trainer.td.self_play import (
     flatten_value_transitions,
 )
 from trainer.types import KeyedAction, LegalActionsResult, StateResult
+
+
+def _resource_pool() -> ResourcePoolPayload:
+    return {
+        "Moons": 0,
+        "Suns": 0,
+        "Waves": 0,
+        "Leaves": 0,
+        "Wyrms": 0,
+        "Knots": 0,
+    }
+
+
+def _empty_state(*, turn: int, active_player: PlayerId, terminal: bool = False) -> SerializedStatePayload:
+    payload: SerializedStatePayload = {
+        "schemaVersion": 1,
+        "seed": "stub-seed",
+        "rngCursor": turn,
+        "deck": {"draw": [], "discard": [], "reshuffles": 0},
+        "players": [
+            {"id": "PlayerA", "hand": [], "crowns": [], "resources": _resource_pool()},
+            {"id": "PlayerB", "hand": [], "crowns": [], "resources": _resource_pool()},
+        ],
+        "activePlayerIndex": 0 if active_player == "PlayerA" else 1,
+        "turn": turn,
+        "phase": "GameOver" if terminal else "ActionWindow",
+        "districts": [
+            {
+                "id": "D0",
+                "markerSuitMask": [],
+                "stacks": {
+                    "PlayerA": {"developed": []},
+                    "PlayerB": {"developed": []},
+                },
+            }
+        ],
+        "cardPlayedThisTurn": False,
+        "log": [],
+    }
+    if terminal:
+        payload["finalScore"] = {
+            "districtPoints": {"PlayerA": 1, "PlayerB": 0},
+            "rankTotals": {"PlayerA": 1, "PlayerB": 0},
+            "resourceTotals": {"PlayerA": 0, "PlayerB": 0},
+            "winner": "PlayerA",
+            "decidedBy": "districts",
+        }
+    return payload
+
+
+def _empty_view(*, turn: int, active_player: PlayerId, viewer_id: PlayerId = "PlayerA") -> PlayerViewPayload:
+    return {
+        "viewerId": viewer_id,
+        "activePlayerId": active_player,
+        "turn": turn,
+        "phase": "ActionWindow",
+        "districts": [
+            {
+                "id": "D0",
+                "markerSuitMask": [],
+                "stacks": {
+                    "PlayerA": {"developed": []},
+                    "PlayerB": {"developed": []},
+                },
+            }
+        ],
+        "players": [
+            {
+                "id": "PlayerA",
+                "crowns": [],
+                "resources": _resource_pool(),
+                "hand": [],
+                "handCount": 0,
+                "handHidden": False,
+            },
+            {
+                "id": "PlayerB",
+                "crowns": [],
+                "resources": _resource_pool(),
+                "hand": [],
+                "handCount": 0,
+                "handHidden": True,
+            },
+        ],
+        "deck": {"drawCount": 0, "discard": [], "reshuffles": 0},
+        "cardPlayedThisTurn": False,
+        "log": [],
+    }
+
+
+def _trade_action() -> GameActionPayload:
+    return {"type": "trade", "give": "Moons", "receive": "Suns"}
 
 
 class _StubPolicy:
@@ -31,27 +126,27 @@ class _ScriptedEnv:
         del first_player
         self._step = 0
         return StateResult(
-            state={"turn": 0},
-            view={"obsTag": "A0"},
+            state=_empty_state(turn=0, active_player="PlayerA"),
+            view=_empty_view(turn=0, active_player="PlayerA"),
             terminal=False,
         )
 
     def legal_actions(self) -> LegalActionsResult:
         if self._step == 0:
             return LegalActionsResult(
-                actions=[KeyedAction(action_id="trade", action_key="a0", action={})],
+                actions=[KeyedAction(action_id="trade", action_key="a0", action=_trade_action())],
                 active_player_id="PlayerA",
                 phase="ActionWindow",
             )
         if self._step == 1:
             return LegalActionsResult(
-                actions=[KeyedAction(action_id="trade", action_key="b0", action={})],
+                actions=[KeyedAction(action_id="trade", action_key="b0", action=_trade_action())],
                 active_player_id="PlayerB",
                 phase="ActionWindow",
             )
         if self._step == 2:
             return LegalActionsResult(
-                actions=[KeyedAction(action_id="trade", action_key="a1", action={})],
+                actions=[KeyedAction(action_id="trade", action_key="a1", action=_trade_action())],
                 active_player_id="PlayerA",
                 phase="ActionWindow",
             )
@@ -61,12 +156,20 @@ class _ScriptedEnv:
         del action_key
         self._step += 1
         if self._step == 1:
-            return StateResult(state={"turn": 1}, view={"obsTag": "B0"}, terminal=False)
+            return StateResult(
+                state=_empty_state(turn=1, active_player="PlayerB"),
+                view=_empty_view(turn=1, active_player="PlayerB"),
+                terminal=False,
+            )
         if self._step == 2:
-            return StateResult(state={"turn": 2}, view={"obsTag": "A1"}, terminal=False)
+            return StateResult(
+                state=_empty_state(turn=2, active_player="PlayerA"),
+                view=_empty_view(turn=2, active_player="PlayerA"),
+                terminal=False,
+            )
         return StateResult(
-            state={"turn": 3, "finalScore": {"winner": "PlayerA"}},
-            view={"obsTag": "T"},
+            state=_empty_state(turn=3, active_player="PlayerA", terminal=True),
+            view=_empty_view(turn=3, active_player="PlayerA"),
             terminal=True,
         )
 
@@ -80,17 +183,17 @@ class TDSelfPlayTests(unittest.TestCase):
         mock_encode_action_candidates,
     ) -> None:
         mock_encode_observation.side_effect = lambda view: {
-            "A0": [1.0, 0.0],
-            "B0": [0.0, 1.0],
-            "A1": [0.5, 0.5],
-            "T": [0.0, 0.0],
-        }[view["obsTag"]]
+            0: [1.0, 0.0],
+            1: [0.0, 1.0],
+            2: [0.5, 0.5],
+            3: [0.0, 0.0],
+        }[view["turn"]]
         mock_encode_action_candidates.side_effect = lambda actions: [[float(index)] for index, _ in enumerate(actions)]
 
         env = _ScriptedEnv()
-        policies = {"PlayerA": _StubPolicy(), "PlayerB": _StubPolicy()}
+        policies: dict[PlayerId, _StubPolicy] = {"PlayerA": _StubPolicy(), "PlayerB": _StubPolicy()}
         episode = collect_self_play_episode(
-            env=env,
+            env=cast(MagnateBridgeEnv, env),
             policies=policies,
             seed="seed-1",
             first_player="PlayerA",
@@ -125,10 +228,10 @@ class TDSelfPlayTests(unittest.TestCase):
     @patch("trainer.td.self_play.encode_observation", return_value=[0.0, 0.0])
     def test_collect_self_play_games_alternates_first_player(self, _obs, _acts) -> None:
         env = _ScriptedEnv()
-        policies = {"PlayerA": _StubPolicy(), "PlayerB": _StubPolicy()}
+        policies: dict[PlayerId, _StubPolicy] = {"PlayerA": _StubPolicy(), "PlayerB": _StubPolicy()}
         progress_events = []
         episodes = collect_self_play_games(
-            env=env,
+            env=cast(MagnateBridgeEnv, env),
             policy_player_a=policies["PlayerA"],
             policy_player_b=policies["PlayerB"],
             games=3,
