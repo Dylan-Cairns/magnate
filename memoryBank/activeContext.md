@@ -26,6 +26,7 @@
 - Local Python setup now installs `requirements-dev.txt`, and the repo includes a Ruff baseline (`ruff.toml`) targeting Python `3.12` with high-signal lint checks plus import sorting.
 - Python bridge client now drains bridge stderr in a background thread to avoid long-run Windows pipe stalls during self-play collection.
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
+- Trainer policy internals are now split across focused modules (`trainer/basic_policies.py`, `trainer/value_policy.py`, `trainer/search_policy.py`, `trainer/policy_factory.py`); `trainer/policies.py` remains the stable public facade for scripts/tests.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.
 - TD pipeline is operational:
   - replay collection: `scripts.collect_td_self_play`

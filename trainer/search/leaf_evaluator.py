@@ -91,6 +91,17 @@ def active_player_id(view: Mapping[str, Any]) -> PlayerId:
     return value
 
 
+def active_value_to_root_value(
+    *,
+    active_value: float,
+    active_player: PlayerId,
+    root_player: PlayerId,
+) -> float:
+    if active_player == root_player:
+        return active_value
+    return -active_value
+
+
 def value_from_player_view(view: Mapping[str, Any], root_player: PlayerId) -> float:
     opponent = "PlayerB" if root_player == "PlayerA" else "PlayerA"
     players_by_id = player_views_by_id(view)
@@ -102,27 +113,28 @@ def value_from_player_view(view: Mapping[str, Any], root_player: PlayerId) -> fl
     hand_diff = as_int(root_state.get("handCount")) - as_int(opponent_state.get("handCount"))
 
     districts = view.get("districts")
-    district_count = len(districts) if isinstance(districts, list) else 0
+    if not isinstance(districts, list):
+        raise ValueError("View payload is missing districts list.")
+    district_count = len(districts)
     district_lead = 0.0
     rank_diff = 0.0
     progress_diff = 0.0
-    if isinstance(districts, list):
-        for district in districts:
-            if not isinstance(district, dict):
-                continue
-            stacks = district.get("stacks")
-            if not isinstance(stacks, dict):
-                continue
-            root_stack = as_mapping(stacks.get(root_player))
-            opponent_stack = as_mapping(stacks.get(opponent))
-            root_rank, root_progress = stack_score(root_stack)
-            opponent_rank, opponent_progress = stack_score(opponent_stack)
-            rank_diff += root_rank - opponent_rank
-            progress_diff += root_progress - opponent_progress
-            if root_rank > opponent_rank:
-                district_lead += 1.0
-            elif root_rank < opponent_rank:
-                district_lead -= 1.0
+    for district in districts:
+        if not isinstance(district, dict):
+            raise ValueError(f"District entry must be an object, got {type(district).__name__}.")
+        stacks = district.get("stacks")
+        if not isinstance(stacks, dict):
+            raise ValueError("District payload is missing stacks object.")
+        root_stack = as_mapping(stacks.get(root_player))
+        opponent_stack = as_mapping(stacks.get(opponent))
+        root_rank, root_progress = stack_score(root_stack)
+        opponent_rank, opponent_progress = stack_score(opponent_stack)
+        rank_diff += root_rank - opponent_rank
+        progress_diff += root_progress - opponent_progress
+        if root_rank > opponent_rank:
+            district_lead += 1.0
+        elif root_rank < opponent_rank:
+            district_lead -= 1.0
 
     district_term = district_lead / float(max(1, district_count))
     rank_term = math.tanh(rank_diff / 18.0)
@@ -264,7 +276,7 @@ def player_views_by_id(view: Mapping[str, Any]) -> Dict[PlayerId, Dict[str, Any]
     out: Dict[PlayerId, Dict[str, Any]] = {}
     for player in players:
         if not isinstance(player, dict):
-            continue
+            raise ValueError(f"Player entry must be an object, got {type(player).__name__}.")
         player_id = player.get("id")
         if player_id in ("PlayerA", "PlayerB"):
             out[player_id] = player
