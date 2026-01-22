@@ -3,22 +3,23 @@ from __future__ import annotations
 import copy
 import json
 from collections import OrderedDict
-from typing import Any, Dict, Mapping
+from collections.abc import Mapping
 
 from trainer.bridge_client import BridgeClient
+from trainer.bridge_payloads import PlayerId, SerializedStatePayload
 from trainer.env import MagnateBridgeEnv
-from trainer.types import LegalActionsResult, ObservationResult, PlayerId, StateResult
+from trainer.types import LegalActionsResult, ObservationResult, StateResult
 
 
 class BridgeForwardModel:
     def __init__(self, *, step_cache_limit: int = 0) -> None:
         self._sim_client: BridgeClient | None = None
         self._sim_env: MagnateBridgeEnv | None = None
-        self._step_cache: OrderedDict[tuple[str, str], Dict[str, Any]] = OrderedDict()
+        self._step_cache: OrderedDict[tuple[str, str], SerializedStatePayload] = OrderedDict()
         self._step_cache_limit = max(0, step_cache_limit)
 
     @property
-    def step_cache(self) -> OrderedDict[tuple[str, str], Dict[str, Any]]:
+    def step_cache(self) -> OrderedDict[tuple[str, str], SerializedStatePayload]:
         return self._step_cache
 
     def close(self) -> None:
@@ -28,9 +29,9 @@ class BridgeForwardModel:
             self._sim_env = None
         self._step_cache.clear()
 
-    def reset_state(self, state: Mapping[str, Any]) -> StateResult:
+    def reset_state(self, state: SerializedStatePayload) -> StateResult:
         return self._simulator_env().reset(
-            serialized_state=copy.deepcopy(dict(state)),
+            serialized_state=copy.deepcopy(state),
             skip_advance_to_decision=True,
         )
 
@@ -46,7 +47,7 @@ class BridgeForwardModel:
     def step(self, action_key: str) -> StateResult:
         return self._simulator_env().step(action_key=action_key)
 
-    def step_state_cached(self, state: Mapping[str, Any], action_key: str) -> Dict[str, Any]:
+    def step_state_cached(self, state: SerializedStatePayload, action_key: str) -> SerializedStatePayload:
         if self._step_cache_limit <= 0:
             self.reset_state(state)
             return copy.deepcopy(self.step(action_key).state)
@@ -73,5 +74,5 @@ class BridgeForwardModel:
         return self._sim_env
 
 
-def _state_cache_key(state: Mapping[str, Any]) -> str:
+def _state_cache_key(state: SerializedStatePayload) -> str:
     return json.dumps(state, sort_keys=True, separators=(",", ":"))

@@ -4,11 +4,12 @@ import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 import torch
 
 from .basic_policies import Policy
+from .bridge_payloads import PlayerViewPayload, SerializedStatePayload
 from .encoding import encode_observation
 from .search import (
     BridgeForwardModel,
@@ -18,6 +19,7 @@ from .search import (
     terminal_value,
 )
 from .td.checkpoint import load_value_checkpoint
+from .td.models import ValueNet
 from .types import KeyedAction, PlayerId
 
 
@@ -38,17 +40,17 @@ class TDValuePolicy(Policy):
 
     def __post_init__(self) -> None:
         model, _payload = load_value_checkpoint(path=self.config.checkpoint_path)
-        self._model = model
+        self._model: ValueNet = model
         self._model.eval()
         self._forward_model = BridgeForwardModel(step_cache_limit=0)
-        self._last_root_policy: Dict[str, float] | None = None
+        self._last_root_policy: dict[str, float] | None = None
 
     def choose_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
-        state: Mapping[str, Any] | None = None,
+        state: SerializedStatePayload | None = None,
     ) -> str:
         if not legal_actions:
             raise ValueError("TD value policy requires at least one legal action.")
@@ -73,7 +75,7 @@ class TDValuePolicy(Policy):
                 f"turn={state.get('turn')} phase={state.get('phase')}"
             )
 
-        scores_by_key: Dict[str, float] = {}
+        scores_by_key: dict[str, float] = {}
         for action in legal_actions:
             total = 0.0
             for world in worlds:
@@ -119,7 +121,7 @@ class TDValuePolicy(Policy):
     def _score_action_world(
         self,
         *,
-        world_state: Mapping[str, Any],
+        world_state: SerializedStatePayload,
         action_key: str,
         root_player: PlayerId,
     ) -> float:
@@ -135,7 +137,7 @@ class TDValuePolicy(Policy):
             dtype=torch.float32,
         )
         with torch.no_grad():
-            active_value = float(self._model(observation).item())
+            active_value = float(self._require_model()(observation).item())
         root_value = active_value_to_root_value(
             active_value=active_value,
             active_player=active_player,
@@ -148,7 +150,7 @@ class TDValuePolicy(Policy):
         *,
         legal_actions: Sequence[KeyedAction],
         scores_by_key: Mapping[str, float],
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         if not legal_actions:
             return {}
         logits = [float(scores_by_key.get(action.action_key, 0.0)) for action in legal_actions]
@@ -162,6 +164,9 @@ class TDValuePolicy(Policy):
             action.action_key: exp_values[index] / total
             for index, action in enumerate(legal_actions)
         }
+
+    def _require_model(self) -> ValueNet:
+        return self._model
 
 
 __all__ = [

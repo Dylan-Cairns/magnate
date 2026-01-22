@@ -8,6 +8,7 @@
 - Vitest
 - ESLint + Prettier
 - Ruff
+- Pyright
 - Python 3.12+ (`.venv`)
 - PyTorch + NumPy
 
@@ -26,6 +27,12 @@
 - Python bootstrap:
   - `scripts/setup_python_env.ps1` (Windows local path; installs `requirements-dev.txt` including Ruff, CPU-only PyTorch via the official CPU wheel index, repo-local temp/cache dirs)
   - `./.venv/Scripts/Activate.ps1`
+  - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`
+  - Static analysis runs from the repo venv: `.\.venv\Scripts\python -m pyright -p .`
+- Python bridge typing:
+  - `trainer/bridge_payloads.py` defines the consumed TS bridge payload subset as `TypedDict`/`Literal` models
+  - `trainer/bridge_parsing.py` validates and narrows raw bridge JSON once at ingress
+  - `trainer/bridge_client.py` and `trainer/env.py` expose typed payloads to policy/search/training code
 - Active Python entrypoints:
   - `python -m scripts.eval`
   - `python -m scripts.eval_suite` (loop default is fixed-size certify flow; `--workers` for deterministic parallel sharding; per-worker thread caps via `--worker-torch-threads`, `--worker-torch-interop-threads`, `--worker-blas-threads`; supports separate td-search checkpoints per side via `--candidate-td-search-*` and `--opponent-td-search-*`)
@@ -56,4 +63,4 @@
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
 
-_Updated: 2026-04-15._
+_Updated: 2026-04-20._

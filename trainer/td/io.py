@@ -60,6 +60,12 @@ def write_value_transitions_jsonl(
                 "playerId": transition.player_id,
             }
             if transition.episode_id is not None:
+                if transition.timestep is None:
+                    raise ValueError(
+                        "Invalid value transition while writing JSONL: "
+                        "timestep must be set when episode_id is set. "
+                        f"entry={index}"
+                    )
                 payload["episodeId"] = transition.episode_id
                 payload["timestep"] = int(transition.timestep)
             handle.write(json.dumps(payload) + "\n")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Callable, Dict, Mapping
+from collections.abc import Callable, Mapping
 
 from .basic_policies import Policy
 from .env import MagnateBridgeEnv
@@ -22,9 +22,9 @@ class GameResult:
 @dataclass(frozen=True)
 class MatchSummary:
     games: int
-    winners: Dict[Winner, int]
-    wins_by_seat: Dict[PlayerId, int]
-    policy_name_by_seat: Dict[PlayerId, str]
+    winners: dict[Winner, int]
+    wins_by_seat: dict[PlayerId, int]
+    policy_name_by_seat: dict[PlayerId, str]
     average_turn: float
 
 
@@ -50,17 +50,14 @@ def play_game(
         step_result = env.step(action_key=action_key)
 
     final_score = step_result.state.get("finalScore")
-    if not isinstance(final_score, dict):
+    if final_score is None:
         raise RuntimeError("Terminal state is missing finalScore payload.")
-    winner = final_score.get("winner")
-    if winner not in ("PlayerA", "PlayerB", "Draw"):
-        raise RuntimeError(f"Invalid winner in terminal state: {winner!r}")
 
     return GameResult(
         seed=seed,
         first_player=first_player,
-        winner=winner,
-        turn=int(step_result.state.get("turn", 0)),
+        winner=final_score["winner"],
+        turn=step_result.state["turn"],
     )
 
 
@@ -74,17 +71,17 @@ def evaluate_matchup(
     progress_every_games: int = 0,
     on_progress: ProgressCallback | None = None,
 ) -> MatchSummary:
-    policies: Dict[PlayerId, Policy] = {
+    policies: dict[PlayerId, Policy] = {
         "PlayerA": policy_player_a,
         "PlayerB": policy_player_b,
     }
 
-    winners: Dict[Winner, int] = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
-    wins_by_seat: Dict[PlayerId, int] = {
+    winners: dict[Winner, int] = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
+    wins_by_seat: dict[PlayerId, int] = {
         "PlayerA": 0,
         "PlayerB": 0,
     }
-    policy_name_by_seat: Dict[PlayerId, str] = {
+    policy_name_by_seat: dict[PlayerId, str] = {
         "PlayerA": policy_player_a.name,
         "PlayerB": policy_player_b.name,
     }
