@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, replace
-from typing import Callable, Dict, Mapping, Sequence, Set
+from typing import Callable, Dict, Mapping, Set
 
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv

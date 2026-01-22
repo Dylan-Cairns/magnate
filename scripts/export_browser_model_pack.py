@@ -5,7 +5,7 @@ import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, MutableMapping, Sequence
+from typing import Any, Dict, Mapping, MutableMapping, Sequence
 
 import torch
 

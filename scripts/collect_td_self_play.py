@@ -155,7 +155,6 @@ def main() -> int:
     args = parse_args()
     _require_supported_runtime()
     _validate_policy_args(args)
-    policies = {args.player_a_policy.strip().lower(), args.player_b_policy.strip().lower()}
     if args.games <= 0:
         raise SystemExit("--games must be > 0.")
 
