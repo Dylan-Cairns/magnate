@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Literal, Mapping, NotRequired, Optional, Tuple, TypedDict, cast
+from typing import Literal, Mapping, NotRequired, Optional, Tuple, TypedDict, cast
 
 import torch
 

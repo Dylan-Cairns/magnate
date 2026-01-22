@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from .bridge_payloads import GameActionPayload, PlayerViewPayload, SerializedStatePayload
 from .bridge_client import BridgeClient
+from .bridge_payloads import GameActionPayload, PlayerViewPayload, SerializedStatePayload
 from .types import LegalActionsResult, ObservationResult, PlayerId, StateResult
 
 
