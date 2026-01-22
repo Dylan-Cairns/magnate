@@ -31,14 +31,6 @@ Build a web-playable, single-player Magnate with a competent bot.
 - Stable bridge contract for TS/Python integration.
 - Bot can play full games in browser without server runtime.
 
-## Execution Order
-
-1. Complete TS rules loop (setup, turn flow, legality, scoring, terminal).
-2. Expand tests for full-turn and scoring behavior.
-3. Implement bridge runtime using contract v1.
-4. Add trainer scaffold and baseline policy.
-5. Integrate model inference in browser.
-
 ## References
 
 - Rules: `memoryBank/magnateRules.md`

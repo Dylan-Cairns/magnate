@@ -79,13 +79,10 @@ Design expectations:
 
 - Current baseline policy is determinized rollout search.
 - Search is treated as warm-start infrastructure, not final architecture.
-- TD/Keldon pipeline is being built incrementally:
-  - Phase 1 landed shared primitives (`trainer/td`).
-  - Phase 2 landed orchestrated self-play/replay/train/eval loops.
-  - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-- Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation + checkpointed training, followed by two fixed-size certify windows with pooled promotion checks.
-- Current forward loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection to td-search-heavy mixed opponents, incumbent head-to-head promotion checks, and a `12`-chunk promotion cadence.
-- Replay regime in loop orchestration is explicit `chunk-local` (bootstrap) and `chunk-local-selfplay-mixed` (self-play loop).
+- TD training architecture is staged around shared primitives in `trainer/td`, replay collection, checkpointed training, and promotion-gated evaluation.
+- Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation, checkpointed training, and pooled side-swapped certify windows before promotion.
+- Forward self-play loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection toward mixed td-search-heavy opponents and incumbent head-to-head checks.
+- Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
 - Platform-specific runtime tuning lives in thin wrapper scripts, not the canonical Python loop defaults:
   - RunPod/Linux uses bash launchers with cloud presets.
   - Windows laptop runs use PowerShell launchers that set temp/cache dirs, CPU thread caps, and explicit worker counts.

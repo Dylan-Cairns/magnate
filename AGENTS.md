@@ -24,12 +24,13 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 - Keep engine behavior deterministic (seeded RNG only).
 - Keep rule semantics in TypeScript.
 - Keep bridge contract stable (`memoryBank/bridgeInterfaceContract.md`).
-- Prefer targeted tests for touched behavior.
+- Use the project `.venv` for any Python command in this repo.
+- When changing Python code, run targeted tests for touched behavior plus Ruff and Pyright before handoff.
 - Keep docs aligned with code changes.
 
 ## Project Context
 
-- Browser app is playable; default bot is rollout-search.
+- Browser app is playable; default bot is `TD Search Fast`.
 - Training loop is TD-focused and runs as `collect -> train -> promotion eval`.
 - Loop orchestration is staged: bootstrap/recalibration with `python -m scripts.run_td_loop`, then ongoing self-play with `python -m scripts.run_td_loop_selfplay`.
 - Current Python policy surface: `random`, `heuristic`, `search`, `td-value`, `td-search`.
@@ -38,7 +39,7 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 
 - Python training/eval is fail-fast:
   - invalid bridge payloads, missing checkpoints, or malformed policy probabilities are hard errors.
-- Training scripts require explicit policy selection and active `.venv`.
+- Training scripts require explicit policy selection and the active project `.venv`.
 - Prefer promoted checkpoints as warm start for subsequent loops.
 
 ## Reference Map
