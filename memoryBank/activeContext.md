@@ -20,7 +20,7 @@
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Search-path forward-model cache infrastructure now exists in `trainer/search/forward_model.py`: exact-state keyed transition, legal-actions, and observation caches with stats and dedicated tests.
-- Plain `search`, `td-search`, and `td-value` now use the cached state-query APIs, and the default cache limits are now `32` based on repeated fixed-seed collect/eval benchmarks.
+- Plain `search`, `td-search`, and `td-value` now use the cached state-query APIs, and the default cache limits are now `32` across both policy configs and the main collect/eval script entrypoints, so loop and resume flows inherit the new default.
 - Collect/eval and benchmark scripts now expose cache-limit flags and emit aggregated cache-hit summaries, so cache-default decisions can be based on measured hit rates plus wall-clock throughput.
 - `scripts.run_td_loop` is the bootstrap or recalibration path; `scripts.run_td_loop_selfplay` is the primary forward loop.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
