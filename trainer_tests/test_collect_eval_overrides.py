@@ -64,9 +64,6 @@ class CollectEvalOverrideTests(unittest.TestCase):
             "searchDepth": 14,
             "searchMaxRootActions": 6,
             "searchRolloutEpsilon": 0.04,
-            "transitionCacheLimit": 64,
-            "legalActionsCacheLimit": 32,
-            "observationCacheLimit": 16,
             "tdValueCheckpoint": None,
             "tdWorlds": 8,
             "candidateTdSearchValueCheckpoint": "candidate.value.pt",
@@ -89,9 +86,6 @@ class CollectEvalOverrideTests(unittest.TestCase):
         self.assertEqual(kwargs["candidate_td_search_opponent_checkpoint"], Path("candidate.opp.pt"))
         self.assertEqual(kwargs["opponent_td_search_value_checkpoint"], Path("opponent.value.pt"))
         self.assertEqual(kwargs["opponent_td_search_opponent_checkpoint"], Path("opponent.opp.pt"))
-        self.assertEqual(kwargs["transition_cache_limit"], 64)
-        self.assertEqual(kwargs["legal_actions_cache_limit"], 32)
-        self.assertEqual(kwargs["observation_cache_limit"], 16)
 
 
 if __name__ == "__main__":

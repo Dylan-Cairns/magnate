@@ -21,7 +21,6 @@
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Search-path forward-model cache infrastructure now exists in `trainer/search/forward_model.py`: exact-state keyed transition, legal-actions, and observation caches with stats and dedicated tests.
 - Plain `search`, `td-search`, and `td-value` now use the cached state-query APIs; cache limits still default to `0` pending explicit benchmarking.
-- Collect/eval and benchmark scripts now expose cache-limit flags and emit aggregated cache-hit summaries, so cache-default decisions can be based on measured hit rates plus wall-clock throughput.
 - `scripts.run_td_loop` is the bootstrap or recalibration path; `scripts.run_td_loop_selfplay` is the primary forward loop.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
 
@@ -31,7 +30,7 @@
 - Improve `td-search` strength and throughput.
 - Wire an online replay refresh loop (beyond chunk-local offline replay files).
 - Tune browser `td-search` latency/throughput now that `TD Search Fast` is the default profile.
-- Run the new cache-instrumented collect/eval benchmarks to compare hit rates, entry counts, and wall-clock impact before enabling any nonzero defaults.
+- Benchmark cache hit rates and wall-clock impact for the new exact-state cache APIs before enabling any nonzero defaults.
 - Continue shrinking untyped/dynamic payload handling in the remaining Python script/orchestration layer outside the typed `trainer/` package.
 
 ## Immediate Next Steps

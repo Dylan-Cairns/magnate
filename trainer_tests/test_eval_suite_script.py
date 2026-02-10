@@ -27,31 +27,6 @@ class EvalSuiteScriptTests(unittest.TestCase):
             "opponentWins": 1,
             "draws": 1,
             "averageTurn": 12.0,
-            "cacheStats": {
-                "combined": {
-                    "transition": {
-                        "hits": 10,
-                        "misses": 5,
-                        "requests": 15,
-                        "hitRate": 10 / 15,
-                        "entries": 3,
-                    },
-                    "legalActions": {
-                        "hits": 4,
-                        "misses": 2,
-                        "requests": 6,
-                        "hitRate": 4 / 6,
-                        "entries": 2,
-                    },
-                    "observation": {
-                        "hits": 2,
-                        "misses": 1,
-                        "requests": 3,
-                        "hitRate": 2 / 3,
-                        "entries": 1,
-                    },
-                }
-            },
             "legs": {
                 "candidateAsPlayerA": {
                     "games": 2,
@@ -79,31 +54,6 @@ class EvalSuiteScriptTests(unittest.TestCase):
             "opponentWins": 2,
             "draws": 1,
             "averageTurn": 10.0,
-            "cacheStats": {
-                "combined": {
-                    "transition": {
-                        "hits": 6,
-                        "misses": 6,
-                        "requests": 12,
-                        "hitRate": 0.5,
-                        "entries": 4,
-                    },
-                    "legalActions": {
-                        "hits": 2,
-                        "misses": 2,
-                        "requests": 4,
-                        "hitRate": 0.5,
-                        "entries": 1,
-                    },
-                    "observation": {
-                        "hits": 3,
-                        "misses": 3,
-                        "requests": 6,
-                        "hitRate": 0.5,
-                        "entries": 2,
-                    },
-                }
-            },
             "legs": {
                 "candidateAsPlayerA": {
                     "games": 2,
@@ -132,12 +82,6 @@ class EvalSuiteScriptTests(unittest.TestCase):
         self.assertAlmostEqual(float(merged["candidateWinRateAsPlayerA"]), 0.5)
         self.assertAlmostEqual(float(merged["candidateWinRateAsPlayerB"]), 0.5)
         self.assertAlmostEqual(float(merged["sideGap"]), 0.0)
-        self.assertEqual(merged["cacheStats"]["transition"]["hits"], 16)
-        self.assertEqual(merged["cacheStats"]["transition"]["misses"], 11)
-        self.assertEqual(merged["cacheStats"]["transition"]["entries"], 7)
-        self.assertAlmostEqual(float(merged["cacheStats"]["transition"]["hitRate"]), 16 / 27)
-        self.assertEqual(merged["cacheStats"]["legalActions"]["hits"], 6)
-        self.assertEqual(merged["cacheStats"]["observation"]["hits"], 5)
         self.assertEqual(
             merged["legs"]["candidateAsPlayerA"]["winsBySeat"],
             {"PlayerA": 2, "PlayerB": 1},
