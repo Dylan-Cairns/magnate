@@ -19,6 +19,8 @@
 - Browser app is playable; default bot is `TD Search Fast`.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
+- Search-path forward-model cache infrastructure now exists in `trainer/search/forward_model.py`: exact-state keyed transition, legal-actions, and observation caches with stats and dedicated tests.
+- Plain `search` rollout now uses the cached state-query APIs; cache limits still default to `0`, and `td-search` / `td-value` have not been switched over yet.
 - `scripts.run_td_loop` is the bootstrap or recalibration path; `scripts.run_td_loop_selfplay` is the primary forward loop.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
 
@@ -28,6 +30,7 @@
 - Improve `td-search` strength and throughput.
 - Wire an online replay refresh loop (beyond chunk-local offline replay files).
 - Tune browser `td-search` latency/throughput now that `TD Search Fast` is the default profile.
+- Wire the new exact-state cache APIs into the remaining live `td-search` and `td-value` rollout paths, then benchmark hit rates and wall-clock impact before enabling nonzero defaults.
 - Continue shrinking untyped/dynamic payload handling in the remaining Python script/orchestration layer outside the typed `trainer/` package.
 
 ## Immediate Next Steps
