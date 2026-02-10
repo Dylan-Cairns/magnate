@@ -70,6 +70,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-max-root-actions", type=int, default=6)
     parser.add_argument("--search-rollout-epsilon", type=float, default=0.04)
     parser.add_argument(
+        "--transition-cache-limit",
+        type=int,
+        default=0,
+        help="Exact-state transition cache size per policy instance (0 disables).",
+    )
+    parser.add_argument(
+        "--legal-actions-cache-limit",
+        type=int,
+        default=0,
+        help="Exact-state legal-actions cache size per policy instance (0 disables).",
+    )
+    parser.add_argument(
+        "--observation-cache-limit",
+        type=int,
+        default=0,
+        help="Exact-state observation cache size per policy instance (0 disables).",
+    )
+    parser.add_argument(
         "--td-value-checkpoint",
         type=Path,
         default=None,
@@ -656,6 +674,11 @@ def _base_config_payload(args: argparse.Namespace) -> Dict[str, object]:
             "maxRootActions": args.search_max_root_actions,
             "rolloutEpsilon": args.search_rollout_epsilon,
         },
+        "cache": {
+            "transitionLimit": args.transition_cache_limit,
+            "legalActionsLimit": args.legal_actions_cache_limit,
+            "observationLimit": args.observation_cache_limit,
+        },
         "tdValue": {
             "checkpoint": str(args.td_value_checkpoint) if args.td_value_checkpoint else None,
             "worlds": args.td_worlds,
@@ -735,6 +758,9 @@ def _evaluate_results(
             search_depth=args.search_depth,
             search_max_root_actions=args.search_max_root_actions,
             search_rollout_epsilon=args.search_rollout_epsilon,
+            transition_cache_limit=args.transition_cache_limit,
+            legal_actions_cache_limit=args.legal_actions_cache_limit,
+            observation_cache_limit=args.observation_cache_limit,
             td_value_checkpoint=args.td_value_checkpoint,
             td_worlds=args.td_worlds,
             candidate_td_search_value_checkpoint=_effective_candidate_td_search_value_checkpoint(
@@ -793,6 +819,9 @@ def _evaluate_results(
             search_depth=args.search_depth,
             search_max_root_actions=args.search_max_root_actions,
             search_rollout_epsilon=args.search_rollout_epsilon,
+            transition_cache_limit=args.transition_cache_limit,
+            legal_actions_cache_limit=args.legal_actions_cache_limit,
+            observation_cache_limit=args.observation_cache_limit,
             td_value_checkpoint=args.td_value_checkpoint,
             td_worlds=args.td_worlds,
             candidate_td_search_value_checkpoint=_effective_candidate_td_search_value_checkpoint(
@@ -855,6 +884,9 @@ def _evaluate_results(
                 "searchDepth": args.search_depth,
                 "searchMaxRootActions": args.search_max_root_actions,
                 "searchRolloutEpsilon": args.search_rollout_epsilon,
+                "transitionCacheLimit": args.transition_cache_limit,
+                "legalActionsCacheLimit": args.legal_actions_cache_limit,
+                "observationCacheLimit": args.observation_cache_limit,
                 "tdValueCheckpoint": (
                     str(args.td_value_checkpoint)
                     if args.td_value_checkpoint is not None
@@ -1005,6 +1037,9 @@ def _run_eval_shard(
     search_depth: int,
     search_max_root_actions: int,
     search_rollout_epsilon: float,
+    transition_cache_limit: int,
+    legal_actions_cache_limit: int,
+    observation_cache_limit: int,
     td_value_checkpoint: Path | None,
     td_worlds: int,
     candidate_td_search_value_checkpoint: Path | None,
@@ -1032,11 +1067,17 @@ def _run_eval_shard(
         depth=search_depth,
         max_root_actions=search_max_root_actions,
         rollout_epsilon=search_rollout_epsilon,
+        transition_cache_limit=transition_cache_limit,
+        legal_actions_cache_limit=legal_actions_cache_limit,
+        observation_cache_limit=observation_cache_limit,
     )
     td_value_config = (
         TDValuePolicyConfig(
             checkpoint_path=td_value_checkpoint,
             worlds=td_worlds,
+            transition_cache_limit=transition_cache_limit,
+            legal_actions_cache_limit=legal_actions_cache_limit,
+            observation_cache_limit=observation_cache_limit,
         )
         if td_value_checkpoint is not None
         else None
@@ -1052,6 +1093,9 @@ def _run_eval_shard(
             rollout_epsilon=search_rollout_epsilon,
             opponent_temperature=td_search_opponent_temperature,
             sample_opponent_actions=td_search_sample_opponent_actions,
+            transition_cache_limit=transition_cache_limit,
+            legal_actions_cache_limit=legal_actions_cache_limit,
+            observation_cache_limit=observation_cache_limit,
         )
         if candidate_policy_name == "td-search"
         else None
@@ -1067,6 +1111,9 @@ def _run_eval_shard(
             rollout_epsilon=search_rollout_epsilon,
             opponent_temperature=td_search_opponent_temperature,
             sample_opponent_actions=td_search_sample_opponent_actions,
+            transition_cache_limit=transition_cache_limit,
+            legal_actions_cache_limit=legal_actions_cache_limit,
+            observation_cache_limit=observation_cache_limit,
         )
         if opponent_policy_name == "td-search"
         else None
@@ -1136,11 +1183,23 @@ def _run_eval_shard(
                 progress_every_games=progress_every_games,
                 on_progress=_on_progress if progress_every_games > 0 else None,
             )
+        cache_stats = {
+            "candidate": _policy_cache_stats_payload(candidate),
+            "opponent": _policy_cache_stats_payload(opponent),
+        }
+        cache_stats["combined"] = _merge_cache_stats_payloads(
+            [
+                cache_stats["candidate"],
+                cache_stats["opponent"],
+            ]
+        )
     finally:
         candidate.close()
         opponent.close()
 
-    return summary.to_json()
+    payload = summary.to_json()
+    payload["cacheStats"] = cache_stats
+    return payload
 
 
 def _evaluate_shard(payload: Dict[str, object]) -> Dict[str, object]:
@@ -1155,6 +1214,9 @@ def _evaluate_shard(payload: Dict[str, object]) -> Dict[str, object]:
         search_depth=int(payload["searchDepth"]),
         search_max_root_actions=int(payload["searchMaxRootActions"]),
         search_rollout_epsilon=float(payload["searchRolloutEpsilon"]),
+        transition_cache_limit=int(payload["transitionCacheLimit"]),
+        legal_actions_cache_limit=int(payload["legalActionsCacheLimit"]),
+        observation_cache_limit=int(payload["observationCacheLimit"]),
         td_value_checkpoint=(
             Path(str(payload["tdValueCheckpoint"]))
             if payload.get("tdValueCheckpoint")
@@ -1285,6 +1347,9 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
     average_turn = (
         (leg_a_turn_total + leg_b_turn_total) / float(max(1, leg_a_games + leg_b_games))
     )
+    cache_stats = _merge_cache_stats_payloads(
+        [_cache_stats_payload_from_result(result) for result in shard_results]
+    )
 
     return {
         "gamesPerSide": games_per_side,
@@ -1304,6 +1369,7 @@ def _merge_shard_results(shard_results: List[Dict[str, object]]) -> Dict[str, ob
         "candidateWinRateAsPlayerB": candidate_win_rate_as_b,
         "sideGap": side_gap,
         "averageTurn": average_turn,
+        "cacheStats": cache_stats,
         "legs": {
             "candidateAsPlayerA": {
                 "games": leg_a_games,
@@ -1417,6 +1483,85 @@ def _effective_opponent_td_search_opponent_checkpoint(args: argparse.Namespace) 
     return args.opponent_td_search_opponent_checkpoint or args.td_search_opponent_checkpoint
 
 
+def _policy_cache_stats_payload(policy: object) -> dict[str, object] | None:
+    forward_model = getattr(policy, "_forward_model", None)
+    if forward_model is None:
+        return None
+    cache_stats = getattr(forward_model, "cache_stats", None)
+    if not callable(cache_stats):
+        return None
+    raw_stats = cache_stats()
+    return {
+        "transition": _cache_metric_payload(
+            hits=int(getattr(raw_stats, "transition_hits")),
+            misses=int(getattr(raw_stats, "transition_misses")),
+            entries=int(getattr(raw_stats, "transition_entries")),
+        ),
+        "legalActions": _cache_metric_payload(
+            hits=int(getattr(raw_stats, "legal_actions_hits")),
+            misses=int(getattr(raw_stats, "legal_actions_misses")),
+            entries=int(getattr(raw_stats, "legal_actions_entries")),
+        ),
+        "observation": _cache_metric_payload(
+            hits=int(getattr(raw_stats, "observation_hits")),
+            misses=int(getattr(raw_stats, "observation_misses")),
+            entries=int(getattr(raw_stats, "observation_entries")),
+        ),
+    }
+
+
+def _cache_stats_payload_from_result(result: Mapping[str, object]) -> dict[str, object] | None:
+    payload = result.get("cacheStats")
+    if not isinstance(payload, Mapping):
+        return None
+    combined = payload.get("combined")
+    if isinstance(combined, Mapping):
+        return dict(combined)
+    return None
+
+
+def _merge_cache_stats_payloads(
+    payloads: list[dict[str, object] | None],
+) -> dict[str, object] | None:
+    valid_payloads = [payload for payload in payloads if payload is not None]
+    if not valid_payloads:
+        return None
+    return {
+        "transition": _merge_cache_metric_payloads(valid_payloads, "transition"),
+        "legalActions": _merge_cache_metric_payloads(valid_payloads, "legalActions"),
+        "observation": _merge_cache_metric_payloads(valid_payloads, "observation"),
+    }
+
+
+def _merge_cache_metric_payloads(
+    payloads: list[dict[str, object]],
+    metric_key: str,
+) -> dict[str, object]:
+    hits = 0
+    misses = 0
+    entries = 0
+    for payload in payloads:
+        metric = payload.get(metric_key)
+        if not isinstance(metric, Mapping):
+            continue
+        hits += int(metric["hits"])
+        misses += int(metric["misses"])
+        entries += int(metric["entries"])
+    return _cache_metric_payload(hits=hits, misses=misses, entries=entries)
+
+
+def _cache_metric_payload(*, hits: int, misses: int, entries: int) -> dict[str, object]:
+    requests = hits + misses
+    hit_rate = (hits / float(requests)) if requests > 0 else None
+    return {
+        "hits": hits,
+        "misses": misses,
+        "requests": requests,
+        "hitRate": hit_rate,
+        "entries": entries,
+    }
+
+
 def _validate_policy_args(args: argparse.Namespace) -> None:
     candidate_policy = args.candidate_policy.strip().lower()
     opponent_policy = args.opponent_policy.strip().lower()
@@ -1462,6 +1607,12 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--worker-torch-interop-threads must be > 0.")
     if args.worker_blas_threads <= 0:
         raise SystemExit("--worker-blas-threads must be > 0.")
+    if args.transition_cache_limit < 0:
+        raise SystemExit("--transition-cache-limit must be >= 0.")
+    if args.legal_actions_cache_limit < 0:
+        raise SystemExit("--legal-actions-cache-limit must be >= 0.")
+    if args.observation_cache_limit < 0:
+        raise SystemExit("--observation-cache-limit must be >= 0.")
 
     if args.mode == "certify":
         if args.games_per_side <= 0:
