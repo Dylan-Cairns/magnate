@@ -27,9 +27,9 @@ from .types import KeyedAction, PlayerId
 class TDValuePolicyConfig:
     checkpoint_path: Path
     worlds: int = 8
-    transition_cache_limit: int = 0
-    legal_actions_cache_limit: int = 0
-    observation_cache_limit: int = 0
+    transition_cache_limit: int = 32
+    legal_actions_cache_limit: int = 32
+    observation_cache_limit: int = 32
 
     def __post_init__(self) -> None:
         if self.worlds <= 0:
