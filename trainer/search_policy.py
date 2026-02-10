@@ -372,13 +372,12 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
         root_action_key: str,
         rng: random.Random,
     ) -> float:
-        step_result = self._forward_model.reset_state(world_state)
-        del step_result
-        step_result = self._forward_model.step(root_action_key)
+        step_result = self._forward_model.transition_cached(world_state, root_action_key)
+        current_state = step_result.state
 
         depth = 0
         while not step_result.terminal and depth < self.config.depth:
-            legal = self._forward_model.legal_actions()
+            legal = self._forward_model.legal_actions_cached(current_state)
             active_player = active_player_id(step_result.view)
             if active_player == root_player:
                 action_key = self._rollout_action_key(
@@ -392,7 +391,8 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
                     legal_actions=legal.actions,
                     rng=rng,
                 )
-            step_result = self._forward_model.step(action_key)
+            step_result = self._forward_model.transition_cached(current_state, action_key)
+            current_state = step_result.state
             depth += 1
 
         if step_result.terminal:
