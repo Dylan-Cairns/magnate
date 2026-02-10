@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import unittest
 from argparse import Namespace
 from pathlib import Path
@@ -9,6 +10,24 @@ from scripts import collect_td_self_play, eval_suite
 
 
 class CollectEvalOverrideTests(unittest.TestCase):
+    def test_collect_parse_args_defaults_cache_limits_to_32(self) -> None:
+        with patch.object(sys, "argv", ["collect_td_self_play.py", "--player-a-policy", "search", "--player-b-policy", "search"]):
+            args = collect_td_self_play.parse_args()
+        self.assertEqual(args.transition_cache_limit, 32)
+        self.assertEqual(args.legal_actions_cache_limit, 32)
+        self.assertEqual(args.observation_cache_limit, 32)
+
+    def test_eval_parse_args_defaults_cache_limits_to_32(self) -> None:
+        with patch.object(
+            sys,
+            "argv",
+            ["eval_suite.py", "--mode", "certify", "--candidate-policy", "search", "--opponent-policy", "search"],
+        ):
+            args = eval_suite.parse_args()
+        self.assertEqual(args.transition_cache_limit, 32)
+        self.assertEqual(args.legal_actions_cache_limit, 32)
+        self.assertEqual(args.observation_cache_limit, 32)
+
     def test_collect_validate_policy_args_accepts_per_player_td_search_overrides(self) -> None:
         args = Namespace(
             player_a_policy="td-search",
