@@ -72,19 +72,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--transition-cache-limit",
         type=int,
-        default=32,
+        default=0,
         help="Exact-state transition cache size per policy instance (0 disables).",
     )
     parser.add_argument(
         "--legal-actions-cache-limit",
         type=int,
-        default=32,
+        default=0,
         help="Exact-state legal-actions cache size per policy instance (0 disables).",
     )
     parser.add_argument(
         "--observation-cache-limit",
         type=int,
-        default=32,
+        default=0,
         help="Exact-state observation cache size per policy instance (0 disables).",
     )
     parser.add_argument(
