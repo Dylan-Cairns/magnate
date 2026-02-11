@@ -162,7 +162,17 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
     def _write_mock_collect_outputs(self, **kwargs):
         Path(kwargs["collect_value_path"]).write_text('{"v": 1}\n', encoding="utf-8")
         Path(kwargs["collect_opponent_path"]).write_text('{"o": 1}\n', encoding="utf-8")
-        Path(kwargs["collect_summary_path"]).write_text("{}", encoding="utf-8")
+        Path(kwargs["collect_summary_path"]).write_text(
+            json.dumps(
+                {
+                    "results": {
+                        "valueTransitions": 1,
+                        "opponentSamples": 1,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
         return [{"profile": "selfplay"}]
 
     def _write_replay_chunk(
@@ -185,7 +195,14 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             "".join(opponent_lines or default_opponent_lines),
             encoding="utf-8",
         )
-        return ReplayChunk(label=label, value_path=value_path, opponent_path=opponent_path)
+        final_opponent_lines = opponent_lines or default_opponent_lines
+        return ReplayChunk(
+            label=label,
+            value_path=value_path,
+            opponent_path=opponent_path,
+            value_lines=len(value_lines),
+            opponent_lines=len(final_opponent_lines),
+        )
 
     def test_initialize_selfplay_run_uses_explicit_warm_start_and_builds_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -242,6 +259,10 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
                 value_path=value_path,
                 opponent_path=opponent_path,
             )
+            def _mock_read_json(path: Path, *, label: str):
+                if path.name == "self_play.summary.json":
+                    return {"results": {"valueTransitions": 1, "opponentSamples": 1}}
+                return {"results": {"checkpoints": []}}
 
             with patch("scripts.run_td_loop_selfplay.load_promoted_checkpoints", return_value=[]), patch(
                 "scripts.run_td_loop_selfplay._build_collect_profiles",
@@ -257,7 +278,7 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
                 return_value=None,
             ), patch(
                 "scripts.run_td_loop_selfplay.read_json",
-                return_value={"results": {"checkpoints": []}},
+                side_effect=_mock_read_json,
             ), patch(
                 "scripts.run_td_loop_selfplay.checkpoints_from_train_summary",
                 return_value=[next_checkpoint],
@@ -285,8 +306,10 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         collect_kwargs = mocked_collect.call_args.kwargs
         self.assertEqual(collect_kwargs["run_id"], "run-123-chunk-001")
         train_kwargs = mocked_train_command.call_args.kwargs
-        self.assertTrue(str(train_kwargs["value_replay"]).endswith("chunk-001\\train\\replay_window\\window.value.jsonl"))
-        self.assertTrue(str(train_kwargs["opponent_replay"]).endswith("chunk-001\\train\\replay_window\\window.opponent.jsonl"))
+        self.assertEqual(len(train_kwargs["value_replays"]), 1)
+        self.assertEqual(len(train_kwargs["opponent_replays"]), 1)
+        self.assertTrue(str(train_kwargs["value_replays"][0]).endswith("chunk-001\\replay\\self_play.value.jsonl"))
+        self.assertTrue(str(train_kwargs["opponent_replays"][0]).endswith("chunk-001\\replay\\self_play.opponent.jsonl"))
         self.assertEqual(result.chunk_row["replayWindow"]["chunks"][0]["chunk"], "chunk-001")
         assert result.replay_chunk is not None
         self.assertEqual(result.replay_chunk.value_path.name, "self_play.value.jsonl")
@@ -312,8 +335,11 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             )
 
             self.assertEqual([chunk.label for chunk in result.chunks], ["chunk-002", "chunk-003"])
-            self.assertEqual(result.value_path.read_text(encoding="utf-8"), "old-2\nnew\n")
             self.assertEqual(result.value_lines, 2)
+            self.assertEqual(
+                [path.name for path in result.value_paths],
+                ["self_play.value.jsonl", "self_play.value.jsonl"],
+            )
             self.assertTrue(result.summary_path.exists())
 
     def test_run_promotion_stage_records_commands_and_pools_results(self) -> None:

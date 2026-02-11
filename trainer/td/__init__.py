@@ -10,7 +10,9 @@ from .checkpoint import (
 )
 from .io import (
     read_opponent_samples_jsonl,
+    read_opponent_samples_jsonl_many,
     read_value_transitions_jsonl,
+    read_value_transitions_jsonl_many,
     write_opponent_samples_jsonl,
     write_value_transitions_jsonl,
 )
@@ -49,8 +51,10 @@ __all__ = [
     "OpponentReplayBuffer",
     "ValueReplayBuffer",
     "read_value_transitions_jsonl",
+    "read_value_transitions_jsonl_many",
     "write_value_transitions_jsonl",
     "read_opponent_samples_jsonl",
+    "read_opponent_samples_jsonl_many",
     "write_opponent_samples_jsonl",
     "SelfPlayEpisode",
     "SelfPlayProgressCallback",

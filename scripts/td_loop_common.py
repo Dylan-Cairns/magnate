@@ -24,8 +24,8 @@ def build_train_command(
     *,
     python_bin: Path,
     args: argparse.Namespace,
-    value_replay: Path,
-    opponent_replay: Path,
+    value_replays: Sequence[Path],
+    opponent_replays: Sequence[Path],
     train_summary_path: Path,
     train_checkpoint_root: Path,
     run_id: str,
@@ -37,9 +37,9 @@ def build_train_command(
         "-m",
         "scripts.train_td",
         "--value-replay",
-        str(value_replay),
+        *[str(path) for path in value_replays],
         "--opponent-replay",
-        str(opponent_replay),
+        *[str(path) for path in opponent_replays],
         "--steps",
         str(args.train_steps),
         "--value-batch-size",
@@ -79,6 +79,14 @@ def build_train_command(
         "--summary-out",
         str(train_summary_path),
     ]
+    if args.train_replay_window_max_value_lines > 0:
+        command.extend(
+            ["--value-replay-max-lines", str(args.train_replay_window_max_value_lines)]
+        )
+    if args.train_replay_window_max_opponent_lines > 0:
+        command.extend(
+            ["--opponent-replay-max-lines", str(args.train_replay_window_max_opponent_lines)]
+        )
     if args.train_num_threads is not None:
         command.extend(["--num-threads", str(args.train_num_threads)])
     if args.train_num_interop_threads is not None:

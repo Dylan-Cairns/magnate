@@ -24,7 +24,17 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
     def _write_mock_collect_outputs(self, **kwargs):
         Path(kwargs["collect_value_path"]).write_text('{"v": 1}\n', encoding="utf-8")
         Path(kwargs["collect_opponent_path"]).write_text('{"o": 1}\n', encoding="utf-8")
-        Path(kwargs["collect_summary_path"]).write_text("{}", encoding="utf-8")
+        Path(kwargs["collect_summary_path"]).write_text(
+            json.dumps(
+                {
+                    "results": {
+                        "valueTransitions": 1,
+                        "opponentSamples": 1,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
         return [{"profile": "selfplay"}]
 
     def _row(
@@ -174,6 +184,10 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 value_path=next_value,
                 opponent_path=next_opponent,
             )
+            def _mock_read_json(path: Path, *, label: str):
+                if path.name == "self_play.summary.json":
+                    return {"results": {"valueTransitions": 1, "opponentSamples": 1}}
+                return {"results": {"checkpoints": []}}
 
             with patch(
                 "scripts.resume_td_loop_selfplay.parse_args",
@@ -210,7 +224,7 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 return_value=None,
             ), patch(
                 "scripts.resume_td_loop_selfplay.read_json",
-                return_value={"results": {"checkpoints": []}},
+                side_effect=_mock_read_json,
             ), patch(
                 "scripts.resume_td_loop_selfplay.checkpoints_from_train_summary",
                 return_value=[next_checkpoint],

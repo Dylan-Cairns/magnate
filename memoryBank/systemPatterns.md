@@ -89,8 +89,9 @@ Design expectations:
   - rejected candidates stay in artifacts as trained candidates but are not used for future self-play data;
   - final promotion eval still runs separately against the fixed search baseline and manifest incumbent.
 - Self-play training uses an accepted replay-window artifact:
-  - each chunk merges the current collect replay plus up to `N-1` prior accepted chunks into `train/replay_window/window.value.jsonl` and `window.opponent.jsonl`;
+  - each chunk records an ordered replay-window manifest under `train/replay_window/window.summary.json` that references the current collect replay plus up to `N-1` prior accepted chunks;
   - default `N=3` enables a small accepted replay window for normal self-play runs;
+  - `scripts.train_td` now accepts ordered replay-file lists directly, so replay windows do not duplicate chunk replay data on disk;
   - value training defaults to sequence-aware `td-lambda` targets with `lambda=0.7`;
   - replay-window value line caps are fail-fast under `td-lambda` because raw line caps can split complete trajectories;
   - rejected chunks can train their own candidate, but are not eligible for future replay windows.
