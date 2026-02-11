@@ -90,7 +90,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   },
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-fast';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-browser';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);

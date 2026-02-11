@@ -380,11 +380,11 @@ def parse_args() -> argparse.Namespace:
         default=[40000],
     )
     parser.add_argument("--chunk-gate-h0-win-rate", type=float, default=0.50)
-    parser.add_argument("--chunk-gate-h1-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-h1-win-rate", type=float, default=0.55)
     parser.add_argument("--chunk-gate-alpha", type=float, default=0.05)
     parser.add_argument("--chunk-gate-beta", type=float, default=0.10)
     parser.add_argument("--chunk-gate-batch-games-per-side", type=int, default=25)
-    parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.55)
     parser.add_argument("--chunk-gate-max-side-gap", type=float, default=0.15)
     parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
     parser.add_argument("--chunk-gate-max-window-side-gap", type=float, default=0.20)
@@ -1421,8 +1421,10 @@ def run_chunk_gate(
         ),
     )
     all_windows_accepted = all(window["decision"] == "accepted" for window in windows)
+    no_windows_rejected = all(window["decision"] != "rejected" for window in windows)
     checks = dict(gate["checks"])
     checks["allWindowsAccepted"] = all_windows_accepted
+    checks["noWindowsRejected"] = no_windows_rejected
     window_checks = [
         {
             **dict(window_check),
@@ -1444,7 +1446,7 @@ def run_chunk_gate(
         }
         for window_check, window in zip(gate["windowChecks"], windows, strict=False)
     ]
-    accepted = bool(all_windows_accepted and gate["passed"])
+    accepted = bool(no_windows_rejected and gate["passed"])
     accepted_after = candidate_checkpoint if accepted else accepted_checkpoint
     reason = "chunk_gate_passed" if accepted else "chunk_gate_failed"
     print(
