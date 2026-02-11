@@ -14,18 +14,26 @@ from scripts.opponent_pool import PoolCheckpoint
 from scripts.promote_td_checkpoint import promote_checkpoint_pair
 from scripts.run_td_loop_selfplay import (
     REPLAY_REGIME,
+    BlockCandidate,
     CollectProfile,
     ReplayChunk,
+    _block_index_for_chunk,
+    _block_label,
+    _block_position_for_chunk,
+    _checkpoint_payload,
     _config_payload,
+    _is_generator_update_boundary,
     _require_supported_runtime,
     _run_collect_profiles,
     _validate_args,
+    block_update_payload,
     build_gated_chunk_row,
     build_replay_window,
     checkpoint_selection_payload,
+    deferred_generator_gate_result,
     replay_window_payload,
+    run_block_generator_update,
     run_checkpoint_selection,
-    run_chunk_gate,
     write_selfplay_chunk_summary,
 )
 from scripts.td_loop_common import (
@@ -70,6 +78,8 @@ class CompletedChunk:
     candidate_checkpoint: LoopCheckpoint
     chunk_row: Dict[str, Any]
     replay_chunk: ReplayChunk | None = None
+    learner_checkpoint: LoopCheckpoint | None = None
+    generator_checkpoint: LoopCheckpoint | None = None
 
 
 @dataclass(frozen=True)
@@ -104,6 +114,10 @@ class ResumeState:
     highest_existing_chunk_index: int
     pending_gate_chunk: PendingGateChunk | None = None
     accepted_replay_chunks: Sequence[ReplayChunk] = ()
+    training_replay_chunks: Sequence[ReplayChunk] = ()
+    latest_accepted_chunk_label: str | None = None
+    generator_update_chunks: int = 1
+    latest_learner_checkpoint: LoopCheckpoint | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -172,7 +186,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--train-replay-window-source",
         type=str,
-        choices=("accepted",),
+        choices=("accepted", "recent"),
         default=None,
         help="Replay-window source override. Defaults to the recovered run setting.",
     )
@@ -217,6 +231,19 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument("--disable-chunk-gate", action="store_true")
+    parser.add_argument("--generator-update-chunks", type=int, default=None)
+    parser.add_argument("--block-selection-games-per-side", type=int, default=20)
+    parser.add_argument(
+        "--block-selection-seed-prefix",
+        type=str,
+        default="td-loop-block-selection",
+    )
+    parser.add_argument(
+        "--block-selection-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[50000],
+    )
     parser.add_argument(
         "--chunk-gate-games-per-side",
         "--chunk-gate-max-games-per-side",
@@ -321,46 +348,98 @@ def main() -> int:
     commands: Dict[str, Any] = {
         "completedChunks": [chunk.label for chunk in state.completed_chunks],
         "resumedChunks": [],
+        "resumedBlocks": [],
     }
     chunk_rows = [dict(chunk.chunk_row) for chunk in state.completed_chunks]
+    completed_block_rows = _completed_block_rows(state.run_dir / "blocks", state.completed_chunks)
+    block_rows: List[Dict[str, Any]] = []
 
-    latest_checkpoint = state.latest_checkpoint
-    accepted_chunk_label = _latest_accepted_chunk_label(state.completed_chunks)
+    learner_checkpoint = state.latest_learner_checkpoint or state.latest_checkpoint
+    generator_checkpoint = state.latest_checkpoint
+    accepted_chunk_label = state.latest_accepted_chunk_label
     accepted_replay_chunks = list(state.accepted_replay_chunks)
+    training_replay_chunks = list(state.training_replay_chunks)
+    current_block_candidates = _open_block_candidates(state.completed_chunks)
     next_chunk_index = completed_count + 1
     if state.pending_gate_chunk is not None:
         pending = state.pending_gate_chunk
+        learner_checkpoint_before = learner_checkpoint
+        generator_checkpoint_before = generator_checkpoint
         checkpoint_selection = run_checkpoint_selection(
             args=resolved_args,
             python_bin=resolved_args.python_bin,
             chunk_label=pending.label,
             eval_dir=pending.chunk_dir / "eval" / "checkpoint_selection",
             checkpoints=pending.train_checkpoints,
-            accepted_checkpoint=latest_checkpoint,
+            accepted_checkpoint=generator_checkpoint_before,
             progress_path=state.progress_path,
             log_prefix="[td-loop-selfplay-resume]",
             force_eval=bool(args.force_eval),
         )
         candidate_checkpoint = checkpoint_selection.selected_checkpoint
-        gate_result = run_chunk_gate(
-            args=resolved_args,
-            python_bin=resolved_args.python_bin,
-            chunk_label=pending.label,
-            eval_dir=pending.chunk_dir / "eval",
-            candidate_checkpoint=candidate_checkpoint,
-            accepted_checkpoint=latest_checkpoint,
-            progress_path=state.progress_path,
-            log_prefix="[td-loop-selfplay-resume]",
-            force_eval=bool(args.force_eval),
+        learner_checkpoint = candidate_checkpoint
+        training_replay_chunks.append(pending.replay_chunk)
+        current_block_candidates.append(
+            BlockCandidate(
+                chunk_label=pending.label,
+                checkpoint=candidate_checkpoint,
+                replay_chunk=pending.replay_chunk,
+            )
         )
-        latest_checkpoint = gate_result.accepted_after
-        if gate_result.accepted:
-            accepted_chunk_label = pending.label
-            accepted_replay_chunks.append(pending.replay_chunk)
+        block_index = _block_index_for_chunk(args=resolved_args, chunk_index=pending.index)
+        block_position = _block_position_for_chunk(args=resolved_args, chunk_index=pending.index)
+        block_label = _block_label(block_index)
+        block_result = None
+        if _is_generator_update_boundary(args=resolved_args, chunk_index=pending.index):
+            block_result = run_block_generator_update(
+                args=resolved_args,
+                python_bin=resolved_args.python_bin,
+                run_id=state.run_id,
+                block_index=block_index,
+                block_candidates=current_block_candidates,
+                blocks_dir=state.run_dir / "blocks",
+                generator_checkpoint=generator_checkpoint_before,
+                progress_path=state.progress_path,
+                log_prefix="[td-loop-selfplay-resume]",
+            )
+            generator_checkpoint = block_result.generator_gate.accepted_after
+            commands["resumedBlocks"].append(block_result.commands)
+            block_rows.append(block_update_payload(block_result))
+            if block_result.generator_gate.accepted:
+                accepted_chunk_label = block_result.selected_chunk_label
+                accepted_replay = _replay_chunk_for_label(
+                    block_result.selected_chunk_label,
+                    current_block_candidates,
+                )
+                if accepted_replay is not None:
+                    accepted_replay_chunks.append(accepted_replay)
+            current_block_candidates = []
+        else:
+            generator_checkpoint = generator_checkpoint_before
+        gate_result = (
+            block_result.generator_gate
+            if block_result is not None
+            else deferred_generator_gate_result(
+                candidate_checkpoint=candidate_checkpoint,
+                accepted_checkpoint=generator_checkpoint_before,
+            )
+        )
         command_row = {
             "chunk": pending.label,
             "reusedCollectTrain": True,
             "checkpointSelection": checkpoint_selection.commands,
+            "block": {
+                "label": block_label,
+                "index": block_index,
+                "position": block_position,
+                "size": resolved_args.generator_update_chunks,
+                "boundary": block_result is not None,
+            },
+            "blockSelection": (
+                block_result.checkpoint_selection.commands
+                if block_result is not None
+                else []
+            ),
             "generatorGate": gate_result.commands,
             "replayWindow": pending.replay_window,
         }
@@ -377,7 +456,27 @@ def main() -> int:
             ),
             gate_result=gate_result,
             replay_chunk=pending.replay_chunk,
+            learner_checkpoint_before=learner_checkpoint_before,
+            learner_checkpoint_after=learner_checkpoint,
+            generator_checkpoint_before=generator_checkpoint_before,
+            generator_checkpoint_after=generator_checkpoint,
         )
+        chunk_row["block"] = {
+            "label": block_label,
+            "index": block_index,
+            "position": block_position,
+            "size": resolved_args.generator_update_chunks,
+            "boundary": block_result is not None,
+            "summary": str(block_result.summary_path) if block_result is not None else None,
+        }
+        if (
+            block_result is not None
+            and "replayForTraining" in chunk_row
+            and block_result.generator_gate.accepted
+            and block_result.selected_chunk_label != pending.label
+        ):
+            chunk_row["replayForTraining"]["eligible"] = False
+            chunk_row["replayForTraining"]["reason"] = "block_gate_selected_different_chunk"
         chunk_summary_path = write_selfplay_chunk_summary(
             run_id=state.run_id,
             chunk_dir=pending.chunk_dir,
@@ -391,6 +490,11 @@ def main() -> int:
 
     for chunk_index in range(next_chunk_index, resolved_args.chunks_per_loop + 1):
         chunk_label = f"chunk-{chunk_index:03d}"
+        block_index = _block_index_for_chunk(args=resolved_args, chunk_index=chunk_index)
+        block_position = _block_position_for_chunk(args=resolved_args, chunk_index=chunk_index)
+        block_label = _block_label(block_index)
+        learner_checkpoint_before = learner_checkpoint
+        generator_checkpoint_before = generator_checkpoint
         chunk_dir = state.chunks_dir / chunk_label
         replay_dir = chunk_dir / "replay"
         train_dir = chunk_dir / "train"
@@ -404,8 +508,8 @@ def main() -> int:
         candidate_checkpoint = PoolCheckpoint(
             run_id=state.run_id,
             generated_at_utc=datetime.now(timezone.utc).isoformat(),
-            value_path=latest_checkpoint.value_path,
-            opponent_path=latest_checkpoint.opponent_path,
+            value_path=generator_checkpoint_before.value_path,
+            opponent_path=generator_checkpoint_before.opponent_path,
         )
         collect_profiles = _build_collect_profiles_from_templates(
             templates=state.collect_templates,
@@ -446,6 +550,7 @@ def main() -> int:
             chunk_label=chunk_label,
             train_dir=train_dir,
             accepted_replay_chunks=accepted_replay_chunks,
+            training_replay_chunks=training_replay_chunks,
             current_replay=current_replay,
         )
         train_command = build_train_command(
@@ -456,8 +561,8 @@ def main() -> int:
             train_summary_path=train_summary_path,
             train_checkpoint_root=train_checkpoint_root,
             run_id=f"{state.run_id}-{chunk_label}",
-            warm_start_value=latest_checkpoint.value_path,
-            warm_start_opponent=latest_checkpoint.opponent_path,
+            warm_start_value=learner_checkpoint_before.value_path,
+            warm_start_opponent=learner_checkpoint_before.opponent_path,
         )
         run_step(
             name=f"train[{chunk_label}]",
@@ -475,27 +580,56 @@ def main() -> int:
             chunk_label=chunk_label,
             eval_dir=chunk_dir / "eval" / "checkpoint_selection",
             checkpoints=checkpoints,
-            accepted_checkpoint=latest_checkpoint,
+            accepted_checkpoint=generator_checkpoint_before,
             progress_path=state.progress_path,
             log_prefix="[td-loop-selfplay-resume]",
             force_eval=bool(args.force_eval),
         )
         candidate_after_train = checkpoint_selection.selected_checkpoint
-        gate_result = run_chunk_gate(
-            args=resolved_args,
-            python_bin=resolved_args.python_bin,
-            chunk_label=chunk_label,
-            eval_dir=chunk_dir / "eval",
-            candidate_checkpoint=candidate_after_train,
-            accepted_checkpoint=latest_checkpoint,
-            progress_path=state.progress_path,
-            log_prefix="[td-loop-selfplay-resume]",
-            force_eval=bool(args.force_eval),
+        learner_checkpoint = candidate_after_train
+        training_replay_chunks.append(current_replay)
+        current_block_candidates.append(
+            BlockCandidate(
+                chunk_label=chunk_label,
+                checkpoint=candidate_after_train,
+                replay_chunk=current_replay,
+            )
         )
-        latest_checkpoint = gate_result.accepted_after
-        if gate_result.accepted:
-            accepted_chunk_label = chunk_label
-            accepted_replay_chunks.append(current_replay)
+        block_result = None
+        if _is_generator_update_boundary(args=resolved_args, chunk_index=chunk_index):
+            block_result = run_block_generator_update(
+                args=resolved_args,
+                python_bin=resolved_args.python_bin,
+                run_id=state.run_id,
+                block_index=block_index,
+                block_candidates=current_block_candidates,
+                blocks_dir=state.run_dir / "blocks",
+                generator_checkpoint=generator_checkpoint_before,
+                progress_path=state.progress_path,
+                log_prefix="[td-loop-selfplay-resume]",
+            )
+            generator_checkpoint = block_result.generator_gate.accepted_after
+            commands["resumedBlocks"].append(block_result.commands)
+            block_rows.append(block_update_payload(block_result))
+            if block_result.generator_gate.accepted:
+                accepted_chunk_label = block_result.selected_chunk_label
+                accepted_replay = _replay_chunk_for_label(
+                    block_result.selected_chunk_label,
+                    current_block_candidates,
+                )
+                if accepted_replay is not None:
+                    accepted_replay_chunks.append(accepted_replay)
+            current_block_candidates = []
+        else:
+            generator_checkpoint = generator_checkpoint_before
+        gate_result = (
+            block_result.generator_gate
+            if block_result is not None
+            else deferred_generator_gate_result(
+                candidate_checkpoint=candidate_after_train,
+                accepted_checkpoint=generator_checkpoint_before,
+            )
+        )
 
         command_row = {
             "chunk": chunk_label,
@@ -503,6 +637,18 @@ def main() -> int:
             "replayWindow": replay_window_payload(replay_window),
             "train": train_command,
             "checkpointSelection": checkpoint_selection.commands,
+            "block": {
+                "label": block_label,
+                "index": block_index,
+                "position": block_position,
+                "size": resolved_args.generator_update_chunks,
+                "boundary": block_result is not None,
+            },
+            "blockSelection": (
+                block_result.checkpoint_selection.commands
+                if block_result is not None
+                else []
+            ),
             "generatorGate": gate_result.commands,
         }
         chunk_row = build_gated_chunk_row(
@@ -518,7 +664,27 @@ def main() -> int:
             ),
             gate_result=gate_result,
             replay_chunk=current_replay,
+            learner_checkpoint_before=learner_checkpoint_before,
+            learner_checkpoint_after=learner_checkpoint,
+            generator_checkpoint_before=generator_checkpoint_before,
+            generator_checkpoint_after=generator_checkpoint,
         )
+        chunk_row["block"] = {
+            "label": block_label,
+            "index": block_index,
+            "position": block_position,
+            "size": resolved_args.generator_update_chunks,
+            "boundary": block_result is not None,
+            "summary": str(block_result.summary_path) if block_result is not None else None,
+        }
+        if (
+            block_result is not None
+            and "replayForTraining" in chunk_row
+            and block_result.generator_gate.accepted
+            and block_result.selected_chunk_label != chunk_label
+        ):
+            chunk_row["replayForTraining"]["eligible"] = False
+            chunk_row["replayForTraining"]["reason"] = "block_gate_selected_different_chunk"
         chunk_summary_path = write_selfplay_chunk_summary(
             run_id=state.run_id,
             chunk_dir=chunk_dir,
@@ -532,14 +698,14 @@ def main() -> int:
     baseline_windows = _run_or_load_eval_windows_vs_search(
         args=resolved_args,
         eval_dir=state.eval_dir,
-        checkpoint=latest_checkpoint,
+        checkpoint=generator_checkpoint,
         progress_path=state.progress_path,
         force_eval=bool(args.force_eval),
     )
     incumbent_windows = _run_or_load_eval_windows_vs_incumbent(
         args=resolved_args,
         eval_dir=state.eval_dir,
-        checkpoint=latest_checkpoint,
+        checkpoint=generator_checkpoint,
         incumbent=state.incumbent_checkpoint,
         progress_path=state.progress_path,
         force_eval=bool(args.force_eval),
@@ -569,7 +735,7 @@ def main() -> int:
     manifest_promotion = _register_manifest_promotion_if_passed(
         args=resolved_args,
         state=state,
-        latest_checkpoint=latest_checkpoint,
+        latest_checkpoint=generator_checkpoint,
         latest_chunk_label=accepted_chunk_label,
         baseline_windows=baseline_windows,
         incumbent_windows=incumbent_windows,
@@ -591,15 +757,22 @@ def main() -> int:
             "script": "scripts.resume_td_loop_selfplay",
         },
         "config": _config_payload(resolved_args),
+        "finalCheckpoints": {
+            "learner": _checkpoint_payload(learner_checkpoint),
+            "generator": _checkpoint_payload(generator_checkpoint),
+            "promotion": _checkpoint_payload(generator_checkpoint),
+        },
         "commands": commands,
         "artifacts": {
             "runDir": str(state.run_dir),
             "loopSummary": str(state.loop_summary_path),
             "progress": str(state.progress_path),
             "chunksDir": str(state.chunks_dir),
+            "blocksDir": str(state.run_dir / "blocks"),
             "evalDir": str(state.eval_dir),
         },
         "chunks": chunk_rows,
+        "blocks": [*completed_block_rows, *block_rows],
         "evaluation": {
             "baselineVsSearch": build_eval_payload(
                 resolved_args.eval_seed_start_indices,
@@ -712,10 +885,12 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
 
     completed_chunks: List[CompletedChunk] = []
     accepted_replay_chunks: List[ReplayChunk] = []
+    training_replay_chunks: List[ReplayChunk] = []
     pending_gate_chunk: PendingGateChunk | None = None
     train_replay_window_config: Dict[str, Any] | None = None
     partial_chunk_label: str | None = None
     highest_existing_chunk_index = 0
+    generator_update_chunks: int | None = None
     expected_index = 1
     for chunk_dir in chunk_dirs:
         chunk_index = _parse_chunk_index(chunk_dir.name)
@@ -757,10 +932,28 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
                 )
                 if replay_chunk is not None:
                     accepted_replay_chunks.append(replay_chunk)
+                training_replay_chunk = _replay_chunk_from_collect_paths(
+                    chunk_label=chunk_dir.name,
+                    chunk_dir=chunk_dir,
+                )
+                training_replay_chunks.append(training_replay_chunk)
                 latest_checkpoint = _checkpoint_from_chunk_row(
                     chunk_row,
-                    key="latestCheckpoint",
-                    label=f"accepted checkpoint {chunk_dir.name}",
+                    key=(
+                        "generatorCheckpointAfter"
+                        if "generatorCheckpointAfter" in chunk_row
+                        else "latestCheckpoint"
+                    ),
+                    label=f"generator checkpoint {chunk_dir.name}",
+                )
+                learner_checkpoint = _checkpoint_from_chunk_row(
+                    chunk_row,
+                    key=(
+                        "learnerCheckpointAfter"
+                        if "learnerCheckpointAfter" in chunk_row
+                        else "candidateCheckpoint"
+                    ),
+                    label=f"learner checkpoint {chunk_dir.name}",
                 )
                 summary_candidate_checkpoint = _checkpoint_from_chunk_row(
                     chunk_row,
@@ -790,6 +983,17 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
                         "chunk summary candidateCheckpoint: "
                         f"{chunk_dir.name}"
                     )
+                block_payload = chunk_row.get("block")
+                if isinstance(block_payload, dict):
+                    raw_block_size = block_payload.get("size")
+                    if isinstance(raw_block_size, int) and not isinstance(raw_block_size, bool):
+                        if generator_update_chunks is None:
+                            generator_update_chunks = raw_block_size
+                        elif generator_update_chunks != raw_block_size:
+                            raise SystemExit(
+                                "Inconsistent generator block sizes across chunk summaries: "
+                                f"{generator_update_chunks} vs {raw_block_size}"
+                            )
                 completed_chunks.append(
                     CompletedChunk(
                         index=chunk_index,
@@ -802,6 +1006,8 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
                         candidate_checkpoint=summary_candidate_checkpoint,
                         chunk_row=chunk_row,
                         replay_chunk=replay_chunk,
+                        learner_checkpoint=learner_checkpoint,
+                        generator_checkpoint=latest_checkpoint,
                     )
                 )
                 continue
@@ -868,6 +1074,15 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
             "Self-play resume requires replay-window metadata in chunk summaries "
             "or pending chunk replay-window summary."
         )
+    generator_update_chunks = generator_update_chunks or 1
+    accepted_replay_chunks = _accepted_replay_chunks_from_blocks(
+        blocks_dir=run_dir / "blocks",
+        completed_chunks=completed_chunks,
+    ) or accepted_replay_chunks
+    latest_accepted_chunk_label = _latest_accepted_chunk_label(
+        completed_chunks=completed_chunks,
+        blocks_dir=run_dir / "blocks",
+    )
 
     return ResumeState(
         run_id=run_id,
@@ -884,6 +1099,17 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
                 opponent_path=incumbent_checkpoint.opponent_path,
             )
         ),
+        latest_learner_checkpoint=(
+            latest_completed.learner_checkpoint
+            if latest_completed is not None and latest_completed.learner_checkpoint is not None
+            else (
+                latest_completed.latest_checkpoint if latest_completed is not None else LoopCheckpoint(
+                    step=0,
+                    value_path=incumbent_checkpoint.value_path,
+                    opponent_path=incumbent_checkpoint.opponent_path,
+                )
+            )
+        ),
         incumbent_checkpoint=incumbent_checkpoint,
         collect_templates=_collect_templates_from_summary(
             payload=latest_collect_payload,
@@ -895,6 +1121,9 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
         train_replay_window_config=train_replay_window_config,
         pending_gate_chunk=pending_gate_chunk,
         accepted_replay_chunks=accepted_replay_chunks,
+        training_replay_chunks=training_replay_chunks,
+        latest_accepted_chunk_label=latest_accepted_chunk_label,
+        generator_update_chunks=generator_update_chunks,
         partial_chunk_label=partial_chunk_label,
         highest_existing_chunk_index=highest_existing_chunk_index,
     )
@@ -926,11 +1155,6 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         if args.train_replay_window_source is not None
         else str(replay_window_config["source"])
     )
-    if train_replay_window_source == "recent":
-        raise SystemExit(
-            "Resuming --train-replay-window-source recent runs requires the "
-            "two-timescale resume implementation."
-        )
     train_replay_window_max_value_lines = (
         args.train_replay_window_max_value_lines
         if args.train_replay_window_max_value_lines is not None
@@ -992,10 +1216,10 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         train_replay_window_source=train_replay_window_source,
         train_replay_window_max_value_lines=train_replay_window_max_value_lines,
         train_replay_window_max_opponent_lines=train_replay_window_max_opponent_lines,
-        generator_update_chunks=1,
-        block_selection_games_per_side=20,
-        block_selection_seed_prefix="td-loop-block-selection",
-        block_selection_seed_start_indices=[50000],
+        generator_update_chunks=args.generator_update_chunks or state.generator_update_chunks,
+        block_selection_games_per_side=args.block_selection_games_per_side,
+        block_selection_seed_prefix=args.block_selection_seed_prefix,
+        block_selection_seed_start_indices=list(args.block_selection_seed_start_indices),
         eval_games_per_side=args.eval_games_per_side,
         eval_workers=eval_workers,
         eval_seed_prefix=args.eval_seed_prefix,
@@ -1411,14 +1635,123 @@ def _checkpoint_from_checkpoint_selection(raw: Any, *, chunk_label: str) -> Loop
     )
 
 
-def _latest_accepted_chunk_label(chunks: Sequence[CompletedChunk]) -> str | None:
+def _latest_accepted_chunk_label(
+    *,
+    completed_chunks: Sequence[CompletedChunk],
+    blocks_dir: Path,
+) -> str | None:
+    latest_from_blocks: str | None = None
+    for block_row in _completed_block_rows(blocks_dir, completed_chunks):
+        gate = block_row.get("generatorGate")
+        if isinstance(gate, dict) and bool(gate.get("accepted")):
+            raw_selected = block_row.get("selectedChunk")
+            if isinstance(raw_selected, str):
+                latest_from_blocks = raw_selected
+    if latest_from_blocks is not None:
+        return latest_from_blocks
+
     latest: str | None = None
-    for chunk in chunks:
+    for chunk in completed_chunks:
         row = chunk.chunk_row
         gate = row["generatorGate"]
+        replay_for_training = row.get("replayForTraining")
         if bool(gate["accepted"]):
-            latest = chunk.label
+            if isinstance(replay_for_training, dict) and isinstance(
+                replay_for_training.get("chunk"),
+                str,
+            ):
+                latest = str(replay_for_training["chunk"])
+            else:
+                latest = chunk.label
     return latest
+
+
+def _completed_block_rows(
+    blocks_dir: Path,
+    completed_chunks: Sequence[CompletedChunk],
+) -> List[Dict[str, Any]]:
+    if not blocks_dir.exists():
+        return []
+    completed_labels = {chunk.label for chunk in completed_chunks}
+    rows: List[Dict[str, Any]] = []
+    for block_summary in sorted(blocks_dir.glob("block-*/block.summary.json")):
+        payload = read_json(block_summary, label=f"block summary {block_summary.parent.name}")
+        raw_block = payload.get("block")
+        if not isinstance(raw_block, dict):
+            raise SystemExit(f"Block summary is missing block payload: {block_summary}")
+        raw_chunks = raw_block.get("chunks")
+        if not isinstance(raw_chunks, list) or not all(
+            isinstance(label, str) for label in raw_chunks
+        ):
+            raise SystemExit(f"Block summary has invalid chunks payload: {block_summary}")
+        if all(label in completed_labels for label in raw_chunks):
+            rows.append(raw_block)
+    return rows
+
+
+def _accepted_replay_chunks_from_blocks(
+    *,
+    blocks_dir: Path,
+    completed_chunks: Sequence[CompletedChunk],
+) -> List[ReplayChunk]:
+    chunks_by_label = {chunk.label: chunk for chunk in completed_chunks}
+    accepted: List[ReplayChunk] = []
+    for block_row in _completed_block_rows(blocks_dir, completed_chunks):
+        gate = block_row.get("generatorGate")
+        if not isinstance(gate, dict) or not bool(gate.get("accepted")):
+            continue
+        raw_selected = block_row.get("selectedChunk")
+        if not isinstance(raw_selected, str):
+            continue
+        selected_chunk = chunks_by_label.get(raw_selected)
+        if selected_chunk is None:
+            continue
+        accepted.append(
+            selected_chunk.replay_chunk
+            or _replay_chunk_from_collect_paths(
+                chunk_label=selected_chunk.label,
+                chunk_dir=selected_chunk.chunk_dir,
+            )
+        )
+    return accepted
+
+
+def _open_block_candidates(completed_chunks: Sequence[CompletedChunk]) -> List[BlockCandidate]:
+    candidates: List[BlockCandidate] = []
+    for chunk in completed_chunks:
+        block_payload = chunk.chunk_row.get("block")
+        boundary = (
+            bool(block_payload.get("boundary"))
+            if isinstance(block_payload, dict)
+            else True
+        )
+        if boundary:
+            candidates = []
+            continue
+        candidates.append(
+            BlockCandidate(
+                chunk_label=chunk.label,
+                checkpoint=chunk.candidate_checkpoint,
+                replay_chunk=chunk.replay_chunk
+                or _replay_chunk_from_collect_paths(
+                    chunk_label=chunk.label,
+                    chunk_dir=chunk.chunk_dir,
+                ),
+            )
+        )
+    return candidates
+
+
+def _replay_chunk_for_label(
+    chunk_label: str | None,
+    block_candidates: Sequence[BlockCandidate],
+) -> ReplayChunk | None:
+    if chunk_label is None:
+        return None
+    for candidate in block_candidates:
+        if candidate.chunk_label == chunk_label:
+            return candidate.replay_chunk
+    return None
 
 
 def _replay_window_from_chunk_dir(chunk_dir: Path) -> Dict[str, Any]:
