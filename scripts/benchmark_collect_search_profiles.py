@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from scripts.checkpoint_manifest import (
+    default_manifest_path_for_artifact_dir,
+    load_default_warm_start,
+)
+
 DEFAULT_PROFILE_SPECS = (
     "current:6:14",
     "balanced:4:12",
@@ -366,6 +371,19 @@ def _resolve_checkpoints(args: argparse.Namespace) -> Checkpoints:
             value=args.value_checkpoint,
             opponent=args.opponent_checkpoint,
         )
+
+    manifest_path = default_manifest_path_for_artifact_dir(args.td_loops_dir)
+    if manifest_path is not None:
+        manifest_checkpoint = load_default_warm_start(
+            manifest_path=manifest_path,
+            require_paths=True,
+        )
+        if manifest_checkpoint is not None and manifest_checkpoint.status == "promoted":
+            return Checkpoints(
+                source_run_id=manifest_checkpoint.source_run_id,
+                value=manifest_checkpoint.value_path,
+                opponent=manifest_checkpoint.opponent_path,
+            )
 
     latest: Checkpoints | None = None
     if not args.td_loops_dir.exists():

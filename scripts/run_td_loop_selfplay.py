@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from scripts.checkpoint_manifest import DEFAULT_MANIFEST_RELATIVE_PATH
 from scripts.opponent_pool import (
     PoolCheckpoint,
     filter_pool_excluding_checkpoint,
@@ -17,6 +18,7 @@ from scripts.opponent_pool import (
     split_evenly,
     weighted_game_split,
 )
+from scripts.promote_td_checkpoint import promote_checkpoint_pair
 from scripts.td_loop_common import (
     LoopCheckpoint,
     build_train_command,
@@ -226,6 +228,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--promotion-incumbent-max-side-gap", type=float, default=0.08)
     parser.add_argument("--promotion-incumbent-min-ci-low", type=float, default=0.5)
     parser.add_argument("--promotion-incumbent-max-window-side-gap", type=float, default=0.10)
+    parser.add_argument("--promotion-manifest-path", type=Path, default=DEFAULT_MANIFEST_RELATIVE_PATH)
+    parser.add_argument(
+        "--promotion-checkpoint-root",
+        type=Path,
+        default=Path("models/td_checkpoints"),
+    )
+    parser.add_argument(
+        "--promotion-manifest-key",
+        type=str,
+        default=None,
+        help="Manifest key used when a loop promotion passes (default: derived from run id).",
+    )
+    parser.add_argument(
+        "--disable-manifest-promotion",
+        action="store_true",
+        help="Do not copy promoted checkpoints into models/td_checkpoints or update manifest.",
+    )
 
     parser.add_argument("--progress-heartbeat-minutes", type=float, default=30.0)
     return parser.parse_args()
@@ -267,6 +286,15 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
         progress_path=context.progress_path,
     )
     commands["promotionEvals"] = promotion_stage.commands
+    manifest_promotion = _register_manifest_promotion_if_passed(
+        args=args,
+        context=context,
+        latest_checkpoint=latest_checkpoint,
+        latest_chunk_label=str(chunk_rows[-1]["chunk"]) if chunk_rows else None,
+        promotion_stage=promotion_stage,
+    )
+    if manifest_promotion is not None:
+        commands["manifestPromotion"] = manifest_promotion
 
     loop_elapsed_minutes = (time.perf_counter() - context.loop_started) / 60.0
     payload = build_selfplay_loop_summary(
@@ -507,6 +535,57 @@ def build_selfplay_loop_summary(
     }
 
 
+def _register_manifest_promotion_if_passed(
+    *,
+    args: argparse.Namespace,
+    context: RunContext,
+    latest_checkpoint: LoopCheckpoint,
+    latest_chunk_label: str | None,
+    promotion_stage: PromotionStageResult,
+) -> Dict[str, Any] | None:
+    if not bool(promotion_stage.promotion.get("promoted")):
+        return None
+    if bool(getattr(args, "disable_manifest_promotion", True)):
+        return None
+    if latest_checkpoint.value_path is None or latest_checkpoint.opponent_path is None:
+        return None
+
+    manifest_path = getattr(args, "promotion_manifest_path", DEFAULT_MANIFEST_RELATIVE_PATH)
+    checkpoint_root = getattr(args, "promotion_checkpoint_root", Path("models/td_checkpoints"))
+    key = getattr(args, "promotion_manifest_key", None) or f"{context.run_id}-promoted"
+    eval_artifacts = [
+        window["row"].artifact
+        for window in [*promotion_stage.baseline_windows, *promotion_stage.incumbent_windows]
+    ]
+    result = promote_checkpoint_pair(
+        manifest_path=manifest_path,
+        checkpoint_root=checkpoint_root,
+        key=key,
+        value_checkpoint=latest_checkpoint.value_path,
+        opponent_checkpoint=latest_checkpoint.opponent_path,
+        source_run_id=context.run_id,
+        source_loop_summary=context.loop_summary_path,
+        source_chunk=latest_chunk_label,
+        source_eval_artifacts=eval_artifacts,
+        step=latest_checkpoint.step,
+        label=f"Promoted self-play loop {context.run_id}",
+        set_default=True,
+        add_to_opponent_pool=True,
+        force=False,
+    )
+    print(
+        "[td-loop-selfplay] manifest promotion registered "
+        f"key={result['key']} manifest={manifest_path}",
+        flush=True,
+    )
+    return {
+        "key": result["key"],
+        "value": str(result["value"]),
+        "opponent": str(result["opponent"]),
+        "manifest": str(manifest_path),
+    }
+
+
 def build_selfplay_terminal_report(
     *,
     context: RunContext,
@@ -619,6 +698,12 @@ def _build_collect_profiles(
     elif shares["pool"] > 0:
         # If pool is empty, fold those games into self-play; create a self-play
         # profile when shares intentionally disabled it.
+        print(
+            "[td-loop-selfplay] WARNING: collect opponent pool is empty; "
+            f"folding {shares['pool']} pool games into self-play. "
+            "Check models/td_checkpoints/manifest.json or promoted loop summaries.",
+            flush=True,
+        )
         folded = False
         for index, profile in enumerate(profiles):
             if profile.label == "selfplay":
@@ -1189,6 +1274,16 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
                 "maxSideGap": args.promotion_incumbent_max_side_gap,
                 "minCiLow": args.promotion_incumbent_min_ci_low,
                 "maxWindowSideGap": args.promotion_incumbent_max_window_side_gap,
+            },
+            "manifest": {
+                "enabled": not bool(getattr(args, "disable_manifest_promotion", False)),
+                "manifestPath": str(
+                    getattr(args, "promotion_manifest_path", DEFAULT_MANIFEST_RELATIVE_PATH)
+                ),
+                "checkpointRoot": str(
+                    getattr(args, "promotion_checkpoint_root", Path("models/td_checkpoints"))
+                ),
+                "key": getattr(args, "promotion_manifest_key", None),
             },
         },
     }

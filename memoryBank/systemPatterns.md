@@ -83,6 +83,11 @@ Design expectations:
 - Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation, checkpointed training, and pooled side-swapped certify windows before promotion.
 - Forward self-play loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection toward mixed td-search-heavy opponents and incumbent head-to-head checks.
 - Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
+- TD checkpoint registry is source-controlled:
+  - `models/td_checkpoints/manifest.json` schema v2 is the canonical source for `defaultWarmStart` and `opponentPool`.
+  - referenced promoted checkpoint files live under `models/td_checkpoints/<key>/` so they move with the repo; ignored `artifacts/td_loops/*/loop.summary.json` files are fallback/history only.
+  - successful loop promotions copy the latest value/opponent pair into the checkpoint registry and update the manifest unless `--disable-manifest-promotion` is set.
+  - self-play opponent-pool loading reads manifest pool entries first, then promoted artifact summaries, and de-duplicates by checkpoint pair.
 - Platform-specific runtime tuning lives in thin wrapper scripts, not the canonical Python loop defaults:
   - RunPod/Linux uses bash launchers with cloud presets.
   - Windows laptop runs use PowerShell launchers that set temp/cache dirs, CPU thread caps, and explicit worker counts.

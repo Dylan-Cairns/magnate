@@ -187,9 +187,52 @@ function Get-MagnateWarmStartPair {
     [switch]$AllowManifestFallback
   )
 
+  $manifestPath = Join-Path $RepoRoot "models\td_checkpoints\manifest.json"
+  if (Test-Path $manifestPath) {
+    try {
+      $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+      $defaultKey = [string]$manifest.defaultWarmStart
+      if ([string]::IsNullOrWhiteSpace($defaultKey)) {
+        $defaultKey = "promoted"
+      }
+
+      $checkpointEntry = $manifest.checkpoints.$defaultKey
+      $resolvedKey = $defaultKey
+      if ($null -eq $checkpointEntry) {
+        $checkpointEntry = $manifest.checkpoints.promoted
+        $resolvedKey = "promoted"
+      }
+
+      if ($null -ne $checkpointEntry) {
+        $status = [string]$checkpointEntry.status
+        if ([string]::IsNullOrWhiteSpace($status)) {
+          $status = if ($resolvedKey -eq "promoted") { "promoted" } else { "experimental" }
+        }
+
+        if ($status -eq "promoted") {
+          $valuePath = Resolve-MagnateProjectPath -RepoRoot $RepoRoot -PathValue ([string]$checkpointEntry.value)
+          $opponentPath = Resolve-MagnateProjectPath -RepoRoot $RepoRoot -PathValue ([string]$checkpointEntry.opponent)
+          if ((Test-Path $valuePath) -and (Test-Path $opponentPath)) {
+            return [pscustomobject]@{
+              Source = "manifest"
+              SourceLabel = "checkpoint manifest ($resolvedKey)"
+              RunId = [string]$checkpointEntry.sourceRunId
+              ValuePath = $valuePath
+              OpponentPath = $opponentPath
+              GeneratedAt = [DateTimeOffset]::MinValue
+            }
+          }
+        }
+      }
+    } catch {
+      if (-not $AllowManifestFallback) {
+        throw
+      }
+    }
+  }
+
   $artifactRoot = Join-Path $RepoRoot "artifacts\td_loops"
   $latest = $null
-
   if (Test-Path $artifactRoot) {
     foreach ($summaryPath in Get-ChildItem -Path $artifactRoot -Filter "loop.summary.json" -Recurse -File) {
       try {
@@ -253,50 +296,7 @@ function Get-MagnateWarmStartPair {
     return $latest
   }
 
-  if (-not $AllowManifestFallback) {
-    return $null
-  }
-
-  $manifestPath = Join-Path $RepoRoot "models\td_checkpoints\manifest.json"
-  if (-not (Test-Path $manifestPath)) {
-    return $null
-  }
-
-  try {
-    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-  } catch {
-    return $null
-  }
-
-  $defaultKey = [string]$manifest.defaultWarmStart
-  if ([string]::IsNullOrWhiteSpace($defaultKey)) {
-    $defaultKey = "promoted"
-  }
-
-  $checkpointEntry = $manifest.checkpoints.$defaultKey
-  $resolvedKey = $defaultKey
-  if ($null -eq $checkpointEntry) {
-    $checkpointEntry = $manifest.checkpoints.promoted
-    $resolvedKey = "promoted"
-  }
-  if ($null -eq $checkpointEntry) {
-    return $null
-  }
-
-  $valuePath = Resolve-MagnateProjectPath -RepoRoot $RepoRoot -PathValue ([string]$checkpointEntry.value)
-  $opponentPath = Resolve-MagnateProjectPath -RepoRoot $RepoRoot -PathValue ([string]$checkpointEntry.opponent)
-  if (-not (Test-Path $valuePath) -or -not (Test-Path $opponentPath)) {
-    return $null
-  }
-
-  return [pscustomobject]@{
-    Source = "manifest"
-    SourceLabel = "checkpoint manifest ($resolvedKey)"
-    RunId = [string]$checkpointEntry.sourceRunId
-    ValuePath = $valuePath
-    OpponentPath = $opponentPath
-    GeneratedAt = [DateTimeOffset]::MinValue
-  }
+  return $null
 }
 
 function Format-MagnateCommandLine {
