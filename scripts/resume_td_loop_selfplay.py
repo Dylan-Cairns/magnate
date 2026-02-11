@@ -268,6 +268,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
     parser.add_argument("--chunk-gate-max-window-side-gap", type=float, default=0.20)
     parser.add_argument("--checkpoint-selection-games-per-side", type=int, default=4)
+    parser.add_argument(
+        "--checkpoint-selection-mode",
+        type=str,
+        choices=("eval", "final"),
+        default="eval",
+    )
     parser.add_argument("--checkpoint-selection-workers", type=int, default=None)
     parser.add_argument(
         "--checkpoint-selection-seed-prefix",
@@ -1255,6 +1261,7 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         chunk_gate_max_side_gap=args.chunk_gate_max_side_gap,
         chunk_gate_min_ci_low=args.chunk_gate_min_ci_low,
         chunk_gate_max_window_side_gap=args.chunk_gate_max_window_side_gap,
+        checkpoint_selection_mode=args.checkpoint_selection_mode,
         checkpoint_selection_games_per_side=args.checkpoint_selection_games_per_side,
         checkpoint_selection_workers=(
             args.checkpoint_selection_workers

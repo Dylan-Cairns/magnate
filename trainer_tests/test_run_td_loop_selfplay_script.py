@@ -911,6 +911,57 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         mocked_run_step.assert_not_called()
         self.assertEqual(summary["checkpointSelection"]["candidates"][0]["evaluation"], None)
 
+    def test_run_checkpoint_selection_final_mode_uses_trained_latest_without_eval(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first_value, first_opponent = self._make_checkpoints(root / "first")
+            second_value, second_opponent = self._make_checkpoints(root / "second")
+            accepted_value, accepted_opponent = self._make_checkpoints(root / "accepted")
+            args = self._parse("--checkpoint-selection-mode", "final")
+            first = LoopCheckpoint(
+                step=1000,
+                value_path=first_value,
+                opponent_path=first_opponent,
+            )
+            second = LoopCheckpoint(
+                step=2000,
+                value_path=second_value,
+                opponent_path=second_opponent,
+            )
+            accepted = LoopCheckpoint(
+                step=0,
+                value_path=accepted_value,
+                opponent_path=accepted_opponent,
+            )
+
+            with patch("scripts.run_td_loop_selfplay.run_step") as mocked_run_step, patch(
+                "scripts.run_td_loop_selfplay.read_eval_row"
+            ) as mocked_read_eval_row:
+                result = run_checkpoint_selection(
+                    args=args,
+                    python_bin=Path(sys.executable),
+                    chunk_label="chunk-001",
+                    eval_dir=root / "eval" / "checkpoint_selection",
+                    checkpoints=[first, second],
+                    accepted_checkpoint=accepted,
+                    progress_path=root / "progress.json",
+                    log_prefix="[test]",
+                )
+
+            summary = json.loads(result.summary_path.read_text(encoding="utf-8"))
+
+        self.assertFalse(result.enabled)
+        self.assertEqual(result.reason, "final_checkpoint")
+        self.assertEqual(result.selected_checkpoint, second)
+        self.assertEqual(result.trained_latest_checkpoint, second)
+        self.assertEqual(result.commands, [])
+        mocked_run_step.assert_not_called()
+        mocked_read_eval_row.assert_not_called()
+        self.assertFalse(summary["checkpointSelection"]["enabled"])
+        self.assertFalse(summary["checkpointSelection"]["candidates"][0]["selected"])
+        self.assertTrue(summary["checkpointSelection"]["candidates"][1]["selected"])
+        self.assertIsNone(summary["checkpointSelection"]["candidates"][1]["evaluation"])
+
     def test_run_block_generator_update_selects_block_candidate_and_writes_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -925,6 +976,8 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
                 "--block-selection-seed-start-indices",
                 "51000",
                 "52000",
+                "--checkpoint-selection-mode",
+                "final",
             )
             first = LoopCheckpoint(
                 step=1000,
@@ -996,6 +1049,7 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
 
         selection_args = mocked_selection.call_args.kwargs["args"]
         self.assertEqual(selection_args.checkpoint_selection_games_per_side, 7)
+        self.assertEqual(selection_args.checkpoint_selection_mode, "eval")
         self.assertEqual(selection_args.checkpoint_selection_seed_prefix, "block-select")
         self.assertEqual(selection_args.checkpoint_selection_seed_start_indices, [51000, 52000])
         self.assertEqual(mocked_selection.call_args.kwargs["chunk_label"], "block-001")
