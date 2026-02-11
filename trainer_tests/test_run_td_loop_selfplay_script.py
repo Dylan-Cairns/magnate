@@ -11,6 +11,9 @@ from unittest.mock import patch
 
 from scripts.opponent_pool import PoolCheckpoint
 from scripts.run_td_loop_selfplay import (
+    BlockCandidate,
+    BlockGeneratorUpdateResult,
+    CheckpointSelectionResult,
     ChunkExecutionResult,
     ChunkGateResult,
     EvalRow,
@@ -22,6 +25,7 @@ from scripts.run_td_loop_selfplay import (
     build_selfplay_loop_summary,
     initialize_selfplay_run,
     parse_args,
+    run_block_generator_update,
     run_checkpoint_selection,
     run_chunk_gate,
     run_promotion_stage,
@@ -246,17 +250,14 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
 
             _validate_args(args)
 
-    def test_validate_args_rejects_unimplemented_block_generator_updates(self) -> None:
+    def test_validate_args_accepts_block_generator_updates(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             value_path, opponent_path = self._make_checkpoints(root)
             args = self._base_args(root, value_path=value_path, opponent_path=opponent_path)
             args.generator_update_chunks = 3
 
-            with self.assertRaises(SystemExit) as raised:
-                _validate_args(args)
-
-        self.assertIn("requires block-level generator gating", str(raised.exception))
+            _validate_args(args)
 
     def test_run_selfplay_chunk_records_commands_and_learner_checkpoint(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -682,6 +683,66 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertFalse(summary["checkpointSelection"]["candidates"][0]["selected"])
         self.assertTrue(summary["checkpointSelection"]["candidates"][1]["selected"])
 
+    def test_run_checkpoint_selection_ties_favor_later_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first_value, first_opponent = self._make_checkpoints(root / "first")
+            second_value, second_opponent = self._make_checkpoints(root / "second")
+            accepted_value, accepted_opponent = self._make_checkpoints(root / "accepted")
+            args = self._parse(
+                "--checkpoint-selection-games-per-side",
+                "5",
+                "--checkpoint-selection-seed-start-indices",
+                "45000",
+            )
+            first = LoopCheckpoint(
+                step=10,
+                value_path=first_value,
+                opponent_path=first_opponent,
+            )
+            second = LoopCheckpoint(
+                step=10,
+                value_path=second_value,
+                opponent_path=second_opponent,
+            )
+            accepted = LoopCheckpoint(
+                step=0,
+                value_path=accepted_value,
+                opponent_path=accepted_opponent,
+            )
+            tied_row = self._eval_row(
+                artifact_name="tie.json",
+                opponent_policy="td-search",
+                win_rate=0.50,
+                ci_low=0.20,
+                ci_high=0.80,
+                side_gap=0.02,
+                candidate_wins=5,
+                opponent_wins=5,
+                total_games=10,
+            )
+
+            with patch("scripts.run_td_loop_selfplay.run_step"), patch(
+                "scripts.run_td_loop_selfplay.read_eval_row",
+                side_effect=[tied_row, tied_row],
+            ):
+                result = run_checkpoint_selection(
+                    args=args,
+                    python_bin=Path(sys.executable),
+                    chunk_label="block-001",
+                    eval_dir=root / "eval" / "checkpoint_selection",
+                    checkpoints=[first, second],
+                    accepted_checkpoint=accepted,
+                    progress_path=root / "progress.json",
+                    log_prefix="[test]",
+                )
+
+            summary = json.loads(result.summary_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.selected_checkpoint, second)
+        self.assertFalse(summary["checkpointSelection"]["candidates"][0]["selected"])
+        self.assertTrue(summary["checkpointSelection"]["candidates"][1]["selected"])
+
     def test_run_checkpoint_selection_records_single_candidate_without_eval(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -718,6 +779,100 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertEqual(result.commands, [])
         mocked_run_step.assert_not_called()
         self.assertEqual(summary["checkpointSelection"]["candidates"][0]["evaluation"], None)
+
+    def test_run_block_generator_update_selects_block_candidate_and_writes_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first_value, first_opponent = self._make_checkpoints(root / "first")
+            second_value, second_opponent = self._make_checkpoints(root / "second")
+            accepted_value, accepted_opponent = self._make_checkpoints(root / "accepted")
+            args = self._parse(
+                "--block-selection-games-per-side",
+                "7",
+                "--block-selection-seed-prefix",
+                "block-select",
+                "--block-selection-seed-start-indices",
+                "51000",
+                "52000",
+            )
+            first = LoopCheckpoint(
+                step=1000,
+                value_path=first_value,
+                opponent_path=first_opponent,
+            )
+            second = LoopCheckpoint(
+                step=2000,
+                value_path=second_value,
+                opponent_path=second_opponent,
+            )
+            accepted = LoopCheckpoint(
+                step=0,
+                value_path=accepted_value,
+                opponent_path=accepted_opponent,
+            )
+            selection = CheckpointSelectionResult(
+                enabled=True,
+                reason="best_eval_score",
+                selected_checkpoint=second,
+                trained_latest_checkpoint=second,
+                accepted_before=accepted,
+                seed_start_indices=[51000, 52000],
+                candidates=[
+                    {"checkpoint": {"step": 1000}, "selected": False},
+                    {"checkpoint": {"step": 2000}, "selected": True},
+                ],
+                commands=[["select-one"], ["select-two"]],
+                summary_path=root / "blocks" / "block-001" / "eval" / "checkpoint_selection" / "summary.json",
+            )
+            gate = ChunkGateResult(
+                enabled=True,
+                accepted=True,
+                reason="chunk_gate_passed",
+                candidate_checkpoint=second,
+                accepted_before=accepted,
+                accepted_after=second,
+                seed_start_indices=[],
+                windows=[],
+                pooled=None,
+                checks={},
+                window_checks=[],
+                commands=[["gate"]],
+            )
+
+            with patch(
+                "scripts.run_td_loop_selfplay.run_checkpoint_selection",
+                return_value=selection,
+            ) as mocked_selection, patch(
+                "scripts.run_td_loop_selfplay.run_chunk_gate",
+                return_value=gate,
+            ) as mocked_gate, patch("builtins.print"):
+                result = run_block_generator_update(
+                    args=args,
+                    python_bin=Path(sys.executable),
+                    run_id="run-123",
+                    block_index=1,
+                    block_candidates=[
+                        BlockCandidate(chunk_label="chunk-001", checkpoint=first),
+                        BlockCandidate(chunk_label="chunk-002", checkpoint=second),
+                    ],
+                    blocks_dir=root / "blocks",
+                    generator_checkpoint=accepted,
+                    progress_path=root / "progress.json",
+                    log_prefix="[test]",
+                )
+
+            summary = json.loads(result.summary_path.read_text(encoding="utf-8"))
+
+        selection_args = mocked_selection.call_args.kwargs["args"]
+        self.assertEqual(selection_args.checkpoint_selection_games_per_side, 7)
+        self.assertEqual(selection_args.checkpoint_selection_seed_prefix, "block-select")
+        self.assertEqual(selection_args.checkpoint_selection_seed_start_indices, [51000, 52000])
+        self.assertEqual(mocked_selection.call_args.kwargs["chunk_label"], "block-001")
+        self.assertEqual(mocked_gate.call_args.kwargs["chunk_label"], "block-001")
+        self.assertEqual(mocked_gate.call_args.kwargs["candidate_checkpoint"], second)
+        self.assertEqual(result.selected_chunk_label, "chunk-002")
+        self.assertEqual(summary["block"]["selectedChunk"], "chunk-002")
+        self.assertTrue(summary["block"]["generatorGate"]["accepted"])
 
     def test_run_selfplay_loop_uses_previous_accepted_checkpoint_after_rejected_chunk(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -872,6 +1027,225 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertEqual(payload["chunks"][0]["generatorCheckpointAfter"]["value"], str(warm_value))
         self.assertEqual(payload["chunks"][0]["latestCheckpoint"]["value"], str(warm_value))
         self.assertTrue(payload["chunks"][1]["generatorGate"]["accepted"])
+
+    def test_run_selfplay_loop_updates_generator_only_at_block_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            warm_value, warm_opponent = self._make_checkpoints(root / "warm")
+            chunk1_value, chunk1_opponent = self._make_checkpoints(root / "chunk1")
+            chunk2_value, chunk2_opponent = self._make_checkpoints(root / "chunk2")
+            chunk3_value, chunk3_opponent = self._make_checkpoints(root / "chunk3")
+            args = self._parse(
+                "--artifact-dir",
+                str(root / "artifacts"),
+                "--run-label",
+                "unit-selfplay",
+                "--chunks-per-loop",
+                "3",
+                "--generator-update-chunks",
+                "2",
+                "--disable-manifest-promotion",
+            )
+            run_dir = root / "artifacts" / "run-123"
+            chunks_dir = run_dir / "chunks"
+            eval_dir = run_dir / "evals"
+            for path in (run_dir, chunks_dir, eval_dir):
+                path.mkdir(parents=True, exist_ok=True)
+            initial = LoopCheckpoint(
+                step=0,
+                value_path=warm_value,
+                opponent_path=warm_opponent,
+            )
+            chunk1_checkpoint = LoopCheckpoint(
+                step=1000,
+                value_path=chunk1_value,
+                opponent_path=chunk1_opponent,
+            )
+            chunk2_checkpoint = LoopCheckpoint(
+                step=2000,
+                value_path=chunk2_value,
+                opponent_path=chunk2_opponent,
+            )
+            chunk3_checkpoint = LoopCheckpoint(
+                step=3000,
+                value_path=chunk3_value,
+                opponent_path=chunk3_opponent,
+            )
+            replay1 = self._write_replay_chunk(root, "chunk-001", value_lines=["r1\n"])
+            replay2 = self._write_replay_chunk(root, "chunk-002", value_lines=["r2\n"])
+            replay3 = self._write_replay_chunk(root, "chunk-003", value_lines=["r3\n"])
+            context = RunContext(
+                run_id="run-123",
+                run_dir=run_dir,
+                chunks_dir=chunks_dir,
+                eval_dir=eval_dir,
+                loop_summary_path=run_dir / "loop.summary.json",
+                progress_path=run_dir / "progress.json",
+                incumbent_checkpoint=PoolCheckpoint(
+                    run_id="incumbent",
+                    generated_at_utc="2026-01-01T00:00:00+00:00",
+                    value_path=warm_value,
+                    opponent_path=warm_opponent,
+                ),
+                latest_checkpoint=initial,
+                loop_started=time.perf_counter(),
+            )
+            chunks = [
+                ChunkExecutionResult(
+                    chunk_label="chunk-001",
+                    latest_checkpoint=chunk1_checkpoint,
+                    command_row={"chunk": "chunk-001"},
+                    chunk_row={"chunk": "chunk-001"},
+                    replay_chunk=replay1,
+                ),
+                ChunkExecutionResult(
+                    chunk_label="chunk-002",
+                    latest_checkpoint=chunk2_checkpoint,
+                    command_row={"chunk": "chunk-002"},
+                    chunk_row={"chunk": "chunk-002"},
+                    replay_chunk=replay2,
+                ),
+                ChunkExecutionResult(
+                    chunk_label="chunk-003",
+                    latest_checkpoint=chunk3_checkpoint,
+                    command_row={"chunk": "chunk-003"},
+                    chunk_row={"chunk": "chunk-003"},
+                    replay_chunk=replay3,
+                ),
+            ]
+            block_calls = []
+
+            def fake_block_update(**kwargs):
+                block_calls.append(kwargs)
+                candidates = list(kwargs["block_candidates"])
+                selected = candidates[-1]
+                accepted_before = kwargs["generator_checkpoint"]
+                gate = ChunkGateResult(
+                    enabled=False,
+                    accepted=True,
+                    reason="chunk_gate_disabled",
+                    candidate_checkpoint=selected.checkpoint,
+                    accepted_before=accepted_before,
+                    accepted_after=selected.checkpoint,
+                    seed_start_indices=[],
+                    windows=[],
+                    pooled=None,
+                    checks={},
+                    window_checks=[],
+                    commands=[],
+                )
+                selection = CheckpointSelectionResult(
+                    enabled=True,
+                    reason="single_candidate" if len(candidates) == 1 else "best_eval_score",
+                    selected_checkpoint=selected.checkpoint,
+                    trained_latest_checkpoint=selected.checkpoint,
+                    accepted_before=accepted_before,
+                    seed_start_indices=[],
+                    candidates=[],
+                    commands=[],
+                    summary_path=(
+                        kwargs["blocks_dir"]
+                        / f"block-{kwargs['block_index']:03d}"
+                        / "eval"
+                        / "checkpoint_selection"
+                        / "summary.json"
+                    ),
+                )
+                block_label = f"block-{kwargs['block_index']:03d}"
+                return BlockGeneratorUpdateResult(
+                    block_label=block_label,
+                    block_index=kwargs["block_index"],
+                    chunk_labels=[candidate.chunk_label for candidate in candidates],
+                    candidates=[],
+                    checkpoint_selection=selection,
+                    generator_gate=gate,
+                    selected_chunk_label=selected.chunk_label,
+                    summary_path=kwargs["blocks_dir"] / block_label / "block.summary.json",
+                    commands={
+                        "block": block_label,
+                        "chunks": [candidate.chunk_label for candidate in candidates],
+                    },
+                )
+
+            baseline_row = self._eval_row(
+                artifact_name="baseline.json",
+                opponent_policy="search",
+                win_rate=0.55,
+                ci_low=0.51,
+                ci_high=0.59,
+                side_gap=0.01,
+                candidate_wins=11,
+                opponent_wins=9,
+                total_games=20,
+            )
+            incumbent_row = self._eval_row(
+                artifact_name="incumbent.json",
+                opponent_policy="td-search",
+                win_rate=0.53,
+                ci_low=0.50,
+                ci_high=0.56,
+                side_gap=0.01,
+                candidate_wins=11,
+                opponent_wins=9,
+                total_games=20,
+            )
+            promotion_stage = PromotionStageResult(
+                baseline_windows=[{"command": ["baseline-cmd"], "row": baseline_row}],
+                incumbent_windows=[{"command": ["incumbent-cmd"], "row": incumbent_row}],
+                pooled_baseline=baseline_row,
+                pooled_incumbent=incumbent_row,
+                promotion={"promoted": True, "reason": "dual_gate_passed"},
+                commands={
+                    "baselineVsSearch": [["baseline-cmd"]],
+                    "candidateVsIncumbent": [["incumbent-cmd"]],
+                },
+            )
+
+            with patch(
+                "scripts.run_td_loop_selfplay.initialize_selfplay_run",
+                return_value=context,
+            ), patch(
+                "scripts.run_td_loop_selfplay.run_selfplay_chunk",
+                side_effect=chunks,
+            ) as mocked_chunk, patch(
+                "scripts.run_td_loop_selfplay.run_block_generator_update",
+                side_effect=fake_block_update,
+            ), patch(
+                "scripts.run_td_loop_selfplay.run_promotion_stage",
+                return_value=promotion_stage,
+            ) as mocked_promotion, patch("builtins.print"):
+                result = run_selfplay_loop(args)
+
+            payload = json.loads(context.loop_summary_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(result, 0)
+        self.assertEqual(len(block_calls), 2)
+        self.assertEqual(
+            [candidate.chunk_label for candidate in block_calls[0]["block_candidates"]],
+            ["chunk-001", "chunk-002"],
+        )
+        self.assertEqual(
+            [candidate.chunk_label for candidate in block_calls[1]["block_candidates"]],
+            ["chunk-003"],
+        )
+        self.assertEqual(mocked_chunk.call_args_list[0].kwargs["generator_checkpoint"], initial)
+        self.assertEqual(mocked_chunk.call_args_list[1].kwargs["generator_checkpoint"], initial)
+        self.assertEqual(
+            mocked_chunk.call_args_list[2].kwargs["generator_checkpoint"],
+            chunk2_checkpoint,
+        )
+        self.assertEqual(
+            [chunk.label for chunk in mocked_chunk.call_args_list[2].kwargs["accepted_replay_chunks"]],
+            ["chunk-002"],
+        )
+        self.assertEqual(mocked_promotion.call_args.kwargs["latest_checkpoint"], chunk3_checkpoint)
+        self.assertEqual(payload["chunks"][0]["generatorGate"]["reason"], "generator_gate_deferred")
+        self.assertEqual(payload["chunks"][0]["generatorCheckpointAfter"]["value"], str(warm_value))
+        self.assertTrue(payload["chunks"][1]["generatorGate"]["accepted"])
+        self.assertEqual(payload["chunks"][1]["generatorCheckpointAfter"]["value"], str(chunk2_value))
+        self.assertTrue(payload["chunks"][2]["generatorGate"]["accepted"])
+        self.assertEqual(payload["chunks"][2]["generatorCheckpointAfter"]["value"], str(chunk3_value))
+        self.assertEqual([block["block"] for block in payload["blocks"]], ["block-001", "block-002"])
 
     def test_build_selfplay_loop_summary_contains_expected_sections(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -1126,12 +1500,11 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             ), patch(
                 "scripts.run_td_loop_selfplay.run_promotion_stage",
                 side_effect=SystemExit("promotion failed"),
-            ), patch("builtins.print") as mocked_print:
+            ), patch("builtins.print"):
                 with self.assertRaises(SystemExit):
                     run_selfplay_loop(args)
 
         self.assertFalse(context.loop_summary_path.exists())
-        mocked_print.assert_not_called()
 
 
 class RunTdLoopSelfplaySmokeTests(unittest.TestCase):

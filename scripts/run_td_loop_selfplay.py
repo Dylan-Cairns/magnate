@@ -106,6 +106,13 @@ class ChunkExecutionResult:
 
 
 @dataclass(frozen=True)
+class BlockCandidate:
+    chunk_label: str
+    checkpoint: LoopCheckpoint
+    replay_chunk: ReplayChunk | None = None
+
+
+@dataclass(frozen=True)
 class CheckpointSelectionResult:
     enabled: bool
     reason: str
@@ -132,6 +139,19 @@ class ChunkGateResult:
     checks: Dict[str, Any]
     window_checks: List[Dict[str, Any]]
     commands: List[List[str]]
+
+
+@dataclass(frozen=True)
+class BlockGeneratorUpdateResult:
+    block_label: str
+    block_index: int
+    chunk_labels: List[str]
+    candidates: List[Dict[str, Any]]
+    checkpoint_selection: CheckpointSelectionResult
+    generator_gate: ChunkGateResult
+    selected_chunk_label: str | None
+    summary_path: Path
+    commands: Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -320,8 +340,8 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help=(
             "Chunks per generator update attempt. Value 1 keeps the current per-chunk "
-            "gate cadence; larger block cadences are reserved for the block-gating "
-            "implementation."
+            "gate cadence; larger values select the best candidate from each block "
+            "and gate only at block boundaries."
         ),
     )
     parser.add_argument("--block-selection-games-per-side", type=int, default=20)
@@ -439,15 +459,22 @@ def main() -> int:
 
 def run_selfplay_loop(args: argparse.Namespace) -> int:
     context = initialize_selfplay_run(args)
-    commands: Dict[str, Any] = {"chunks": []}
+    blocks_dir = context.run_dir / "blocks"
+    blocks_dir.mkdir(parents=True, exist_ok=True)
+    commands: Dict[str, Any] = {"chunks": [], "blocks": []}
     chunk_rows: List[Dict[str, Any]] = []
+    block_rows: List[Dict[str, Any]] = []
     learner_checkpoint = context.latest_checkpoint
     generator_checkpoint = context.latest_checkpoint
     accepted_chunk_label: str | None = None
     accepted_replay_chunks: List[ReplayChunk] = []
     training_replay_chunks: List[ReplayChunk] = []
+    current_block_candidates: List[BlockCandidate] = []
 
     for chunk_index in range(1, args.chunks_per_loop + 1):
+        block_index = _block_index_for_chunk(args=args, chunk_index=chunk_index)
+        block_position = _block_position_for_chunk(args=args, chunk_index=chunk_index)
+        block_label = _block_label(block_index)
         learner_checkpoint_before = learner_checkpoint
         generator_checkpoint_before = generator_checkpoint
         chunk_result = run_selfplay_chunk(
@@ -457,30 +484,71 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
             chunks_dir=context.chunks_dir,
             learner_checkpoint=learner_checkpoint_before,
             generator_checkpoint=generator_checkpoint_before,
-            accepted_replay_chunks=accepted_replay_chunks,
-            training_replay_chunks=training_replay_chunks,
+            accepted_replay_chunks=tuple(accepted_replay_chunks),
+            training_replay_chunks=tuple(training_replay_chunks),
             progress_path=context.progress_path,
         )
         learner_checkpoint = chunk_result.latest_checkpoint
         if chunk_result.replay_chunk is not None:
             training_replay_chunks.append(chunk_result.replay_chunk)
-        gate_result = run_chunk_gate(
-            args=args,
-            python_bin=args.python_bin,
-            chunk_label=chunk_result.chunk_label,
-            eval_dir=context.chunks_dir / chunk_result.chunk_label / "eval",
-            candidate_checkpoint=learner_checkpoint,
-            accepted_checkpoint=generator_checkpoint_before,
-            progress_path=context.progress_path,
-            log_prefix="[td-loop-selfplay]",
+        current_block_candidates.append(
+            BlockCandidate(
+                chunk_label=chunk_result.chunk_label,
+                checkpoint=learner_checkpoint,
+                replay_chunk=chunk_result.replay_chunk,
+            )
         )
-        generator_checkpoint = gate_result.accepted_after
-        if gate_result.accepted:
-            accepted_chunk_label = chunk_result.chunk_label
-            if chunk_result.replay_chunk is not None:
-                accepted_replay_chunks.append(chunk_result.replay_chunk)
+
+        block_result: BlockGeneratorUpdateResult | None = None
+        if _is_generator_update_boundary(args=args, chunk_index=chunk_index):
+            block_result = run_block_generator_update(
+                args=args,
+                python_bin=args.python_bin,
+                run_id=context.run_id,
+                block_index=block_index,
+                block_candidates=current_block_candidates,
+                blocks_dir=blocks_dir,
+                generator_checkpoint=generator_checkpoint_before,
+                progress_path=context.progress_path,
+                log_prefix="[td-loop-selfplay]",
+            )
+            generator_checkpoint = block_result.generator_gate.accepted_after
+            commands["blocks"].append(block_result.commands)
+            block_rows.append(block_update_payload(block_result))
+            if block_result.generator_gate.accepted:
+                accepted_chunk_label = block_result.selected_chunk_label
+                accepted_replay = _replay_chunk_for_label(
+                    block_result.selected_chunk_label,
+                    current_block_candidates,
+                )
+                if accepted_replay is not None:
+                    accepted_replay_chunks.append(accepted_replay)
+            current_block_candidates = []
+        else:
+            generator_checkpoint = generator_checkpoint_before
+
+        gate_result = (
+            block_result.generator_gate
+            if block_result is not None
+            else deferred_generator_gate_result(
+                candidate_checkpoint=learner_checkpoint,
+                accepted_checkpoint=generator_checkpoint_before,
+            )
+        )
         command_row = {
             **chunk_result.command_row,
+            "block": {
+                "label": block_label,
+                "index": block_index,
+                "position": block_position,
+                "size": args.generator_update_chunks,
+                "boundary": block_result is not None,
+            },
+            "blockSelection": (
+                block_result.checkpoint_selection.commands
+                if block_result is not None
+                else []
+            ),
             "generatorGate": gate_result.commands,
         }
         chunk_row = build_gated_chunk_row(
@@ -492,6 +560,25 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
             generator_checkpoint_before=generator_checkpoint_before,
             generator_checkpoint_after=generator_checkpoint,
         )
+        chunk_row["block"] = {
+            "label": block_label,
+            "index": block_index,
+            "position": block_position,
+            "size": args.generator_update_chunks,
+            "boundary": block_result is not None,
+            "summary": str(block_result.summary_path) if block_result is not None else None,
+        }
+        if (
+            block_result is not None
+            and chunk_result.replay_chunk is not None
+            and "replayForTraining" in chunk_row
+        ):
+            replay_is_selected = block_result.selected_chunk_label == chunk_result.chunk_label
+            chunk_row["replayForTraining"]["eligible"] = bool(
+                block_result.generator_gate.accepted and replay_is_selected
+            )
+            if block_result.generator_gate.accepted and not replay_is_selected:
+                chunk_row["replayForTraining"]["reason"] = "block_gate_selected_different_chunk"
         chunk_summary_path = write_selfplay_chunk_summary(
             run_id=context.run_id,
             chunk_dir=context.chunks_dir / chunk_result.chunk_label,
@@ -527,6 +614,7 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
         context=context,
         commands=commands,
         chunk_rows=chunk_rows,
+        block_rows=block_rows,
         promotion_stage=promotion_stage,
         final_learner_checkpoint=learner_checkpoint,
         final_generator_checkpoint=generator_checkpoint,
@@ -536,6 +624,201 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
     context.loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(json.dumps(build_selfplay_terminal_report(context=context, promotion_stage=promotion_stage), indent=2))
     return 0
+
+
+def _block_label(block_index: int) -> str:
+    return f"block-{block_index:03d}"
+
+
+def _block_index_for_chunk(*, args: argparse.Namespace, chunk_index: int) -> int:
+    return ((chunk_index - 1) // int(args.generator_update_chunks)) + 1
+
+
+def _block_position_for_chunk(*, args: argparse.Namespace, chunk_index: int) -> int:
+    return ((chunk_index - 1) % int(args.generator_update_chunks)) + 1
+
+
+def _is_generator_update_boundary(*, args: argparse.Namespace, chunk_index: int) -> bool:
+    return (
+        chunk_index % int(args.generator_update_chunks) == 0
+        or chunk_index == int(args.chunks_per_loop)
+    )
+
+
+def run_block_generator_update(
+    *,
+    args: argparse.Namespace,
+    python_bin: Path,
+    run_id: str,
+    block_index: int,
+    block_candidates: Sequence[BlockCandidate],
+    blocks_dir: Path,
+    generator_checkpoint: LoopCheckpoint,
+    progress_path: Path,
+    log_prefix: str,
+) -> BlockGeneratorUpdateResult:
+    if not block_candidates:
+        raise SystemExit("Cannot update generator from an empty block.")
+
+    block_label = _block_label(block_index)
+    block_dir = blocks_dir / block_label
+    eval_dir = block_dir / "eval"
+    block_dir.mkdir(parents=True, exist_ok=True)
+
+    checkpoint_selection = run_block_checkpoint_selection(
+        args=args,
+        python_bin=python_bin,
+        block_label=block_label,
+        eval_dir=eval_dir / "checkpoint_selection",
+        block_candidates=block_candidates,
+        accepted_checkpoint=generator_checkpoint,
+        progress_path=progress_path,
+        log_prefix=log_prefix,
+    )
+    selected_chunk_label = _selected_block_chunk_label(
+        checkpoint=checkpoint_selection.selected_checkpoint,
+        block_candidates=block_candidates,
+    )
+    if selected_chunk_label is None:
+        raise SystemExit(
+            f"Block selection for {block_label} selected a checkpoint that does not "
+            "match any block candidate."
+        )
+
+    gate_result = run_chunk_gate(
+        args=args,
+        python_bin=python_bin,
+        chunk_label=block_label,
+        eval_dir=eval_dir / "generator_gate",
+        candidate_checkpoint=checkpoint_selection.selected_checkpoint,
+        accepted_checkpoint=generator_checkpoint,
+        progress_path=progress_path,
+        log_prefix=log_prefix,
+    )
+    candidate_rows = [
+        {
+            "chunk": candidate.chunk_label,
+            "checkpoint": _checkpoint_payload(candidate.checkpoint),
+            "replay": (
+                {
+                    "value": str(candidate.replay_chunk.value_path),
+                    "opponent": str(candidate.replay_chunk.opponent_path),
+                    "valueLines": candidate.replay_chunk.value_lines,
+                    "opponentLines": candidate.replay_chunk.opponent_lines,
+                }
+                if candidate.replay_chunk is not None
+                else None
+            ),
+        }
+        for candidate in block_candidates
+    ]
+    commands = {
+        "block": block_label,
+        "chunks": [candidate.chunk_label for candidate in block_candidates],
+        "selectedChunk": selected_chunk_label,
+        "checkpointSelection": checkpoint_selection.commands,
+        "generatorGate": gate_result.commands,
+        "generatorCheckpointBefore": _checkpoint_payload(generator_checkpoint),
+        "generatorCheckpointAfter": _checkpoint_payload(gate_result.accepted_after),
+    }
+    result = BlockGeneratorUpdateResult(
+        block_label=block_label,
+        block_index=block_index,
+        chunk_labels=[candidate.chunk_label for candidate in block_candidates],
+        candidates=candidate_rows,
+        checkpoint_selection=checkpoint_selection,
+        generator_gate=gate_result,
+        selected_chunk_label=selected_chunk_label,
+        summary_path=block_dir / "block.summary.json",
+        commands=commands,
+    )
+    write_selfplay_block_summary(run_id=run_id, result=result)
+    print(
+        f"{log_prefix} generator-block block={block_label} "
+        f"chunks={','.join(result.chunk_labels)} selected={selected_chunk_label} "
+        f"accepted={gate_result.accepted}",
+        flush=True,
+    )
+    return result
+
+
+def run_block_checkpoint_selection(
+    *,
+    args: argparse.Namespace,
+    python_bin: Path,
+    block_label: str,
+    eval_dir: Path,
+    block_candidates: Sequence[BlockCandidate],
+    accepted_checkpoint: LoopCheckpoint,
+    progress_path: Path,
+    log_prefix: str,
+) -> CheckpointSelectionResult:
+    selection_args = argparse.Namespace(**vars(args))
+    selection_args.checkpoint_selection_games_per_side = args.block_selection_games_per_side
+    selection_args.checkpoint_selection_seed_prefix = args.block_selection_seed_prefix
+    selection_args.checkpoint_selection_seed_start_indices = list(
+        args.block_selection_seed_start_indices
+    )
+    return run_checkpoint_selection(
+        args=selection_args,
+        python_bin=python_bin,
+        chunk_label=block_label,
+        eval_dir=eval_dir,
+        checkpoints=[candidate.checkpoint for candidate in block_candidates],
+        accepted_checkpoint=accepted_checkpoint,
+        progress_path=progress_path,
+        log_prefix=log_prefix,
+    )
+
+
+def deferred_generator_gate_result(
+    *,
+    candidate_checkpoint: LoopCheckpoint,
+    accepted_checkpoint: LoopCheckpoint,
+) -> ChunkGateResult:
+    return ChunkGateResult(
+        enabled=False,
+        accepted=False,
+        reason="generator_gate_deferred",
+        candidate_checkpoint=candidate_checkpoint,
+        accepted_before=accepted_checkpoint,
+        accepted_after=accepted_checkpoint,
+        seed_start_indices=[],
+        windows=[],
+        pooled=None,
+        checks={"deferred": True},
+        window_checks=[],
+        commands=[],
+    )
+
+
+def _selected_block_chunk_label(
+    *, checkpoint: LoopCheckpoint, block_candidates: Sequence[BlockCandidate]
+) -> str | None:
+    for candidate in block_candidates:
+        if _same_loop_checkpoint(candidate.checkpoint, checkpoint):
+            return candidate.chunk_label
+    return None
+
+
+def _replay_chunk_for_label(
+    chunk_label: str | None,
+    block_candidates: Sequence[BlockCandidate],
+) -> ReplayChunk | None:
+    if chunk_label is None:
+        return None
+    for candidate in block_candidates:
+        if candidate.chunk_label == chunk_label:
+            return candidate.replay_chunk
+    return None
+
+
+def _same_loop_checkpoint(left: LoopCheckpoint, right: LoopCheckpoint) -> bool:
+    return (
+        left.step == right.step
+        and left.value_path == right.value_path
+        and left.opponent_path == right.opponent_path
+    )
 
 
 def initialize_selfplay_run(args: argparse.Namespace) -> RunContext:
@@ -998,6 +1281,7 @@ def run_checkpoint_selection(
                     pooled.ci_low,
                     -pooled.side_gap,
                     checkpoint.step,
+                    candidate_index,
                 ),
                 candidate_index - 1,
                 checkpoint,
@@ -1240,6 +1524,38 @@ def write_selfplay_chunk_summary(
     return summary_path
 
 
+def block_update_payload(result: BlockGeneratorUpdateResult) -> Dict[str, Any]:
+    return {
+        "block": result.block_label,
+        "index": result.block_index,
+        "chunks": list(result.chunk_labels),
+        "candidates": result.candidates,
+        "selectedChunk": result.selected_chunk_label,
+        "checkpointSelection": checkpoint_selection_payload(result.checkpoint_selection),
+        "generatorGate": _chunk_gate_payload(result.generator_gate),
+        "generatorCheckpointBefore": _checkpoint_payload(result.generator_gate.accepted_before),
+        "generatorCheckpointAfter": _checkpoint_payload(result.generator_gate.accepted_after),
+        "summary": str(result.summary_path),
+    }
+
+
+def write_selfplay_block_summary(
+    *,
+    run_id: str,
+    result: BlockGeneratorUpdateResult,
+) -> Path:
+    payload = {
+        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "runId": run_id,
+        "blockLabel": result.block_label,
+        "commands": result.commands,
+        "block": block_update_payload(result),
+    }
+    result.summary_path.parent.mkdir(parents=True, exist_ok=True)
+    result.summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return result.summary_path
+
+
 def run_promotion_stage(
     *,
     args: argparse.Namespace,
@@ -1294,6 +1610,7 @@ def build_selfplay_loop_summary(
     commands: Dict[str, Any],
     chunk_rows: Sequence[Dict[str, Any]],
     promotion_stage: PromotionStageResult,
+    block_rows: Sequence[Dict[str, Any]] = (),
     final_learner_checkpoint: LoopCheckpoint | None = None,
     final_generator_checkpoint: LoopCheckpoint | None = None,
     promotion_checkpoint: LoopCheckpoint | None = None,
@@ -1320,9 +1637,11 @@ def build_selfplay_loop_summary(
             "loopSummary": str(context.loop_summary_path),
             "progress": str(context.progress_path),
             "chunksDir": str(context.chunks_dir),
+            "blocksDir": str(context.run_dir / "blocks"),
             "evalDir": str(context.eval_dir),
         },
         "chunks": list(chunk_rows),
+        "blocks": list(block_rows),
         "evaluation": {
             "baselineVsSearch": build_eval_payload(
                 args.eval_seed_start_indices,
@@ -2295,11 +2614,6 @@ def _validate_args(args: argparse.Namespace) -> None:
         )
     if args.generator_update_chunks <= 0:
         raise SystemExit("--generator-update-chunks must be > 0.")
-    if args.generator_update_chunks != 1:
-        raise SystemExit(
-            "--generator-update-chunks > 1 requires block-level generator gating, "
-            "which is not implemented in this slice."
-        )
     if args.block_selection_games_per_side <= 0:
         raise SystemExit("--block-selection-games-per-side must be > 0.")
     if not args.block_selection_seed_start_indices:

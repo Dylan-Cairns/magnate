@@ -7,9 +7,9 @@
 - Use `scripts.run_td_loop` for bootstrap/recalibration passes, then advance primarily with `scripts.run_td_loop_selfplay`.
 - Improve model quality against search baseline and incumbent td-search while keeping runtime practical.
 - Keep `models/td_checkpoints/manifest.json` as the canonical checked-in registry for promoted warm starts and opponent-pool entries.
-- Gate each self-play chunk before it becomes the next data generator.
+- Gate self-play generator updates at configurable chunk-block boundaries.
 - Train self-play chunks from a small accepted replay window instead of requiring strictly chunk-local replay.
-- Select the best cheap-eval saved checkpoint from each training chunk before running the generator gate.
+- Select the best cheap-eval saved checkpoint from each training chunk, then select among block candidates before running the generator gate.
 - Use sequence-aware `td-lambda` as the default value target for TD training.
 
 ## Locked Decisions
@@ -36,12 +36,13 @@
   - every chunk writes `chunk.summary.json`;
   - `trainedLatestCheckpoint` is the final checkpoint emitted by training;
   - `checkpointSelection` records the cheap eval used to choose among saved training checkpoints;
-  - `candidateCheckpoint` is the selected checkpoint sent to the generator gate;
+  - `candidateCheckpoint` is the selected chunk learner checkpoint;
   - `learnerCheckpointBefore` / `learnerCheckpointAfter` records the checkpoint used to warm-start subsequent training;
   - `generatorCheckpointBefore` / `generatorCheckpointAfter` records the checkpoint allowed to generate collection data and remain promotion-eligible;
   - `latestCheckpoint` remains a compatibility alias for the post-gate generator checkpoint in loop artifacts;
-  - the selected checkpoint now runs a resumable td-search vs td-search sequential gate against the current accepted generator before the next collect stage.
-- Self-play resume is strict for the current artifact schema; completed chunks missing `chunk.summary.json`, `checkpointSelection`, `replayWindow`, or `replayForTraining` fail instead of being inferred from legacy artifacts.
+  - `--generator-update-chunks` controls the generator cadence; non-boundary chunks defer the generator gate, while each full block and final partial block selects the best block candidate and runs the resumable td-search vs td-search sequential gate against the current accepted generator;
+  - block summaries live under `blocks/block-XXX/block.summary.json`, and final promotion always evaluates the accepted generator checkpoint, not an ungated learner checkpoint.
+- Self-play resume is strict for the current artifact schema; completed chunks missing `chunk.summary.json`, `checkpointSelection`, `replayWindow`, or `replayForTraining` fail instead of being inferred from legacy artifacts. Block-gated resume support remains a follow-up.
 - Self-play training writes `train/replay_window/window.summary.json` per chunk:
   - default window size is `3`, enabling a small replay window without wrapper overrides;
   - `--train-replay-window-source accepted` trains on the current chunk plus the last `N-1` accepted chunks;
@@ -63,8 +64,8 @@
 ## Immediate Next Steps
 
 1. Before the next long self-play run, confirm `models/td_checkpoints/manifest.json` and the referenced checkpoint files are present and committed on the machine that will run training.
-2. Continue self-play loop iterations with promoted manifest warm starts, td-lambda value targets, checkpoint selection, explicit learner/generator checkpoint tracking, per-chunk generator gates, configurable replay windows, and the current final promotion cadence.
-3. Track checkpoint-selection winners, sequential chunk-gate accept/reject or inconclusive outcomes, final dual-gate outcomes, and side-gap stability.
+2. Continue self-play loop iterations with promoted manifest warm starts, td-lambda value targets, checkpoint selection, explicit learner/generator checkpoint tracking, block-boundary generator gates, configurable replay windows, and the current final promotion cadence.
+3. Track checkpoint-selection winners, block-selection winners, sequential generator-gate accept/reject or inconclusive outcomes, final dual-gate outcomes, and side-gap stability.
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
