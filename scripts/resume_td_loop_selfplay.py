@@ -15,10 +15,18 @@ from scripts.promote_td_checkpoint import promote_checkpoint_pair
 from scripts.run_td_loop_selfplay import (
     REPLAY_REGIME,
     CollectProfile,
+    ReplayChunk,
     _config_payload,
     _require_supported_runtime,
     _run_collect_profiles,
     _validate_args,
+    build_gated_chunk_row,
+    build_replay_window,
+    checkpoint_selection_payload,
+    replay_window_payload,
+    run_checkpoint_selection,
+    run_chunk_gate,
+    write_selfplay_chunk_summary,
 )
 from scripts.td_loop_common import (
     LoopCheckpoint,
@@ -58,6 +66,22 @@ class CompletedChunk:
     collect_summary: Path
     train_summary: Path
     latest_checkpoint: LoopCheckpoint
+    chunk_summary: Path
+    candidate_checkpoint: LoopCheckpoint
+    chunk_row: Dict[str, Any]
+    replay_chunk: ReplayChunk | None = None
+
+
+@dataclass(frozen=True)
+class PendingGateChunk:
+    index: int
+    label: str
+    chunk_dir: Path
+    collect_summary: Path
+    train_summary: Path
+    train_checkpoints: Sequence[LoopCheckpoint]
+    replay_chunk: ReplayChunk
+    replay_window: Dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -75,8 +99,11 @@ class ResumeState:
     collect_games_per_chunk: int
     collect_workers: int
     train_config: Dict[str, Any]
+    train_replay_window_config: Dict[str, Any]
     partial_chunk_label: str | None
     highest_existing_chunk_index: int
+    pending_gate_chunk: PendingGateChunk | None = None
+    accepted_replay_chunks: Sequence[ReplayChunk] = ()
 
 
 def parse_args() -> argparse.Namespace:
@@ -136,6 +163,21 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--train-num-threads", type=int, default=None)
     parser.add_argument("--train-num-interop-threads", type=int, default=None)
+    parser.add_argument(
+        "--train-replay-window-chunks",
+        type=int,
+        default=None,
+        help="Replay-window chunk count override. Defaults to the recovered run setting.",
+    )
+    parser.add_argument(
+        "--train-replay-window-source",
+        type=str,
+        choices=("accepted",),
+        default=None,
+        help="Replay-window source override. Defaults to the recovered run setting.",
+    )
+    parser.add_argument("--train-replay-window-max-value-lines", type=int, default=None)
+    parser.add_argument("--train-replay-window-max-opponent-lines", type=int, default=None)
 
     parser.add_argument("--eval-games-per-side", type=int, default=200)
     parser.add_argument("--eval-workers", type=int, default=None)
@@ -172,6 +214,34 @@ def parse_args() -> argparse.Namespace:
         type=int,
         nargs="+",
         default=[20000, 30000],
+    )
+
+    parser.add_argument("--disable-chunk-gate", action="store_true")
+    parser.add_argument("--chunk-gate-games-per-side", type=int, default=20)
+    parser.add_argument("--chunk-gate-workers", type=int, default=None)
+    parser.add_argument("--chunk-gate-seed-prefix", type=str, default="td-loop-chunk-gate")
+    parser.add_argument(
+        "--chunk-gate-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[40000],
+    )
+    parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-max-side-gap", type=float, default=0.15)
+    parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
+    parser.add_argument("--chunk-gate-max-window-side-gap", type=float, default=0.20)
+    parser.add_argument("--checkpoint-selection-games-per-side", type=int, default=4)
+    parser.add_argument("--checkpoint-selection-workers", type=int, default=None)
+    parser.add_argument(
+        "--checkpoint-selection-seed-prefix",
+        type=str,
+        default="td-loop-checkpoint-selection",
+    )
+    parser.add_argument(
+        "--checkpoint-selection-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[45000],
     )
 
     parser.add_argument("--promotion-min-win-rate", type=float, default=0.55)
@@ -220,7 +290,13 @@ def main() -> int:
     _validate_args(resolved_args)
 
     completed_count = len(state.completed_chunks)
-    if completed_count >= resolved_args.chunks_per_loop:
+    completed_label = state.completed_chunks[-1].label if state.completed_chunks else "initial warm start"
+    if state.pending_gate_chunk is not None:
+        print(
+            "[td-loop-selfplay-resume] resuming pending generator gate for "
+            f"{state.pending_gate_chunk.label}."
+        )
+    elif completed_count >= resolved_args.chunks_per_loop:
         print(
             "[td-loop-selfplay-resume] all collect/train chunks are already complete; "
             "running eval/summary only."
@@ -228,7 +304,7 @@ def main() -> int:
     else:
         print(
             "[td-loop-selfplay-resume] resuming after "
-            f"{state.completed_chunks[-1].label}; restarting {state.partial_chunk_label or f'chunk-{completed_count + 1:03d}'}."
+            f"{completed_label}; restarting {state.partial_chunk_label or f'chunk-{completed_count + 1:03d}'}."
         )
 
     started = time.perf_counter()
@@ -236,18 +312,73 @@ def main() -> int:
         "completedChunks": [chunk.label for chunk in state.completed_chunks],
         "resumedChunks": [],
     }
-    chunk_rows = [
-        _chunk_row(
-            chunk_label=chunk.label,
-            collect_summary=chunk.collect_summary,
-            train_summary=chunk.train_summary,
-            checkpoint=chunk.latest_checkpoint,
-        )
-        for chunk in state.completed_chunks
-    ]
+    chunk_rows = [dict(chunk.chunk_row) for chunk in state.completed_chunks]
 
     latest_checkpoint = state.latest_checkpoint
+    accepted_chunk_label = _latest_accepted_chunk_label(state.completed_chunks)
+    accepted_replay_chunks = list(state.accepted_replay_chunks)
     next_chunk_index = completed_count + 1
+    if state.pending_gate_chunk is not None:
+        pending = state.pending_gate_chunk
+        checkpoint_selection = run_checkpoint_selection(
+            args=resolved_args,
+            python_bin=resolved_args.python_bin,
+            chunk_label=pending.label,
+            eval_dir=pending.chunk_dir / "eval" / "checkpoint_selection",
+            checkpoints=pending.train_checkpoints,
+            accepted_checkpoint=latest_checkpoint,
+            progress_path=state.progress_path,
+            log_prefix="[td-loop-selfplay-resume]",
+            force_eval=bool(args.force_eval),
+        )
+        candidate_checkpoint = checkpoint_selection.selected_checkpoint
+        gate_result = run_chunk_gate(
+            args=resolved_args,
+            python_bin=resolved_args.python_bin,
+            chunk_label=pending.label,
+            eval_dir=pending.chunk_dir / "eval",
+            candidate_checkpoint=candidate_checkpoint,
+            accepted_checkpoint=latest_checkpoint,
+            progress_path=state.progress_path,
+            log_prefix="[td-loop-selfplay-resume]",
+            force_eval=bool(args.force_eval),
+        )
+        latest_checkpoint = gate_result.accepted_after
+        if gate_result.accepted:
+            accepted_chunk_label = pending.label
+            accepted_replay_chunks.append(pending.replay_chunk)
+        command_row = {
+            "chunk": pending.label,
+            "reusedCollectTrain": True,
+            "checkpointSelection": checkpoint_selection.commands,
+            "generatorGate": gate_result.commands,
+            "replayWindow": pending.replay_window,
+        }
+        chunk_row = build_gated_chunk_row(
+            chunk_row=_chunk_row(
+                chunk_label=pending.label,
+                collect_summary=pending.collect_summary,
+                train_summary=pending.train_summary,
+                checkpoint=candidate_checkpoint,
+                trained_latest_checkpoint=checkpoint_selection.trained_latest_checkpoint,
+                checkpoint_selection=checkpoint_selection_payload(checkpoint_selection),
+                replay_chunk=pending.replay_chunk,
+                replay_window=pending.replay_window,
+            ),
+            gate_result=gate_result,
+            replay_chunk=pending.replay_chunk,
+        )
+        chunk_summary_path = write_selfplay_chunk_summary(
+            run_id=state.run_id,
+            chunk_dir=pending.chunk_dir,
+            command_row=command_row,
+            chunk_row=chunk_row,
+        )
+        chunk_row["chunkSummary"] = str(chunk_summary_path)
+        commands["resumedChunks"].append(command_row)
+        chunk_rows.append(chunk_row)
+        next_chunk_index = pending.index + 1
+
     for chunk_index in range(next_chunk_index, resolved_args.chunks_per_loop + 1):
         chunk_label = f"chunk-{chunk_index:03d}"
         chunk_dir = state.chunks_dir / chunk_label
@@ -282,14 +413,26 @@ def main() -> int:
             heartbeat_minutes=resolved_args.progress_heartbeat_minutes,
             progress_path=state.progress_path,
         )
+        current_replay = ReplayChunk(
+            label=chunk_label,
+            value_path=collect_value_path,
+            opponent_path=collect_opponent_path,
+        )
 
         train_summary_path = train_dir / "summary.json"
         train_checkpoint_root = train_dir / "checkpoints"
+        replay_window = build_replay_window(
+            args=resolved_args,
+            chunk_label=chunk_label,
+            train_dir=train_dir,
+            accepted_replay_chunks=accepted_replay_chunks,
+            current_replay=current_replay,
+        )
         train_command = build_train_command(
             python_bin=resolved_args.python_bin,
             args=resolved_args,
-            value_replay=collect_value_path,
-            opponent_replay=collect_opponent_path,
+            value_replay=replay_window.value_path,
+            opponent_replay=replay_window.opponent_path,
             train_summary_path=train_summary_path,
             train_checkpoint_root=train_checkpoint_root,
             run_id=f"{state.run_id}-{chunk_label}",
@@ -306,26 +449,65 @@ def main() -> int:
 
         train_summary = read_json(train_summary_path, label=f"train summary {chunk_label}")
         checkpoints = checkpoints_from_train_summary(train_summary)
-        latest_checkpoint = select_latest_checkpoint(
+        checkpoint_selection = run_checkpoint_selection(
+            args=resolved_args,
+            python_bin=resolved_args.python_bin,
+            chunk_label=chunk_label,
+            eval_dir=chunk_dir / "eval" / "checkpoint_selection",
             checkpoints=checkpoints,
-            candidate_policy="td-search",
+            accepted_checkpoint=latest_checkpoint,
+            progress_path=state.progress_path,
+            log_prefix="[td-loop-selfplay-resume]",
+            force_eval=bool(args.force_eval),
         )
+        candidate_after_train = checkpoint_selection.selected_checkpoint
+        gate_result = run_chunk_gate(
+            args=resolved_args,
+            python_bin=resolved_args.python_bin,
+            chunk_label=chunk_label,
+            eval_dir=chunk_dir / "eval",
+            candidate_checkpoint=candidate_after_train,
+            accepted_checkpoint=latest_checkpoint,
+            progress_path=state.progress_path,
+            log_prefix="[td-loop-selfplay-resume]",
+            force_eval=bool(args.force_eval),
+        )
+        latest_checkpoint = gate_result.accepted_after
+        if gate_result.accepted:
+            accepted_chunk_label = chunk_label
+            accepted_replay_chunks.append(current_replay)
 
-        commands["resumedChunks"].append(
-            {
-                "chunk": chunk_label,
-                "collectProfiles": collect_commands,
-                "train": train_command,
-            }
-        )
-        chunk_rows.append(
-            _chunk_row(
+        command_row = {
+            "chunk": chunk_label,
+            "collectProfiles": collect_commands,
+            "replayWindow": replay_window_payload(replay_window),
+            "train": train_command,
+            "checkpointSelection": checkpoint_selection.commands,
+            "generatorGate": gate_result.commands,
+        }
+        chunk_row = build_gated_chunk_row(
+            chunk_row=_chunk_row(
                 chunk_label=chunk_label,
                 collect_summary=collect_summary_path,
                 train_summary=train_summary_path,
-                checkpoint=latest_checkpoint,
-            )
+                checkpoint=candidate_after_train,
+                trained_latest_checkpoint=checkpoint_selection.trained_latest_checkpoint,
+                checkpoint_selection=checkpoint_selection_payload(checkpoint_selection),
+                replay_chunk=current_replay,
+                replay_window=replay_window_payload(replay_window),
+            ),
+            gate_result=gate_result,
+            replay_chunk=current_replay,
         )
+        chunk_summary_path = write_selfplay_chunk_summary(
+            run_id=state.run_id,
+            chunk_dir=chunk_dir,
+            command_row=command_row,
+            chunk_row=chunk_row,
+        )
+        chunk_row["chunkSummary"] = str(chunk_summary_path)
+        commands["resumedChunks"].append(command_row)
+        chunk_rows.append(chunk_row)
 
     baseline_windows = _run_or_load_eval_windows_vs_search(
         args=resolved_args,
@@ -368,7 +550,7 @@ def main() -> int:
         args=resolved_args,
         state=state,
         latest_checkpoint=latest_checkpoint,
-        latest_chunk_label=chunk_rows[-1]["chunk"] if chunk_rows else None,
+        latest_chunk_label=accepted_chunk_label,
         baseline_windows=baseline_windows,
         incumbent_windows=incumbent_windows,
         promotion=promotion,
@@ -384,7 +566,7 @@ def main() -> int:
         "resume": {
             "resumedFromFailure": True,
             "resumePolicy": "restart-next-incomplete-chunk-from-scratch",
-            "resumedAfterChunk": state.completed_chunks[-1].label,
+            "resumedAfterChunk": state.completed_chunks[-1].label if state.completed_chunks else None,
             "discardedPartialChunk": state.partial_chunk_label,
             "script": "scripts.resume_td_loop_selfplay",
         },
@@ -509,6 +691,9 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
         raise SystemExit("No chunk directories found; nothing to resume.")
 
     completed_chunks: List[CompletedChunk] = []
+    accepted_replay_chunks: List[ReplayChunk] = []
+    pending_gate_chunk: PendingGateChunk | None = None
+    train_replay_window_config: Dict[str, Any] | None = None
     partial_chunk_label: str | None = None
     highest_existing_chunk_index = 0
     expected_index = 1
@@ -529,44 +714,140 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
         has_train = train_summary.exists()
         if has_collect and has_train:
             train_payload = read_json(train_summary, label=f"train summary {chunk_dir.name}")
-            latest_checkpoint = select_latest_checkpoint(
-                checkpoints=checkpoints_from_train_summary(train_payload),
+            train_checkpoints = checkpoints_from_train_summary(train_payload)
+            trained_latest_checkpoint = select_latest_checkpoint(
+                checkpoints=train_checkpoints,
                 candidate_policy="td-search",
             )
-            completed_chunks.append(
-                CompletedChunk(
+            chunk_summary = chunk_dir / "chunk.summary.json"
+            if chunk_summary.exists():
+                chunk_payload = read_json(chunk_summary, label=f"chunk summary {chunk_dir.name}")
+                chunk_row = _chunk_row_from_summary(
+                    chunk_payload,
+                    chunk_label=chunk_dir.name,
+                )
+                replay_window_config = _replay_window_config_from_chunk_row(
+                    chunk_row,
+                    chunk_label=chunk_dir.name,
+                )
+                train_replay_window_config = replay_window_config
+                replay_chunk = _replay_chunk_from_chunk_row(
+                    row=chunk_row,
+                    chunk_label=chunk_dir.name,
+                )
+                if replay_chunk is not None:
+                    accepted_replay_chunks.append(replay_chunk)
+                latest_checkpoint = _checkpoint_from_chunk_row(
+                    chunk_row,
+                    key="latestCheckpoint",
+                    label=f"accepted checkpoint {chunk_dir.name}",
+                )
+                summary_candidate_checkpoint = _checkpoint_from_chunk_row(
+                    chunk_row,
+                    key="candidateCheckpoint",
+                    label=f"candidate checkpoint {chunk_dir.name}",
+                )
+                summary_trained_latest_checkpoint = _checkpoint_from_chunk_row(
+                    chunk_row,
+                    key="trainedLatestCheckpoint",
+                    label=f"trained latest checkpoint {chunk_dir.name}",
+                )
+                if not _same_loop_checkpoint(
+                    trained_latest_checkpoint,
+                    summary_trained_latest_checkpoint,
+                ):
+                    raise SystemExit(
+                        "Train summary latest checkpoint does not match chunk summary "
+                        f"trainedLatestCheckpoint: {chunk_dir.name}"
+                    )
+                selection_checkpoint = _checkpoint_from_checkpoint_selection(
+                    chunk_row["checkpointSelection"],
+                    chunk_label=chunk_dir.name,
+                )
+                if not _same_loop_checkpoint(selection_checkpoint, summary_candidate_checkpoint):
+                    raise SystemExit(
+                        "Chunk summary checkpointSelection.selectedCheckpoint does not match "
+                        "chunk summary candidateCheckpoint: "
+                        f"{chunk_dir.name}"
+                    )
+                completed_chunks.append(
+                    CompletedChunk(
+                        index=chunk_index,
+                        label=chunk_dir.name,
+                        chunk_dir=chunk_dir,
+                        collect_summary=collect_summary,
+                        train_summary=train_summary,
+                        latest_checkpoint=latest_checkpoint,
+                        chunk_summary=chunk_summary,
+                        candidate_checkpoint=summary_candidate_checkpoint,
+                        chunk_row=chunk_row,
+                        replay_chunk=replay_chunk,
+                    )
+                )
+                continue
+
+            if chunk_dir == chunk_dirs[-1]:
+                replay_window = _replay_window_from_chunk_dir(chunk_dir)
+                train_replay_window_config = _replay_window_config_from_payload(
+                    replay_window,
+                    label=f"replay window {chunk_dir.name}",
+                )
+                pending_gate_chunk = PendingGateChunk(
                     index=chunk_index,
                     label=chunk_dir.name,
                     chunk_dir=chunk_dir,
                     collect_summary=collect_summary,
                     train_summary=train_summary,
-                    latest_checkpoint=latest_checkpoint,
+                    train_checkpoints=train_checkpoints,
+                    replay_chunk=_replay_chunk_from_collect_paths(
+                        chunk_label=chunk_dir.name,
+                        chunk_dir=chunk_dir,
+                    ),
+                    replay_window=replay_window,
                 )
+                break
+
+            raise SystemExit(
+                "Completed self-play chunk is missing required chunk summary: "
+                f"{chunk_dir / 'chunk.summary.json'}"
             )
-            continue
 
         partial_chunk_label = chunk_dir.name
         break
 
-    if not completed_chunks:
+    if not completed_chunks and pending_gate_chunk is None:
         raise SystemExit(
-            "Self-play resume requires at least one fully completed chunk "
+            "Self-play resume requires at least one fully completed or gate-pending chunk "
             "(collect + train summaries)."
         )
 
-    latest_completed = completed_chunks[-1]
+    latest_completed = completed_chunks[-1] if completed_chunks else None
+    latest_source = latest_completed or pending_gate_chunk
+    assert latest_source is not None
     latest_collect_payload = read_json(
-        latest_completed.collect_summary,
-        label=f"collect summary {latest_completed.label}",
+        latest_source.collect_summary,
+        label=f"collect summary {latest_source.label}",
     )
     latest_train_payload = read_json(
-        latest_completed.train_summary,
-        label=f"train summary {latest_completed.label}",
+        latest_source.train_summary,
+        label=f"train summary {latest_source.label}",
     )
+    first_train_summary = (
+        completed_chunks[0].train_summary
+        if completed_chunks
+        else pending_gate_chunk.train_summary
+    )
+    assert first_train_summary is not None
     first_train_payload = read_json(
-        completed_chunks[0].train_summary,
-        label=f"train summary {completed_chunks[0].label}",
+        first_train_summary,
+        label="first train summary",
     )
+    incumbent_checkpoint = _incumbent_checkpoint_from_train_summary(first_train_payload)
+    if train_replay_window_config is None:
+        raise SystemExit(
+            "Self-play resume requires replay-window metadata in chunk summaries "
+            "or pending chunk replay-window summary."
+        )
 
     return ResumeState(
         run_id=run_id,
@@ -576,15 +857,24 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
         loop_summary_path=loop_summary_path,
         progress_path=progress_path,
         completed_chunks=completed_chunks,
-        latest_checkpoint=latest_completed.latest_checkpoint,
-        incumbent_checkpoint=_incumbent_checkpoint_from_train_summary(first_train_payload),
+        latest_checkpoint=(
+            latest_completed.latest_checkpoint if latest_completed is not None else LoopCheckpoint(
+                step=0,
+                value_path=incumbent_checkpoint.value_path,
+                opponent_path=incumbent_checkpoint.opponent_path,
+            )
+        ),
+        incumbent_checkpoint=incumbent_checkpoint,
         collect_templates=_collect_templates_from_summary(
             payload=latest_collect_payload,
             current_run_id=run_id,
         ),
         collect_games_per_chunk=_collect_games_from_summary(latest_collect_payload),
-        collect_workers=_recover_collect_workers(latest_completed.chunk_dir),
+        collect_workers=_recover_collect_workers(latest_source.chunk_dir),
         train_config=_train_config_from_summary(latest_train_payload),
+        train_replay_window_config=train_replay_window_config,
+        pending_gate_chunk=pending_gate_chunk,
+        accepted_replay_chunks=accepted_replay_chunks,
         partial_chunk_label=partial_chunk_label,
         highest_existing_chunk_index=highest_existing_chunk_index,
     )
@@ -604,6 +894,27 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         args.train_num_interop_threads
         if args.train_num_interop_threads is not None
         else state.train_config.get("numInteropThreads")
+    )
+    replay_window_config = state.train_replay_window_config
+    train_replay_window_chunks = (
+        args.train_replay_window_chunks
+        if args.train_replay_window_chunks is not None
+        else int(replay_window_config["chunks"])
+    )
+    train_replay_window_source = (
+        args.train_replay_window_source
+        if args.train_replay_window_source is not None
+        else str(replay_window_config["source"])
+    )
+    train_replay_window_max_value_lines = (
+        args.train_replay_window_max_value_lines
+        if args.train_replay_window_max_value_lines is not None
+        else int(replay_window_config["maxValueLines"])
+    )
+    train_replay_window_max_opponent_lines = (
+        args.train_replay_window_max_opponent_lines
+        if args.train_replay_window_max_opponent_lines is not None
+        else int(replay_window_config["maxOpponentLines"])
     )
 
     return argparse.Namespace(
@@ -652,6 +963,10 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         train_num_interop_threads=train_num_interop_threads,
         train_warm_start_value_checkpoint=None,
         train_warm_start_opponent_checkpoint=None,
+        train_replay_window_chunks=train_replay_window_chunks,
+        train_replay_window_source=train_replay_window_source,
+        train_replay_window_max_value_lines=train_replay_window_max_value_lines,
+        train_replay_window_max_opponent_lines=train_replay_window_max_opponent_lines,
         eval_games_per_side=args.eval_games_per_side,
         eval_workers=eval_workers,
         eval_seed_prefix=args.eval_seed_prefix,
@@ -673,6 +988,23 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         incumbent_eval_workers=incumbent_eval_workers,
         incumbent_eval_seed_prefix=args.incumbent_eval_seed_prefix,
         incumbent_eval_seed_start_indices=list(args.incumbent_eval_seed_start_indices),
+        disable_chunk_gate=bool(args.disable_chunk_gate),
+        chunk_gate_games_per_side=args.chunk_gate_games_per_side,
+        chunk_gate_workers=args.chunk_gate_workers or eval_workers,
+        chunk_gate_seed_prefix=args.chunk_gate_seed_prefix,
+        chunk_gate_seed_start_indices=list(args.chunk_gate_seed_start_indices),
+        chunk_gate_min_win_rate=args.chunk_gate_min_win_rate,
+        chunk_gate_max_side_gap=args.chunk_gate_max_side_gap,
+        chunk_gate_min_ci_low=args.chunk_gate_min_ci_low,
+        chunk_gate_max_window_side_gap=args.chunk_gate_max_window_side_gap,
+        checkpoint_selection_games_per_side=args.checkpoint_selection_games_per_side,
+        checkpoint_selection_workers=(
+            args.checkpoint_selection_workers
+            or args.chunk_gate_workers
+            or eval_workers
+        ),
+        checkpoint_selection_seed_prefix=args.checkpoint_selection_seed_prefix,
+        checkpoint_selection_seed_start_indices=list(args.checkpoint_selection_seed_start_indices),
         promotion_min_win_rate=args.promotion_min_win_rate,
         promotion_max_side_gap=args.promotion_max_side_gap,
         promotion_min_ci_low=args.promotion_min_ci_low,
@@ -887,6 +1219,19 @@ def _same_checkpoint(left: PoolCheckpoint, right: PoolCheckpoint) -> bool:
     )
 
 
+def _same_loop_checkpoint(left: LoopCheckpoint, right: LoopCheckpoint) -> bool:
+    if left.step != right.step:
+        return False
+    if left.value_path is None or right.value_path is None:
+        return left.value_path == right.value_path and left.opponent_path == right.opponent_path
+    if left.opponent_path is None or right.opponent_path is None:
+        return left.value_path == right.value_path and left.opponent_path == right.opponent_path
+    return (
+        left.value_path.resolve() == right.value_path.resolve()
+        and left.opponent_path.resolve() == right.opponent_path.resolve()
+    )
+
+
 def _collect_games_from_summary(payload: Dict[str, Any]) -> int:
     config = payload.get("config")
     if not isinstance(config, dict):
@@ -999,24 +1344,231 @@ def _run_label_from_run_id(run_id: str) -> str:
     return run_id
 
 
+def _chunk_row_from_summary(payload: Dict[str, Any], *, chunk_label: str) -> Dict[str, Any]:
+    row = payload.get("chunk")
+    if not isinstance(row, dict):
+        raise SystemExit("Chunk summary is missing chunk payload.")
+    required = (
+        "generatorGate",
+        "checkpointSelection",
+        "candidateCheckpoint",
+        "acceptedCheckpoint",
+        "latestCheckpoint",
+        "trainedLatestCheckpoint",
+        "replayWindow",
+        "replayForTraining",
+    )
+    missing = [key for key in required if key not in row]
+    if missing:
+        raise SystemExit(f"Chunk summary {chunk_label} is missing required keys: {missing}")
+    gate = row["generatorGate"]
+    if not isinstance(gate, dict) or not isinstance(gate.get("accepted"), bool):
+        raise SystemExit(f"Chunk summary {chunk_label} has invalid generatorGate payload.")
+    return row
+
+
+def _checkpoint_from_checkpoint_selection(raw: Any, *, chunk_label: str) -> LoopCheckpoint:
+    if not isinstance(raw, dict):
+        raise SystemExit(f"Chunk summary {chunk_label} checkpointSelection must be an object.")
+    return _checkpoint_from_chunk_row(
+        {"selectedCheckpoint": raw.get("selectedCheckpoint")},
+        key="selectedCheckpoint",
+        label=f"checkpoint selection selected checkpoint {chunk_label}",
+    )
+
+
+def _latest_accepted_chunk_label(chunks: Sequence[CompletedChunk]) -> str | None:
+    latest: str | None = None
+    for chunk in chunks:
+        row = chunk.chunk_row
+        gate = row["generatorGate"]
+        if bool(gate["accepted"]):
+            latest = chunk.label
+    return latest
+
+
+def _replay_window_from_chunk_dir(chunk_dir: Path) -> Dict[str, Any]:
+    summary_path = chunk_dir / "train" / "replay_window" / "window.summary.json"
+    if not summary_path.exists():
+        raise SystemExit(
+            "Gate-pending chunk is missing required replay-window summary: "
+            f"{summary_path}"
+        )
+    payload = read_json(summary_path, label=f"replay window summary {chunk_dir.name}")
+    return _replay_window_payload_from_summary(payload)
+
+
+def _replay_window_payload_from_summary(payload: Dict[str, Any]) -> Dict[str, Any]:
+    required = (
+        "source",
+        "windowSize",
+        "chunks",
+        "valueReplay",
+        "opponentReplay",
+        "summary",
+        "valueLines",
+        "opponentLines",
+        "maxValueLines",
+        "maxOpponentLines",
+    )
+    missing = [key for key in required if key not in payload]
+    if missing:
+        raise SystemExit(f"Replay window summary is missing required keys: {missing}")
+    return {key: payload[key] for key in required}
+
+
+def _replay_window_config_from_chunk_row(
+    row: Dict[str, Any], *, chunk_label: str
+) -> Dict[str, Any]:
+    return _replay_window_config_from_payload(
+        row["replayWindow"],
+        label=f"replayWindow {chunk_label}",
+    )
+
+
+def _replay_window_config_from_payload(raw: Any, *, label: str) -> Dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise SystemExit(f"{label} payload must be an object.")
+    required = ("source", "windowSize", "maxValueLines", "maxOpponentLines")
+    missing = [key for key in required if key not in raw]
+    if missing:
+        raise SystemExit(f"{label} is missing required keys: {missing}")
+    source = raw["source"]
+    chunks = raw["windowSize"]
+    max_value_lines = raw["maxValueLines"]
+    max_opponent_lines = raw["maxOpponentLines"]
+    if not isinstance(source, str):
+        raise SystemExit("Replay window source must be a string.")
+    if isinstance(chunks, bool) or not isinstance(chunks, int):
+        raise SystemExit("Replay window chunk count must be an integer.")
+    if isinstance(max_value_lines, bool) or not isinstance(max_value_lines, int):
+        raise SystemExit("Replay window max value lines must be an integer.")
+    if isinstance(max_opponent_lines, bool) or not isinstance(max_opponent_lines, int):
+        raise SystemExit("Replay window max opponent lines must be an integer.")
+    return {
+        "source": source,
+        "chunks": chunks,
+        "maxValueLines": max_value_lines,
+        "maxOpponentLines": max_opponent_lines,
+    }
+
+
+def _replay_chunk_from_chunk_row(
+    *,
+    row: Dict[str, Any],
+    chunk_label: str,
+) -> ReplayChunk | None:
+    replay_for_training = row.get("replayForTraining")
+    if not isinstance(replay_for_training, dict):
+        raise SystemExit(f"Chunk summary {chunk_label} replayForTraining must be an object.")
+    eligible = replay_for_training.get("eligible")
+    if not isinstance(eligible, bool):
+        raise SystemExit(f"Chunk summary {chunk_label} replayForTraining.eligible must be bool.")
+    if not eligible:
+        return None
+    return _replay_chunk_from_raw_paths(
+        chunk_label=chunk_label,
+        value_raw=replay_for_training.get("valueReplay"),
+        opponent_raw=replay_for_training.get("opponentReplay"),
+    )
+
+
+def _replay_chunk_from_collect_paths(*, chunk_label: str, chunk_dir: Path) -> ReplayChunk:
+    return _replay_chunk_from_raw_paths(
+        chunk_label=chunk_label,
+        value_raw=str(chunk_dir / "replay" / "self_play.value.jsonl"),
+        opponent_raw=str(chunk_dir / "replay" / "self_play.opponent.jsonl"),
+    )
+
+
+def _replay_chunk_from_raw_paths(
+    *,
+    chunk_label: str,
+    value_raw: Any,
+    opponent_raw: Any,
+) -> ReplayChunk:
+    if not isinstance(value_raw, str) or not isinstance(opponent_raw, str):
+        raise SystemExit(f"Replay paths are missing for {chunk_label}.")
+    value_path = Path(value_raw)
+    opponent_path = Path(opponent_raw)
+    if not value_path.exists() or not opponent_path.exists():
+        raise SystemExit(
+            f"Replay paths are missing for {chunk_label}: "
+            f"value={value_path} opponent={opponent_path}"
+        )
+    return ReplayChunk(
+        label=chunk_label,
+        value_path=value_path,
+        opponent_path=opponent_path,
+    )
+
+
+def _checkpoint_from_chunk_row(
+    row: Dict[str, Any],
+    *,
+    key: str,
+    label: str,
+) -> LoopCheckpoint:
+    raw = row.get(key)
+    if not isinstance(raw, dict):
+        raise SystemExit(f"Chunk summary {label} must be an object.")
+    step_raw = raw.get("step")
+    value_raw = raw.get("value")
+    opponent_raw = raw.get("opponent")
+    if isinstance(step_raw, bool) or not isinstance(step_raw, int):
+        raise SystemExit(f"Chunk summary {label} has invalid step: {step_raw!r}")
+    if not isinstance(value_raw, str) or not isinstance(opponent_raw, str):
+        raise SystemExit(f"Chunk summary {label} is missing value/opponent paths.")
+    value_path = Path(value_raw)
+    opponent_path = Path(opponent_raw)
+    if not value_path.exists() or not opponent_path.exists():
+        raise SystemExit(
+            f"Chunk summary {label} checkpoint paths are missing: "
+            f"value={value_path} opponent={opponent_path}"
+        )
+    return LoopCheckpoint(
+        step=step_raw,
+        value_path=value_path,
+        opponent_path=opponent_path,
+    )
+
+
 def _chunk_row(
     *,
     chunk_label: str,
     collect_summary: Path,
     train_summary: Path,
     checkpoint: LoopCheckpoint,
+    trained_latest_checkpoint: LoopCheckpoint,
+    checkpoint_selection: Dict[str, Any],
+    replay_chunk: ReplayChunk | None = None,
+    replay_window: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
-    return {
+    row: Dict[str, Any] = {
         "chunk": chunk_label,
         "replayRegime": REPLAY_REGIME,
         "collectSummary": str(collect_summary),
         "trainSummary": str(train_summary),
+        "trainedLatestCheckpoint": {
+            "step": trained_latest_checkpoint.step,
+            "value": str(trained_latest_checkpoint.value_path),
+            "opponent": str(trained_latest_checkpoint.opponent_path),
+        },
+        "checkpointSelection": checkpoint_selection,
         "latestCheckpoint": {
             "step": checkpoint.step,
             "value": str(checkpoint.value_path),
             "opponent": str(checkpoint.opponent_path),
         },
     }
+    if replay_chunk is not None:
+        row["collectReplay"] = {
+            "value": str(replay_chunk.value_path),
+            "opponent": str(replay_chunk.opponent_path),
+        }
+    if replay_window is not None:
+        row["replayWindow"] = replay_window
+    return row
 
 
 def _parse_chunk_index(name: str) -> int | None:

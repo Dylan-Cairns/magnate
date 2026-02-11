@@ -169,6 +169,195 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
         self.assertEqual(state.incumbent_checkpoint.value_path, warm_value)
         self.assertEqual(state.incumbent_checkpoint.opponent_path, warm_opponent)
         self.assertEqual([template.label for template in state.collect_templates], ["selfplay", "search-anchor"])
+        self.assertEqual([chunk.label for chunk in state.accepted_replay_chunks], ["chunk-001", "chunk-002"])
+
+    def test_discover_resume_state_marks_last_trained_chunk_as_pending_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / "artifacts" / "td_loops"
+            run_id = "20260416-003941Z-td-loop-selfplay-r1-laptop"
+            chunks_dir = artifact_dir / run_id / "chunks"
+
+            warm_value = root / "warm.value.pt"
+            warm_opponent = root / "warm.opponent.pt"
+            candidate_value = root / "chunk1.value.pt"
+            candidate_opponent = root / "chunk1.opponent.pt"
+            for path in (warm_value, warm_opponent, candidate_value, candidate_opponent):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            self._write_completed_chunk(
+                chunks_dir=chunks_dir,
+                chunk_index=1,
+                warm_value=warm_value,
+                warm_opponent=warm_opponent,
+                latest_value=candidate_value,
+                latest_opponent=candidate_opponent,
+                current_run_id=run_id,
+                candidate_value=warm_value,
+                candidate_opponent=warm_opponent,
+                shard_count=2,
+                write_chunk_summary=False,
+            )
+
+            state = _discover_resume_state(run_id=run_id, artifact_dir=artifact_dir)
+
+        self.assertEqual(len(state.completed_chunks), 0)
+        self.assertIsNotNone(state.pending_gate_chunk)
+        assert state.pending_gate_chunk is not None
+        self.assertEqual(state.pending_gate_chunk.label, "chunk-001")
+        self.assertEqual(state.pending_gate_chunk.train_checkpoints[-1].value_path, candidate_value)
+        assert state.pending_gate_chunk.replay_chunk is not None
+        self.assertEqual(state.pending_gate_chunk.replay_chunk.label, "chunk-001")
+        self.assertEqual(state.latest_checkpoint.value_path, warm_value)
+        self.assertEqual(state.latest_checkpoint.opponent_path, warm_opponent)
+
+    def test_discover_resume_state_excludes_rejected_chunk_from_replay_history(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / "artifacts" / "td_loops"
+            run_id = "20260416-003941Z-td-loop-selfplay-r1-laptop"
+            chunks_dir = artifact_dir / run_id / "chunks"
+
+            warm_value = root / "warm.value.pt"
+            warm_opponent = root / "warm.opponent.pt"
+            candidate_value = root / "chunk1.value.pt"
+            candidate_opponent = root / "chunk1.opponent.pt"
+            for path in (warm_value, warm_opponent, candidate_value, candidate_opponent):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            self._write_completed_chunk(
+                chunks_dir=chunks_dir,
+                chunk_index=1,
+                warm_value=warm_value,
+                warm_opponent=warm_opponent,
+                latest_value=candidate_value,
+                latest_opponent=candidate_opponent,
+                current_run_id=run_id,
+                candidate_value=warm_value,
+                candidate_opponent=warm_opponent,
+                shard_count=2,
+                gate_accepted=False,
+                accepted_value=warm_value,
+                accepted_opponent=warm_opponent,
+            )
+
+            state = _discover_resume_state(run_id=run_id, artifact_dir=artifact_dir)
+
+        self.assertEqual(len(state.completed_chunks), 1)
+        self.assertEqual(state.accepted_replay_chunks, [])
+        self.assertIsNone(state.completed_chunks[0].replay_chunk)
+        self.assertEqual(state.latest_checkpoint.value_path, warm_value)
+
+    def test_discover_resume_state_rejects_completed_chunk_without_chunk_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / "artifacts" / "td_loops"
+            run_id = "20260416-003941Z-td-loop-selfplay-r1-laptop"
+            chunks_dir = artifact_dir / run_id / "chunks"
+
+            warm_value = root / "warm.value.pt"
+            warm_opponent = root / "warm.opponent.pt"
+            candidate_value = root / "chunk1.value.pt"
+            candidate_opponent = root / "chunk1.opponent.pt"
+            for path in (warm_value, warm_opponent, candidate_value, candidate_opponent):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            self._write_completed_chunk(
+                chunks_dir=chunks_dir,
+                chunk_index=1,
+                warm_value=warm_value,
+                warm_opponent=warm_opponent,
+                latest_value=candidate_value,
+                latest_opponent=candidate_opponent,
+                current_run_id=run_id,
+                candidate_value=warm_value,
+                candidate_opponent=warm_opponent,
+                shard_count=2,
+                write_chunk_summary=False,
+            )
+            (chunks_dir / "chunk-002" / "replay").mkdir(parents=True, exist_ok=True)
+
+            with self.assertRaises(SystemExit) as raised:
+                _discover_resume_state(run_id=run_id, artifact_dir=artifact_dir)
+
+        self.assertIn("missing required chunk summary", str(raised.exception))
+
+    def test_discover_resume_state_rejects_chunk_summary_without_replay_window(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / "artifacts" / "td_loops"
+            run_id = "20260416-003941Z-td-loop-selfplay-r1-laptop"
+            chunks_dir = artifact_dir / run_id / "chunks"
+
+            warm_value = root / "warm.value.pt"
+            warm_opponent = root / "warm.opponent.pt"
+            candidate_value = root / "chunk1.value.pt"
+            candidate_opponent = root / "chunk1.opponent.pt"
+            for path in (warm_value, warm_opponent, candidate_value, candidate_opponent):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            self._write_completed_chunk(
+                chunks_dir=chunks_dir,
+                chunk_index=1,
+                warm_value=warm_value,
+                warm_opponent=warm_opponent,
+                latest_value=candidate_value,
+                latest_opponent=candidate_opponent,
+                current_run_id=run_id,
+                candidate_value=warm_value,
+                candidate_opponent=warm_opponent,
+                shard_count=2,
+            )
+            chunk_summary = chunks_dir / "chunk-001" / "chunk.summary.json"
+            payload = json.loads(chunk_summary.read_text(encoding="utf-8"))
+            del payload["chunk"]["replayWindow"]
+            chunk_summary.write_text(json.dumps(payload), encoding="utf-8")
+
+            with self.assertRaises(SystemExit) as raised:
+                _discover_resume_state(run_id=run_id, artifact_dir=artifact_dir)
+
+        self.assertIn("missing required keys", str(raised.exception))
+
+    def test_discover_resume_state_rejects_chunk_summary_without_checkpoint_selection(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / "artifacts" / "td_loops"
+            run_id = "20260416-003941Z-td-loop-selfplay-r1-laptop"
+            chunks_dir = artifact_dir / run_id / "chunks"
+
+            warm_value = root / "warm.value.pt"
+            warm_opponent = root / "warm.opponent.pt"
+            candidate_value = root / "chunk1.value.pt"
+            candidate_opponent = root / "chunk1.opponent.pt"
+            for path in (warm_value, warm_opponent, candidate_value, candidate_opponent):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            self._write_completed_chunk(
+                chunks_dir=chunks_dir,
+                chunk_index=1,
+                warm_value=warm_value,
+                warm_opponent=warm_opponent,
+                latest_value=candidate_value,
+                latest_opponent=candidate_opponent,
+                current_run_id=run_id,
+                candidate_value=warm_value,
+                candidate_opponent=warm_opponent,
+                shard_count=2,
+            )
+            chunk_summary = chunks_dir / "chunk-001" / "chunk.summary.json"
+            payload = json.loads(chunk_summary.read_text(encoding="utf-8"))
+            del payload["chunk"]["checkpointSelection"]
+            chunk_summary.write_text(json.dumps(payload), encoding="utf-8")
+
+            with self.assertRaises(SystemExit) as raised:
+                _discover_resume_state(run_id=run_id, artifact_dir=artifact_dir)
+
+        self.assertIn("missing required keys", str(raised.exception))
 
     def _write_completed_chunk(
         self,
@@ -183,6 +372,10 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
         candidate_value: Path,
         candidate_opponent: Path,
         shard_count: int,
+        write_chunk_summary: bool = True,
+        gate_accepted: bool = True,
+        accepted_value: Path | None = None,
+        accepted_opponent: Path | None = None,
     ) -> None:
         chunk_dir = chunks_dir / f"chunk-{chunk_index:03d}"
         replay_dir = chunk_dir / "replay"
@@ -191,6 +384,8 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
         shard_dir = profiles_dir / "selfplay.shards"
         shard_dir.mkdir(parents=True, exist_ok=True)
         train_dir.mkdir(parents=True, exist_ok=True)
+        (replay_dir / "self_play.value.jsonl").write_text('{"v": 1}\n', encoding="utf-8")
+        (replay_dir / "self_play.opponent.jsonl").write_text('{"o": 1}\n', encoding="utf-8")
 
         for shard_index in range(1, shard_count + 1):
             (shard_dir / f"s{shard_index:02d}.summary.json").write_text("{}", encoding="utf-8")
@@ -277,6 +472,120 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
             },
         }
         (train_dir / "summary.json").write_text(json.dumps(train_summary), encoding="utf-8")
+        replay_window_dir = train_dir / "replay_window"
+        replay_window_dir.mkdir(parents=True, exist_ok=True)
+        (replay_window_dir / "window.value.jsonl").write_text('{"v": 1}\n', encoding="utf-8")
+        (replay_window_dir / "window.opponent.jsonl").write_text('{"o": 1}\n', encoding="utf-8")
+        replay_window_payload = {
+            "source": "accepted",
+            "windowSize": 3,
+            "chunks": [
+                {
+                    "chunk": f"chunk-{chunk_index:03d}",
+                    "valueReplay": str(replay_dir / "self_play.value.jsonl"),
+                    "opponentReplay": str(replay_dir / "self_play.opponent.jsonl"),
+                }
+            ],
+            "valueReplay": str(replay_window_dir / "window.value.jsonl"),
+            "opponentReplay": str(replay_window_dir / "window.opponent.jsonl"),
+            "summary": str(replay_window_dir / "window.summary.json"),
+            "valueLines": 1,
+            "opponentLines": 1,
+            "maxValueLines": 0,
+            "maxOpponentLines": 0,
+        }
+        (replay_window_dir / "window.summary.json").write_text(
+            json.dumps(replay_window_payload),
+            encoding="utf-8",
+        )
+        if write_chunk_summary:
+            self._write_chunk_summary(
+                chunks_dir=chunks_dir,
+                chunk_index=chunk_index,
+                accepted=gate_accepted,
+                candidate_value=latest_value,
+                candidate_opponent=latest_opponent,
+                accepted_value=accepted_value or latest_value,
+                accepted_opponent=accepted_opponent or latest_opponent,
+                replay_window=replay_window_payload,
+            )
+
+    def _write_chunk_summary(
+        self,
+        *,
+        chunks_dir: Path,
+        chunk_index: int,
+        accepted: bool,
+        candidate_value: Path,
+        candidate_opponent: Path,
+        accepted_value: Path,
+        accepted_opponent: Path,
+        replay_window: dict,
+    ) -> None:
+        chunk_dir = chunks_dir / f"chunk-{chunk_index:03d}"
+        chunk_label = f"chunk-{chunk_index:03d}"
+        payload = {
+            "chunk": {
+                "chunk": chunk_label,
+                "collectSummary": str(chunk_dir / "replay" / "self_play.summary.json"),
+                "trainSummary": str(chunk_dir / "train" / "summary.json"),
+                "trainedLatestCheckpoint": {
+                    "step": 10000,
+                    "value": str(candidate_value),
+                    "opponent": str(candidate_opponent),
+                },
+                "checkpointSelection": {
+                    "enabled": True,
+                    "reason": "single_candidate",
+                    "summary": str(chunk_dir / "eval" / "checkpoint_selection" / "summary.json"),
+                    "selectedCheckpoint": {
+                        "step": 10000,
+                        "value": str(candidate_value),
+                        "opponent": str(candidate_opponent),
+                    },
+                    "trainedLatestCheckpoint": {
+                        "step": 10000,
+                        "value": str(candidate_value),
+                        "opponent": str(candidate_opponent),
+                    },
+                    "acceptedBefore": {
+                        "step": 0,
+                        "value": str(accepted_value),
+                        "opponent": str(accepted_opponent),
+                    },
+                    "seedStartIndices": [],
+                    "candidates": [],
+                },
+                "candidateCheckpoint": {
+                    "step": 10000,
+                    "value": str(candidate_value),
+                    "opponent": str(candidate_opponent),
+                },
+                "acceptedCheckpoint": {
+                    "step": 10000 if accepted else 0,
+                    "value": str(accepted_value),
+                    "opponent": str(accepted_opponent),
+                },
+                "latestCheckpoint": {
+                    "step": 0 if not accepted else 10000,
+                    "value": str(accepted_value),
+                    "opponent": str(accepted_opponent),
+                },
+                "generatorGate": {
+                    "accepted": accepted,
+                    "reason": "chunk_gate_passed" if accepted else "chunk_gate_failed",
+                },
+                "replayWindow": replay_window,
+                "replayForTraining": {
+                    "eligible": accepted,
+                    "reason": "chunk_gate_passed" if accepted else "chunk_gate_failed",
+                    "chunk": chunk_label,
+                    "valueReplay": str(chunk_dir / "replay" / "self_play.value.jsonl"),
+                    "opponentReplay": str(chunk_dir / "replay" / "self_play.opponent.jsonl"),
+                },
+            }
+        }
+        (chunk_dir / "chunk.summary.json").write_text(json.dumps(payload), encoding="utf-8")
 
 
 if __name__ == "__main__":
