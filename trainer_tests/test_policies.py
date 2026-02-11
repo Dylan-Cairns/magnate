@@ -30,7 +30,7 @@ from trainer.policies import (
 from trainer.search import BridgeForwardModel
 from trainer.td.checkpoint import save_opponent_checkpoint, save_value_checkpoint
 from trainer.td.models import OpponentModel, ValueNet
-from trainer.types import KeyedAction, LegalActionsResult, ObservationResult, StateResult
+from trainer.types import KeyedAction, LegalActionsResult, StateResult
 
 
 def _resource_pool() -> ResourcePoolPayload:
@@ -81,11 +81,9 @@ def _empty_view(
     *,
     active_player: PlayerId,
     turn: int,
-    viewer_id: PlayerId | None = None,
 ) -> PlayerViewPayload:
-    resolved_viewer = active_player if viewer_id is None else viewer_id
     return {
-        "viewerId": resolved_viewer,
+        "viewerId": active_player,
         "activePlayerId": active_player,
         "turn": turn,
         "phase": "ActionWindow",
@@ -106,7 +104,7 @@ def _empty_view(
                 "resources": _resource_pool(),
                 "hand": [],
                 "handCount": 0,
-                "handHidden": resolved_viewer != "PlayerA",
+                "handHidden": False,
             },
             {
                 "id": "PlayerB",
@@ -114,7 +112,7 @@ def _empty_view(
                 "resources": _resource_pool(),
                 "hand": [],
                 "handCount": 0,
-                "handHidden": resolved_viewer != "PlayerB",
+                "handHidden": True,
             },
         ],
         "deck": {"drawCount": 0, "discard": [], "reshuffles": 0},
@@ -189,74 +187,6 @@ class _StubForwardModel:
         return None
 
 
-class _CachedOnlyForwardModel:
-    def __init__(self, *, post_root_active: PlayerId, post_rollout_active: PlayerId) -> None:
-        self.transition_cached_calls = 0
-        self.legal_actions_cached_calls = 0
-        self.observation_cached_calls = 0
-        self._post_root_active = post_root_active
-        self._post_rollout_active = post_rollout_active
-
-    def reset_state(self, _state: SerializedStatePayload) -> StateResult:
-        raise AssertionError("reset_state should not be used by cached search rollout.")
-
-    def step(self, _action_key: str) -> StateResult:
-        raise AssertionError("step should not be used by cached search rollout.")
-
-    def legal_actions(self) -> LegalActionsResult:
-        raise AssertionError("legal_actions should not be used by cached search rollout.")
-
-    def observation(self, viewer_id: PlayerId | None = None) -> ObservationResult:
-        raise AssertionError("observation should not be used by cached search rollout.")
-
-    def transition_cached(self, state: SerializedStatePayload, action_key: str) -> StateResult:
-        self.transition_cached_calls += 1
-        if action_key == "root":
-            next_active = cast(PlayerId, self._post_root_active)
-            return StateResult(
-                state=_empty_state(
-                    turn=state["turn"] + 1,
-                    phase="ActionWindow",
-                    active_player=next_active,
-                ),
-                view=_empty_view(active_player=next_active, turn=state["turn"] + 1),
-                terminal=False,
-            )
-        next_active = cast(PlayerId, self._post_rollout_active)
-        return StateResult(
-            state=_empty_state(
-                turn=state["turn"] + 2,
-                phase="ActionWindow",
-                active_player=next_active,
-            ),
-            view=_empty_view(active_player=next_active, turn=state["turn"] + 2),
-            terminal=False,
-        )
-
-    def legal_actions_cached(self, _state: SerializedStatePayload) -> LegalActionsResult:
-        self.legal_actions_cached_calls += 1
-        return LegalActionsResult(
-            actions=[KeyedAction(action_id="end-turn", action_key="a0", action=_end_turn_action())],
-            active_player_id="PlayerA",
-            phase="ActionWindow",
-        )
-
-    def observation_cached(
-        self,
-        _state: SerializedStatePayload,
-        viewer_id: PlayerId | None = None,
-    ) -> ObservationResult:
-        self.observation_cached_calls += 1
-        resolved_viewer = "PlayerA" if viewer_id is None else viewer_id
-        return ObservationResult(
-            view=_empty_view(active_player="PlayerA", turn=3, viewer_id=resolved_viewer),
-            legal_action_mask=None,
-        )
-
-    def close(self) -> None:
-        return None
-
-
 class PolicyFactoryTests(unittest.TestCase):
     def test_policy_factory_creates_random_policy(self) -> None:
         policy = policy_from_name("random")
@@ -271,26 +201,6 @@ class PolicyFactoryTests(unittest.TestCase):
         policy = policy_from_name("search", search_config=config)
         try:
             self.assertIsInstance(policy, DeterminizedSearchPolicy)
-        finally:
-            policy.close()
-
-    def test_search_policy_applies_cache_limits_to_forward_model(self) -> None:
-        policy = DeterminizedSearchPolicy(
-            config=SearchConfig(
-                worlds=1,
-                rollouts=1,
-                depth=1,
-                max_root_actions=1,
-                rollout_epsilon=0.0,
-                transition_cache_limit=11,
-                legal_actions_cache_limit=7,
-                observation_cache_limit=5,
-            )
-        )
-        try:
-            self.assertEqual(policy._forward_model.transition_cache_limit, 11)
-            self.assertEqual(policy._forward_model.legal_actions_cache_limit, 7)
-            self.assertEqual(policy._forward_model.observation_cache_limit, 5)
         finally:
             policy.close()
 
@@ -314,29 +224,6 @@ class PolicyFactoryTests(unittest.TestCase):
             )
             try:
                 self.assertIsInstance(policy, TDValuePolicy)
-            finally:
-                policy.close()
-
-    def test_td_value_policy_applies_cache_limits_to_forward_model(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            checkpoint_path = Path(tmp_dir) / "value.pt"
-            save_value_checkpoint(
-                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=32),
-                output_path=checkpoint_path,
-            )
-            policy = TDValuePolicy(
-                config=TDValuePolicyConfig(
-                    checkpoint_path=checkpoint_path,
-                    worlds=2,
-                    transition_cache_limit=13,
-                    legal_actions_cache_limit=9,
-                    observation_cache_limit=4,
-                )
-            )
-            try:
-                self.assertEqual(policy._forward_model.transition_cache_limit, 13)
-                self.assertEqual(policy._forward_model.legal_actions_cache_limit, 9)
-                self.assertEqual(policy._forward_model.observation_cache_limit, 4)
             finally:
                 policy.close()
 
@@ -370,43 +257,6 @@ class PolicyFactoryTests(unittest.TestCase):
             )
             try:
                 self.assertIsInstance(policy, TDDeterminizedSearchPolicy)
-            finally:
-                policy.close()
-
-    def test_td_search_policy_applies_cache_limits_to_forward_model(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            value_path = Path(tmp_dir) / "value.pt"
-            opponent_path = Path(tmp_dir) / "opponent.pt"
-            save_value_checkpoint(
-                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=32),
-                output_path=value_path,
-            )
-            save_opponent_checkpoint(
-                model=OpponentModel(
-                    observation_dim=OBSERVATION_DIM,
-                    action_feature_dim=ACTION_FEATURE_DIM,
-                    hidden_dim=32,
-                ),
-                output_path=opponent_path,
-            )
-            policy = TDDeterminizedSearchPolicy(
-                config=TDSearchPolicyConfig(
-                    value_checkpoint_path=value_path,
-                    opponent_checkpoint_path=opponent_path,
-                    worlds=1,
-                    rollouts=1,
-                    depth=1,
-                    max_root_actions=1,
-                    rollout_epsilon=0.0,
-                    transition_cache_limit=17,
-                    legal_actions_cache_limit=8,
-                    observation_cache_limit=6,
-                )
-            )
-            try:
-                self.assertEqual(policy._forward_model.transition_cache_limit, 17)
-                self.assertEqual(policy._forward_model.legal_actions_cache_limit, 8)
-                self.assertEqual(policy._forward_model.observation_cache_limit, 6)
             finally:
                 policy.close()
 
@@ -463,36 +313,6 @@ class PolicyFactoryTests(unittest.TestCase):
 
 
 class TDLeafPerspectiveTests(unittest.TestCase):
-    @patch("trainer.search_policy.value_from_player_view", return_value=0.25)
-    def test_search_rollout_uses_cached_state_queries(self, _mock_value_from_player_view) -> None:
-        policy = DeterminizedSearchPolicy(
-            config=SearchConfig(
-                worlds=1,
-                rollouts=1,
-                depth=1,
-                max_root_actions=1,
-                rollout_epsilon=0.0,
-            )
-        )
-        try:
-            cached_forward_model = _CachedOnlyForwardModel(
-                post_root_active="PlayerB",
-                post_rollout_active="PlayerA",
-            )
-            policy._forward_model = cast(BridgeForwardModel, cached_forward_model)
-            score = policy._run_rollout(
-                world_state=_empty_state(turn=0, phase="ActionWindow", active_player="PlayerA"),
-                root_player="PlayerA",
-                root_action_key="root",
-                rng=random.Random(0),
-            )
-            self.assertAlmostEqual(score, 0.25)
-            self.assertEqual(cached_forward_model.transition_cached_calls, 2)
-            self.assertEqual(cached_forward_model.legal_actions_cached_calls, 1)
-            self.assertEqual(cached_forward_model.observation_cached_calls, 1)
-        finally:
-            policy.close()
-
     @patch("trainer.value_policy.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
     def test_td_value_leaf_converts_active_value_to_root_perspective(self, _mock_encode) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
