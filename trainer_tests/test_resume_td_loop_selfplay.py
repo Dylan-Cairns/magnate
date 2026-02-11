@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.opponent_pool import PoolCheckpoint
 from scripts.resume_td_loop_selfplay import (
     _build_collect_profiles_from_templates,
     _collect_templates_from_summary,
     _discover_resume_state,
+    _resolve_resume_args,
+    parse_args,
 )
 
 
@@ -249,6 +253,56 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
         self.assertEqual(state.accepted_replay_chunks, [])
         self.assertIsNone(state.completed_chunks[0].replay_chunk)
         self.assertEqual(state.latest_checkpoint.value_path, warm_value)
+
+    def test_resolve_resume_args_preserves_recent_replay_window_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_dir = root / "artifacts" / "td_loops"
+            run_id = "20260416-003941Z-td-loop-selfplay-r1-laptop"
+            chunks_dir = artifact_dir / run_id / "chunks"
+
+            warm_value = root / "warm.value.pt"
+            warm_opponent = root / "warm.opponent.pt"
+            latest_value = root / "chunk1.value.pt"
+            latest_opponent = root / "chunk1.opponent.pt"
+            for path in (warm_value, warm_opponent, latest_value, latest_opponent):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("x", encoding="utf-8")
+
+            self._write_completed_chunk(
+                chunks_dir=chunks_dir,
+                chunk_index=1,
+                warm_value=warm_value,
+                warm_opponent=warm_opponent,
+                latest_value=latest_value,
+                latest_opponent=latest_opponent,
+                current_run_id=run_id,
+                candidate_value=warm_value,
+                candidate_opponent=warm_opponent,
+                shard_count=1,
+            )
+            for summary_path in (
+                chunks_dir / "chunk-001" / "train" / "replay_window" / "window.summary.json",
+                chunks_dir / "chunk-001" / "chunk.summary.json",
+            ):
+                payload = json.loads(summary_path.read_text(encoding="utf-8"))
+                target = payload["chunk"]["replayWindow"] if "chunk" in payload else payload
+                target["source"] = "recent"
+                summary_path.write_text(json.dumps(payload), encoding="utf-8")
+
+            state = _discover_resume_state(run_id=run_id, artifact_dir=artifact_dir)
+            with patch.object(
+                sys,
+                "argv",
+                ["resume_td_loop_selfplay.py", "--run-id", run_id],
+            ):
+                args = parse_args()
+            args.artifact_dir = artifact_dir
+
+            resolved = _resolve_resume_args(args=args, state=state)
+
+        self.assertEqual(state.train_replay_window_config["source"], "recent")
+        self.assertEqual(resolved.train_replay_window_source, "recent")
 
     def test_discover_resume_state_rejects_completed_chunk_without_chunk_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
