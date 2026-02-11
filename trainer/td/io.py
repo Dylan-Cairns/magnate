@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+from collections import deque
 from pathlib import Path
-from typing import Iterable, List, Mapping
+from typing import Iterable, List, Mapping, Sequence
 
 from trainer.types import PlayerId
 
@@ -72,19 +73,51 @@ def write_value_transitions_jsonl(
 
 
 def read_value_transitions_jsonl(input_path: Path) -> list[ValueTransition]:
-    transitions: list[ValueTransition] = []
-    with input_path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            raw = line.strip()
-            if not raw:
-                continue
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                raise ValueError(
-                    f"Expected JSON object on line {line_number}, got {type(payload).__name__}."
-                )
-            transitions.append(_value_transition_from_json(payload, line_number))
-    return transitions
+    return read_value_transitions_jsonl_many([input_path])
+
+
+def read_value_transitions_jsonl_many(
+    input_paths: Sequence[Path],
+    *,
+    max_transitions: int = 0,
+) -> list[ValueTransition]:
+    if max_transitions < 0:
+        raise ValueError("max_transitions must be >= 0.")
+    if max_transitions == 0:
+        transitions: list[ValueTransition] = []
+        for input_path in input_paths:
+            with input_path.open("r", encoding="utf-8") as handle:
+                transitions.extend(_value_transitions_from_handle(handle))
+        return transitions
+
+    limited: deque[ValueTransition] = deque(maxlen=max_transitions)
+    for input_path in input_paths:
+        with input_path.open("r", encoding="utf-8") as handle:
+            for transition in _value_transitions_from_handle(handle):
+                limited.append(transition)
+    return list(limited)
+
+
+def read_opponent_samples_jsonl_many(
+    input_paths: Sequence[Path],
+    *,
+    max_samples: int = 0,
+) -> list[OpponentSample]:
+    if max_samples < 0:
+        raise ValueError("max_samples must be >= 0.")
+    if max_samples == 0:
+        samples: list[OpponentSample] = []
+        for input_path in input_paths:
+            with input_path.open("r", encoding="utf-8") as handle:
+                samples.extend(_opponent_samples_from_handle(handle))
+        return samples
+
+    limited: deque[OpponentSample] = deque(maxlen=max_samples)
+    for input_path in input_paths:
+        with input_path.open("r", encoding="utf-8") as handle:
+            for sample in _opponent_samples_from_handle(handle):
+                limited.append(sample)
+    return list(limited)
 
 
 def write_opponent_samples_jsonl(
@@ -103,19 +136,39 @@ def write_opponent_samples_jsonl(
             handle.write(json.dumps(payload) + "\n")
 
 
-def read_opponent_samples_jsonl(input_path: Path) -> list[OpponentSample]:
+def read_opponent_samples_jsonl(
+    input_path: Path,
+) -> list[OpponentSample]:
+    return read_opponent_samples_jsonl_many([input_path])
+
+
+def _value_transitions_from_handle(handle: Iterable[str]) -> list[ValueTransition]:
+    transitions: list[ValueTransition] = []
+    for line_number, line in enumerate(handle, start=1):
+        raw = line.strip()
+        if not raw:
+            continue
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Expected JSON object on line {line_number}, got {type(payload).__name__}."
+            )
+        transitions.append(_value_transition_from_json(payload, line_number))
+    return transitions
+
+
+def _opponent_samples_from_handle(handle: Iterable[str]) -> list[OpponentSample]:
     samples: list[OpponentSample] = []
-    with input_path.open("r", encoding="utf-8") as handle:
-        for line_number, line in enumerate(handle, start=1):
-            raw = line.strip()
-            if not raw:
-                continue
-            payload = json.loads(raw)
-            if not isinstance(payload, dict):
-                raise ValueError(
-                    f"Expected JSON object on line {line_number}, got {type(payload).__name__}."
-                )
-            samples.append(_opponent_sample_from_json(payload, line_number))
+    for line_number, line in enumerate(handle, start=1):
+        raw = line.strip()
+        if not raw:
+            continue
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Expected JSON object on line {line_number}, got {type(payload).__name__}."
+            )
+        samples.append(_opponent_sample_from_json(payload, line_number))
     return samples
 
 

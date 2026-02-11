@@ -26,8 +26,8 @@ from trainer.td import (
     build_value_sequence_index,
     load_opponent_checkpoint,
     load_value_checkpoint,
-    read_opponent_samples_jsonl,
-    read_value_transitions_jsonl,
+    read_opponent_samples_jsonl_many,
+    read_value_transitions_jsonl_many,
     save_opponent_checkpoint,
     save_value_checkpoint,
 )
@@ -40,14 +40,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--value-replay",
         type=Path,
+        nargs="+",
         default=None,
-        help="Value-transition replay JSONL path.",
+        help="Value-transition replay JSONL path(s).",
     )
     parser.add_argument(
         "--opponent-replay",
         type=Path,
+        nargs="+",
         default=None,
-        help="Opponent-sample replay JSONL path.",
+        help="Opponent-sample replay JSONL path(s).",
+    )
+    parser.add_argument(
+        "--value-replay-max-lines",
+        type=int,
+        default=0,
+        help="Optional tail cap across value replay files; 0 reads every line.",
+    )
+    parser.add_argument(
+        "--opponent-replay-max-lines",
+        type=int,
+        default=0,
+        help="Optional tail cap across opponent replay files; 0 reads every line.",
     )
     parser.add_argument("--steps", type=int, default=2000, help="Number of train steps.")
     parser.add_argument("--value-batch-size", type=int, default=128)
@@ -171,12 +185,18 @@ def main() -> int:
     opponent_replay = OpponentReplayBuffer(capacity=max(1, 10_000_000))
 
     if train_value:
-        transitions = read_value_transitions_jsonl(args.value_replay)
+        transitions = read_value_transitions_jsonl_many(
+            args.value_replay,
+            max_transitions=args.value_replay_max_lines,
+        )
         value_replay.extend(transitions)
         if len(value_replay) == 0:
             raise SystemExit(f"value replay is empty: {args.value_replay}")
     if train_opponent:
-        samples = read_opponent_samples_jsonl(args.opponent_replay)
+        samples = read_opponent_samples_jsonl_many(
+            args.opponent_replay,
+            max_samples=args.opponent_replay_max_lines,
+        )
         opponent_replay.extend(samples)
         if len(opponent_replay) == 0:
             raise SystemExit(f"opponent replay is empty: {args.opponent_replay}")
@@ -328,8 +348,28 @@ def main() -> int:
             "seed": args.seed,
             "trainValue": train_value,
             "trainOpponent": train_opponent,
-            "valueReplay": str(args.value_replay) if args.value_replay else None,
-            "opponentReplay": str(args.opponent_replay) if args.opponent_replay else None,
+            "valueReplay": (
+                str(args.value_replay[0])
+                if args.value_replay is not None and len(args.value_replay) == 1
+                else None
+            ),
+            "opponentReplay": (
+                str(args.opponent_replay[0])
+                if args.opponent_replay is not None and len(args.opponent_replay) == 1
+                else None
+            ),
+            "valueReplayFiles": (
+                [str(path) for path in args.value_replay]
+                if args.value_replay is not None
+                else None
+            ),
+            "opponentReplayFiles": (
+                [str(path) for path in args.opponent_replay]
+                if args.opponent_replay is not None
+                else None
+            ),
+            "valueReplayMaxLines": args.value_replay_max_lines,
+            "opponentReplayMaxLines": args.opponent_replay_max_lines,
             "valueBatchSize": args.value_batch_size,
             "opponentBatchSize": args.opponent_batch_size,
             "hiddenDim": args.hidden_dim,
@@ -448,10 +488,19 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--save-every-steps must be >= 0.")
     if args.progress_every_steps < 0:
         raise SystemExit("--progress-every-steps must be >= 0.")
+    if args.value_replay_max_lines < 0:
+        raise SystemExit("--value-replay-max-lines must be >= 0.")
+    if args.opponent_replay_max_lines < 0:
+        raise SystemExit("--opponent-replay-max-lines must be >= 0.")
     if args.num_threads is not None and args.num_threads <= 0:
         raise SystemExit("--num-threads must be > 0 when provided.")
     if args.num_interop_threads is not None and args.num_interop_threads <= 0:
         raise SystemExit("--num-interop-threads must be > 0 when provided.")
+    if args.value_target_mode == TD_VALUE_TARGET_MODE_TD_LAMBDA and args.value_replay_max_lines > 0:
+        raise SystemExit(
+            "--value-replay-max-lines is not supported with --value-target-mode td-lambda "
+            "because raw line caps can split episode trajectories."
+        )
 
     train_value = not args.disable_value
     train_opponent = not args.disable_opponent
@@ -459,15 +508,17 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("At least one of value/opponent training must be enabled.")
 
     if train_value:
-        if args.value_replay is None:
+        if args.value_replay is None or not args.value_replay:
             raise SystemExit("--value-replay is required unless --disable-value is set.")
-        if not args.value_replay.exists():
-            raise SystemExit(f"value replay not found: {args.value_replay}")
+        missing_value_paths = [str(path) for path in args.value_replay if not path.exists()]
+        if missing_value_paths:
+            raise SystemExit(f"value replay not found: {missing_value_paths}")
     if train_opponent:
-        if args.opponent_replay is None:
+        if args.opponent_replay is None or not args.opponent_replay:
             raise SystemExit("--opponent-replay is required unless --disable-opponent is set.")
-        if not args.opponent_replay.exists():
-            raise SystemExit(f"opponent replay not found: {args.opponent_replay}")
+        missing_opponent_paths = [str(path) for path in args.opponent_replay if not path.exists()]
+        if missing_opponent_paths:
+            raise SystemExit(f"opponent replay not found: {missing_opponent_paths}")
 
     if args.warm_start_value_checkpoint is not None and not args.warm_start_value_checkpoint.exists():
         raise SystemExit(f"warm-start value checkpoint not found: {args.warm_start_value_checkpoint}")

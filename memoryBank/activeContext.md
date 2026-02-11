@@ -40,9 +40,10 @@
   - `latestCheckpoint` / `acceptedCheckpoint` is the checkpoint allowed to generate the next chunk;
   - the selected checkpoint now runs a resumable td-search vs td-search sequential gate against the current accepted generator before the next collect stage.
 - Self-play resume is strict for the current artifact schema; completed chunks missing `chunk.summary.json`, `checkpointSelection`, `replayWindow`, or `replayForTraining` fail instead of being inferred from legacy artifacts.
-- Self-play training writes `train/replay_window/window.*` artifacts per chunk:
+- Self-play training writes `train/replay_window/window.summary.json` per chunk:
   - default window size is `3`, enabling a small accepted replay window without wrapper overrides;
   - `--train-replay-window-chunks N` trains on the current chunk plus the last `N-1` accepted chunks;
+  - replay-window summaries now reference the ordered chunk replay files directly instead of materializing duplicated `window.value.jsonl` / `window.opponent.jsonl` copies;
   - value target mode defaults to `td-lambda` with `--train-td-lambda 0.7`;
   - value replay line caps are rejected under `td-lambda` because raw line caps can split full episode trajectories;
   - rejected chunks are not added to future replay history unless the gate is disabled.

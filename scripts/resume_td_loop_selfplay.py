@@ -427,6 +427,16 @@ def main() -> int:
             label=chunk_label,
             value_path=collect_value_path,
             opponent_path=collect_opponent_path,
+            value_lines=_collect_summary_line_count(
+                collect_summary_path,
+                key="valueTransitions",
+                label=f"collect summary {chunk_label}",
+            ),
+            opponent_lines=_collect_summary_line_count(
+                collect_summary_path,
+                key="opponentSamples",
+                label=f"collect summary {chunk_label}",
+            ),
         )
 
         train_summary_path = train_dir / "summary.json"
@@ -441,8 +451,8 @@ def main() -> int:
         train_command = build_train_command(
             python_bin=resolved_args.python_bin,
             args=resolved_args,
-            value_replay=replay_window.value_path,
-            opponent_replay=replay_window.opponent_path,
+            value_replays=replay_window.value_paths,
+            opponent_replays=replay_window.opponent_paths,
             train_summary_path=train_summary_path,
             train_checkpoint_root=train_checkpoint_root,
             run_id=f"{state.run_id}-{chunk_label}",
@@ -1418,8 +1428,8 @@ def _replay_window_payload_from_summary(payload: Dict[str, Any]) -> Dict[str, An
         "source",
         "windowSize",
         "chunks",
-        "valueReplay",
-        "opponentReplay",
+        "valueReplayFiles",
+        "opponentReplayFiles",
         "summary",
         "valueLines",
         "opponentLines",
@@ -1485,14 +1495,27 @@ def _replay_chunk_from_chunk_row(
         chunk_label=chunk_label,
         value_raw=replay_for_training.get("valueReplay"),
         opponent_raw=replay_for_training.get("opponentReplay"),
+        value_lines_raw=replay_for_training.get("valueLines"),
+        opponent_lines_raw=replay_for_training.get("opponentLines"),
     )
 
 
 def _replay_chunk_from_collect_paths(*, chunk_label: str, chunk_dir: Path) -> ReplayChunk:
+    collect_summary = chunk_dir / "replay" / "self_play.summary.json"
     return _replay_chunk_from_raw_paths(
         chunk_label=chunk_label,
         value_raw=str(chunk_dir / "replay" / "self_play.value.jsonl"),
         opponent_raw=str(chunk_dir / "replay" / "self_play.opponent.jsonl"),
+        value_lines_raw=_collect_summary_line_count(
+            collect_summary,
+            key="valueTransitions",
+            label=f"collect summary {chunk_label}",
+        ),
+        opponent_lines_raw=_collect_summary_line_count(
+            collect_summary,
+            key="opponentSamples",
+            label=f"collect summary {chunk_label}",
+        ),
     )
 
 
@@ -1501,9 +1524,15 @@ def _replay_chunk_from_raw_paths(
     chunk_label: str,
     value_raw: Any,
     opponent_raw: Any,
+    value_lines_raw: Any,
+    opponent_lines_raw: Any,
 ) -> ReplayChunk:
     if not isinstance(value_raw, str) or not isinstance(opponent_raw, str):
         raise SystemExit(f"Replay paths are missing for {chunk_label}.")
+    if isinstance(value_lines_raw, bool) or not isinstance(value_lines_raw, int):
+        raise SystemExit(f"Replay value line count is missing for {chunk_label}.")
+    if isinstance(opponent_lines_raw, bool) or not isinstance(opponent_lines_raw, int):
+        raise SystemExit(f"Replay opponent line count is missing for {chunk_label}.")
     value_path = Path(value_raw)
     opponent_path = Path(opponent_raw)
     if not value_path.exists() or not opponent_path.exists():
@@ -1515,7 +1544,20 @@ def _replay_chunk_from_raw_paths(
         label=chunk_label,
         value_path=value_path,
         opponent_path=opponent_path,
+        value_lines=value_lines_raw,
+        opponent_lines=opponent_lines_raw,
     )
+
+
+def _collect_summary_line_count(summary_path: Path, *, key: str, label: str) -> int:
+    payload = read_json(summary_path, label=label)
+    results = payload.get("results")
+    if not isinstance(results, dict):
+        raise SystemExit(f"Collect summary is missing results payload: {summary_path}")
+    raw = results.get(key)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise SystemExit(f"Collect summary has invalid {key}: {raw!r}")
+    return raw
 
 
 def _checkpoint_from_chunk_row(

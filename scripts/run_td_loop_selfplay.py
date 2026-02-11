@@ -4,7 +4,6 @@ import argparse
 import json
 import sys
 import time
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -63,14 +62,16 @@ class ReplayChunk:
     label: str
     value_path: Path
     opponent_path: Path
+    value_lines: int
+    opponent_lines: int
 
 
 @dataclass(frozen=True)
 class ReplayWindowResult:
     source: str
     chunks: Sequence[ReplayChunk]
-    value_path: Path
-    opponent_path: Path
+    value_paths: Sequence[Path]
+    opponent_paths: Sequence[Path]
     summary_path: Path
     value_lines: int
     opponent_lines: int
@@ -589,6 +590,16 @@ def run_selfplay_chunk(
         label=chunk_label,
         value_path=collect_value_path,
         opponent_path=collect_opponent_path,
+        value_lines=_collect_summary_line_count(
+            collect_summary_path,
+            key="valueTransitions",
+            label=f"collect summary {chunk_label}",
+        ),
+        opponent_lines=_collect_summary_line_count(
+            collect_summary_path,
+            key="opponentSamples",
+            label=f"collect summary {chunk_label}",
+        ),
     )
     replay_window = build_replay_window(
         args=args,
@@ -600,8 +611,8 @@ def run_selfplay_chunk(
     train_command = build_train_command(
         python_bin=args.python_bin,
         args=args,
-        value_replay=replay_window.value_path,
-        opponent_replay=replay_window.opponent_path,
+        value_replays=replay_window.value_paths,
+        opponent_replays=replay_window.opponent_paths,
         train_summary_path=train_summary_path,
         train_checkpoint_root=train_checkpoint_root,
         run_id=f"{run_id}-{chunk_label}",
@@ -691,29 +702,29 @@ def build_replay_window(
         _require_replay_chunk_paths(replay_chunk)
 
     replay_window_dir = train_dir / "replay_window"
-    value_path = replay_window_dir / "window.value.jsonl"
-    opponent_path = replay_window_dir / "window.opponent.jsonl"
     summary_path = replay_window_dir / "window.summary.json"
-    value_lines = _write_replay_window_jsonl(
-        inputs=[chunk.value_path for chunk in window_chunks],
-        output=value_path,
-        max_lines=int(args.train_replay_window_max_value_lines),
-    )
-    opponent_lines = _write_replay_window_jsonl(
-        inputs=[chunk.opponent_path for chunk in window_chunks],
-        output=opponent_path,
-        max_lines=int(args.train_replay_window_max_opponent_lines),
-    )
+    value_paths = [chunk.value_path for chunk in window_chunks]
+    opponent_paths = [chunk.opponent_path for chunk in window_chunks]
+    total_value_lines = sum(chunk.value_lines for chunk in window_chunks)
+    total_opponent_lines = sum(chunk.opponent_lines for chunk in window_chunks)
+    max_value_lines = int(args.train_replay_window_max_value_lines)
+    max_opponent_lines = int(args.train_replay_window_max_opponent_lines)
     result = ReplayWindowResult(
         source=source,
         chunks=window_chunks,
-        value_path=value_path,
-        opponent_path=opponent_path,
+        value_paths=value_paths,
+        opponent_paths=opponent_paths,
         summary_path=summary_path,
-        value_lines=value_lines,
-        opponent_lines=opponent_lines,
-        max_value_lines=int(args.train_replay_window_max_value_lines),
-        max_opponent_lines=int(args.train_replay_window_max_opponent_lines),
+        value_lines=(
+            total_value_lines if max_value_lines == 0 else min(total_value_lines, max_value_lines)
+        ),
+        opponent_lines=(
+            total_opponent_lines
+            if max_opponent_lines == 0
+            else min(total_opponent_lines, max_opponent_lines)
+        ),
+        max_value_lines=max_value_lines,
+        max_opponent_lines=max_opponent_lines,
         window_size=window_size,
     )
     payload = {
@@ -735,11 +746,13 @@ def replay_window_payload(result: ReplayWindowResult) -> Dict[str, Any]:
                 "chunk": chunk.label,
                 "valueReplay": str(chunk.value_path),
                 "opponentReplay": str(chunk.opponent_path),
+                "valueLines": chunk.value_lines,
+                "opponentLines": chunk.opponent_lines,
             }
             for chunk in result.chunks
         ],
-        "valueReplay": str(result.value_path),
-        "opponentReplay": str(result.opponent_path),
+        "valueReplayFiles": [str(path) for path in result.value_paths],
+        "opponentReplayFiles": [str(path) for path in result.opponent_paths],
         "summary": str(result.summary_path),
         "valueLines": result.value_lines,
         "opponentLines": result.opponent_lines,
@@ -757,6 +770,8 @@ def replay_training_payload(
         "chunk": replay_chunk.label,
         "valueReplay": str(replay_chunk.value_path),
         "opponentReplay": str(replay_chunk.opponent_path),
+        "valueLines": replay_chunk.value_lines,
+        "opponentLines": replay_chunk.opponent_lines,
     }
 
 
@@ -773,37 +788,15 @@ def _require_replay_chunk_paths(replay_chunk: ReplayChunk) -> None:
         )
 
 
-def _write_replay_window_jsonl(
-    *, inputs: Sequence[Path], output: Path, max_lines: int
-) -> int:
-    if max_lines < 0:
-        raise SystemExit("Replay window line caps must be >= 0.")
-    if max_lines == 0:
-        concat_jsonl_files(
-            inputs=inputs,
-            output=output,
-            delete_inputs_after_merge=False,
-        )
-        return _count_lines(output)
-
-    for path in inputs:
-        if not path.exists():
-            raise SystemExit(f"Missing replay window input: {path}")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    lines: deque[str] = deque(maxlen=max_lines)
-    for path in inputs:
-        with path.open("r", encoding="utf-8") as source:
-            for line in source:
-                lines.append(line)
-    with output.open("w", encoding="utf-8") as target:
-        for line in lines:
-            target.write(line)
-    return len(lines)
-
-
-def _count_lines(path: Path) -> int:
-    with path.open("r", encoding="utf-8") as source:
-        return sum(1 for _ in source)
+def _collect_summary_line_count(summary_path: Path, *, key: str, label: str) -> int:
+    payload = read_json(summary_path, label=label)
+    results = payload.get("results")
+    if not isinstance(results, dict):
+        raise SystemExit(f"Collect summary is missing results payload: {summary_path}")
+    raw = results.get(key)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise SystemExit(f"Collect summary has invalid {key}: {raw!r}")
+    return raw
 
 
 def run_checkpoint_selection(
