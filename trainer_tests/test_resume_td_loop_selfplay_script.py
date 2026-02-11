@@ -166,6 +166,7 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 block_selection_games_per_side=20,
                 block_selection_seed_prefix="td-loop-block-selection",
                 block_selection_seed_start_indices=[50000],
+                checkpoint_selection_mode="eval",
             )
             baseline_row = self._row(
                 artifact_name="baseline.json",
@@ -403,6 +404,7 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 block_selection_games_per_side=20,
                 block_selection_seed_prefix="td-loop-block-selection",
                 block_selection_seed_start_indices=[50000],
+                checkpoint_selection_mode="eval",
             )
             baseline_row = self._row(
                 artifact_name="baseline.json",
@@ -627,6 +629,7 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 block_selection_games_per_side=20,
                 block_selection_seed_prefix="td-loop-block-selection",
                 block_selection_seed_start_indices=[50000],
+                checkpoint_selection_mode="eval",
             )
             baseline_row = self._row(
                 artifact_name="baseline.json",

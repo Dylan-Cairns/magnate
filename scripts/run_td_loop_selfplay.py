@@ -398,6 +398,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--checkpoint-selection-mode",
+        type=str,
+        choices=("eval", "final"),
+        default="eval",
+        help=(
+            "How to choose the learner checkpoint after each chunk. 'eval' runs the "
+            "cheap checkpoint-selection eval; 'final' skips that eval and uses the "
+            "latest trained checkpoint."
+        ),
+    )
+    parser.add_argument(
         "--checkpoint-selection-workers",
         type=int,
         default=None,
@@ -759,6 +770,7 @@ def run_block_checkpoint_selection(
     selection_args.checkpoint_selection_seed_start_indices = list(
         args.block_selection_seed_start_indices
     )
+    selection_args.checkpoint_selection_mode = "eval"
     return run_checkpoint_selection(
         args=selection_args,
         python_bin=python_bin,
@@ -1166,6 +1178,35 @@ def run_checkpoint_selection(
 
     eval_dir.mkdir(parents=True, exist_ok=True)
     summary_path = eval_dir / "summary.json"
+    if str(getattr(args, "checkpoint_selection_mode", "eval")) == "final":
+        selected_checkpoint = trained_latest_checkpoint
+        result = CheckpointSelectionResult(
+            enabled=False,
+            reason="final_checkpoint",
+            selected_checkpoint=selected_checkpoint,
+            trained_latest_checkpoint=trained_latest_checkpoint,
+            accepted_before=accepted_checkpoint,
+            seed_start_indices=[],
+            candidates=[
+                {
+                    "checkpoint": _checkpoint_payload(checkpoint),
+                    "selected": _same_loop_checkpoint(checkpoint, selected_checkpoint),
+                    "evaluation": None,
+                    "score": None,
+                    "commands": [],
+                }
+                for checkpoint in eligible
+            ],
+            commands=[],
+            summary_path=summary_path,
+        )
+        _write_checkpoint_selection_summary(chunk_label=chunk_label, result=result)
+        print(
+            f"{log_prefix} checkpoint-selection chunk={chunk_label} "
+            f"reason=final_checkpoint step={selected_checkpoint.step}",
+            flush=True,
+        )
+        return result
 
     if len(eligible) == 1:
         selected_checkpoint = eligible[0]
@@ -2503,7 +2544,8 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
                 },
             },
             "checkpointSelection": {
-                "enabled": True,
+                "enabled": str(args.checkpoint_selection_mode) == "eval",
+                "mode": args.checkpoint_selection_mode,
                 "gamesPerSide": args.checkpoint_selection_games_per_side,
                 "workers": (
                     args.checkpoint_selection_workers
