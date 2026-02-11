@@ -30,7 +30,7 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 
 ## Project Context
 
-- Browser app is playable; default bot is `TD Search Fast`.
+- Browser app is playable; default bot is `TD Search`.
 - Training loop is TD-focused and runs as `collect -> train -> promotion eval`.
 - Loop orchestration is staged: bootstrap/recalibration with `python -m scripts.run_td_loop`, then ongoing self-play with `python -m scripts.run_td_loop_selfplay`.
 - Current Python policy surface: `random`, `heuristic`, `search`, `td-value`, `td-search`.
