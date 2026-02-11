@@ -41,6 +41,7 @@ from scripts.td_loop_eval_common import (
 from scripts.td_loop_selfplay_eval import (
     _build_eval_command_vs_incumbent,
     _build_eval_command_vs_search,
+    _build_gate_command_vs_incumbent,
     _promotion_decision,
 )
 
@@ -306,13 +307,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--disable-chunk-gate",
         action="store_true",
-        help="Accept each trained chunk as the next data generator without a small incumbent eval.",
+        help="Accept each trained chunk as the next data generator without a sequential incumbent gate.",
     )
     parser.add_argument(
         "--chunk-gate-games-per-side",
+        "--chunk-gate-max-games-per-side",
         type=int,
-        default=20,
-        help="Small candidate-vs-current-generator eval before a chunk can generate future data.",
+        default=200,
+        help=(
+            "Maximum games per side for the resumable candidate-vs-current-generator "
+            "sequential gate."
+        ),
     )
     parser.add_argument(
         "--chunk-gate-workers",
@@ -327,6 +332,11 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=[40000],
     )
+    parser.add_argument("--chunk-gate-h0-win-rate", type=float, default=0.50)
+    parser.add_argument("--chunk-gate-h1-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-alpha", type=float, default=0.05)
+    parser.add_argument("--chunk-gate-beta", type=float, default=0.10)
+    parser.add_argument("--chunk-gate-batch-games-per-side", type=int, default=25)
     parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.52)
     parser.add_argument("--chunk-gate-max-side-gap", type=float, default=0.15)
     parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
@@ -1013,7 +1023,7 @@ def run_chunk_gate(
     commands: List[List[str]] = []
     for seed_start_index in args.chunk_gate_seed_start_indices:
         out_path = eval_dir / f"generator_gate.seed-{seed_start_index:06d}.json"
-        command = _build_eval_command_vs_incumbent(
+        command = _build_gate_command_vs_incumbent(
             python_bin=python_bin,
             args=args,
             checkpoint=candidate_checkpoint,
@@ -1022,10 +1032,21 @@ def run_chunk_gate(
             seed_prefix=args.chunk_gate_seed_prefix,
             seed_start_index=seed_start_index,
             workers=workers,
-            games_per_side=args.chunk_gate_games_per_side,
+            batch_games_per_side=args.chunk_gate_batch_games_per_side,
+            max_games_per_side=args.chunk_gate_games_per_side,
         )
         commands.append(command)
-        if force_eval or not out_path.exists():
+        gate_payload: Dict[str, Any] | None = None
+        if force_eval and out_path.exists():
+            out_path.unlink()
+        if out_path.exists():
+            gate_payload = read_json(out_path, label=f"chunk gate artifact {out_path.name}")
+            status = str(gate_payload.get("status", ""))
+            if status in ("accepted", "rejected", "completed"):
+                print(f"{log_prefix} existing chunk gate artifact found, skipping: {out_path}")
+            else:
+                gate_payload = None
+        if gate_payload is None:
             run_step(
                 name=f"chunk-gate[{chunk_label} seed={seed_start_index}]",
                 command=command,
@@ -1033,9 +1054,24 @@ def run_chunk_gate(
                 progress_path=progress_path,
                 log_prefix=log_prefix,
             )
-        else:
-            print(f"{log_prefix} existing chunk gate artifact found, skipping: {out_path}")
-        windows.append({"command": command, "row": read_eval_row(out_path, opponent_policy="td-search")})
+            gate_payload = read_json(out_path, label=f"chunk gate artifact {out_path.name}")
+
+        decision = gate_payload.get("decision")
+        progress = gate_payload.get("progress")
+        sprt = gate_payload.get("sprt")
+        if not isinstance(decision, dict):
+            raise SystemExit(f"Chunk gate artifact is missing decision payload: {out_path}")
+        windows.append(
+            {
+                "command": command,
+                "row": read_eval_row(out_path, opponent_policy="td-search"),
+                "status": str(gate_payload.get("status", "")),
+                "decision": str(decision.get("state", "")),
+                "decisionReason": str(decision.get("reason", "")),
+                "progress": dict(progress) if isinstance(progress, dict) else None,
+                "sprt": dict(sprt) if isinstance(sprt, dict) else None,
+            }
+        )
 
     rows = [window["row"] for window in windows]
     pooled = pool_eval_rows(eval_rows=rows, opponent_policy="td-search")
@@ -1049,7 +1085,31 @@ def run_chunk_gate(
             max_window_side_gap=args.chunk_gate_max_window_side_gap,
         ),
     )
-    accepted = bool(gate["passed"])
+    all_windows_accepted = all(window["decision"] == "accepted" for window in windows)
+    checks = dict(gate["checks"])
+    checks["allWindowsAccepted"] = all_windows_accepted
+    window_checks = [
+        {
+            **dict(window_check),
+            "status": str(window.get("status", "")),
+            "decision": str(window.get("decision", "")),
+            "decisionReason": str(window.get("decisionReason", "")),
+            "gamesPerSideCompleted": (
+                int(window["progress"]["gamesPerSideCompleted"])
+                if isinstance(window.get("progress"), dict)
+                and "gamesPerSideCompleted" in window["progress"]
+                else None
+            ),
+            "batchesCompleted": (
+                int(window["progress"]["batchesCompleted"])
+                if isinstance(window.get("progress"), dict)
+                and "batchesCompleted" in window["progress"]
+                else None
+            ),
+        }
+        for window_check, window in zip(gate["windowChecks"], windows, strict=False)
+    ]
+    accepted = bool(all_windows_accepted and gate["passed"])
     accepted_after = candidate_checkpoint if accepted else accepted_checkpoint
     reason = "chunk_gate_passed" if accepted else "chunk_gate_failed"
     print(
@@ -1068,8 +1128,8 @@ def run_chunk_gate(
         seed_start_indices=list(args.chunk_gate_seed_start_indices),
         windows=windows,
         pooled=pooled,
-        checks=dict(gate["checks"]),
-        window_checks=list(gate["windowChecks"]),
+        checks=checks,
+        window_checks=window_checks,
         commands=commands,
     )
 
@@ -1910,11 +1970,28 @@ def _chunk_gate_payload(gate_result: ChunkGateResult) -> Dict[str, Any]:
     }
     if gate_result.enabled and gate_result.pooled is not None:
         rows = [window["row"] for window in gate_result.windows]
-        payload["evaluation"] = build_eval_payload(
+        evaluation = build_eval_payload(
             gate_result.seed_start_indices,
             rows,
             gate_result.pooled,
         )
+        windows = evaluation["windows"]
+        for evaluation_window, gate_window in zip(windows, gate_result.windows, strict=False):
+            evaluation_window["status"] = gate_window.get("status")
+            evaluation_window["decision"] = gate_window.get("decision")
+            evaluation_window["decisionReason"] = gate_window.get("decisionReason")
+            progress = gate_window.get("progress")
+            if isinstance(progress, dict):
+                evaluation_window["gamesPerSideCompleted"] = progress.get("gamesPerSideCompleted")
+                evaluation_window["batchesCompleted"] = progress.get("batchesCompleted")
+            sprt = gate_window.get("sprt")
+            if isinstance(sprt, dict):
+                evaluation_window["sprt"] = {
+                    "logLikelihoodRatio": sprt.get("logLikelihoodRatio"),
+                    "acceptBoundary": sprt.get("acceptBoundary"),
+                    "rejectBoundary": sprt.get("rejectBoundary"),
+                }
+        payload["evaluation"] = evaluation
         payload["checks"] = gate_result.checks
         payload["windowChecks"] = gate_result.window_checks
     return payload
@@ -1999,10 +2076,24 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             },
             "chunkGate": {
                 "enabled": not bool(args.disable_chunk_gate),
-                "gamesPerSide": args.chunk_gate_games_per_side,
                 "workers": args.chunk_gate_workers or args.eval_workers,
                 "seedPrefix": args.chunk_gate_seed_prefix,
                 "seedStartIndices": list(args.chunk_gate_seed_start_indices),
+                "sprt": {
+                    "h0WinRate": args.chunk_gate_h0_win_rate,
+                    "h1WinRate": args.chunk_gate_h1_win_rate,
+                    "alpha": args.chunk_gate_alpha,
+                    "beta": args.chunk_gate_beta,
+                    "batchGamesPerSide": args.chunk_gate_batch_games_per_side,
+                    "maxGamesPerSide": args.chunk_gate_games_per_side,
+                    "maxSideGap": args.chunk_gate_max_side_gap,
+                },
+                "postChecks": {
+                    "minWinRate": args.chunk_gate_min_win_rate,
+                    "maxSideGap": args.chunk_gate_max_side_gap,
+                    "minCiLow": args.chunk_gate_min_ci_low,
+                    "maxWindowSideGap": args.chunk_gate_max_window_side_gap,
+                },
             },
             "checkpointSelection": {
                 "enabled": True,
@@ -2143,6 +2234,24 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--chunk-gate-seed-start-indices must contain at least one value.")
     if any(seed < 0 for seed in args.chunk_gate_seed_start_indices):
         raise SystemExit("--chunk-gate-seed-start-indices must be >= 0.")
+    if args.chunk_gate_h0_win_rate < 0.0 or args.chunk_gate_h0_win_rate > 1.0:
+        raise SystemExit("--chunk-gate-h0-win-rate must be in [0, 1].")
+    if args.chunk_gate_h1_win_rate < 0.0 or args.chunk_gate_h1_win_rate > 1.0:
+        raise SystemExit("--chunk-gate-h1-win-rate must be in [0, 1].")
+    if args.chunk_gate_h0_win_rate >= args.chunk_gate_h1_win_rate:
+        raise SystemExit(
+            "--chunk-gate-h0-win-rate must be strictly less than --chunk-gate-h1-win-rate."
+        )
+    if args.chunk_gate_alpha <= 0.0 or args.chunk_gate_alpha >= 1.0:
+        raise SystemExit("--chunk-gate-alpha must be in (0, 1).")
+    if args.chunk_gate_beta <= 0.0 or args.chunk_gate_beta >= 1.0:
+        raise SystemExit("--chunk-gate-beta must be in (0, 1).")
+    if args.chunk_gate_batch_games_per_side <= 0:
+        raise SystemExit("--chunk-gate-batch-games-per-side must be > 0.")
+    if args.chunk_gate_batch_games_per_side > args.chunk_gate_games_per_side:
+        raise SystemExit(
+            "--chunk-gate-batch-games-per-side must be <= --chunk-gate-games-per-side."
+        )
     if args.checkpoint_selection_games_per_side <= 0:
         raise SystemExit("--checkpoint-selection-games-per-side must be > 0.")
     if args.checkpoint_selection_workers is not None and args.checkpoint_selection_workers <= 0:
