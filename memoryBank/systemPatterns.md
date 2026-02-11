@@ -81,10 +81,10 @@ Design expectations:
 - Search is treated as warm-start infrastructure, not final architecture.
 - TD training architecture is staged around shared primitives in `trainer/td`, replay collection, checkpointed training, and promotion-gated evaluation.
 - Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation, checkpointed training, and pooled side-swapped certify windows before promotion.
-- Forward self-play loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection toward mixed td-search-heavy opponents and incumbent head-to-head checks.
+- Forward self-play loop (`scripts.run_td_loop_selfplay`) keeps strict gating while shifting collection toward mixed td-search-heavy opponents and incumbent head-to-head checks.
 - Self-play generation is accepted-checkpoint gated:
   - after each chunk trains, saved checkpoints are first compared against the current accepted generator with a cheap td-search eval;
-  - the selected checkpoint, not automatically the final training step, runs the small td-search vs current accepted-generator gate;
+  - the selected checkpoint, not automatically the final training step, runs a resumable sequential td-search vs current accepted-generator gate;
   - only passing selected candidates become the generator for subsequent collect/train chunks;
   - rejected candidates stay in artifacts as trained candidates but are not used for future self-play data;
   - final promotion eval still runs separately against the fixed search baseline and manifest incumbent.
@@ -106,7 +106,7 @@ Design expectations:
   - Windows laptop runs use PowerShell launchers that set temp/cache dirs, CPU thread caps, and explicit worker counts.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
   - loop default: `--mode certify` for fixed-size side-swapped promotion evals
-  - `--mode gate` remains optional/manual, not part of default loop orchestration
+  - self-play chunk gating now uses `--mode gate` for resumable sequential incumbent tests
 - Python policy surface is intentionally narrow during TD pivot:
   - `random`
   - `heuristic`
