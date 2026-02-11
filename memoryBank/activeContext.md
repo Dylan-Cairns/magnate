@@ -19,6 +19,7 @@
 - Browser app is playable; default bot is `TD Search Fast`.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
+- The failed 2026-04-21 cache rollout was reverted with git revert commits; td-search rollouts are back on the stateful bridge simulation path.
 - `scripts.run_td_loop` is the bootstrap or recalibration path; `scripts.run_td_loop_selfplay` is the primary forward loop.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
 
@@ -33,8 +34,9 @@
 ## Immediate Next Steps
 
 1. Continue overnight self-play loop iterations with promoted warm starts and the `12`-chunk cadence.
-2. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
-3. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
-4. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
+2. Before another full resume, run a short collect smoke/benchmark to confirm chunk-008 throughput is back near the pre-cache baseline.
+3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
+4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
+5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
-_Updated: 2026-04-20._
+_Updated: 2026-04-21._
