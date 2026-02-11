@@ -37,16 +37,19 @@
   - `trainedLatestCheckpoint` is the final checkpoint emitted by training;
   - `checkpointSelection` records the cheap eval used to choose among saved training checkpoints;
   - `candidateCheckpoint` is the selected checkpoint sent to the generator gate;
-  - `latestCheckpoint` / `acceptedCheckpoint` is the checkpoint allowed to generate the next chunk;
+  - `learnerCheckpointBefore` / `learnerCheckpointAfter` records the checkpoint used to warm-start subsequent training;
+  - `generatorCheckpointBefore` / `generatorCheckpointAfter` records the checkpoint allowed to generate collection data and remain promotion-eligible;
+  - `latestCheckpoint` remains a compatibility alias for the post-gate generator checkpoint in loop artifacts;
   - the selected checkpoint now runs a resumable td-search vs td-search sequential gate against the current accepted generator before the next collect stage.
 - Self-play resume is strict for the current artifact schema; completed chunks missing `chunk.summary.json`, `checkpointSelection`, `replayWindow`, or `replayForTraining` fail instead of being inferred from legacy artifacts.
 - Self-play training writes `train/replay_window/window.summary.json` per chunk:
-  - default window size is `3`, enabling a small accepted replay window without wrapper overrides;
-  - `--train-replay-window-chunks N` trains on the current chunk plus the last `N-1` accepted chunks;
+  - default window size is `3`, enabling a small replay window without wrapper overrides;
+  - `--train-replay-window-source accepted` trains on the current chunk plus the last `N-1` accepted chunks;
+  - `--train-replay-window-source recent` trains on the current chunk plus the last `N-1` trained chunks, even if generator gates failed;
   - replay-window summaries now reference the ordered chunk replay files directly instead of materializing duplicated `window.value.jsonl` / `window.opponent.jsonl` copies;
   - value target mode defaults to `td-lambda` with `--train-td-lambda 0.7`;
   - value replay line caps are rejected under `td-lambda` because raw line caps can split full episode trajectories;
-  - rejected chunks are not added to future replay history unless the gate is disabled.
+  - rejected chunks are not added to future accepted replay history, but can participate in the recent learner replay history.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
 
 ## Remaining
@@ -60,9 +63,9 @@
 ## Immediate Next Steps
 
 1. Before the next long self-play run, confirm `models/td_checkpoints/manifest.json` and the referenced checkpoint files are present and committed on the machine that will run training.
-2. Continue self-play loop iterations with promoted manifest warm starts, td-lambda value targets, checkpoint selection, per-chunk generator gates, accepted replay windows, and the current final promotion cadence.
+2. Continue self-play loop iterations with promoted manifest warm starts, td-lambda value targets, checkpoint selection, explicit learner/generator checkpoint tracking, per-chunk generator gates, configurable replay windows, and the current final promotion cadence.
 3. Track checkpoint-selection winners, sequential chunk-gate accept/reject or inconclusive outcomes, final dual-gate outcomes, and side-gap stability.
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
-_Updated: 2026-04-23._
+_Updated: 2026-05-13._

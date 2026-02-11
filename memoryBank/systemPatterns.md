@@ -85,16 +85,19 @@ Design expectations:
 - Self-play generation is accepted-checkpoint gated:
   - after each chunk trains, saved checkpoints are first compared against the current accepted generator with a cheap td-search eval;
   - the selected checkpoint, not automatically the final training step, runs a resumable sequential td-search vs current accepted-generator gate;
-  - only passing selected candidates become the generator for subsequent collect/train chunks;
+  - selected candidates now advance the learner checkpoint for subsequent training warm starts;
+  - only passing selected candidates become the generator for subsequent collection and promotion eligibility;
   - rejected candidates stay in artifacts as trained candidates but are not used for future self-play data;
   - final promotion eval still runs separately against the fixed search baseline and manifest incumbent.
-- Self-play training uses an accepted replay-window artifact:
-  - each chunk records an ordered replay-window manifest under `train/replay_window/window.summary.json` that references the current collect replay plus up to `N-1` prior accepted chunks;
-  - default `N=3` enables a small accepted replay window for normal self-play runs;
+- Self-play training uses a configurable replay-window artifact:
+  - each chunk records an ordered replay-window manifest under `train/replay_window/window.summary.json` that references the current collect replay plus up to `N-1` prior chunks from the selected source;
+  - `--train-replay-window-source accepted` uses prior gate-passing chunks for compatibility;
+  - `--train-replay-window-source recent` uses prior trained chunks even when generator gates failed, allowing cumulative learner updates while keeping generator promotion conservative;
+  - default `N=3` enables a small replay window for normal self-play runs;
   - `scripts.train_td` now accepts ordered replay-file lists directly, so replay windows do not duplicate chunk replay data on disk;
   - value training defaults to sequence-aware `td-lambda` targets with `lambda=0.7`;
   - replay-window value line caps are fail-fast under `td-lambda` because raw line caps can split complete trajectories;
-  - rejected chunks can train their own candidate, but are not eligible for future replay windows.
+  - rejected chunks are not eligible for accepted-source replay windows, but can be included by the recent-source learner window.
 - Per-chunk durability lives in `chunks/chunk-XXX/chunk.summary.json`; resume requires the current chunk-summary schema, including checkpoint-selection metadata, for completed chunks and only treats the final collect+train chunk without that summary as a pending generator gate.
 - Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
 - TD checkpoint registry is source-controlled:

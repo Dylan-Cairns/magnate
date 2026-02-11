@@ -237,16 +237,43 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
 
         self.assertIn("raw line caps can split episode trajectories", str(raised.exception))
 
-    def test_run_selfplay_chunk_records_commands_and_latest_checkpoint(self) -> None:
+    def test_validate_args_accepts_recent_replay_window_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             value_path, opponent_path = self._make_checkpoints(root)
-            next_value, next_opponent = self._make_checkpoints(root / "next")
             args = self._base_args(root, value_path=value_path, opponent_path=opponent_path)
-            latest_checkpoint = LoopCheckpoint(
+            args.train_replay_window_source = "recent"
+
+            _validate_args(args)
+
+    def test_validate_args_rejects_unimplemented_block_generator_updates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value_path, opponent_path = self._make_checkpoints(root)
+            args = self._base_args(root, value_path=value_path, opponent_path=opponent_path)
+            args.generator_update_chunks = 3
+
+            with self.assertRaises(SystemExit) as raised:
+                _validate_args(args)
+
+        self.assertIn("requires block-level generator gating", str(raised.exception))
+
+    def test_run_selfplay_chunk_records_commands_and_learner_checkpoint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            learner_value, learner_opponent = self._make_checkpoints(root / "learner")
+            generator_value, generator_opponent = self._make_checkpoints(root / "generator")
+            next_value, next_opponent = self._make_checkpoints(root / "next")
+            args = self._base_args(root, value_path=learner_value, opponent_path=learner_opponent)
+            learner_checkpoint = LoopCheckpoint(
                 step=0,
-                value_path=value_path,
-                opponent_path=opponent_path,
+                value_path=learner_value,
+                opponent_path=learner_opponent,
+            )
+            generator_checkpoint = LoopCheckpoint(
+                step=500,
+                value_path=generator_value,
+                opponent_path=generator_opponent,
             )
             next_checkpoint = LoopCheckpoint(
                 step=1000,
@@ -256,8 +283,8 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             candidate = PoolCheckpoint(
                 run_id="candidate",
                 generated_at_utc="2026-01-01T00:00:00+00:00",
-                value_path=value_path,
-                opponent_path=opponent_path,
+                value_path=generator_value,
+                opponent_path=generator_opponent,
             )
             def _mock_read_json(path: Path, *, label: str):
                 if path.name == "self_play.summary.json":
@@ -267,7 +294,7 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             with patch("scripts.run_td_loop_selfplay.load_promoted_checkpoints", return_value=[]), patch(
                 "scripts.run_td_loop_selfplay._build_collect_profiles",
                 return_value=[candidate],
-            ), patch(
+            ) as mocked_build_profiles, patch(
                 "scripts.run_td_loop_selfplay._run_collect_profiles",
                 side_effect=self._write_mock_collect_outputs,
             ) as mocked_collect, patch(
@@ -291,8 +318,10 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
                     run_id="run-123",
                     chunk_index=1,
                     chunks_dir=root / "artifacts" / "run-123" / "chunks",
-                    latest_checkpoint=latest_checkpoint,
+                    learner_checkpoint=learner_checkpoint,
+                    generator_checkpoint=generator_checkpoint,
                     accepted_replay_chunks=[],
+                    training_replay_chunks=[],
                     progress_path=root / "artifacts" / "run-123" / "progress.json",
                 )
 
@@ -303,9 +332,17 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertEqual(result.chunk_row["latestCheckpoint"]["step"], 1000)
         self.assertEqual(result.chunk_row["latestCheckpoint"]["value"], str(next_value))
         self.assertEqual(result.chunk_row["latestCheckpoint"]["opponent"], str(next_opponent))
+        self.assertEqual(result.chunk_row["learnerCheckpointBefore"]["value"], str(learner_value))
+        self.assertEqual(result.chunk_row["learnerCheckpointAfter"]["value"], str(next_value))
+        self.assertEqual(result.chunk_row["generatorCheckpointBefore"]["value"], str(generator_value))
+        profiles_kwargs = mocked_build_profiles.call_args.kwargs
+        self.assertEqual(profiles_kwargs["candidate"].value_path, generator_value)
+        self.assertEqual(profiles_kwargs["candidate"].opponent_path, generator_opponent)
         collect_kwargs = mocked_collect.call_args.kwargs
         self.assertEqual(collect_kwargs["run_id"], "run-123-chunk-001")
         train_kwargs = mocked_train_command.call_args.kwargs
+        self.assertEqual(train_kwargs["warm_start_value"], learner_value)
+        self.assertEqual(train_kwargs["warm_start_opponent"], learner_opponent)
         self.assertEqual(len(train_kwargs["value_replays"]), 1)
         self.assertEqual(len(train_kwargs["opponent_replays"]), 1)
         self.assertTrue(str(train_kwargs["value_replays"][0]).endswith("chunk-001\\replay\\self_play.value.jsonl"))
@@ -341,6 +378,40 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
                 ["self_play.value.jsonl", "self_play.value.jsonl"],
             )
             self.assertTrue(result.summary_path.exists())
+
+    def test_build_replay_window_uses_recent_training_chunks_when_configured(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value_path, opponent_path = self._make_checkpoints(root / "warm")
+            args = self._base_args(root, value_path=value_path, opponent_path=opponent_path)
+            args.train_replay_window_source = "recent"
+            args.train_replay_window_chunks = 3
+            previous_accepted = self._write_replay_chunk(
+                root, "chunk-001", value_lines=["accepted\n"]
+            )
+            previous_training_one = self._write_replay_chunk(
+                root, "chunk-002", value_lines=["recent-1\n"]
+            )
+            previous_training_two = self._write_replay_chunk(
+                root, "chunk-003", value_lines=["recent-2\n"]
+            )
+            current = self._write_replay_chunk(root, "chunk-004", value_lines=["new\n"])
+
+            result = build_replay_window(
+                args=args,
+                chunk_label="chunk-004",
+                train_dir=root / "chunk-004" / "train",
+                accepted_replay_chunks=[previous_accepted],
+                training_replay_chunks=[previous_training_one, previous_training_two],
+                current_replay=current,
+            )
+
+        self.assertEqual(
+            [chunk.label for chunk in result.chunks],
+            ["chunk-002", "chunk-003", "chunk-004"],
+        )
+        self.assertEqual(result.source, "recent")
+        self.assertEqual(result.value_lines, 3)
 
     def test_run_promotion_stage_records_commands_and_pools_results(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -791,10 +862,14 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             payload = json.loads(context.loop_summary_path.read_text(encoding="utf-8"))
 
         self.assertEqual(result, 0)
-        self.assertEqual(mocked_chunk.call_args_list[0].kwargs["latest_checkpoint"], initial)
-        self.assertEqual(mocked_chunk.call_args_list[1].kwargs["latest_checkpoint"], initial)
+        self.assertEqual(mocked_chunk.call_args_list[0].kwargs["learner_checkpoint"], initial)
+        self.assertEqual(mocked_chunk.call_args_list[0].kwargs["generator_checkpoint"], initial)
+        self.assertEqual(mocked_chunk.call_args_list[1].kwargs["learner_checkpoint"], rejected)
+        self.assertEqual(mocked_chunk.call_args_list[1].kwargs["generator_checkpoint"], initial)
         self.assertEqual(mocked_promotion.call_args.kwargs["latest_checkpoint"], accepted)
         self.assertFalse(payload["chunks"][0]["generatorGate"]["accepted"])
+        self.assertEqual(payload["chunks"][0]["learnerCheckpointAfter"]["value"], str(rejected_value))
+        self.assertEqual(payload["chunks"][0]["generatorCheckpointAfter"]["value"], str(warm_value))
         self.assertEqual(payload["chunks"][0]["latestCheckpoint"]["value"], str(warm_value))
         self.assertTrue(payload["chunks"][1]["generatorGate"]["accepted"])
 
