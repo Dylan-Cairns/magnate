@@ -10,8 +10,8 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - Python training and evaluation call the engine through the Node bridge.
 - Training progression is bootstrap or recalibration with `scripts.run_td_loop`, then self-play-focused iteration with `scripts.run_td_loop_selfplay`.
 - TD promoted checkpoints use `models/td_checkpoints/manifest.json` as the checked-in warm-start and opponent-pool registry.
-- Self-play chooses among saved training checkpoints with a cheap incumbent eval before the chunk gate; the final training step is not assumed best.
-- Self-play chunks are gated with a resumable sequential incumbent test before they become future data generators; rejected or inconclusive candidates stay in artifacts but do not drive subsequent collection.
+- Self-play chooses among saved training checkpoints with a cheap incumbent eval before each chunk contributes a learner candidate; the final training step is not assumed best.
+- Self-play generator updates are gated at configurable block boundaries (`--generator-update-chunks`); the best candidate from the block must pass a resumable sequential incumbent test before it can drive future collection.
 - Self-play training uses a small replay window by default (`--train-replay-window-chunks 3`), tracked as referenced chunk replays rather than duplicated merged window files. The window source can be `accepted` for gate-passing chunks or `recent` for cumulative learner training across failed generator gates.
 - TD value training defaults to sequence-aware `td-lambda` targets (`--train-value-target-mode td-lambda`).
 
