@@ -60,7 +60,7 @@
   - `opponentPool`: ordered promoted checkpoint keys used by self-play pool sampling.
   - `checkpoints.<key>.value` and `.opponent`: repo-relative paths to checkpoint files that should be committed when the manifest changes.
 - Ignored `artifacts/td_loops/*/loop.summary.json` files remain a fallback for historical local runs, but they are not the portable source of truth.
-- Successful promotions in `scripts.run_td_loop`, `scripts.run_td_loop_selfplay`, and their resume helpers copy the latest value/opponent pair into `models/td_checkpoints/<key>/` and update the manifest unless `--disable-manifest-promotion` is set.
+- Successful promotions in `scripts.run_td_loop`, `scripts.run_td_loop_selfplay`, and their resume helpers copy the accepted value/opponent pair into `models/td_checkpoints/<key>/` and update the manifest unless `--disable-manifest-promotion` is set.
 - Manual registration path:
   `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --key <key> --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --source-run-id <run-id> --source-chunk <chunk> --step <step> --set-default --add-to-opponent-pool`
 
@@ -184,11 +184,14 @@ With `.venv` active:
 - `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
   TD training primitive over replay files.
 - `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5`
-  Bootstrap or recalibration loop. Supports `--collect-workers`, `--eval-workers`, `--eval-seed-start-indices`, `--train-value-target-mode td-lambda`, and cloud presets via `--cloud --cloud-vcpus 8|16|32`.
+  Bootstrap or recalibration loop. Supports `--collect-workers`, `--eval-workers`, `--eval-seed-start-indices`, explicit `--train-value-target-mode td0|td-lambda`, and cloud presets via `--cloud --cloud-vcpus 8|16|32`.
 - `python -m scripts.run_td_loop_selfplay --cloud --cloud-vcpus 16 --run-label td-loop-selfplay-r1 --chunks-per-loop 12 --collect-games 600 --train-steps 10000 --eval-games-per-side 200 --incumbent-eval-games-per-side 200 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
-  Primary post-bootstrap self-play loop. Uses mixed td-search-heavy collection, promoted opponent-pool sampling, and dual promotion gates versus fixed `search` plus incumbent `td-search`.
+  Primary post-bootstrap self-play loop. Uses mixed td-search-heavy collection, promoted opponent-pool sampling, per-chunk accepted-generator gates, and final dual promotion gates versus fixed `search` plus incumbent `td-search`.
+  After training, saved checkpoints are cheaply evaluated against the current accepted generator (`--checkpoint-selection-games-per-side 4` by default); the selected checkpoint is sent to the chunk gate instead of blindly using the final training step.
+  The chunk gate defaults to a small td-search vs current accepted-generator eval (`--chunk-gate-games-per-side 20`, `--chunk-gate-min-win-rate 0.52`). Passing candidates become the generator for the next chunk; rejected candidates remain as artifacts but do not generate more self-play.
+  Training defaults to `--train-value-target-mode td-lambda --train-td-lambda 0.7` and `--train-replay-window-chunks 3`, merging the current chunk with recent accepted chunks under `train/replay_window/` before each train step. Set `--train-replay-window-chunks 5` for a wider window. `--train-replay-window-max-value-lines` is rejected under `td-lambda` because raw line caps can split full player trajectories; `--train-replay-window-max-opponent-lines` can still cap opponent samples.
 - `python -m scripts.resume_td_loop_selfplay --run-id <interrupted-selfplay-run-id>`
-  Resume an interrupted self-play loop from the latest fully completed chunk, rerun the next partial chunk from scratch, then finish the remaining chunks plus dual promotion evals.
+  Resume an interrupted self-play loop from the latest fully accepted chunk, run any pending checkpoint selection and chunk generator gate, reconstruct accepted replay-window history, rerun the next partial chunk from scratch, then finish the remaining chunks plus dual promotion evals. Resume is fail-fast for current self-play artifacts: completed chunks require `chunk.summary.json` with checkpoint-selection, gate, checkpoint, replay-window, and replay-training fields; legacy summaries are not inferred.
 - `python -m scripts.resume_td_loop_run`
   Legacy bootstrap recovery helper for the interrupted chunk-003 training and promotion path.
 - `python -m scripts.promote_td_checkpoint --key <key> --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --source-run-id <run-id> --set-default --add-to-opponent-pool`
@@ -215,4 +218,4 @@ Use `--help` on each script for the full option surface.
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
 
-_Updated: 2026-04-22._
+_Updated: 2026-04-23._

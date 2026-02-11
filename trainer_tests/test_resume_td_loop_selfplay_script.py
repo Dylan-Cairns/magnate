@@ -21,6 +21,12 @@ from scripts.td_loop_eval_common import EvalRow
 
 
 class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
+    def _write_mock_collect_outputs(self, **kwargs):
+        Path(kwargs["collect_value_path"]).write_text('{"v": 1}\n', encoding="utf-8")
+        Path(kwargs["collect_opponent_path"]).write_text('{"o": 1}\n', encoding="utf-8")
+        Path(kwargs["collect_summary_path"]).write_text("{}", encoding="utf-8")
+        return [{"profile": "selfplay"}]
+
     def _row(
         self,
         *,
@@ -76,6 +82,21 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                     value_path=warm_value,
                     opponent_path=warm_opponent,
                 ),
+                chunk_summary=chunks_dir / "chunk-001" / "chunk.summary.json",
+                candidate_checkpoint=LoopCheckpoint(
+                    step=1000,
+                    value_path=warm_value,
+                    opponent_path=warm_opponent,
+                ),
+                chunk_row={
+                    "chunk": "chunk-001",
+                    "generatorGate": {"accepted": True},
+                    "latestCheckpoint": {
+                        "step": 1000,
+                        "value": str(warm_value),
+                        "opponent": str(warm_opponent),
+                    },
+                },
             )
             state = ResumeState(
                 run_id="run-123",
@@ -105,6 +126,12 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 collect_games_per_chunk=600,
                 collect_workers=2,
                 train_config={},
+                train_replay_window_config={
+                    "source": "accepted",
+                    "chunks": 3,
+                    "maxValueLines": 0,
+                    "maxOpponentLines": 0,
+                },
                 partial_chunk_label="chunk-002",
                 highest_existing_chunk_index=2,
             )
@@ -114,6 +141,11 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 progress_heartbeat_minutes=0.0,
                 eval_seed_start_indices=[0],
                 incumbent_eval_seed_start_indices=[100],
+                disable_chunk_gate=True,
+                train_replay_window_chunks=1,
+                train_replay_window_source="accepted",
+                train_replay_window_max_value_lines=0,
+                train_replay_window_max_opponent_lines=0,
             )
             baseline_row = self._row(
                 artifact_name="baseline.json",
@@ -169,7 +201,7 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 return_value=["selfplay-profile"],
             ), patch(
                 "scripts.resume_td_loop_selfplay._run_collect_profiles",
-                return_value=[{"profile": "selfplay"}],
+                side_effect=self._write_mock_collect_outputs,
             ) as mocked_collect, patch(
                 "scripts.resume_td_loop_selfplay.build_train_command",
                 return_value=["python", "-m", "scripts.train_td"],
@@ -240,6 +272,21 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                     value_path=warm_value,
                     opponent_path=warm_opponent,
                 ),
+                chunk_summary=chunks_dir / "chunk-001" / "chunk.summary.json",
+                candidate_checkpoint=LoopCheckpoint(
+                    step=1000,
+                    value_path=warm_value,
+                    opponent_path=warm_opponent,
+                ),
+                chunk_row={
+                    "chunk": "chunk-001",
+                    "generatorGate": {"accepted": True},
+                    "latestCheckpoint": {
+                        "step": 1000,
+                        "value": str(warm_value),
+                        "opponent": str(warm_opponent),
+                    },
+                },
             )
             state = ResumeState(
                 run_id="run-123",
@@ -260,6 +307,12 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 collect_games_per_chunk=600,
                 collect_workers=2,
                 train_config={},
+                train_replay_window_config={
+                    "source": "accepted",
+                    "chunks": 3,
+                    "maxValueLines": 0,
+                    "maxOpponentLines": 0,
+                },
                 partial_chunk_label=None,
                 highest_existing_chunk_index=1,
             )
@@ -269,6 +322,11 @@ class ResumeTdLoopSelfplayScriptTests(unittest.TestCase):
                 progress_heartbeat_minutes=0.0,
                 eval_seed_start_indices=[0],
                 incumbent_eval_seed_start_indices=[100],
+                disable_chunk_gate=True,
+                train_replay_window_chunks=1,
+                train_replay_window_source="accepted",
+                train_replay_window_max_value_lines=0,
+                train_replay_window_max_opponent_lines=0,
             )
             baseline_row = self._row(
                 artifact_name="baseline.json",

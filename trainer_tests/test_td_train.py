@@ -6,6 +6,8 @@ from typing import cast
 import torch
 from trainer.td.models import OpponentModel, ValueNet
 from trainer.td.train import (
+    TD_VALUE_TARGET_MODE,
+    TD_VALUE_TARGET_MODE_TD0,
     TD_VALUE_TARGET_MODE_TD_LAMBDA,
     OpponentTrainConfig,
     TDOpponentTrainer,
@@ -72,6 +74,10 @@ def _sample_opponent_samples() -> list[OpponentSample]:
 
 
 class TDTrainTests(unittest.TestCase):
+    def test_td_train_config_defaults_to_td_lambda(self) -> None:
+        self.assertEqual(TD_VALUE_TARGET_MODE, TD_VALUE_TARGET_MODE_TD_LAMBDA)
+        self.assertEqual(TDTrainConfig().value_target_mode, TD_VALUE_TARGET_MODE_TD_LAMBDA)
+
     def test_train_value_batch_uses_one_step_td_zero_target(self) -> None:
         model = _ConstantValueModel(value=0.0)
         target_model = _ConstantValueModel(value=2.0)
@@ -140,7 +146,10 @@ class TDTrainTests(unittest.TestCase):
             model=model,
             target_model=target_model,
             optimizer=optimizer,
-            config=TDTrainConfig(target_sync_interval=2),
+            config=TDTrainConfig(
+                target_sync_interval=2,
+                value_target_mode=TD_VALUE_TARGET_MODE_TD0,
+            ),
         )
 
         summary1 = trainer.train_batch(transitions=_sample_transitions())

@@ -12,9 +12,9 @@ from .models import OpponentModel, ValueNet
 from .targets import td_lambda_targets
 from .types import OpponentSample, ValueTransition
 
-TD_VALUE_TARGET_MODE = "td0"
 TD_VALUE_TARGET_MODE_TD0 = "td0"
 TD_VALUE_TARGET_MODE_TD_LAMBDA = "td-lambda"
+TD_VALUE_TARGET_MODE = TD_VALUE_TARGET_MODE_TD_LAMBDA
 TD_VALUE_TARGET_MODES = frozenset((TD_VALUE_TARGET_MODE_TD0, TD_VALUE_TARGET_MODE_TD_LAMBDA))
 
 SequenceKey = Tuple[str, PlayerId]
@@ -28,7 +28,7 @@ class TDTrainConfig:
     max_grad_norm: float = 1.0
     target_sync_interval: int = 200
     use_huber_loss: bool = True
-    value_target_mode: str = TD_VALUE_TARGET_MODE_TD0
+    value_target_mode: str = TD_VALUE_TARGET_MODE
     td_lambda: float = 0.7
 
 

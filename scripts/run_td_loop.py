@@ -172,7 +172,7 @@ def parse_args() -> argparse.Namespace:
         "--train-value-target-mode",
         type=str,
         choices=("td0", "td-lambda"),
-        default="td0",
+        default="td-lambda",
     )
     parser.add_argument("--train-td-lambda", type=float, default=0.7)
     parser.add_argument("--train-use-mse-loss", action="store_true")
