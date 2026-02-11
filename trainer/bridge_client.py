@@ -7,23 +7,40 @@ import threading
 from collections import deque
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Iterable, List, Optional, TextIO
+from typing import Iterable, List, Optional, TextIO, cast
 from uuid import uuid4
 
-from .bridge_parsing import (
-    parse_bridge_metadata_result,
-    parse_legal_actions_result_payload,
-    parse_observation_result_payload,
-    parse_serialized_state_payload,
-    parse_state_result_payload,
-)
 from .bridge_payloads import (
+    ActionId,
     BridgeMetadataPayload,
     GameActionPayload,
+    GamePhase,
     PlayerId,
+    PlayerViewPayload,
     SerializedStatePayload,
 )
-from .types import LegalActionsResult, ObservationResult, StateResult
+from .types import KeyedAction, LegalActionsResult, ObservationResult, StateResult
+
+JsonMapping = Mapping[str, object]
+
+_PLAYER_IDS: tuple[PlayerId, ...] = ("PlayerA", "PlayerB")
+_GAME_PHASES: tuple[GamePhase, ...] = (
+    "StartTurn",
+    "TaxCheck",
+    "CollectIncome",
+    "ActionWindow",
+    "DrawCard",
+    "GameOver",
+)
+_ACTION_IDS: tuple[ActionId, ...] = (
+    "buy-deed",
+    "choose-income-suit",
+    "develop-deed",
+    "develop-outright",
+    "end-turn",
+    "sell-card",
+    "trade",
+)
 
 
 class BridgeError(RuntimeError):
@@ -207,7 +224,7 @@ class BridgeClient:
 
     def metadata(self) -> BridgeMetadataPayload:
         result = self._request("metadata")
-        return parse_bridge_metadata_result(result)
+        return _metadata_from_bridge(result)
 
     def reset(
         self,
@@ -226,11 +243,11 @@ class BridgeClient:
             payload["skipAdvanceToDecision"] = skip_advance_to_decision
 
         result = self._request("reset", payload)
-        return parse_state_result_payload(result)
+        return _state_result_from_bridge(result)
 
     def legal_actions(self) -> LegalActionsResult:
         result = self._request("legalActions", {})
-        return parse_legal_actions_result_payload(result)
+        return _legal_actions_result_from_bridge(result)
 
     def observation(
         self,
@@ -242,7 +259,7 @@ class BridgeClient:
             payload["viewerId"] = viewer_id
 
         result = self._request("observation", payload)
-        return parse_observation_result_payload(result)
+        return _observation_result_from_bridge(result)
 
     def step(
         self,
@@ -256,11 +273,129 @@ class BridgeClient:
             payload["action"] = action
 
         result = self._request("step", payload)
-        return parse_state_result_payload(result)
+        return _state_result_from_bridge(result)
 
     def serialize(self) -> SerializedStatePayload:
         result = self._request("serialize", {})
-        return parse_serialized_state_payload(result.get("state"), label="serialize.state")
+        return _serialized_state_from_bridge(result.get("state"), label="serialize.state")
+
+
+def _metadata_from_bridge(result: JsonMapping) -> BridgeMetadataPayload:
+    contract_name = result.get("contractName")
+    if contract_name != "magnate_bridge":
+        raise RuntimeError(
+            f"metadata.contractName must be 'magnate_bridge', got {contract_name!r}."
+        )
+    contract_version = result.get("contractVersion")
+    if contract_version != "v1":
+        raise RuntimeError(f"metadata.contractVersion must be 'v1', got {contract_version!r}.")
+    return cast(BridgeMetadataPayload, result)
+
+
+def _state_result_from_bridge(result: JsonMapping) -> StateResult:
+    return StateResult(
+        state=_serialized_state_from_bridge(result.get("state"), label="stateResult.state"),
+        view=_player_view_from_bridge(result.get("view"), label="stateResult.view"),
+        terminal=_require_bool(result.get("terminal"), "stateResult.terminal"),
+    )
+
+
+def _legal_actions_result_from_bridge(result: JsonMapping) -> LegalActionsResult:
+    raw_actions = result.get("actions")
+    if not isinstance(raw_actions, list):
+        raise RuntimeError(
+            f"legalActions.actions must be a list, got {type(raw_actions).__name__}."
+        )
+
+    actions: list[KeyedAction] = []
+    for index, entry in enumerate(raw_actions):
+        mapping = _require_mapping(entry, f"legalActions.actions[{index}]")
+        action = _require_mapping(mapping.get("action"), f"legalActions.actions[{index}].action")
+        actions.append(
+            KeyedAction(
+                action_id=_require_action_id(
+                    mapping.get("actionId"),
+                    f"legalActions.actions[{index}].actionId",
+                ),
+                action_key=_require_str(
+                    mapping.get("actionKey"),
+                    f"legalActions.actions[{index}].actionKey",
+                ),
+                action=cast(GameActionPayload, action),
+            )
+        )
+
+    return LegalActionsResult(
+        actions=actions,
+        active_player_id=_require_player_id(
+            result.get("activePlayerId"),
+            "legalActions.activePlayerId",
+        ),
+        phase=_require_phase(result.get("phase"), "legalActions.phase"),
+    )
+
+
+def _observation_result_from_bridge(result: JsonMapping) -> ObservationResult:
+    legal_action_mask: list[str] | None = None
+    raw_mask = result.get("legalActionMask")
+    if raw_mask is not None:
+        if not isinstance(raw_mask, list):
+            raise RuntimeError(
+                f"observation.legalActionMask must be a list, got {type(raw_mask).__name__}."
+            )
+        legal_action_mask = [
+            _require_str(entry, f"observation.legalActionMask[{index}]")
+            for index, entry in enumerate(raw_mask)
+        ]
+
+    return ObservationResult(
+        view=_player_view_from_bridge(result.get("view"), label="observation.view"),
+        legal_action_mask=legal_action_mask,
+    )
+
+
+def _serialized_state_from_bridge(value: object, *, label: str) -> SerializedStatePayload:
+    return cast(SerializedStatePayload, _require_mapping(value, label))
+
+
+def _player_view_from_bridge(value: object, *, label: str) -> PlayerViewPayload:
+    return cast(PlayerViewPayload, _require_mapping(value, label))
+
+
+def _require_mapping(value: object, label: str) -> JsonMapping:
+    if not isinstance(value, Mapping):
+        raise RuntimeError(f"{label} must be an object, got {type(value).__name__}.")
+    return value
+
+
+def _require_str(value: object, label: str) -> str:
+    if not isinstance(value, str):
+        raise RuntimeError(f"{label} must be a string, got {type(value).__name__}.")
+    return value
+
+
+def _require_bool(value: object, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise RuntimeError(f"{label} must be a boolean, got {type(value).__name__}.")
+    return value
+
+
+def _require_player_id(value: object, label: str) -> PlayerId:
+    if value not in _PLAYER_IDS:
+        raise RuntimeError(f"{label} must be PlayerA|PlayerB, got {value!r}.")
+    return cast(PlayerId, value)
+
+
+def _require_phase(value: object, label: str) -> GamePhase:
+    if value not in _GAME_PHASES:
+        raise RuntimeError(f"{label} must be a valid game phase, got {value!r}.")
+    return cast(GamePhase, value)
+
+
+def _require_action_id(value: object, label: str) -> ActionId:
+    if value not in _ACTION_IDS:
+        raise RuntimeError(f"{label} must be a valid action id, got {value!r}.")
+    return cast(ActionId, value)
 
 
 def _default_bridge_command(cwd: Path) -> List[str]:
