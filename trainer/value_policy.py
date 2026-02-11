@@ -27,19 +27,10 @@ from .types import KeyedAction, PlayerId
 class TDValuePolicyConfig:
     checkpoint_path: Path
     worlds: int = 8
-    transition_cache_limit: int = 0
-    legal_actions_cache_limit: int = 0
-    observation_cache_limit: int = 0
 
     def __post_init__(self) -> None:
         if self.worlds <= 0:
             raise ValueError("TDValuePolicyConfig.worlds must be > 0.")
-        if self.transition_cache_limit < 0:
-            raise ValueError("TDValuePolicyConfig.transition_cache_limit must be >= 0.")
-        if self.legal_actions_cache_limit < 0:
-            raise ValueError("TDValuePolicyConfig.legal_actions_cache_limit must be >= 0.")
-        if self.observation_cache_limit < 0:
-            raise ValueError("TDValuePolicyConfig.observation_cache_limit must be >= 0.")
 
 
 @dataclass
@@ -51,11 +42,7 @@ class TDValuePolicy(Policy):
         model, _payload = load_value_checkpoint(path=self.config.checkpoint_path)
         self._model: ValueNet = model
         self._model.eval()
-        self._forward_model = BridgeForwardModel(
-            transition_cache_limit=self.config.transition_cache_limit,
-            legal_actions_cache_limit=self.config.legal_actions_cache_limit,
-            observation_cache_limit=self.config.observation_cache_limit,
-        )
+        self._forward_model = BridgeForwardModel(step_cache_limit=0)
         self._last_root_policy: dict[str, float] | None = None
 
     def choose_action_key(
