@@ -52,6 +52,15 @@ import json
 import pathlib
 import sys
 
+from scripts.checkpoint_manifest import load_default_warm_start
+
+manifest_checkpoint = load_default_warm_start(require_paths=True)
+if manifest_checkpoint is not None and manifest_checkpoint.status == "promoted":
+    print(manifest_checkpoint.source_run_id)
+    print(manifest_checkpoint.value_path)
+    print(manifest_checkpoint.opponent_path)
+    sys.exit(0)
+
 root = pathlib.Path("artifacts/td_loops")
 if not root.exists():
     sys.exit(0)

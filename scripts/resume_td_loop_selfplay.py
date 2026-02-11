@@ -9,7 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from scripts.checkpoint_manifest import DEFAULT_MANIFEST_RELATIVE_PATH
 from scripts.opponent_pool import PoolCheckpoint
+from scripts.promote_td_checkpoint import promote_checkpoint_pair
 from scripts.run_td_loop_selfplay import (
     REPLAY_REGIME,
     CollectProfile,
@@ -192,6 +194,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Overwrite loop.summary.json if it already exists.",
     )
+    parser.add_argument("--promotion-manifest-path", type=Path, default=DEFAULT_MANIFEST_RELATIVE_PATH)
+    parser.add_argument(
+        "--promotion-checkpoint-root",
+        type=Path,
+        default=Path("models/td_checkpoints"),
+    )
+    parser.add_argument("--promotion-manifest-key", type=str, default=None)
+    parser.add_argument("--disable-manifest-promotion", action="store_true")
     return parser.parse_args()
 
 
@@ -354,6 +364,17 @@ def main() -> int:
         incumbent_windows=incumbent_rows,
         args=resolved_args,
     )
+    manifest_promotion = _register_manifest_promotion_if_passed(
+        args=resolved_args,
+        state=state,
+        latest_checkpoint=latest_checkpoint,
+        latest_chunk_label=chunk_rows[-1]["chunk"] if chunk_rows else None,
+        baseline_windows=baseline_windows,
+        incumbent_windows=incumbent_windows,
+        promotion=promotion,
+    )
+    if manifest_promotion is not None:
+        commands["manifestPromotion"] = manifest_promotion
 
     elapsed_minutes = (time.perf_counter() - started) / 60.0
     payload: Dict[str, Any] = {
@@ -409,6 +430,58 @@ def main() -> int:
         )
     )
     return 0
+
+
+def _register_manifest_promotion_if_passed(
+    *,
+    args: argparse.Namespace,
+    state: ResumeState,
+    latest_checkpoint: LoopCheckpoint,
+    latest_chunk_label: str | None,
+    baseline_windows: Sequence[Dict[str, Any]],
+    incumbent_windows: Sequence[Dict[str, Any]],
+    promotion: Dict[str, Any],
+) -> Dict[str, Any] | None:
+    if not bool(promotion.get("promoted")):
+        return None
+    if bool(getattr(args, "disable_manifest_promotion", True)):
+        return None
+    if latest_checkpoint.value_path is None or latest_checkpoint.opponent_path is None:
+        return None
+
+    manifest_path = getattr(args, "promotion_manifest_path", DEFAULT_MANIFEST_RELATIVE_PATH)
+    checkpoint_root = getattr(args, "promotion_checkpoint_root", Path("models/td_checkpoints"))
+    key = getattr(args, "promotion_manifest_key", None) or f"{state.run_id}-promoted"
+    eval_artifacts = [
+        window["row"].artifact for window in [*baseline_windows, *incumbent_windows]
+    ]
+    result = promote_checkpoint_pair(
+        manifest_path=manifest_path,
+        checkpoint_root=checkpoint_root,
+        key=key,
+        value_checkpoint=latest_checkpoint.value_path,
+        opponent_checkpoint=latest_checkpoint.opponent_path,
+        source_run_id=state.run_id,
+        source_loop_summary=state.loop_summary_path,
+        source_chunk=latest_chunk_label,
+        source_eval_artifacts=eval_artifacts,
+        step=latest_checkpoint.step,
+        label=f"Promoted resumed self-play loop {state.run_id}",
+        set_default=True,
+        add_to_opponent_pool=True,
+        force=False,
+    )
+    print(
+        "[td-loop-selfplay-resume] manifest promotion registered "
+        f"key={result['key']} manifest={manifest_path}",
+        flush=True,
+    )
+    return {
+        "key": result["key"],
+        "value": str(result["value"]),
+        "opponent": str(result["opponent"]),
+        "manifest": str(manifest_path),
+    }
 
 
 def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
@@ -608,6 +681,10 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         promotion_incumbent_max_side_gap=args.promotion_incumbent_max_side_gap,
         promotion_incumbent_min_ci_low=args.promotion_incumbent_min_ci_low,
         promotion_incumbent_max_window_side_gap=args.promotion_incumbent_max_window_side_gap,
+        promotion_manifest_path=args.promotion_manifest_path,
+        promotion_checkpoint_root=args.promotion_checkpoint_root,
+        promotion_manifest_key=args.promotion_manifest_key,
+        disable_manifest_promotion=bool(args.disable_manifest_promotion),
         progress_heartbeat_minutes=args.progress_heartbeat_minutes,
     )
 

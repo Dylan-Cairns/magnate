@@ -1,20 +1,27 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedAtUtc": "2026-03-09T00:00:00Z",
   "defaultWarmStart": "promoted",
+  "opponentPool": [
+    "promoted"
+  ],
   "checkpoints": {
     "promoted": {
+      "status": "promoted",
       "label": "Latest promoted checkpoint pair",
       "sourceRunId": "20260306-061428Z-td-loop-r2-overnight",
       "sourceLoopSummary": "artifacts/td_loops/20260306-061428Z-td-loop-r2-overnight/loop.summary.json",
+      "generatedAtUtc": "2026-03-09T00:00:00Z",
       "step": 20000,
       "value": "models/td_checkpoints/promoted/value-step-0020000.pt",
       "opponent": "models/td_checkpoints/promoted/opponent-step-0020000.pt"
     },
     "latest_experimental": {
+      "status": "experimental",
       "label": "Latest non-promoted overnight checkpoint pair",
       "sourceRunId": "20260308-001849Z-td-loop-selfplay-r1-overnight",
       "sourceLoopSummary": "artifacts/td_loops/20260308-001849Z-td-loop-selfplay-r1-overnight/loop.summary.json",
+      "generatedAtUtc": "2026-03-09T00:00:00Z",
       "step": 10000,
       "value": "models/td_checkpoints/latest_experimental/value-step-0010000.pt",
       "opponent": "models/td_checkpoints/latest_experimental/opponent-step-0010000.pt"

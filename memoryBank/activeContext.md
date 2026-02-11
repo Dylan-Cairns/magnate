@@ -6,6 +6,7 @@
 - Continue the self-play-focused TD loop using the current `12`-chunk promotion cadence.
 - Use `scripts.run_td_loop` for bootstrap/recalibration passes, then advance primarily with `scripts.run_td_loop_selfplay`.
 - Improve model quality against search baseline and incumbent td-search while keeping runtime practical.
+- Keep `models/td_checkpoints/manifest.json` as the canonical checked-in registry for promoted warm starts and opponent-pool entries.
 
 ## Locked Decisions
 
@@ -22,6 +23,11 @@
 - The failed 2026-04-21 cache rollout was reverted with git revert commits; td-search rollouts are back on the stateful bridge simulation path.
 - Python unit tests are standardized on pytest via `.\.venv\Scripts\python -m pytest`.
 - `scripts.run_td_loop` is the bootstrap or recalibration path; `scripts.run_td_loop_selfplay` is the primary forward loop.
+- Checkpoint promotion source of truth is now `models/td_checkpoints/manifest.json` schema v2:
+  - `defaultWarmStart` selects the warm-start pair.
+  - `opponentPool` selects promoted checkpoints for pool sampling.
+  - checkpoint payloads under `models/td_checkpoints/` are intended to travel with source control, while ignored `artifacts/` summaries are fallback/history.
+- Loop promotion flows copy passed checkpoints into `models/td_checkpoints/<manifest-key>/` and update the manifest unless `--disable-manifest-promotion` is set.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
 
 ## Remaining
@@ -34,10 +40,10 @@
 
 ## Immediate Next Steps
 
-1. Continue overnight self-play loop iterations with promoted warm starts and the `12`-chunk cadence.
-2. Before another full resume, run a short collect smoke/benchmark to confirm chunk-008 throughput is back near the pre-cache baseline.
+1. Before the next long self-play run, confirm `models/td_checkpoints/manifest.json` and the referenced checkpoint files are present and committed on the machine that will run training.
+2. Continue self-play loop iterations with promoted manifest warm starts and the current promotion cadence.
 3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
-_Updated: 2026-04-21._
+_Updated: 2026-04-22._

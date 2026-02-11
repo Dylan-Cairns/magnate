@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from scripts.checkpoint_manifest import DEFAULT_MANIFEST_RELATIVE_PATH
+from scripts.promote_td_checkpoint import promote_checkpoint_pair
 from scripts.td_loop_common import (
     LoopCheckpoint,
 )
@@ -245,6 +247,14 @@ def parse_args() -> argparse.Namespace:
         default=0.10,
         help="Each eval window must stay at or below this side gap.",
     )
+    parser.add_argument("--promotion-manifest-path", type=Path, default=DEFAULT_MANIFEST_RELATIVE_PATH)
+    parser.add_argument(
+        "--promotion-checkpoint-root",
+        type=Path,
+        default=Path("models/td_checkpoints"),
+    )
+    parser.add_argument("--promotion-manifest-key", type=str, default=None)
+    parser.add_argument("--disable-manifest-promotion", action="store_true")
 
     parser.add_argument(
         "--progress-heartbeat-minutes",
@@ -307,6 +317,15 @@ def run_td_loop(args: argparse.Namespace) -> int:
         progress_path=context.progress_path,
     )
     commands["promotionEvals"] = promotion_stage.promotion_eval_commands
+    manifest_promotion = _register_manifest_promotion_if_passed(
+        args=args,
+        context=context,
+        latest_checkpoint=latest_checkpoint,
+        latest_chunk_label=str(chunk_rows[-1]["chunk"]) if chunk_rows else None,
+        promotion_stage=promotion_stage,
+    )
+    if manifest_promotion is not None:
+        commands["manifestPromotion"] = manifest_promotion
 
     loop_elapsed_minutes = (time.perf_counter() - context.loop_started) / 60.0
     payload = build_td_loop_summary(
@@ -507,6 +526,53 @@ def build_td_loop_summary(
             ),
         },
         "promotion": promotion_stage.promotion,
+    }
+
+
+def _register_manifest_promotion_if_passed(
+    *,
+    args: argparse.Namespace,
+    context: RunContext,
+    latest_checkpoint: LoopCheckpoint,
+    latest_chunk_label: str | None,
+    promotion_stage: PromotionStageResult,
+) -> Dict[str, Any] | None:
+    if not bool(promotion_stage.promotion.get("promoted")):
+        return None
+    if bool(getattr(args, "disable_manifest_promotion", True)):
+        return None
+    if latest_checkpoint.value_path is None or latest_checkpoint.opponent_path is None:
+        return None
+
+    manifest_path = getattr(args, "promotion_manifest_path", DEFAULT_MANIFEST_RELATIVE_PATH)
+    checkpoint_root = getattr(args, "promotion_checkpoint_root", Path("models/td_checkpoints"))
+    key = getattr(args, "promotion_manifest_key", None) or f"{context.run_id}-promoted"
+    result = promote_checkpoint_pair(
+        manifest_path=manifest_path,
+        checkpoint_root=checkpoint_root,
+        key=key,
+        value_checkpoint=latest_checkpoint.value_path,
+        opponent_checkpoint=latest_checkpoint.opponent_path,
+        source_run_id=context.run_id,
+        source_loop_summary=context.loop_summary_path,
+        source_chunk=latest_chunk_label,
+        source_eval_artifacts=[row.artifact for row in promotion_stage.eval_rows],
+        step=latest_checkpoint.step,
+        label=f"Promoted TD loop {context.run_id}",
+        set_default=True,
+        add_to_opponent_pool=True,
+        force=False,
+    )
+    print(
+        "[td-loop] manifest promotion registered "
+        f"key={result['key']} manifest={manifest_path}",
+        flush=True,
+    )
+    return {
+        "key": result["key"],
+        "value": str(result["value"]),
+        "opponent": str(result["opponent"]),
+        "manifest": str(manifest_path),
     }
 
 
@@ -1044,6 +1110,16 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "maxSideGap": args.promotion_max_side_gap,
             "minCiLow": args.promotion_min_ci_low,
             "maxWindowSideGap": args.promotion_max_window_side_gap,
+            "manifest": {
+                "enabled": not bool(getattr(args, "disable_manifest_promotion", False)),
+                "manifestPath": str(
+                    getattr(args, "promotion_manifest_path", DEFAULT_MANIFEST_RELATIVE_PATH)
+                ),
+                "checkpointRoot": str(
+                    getattr(args, "promotion_checkpoint_root", Path("models/td_checkpoints"))
+                ),
+                "key": getattr(args, "promotion_manifest_key", None),
+            },
         },
     }
 

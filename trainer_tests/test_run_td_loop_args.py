@@ -35,6 +35,8 @@ class RunTdLoopArgSurfaceTests(unittest.TestCase):
             "30",
             "--eval-progress-log-minutes",
             "30",
+            "--promotion-manifest-key",
+            "td-loop-r2-overnight-promoted",
         )
         self.assertTrue(parsed.cloud)
         self.assertEqual(parsed.cloud_vcpus, 16)
@@ -44,6 +46,7 @@ class RunTdLoopArgSurfaceTests(unittest.TestCase):
         self.assertEqual(parsed.eval_games_per_side, 200)
         self.assertEqual(parsed.eval_opponent_policy, "search")
         self.assertAlmostEqual(parsed.promotion_min_ci_low, 0.5)
+        self.assertEqual(parsed.promotion_manifest_key, "td-loop-r2-overnight-promoted")
 
     def test_smoke_command_arg_surface_parses(self) -> None:
         parsed = self._parse(

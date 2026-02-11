@@ -60,6 +60,7 @@ class RunTdLoopScriptTests(unittest.TestCase):
             "--eval-seed-start-indices",
             "0",
             "100",
+            "--disable-manifest-promotion",
         ]
         if value_path is not None:
             args.extend(["--train-warm-start-value-checkpoint", str(value_path)])
@@ -527,6 +528,7 @@ class RunTdLoopSmokeTests(unittest.TestCase):
                 "0",
                 "--promotion-min-ci-low",
                 "0.0",
+                "--disable-manifest-promotion",
             ]
             completed = subprocess.run(command, capture_output=True, text=True)
             if completed.returncode != 0:

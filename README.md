@@ -9,6 +9,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 - TypeScript engine is the canonical rules implementation.
 - Python training and evaluation call the engine through the Node bridge.
 - Training progression is bootstrap or recalibration with `scripts.run_td_loop`, then self-play-focused iteration with `scripts.run_td_loop_selfplay`.
+- TD promoted checkpoints use `models/td_checkpoints/manifest.json` as the checked-in warm-start and opponent-pool registry.
 
 ## Quickstart
 
@@ -29,6 +30,7 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for the full setup, t
 - Format: `yarn format`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
+- Register promoted TD checkpoint: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
 
 ## Source-of-Truth Docs
 

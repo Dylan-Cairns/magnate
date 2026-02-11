@@ -66,6 +66,7 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             str(value_path),
             "--train-warm-start-opponent-checkpoint",
             str(opponent_path),
+            "--disable-manifest-promotion",
         )
 
     def _eval_row(
@@ -606,6 +607,7 @@ class RunTdLoopSelfplaySmokeTests(unittest.TestCase):
                 str(value_path),
                 "--train-warm-start-opponent-checkpoint",
                 str(opponent_path),
+                "--disable-manifest-promotion",
             ]
             completed = subprocess.run(
                 command,
