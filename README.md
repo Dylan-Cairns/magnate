@@ -27,6 +27,7 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for the full setup, t
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
+- Python test: `.\.venv\Scripts\python -m pytest`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
 
 ## Source-of-Truth Docs
