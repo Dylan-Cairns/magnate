@@ -14,7 +14,7 @@ import { isTerminal, scoreGame } from './scoring';
 describe('isTerminal', () => {
   it('returns true only for GameOver phase', () => {
     expect(isTerminal(makeGameState({ phase: 'GameOver' }))).toBe(true);
-    expect(isTerminal(makeGameState({ phase: 'PlayCard' }))).toBe(false);
+    expect(isTerminal(makeGameState({ phase: 'ActionWindow' }))).toBe(false);
   });
 });
 
@@ -25,7 +25,7 @@ describe('scoreGame', () => {
       [PLAYER_B]: { developed: ['7'] },
     });
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       districts,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });

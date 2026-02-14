@@ -13,9 +13,7 @@ type PhaseBuilderMap = Partial<Record<GamePhase, (state: GameState) => GameActio
 
 const builders: PhaseBuilderMap = {
   CollectIncome: collectIncomeChoiceActions,
-  OptionalTrade: optionalActions,
-  OptionalDevelop: optionalActions,
-  PlayCard: playActions,
+  ActionWindow: actionWindowActions,
 };
 
 export function legalActions(state: GameState): readonly GameAction[] {
@@ -23,7 +21,7 @@ export function legalActions(state: GameState): readonly GameAction[] {
   return phaseBuilder ? phaseBuilder(state) : [];
 }
 
-function optionalActions(state: GameState): GameAction[] {
+function actionWindowActions(state: GameState): GameAction[] {
   const trades = tradeActions(state);
   const develops = developActions(state);
   if (state.cardPlayedThisTurn) {

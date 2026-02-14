@@ -77,9 +77,7 @@ export type GamePhase =
   | 'TaxCheck'
   | 'IncomeRoll'
   | 'CollectIncome'
-  | 'OptionalTrade'
-  | 'OptionalDevelop'
-  | 'PlayCard'
+  | 'ActionWindow'
   | 'DrawCard'
   | 'GameOver';
 

@@ -35,7 +35,7 @@ describe('applyAction legality gate', () => {
 
   it('rejects modified payloads that do not exactly match legal actions', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
         makePlayer(PLAYER_B),
@@ -48,7 +48,7 @@ describe('applyAction legality gate', () => {
 
   it('accepts exact legal action objects', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
         makePlayer(PLAYER_B),
@@ -61,7 +61,7 @@ describe('applyAction legality gate', () => {
 
   it('accepts cloned legal action payloads with same values', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
         makePlayer(PLAYER_B),
@@ -75,9 +75,9 @@ describe('applyAction legality gate', () => {
 });
 
 describe('post-card progression actions', () => {
-  it('end-turn transitions to DrawCard from OptionalTrade after a card play', () => {
+  it('end-turn transitions to DrawCard from ActionWindow after a card play', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -86,9 +86,9 @@ describe('post-card progression actions', () => {
     expect(next.phase).toBe('DrawCard');
   });
 
-  it('end-turn transitions to DrawCard from OptionalDevelop after a card play', () => {
+  it('end-turn transitions to DrawCard from ActionWindow after a card play (deed state)', () => {
     const state = makeGameState({
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -99,7 +99,7 @@ describe('post-card progression actions', () => {
 
   it('end-turn is illegal before a card has been played', () => {
     const state = makeGameState({
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: false,
       players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
     });
@@ -141,7 +141,7 @@ describe('income choice reducer semantics', () => {
       throw new Error('Missing PlayerA.');
     }
     expect(playerA.resources.Wyrms).toBe(1);
-    expect(next.phase).toBe('OptionalTrade');
+    expect(next.phase).toBe('ActionWindow');
     expect(next.activePlayerIndex).toBe(0);
     expect(next.pendingIncomeChoices).toBeUndefined();
     expect(next.incomeChoiceReturnPlayerIndex).toBeUndefined();
@@ -176,9 +176,9 @@ describe('income choice reducer semantics', () => {
 });
 
 describe('buy-deed reducer semantics', () => {
-  it('transitions to OptionalDevelop after buying a deed', () => {
+  it('transitions to ActionWindow after buying a deed', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -189,13 +189,13 @@ describe('buy-deed reducer semantics', () => {
     });
     const buy = findLegalActionByType(state, 'buy-deed');
     const next = applyAction(state, buy);
-    expect(next.phase).toBe('OptionalDevelop');
+    expect(next.phase).toBe('ActionWindow');
     expect(next.cardPlayedThisTurn).toBe(true);
   });
 
   it('removes card from hand and creates deed with zero progress', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -219,7 +219,7 @@ describe('buy-deed reducer semantics', () => {
 
   it('debits deed cost from resources', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -242,7 +242,7 @@ describe('develop-deed reducer semantics', () => {
   it('partial development increments progress and merges deed tokens', () => {
     const state = withDeed(
       makeGameState({
-        phase: 'OptionalDevelop',
+        phase: 'ActionWindow',
         players: [
           makePlayer(PLAYER_A, {
             resources: makeResources({ Moons: 1, Knots: 1 }),
@@ -273,7 +273,7 @@ describe('develop-deed reducer semantics', () => {
   it('exact completion converts deed to developed property and clears deed', () => {
     const state = withDeed(
       makeGameState({
-        phase: 'OptionalDevelop',
+        phase: 'ActionWindow',
         players: [
           makePlayer(PLAYER_A, {
             resources: makeResources({ Knots: 1 }),
@@ -302,7 +302,7 @@ describe('develop-deed reducer semantics', () => {
   it('ace deeds require total progress of 3 to complete', () => {
     const state = withDeed(
       makeGameState({
-        phase: 'OptionalDevelop',
+        phase: 'ActionWindow',
         players: [
           makePlayer(PLAYER_A, {
             resources: makeResources({ Knots: 1 }),
@@ -331,7 +331,7 @@ describe('develop-deed reducer semantics', () => {
   it('rejects overspend payloads', () => {
     const state = withDeed(
       makeGameState({
-        phase: 'OptionalDevelop',
+        phase: 'ActionWindow',
         players: [
           makePlayer(PLAYER_A, {
             resources: makeResources({ Moons: 5, Knots: 5 }),
@@ -356,7 +356,7 @@ describe('develop-deed reducer semantics', () => {
   it('rejects wrong deed card references', () => {
     const state = withDeed(
       makeGameState({
-        phase: 'OptionalDevelop',
+        phase: 'ActionWindow',
         players: [
           makePlayer(PLAYER_A, {
             resources: makeResources({ Moons: 1, Knots: 1, Suns: 2 }),
@@ -382,7 +382,7 @@ describe('develop-deed reducer semantics', () => {
 describe('develop-outright reducer semantics', () => {
   it('requires exact payment total matching development cost', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -403,7 +403,7 @@ describe('develop-outright reducer semantics', () => {
 
   it('requires at least one token from each card suit', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -424,7 +424,7 @@ describe('develop-outright reducer semantics', () => {
 
   it('rejects off-suit payment payloads', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -445,7 +445,7 @@ describe('develop-outright reducer semantics', () => {
 
   it('on success removes card from hand, adds developed card, and moves to post-play optionals', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -469,7 +469,7 @@ describe('develop-outright reducer semantics', () => {
     }
 
     const next = applyAction(state, action);
-    expect(next.phase).toBe('OptionalTrade');
+    expect(next.phase).toBe('ActionWindow');
     expect(next.cardPlayedThisTurn).toBe(true);
     expect(getPlayerAState(next).hand).not.toContain('6');
     expect(getDistrict(next, 'D1').stacks[PLAYER_A].developed).toContain('6');
@@ -479,7 +479,7 @@ describe('develop-outright reducer semantics', () => {
 describe('sell-card reducer semantics', () => {
   it('single-suit property sale grants +2 of that suit', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['0'],
@@ -496,7 +496,7 @@ describe('sell-card reducer semantics', () => {
 
   it('multi-suit property sale grants +1 per suit', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -514,7 +514,7 @@ describe('sell-card reducer semantics', () => {
 
   it('removes sold card from hand and puts it on top of discard', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -531,19 +531,19 @@ describe('sell-card reducer semantics', () => {
 
   it('transitions to post-play optionals after selling', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer(PLAYER_B)] as const,
     });
     const next = applyAction(state, { type: 'sell-card', cardId: '6' });
-    expect(next.phase).toBe('OptionalTrade');
+    expect(next.phase).toBe('ActionWindow');
     expect(next.cardPlayedThisTurn).toBe(true);
   });
 });
 
 describe('one card per turn flow', () => {
-  it('cannot return to PlayCard after card play; post-play loop ends via end-turn', () => {
+  it('cannot perform a second card play after card play; end-turn remains available', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6', '7'],
@@ -567,7 +567,7 @@ describe('one card per turn flow', () => {
     }
 
     const afterPlay = applyAction(state, play);
-    expect(afterPlay.phase).toBe('OptionalTrade');
+    expect(afterPlay.phase).toBe('ActionWindow');
 
     expect(legalActions(afterPlay).some((action) => action.type === 'buy-deed')).toBe(false);
     expect(legalActions(afterPlay).some((action) => action.type === 'sell-card')).toBe(false);
@@ -587,7 +587,7 @@ describe('one card per turn flow', () => {
 
 describe('issue regressions', () => {
   it('issue 2: invalid payloads are blocked by reducer legality checks', () => {
-    const state = makeGameState({ phase: 'PlayCard' });
+    const state = makeGameState({ phase: 'ActionWindow' });
     const illegal: GameAction = {
       type: 'buy-deed',
       cardId: '6',
@@ -598,7 +598,7 @@ describe('issue regressions', () => {
 
   it('blocks first-placement actions in districts without marker-suit overlap', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['7'],
@@ -627,7 +627,7 @@ describe('issue regressions', () => {
 
   it('issue 3: buying deed preserves same-turn develop window', () => {
     const state = makeGameState({
-      phase: 'PlayCard',
+      phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
           hand: ['6'],
@@ -638,13 +638,13 @@ describe('issue regressions', () => {
     });
     const buy = findLegalActionByType(state, 'buy-deed');
     const next = applyAction(state, buy);
-    expect(next.phase).toBe('OptionalDevelop');
+    expect(next.phase).toBe('ActionWindow');
   });
 
   it('issue 5: exact deed completion works while overspend remains blocked', () => {
     const state = withDeed(
       makeGameState({
-        phase: 'OptionalDevelop',
+        phase: 'ActionWindow',
         players: [
           makePlayer(PLAYER_A, { resources: makeResources({ Knots: 1, Moons: 2 }) }),
           makePlayer(PLAYER_B),

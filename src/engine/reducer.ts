@@ -151,7 +151,7 @@ function chooseIncomeSuit(
   };
 
   const pendingIncomeChoices = restChoices.length > 0 ? restChoices : undefined;
-  const phase = pendingIncomeChoices ? 'CollectIncome' : 'OptionalTrade';
+  const phase = pendingIncomeChoices ? 'CollectIncome' : 'ActionWindow';
   const nextActivePlayerIndex = pendingIncomeChoices
     ? findPlayerIndexById(state, pendingIncomeChoices[0].playerId)
     : (state.incomeChoiceReturnPlayerIndex ?? state.activePlayerIndex);
@@ -282,7 +282,7 @@ function developOutright(
     {
       ...updated,
       districts,
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
     `develop ${action.cardId}`
@@ -319,7 +319,7 @@ function buyDeed(
     {
       ...updated,
       districts,
-      phase: 'OptionalDevelop',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
     `buy deed ${action.cardId}`
@@ -348,7 +348,7 @@ function sellCard(
     {
       ...updated,
       deck,
-      phase: 'OptionalTrade',
+      phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
     `sell ${action.cardId}`
