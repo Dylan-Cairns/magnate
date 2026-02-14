@@ -71,9 +71,26 @@ describe('initialSetup', () => {
 
   it('returns district markers of four pawns plus the excuse', () => {
     const setup = initialSetup('seed-6');
-    const expected = [...PAWN_CARDS.map((card) => card.id), EXCUSE_CARD.id].sort();
-    expect([...setup.districts].sort()).toEqual(expected);
+
     expect(setup.districts).toHaveLength(5);
+    expect(setup.districts[2]).toBe(EXCUSE_CARD.id);
+
+    const expectedPawns = [...PAWN_CARDS.map((card) => card.id)].sort();
+    const actualPawns = setup.districts
+      .filter((cardId) => cardId !== EXCUSE_CARD.id)
+      .sort();
+    expect(actualPawns).toEqual(expectedPawns);
+  });
+
+  it('randomizes pawn district order across seeds while keeping the Excuse centered', () => {
+    const seeds = ['seed-6a', 'seed-6b', 'seed-6c', 'seed-6d', 'seed-6e'];
+    const pawnOrders = seeds.map((seed) => {
+      const setup = initialSetup(seed);
+      expect(setup.districts[2]).toBe(EXCUSE_CARD.id);
+      return setup.districts.filter((cardId) => cardId !== EXCUSE_CARD.id).join(',');
+    });
+
+    expect(new Set(pawnOrders).size).toBeGreaterThan(1);
   });
 });
 

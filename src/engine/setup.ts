@@ -84,7 +84,14 @@ export function initialSetup(seed: string): SetupResult {
   };
 
   const deck = createDeck(draw);
-  const districts: CardId[] = [...PAWN_CARDS.map((pawn) => pawn.id), EXCUSE_CARD.id];
+
+  const shuffledPawns = PAWN_CARDS.map((pawn) => pawn.id);
+  shuffleInPlace(shuffledPawns, rand);
+  const districts: CardId[] = [
+    ...shuffledPawns.slice(0, 2),
+    EXCUSE_CARD.id,
+    ...shuffledPawns.slice(2),
+  ];
 
   return {
     deck,
@@ -94,4 +101,3 @@ export function initialSetup(seed: string): SetupResult {
     districts,
   };
 }
-

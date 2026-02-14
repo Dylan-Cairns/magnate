@@ -33,6 +33,9 @@
 - Canonical game initialization now exists:
   - `newGame(seed, { firstPlayer })` builds full `GameState` from deterministic setup output.
   - District marker suits now come directly from dealt Pawn/Excuse marker cards instead of fixture assumptions.
+  - District marker order now enforces rules intent:
+    - `Excuse` is always the center district marker.
+    - The four Pawn markers are shuffled per seed around the center.
 - Player-scoped visibility projection now exists:
   - `toPlayerView(state, viewerId)` and `toActivePlayerView(state)` provide observation-safe views.
   - Opponent hand cards are hidden (count only), and draw pile order is hidden (`drawCount` only).
