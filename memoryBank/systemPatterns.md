@@ -13,6 +13,7 @@ Primary APIs:
 - `legalActions(state)`
 - `applyAction(state, action)`
 - `advanceToDecision(state)`
+- `toPlayerView(state, viewerId)` / `toActivePlayerView(state)`
 
 Design expectations:
 
@@ -41,6 +42,7 @@ Design expectations:
 ## Testing Pattern
 
 - Unit tests for helpers, legality generation, reducer behavior, and turn flow.
+- Unit tests for visibility boundaries (hidden opponent hand, hidden draw order).
 - Deterministic fixtures and seed-based replay paths.
 - Contract tests to protect TS/Python integration behavior.
 

@@ -118,6 +118,39 @@ export interface FinalScore {
   decidedBy: WinnerDecider;
 }
 
+export interface ObservedPlayerState {
+  id: PlayerId;
+  crowns: CardId[];
+  resources: ResourcePool;
+  hand: CardId[];
+  handCount: number;
+  handHidden: boolean;
+}
+
+export interface PublicDeckView {
+  drawCount: number;
+  discard: CardId[];
+  reshuffles: 0 | 1 | 2;
+}
+
+export interface PlayerView {
+  viewerId: PlayerId;
+  activePlayerId: PlayerId;
+  turn: number;
+  phase: GamePhase;
+  districts: DistrictLine;
+  players: ReadonlyArray<ObservedPlayerState>;
+  deck: PublicDeckView;
+  cardPlayedThisTurn: boolean;
+  exhaustionStage: 0 | 1 | 2;
+  finalTurnsRemaining?: number;
+  lastIncomeRoll?: IncomeRollResult;
+  pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
+  incomeChoiceReturnPlayerId?: PlayerId;
+  finalScore?: FinalScore;
+  log: ReadonlyArray<GameLogEntry>;
+}
+
 export interface GameState {
   schemaVersion: number;
   seed: string;

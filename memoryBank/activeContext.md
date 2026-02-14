@@ -33,12 +33,16 @@
 - Canonical game initialization now exists:
   - `newGame(seed, { firstPlayer })` builds full `GameState` from deterministic setup output.
   - District marker suits now come directly from dealt Pawn/Excuse marker cards instead of fixture assumptions.
+- Player-scoped visibility projection now exists:
+  - `toPlayerView(state, viewerId)` and `toActivePlayerView(state)` provide observation-safe views.
+  - Opponent hand cards are hidden (count only), and draw pile order is hidden (`drawCount` only).
+  - Public info remains visible (districts, deeds, resources, crowns, discard pile, phase/turn flags).
 - Ace completion interpretation is explicitly locked in tests:
   - Ace deed completion target is 3 total progress tokens.
 
 ## Immediate Next Steps
 
-1. Expand full-game turn-flow scenario coverage for remaining edge cases.
+1. Build CLI loop on top of `toActivePlayerView` + policy interface (human/random).
 2. Start bridge runtime scaffolding against `bridgeInterfaceContract.md`.
 3. Add API-level integration tests that drive full turns from `newGame`.
 

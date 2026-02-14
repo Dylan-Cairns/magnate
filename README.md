@@ -14,6 +14,7 @@ Single-player Magnate with a trained bot opponent.
 - Engine core exists (`src/engine/`) with deterministic setup, deck flow, action legality/reducer logic, and turn-flow resolution.
 - Tax/income, scoring, and terminal resolution are implemented.
 - Canonical game initialization now exists via `newGame(seed, { firstPlayer })`.
+- Player-scoped observation views are implemented (`toPlayerView` / `toActivePlayerView`) so opponent hand cards and draw order stay hidden.
 - UI, bridge runtime, and training pipeline are still in progress.
 
 ## Local Commands
