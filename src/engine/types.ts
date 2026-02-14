@@ -71,3 +71,43 @@ export interface PlayerState {
   crowns: CardId[];
   resources: ResourcePool;
 }
+
+export type GamePhase =
+  | 'StartTurn'
+  | 'TaxCheck'
+  | 'IncomeRoll'
+  | 'CollectIncome'
+  | 'OptionalTrade'
+  | 'OptionalDevelop'
+  | 'PlayCard'
+  | 'DrawCard'
+  | 'GameOver';
+
+export interface IncomeRollResult {
+  die1: number;
+  die2: number;
+}
+
+export interface GameLogEntry {
+  turn: number;
+  player: PlayerId;
+  phase: GamePhase;
+  summary: string;
+  details?: Record<string, unknown>;
+}
+
+export interface GameState {
+  schemaVersion: number;
+  seed: string;
+  rngCursor: number;
+  deck: DeckState;
+  players: ReadonlyArray<PlayerState>;
+  activePlayerIndex: number;
+  turn: number;
+  phase: GamePhase;
+  districts: DistrictLine;
+  exhaustionStage: 0 | 1 | 2;
+  finalTurnsRemaining?: number;
+  lastIncomeRoll?: IncomeRollResult;
+  log: ReadonlyArray<GameLogEntry>;
+}
