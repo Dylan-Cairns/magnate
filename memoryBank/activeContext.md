@@ -1,31 +1,40 @@
 # Active Context
+> Reminder: Start at `AGENTS.md` and review every core Memory Bank file before planning or acting.
 
 ## Current Focus
 
-- Initializing the Magnate project memory bank.
-- Ensuring all core documentation files are present and up to date.
+- Core TypeScript engine scaffolding: types, cards, deterministic deck.
+- Finalize action spec and legality (no pass; single-trade actions).
+- Implement setupGame and legalActions skeleton.
 
 ## Recent Changes
 
-- projectBrief.md, systemPatterns.md, and techContext.md have been added.
-- Memory bank initialization process started.
+- Added engine types, suits/ranks, and strict card kinds.
+- Adapted provided card list; split into Property/Crown/Pawn/Excuse.
+- Implemented deterministic deck with seeded shuffle and reshuffle.
+- Removed Pass action; Trade is one exchange per action (repeat to chain).
+- Adopted “no code comments” policy; removed comments from engine files.
+- Updated docs (projectBrief, systemPatterns, README) to reflect the above.
 
 ## Next Steps
 
-- Create and maintain progress.md to track project status and evolution.
-- Begin implementation of the TypeScript core engine as described in the project brief.
-- Set up initial project structure and development environment.
+- Define Action union and `legalActions(state)` skeleton with stable IDs.
+- Implement placement validators (Pawn tri-suits, Excuse rules) and turn FSM.
+- Implement `setupGame(seed)` to deal Crowns, starting resources, and hands.
+- Add unit/snapshot tests for deck, setup, and legality basics.
 
 ## Active Decisions & Considerations
 
-- Strict adherence to official Magnate rules.
-- All code and documentation must be deterministic, testable, and reproducible.
-- Maintain clear separation between engine, UI, bridge, and training components.
-- Reinforcement learning tools and training will only be added after a working rules-based opponent is implemented.
+- No code comments; express intent with names/types/tests; rationale in Memory Bank.
+- No Pass; if development/deed is impossible, Sell is mandatory.
+- Trade is 3:1, one per action (repeatable).
+- Crowns persist with players; properties deck excludes Crowns/Pawns/Excuse.
+- District markers are Pawn tri-suits plus the Excuse.
+- Deterministic PRNG (seeded sfc32) for shuffle/reshuffle.
 
 ## Insights & Learnings
 
-- The memory bank is the single source of truth for project context and must be updated after every significant change.
-- Documentation is critical for continuity due to Cline's stateless nature.
+- Keep rule interpretations explicit in Memory Bank to guide engine purity.
+- Deterministic helpers greatly simplify snapshot tests and RL reproducibility.
 
-_Memory bank initialized on 2025-09-02._
+_Active context updated on 2025-09-03._

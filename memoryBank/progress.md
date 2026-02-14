@@ -1,33 +1,41 @@
 # Progress
+> Reminder: Start at `AGENTS.md` and review every core Memory Bank file before planning or acting.
 
 ## What Works
 
-- Memory bank core files (projectBrief.md, systemPatterns.md, techContext.md, activeContext.md, progress.md) are now present and initialized.
+- Memory Bank is current and reflects design decisions.
+- Engine scaffolding in place: strict types, normalized cards, deterministic deck.
+- Docs aligned to rules: no Pass; Trade is one exchange per action.
+- No code comments policy enforced; engine files cleaned.
 
 ## What's Left to Build
 
-- TypeScript core engine (pure reducers, state, actions, legality, scoring, RNG)
-- React UI (browser play, human vs bot)
-- Node bridge (JSON API for training)
-- Rules-based opponent (required before any RL tools)
-- Python trainer (RL loop, PPO, baselines)
-- Static model export and browser inference
-- Testing: unit, snapshot, property tests
-- Deployment: static build for GitHub Pages
-- Reinforcement learning tools and training (to be added only after a working rules-based opponent is complete)
+- TypeScript engine reducers, legality, scoring, turn FSM.
+- `setupGame(seed)` to deal Crowns, starting resources, and hands.
+- `legalActions(state)` skeleton with stable IDs and action union.
+- React UI (human vs rules-based bot).
+- Node bridge (stdin/stdout JSON API).
+- Rules-based opponent (before any RL tools).
+- Python trainer (RL loop, PPO, baselines).
+- Static model export and browser inference.
+- Testing: unit, snapshot, property tests.
+- Deployment: static build for GitHub Pages.
 
 ## Current Status
 
-- Memory bank initialized and up to date as of 2025-09-02.
-- Ready to begin core engine and supporting system implementation.
+- Up to date as of 2025-09-03.
+- Types/cards/deck done; moving into legality and setup implementation.
 
 ## Known Issues
 
-- None at this stage.
+- None currently tracked.
 
 ## Evolution of Project Decisions
 
-- Initial focus is on strict rules parity, determinism, and reproducibility.
-- Documentation-first workflow established to support Cline's stateless operation.
+- Removed Pass action; Sell is mandatory when no develop/deed is legal.
+- Trade is 3:1, one per action; repeat to chain.
+- District markers are Pawn tri-suits plus the Excuse.
+- Crowns persist with players and power 10-income; not in property deck.
+- No code comments; record rationale in Memory Bank.
 
-_Progress file initialized on 2025-09-02._
+_Progress updated on 2025-09-03._
