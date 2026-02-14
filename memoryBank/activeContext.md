@@ -75,6 +75,12 @@
     - suit icons remain right-aligned for Pawn markers only
   - District lane card areas now reserve two rows of card space even at low/zero occupancy to avoid board jitter
   - Log panel now renders full action history (no 12-entry cap) and relies on internal panel scrolling for overflow
+  - Right-side info column controls and status updates:
+    - seed input + new game button now sit inline directly under the `Magnate` title in the same panel
+    - deck state panel now shows draw count and reshuffles remaining
+    - actions header now shows a prominent `Last Turn` badge for the full final-turn window (`finalTurnsRemaining > 0`)
+    - right-column stack now explicitly fills available height so log panel aligns to column bottom
+    - info-pane row template now matches actual panel count so no extra trailing empty row appears under log
   - Player-panel visual consistency pass:
     - crowns/hand now use full-size card tiles matching board card dimensions
     - player sections are horizontally centered in each player panel with slightly increased spacing
