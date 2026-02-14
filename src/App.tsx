@@ -25,6 +25,22 @@ const BOT_PLAYER: PlayerId = 'PlayerB';
 const BOT_DELAY_MS = 450;
 const PLAYER_CROWN_SLOT_COUNT = 3;
 const PLAYER_HAND_SLOT_COUNT = 3;
+const TRADE_POPOVER_WIDTH_PX = 220;
+const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
+const TRADE_POPOVER_GAP_PX = 8;
+const VIEWPORT_PADDING_PX = 10;
+
+type TradeAction = Extract<GameAction, { type: 'trade' }>;
+
+type TradePickerState = {
+  give: Suit;
+  top: number;
+  left: number;
+};
+
+type HumanActionListItem =
+  | { kind: 'action'; action: Exclude<GameAction, { type: 'trade' }> }
+  | { kind: 'trade-group'; give: Suit };
 
 const SUIT_EMOJI: Record<Suit, string> = {
   Moons: '🌙',
@@ -55,8 +71,10 @@ export function App() {
   const [state, setState] = useState<GameState>(() => createInitialState(seedInput));
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
+  const [tradePicker, setTradePicker] = useState<TradePickerState | null>(null);
 
   const stateRef = useRef(state);
+  const tradePopoverRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -79,6 +97,20 @@ export function App() {
     }
     return legalActions(state);
   }, [activePlayerId, state, terminal]);
+
+  const humanActionItems = useMemo(() => buildHumanActionList(humanActions), [humanActions]);
+
+  const tradePickerOptions = useMemo(() => {
+    if (!tradePicker) {
+      return [] as Suit[];
+    }
+
+    const receives = humanActions
+      .filter((action): action is TradeAction => action.type === 'trade' && action.give === tradePicker.give)
+      .map((action) => action.receive);
+
+    return Array.from(new Set(receives));
+  }, [humanActions, tradePicker]);
 
   useEffect(() => {
     if (terminal || activePlayerId !== BOT_PLAYER) {
@@ -120,6 +152,61 @@ export function App() {
     };
   }, [activePlayerId, state, terminal]);
 
+  useEffect(() => {
+    if (terminal || activePlayerId !== HUMAN_PLAYER) {
+      setTradePicker(null);
+      return;
+    }
+
+    if (tradePicker) {
+      const stillLegal = humanActions.some(
+        (action): action is TradeAction => action.type === 'trade' && action.give === tradePicker.give
+      );
+      if (!stillLegal) {
+        setTradePicker(null);
+      }
+    }
+  }, [activePlayerId, humanActions, terminal, tradePicker]);
+
+  useEffect(() => {
+    if (!tradePicker) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (tradePopoverRef.current?.contains(target)) {
+        return;
+      }
+
+      setTradePicker(null);
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setTradePicker(null);
+      }
+    };
+
+    const handleScroll = () => {
+      setTradePicker(null);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleEscape);
+    window.addEventListener('scroll', handleScroll, true);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('scroll', handleScroll, true);
+    };
+  }, [tradePicker]);
+
   const handleHumanAction = (action: GameAction) => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
       return;
@@ -137,6 +224,7 @@ export function App() {
   const handleReset = () => {
     const seed = seedInput.trim() || makeSeed();
     setSeedInput(seed);
+    setTradePicker(null);
 
     try {
       setState(createInitialState(seed));
@@ -145,6 +233,37 @@ export function App() {
     } catch (err) {
       setError(`Failed to start game: ${errorMessage(err)}`);
     }
+  };
+
+  const handleTradeSelection = (receive: Suit) => {
+    if (!tradePicker) {
+      return;
+    }
+
+    const action: TradeAction = {
+      type: 'trade',
+      give: tradePicker.give,
+      receive,
+    };
+
+    setTradePicker(null);
+    handleHumanAction(action);
+  };
+
+  const openTradePicker = (give: Suit, trigger: HTMLButtonElement) => {
+    const rect = trigger.getBoundingClientRect();
+    const optionCount = humanActions.filter(
+      (action): action is TradeAction => action.type === 'trade' && action.give === give
+    ).length;
+    const rowCount = Math.max(1, Math.ceil(optionCount / 2));
+    const estimatedHeight = Math.max(TRADE_POPOVER_MIN_HEIGHT_PX, 116 + rowCount * 46);
+    const maxLeft = window.innerWidth - TRADE_POPOVER_WIDTH_PX - VIEWPORT_PADDING_PX;
+    const maxTop = window.innerHeight - estimatedHeight - VIEWPORT_PADDING_PX;
+
+    const left = clamp(rect.right + TRADE_POPOVER_GAP_PX, VIEWPORT_PADDING_PX, maxLeft);
+    const top = clamp(rect.top, VIEWPORT_PADDING_PX, maxTop);
+
+    setTradePicker({ give, left, top });
   };
 
   if (!humanPlayer || !botPlayer) {
@@ -176,21 +295,44 @@ export function App() {
               {terminal ? (
                 <p className="empty-note">Game over.</p>
               ) : activePlayerId === HUMAN_PLAYER ? (
-                humanActions.length === 0 ? (
+                humanActionItems.length === 0 ? (
                   <p className="empty-note">No legal actions.</p>
                 ) : (
                   <div className="action-list">
-                    {humanActions.map((action, index) => (
-                      <button
-                        key={`${action.type}-${index}-${JSON.stringify(action)}`}
-                        type="button"
-                        className="action-button"
-                        onClick={() => handleHumanAction(action)}
-                      >
-                        <span className="action-kind">{action.type}</span>
-                        <span className="action-text">{describeAction(action)}</span>
-                      </button>
-                    ))}
+                    {humanActionItems.map((item, index) => {
+                      if (item.kind === 'trade-group') {
+                        return (
+                          <button
+                            key={`trade-group-${item.give}-${index}`}
+                            type="button"
+                            className="action-button has-submenu"
+                            onClick={(event) => {
+                              const trigger = event.currentTarget;
+                              if (tradePicker?.give === item.give) {
+                                setTradePicker(null);
+                                return;
+                              }
+                              openTradePicker(item.give, trigger);
+                            }}
+                          >
+                            <span className="action-kind">trade</span>
+                            <span className="action-text">Trade {SUIT_EMOJI[item.give]}x3</span>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          key={`${item.action.type}-${index}-${JSON.stringify(item.action)}`}
+                          type="button"
+                          className="action-button"
+                          onClick={() => handleHumanAction(item.action)}
+                        >
+                          <span className="action-kind">{item.action.type}</span>
+                          <span className="action-text">{describeAction(item.action)}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )
               ) : (
@@ -268,6 +410,39 @@ export function App() {
           </section>
         </aside>
       </main>
+
+      {tradePicker && (
+        <section
+          ref={tradePopoverRef}
+          className="panel trade-popover"
+          role="dialog"
+          aria-label="Choose trade receive suit"
+          style={{ top: `${tradePicker.top}px`, left: `${tradePicker.left}px` }}
+        >
+          <h2>Trade {SUIT_EMOJI[tradePicker.give]}x3 for</h2>
+
+          {tradePickerOptions.length === 0 ? (
+            <p className="empty-note">No trade targets available.</p>
+          ) : (
+            <div className="trade-choice-list">
+              {tradePickerOptions.map((suit) => (
+                <button
+                  key={`trade-choice-${tradePicker.give}-${suit}`}
+                  type="button"
+                  className="trade-choice-button"
+                  onClick={() => handleTradeSelection(suit)}
+                >
+                  {SUIT_EMOJI[suit]} x1
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button type="button" className="trade-cancel-button" onClick={() => setTradePicker(null)}>
+            Cancel
+          </button>
+        </section>
+      )}
     </div>
   );
 }
@@ -578,4 +753,31 @@ function formatTokens(tokens: Partial<Record<Suit, number>>): string {
     return '-';
   }
   return entries.map((entry) => `${SUIT_EMOJI[entry.suit]}x${entry.count}`).join(' ');
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (max < min) {
+    return min;
+  }
+  return Math.max(min, Math.min(value, max));
+}
+
+function buildHumanActionList(actions: readonly GameAction[]): HumanActionListItem[] {
+  const result: HumanActionListItem[] = [];
+  const seenTradeGive = new Set<Suit>();
+
+  for (const action of actions) {
+    if (action.type === 'trade') {
+      if (seenTradeGive.has(action.give)) {
+        continue;
+      }
+      seenTradeGive.add(action.give);
+      result.push({ kind: 'trade-group', give: action.give });
+      continue;
+    }
+
+    result.push({ kind: 'action', action });
+  }
+
+  return result;
 }

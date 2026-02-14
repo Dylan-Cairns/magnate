@@ -62,6 +62,10 @@
     - resources render fixed 2x3 suit slots (with zero-count placeholders) to avoid width/height jitter
     - crowns/hand render fixed slot footprints so card-count changes do not shift layout
     - gameplay shell is viewport-anchored with internal panel scrolling so action-count changes do not resize page height
+  - Trade action UX is now collapsed:
+    - action list shows one `trade` action per give-suit (`give x3`) instead of one per give/receive pair
+    - selecting a trade action opens an anchored popover to the right of the clicked action to choose receive suit
+    - this reduces action-list length while preserving engine action semantics
 
 ## Immediate Next Steps
 
