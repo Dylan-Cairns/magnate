@@ -65,8 +65,6 @@ function advanceOnePhase(state: GameState): GameState {
       };
     case 'TaxCheck':
       return resolveTaxCheck(state);
-    case 'IncomeRoll':
-      return resolveIncomeRoll(state);
     case 'CollectIncome':
       return resolveCollectIncome(state);
     case 'DrawCard':
@@ -102,17 +100,6 @@ function resolveTaxCheck(state: GameState): GameState {
 
   return {
     ...nextState,
-    phase: 'IncomeRoll',
-  };
-}
-
-function resolveIncomeRoll(state: GameState): GameState {
-  if (!state.lastIncomeRoll) {
-    throw new Error('IncomeRoll phase requires lastIncomeRoll to be present.');
-  }
-
-  return {
-    ...state,
     phase: 'CollectIncome',
   };
 }
@@ -156,7 +143,7 @@ function resolveCollectIncome(state: GameState): GameState {
       activePlayerIndex: nextActivePlayerIndex,
       phase: 'CollectIncome',
       pendingIncomeChoices: pendingChoices,
-      incomeChoiceReturnPlayerIndex: state.activePlayerIndex,
+      incomeChoiceReturnPlayerId: state.players[state.activePlayerIndex]?.id,
     };
   }
 
@@ -166,7 +153,7 @@ function resolveCollectIncome(state: GameState): GameState {
     phase: 'ActionWindow',
     cardPlayedThisTurn: false,
     pendingIncomeChoices: undefined,
-    incomeChoiceReturnPlayerIndex: undefined,
+    incomeChoiceReturnPlayerId: undefined,
   };
 }
 
@@ -302,12 +289,11 @@ function rollDie(seed: string, rngCursor: number, sides: number): RollResult {
 }
 
 function resolveDrawPhase(state: GameState): GameState {
-  const previousExhaustionStage = state.exhaustionStage;
+  const previousReshuffles = state.deck.reshuffles;
   const draw = drawOne({
     deck: state.deck,
     seed: state.seed,
     rngCursor: state.rngCursor,
-    exhaustionStage: state.exhaustionStage,
     finalTurnsRemaining: state.finalTurnsRemaining,
   });
 
@@ -326,12 +312,11 @@ function resolveDrawPhase(state: GameState): GameState {
     deck: draw.deck,
     players,
     rngCursor: draw.rngCursor,
-    exhaustionStage: draw.exhaustionStage,
     finalTurnsRemaining: draw.finalTurnsRemaining,
   };
 
   const justEnteredFinalTurns =
-    previousExhaustionStage !== 2 && withDraw.exhaustionStage === 2;
+    previousReshuffles !== 2 && withDraw.deck.reshuffles === 2;
 
   return endTurn(withDraw, justEnteredFinalTurns);
 }
@@ -339,20 +324,14 @@ function resolveDrawPhase(state: GameState): GameState {
 function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
   const nextPlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
   const nextTurn = state.turn + 1;
+  const handoff = handoffTurnState(state, nextPlayerIndex, nextTurn);
 
-  if (state.exhaustionStage === 2) {
+  if (state.deck.reshuffles === 2) {
     if (justEnteredFinalTurns) {
       return {
-        ...state,
-        activePlayerIndex: nextPlayerIndex,
-        turn: nextTurn,
+        ...handoff,
         phase: 'StartTurn',
-        cardPlayedThisTurn: false,
         finalTurnsRemaining: state.finalTurnsRemaining ?? 2,
-        lastIncomeRoll: undefined,
-        lastTaxSuit: undefined,
-        pendingIncomeChoices: undefined,
-        incomeChoiceReturnPlayerIndex: undefined,
       };
     }
 
@@ -361,43 +340,23 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
 
     if (remaining === 0) {
       return finalizeGame({
-        ...state,
-        activePlayerIndex: nextPlayerIndex,
-        turn: nextTurn,
+        ...handoff,
         phase: 'GameOver',
-        cardPlayedThisTurn: false,
         finalTurnsRemaining: 0,
-        lastIncomeRoll: undefined,
-        lastTaxSuit: undefined,
-        pendingIncomeChoices: undefined,
-        incomeChoiceReturnPlayerIndex: undefined,
       });
     }
 
     return {
-      ...state,
-      activePlayerIndex: nextPlayerIndex,
-      turn: nextTurn,
+      ...handoff,
       phase: 'StartTurn',
-      cardPlayedThisTurn: false,
       finalTurnsRemaining: remaining,
-      lastIncomeRoll: undefined,
-      lastTaxSuit: undefined,
-      pendingIncomeChoices: undefined,
-      incomeChoiceReturnPlayerIndex: undefined,
     };
   }
 
   return {
-    ...state,
-    activePlayerIndex: nextPlayerIndex,
-    turn: nextTurn,
+    ...handoff,
     phase: 'StartTurn',
-    cardPlayedThisTurn: false,
-    lastIncomeRoll: undefined,
-    lastTaxSuit: undefined,
-    pendingIncomeChoices: undefined,
-    incomeChoiceReturnPlayerIndex: undefined,
+    finalTurnsRemaining: undefined,
   };
 }
 
@@ -455,4 +414,21 @@ function findPlayerIndexById(state: GameState, playerId: PlayerId): number {
     throw new Error(`Unknown player: ${playerId}`);
   }
   return index;
+}
+
+function handoffTurnState(
+  state: GameState,
+  activePlayerIndex: number,
+  turn: number
+): GameState {
+  return {
+    ...state,
+    activePlayerIndex,
+    turn,
+    cardPlayedThisTurn: false,
+    lastIncomeRoll: undefined,
+    lastTaxSuit: undefined,
+    pendingIncomeChoices: undefined,
+    incomeChoiceReturnPlayerId: undefined,
+  };
 }

@@ -21,8 +21,6 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
     throw new Error(`Active player index ${state.activePlayerIndex} is out of bounds.`);
   }
 
-  const incomeChoiceReturnPlayerId = mapReturnPlayerId(state);
-
   return {
     viewerId,
     activePlayerId: activePlayer.id,
@@ -36,12 +34,11 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
       reshuffles: state.deck.reshuffles,
     },
     cardPlayedThisTurn: state.cardPlayedThisTurn,
-    exhaustionStage: state.exhaustionStage,
     finalTurnsRemaining: state.finalTurnsRemaining,
     lastIncomeRoll: cloneIncomeRoll(state.lastIncomeRoll),
     lastTaxSuit: state.lastTaxSuit,
     pendingIncomeChoices: cloneIncomeChoices(state.pendingIncomeChoices),
-    incomeChoiceReturnPlayerId,
+    incomeChoiceReturnPlayerId: state.incomeChoiceReturnPlayerId,
     finalScore: cloneFinalScore(state.finalScore),
     log: state.log.map(cloneLogEntry),
   };
@@ -164,17 +161,4 @@ function assertPlayerExists(state: GameState, playerId: PlayerId): void {
   if (!exists) {
     throw new Error(`Unknown player: ${playerId}`);
   }
-}
-
-function mapReturnPlayerId(state: GameState): PlayerId | undefined {
-  if (state.incomeChoiceReturnPlayerIndex === undefined) {
-    return undefined;
-  }
-  const player = state.players[state.incomeChoiceReturnPlayerIndex];
-  if (!player) {
-    throw new Error(
-      `Income choice return player index ${state.incomeChoiceReturnPlayerIndex} is out of bounds.`
-    );
-  }
-  return player.id;
 }

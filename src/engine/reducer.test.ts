@@ -86,17 +86,6 @@ describe('post-card progression actions', () => {
     expect(next.phase).toBe('DrawCard');
   });
 
-  it('end-turn transitions to DrawCard from ActionWindow after a card play (deed state)', () => {
-    const state = makeGameState({
-      phase: 'ActionWindow',
-      cardPlayedThisTurn: true,
-      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
-    });
-    const action = findLegalActionByType(state, 'end-turn');
-    const next = applyAction(state, action);
-    expect(next.phase).toBe('DrawCard');
-  });
-
   it('end-turn is illegal before a card has been played', () => {
     const state = makeGameState({
       phase: 'ActionWindow',
@@ -124,7 +113,7 @@ describe('income choice reducer semantics', () => {
           suits: ['Suns', 'Wyrms'],
         },
       ],
-      incomeChoiceReturnPlayerIndex: 0,
+      incomeChoiceReturnPlayerId: PLAYER_A,
     });
 
     const action: GameAction = {
@@ -144,7 +133,7 @@ describe('income choice reducer semantics', () => {
     expect(next.phase).toBe('ActionWindow');
     expect(next.activePlayerIndex).toBe(0);
     expect(next.pendingIncomeChoices).toBeUndefined();
-    expect(next.incomeChoiceReturnPlayerIndex).toBeUndefined();
+    expect(next.incomeChoiceReturnPlayerId).toBeUndefined();
   });
 
   it('choose-income-suit keeps CollectIncome phase when more choices remain', () => {

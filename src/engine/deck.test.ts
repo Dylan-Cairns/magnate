@@ -20,7 +20,6 @@ function drawSequence(context: DrawContext): string[] {
       deck: result.deck,
       seed: context.seed,
       rngCursor: result.rngCursor,
-      exhaustionStage: result.exhaustionStage,
       finalTurnsRemaining: result.finalTurnsRemaining,
     };
   }
@@ -95,23 +94,11 @@ describe('initialSetup', () => {
 });
 
 describe('drawOne', () => {
-  it('throws when exhaustionStage does not match deck reshuffle state', () => {
-    expect(() =>
-      drawOne({
-        deck: { draw: ['6'], discard: [], reshuffles: 0 },
-        seed: 'seed-mismatch',
-        rngCursor: 0,
-        exhaustionStage: 1,
-      })
-    ).toThrow(/Draw context mismatch/);
-  });
-
   it('draws from the top of draw pile when cards are available', () => {
     const result = drawOne({
       deck: { draw: ['6', '7'], discard: [], reshuffles: 0 },
       seed: 'seed-a',
       rngCursor: 0,
-      exhaustionStage: 0,
     });
 
     expect(result.cardId).toBe('6');
@@ -125,14 +112,12 @@ describe('drawOne', () => {
       deck: { draw: [], discard: discardCards, reshuffles: 0 },
       seed: 'seed-b',
       rngCursor: 3,
-      exhaustionStage: 0,
     });
 
     expect(result.cardId).toBeDefined();
     expect(discardCards).toContain(result.cardId);
     expect(result.deck.discard).toEqual([]);
     expect(result.deck.reshuffles).toBe(1);
-    expect(result.exhaustionStage).toBe(1);
     expect(result.rngCursor).toBe(4);
   });
 
@@ -141,11 +126,9 @@ describe('drawOne', () => {
       deck: { draw: [], discard: [], reshuffles: 1 },
       seed: 'seed-c',
       rngCursor: 10,
-      exhaustionStage: 1,
     });
 
     expect(result.cardId).toBeUndefined();
-    expect(result.exhaustionStage).toBe(2);
     expect(result.deck.reshuffles).toBe(2);
   });
 
@@ -154,7 +137,6 @@ describe('drawOne', () => {
       deck: { draw: [], discard: [], reshuffles: 1 },
       seed: 'seed-d',
       rngCursor: 2,
-      exhaustionStage: 1,
     });
     expect(result.finalTurnsRemaining).toBe(2);
   });
@@ -164,7 +146,6 @@ describe('drawOne', () => {
       deck: { draw: [], discard: [], reshuffles: 1 },
       seed: 'seed-e',
       rngCursor: 2,
-      exhaustionStage: 1,
       finalTurnsRemaining: 1,
     });
     expect(result.finalTurnsRemaining).toBe(1);
@@ -175,7 +156,6 @@ describe('drawOne', () => {
       deck: { draw: [], discard: ['6', '7', '8', '9', '10', '11'], reshuffles: 0 },
       seed: 'seed-f',
       rngCursor: 4,
-      exhaustionStage: 0,
     };
 
     const seqA = drawSequence(baseContext);
@@ -204,7 +184,6 @@ describe('issue regressions', () => {
       deck: { draw: [], discard: ['6', '7', '8', '9', '10', '11'], reshuffles: 0 },
       seed: 'seed-reg-7',
       rngCursor: 1,
-      exhaustionStage: 0,
     };
 
     const one = drawSequence(base);
@@ -217,9 +196,8 @@ describe('issue regressions', () => {
       deck: { draw: [], discard: [], reshuffles: 1 },
       seed: 'seed-reg-9',
       rngCursor: 0,
-      exhaustionStage: 1,
     });
-    expect(result.exhaustionStage).toBe(2);
+    expect(result.deck.reshuffles).toBe(2);
     expect(result.finalTurnsRemaining).toBe(2);
   });
 });

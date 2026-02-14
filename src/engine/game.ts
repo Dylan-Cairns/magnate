@@ -37,12 +37,11 @@ export function newGame(seed: string, options: NewGameOptions = {}): GameState {
     phase: 'StartTurn',
     districts,
     cardPlayedThisTurn: false,
-    exhaustionStage: setup.deck.reshuffles,
     finalTurnsRemaining: undefined,
     lastIncomeRoll: undefined,
     lastTaxSuit: undefined,
     pendingIncomeChoices: undefined,
-    incomeChoiceReturnPlayerIndex: undefined,
+    incomeChoiceReturnPlayerId: undefined,
     finalScore: undefined,
     log: [],
   };

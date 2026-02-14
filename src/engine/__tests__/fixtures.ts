@@ -81,11 +81,10 @@ export interface GameStateOverrides {
   rngCursor?: number;
   turn?: number;
   cardPlayedThisTurn?: boolean;
-  exhaustionStage?: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
   pendingIncomeChoices?: readonly IncomeChoice[];
-  incomeChoiceReturnPlayerIndex?: number;
+  incomeChoiceReturnPlayerId?: PlayerId;
 }
 
 export function makeGameState(overrides: GameStateOverrides = {}): GameState {
@@ -107,11 +106,10 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     phase: overrides.phase ?? 'ActionWindow',
     districts: overrides.districts ?? makeDefaultDistricts(),
     cardPlayedThisTurn: overrides.cardPlayedThisTurn ?? false,
-    exhaustionStage: overrides.exhaustionStage ?? 0,
     finalTurnsRemaining: overrides.finalTurnsRemaining,
     lastIncomeRoll: overrides.lastIncomeRoll,
     pendingIncomeChoices: overrides.pendingIncomeChoices,
-    incomeChoiceReturnPlayerIndex: overrides.incomeChoiceReturnPlayerIndex,
+    incomeChoiceReturnPlayerId: overrides.incomeChoiceReturnPlayerId,
     log: [],
   };
 }
