@@ -350,6 +350,11 @@ h1 {
   flex-wrap: wrap;
 }
 
+.lane-cards {
+  min-height: calc((5.8rem * 2) + 0.35rem);
+  align-content: flex-start;
+}
+
 .card-tile {
   width: 5.1rem;
   min-height: 5.8rem;
