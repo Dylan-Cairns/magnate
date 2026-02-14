@@ -187,7 +187,7 @@ describe('tax and income resolution', () => {
     });
   });
 
-  it('CollectIncome on 2-9 pays developed suits and one deterministic deed suit', () => {
+  it('CollectIncome on 2-9 pauses for deed suit choice when matching deed has multiple suits', () => {
     const districts = makeDefaultDistricts().map((district) => {
       if (district.id !== 'D1') {
         return district;
@@ -220,9 +220,18 @@ describe('tax and income resolution', () => {
       throw new Error('Missing PlayerA.');
     }
 
+    expect(advanced.phase).toBe('CollectIncome');
+    expect(advanced.pendingIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '7',
+        suits: ['Suns', 'Wyrms'],
+      },
+    ]);
     expect(playerA.resources.Moons).toBe(1);
     expect(playerA.resources.Knots).toBe(1);
-    expect(playerA.resources.Suns).toBe(1);
+    expect(playerA.resources.Suns).toBe(0);
     expect(playerA.resources.Wyrms).toBe(0);
   });
 

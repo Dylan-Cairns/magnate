@@ -14,6 +14,7 @@ type PhaseBuilderMap = Partial<
 >;
 
 const builders: PhaseBuilderMap = {
+  CollectIncome: collectIncomeChoiceActions,
   OptionalTrade: tradeActions,
   OptionalDevelop: developActions,
   PlayCard: playActions,
@@ -65,6 +66,20 @@ function developActions(state: GameState): GameAction[] {
     }
   );
   return [{ type: 'end-optional-develop' as const }, ...develops];
+}
+
+function collectIncomeChoiceActions(state: GameState): GameAction[] {
+  const [choice] = state.pendingIncomeChoices ?? [];
+  if (!choice) {
+    return [];
+  }
+  return choice.suits.map((suit) => ({
+    type: 'choose-income-suit' as const,
+    playerId: choice.playerId,
+    districtId: choice.districtId,
+    cardId: choice.cardId,
+    suit,
+  }));
 }
 
 function playActions(state: GameState): GameAction[] {

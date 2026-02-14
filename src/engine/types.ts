@@ -88,6 +88,13 @@ export interface IncomeRollResult {
   die2: number;
 }
 
+export interface IncomeChoice {
+  playerId: PlayerId;
+  districtId: DistrictId;
+  cardId: CardId;
+  suits: readonly Suit[];
+}
+
 export interface GameLogEntry {
   turn: number;
   player: PlayerId;
@@ -124,12 +131,14 @@ export interface GameState {
   exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
+  pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
   finalScore?: FinalScore;
   log: ReadonlyArray<GameLogEntry>;
 }
 
 export type ActionId =
   | 'buy-deed'
+  | 'choose-income-suit'
   | 'develop-deed'
   | 'develop-outright'
   | 'end-optional-develop'
@@ -176,8 +185,17 @@ export interface EndOptionalDevelopAction {
   type: 'end-optional-develop';
 }
 
+export interface ChooseIncomeSuitAction {
+  type: 'choose-income-suit';
+  playerId: PlayerId;
+  districtId: DistrictId;
+  cardId: CardId;
+  suit: Suit;
+}
+
 export type GameAction =
   | BuyDeedAction
+  | ChooseIncomeSuitAction
   | DevelopDeedAction
   | DevelopOutrightAction
   | EndOptionalDevelopAction

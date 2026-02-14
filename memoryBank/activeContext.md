@@ -18,6 +18,9 @@
 - Low-level action/reducer validation is in place.
 - Deck/setup/draw logic has been modularized.
 - `advanceToDecision` exists and currently resolves start-turn chain, tax/income baseline, draw, and end-turn handoff.
+- Deed income suit choice is now explicit input:
+  - `CollectIncome` becomes a decision phase when multi-suit deed income choices are pending.
+  - `choose-income-suit` actions resolve those choices one-by-one, then flow resumes to `OptionalTrade`.
 - Optional-phase progression is explicit via actions:
   - `end-optional-trade` moves `OptionalTrade -> OptionalDevelop`
   - `end-optional-develop` moves `OptionalDevelop -> PlayCard`
