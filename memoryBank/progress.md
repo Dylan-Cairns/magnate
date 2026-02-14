@@ -65,10 +65,7 @@
     - fixed remaining gap by aligning info-pane row-template count with actual panel count
   - Player-area cards now match board card size/shape, with centered player-section layout and slightly increased inter-section spacing
   - Player resource chips are now scaled up so the resources block visually matches neighboring card height
-  - Card visuals were restyled so each card shows rank + vertical suits on the left, with deed chips in a right-side column
-  - Card icon alignment polish: suits are more tightly left-aligned beneath rank, suit/chip row spacing increased slightly, and chip column is aligned to suit rows (not the rank row)
-  - Card icon alignment now uses explicit suit/chip row pairing to prevent drift between suit and chip columns
-  - Rank/suit horizontal alignment tightened by using a shared fixed-width centered glyph lane
+  - Card visuals now use a top identity row (rank + horizontal suits) with deed chips in a separate body row, optimized for future vertical card stacking
 - Unit tests cover key low-level rules and early turn-flow behavior.
 - Additional regressions now lock first-placement district legality:
   - first placement must overlap district Pawn suits for both `buy-deed` and `develop-outright` legality/execution paths.
