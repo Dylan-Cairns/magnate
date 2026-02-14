@@ -10,10 +10,13 @@ flowchart TD
 PB[projectbrief.md] --> SP[systemPatterns.md]
 PB --> TC[techContext.md]
 
-    SP --> AC[activeContext.md]
-    TC --> AC
+MR[magnateRules.md] --> SP
+MR --> AC[activeContext.md]
 
-    AC --> P[progress.md]
+SP --> AC[activeContext.md]
+TC --> AC
+
+AC --> P[progress.md]
 
 ### Core Files (Required)
 
@@ -49,11 +52,16 @@ PB --> TC[techContext.md]
    - Tool usage patterns
 
 5. `progress.md`
+
    - What works
    - What's left to build
    - Current status
    - Known issues
    - Evolution of project decisions
+
+6. `magnateRules.md`
+   - Official rules reference
+   - Source of truth for engine legality, income, placement, scoring, and all other game rules
 
 ### Additional Context
 
@@ -80,6 +88,8 @@ ReadFiles --> CheckFiles{Files Complete?}
     Verify --> Strategy[Develop Strategy]
     Strategy --> Present[Present Approach]
 
+Always include `magnateRules.md` when planning or modifying rules, engine state, legality, income, or scoring.
+
 ### Act Mode
 
 flowchart TD
@@ -87,6 +97,8 @@ Start[Start] --> Context[Check Memory Bank]
 Context --> Update[Update Documentation]
 Update --> Execute[Execute Task]
 Execute --> Document[Document Changes]
+
+Verify any rules work against `magnateRules.md` before implementation.
 
 ## Documentation Updates
 
