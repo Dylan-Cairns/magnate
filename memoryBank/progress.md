@@ -13,6 +13,13 @@
   - ESLint flat config in place
   - root TS/Vite config files added
   - lint/test commands now execute successfully
+- Low-level rule enforcement and setup/draw helpers are substantially improved:
+  - reducer now rejects illegal actions against `legalActions(state)`
+  - deed/develop/outright/sell handlers validate ownership, placement, suits, and spend
+  - deed purchase now allows same-turn partial development path
+  - Excuse district first-card placement rule is respected
+  - setup deals crowns/hands and computes starting resources
+  - reshuffle RNG now uses seed + cursor and draw helper marks second-exhaustion final turns
 
 ## What's Left to Build
 
