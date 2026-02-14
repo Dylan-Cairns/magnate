@@ -506,10 +506,6 @@ function formatRoll(roll: { die1: number; die2: number } | undefined): string {
 
 function describeAction(action: GameAction): string {
   switch (action.type) {
-    case 'end-optional-trade':
-      return 'Done trading';
-    case 'end-optional-develop':
-      return 'Done developing deeds';
     case 'end-turn':
       return 'Draw card and end turn';
     case 'trade':

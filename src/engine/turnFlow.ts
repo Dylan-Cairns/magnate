@@ -1,5 +1,6 @@
 import { CARD_BY_ID } from './cards';
 import type { CardId } from './cards';
+import { legalActions } from './actionBuilders';
 import { drawOne } from './deck';
 import { rngFromSeed } from './rng';
 import { scoreGame } from './scoring';
@@ -14,12 +15,7 @@ import type {
   Suit,
 } from './types';
 
-const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set([
-  'OptionalTrade',
-  'OptionalDevelop',
-  'PlayCard',
-  'GameOver',
-]);
+const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set(['PlayCard', 'GameOver']);
 
 const MAX_ADVANCE_STEPS = 32;
 const TAX_SUIT_BY_D6: readonly [Suit, Suit, Suit, Suit, Suit, Suit] = [
@@ -48,6 +44,9 @@ export function advanceToDecision(state: GameState): GameState {
 }
 
 function isDecisionPhase(state: GameState): boolean {
+  if (state.phase === 'OptionalTrade' || state.phase === 'OptionalDevelop') {
+    return legalActions(state).length > 0;
+  }
   if (BASE_DECISION_PHASES.has(state.phase)) {
     return true;
   }
@@ -73,7 +72,15 @@ function advanceOnePhase(state: GameState): GameState {
     case 'DrawCard':
       return resolveDrawPhase(state);
     case 'OptionalTrade':
+      return {
+        ...state,
+        phase: 'OptionalDevelop',
+      };
     case 'OptionalDevelop':
+      return {
+        ...state,
+        phase: state.cardPlayedThisTurn ? 'OptionalTrade' : 'PlayCard',
+      };
     case 'PlayCard':
     case 'GameOver':
       return state;

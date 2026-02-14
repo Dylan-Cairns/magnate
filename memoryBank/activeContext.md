@@ -22,10 +22,11 @@
   - `CollectIncome` becomes a decision phase when multi-suit deed income choices are pending.
   - `choose-income-suit` actions resolve those choices one-by-one, with active actor switching to the choice owner and restoration to the turn owner before `OptionalTrade`.
 - Optional-phase progression is explicit via actions:
-  - `end-optional-trade` moves `OptionalTrade -> OptionalDevelop`
-  - `end-optional-develop` moves `OptionalDevelop -> PlayCard` before a card play, and `OptionalDevelop -> OptionalTrade` after a card play.
-  - `end-turn` is available only after card play and advances to `DrawCard`.
-  - One-card-per-turn lock is enforced via `cardPlayedThisTurn`.
+  - `end-optional-trade` / `end-optional-develop` have been removed from the action surface.
+  - `OptionalTrade` and `OptionalDevelop` now expose the same unified optional decision set.
+  - Before card play: legal actions are `trade`, `develop-deed`, and all card-play actions.
+  - After card play: legal actions are `trade`, `develop-deed`, and `end-turn`.
+  - One-card-per-turn lock is enforced via `cardPlayedThisTurn`; card-play actions are unavailable once a card is played.
 - Scoring and terminal resolution are now implemented:
   - `scoreGame(state)` computes district points and tie-breakers.
   - Game over finalization discards hands + incomplete deeds, then stores `finalScore`.
