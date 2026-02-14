@@ -1,5 +1,6 @@
 import type { CardId } from '../cards';
 import type {
+  DeckState,
   DeedState,
   DistrictState,
   DistrictStack,
@@ -72,6 +73,7 @@ export interface GameStateOverrides {
   phase?: GamePhase;
   players?: readonly [PlayerState, PlayerState];
   districts?: DistrictState[];
+  deck?: DeckState;
   activePlayerIndex?: number;
   seed?: string;
   rngCursor?: number;
@@ -92,7 +94,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     schemaVersion: 1,
     seed: overrides.seed ?? 'test-seed',
     rngCursor: overrides.rngCursor ?? 0,
-    deck: { draw: ['6', '7', '8'], discard: [], reshuffles: 0 },
+    deck: overrides.deck ?? { draw: ['6', '7', '8'], discard: [], reshuffles: 0 },
     players,
     activePlayerIndex: overrides.activePlayerIndex ?? 0,
     turn: overrides.turn ?? 1,
