@@ -21,6 +21,7 @@ html,
 body,
 #root {
   margin: 0;
+  height: 100%;
   min-height: 100%;
   background: radial-gradient(circle at 10% 10%, #234761 0%, var(--bg-top) 30%, var(--bg-bottom) 100%);
   color: var(--ink);
@@ -31,9 +32,11 @@ body {
 }
 
 .app-shell {
+  height: 100vh;
   min-height: 100vh;
   padding: 1rem;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.9rem;
   background-image:
     linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 30%),
@@ -126,8 +129,12 @@ h1 {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 23rem;
+  grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr) minmax(18rem, 24rem);
   gap: 0.9rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
 }
 
 .board-pane,
@@ -142,12 +149,28 @@ h1 {
   padding: 0.7rem;
   display: grid;
   gap: 0.7rem;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.side-pane {
-  display: grid;
-  gap: 0.9rem;
-  align-content: start;
+.actions-pane {
+  min-height: 0;
+  display: flex;
+}
+
+.actions-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.actions-body {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel {
@@ -197,9 +220,20 @@ h1 {
   font-size: 0.84rem;
 }
 
+.player-row {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
 .player-section {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.35rem;
+  align-content: start;
+  min-width: max-content;
 }
 
 .player-section h3 {
@@ -208,6 +242,16 @@ h1 {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  text-align: left;
+}
+
+.resources-section .token-row.fixed-suits {
+  width: calc((1.7rem * 3) + (0.25rem * 2));
+}
+
+.card-row-wrap.fixed-slots {
+  flex-wrap: nowrap;
+  min-width: calc((4.1rem * 3) + (0.35rem * 2));
 }
 
 .district-strip {
@@ -295,6 +339,12 @@ h1 {
     );
 }
 
+.card-placeholder {
+  border-style: dashed;
+  border-color: rgba(151, 201, 212, 0.25);
+  background: rgba(12, 31, 39, 0.22);
+}
+
 .card-row {
   display: flex;
   align-items: center;
@@ -334,6 +384,12 @@ h1 {
   gap: 0.25rem;
 }
 
+.token-row.fixed-suits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
 .token-row.compact {
   gap: 0.18rem;
 }
@@ -356,6 +412,11 @@ h1 {
   font-size: 0.72rem;
 }
 
+.token-chip.empty {
+  opacity: 0.38;
+  border-style: dashed;
+}
+
 .token-count {
   position: absolute;
   top: -0.28rem;
@@ -373,6 +434,11 @@ h1 {
 .action-list {
   display: grid;
   gap: 0.35rem;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  padding-right: 0.15rem;
 }
 
 .action-button {
@@ -424,6 +490,9 @@ h1 {
   padding-left: 1.2rem;
   display: grid;
   gap: 0.3rem;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.15rem;
 }
 
 .log-list li {
@@ -439,22 +508,82 @@ h1 {
 }
 
 .empty-note {
+  margin: 0;
   color: var(--muted);
   font-size: 0.84rem;
 }
 
+.info-pane {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.controls-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.seed-input {
+  width: 100%;
+  max-width: none;
+}
+
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+@media (max-width: 1280px) {
+  .layout {
+    grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  }
+
+  .info-pane {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+  }
+
+  .log-panel {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (max-width: 980px) {
+  .app-shell {
+    height: auto;
+  }
+
   .layout {
     grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
   }
 
-  .hud-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .actions-panel,
+  .log-panel {
+    min-height: initial;
+    height: auto;
   }
 
-  .controls {
-    width: 100%;
-    justify-content: flex-end;
+  .action-list,
+  .log-list {
+    overflow: visible;
+  }
+
+  .info-pane {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .player-row {
     flex-wrap: wrap;
+  }
+
+  .board-pane {
+    overflow: visible;
   }
 }
