@@ -846,25 +846,45 @@ function DistrictColumn({ district }: { district: DistrictState }) {
         ) : null}
       </header>
 
-      <DistrictLane label="Bot" stack={district.stacks[BOT_PLAYER]} />
-      <DistrictLane label="You" stack={district.stacks[HUMAN_PLAYER]} />
+      <DistrictLane label="Bot" playerId={BOT_PLAYER} stack={district.stacks[BOT_PLAYER]} />
+      <DistrictLane label="You" playerId={HUMAN_PLAYER} stack={district.stacks[HUMAN_PLAYER]} />
     </article>
   );
 }
 
-function DistrictLane({ label, stack }: { label: string; stack: DistrictStack }) {
+function DistrictLane({
+  label,
+  playerId,
+  stack,
+}: {
+  label: string;
+  playerId: PlayerId;
+  stack: DistrictStack;
+}) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
   const empty = stack.developed.length === 0 && !stack.deed;
+  const developedCards =
+    playerId === BOT_PLAYER ? [...stack.developed].reverse() : stack.developed;
 
   return (
     <section className="district-lane">
       <header>{label}</header>
       <div className="lane-cards">
-        {stack.developed.map((cardId, index) => (
+        {playerId === BOT_PLAYER && stack.deed && (
+          <CardTile
+            cardId={stack.deed.cardId}
+            deedTokens={stack.deed.tokens}
+            deedProgress={stack.deed.progress}
+            deedTarget={deedTarget}
+          />
+        )}
+
+        {developedCards.map((cardId, index) => (
           <CardTile key={`${cardId}-${index}`} cardId={cardId} />
         ))}
-        {stack.deed && (
+
+        {playerId === HUMAN_PLAYER && stack.deed && (
           <CardTile
             cardId={stack.deed.cardId}
             deedTokens={stack.deed.tokens}
