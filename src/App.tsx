@@ -481,10 +481,10 @@ function PlayerPanel({
             {Array.from({ length: crownSlots }).map((_, index) => {
               const cardId = player.crowns[index];
               if (!cardId) {
-                return <CardTile key={`crown-slot-${player.id}-${index}`} compact placeholder />;
+                return <CardTile key={`crown-slot-${player.id}-${index}`} placeholder />;
               }
 
-              return <CardTile key={`${cardId}-${index}`} cardId={cardId} compact />;
+              return <CardTile key={`${cardId}-${index}`} cardId={cardId} />;
             })}
           </div>
         </div>
@@ -495,18 +495,18 @@ function PlayerPanel({
             {Array.from({ length: handSlots }).map((_, index) => {
               if (player.handHidden) {
                 return index < player.handCount ? (
-                  <CardTile key={`hidden-${player.id}-${index}`} hidden compact />
+                  <CardTile key={`hidden-${player.id}-${index}`} hidden />
                 ) : (
-                  <CardTile key={`hidden-slot-${player.id}-${index}`} compact placeholder />
+                  <CardTile key={`hidden-slot-${player.id}-${index}`} placeholder />
                 );
               }
 
               const cardId = player.hand[index];
               if (!cardId) {
-                return <CardTile key={`hand-slot-${player.id}-${index}`} compact placeholder />;
+                return <CardTile key={`hand-slot-${player.id}-${index}`} placeholder />;
               }
 
-              return <CardTile key={`${cardId}-${index}`} cardId={cardId} compact />;
+              return <CardTile key={`${cardId}-${index}`} cardId={cardId} />;
             })}
           </div>
         </div>

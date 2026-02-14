@@ -222,11 +222,12 @@ h1 {
 
 .player-row {
   display: flex;
-  gap: 0.9rem;
+  gap: 1.2rem;
   align-items: flex-start;
+  justify-content: center;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding-bottom: 0.2rem;
+  padding: 0 0.2rem 0.2rem;
 }
 
 .player-section {
@@ -246,12 +247,28 @@ h1 {
 }
 
 .resources-section .token-row.fixed-suits {
-  width: calc((1.7rem * 3) + (0.25rem * 2));
+  column-gap: 0.28rem;
+  row-gap: 0.3rem;
+  width: calc((2.75rem * 3) + (0.28rem * 2));
+}
+
+.resources-section .token-chip {
+  width: 2.75rem;
+  height: 2.75rem;
+  font-size: 1.25rem;
+}
+
+.resources-section .token-chip .token-count {
+  top: -0.35rem;
+  right: -0.3rem;
+  min-width: 1.2rem;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.22rem;
 }
 
 .card-row-wrap.fixed-slots {
   flex-wrap: nowrap;
-  min-width: calc((4.1rem * 3) + (0.35rem * 2));
+  min-width: calc((5.1rem * 3) + (0.35rem * 2));
 }
 
 .district-strip {
