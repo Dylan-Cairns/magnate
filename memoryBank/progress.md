@@ -13,6 +13,7 @@
 - Canonical game creation exists via `newGame(seed, { firstPlayer })`.
 - Player-scoped visibility projection exists and is test-covered (`toPlayerView` / `toActivePlayerView`).
 - Playable browser client exists (human vs random bot) using engine truth APIs.
+- Board UI now uses centered overlapping district stacks with player-specific visual perspective for readability.
 - Tooling gates include lint + typecheck + tests.
 
 ## In Progress

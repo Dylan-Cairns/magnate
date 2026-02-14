@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from './engine/cards';
@@ -81,6 +81,8 @@ interface PickerOption {
   label: string;
   action: GameAction;
 }
+
+type CardPerspective = 'human' | 'bot';
 
 const SUIT_EMOJI: Record<Suit, string> = {
   Moons: '🌙',
@@ -768,6 +770,7 @@ function PlayerPanel({
   const crownSlots = Math.max(PLAYER_CROWN_SLOT_COUNT, player.crowns.length);
   const handCardCount = player.handHidden ? player.handCount : player.hand.length;
   const handSlots = Math.max(PLAYER_HAND_SLOT_COUNT, handCardCount);
+  const cardPerspective: CardPerspective = player.id === BOT_PLAYER ? 'bot' : 'human';
 
   return (
     <section className={`player-panel${isActive ? ' is-active' : ''}`}>
@@ -793,7 +796,7 @@ function PlayerPanel({
                 return <CardTile key={`crown-slot-${player.id}-${index}`} placeholder />;
               }
 
-              return <CardTile key={`${cardId}-${index}`} cardId={cardId} />;
+              return <CardTile key={`${cardId}-${index}`} cardId={cardId} perspective={cardPerspective} />;
             })}
           </div>
         </div>
@@ -829,6 +832,8 @@ function DistrictColumn({ district }: { district: DistrictState }) {
 
   return (
     <article className="district-column">
+      <DistrictLane label="Bot" playerId={BOT_PLAYER} stack={district.stacks[BOT_PLAYER]} />
+
       <header className="district-header">
         <span className="district-id">{district.id}</span>
         <strong className="district-marker-name" title={markerName}>
@@ -846,7 +851,6 @@ function DistrictColumn({ district }: { district: DistrictState }) {
         ) : null}
       </header>
 
-      <DistrictLane label="Bot" playerId={BOT_PLAYER} stack={district.stacks[BOT_PLAYER]} />
       <DistrictLane label="You" playerId={HUMAN_PLAYER} stack={district.stacks[HUMAN_PLAYER]} />
     </article>
   );
@@ -863,36 +867,62 @@ function DistrictLane({
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
-  const empty = stack.developed.length === 0 && !stack.deed;
-  const developedCards =
-    playerId === BOT_PLAYER ? [...stack.developed].reverse() : stack.developed;
+  const perspective: CardPerspective = playerId === BOT_PLAYER ? 'bot' : 'human';
+  const laneCards: Array<{
+    key: string;
+    cardId: CardId;
+    deedTokens?: Partial<Record<Suit, number>>;
+    deedProgress?: number;
+    deedTarget?: number;
+  }> = stack.developed.map((cardId, index) => ({
+    key: `developed-${cardId}-${index}`,
+    cardId,
+  }));
+
+  if (stack.deed) {
+    laneCards.push({
+      key: `deed-${stack.deed.cardId}`,
+      cardId: stack.deed.cardId,
+      deedTokens: stack.deed.tokens,
+      deedProgress: stack.deed.progress,
+      deedTarget,
+    });
+  }
+
+  const laneStyle = {
+    '--stack-count': laneCards.length,
+  } as CSSProperties;
 
   return (
-    <section className="district-lane">
+    <section className={`district-lane${playerId === BOT_PLAYER ? ' is-bot' : ' is-human'}`}>
       <header>{label}</header>
-      <div className="lane-cards">
-        {playerId === BOT_PLAYER && stack.deed && (
-          <CardTile
-            cardId={stack.deed.cardId}
-            deedTokens={stack.deed.tokens}
-            deedProgress={stack.deed.progress}
-            deedTarget={deedTarget}
-          />
+      <div className={`lane-stack-frame${playerId === BOT_PLAYER ? ' is-bot' : ''}`}>
+        {laneCards.length > 0 ? (
+          <div className={`lane-stack ${playerId === BOT_PLAYER ? 'is-bot' : 'is-human'}`} style={laneStyle}>
+            {laneCards.map((laneCard, index) => (
+              <div
+                key={laneCard.key}
+                className="lane-stack-card"
+                style={
+                  {
+                    '--stack-position': index,
+                    '--stack-z': index + 1,
+                  } as CSSProperties
+                }
+              >
+                <CardTile
+                  cardId={laneCard.cardId}
+                  deedTokens={laneCard.deedTokens}
+                  deedProgress={laneCard.deedProgress}
+                  deedTarget={laneCard.deedTarget}
+                  perspective={perspective}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="empty-note">No cards</span>
         )}
-
-        {developedCards.map((cardId, index) => (
-          <CardTile key={`${cardId}-${index}`} cardId={cardId} />
-        ))}
-
-        {playerId === HUMAN_PLAYER && stack.deed && (
-          <CardTile
-            cardId={stack.deed.cardId}
-            deedTokens={stack.deed.tokens}
-            deedProgress={stack.deed.progress}
-            deedTarget={deedTarget}
-          />
-        )}
-        {empty && <span className="empty-note">No cards</span>}
       </div>
     </section>
   );
@@ -906,6 +936,7 @@ function CardTile({
   deedTokens,
   deedProgress,
   deedTarget,
+  perspective = 'human',
 }: {
   cardId?: CardId;
   hidden?: boolean;
@@ -914,6 +945,7 @@ function CardTile({
   deedTokens?: Partial<Record<Suit, number>>;
   deedProgress?: number;
   deedTarget?: number;
+  perspective?: CardPerspective;
 }) {
   if (placeholder) {
     return <div className={`card-tile card-placeholder${compact ? ' compact' : ''}`} aria-hidden="true" />;
@@ -936,19 +968,36 @@ function CardTile({
         ? 'P'
         : 'X';
   const hasDeedTokens = deedTokens ? tokenEntries(deedTokens).length > 0 : false;
+  const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
+
+  const rankAndSuits = (
+    <div className="card-row card-top">
+      <span className="card-rank">{rank}</span>
+      <div className="card-suits-row">
+        {suits.length > 0 ? (
+          suits.map((suit) => <span key={`${cardId}-${suit}`}>{SUIT_EMOJI[suit]}</span>)
+        ) : (
+          <span className="card-suit-placeholder" />
+        )}
+      </div>
+    </div>
+  );
+
+  const progressSlot = (
+    <div className="card-progress-slot">
+      {hasDeedProgress ? (
+        <div className="deed-progress">
+          {deedProgress}/{deedTarget}
+        </div>
+      ) : (
+        <span className="deed-progress-placeholder" aria-hidden="true" />
+      )}
+    </div>
+  );
 
   return (
-    <div className={`card-tile${compact ? ' compact' : ''}`} title={card.name}>
-      <div className="card-row card-top">
-        <span className="card-rank">{rank}</span>
-        <div className="card-suits-row">
-          {suits.length > 0 ? (
-            suits.map((suit) => <span key={`${cardId}-${suit}`}>{SUIT_EMOJI[suit]}</span>)
-          ) : (
-            <span className="card-suit-placeholder" />
-          )}
-        </div>
-      </div>
+    <div className={`card-tile${compact ? ' compact' : ''}${perspective === 'bot' ? ' perspective-bot' : ''}`} title={card.name}>
+      {perspective === 'bot' ? progressSlot : rankAndSuits}
 
       <div className="card-row card-body">
         {hasDeedTokens && deedTokens ? (
@@ -958,11 +1007,7 @@ function CardTile({
         )}
       </div>
 
-      {deedProgress !== undefined && deedTarget !== undefined && (
-        <div className="deed-progress">
-          {deedProgress}/{deedTarget}
-        </div>
-      )}
+      {perspective === 'bot' ? rankAndSuits : progressSlot}
     </div>
   );
 }
