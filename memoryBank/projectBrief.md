@@ -1,118 +1,46 @@
-# Magnate (Web) + RL Bot — Project Brief
+# Project Brief
 
-## One-liner
+## Goal
 
-Build a web-playable, single-player **Magnate** with a competent computer opponent.
+Build a web-playable, single-player Magnate with a competent bot.
 
-The **TypeScript engine is canonical for rules** and runs in browser + Node. Python training calls that engine through a narrow, stable bridge contract. **Official rules only.**
+## Scope (v1)
 
-## Goals
-
-- **Accurate rules**: Implement Magnate exactly as written on the Decktet wiki.
-- **Competent bot**: Beat random and simple heuristic baselines; feel fair and capable to humans.
-- **Single rules implementation**: Keep game legality/scoring/setup logic in TS only for v1.
-- **Reproducible & testable**: Seeded randomness, pure state updates, deterministic fixtures.
-- **Static deploy**: Ship browser app to GitHub Pages with model artifact as static asset.
-- **Execution order**: Build a complete rules engine and scripted opponent before RL training.
+- Official two-player Magnate rules parity.
+- Human vs bot in browser.
+- TS engine used by both browser and training through a bridge.
+- Static deploy target (GitHub Pages style hosting).
 
 ## Non-Goals (v1)
 
-- Multiplayer, accounts, persistence, mobile polish, localization.
+- Multiplayer/accounts/backend services.
 - Full cross-language rules schema/codegen.
-- Native Python rules implementation unless a real bridge-throughput bottleneck appears.
-
-## Game scope (rules parity)
-
-Two-player Magnate per official write-up: setup, turn order, taxation/income, developing, deeds, trade, sell, draw exhaustion, endgame, and scoring.
-
-Rule source of truth: `memoryBank/magnateRules.md`.
+- Native Python rules engine.
 
 ## Architecture
 
-- **TypeScript Engine (canonical rules)**
-  - Pure functions over immutable state.
-  - Deterministic under seed + action sequence.
-  - No I/O in reducer logic.
+- **TS Engine (canonical)**: deterministic rules/state transitions.
+- **UI (React/TS)**: thin layer over engine APIs.
+- **Node Bridge**: stable JSON protocol to expose engine to Python.
+- **Python Trainer**: RL loop as a bridge client.
 
-- **Browser UI (TypeScript/React)**
-  - Thin rendering/controller layer over engine APIs.
-  - Human vs bot only for v1.
+## Success Criteria
 
-- **Node Bridge (TS runtime boundary)**
-  - Hosts the TS engine.
-  - Speaks newline-delimited JSON over stdin/stdout.
-  - Provides stable command surface to Python.
+- Rules behavior matches `memoryBank/magnateRules.md`.
+- Deterministic replay from seed + actions.
+- Stable bridge contract for TS/Python integration.
+- Bot can play full games in browser without server runtime.
 
-- **Python Trainer (bridge client)**
-  - Treats engine as external environment via bridge.
-  - Consumes legal actions and observations from TS runtime.
-  - Avoids duplicated rules logic.
+## Execution Order
 
-## Shared Contract Strategy
-
-Use a **small interface contract** (not full rules schema) to lock:
-
-- Bridge request/response envelope
-- Command names and payload requirements
-- Stable action IDs
-- Observation layout metadata
-- Model I/O names for export/inference
-- Error code taxonomy
-
-Contract reference: `memoryBank/bridgeInterfaceContract.md`.
-
-## Data model (engine)
-
-- **State**
-  - Deck/discard, player hands, district line markers, player resources, deeds/developments, turn/phase, seed/rng cursor, minimal action log.
-
-- **Actions (discrete families)**
-  - Buy deed, develop deed, develop outright, trade (3:1 per action), sell.
-  - No pass action.
-
-- **Legality**
-  - `legalActions(state)` returns exactly legal actions for current state.
-
-## Reproducibility and tests
-
-- Seeded PRNG only; no `Math.random` in rules.
-- Reducer purity: `next = reduce(prev, action)`.
-- Snapshot fixtures for tricky rule paths.
-- Contract tests for bridge payload stability.
-
-## Training plan
-
-- Start with random and heuristic baselines.
-- Train via PPO-style loop in Python against bridge environment.
-- Illegal actions are masked by legal action set from TS engine.
-- Reward starts simple (win/loss), then only add shaping if required.
-
-## Packaging and deploy
-
-- Build static web app for GitHub Pages.
-- Model artifact loaded client-side (no backend).
-- Inference format can be ONNX or equivalent static artifact, but contract names/dims stay stable.
-
-## Quality bar
-
-- Rules parity confirmed against `magnateRules.md`.
-- Deterministic replays from seed + action log.
-- Unit/snapshot coverage for setup, legality, taxation, income, selling, and scoring.
-- Bridge contract tests guard TS/Python integration stability.
-
-## Milestones
-
-1. **Truth-source reset**: Align docs and architecture decisions.
-2. **Interface contract**: Finalize bridge contract v1 and metadata handshake.
-3. **TS engine completion**: Setup, turn FSM, legality, scoring, terminal flow.
-4. **Engine tests**: Unit + snapshot fixtures for representative rule paths.
-5. **Scripted bot + minimal UI**: Human vs heuristic bot in browser.
-6. **Bridge runtime**: TS engine accessible from Python with contract tests.
-7. **Python trainer**: PPO baseline loop through bridge.
-8. **Model export + browser inference**: Static artifact and release.
+1. Complete TS rules loop (setup, turn flow, legality, scoring, terminal).
+2. Expand tests for full-turn and scoring behavior.
+3. Implement bridge runtime using contract v1.
+4. Add trainer scaffold and baseline policy.
+5. Integrate model inference in browser.
 
 ## References
 
-- Magnate rules: http://wiki.decktet.com/game:magnate
-- Memory workflows: `docs/AGENT_GUIDE.md`
-- Agent manifest: `AGENTS.md`
+- Rules: `memoryBank/magnateRules.md`
+- Contract: `memoryBank/bridgeInterfaceContract.md`
+- Active work: `memoryBank/activeContext.md`

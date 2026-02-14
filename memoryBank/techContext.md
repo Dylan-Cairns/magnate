@@ -1,56 +1,35 @@
 # Tech Context
 
-## Technologies and Frameworks
+## Stack
 
-- **Rules runtime**: TypeScript (strict), Node.js 20+
-- **Frontend**: React 19.2.x + Vite 5.4.x
-- **Testing (TS)**: Vitest
-- **Lint/format**: ESLint + Prettier
-- **Training runtime**: Python 3.11+ (3.12 preferred)
-- **RL stack target**: PyTorch, Stable-Baselines3, Gymnasium, NumPy
-- **Bridge transport**: Node stdin/stdout JSON protocol
+- Node.js 20+
+- TypeScript (strict)
+- React + Vite
+- Vitest
+- ESLint + Prettier
+- Python 3.11+ target for training
 
-## Baseline policy
+## Project Layout Direction
 
-Use `kuhn-poker` as the workflow/template baseline for:
+- TS engine and browser app in this repo.
+- Python trainer as a bridge client.
+- Shared cross-runtime contract is small and versioned.
 
-- repo shape and separation between TS runtime and Python runtime
-- deterministic testing discipline
-- static deployment pattern
-- model export + browser inference integration approach
+## Tooling Notes
 
-Magnate diverges where game complexity requires it, but should not diverge without explicit justification.
+- Package manager: Yarn
+- Primary scripts: `dev`, `build`, `test`, `lint`, `format`
+- Vite base uses relative paths for static hosting compatibility.
 
-## Development setup
+## Constraints
 
-- **Package manager (current)**: Yarn
-- **Node target**: v20+
-- **Python target for training tooling**: 3.11+
-- **Core scripts (current package.json)**: `dev`, `build`, `preview`, `test`, `test:watch`, `lint`, `format`
-- **TypeScript config**: root `tsconfig.json` (strict, bundler module resolution, React JSX)
-- **Vite config**: root `vite.config.ts` with `base: "./"` for static-host compatibility
-- **ESLint config**: root `eslint.config.js` (flat config)
+- Static deploy target (no gameplay backend).
+- Deterministic gameplay required for tests, replay, and training.
+- Rules logic remains in TS unless explicitly re-approved otherwise.
 
-## Technical constraints
+## Known Gaps
 
-- Static hosting on GitHub Pages (no gameplay backend)
-- Deterministic engine and replayability
-- TS engine remains canonical rules source
-- Python trainer consumes bridge outputs; no duplicated rules engine by default
-- Shared contract scope stays narrow (bridge + observation/action/model metadata)
-
-## Current known gaps (2026-02-19)
-
-- No TS test files currently present.
-- Vite build currently fails because no `index.html`/app entrypoint exists yet.
-- Python environment in this shell is currently 3.7.9, below the target for RL stack work.
-
-## Planned config direction
-
-- Keep frontend/runtime versions close to Kuhn's proven baseline unless a justified divergence is needed.
-- Add bridge contract tests and engine unit/snapshot tests before trainer work.
-- Add Python project config (`pyproject.toml`) when bridge client/trainer scaffolding starts.
-
-## Contract reference
-
-- `memoryBank/bridgeInterfaceContract.md` is the TS<->Python boundary source of truth.
+- Full turn-loop wiring is not complete yet.
+- Scoring and full terminal resolution are not complete yet.
+- Bridge runtime and trainer scaffolding are not complete yet.
+- Web app entry/deploy flow is not complete yet.

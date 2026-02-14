@@ -2,47 +2,46 @@
 
 ## Purpose
 
-Define the smallest stable cross-runtime contract required for Python training to call the canonical TypeScript Magnate engine.
+Define the minimal stable boundary for Python training to call the canonical TS Magnate engine.
 
-This contract does not duplicate game rules in Python. Rules remain in TypeScript.
+- Contract name: `magnate_bridge`
+- Contract version: `v1`
 
 ## Scope
 
 In scope:
-- Bridge command names and request/response shapes
-- Stable action IDs
-- Observation vector layout metadata
-- Model I/O naming metadata used by export/inference
-- Error envelope shape
+
+- Bridge command names
+- Request/response envelope
+- Action ID stability
+- Observation layout metadata
+- Model I/O metadata
+- Error envelope and codes
 
 Out of scope:
-- Full game-rules schema duplication in Python
-- Python-native legality or scoring logic
 
-## Versioning
-
-- Contract name: `magnate_bridge`
-- Initial version: `v1`
-- Backward-compatible changes can add fields.
-- Breaking changes require a new major contract version.
+- Full rules schema duplication in Python
+- Python-native legality/scoring logic
 
 ## Transport
 
-- JSON messages over newline-delimited stdin/stdout for the first implementation.
-- One request in, one response out.
-- Each request carries a `requestId` echoed by the response.
+- Newline-delimited JSON over stdin/stdout (initial implementation)
+- One request -> one response
+- `requestId` must be echoed
 
-## Request Envelope
+## Envelope
+
+Request:
 
 ```json
 {
   "requestId": "string",
-  "command": "reset | step | legalActions | observation | serialize | metadata",
+  "command": "metadata | reset | step | legalActions | observation | serialize",
   "payload": {}
 }
 ```
 
-## Response Envelope
+Success response:
 
 ```json
 {
@@ -52,7 +51,7 @@ Out of scope:
 }
 ```
 
-or
+Error response:
 
 ```json
 {
@@ -66,68 +65,22 @@ or
 }
 ```
 
-## Commands
+## Commands (v1)
 
-### `metadata`
+- `metadata`
+  - returns `contractName`, `contractVersion`, action ID maps, observation spec, model I/O names
+- `reset`
+  - optional seed; returns fresh state + active actor view
+- `legalActions`
+  - returns legal action payloads for current state
+- `observation`
+  - returns actor observation (+ optional mask)
+- `step`
+  - applies action; returns next state view and terminal info if game ended
+- `serialize`
+  - returns canonical state snapshot with `schemaVersion`
 
-Returns static contract metadata for Python bootstrapping and validation.
-
-Result must include:
-- `contractName`
-- `contractVersion`
-- `actionIdByName`
-- `actionNameById`
-- `observationSpec`:
-  - `size`
-  - `segments` (name, offset, size)
-- `modelIo`:
-  - `inputNames`
-  - `outputNames`
-
-### `reset`
-
-Payload:
-- optional `seed` (string)
-
-Returns:
-- fresh serialized state
-- active player
-- legal actions
-- observation for active player
-
-### `legalActions`
-
-Payload:
-- optional state token/reference if stateless bridge mode is later added
-
-Returns:
-- array of legal action objects with stable action IDs
-
-### `observation`
-
-Returns:
-- observation vector for current actor
-- optional action mask aligned with action IDs
-
-### `step`
-
-Payload:
-- chosen action ID plus any action parameters needed by the action type
-
-Returns:
-- next serialized state
-- terminal flag
-- legal actions for next actor (if non-terminal)
-- observation for next actor (if non-terminal)
-- final score/winner fields (if terminal)
-
-### `serialize`
-
-Returns:
-- canonical JSON state snapshot
-- `schemaVersion` for saved-state compatibility checks
-
-## Error Codes (initial set)
+## Error Codes
 
 - `INVALID_COMMAND`
 - `INVALID_PAYLOAD`
@@ -137,12 +90,8 @@ Returns:
 
 ## Stability Rules
 
-- Action IDs are stable once training data/checkpoints depend on them.
-- Observation segment offsets/sizes are stable within a contract version.
+- Action IDs are stable once used by training/checkpoints.
+- Observation layout is stable within a contract version.
 - Model I/O names are stable within a contract version.
-- Additive metadata fields are allowed without a version bump.
-
-## Adoption Notes (2026-02-19)
-
-- This contract is the replacement for a larger shared rules schema approach.
-- It is intentionally narrow to preserve momentum while preventing TS/Python drift.
+- Additive fields are allowed without a major version bump.
+- Breaking changes require a major contract version bump.
