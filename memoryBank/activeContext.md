@@ -18,12 +18,18 @@
 - Low-level action/reducer validation is in place.
 - Deck/setup/draw logic has been modularized.
 - `advanceToDecision` exists and currently resolves start-turn chain, tax/income baseline, draw, and end-turn handoff.
+- Optional-phase progression is explicit via actions:
+  - `end-optional-trade` moves `OptionalTrade -> OptionalDevelop`
+  - `end-optional-develop` moves `OptionalDevelop -> PlayCard`
+- Scoring and terminal resolution are now implemented:
+  - `scoreGame(state)` computes district points and tie-breakers.
+  - Game over finalization discards hands + incomplete deeds, then stores `finalScore`.
+  - `isTerminal(state)` helper is available.
 
 ## Immediate Next Steps
 
-1. Finish optional-phase progression wiring in the turn loop.
-2. Implement scoring and terminal resolution details.
-3. Add/expand tests for full-game turn flow and scoring outcomes.
-4. Start bridge runtime scaffolding against `bridgeInterfaceContract.md`.
+1. Expand full-game turn-flow scenario coverage for remaining edge cases.
+2. Start bridge runtime scaffolding against `bridgeInterfaceContract.md`.
+3. Define state initialization entrypoint for complete playable game lifecycle.
 
-_Updated: 2026-02-19._
+_Updated: 2026-02-20._

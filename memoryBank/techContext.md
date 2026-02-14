@@ -18,7 +18,8 @@
 ## Tooling Notes
 
 - Package manager: Yarn
-- Primary scripts: `dev`, `build`, `test`, `lint`, `format`
+- Primary scripts: `dev`, `build`, `test`, `lint`, `typecheck`, `format`
+- `lint` now includes `tsc --noEmit` via `yarn typecheck`.
 - Vite base uses relative paths for static hosting compatibility.
 
 ## Constraints

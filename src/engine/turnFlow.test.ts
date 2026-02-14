@@ -63,10 +63,26 @@ describe('advanceToDecision', () => {
     expect(advanced.turn).toBe(11);
     expect(advanced.activePlayerIndex).toBe(1);
     expect(advanced.exhaustionStage).toBe(2);
-    expect(advanced.finalTurnsRemaining).toBe(1);
+    expect(advanced.finalTurnsRemaining).toBe(2);
   });
 
   it('ends the game when final-turn countdown reaches zero on DrawCard', () => {
+    const districts = makeDefaultDistricts().map((district) => {
+      if (district.id !== 'D1') {
+        return district;
+      }
+      return {
+        ...district,
+        stacks: {
+          ...district.stacks,
+          [PLAYER_A]: {
+            developed: ['6'],
+            deed: { cardId: '29', progress: 0, tokens: {} },
+          },
+        },
+      };
+    });
+
     const state = makeGameState({
       phase: 'DrawCard',
       turn: 11,
@@ -74,6 +90,11 @@ describe('advanceToDecision', () => {
       deck: { draw: [], discard: [], reshuffles: 2 },
       exhaustionStage: 2,
       finalTurnsRemaining: 1,
+      districts,
+      players: [
+        makePlayer(PLAYER_A, { hand: ['6', '7'] }),
+        makePlayer(PLAYER_B, { hand: ['8', '9'] }),
+      ],
     });
 
     const advanced = advanceToDecision(state);
@@ -81,6 +102,11 @@ describe('advanceToDecision', () => {
     expect(advanced.turn).toBe(12);
     expect(advanced.activePlayerIndex).toBe(0);
     expect(advanced.finalTurnsRemaining).toBe(0);
+    expect(advanced.players[0].hand).toEqual([]);
+    expect(advanced.players[1].hand).toEqual([]);
+    expect(advanced.districts[0].stacks[PLAYER_A].deed).toBeUndefined();
+    expect(advanced.deck.discard).toEqual(['6', '7', '8', '9', '29']);
+    expect(advanced.finalScore).toBeDefined();
   });
 });
 

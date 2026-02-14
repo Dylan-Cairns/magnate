@@ -96,6 +96,21 @@ export interface GameLogEntry {
   details?: Record<string, unknown>;
 }
 
+export type Winner = PlayerId | 'Draw';
+export type WinnerDecider =
+  | 'districts'
+  | 'rank-total'
+  | 'resources'
+  | 'draw';
+
+export interface FinalScore {
+  districtPoints: Record<PlayerId, number>;
+  rankTotals: Record<PlayerId, number>;
+  resourceTotals: Record<PlayerId, number>;
+  winner: Winner;
+  decidedBy: WinnerDecider;
+}
+
 export interface GameState {
   schemaVersion: number;
   seed: string;
@@ -109,6 +124,7 @@ export interface GameState {
   exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
+  finalScore?: FinalScore;
   log: ReadonlyArray<GameLogEntry>;
 }
 
@@ -116,6 +132,8 @@ export type ActionId =
   | 'buy-deed'
   | 'develop-deed'
   | 'develop-outright'
+  | 'end-optional-develop'
+  | 'end-optional-trade'
   | 'sell-card'
   | 'trade';
 
@@ -150,9 +168,19 @@ export interface TradeAction {
   receive: Suit;
 }
 
+export interface EndOptionalTradeAction {
+  type: 'end-optional-trade';
+}
+
+export interface EndOptionalDevelopAction {
+  type: 'end-optional-develop';
+}
+
 export type GameAction =
   | BuyDeedAction
   | DevelopDeedAction
   | DevelopOutrightAction
+  | EndOptionalDevelopAction
+  | EndOptionalTradeAction
   | SellCardAction
   | TradeAction;

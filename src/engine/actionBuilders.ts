@@ -26,24 +26,26 @@ export function legalActions(state: GameState): readonly GameAction[] {
 
 function tradeActions(state: GameState): GameAction[] {
   const player = state.players[state.activePlayerIndex];
-  return SUITS.flatMap((give) =>
+  const trades: Extract<GameAction, { type: 'trade' }>[] = SUITS.flatMap((give) =>
     player.resources[give] < 3
       ? []
       : SUITS.filter((receive) => receive !== give).map((receive) => ({
-          type: 'trade',
+          type: 'trade' as const,
           give,
           receive,
         }))
   );
+  return [{ type: 'end-optional-trade' as const }, ...trades];
 }
 
 function developActions(state: GameState): GameAction[] {
   const playerId = state.players[state.activePlayerIndex].id;
   const player = state.players[state.activePlayerIndex];
-  return state.districts.flatMap((district) => {
-    const deed = district.stacks[playerId]?.deed;
-    if (!deed) {
-      return [];
+  const develops: Extract<GameAction, { type: 'develop-deed' }>[] = state.districts.flatMap(
+    (district) => {
+      const deed = district.stacks[playerId]?.deed;
+      if (!deed) {
+        return [];
     }
     const card = CARD_BY_ID[deed.cardId];
     if (!card || card.kind !== 'Property') {
@@ -55,12 +57,14 @@ function developActions(state: GameState): GameAction[] {
     return card.suits
       .filter((suit) => player.resources[suit] > 0)
       .map((suit) => ({
-        type: 'develop-deed',
+        type: 'develop-deed' as const,
         districtId: district.id,
         cardId: deed.cardId,
         tokens: { [suit]: 1 },
       }));
-  });
+    }
+  );
+  return [{ type: 'end-optional-develop' as const }, ...develops];
 }
 
 function playActions(state: GameState): GameAction[] {
