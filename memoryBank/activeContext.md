@@ -43,6 +43,8 @@
   - Public info remains visible (districts, deeds, resources, crowns, discard pile, phase/turn flags).
 - Ace completion interpretation is explicitly locked in tests:
   - Ace deed completion target is 3 total progress tokens.
+- First-placement district marker rule is now explicitly regression-tested at action/reducer level:
+  - `buy-deed` and `develop-outright` are blocked for first placements without Pawn suit overlap (Excuse remains the only first-placement exception).
 - React gameplay shell is now in place:
   - Vite/React entry files were added (`index.html`, `src/main.tsx`, `src/App.tsx`, `src/styles.css`).
   - Board UI shows districts, developed cards, deeds + deed tokens, crowns, resources, hands, dice roll, and action log.
