@@ -193,6 +193,7 @@ describe('tax and income resolution', () => {
     }
     const taxTriggered = roll.die1 === 1 || roll.die2 === 1;
     expect(advanced.rngCursor).toBe(startCursor + (taxTriggered ? 3 : 2));
+    expect(Boolean(advanced.lastTaxSuit)).toBe(taxTriggered);
   });
 
   it('TaxCheck taxation caps taxed suit to one token for both players', () => {

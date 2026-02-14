@@ -40,6 +40,7 @@ export function newGame(seed: string, options: NewGameOptions = {}): GameState {
     exhaustionStage: setup.deck.reshuffles,
     finalTurnsRemaining: undefined,
     lastIncomeRoll: undefined,
+    lastTaxSuit: undefined,
     pendingIncomeChoices: undefined,
     incomeChoiceReturnPlayerIndex: undefined,
     finalScore: undefined,

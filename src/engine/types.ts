@@ -143,6 +143,7 @@ export interface PlayerView {
   exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
+  lastTaxSuit?: Suit;
   pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
   incomeChoiceReturnPlayerId?: PlayerId;
   finalScore?: FinalScore;
@@ -163,6 +164,7 @@ export interface GameState {
   exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
+  lastTaxSuit?: Suit;
   pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
   incomeChoiceReturnPlayerIndex?: number;
   finalScore?: FinalScore;
