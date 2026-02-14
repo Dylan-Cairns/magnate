@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
+import cubeDieIcon from './assets/icons/cube.png';
+import dodecahedronDieIcon from './assets/icons/dodecahedron.png';
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from './engine/cards';
 import { newGame } from './engine/game';
 import { applyAction } from './engine/reducer';
@@ -700,7 +702,7 @@ export function App() {
 
           <section className="panel">
             <h2>Roll Result</h2>
-            <p className="roll-value">{formatRoll(humanView.lastIncomeRoll, humanView.lastTaxSuit)}</p>
+            <RollResult roll={humanView.lastIncomeRoll} taxSuit={humanView.lastTaxSuit} />
           </section>
 
           <section className="panel log-panel">
@@ -1092,11 +1094,33 @@ function tokenEntries(tokens: Partial<Record<Suit, number>> | ResourcePool): Arr
   );
 }
 
-function formatRoll(roll: { die1: number; die2: number } | undefined, taxSuit: Suit | undefined): string {
+function RollResult({
+  roll,
+  taxSuit,
+}: {
+  roll: { die1: number; die2: number } | undefined;
+  taxSuit: Suit | undefined;
+}) {
   if (!roll) {
-    return '-';
+    return <p className="roll-value">-</p>;
   }
-  return `d10: ${roll.die1}  d10: ${roll.die2}  tax die: ${taxSuit ?? '-'}`;
+
+  return (
+    <div className="roll-value" aria-label="Roll result">
+      <span className="roll-item">
+        <img src={dodecahedronDieIcon} alt="d10" title="d10" className="roll-die-icon" />
+        <strong>{roll.die1}</strong>
+      </span>
+      <span className="roll-item">
+        <img src={dodecahedronDieIcon} alt="d10" title="d10" className="roll-die-icon" />
+        <strong>{roll.die2}</strong>
+      </span>
+      <span className="roll-item">
+        <img src={cubeDieIcon} alt="d6" title="d6" className="roll-die-icon" />
+        <strong>{taxSuit ?? '-'}</strong>
+      </span>
+    </div>
+  );
 }
 
 function describeAction(action: GameAction): string {
