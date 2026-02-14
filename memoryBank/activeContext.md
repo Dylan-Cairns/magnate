@@ -2,103 +2,44 @@
 
 ## Current Focus
 
-- Keep legality and turn progression deterministic while wiring playable clients.
-- Consolidate UI/controller patterns so random bot and future trained bot share one policy boundary.
-- Preserve a stable TS-Python bridge boundary while client work continues.
+- Close remaining rules-parity gaps with scenario-driven integration tests.
+- Keep the UI/controller thin and policy-agnostic so random and trained bots share one action-selection boundary.
+- Preserve a stable TS-Python contract while bridge runtime and trainer work begin.
 
 ## Locked Decisions
 
-- TS is canonical for game rules.
-- Python uses the TS engine through a Node bridge.
-- Shared contract remains narrow and versioned.
-- No full Python rules duplication by default.
+- TypeScript engine is the canonical rules implementation.
+- Python training calls TS through a Node bridge.
+- Shared boundary is a small, versioned interface contract.
+- Native Python rules are out of scope unless throughput becomes a proven bottleneck.
 
-## Recent Direction
+## Current State
 
-- Low-level action/reducer validation is in place.
-- Deck/setup/draw logic has been modularized.
-- `advanceToDecision` exists and currently resolves start-turn chain, tax/income baseline, draw, and end-turn handoff.
-- Deed income suit choice is now explicit input:
-  - `CollectIncome` becomes a decision phase when multi-suit deed income choices are pending.
-  - `choose-income-suit` actions resolve those choices one-by-one, with active actor switching to the choice owner and restoration to the turn owner before `ActionWindow`.
-- Decision-phase model now uses a single `ActionWindow` phase:
-  - legacy `OptionalTrade` / `OptionalDevelop` / `PlayCard` phase literals were removed.
-  - Before card play: legal actions are `trade`, `develop-deed`, and all card-play actions.
-  - After card play: legal actions are `trade`, `develop-deed`, and `end-turn`.
-  - One-card-per-turn lock is enforced via `cardPlayedThisTurn`; card-play actions are unavailable once a card is played.
-- Scoring and terminal resolution are now implemented:
-  - `scoreGame(state)` computes district points and tie-breakers.
-  - Game over finalization discards hands + incomplete deeds, then stores `finalScore`.
-  - `isTerminal(state)` helper is available.
-- Canonical game initialization now exists:
-  - `newGame(seed, { firstPlayer })` builds full `GameState` from deterministic setup output.
-  - District marker suits now come directly from dealt Pawn/Excuse marker cards instead of fixture assumptions.
-  - District marker order now enforces rules intent:
-    - `Excuse` is always the center district marker.
-    - The four Pawn markers are shuffled per seed around the center.
-- Player-scoped visibility projection now exists:
-  - `toPlayerView(state, viewerId)` and `toActivePlayerView(state)` provide observation-safe views.
-  - Opponent hand cards are hidden (count only), and draw pile order is hidden (`drawCount` only).
-  - Public info remains visible (districts, deeds, resources, crowns, discard pile, phase/turn flags).
-- Ace completion interpretation is explicitly locked in tests:
-  - Ace deed completion target is 3 total progress tokens.
-- First-placement district marker rule is now explicitly regression-tested at action/reducer level:
-  - `buy-deed` and `develop-outright` are blocked for first placements without Pawn suit overlap (Excuse remains the only first-placement exception).
-- React gameplay shell is now in place:
-  - Vite/React entry files were added (`index.html`, `src/main.tsx`, `src/App.tsx`, `src/styles.css`).
-  - Board UI shows districts, developed cards, deeds + deed tokens, crowns, resources, hands, dice roll, and action log.
-  - Human acts via `legalActions` panel; bot currently chooses random legal actions with a short delay.
-  - UI consumes engine truth (`newGame`, `advanceToDecision`, `legalActions`, `applyAction`, `toPlayerView`).
-  - HUD now shows a derived `Status` label instead of raw engine phase names.
-  - Incremental score is now displayed throughout play:
-    - UI derives score each state update via `scoreGame(state)`.
-    - Single score panel is used; on terminal states it shows the final score (no duplicate live/final panels).
-  - Layout is now reorganized for gameplay ergonomics:
-    - dedicated left actions column with scrollable action list
-    - dedicated right info column ordered as title, seed/new game controls, score, roll result, and log
-    - player summary rows now place resources, crowns, and hand horizontally in a single line on desktop
-  - Player-row stability polish is now in place:
-    - each player section now uses left-aligned title-above-content grouping
-    - resources render fixed 2x3 suit slots (with zero-count placeholders) to avoid width/height jitter
-    - crowns/hand render fixed slot footprints so card-count changes do not shift layout
-    - gameplay shell is viewport-anchored with internal panel scrolling so action-count changes do not resize page height
-  - Trade action UX is now collapsed:
-    - action list shows one `trade` action per give-suit (`give x3`) instead of one per give/receive pair
-    - selecting a trade action opens an anchored popover to the right of the clicked action to choose receive suit
-    - this reduces action-list length while preserving engine action semantics
-  - Action list de-duplication now also covers district-only variance:
-    - `buy-deed` options are collapsed by card and use right-side district chooser when multiple districts are legal
-    - `develop-outright` options are collapsed by card + payment and use right-side district chooser when only district differs
-    - `develop-deed` options are collapsed by deed card + district and use right-side payment chooser when only token suit/payment differs
-  - District headers now show the marker card name centered in the header row:
-    - Pawn/Excuse markers use a unified header style
-    - suit icons remain right-aligned for Pawn markers only
-  - District lane card areas now reserve two rows of card space even at low/zero occupancy to avoid board jitter
-  - District lane card flow is now vertical:
-    - human stacks place newer cards below older cards
-    - bot stacks place newer cards above older cards
-  - Log panel now renders full action history (no 12-entry cap) and relies on internal panel scrolling for overflow
-  - Right-side info column controls and status updates:
-    - seed input + new game button now sit inline directly under the `Magnate` title in the same panel
-    - deck state panel now shows draw count and reshuffles remaining
-    - actions header now shows a prominent `Last Turn` badge for the full final-turn window (`finalTurnsRemaining > 0`)
-    - right-column stack now explicitly fills available height so log panel aligns to column bottom
-    - info-pane row template now matches actual panel count so no extra trailing empty row appears under log
-  - Player-panel visual consistency pass:
-    - crowns/hand now use full-size card tiles matching board card dimensions
-    - player sections are horizontally centered in each player panel with slightly increased spacing
-    - resource chips are enlarged so the 2x3 resource block height aligns with adjacent card height
-  - Card face styling now follows Decktet-like structure:
-    - rank and suits now share a single top header row (suits horizontal)
-    - deed chips are rendered below in the card body row
-    - this keeps card identity compact at the top for planned vertical stacking layouts
-    - header row alignment was tightened so rank and suit glyphs share the same vertical centerline
-    - deed chips now render in a single centered row within the card body
+### Engine
+
+- Deterministic setup/deck lifecycle, legality generation, and reducer transitions are implemented.
+- Turn resolution is phase-driven via `advanceToDecision`, with a unified decision phase (`ActionWindow`).
+- Income suit choice is explicit (`choose-income-suit`) and actor ownership is handled correctly.
+- Scoring and terminal resolution are implemented (`scoreGame`, terminal finalization, `isTerminal`).
+- Canonical game init exists via `newGame(seed, { firstPlayer })`.
+
+### Observability
+
+- `toPlayerView` and `toActivePlayerView` are implemented and test-covered.
+- Opponent hand contents and draw order are hidden; public board/deed/resource state remains visible.
+
+### UI
+
+- Playable React shell exists (`src/App.tsx`) with human vs random bot.
+- UI dispatches only engine-legal actions and uses grouped follow-up pickers where options are noisy.
+- Right info column includes controls, score, deck state, roll result, and full scrollable log.
+- Final-turn warning is surfaced in the actions header during the final-turn window.
 
 ## Immediate Next Steps
 
-1. Extract a formal policy interface (`selectAction(view, legalActions)`) and move random bot behind it.
-2. Improve action UX from raw action buttons to grouped/intention-level controls where useful.
-3. Start bridge runtime scaffolding against `bridgeInterfaceContract.md`.
+1. Expand full-turn/full-game scenario coverage for rules parity.
+2. Extract `selectAction(view, legalActions)` policy interface and route random bot through it.
+3. Implement bridge runtime against `memoryBank/bridgeInterfaceContract.md`.
+4. Add trainer scaffold and baseline loop.
 
 _Updated: 2026-02-20._
