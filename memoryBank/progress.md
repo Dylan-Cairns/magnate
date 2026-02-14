@@ -18,6 +18,7 @@
 - Player-scoped visibility projection exists and is test-covered (`toPlayerView` / `toActivePlayerView`).
 - Playable browser client exists (human vs random bot) using engine truth APIs.
 - Board UI now uses centered overlapping district stacks with player-specific visual perspective for readability.
+- Human-only `reset-turn` UX is implemented via a UI snapshot anchor at human turn start (`ActionWindow` pre-card), restoring state prior to `end-turn` without changing engine action contracts.
 - Policy/controller boundaries now exist:
   - `src/engine/session.ts` (`createSession`, `stepToDecision`)
   - `src/policies/types.ts` + `src/policies/randomPolicy.ts`

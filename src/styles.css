@@ -143,7 +143,6 @@ h1 {
   align-items: stretch;
 }
 
-.board-pane,
 .panel {
   border: 1px solid var(--panel-border);
   border-radius: 14px;
@@ -152,7 +151,12 @@ h1 {
 }
 
 .board-pane {
-  padding: 0.7rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  padding: 0;
+  margin: 0;
   display: grid;
   grid-template-rows: var(--player-panel-height) minmax(0, 1fr) var(--player-panel-height);
   gap: 0.7rem;
@@ -178,6 +182,30 @@ h1 {
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.actions-human-layout {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.actions-human-main {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.actions-footer {
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed rgba(133, 207, 198, 0.26);
+}
+
+.actions-footer .action-button {
+  width: 100%;
 }
 
 .actions-heading {
@@ -226,6 +254,8 @@ h1 {
 .player-panel {
   border: 1px solid rgba(133, 207, 198, 0.24);
   border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(4px);
   padding: 0.5rem 0.6rem;
   display: grid;
   gap: 0.45rem;
@@ -320,6 +350,8 @@ h1 {
 .district-column {
   border: 1px solid rgba(133, 207, 198, 0.24);
   border-radius: 10px;
+  background: var(--panel);
+  backdrop-filter: blur(4px);
   padding: 0.45rem;
   min-height: 0;
   height: 100%;
@@ -644,6 +676,15 @@ h1 {
 
 .action-button:hover {
   background: linear-gradient(130deg, rgba(57, 164, 154, 0.8), rgba(14, 84, 88, 0.82));
+}
+
+.action-button.reset-turn-button {
+  border-color: rgba(244, 196, 101, 0.58);
+  background: linear-gradient(130deg, rgba(138, 109, 52, 0.74), rgba(67, 77, 34, 0.7));
+}
+
+.action-button.reset-turn-button:hover {
+  background: linear-gradient(130deg, rgba(167, 134, 68, 0.82), rgba(89, 101, 44, 0.78));
 }
 
 .action-kind {

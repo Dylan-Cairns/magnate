@@ -31,6 +31,11 @@ import {
   pickerTitle,
   type ActionPickerQuery,
 } from './ui/actionPresentation';
+import {
+  canUseTurnReset,
+  shouldCaptureTurnResetAnchor,
+  type TurnResetAnchor,
+} from './ui/turnReset';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -79,6 +84,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
   const [actionPicker, setActionPicker] = useState<ActionPickerState | null>(null);
+  const [turnResetAnchor, setTurnResetAnchor] = useState<TurnResetAnchor | null>(null);
 
   const stateRef = useRef(state);
   const actionPopoverRef = useRef<HTMLElement | null>(null);
@@ -122,6 +128,23 @@ export function App() {
     }
     return pickerTitle(toPickerQuery(actionPicker), SUIT_EMOJI);
   }, [actionPicker]);
+
+  const canResetTurn = useMemo(
+    () => canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor),
+    [activePlayerId, state, turnResetAnchor]
+  );
+
+  useEffect(() => {
+    if (!shouldCaptureTurnResetAnchor(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor)) {
+      return;
+    }
+
+    setTurnResetAnchor({
+      turn: state.turn,
+      playerId: HUMAN_PLAYER,
+      state,
+    });
+  }, [activePlayerId, state, turnResetAnchor]);
 
   useEffect(() => {
     if (terminal || activePlayerId !== BOT_PLAYER) {
@@ -243,6 +266,7 @@ export function App() {
     const seed = seedInput.trim() || makeSeed();
     setSeedInput(seed);
     setActionPicker(null);
+    setTurnResetAnchor(null);
 
     try {
       setState(createInitialState(seed));
@@ -256,6 +280,20 @@ export function App() {
   const handlePickerSelection = (action: GameAction) => {
     setActionPicker(null);
     handleHumanAction(action);
+  };
+
+  const handleTurnReset = () => {
+    if (!turnResetAnchor) {
+      return;
+    }
+    if (!canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor)) {
+      return;
+    }
+
+    setActionPicker(null);
+    setState(turnResetAnchor.state);
+    setError(null);
+    setBotThinking(false);
   };
 
   const openTradePicker = (give: Suit, trigger: HTMLButtonElement, optionCount: number) => {
@@ -343,11 +381,13 @@ export function App() {
               {terminal ? (
                 <p className="empty-note">Game over.</p>
               ) : activePlayerId === HUMAN_PLAYER ? (
-                humanActionItems.length === 0 ? (
-                  <p className="empty-note">No legal actions.</p>
-                ) : (
-                  <div className="action-list">
-                    {humanActionItems.map((item) => {
+                <div className="actions-human-layout">
+                  <div className="actions-human-main">
+                    {humanActionItems.length === 0 ? (
+                      <p className="empty-note">No legal actions.</p>
+                    ) : (
+                      <div className="action-list">
+                        {humanActionItems.map((item) => {
                       if (item.kind === 'trade-group') {
                         if (item.options.length === 1) {
                           const [onlyOption] = item.options;
@@ -544,8 +584,24 @@ export function App() {
                         </button>
                       );
                     })}
+                      </div>
+                    )}
                   </div>
-                )
+
+                  {canResetTurn ? (
+                    <div className="actions-footer">
+                      <button
+                        key="reset-turn"
+                        type="button"
+                        className="action-button reset-turn-button"
+                        onClick={handleTurnReset}
+                      >
+                        <span className="action-kind">reset-turn</span>
+                        <span className="action-text">Reset turn to post-roll state</span>
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               ) : (
                 <p className="empty-note">{botThinking ? 'Bot is thinking...' : 'Waiting for bot...'}</p>
               )}
