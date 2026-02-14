@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
-import { CARD_BY_ID, type CardId } from './engine/cards';
+import { CARD_BY_ID, PAWN_CARDS, type CardId } from './engine/cards';
 import { newGame } from './engine/game';
 import { applyAction } from './engine/reducer';
 import { isTerminal, scoreGame } from './engine/scoring';
@@ -516,21 +516,25 @@ function PlayerPanel({
 }
 
 function DistrictColumn({ district }: { district: DistrictState }) {
+  const markerName = districtMarkerName(district.markerSuitMask);
+
   return (
     <article className="district-column">
       <header className="district-header">
-        <strong>{district.id}</strong>
+        <span className="district-id">{district.id}</span>
+        <strong className="district-marker-name" title={markerName}>
+          {markerName}
+        </strong>
         {district.markerSuitMask.length > 0 ? (
           <TokenRow
+            className="district-marker-tokens"
             tokens={district.markerSuitMask.reduce<Partial<Record<Suit, number>>>((acc, suit) => {
               acc[suit] = 1;
               return acc;
             }, {})}
             compact
           />
-        ) : (
-          <span className="excuse-pill">Excuse</span>
-        )}
+        ) : null}
       </header>
 
       <DistrictLane label="Bot" stack={district.stacks[BOT_PLAYER]} />
@@ -636,11 +640,13 @@ function TokenRow({
   compact,
   emptyLabel,
   fixedSuitSlots,
+  className,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
   compact?: boolean;
   emptyLabel?: string;
   fixedSuitSlots?: boolean;
+  className?: string;
 }) {
   const entries = fixedSuitSlots
     ? SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 }))
@@ -651,7 +657,11 @@ function TokenRow({
   }
 
   return (
-    <div className={`token-row${compact ? ' compact' : ''}${fixedSuitSlots ? ' fixed-suits' : ''}`}>
+    <div
+      className={`token-row${compact ? ' compact' : ''}${fixedSuitSlots ? ' fixed-suits' : ''}${
+        className ? ` ${className}` : ''
+      }`}
+    >
       {entries.map(({ suit, count }) => (
         <TokenChip key={suit} suit={suit} count={count} compact={compact} />
       ))}
@@ -780,4 +790,18 @@ function buildHumanActionList(actions: readonly GameAction[]): HumanActionListIt
   }
 
   return result;
+}
+
+function districtMarkerName(markerSuitMask: readonly Suit[]): string {
+  if (markerSuitMask.length === 0) {
+    return 'the EXCUSE';
+  }
+
+  const key = suitMaskKey(markerSuitMask);
+  const match = PAWN_CARDS.find((pawn) => suitMaskKey(pawn.suits) === key);
+  return match?.name ?? 'Unknown Marker';
+}
+
+function suitMaskKey(suits: readonly Suit[]): string {
+  return [...suits].sort().join('|');
 }
