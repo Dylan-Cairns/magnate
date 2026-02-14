@@ -8,6 +8,8 @@ import {
   makePlayer,
   makeResources,
 } from './__tests__/fixtures';
+import { legalActions } from './actionBuilders';
+import { applyAction } from './reducer';
 import { advanceToDecision } from './turnFlow';
 
 describe('advanceToDecision', () => {
@@ -233,6 +235,52 @@ describe('tax and income resolution', () => {
     expect(playerA.resources.Knots).toBe(1);
     expect(playerA.resources.Suns).toBe(0);
     expect(playerA.resources.Wyrms).toBe(0);
+  });
+
+  it('CollectIncome pending income choices switch active actor and then restore turn owner', () => {
+    const districts = makeDefaultDistricts().map((district) => {
+      if (district.id !== 'D1') {
+        return district;
+      }
+      return {
+        ...district,
+        stacks: {
+          ...district.stacks,
+          [PLAYER_B]: {
+            developed: [],
+            deed: { cardId: '7', progress: 0, tokens: {} },
+          },
+        },
+      };
+    });
+
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      lastIncomeRoll: { die1: 2, die2: 2 },
+      activePlayerIndex: 0,
+      districts,
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources(), crowns: [] }),
+        makePlayer(PLAYER_B, { resources: makeResources(), crowns: [] }),
+      ],
+    });
+
+    const advanced = advanceToDecision(state);
+    expect(advanced.phase).toBe('CollectIncome');
+    expect(advanced.players[advanced.activePlayerIndex].id).toBe(PLAYER_B);
+    expect(advanced.incomeChoiceReturnPlayerIndex).toBe(0);
+
+    const choose = legalActions(advanced).find(
+      (action) => action.type === 'choose-income-suit'
+    );
+    if (!choose || choose.type !== 'choose-income-suit') {
+      throw new Error('Missing choose-income-suit action.');
+    }
+
+    const resolved = applyAction(advanced, choose);
+    expect(resolved.phase).toBe('OptionalTrade');
+    expect(resolved.players[resolved.activePlayerIndex].id).toBe(PLAYER_A);
+    expect(resolved.incomeChoiceReturnPlayerIndex).toBeUndefined();
   });
 
   it('CollectIncome on double ones pays ace income for ace properties in play', () => {

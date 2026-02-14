@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CARD_BY_ID } from './cards';
-import { placementAllowed } from './stateHelpers';
+import { developmentCost, placementAllowed } from './stateHelpers';
 import { PLAYER_A, PLAYER_B, makeDistrict } from './__tests__/fixtures';
 
 describe('placementAllowed', () => {
@@ -71,5 +71,16 @@ describe('issue regressions', () => {
     }
     const excuseDistrict = makeDistrict('D5', []);
     expect(placementAllowed(card, excuseDistrict, PLAYER_A)).toBe(true);
+  });
+
+  it('ace completion interpretation: ace deed development target is 3 tokens', () => {
+    const ace = CARD_BY_ID['0'];
+    const rankTwo = CARD_BY_ID['6'];
+    if (ace.kind !== 'Property' || rankTwo.kind !== 'Property') {
+      throw new Error('Expected property test cards.');
+    }
+
+    expect(developmentCost(ace)).toBe(3);
+    expect(developmentCost(rankTwo)).toBe(2);
   });
 });

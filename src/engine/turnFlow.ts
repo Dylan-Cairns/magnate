@@ -122,7 +122,18 @@ function resolveCollectIncome(state: GameState): GameState {
     throw new Error('CollectIncome phase requires lastIncomeRoll to be present.');
   }
   if ((state.pendingIncomeChoices?.length ?? 0) > 0) {
-    return state;
+    const [nextChoice] = state.pendingIncomeChoices ?? [];
+    if (!nextChoice) {
+      return state;
+    }
+    const nextActivePlayerIndex = findPlayerIndexById(state, nextChoice.playerId);
+    if (nextActivePlayerIndex === state.activePlayerIndex) {
+      return state;
+    }
+    return {
+      ...state,
+      activePlayerIndex: nextActivePlayerIndex,
+    };
   }
   const incomeRoll = state.lastIncomeRoll;
 
@@ -137,11 +148,15 @@ function resolveCollectIncome(state: GameState): GameState {
   });
 
   if (pendingChoices.length > 0) {
+    const [nextChoice] = pendingChoices;
+    const nextActivePlayerIndex = findPlayerIndexById(state, nextChoice.playerId);
     return {
       ...state,
       players,
+      activePlayerIndex: nextActivePlayerIndex,
       phase: 'CollectIncome',
       pendingIncomeChoices: pendingChoices,
+      incomeChoiceReturnPlayerIndex: state.activePlayerIndex,
     };
   }
 
@@ -149,7 +164,9 @@ function resolveCollectIncome(state: GameState): GameState {
     ...state,
     players,
     phase: 'OptionalTrade',
+    cardPlayedThisTurn: false,
     pendingIncomeChoices: undefined,
+    incomeChoiceReturnPlayerIndex: undefined,
   };
 }
 
@@ -332,7 +349,11 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
         activePlayerIndex: nextPlayerIndex,
         turn: nextTurn,
         phase: 'StartTurn',
+        cardPlayedThisTurn: false,
         finalTurnsRemaining: state.finalTurnsRemaining ?? 2,
+        lastIncomeRoll: undefined,
+        pendingIncomeChoices: undefined,
+        incomeChoiceReturnPlayerIndex: undefined,
       };
     }
 
@@ -345,7 +366,11 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
         activePlayerIndex: nextPlayerIndex,
         turn: nextTurn,
         phase: 'GameOver',
+        cardPlayedThisTurn: false,
         finalTurnsRemaining: 0,
+        lastIncomeRoll: undefined,
+        pendingIncomeChoices: undefined,
+        incomeChoiceReturnPlayerIndex: undefined,
       });
     }
 
@@ -354,7 +379,11 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
       activePlayerIndex: nextPlayerIndex,
       turn: nextTurn,
       phase: 'StartTurn',
+      cardPlayedThisTurn: false,
       finalTurnsRemaining: remaining,
+      lastIncomeRoll: undefined,
+      pendingIncomeChoices: undefined,
+      incomeChoiceReturnPlayerIndex: undefined,
     };
   }
 
@@ -363,6 +392,10 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
     activePlayerIndex: nextPlayerIndex,
     turn: nextTurn,
     phase: 'StartTurn',
+    cardPlayedThisTurn: false,
+    lastIncomeRoll: undefined,
+    pendingIncomeChoices: undefined,
+    incomeChoiceReturnPlayerIndex: undefined,
   };
 }
 
@@ -412,4 +445,12 @@ function clearIncompleteDeed(
   return {
     developed: [...stack.developed],
   };
+}
+
+function findPlayerIndexById(state: GameState, playerId: PlayerId): number {
+  const index = state.players.findIndex((player) => player.id === playerId);
+  if (index < 0) {
+    throw new Error(`Unknown player: ${playerId}`);
+  }
+  return index;
 }

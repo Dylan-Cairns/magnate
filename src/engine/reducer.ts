@@ -34,6 +34,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return endOptionalTrade(state);
     case 'end-optional-develop':
       return endOptionalDevelop(state);
+    case 'end-turn':
+      return endTurn(state);
     case 'trade':
       return trade(state, action);
     case 'develop-deed':
@@ -62,7 +64,11 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     return false;
   }
 
-  if (left.type === 'end-optional-trade' || left.type === 'end-optional-develop') {
+  if (
+    left.type === 'end-optional-trade' ||
+    left.type === 'end-optional-develop' ||
+    left.type === 'end-turn'
+  ) {
     return true;
   }
 
@@ -118,13 +124,28 @@ function endOptionalTrade(state: GameState): GameState {
 }
 
 function endOptionalDevelop(state: GameState): GameState {
-  return log({ ...state, phase: 'PlayCard' }, 'end optional develop');
+  const phase = state.cardPlayedThisTurn ? 'OptionalTrade' : 'PlayCard';
+  return log({ ...state, phase }, 'end optional develop');
+}
+
+function endTurn(state: GameState): GameState {
+  if (!state.cardPlayedThisTurn) {
+    throw new Error('Cannot end turn before a card has been played.');
+  }
+  return log({ ...state, phase: 'DrawCard' }, 'end turn');
 }
 
 function chooseIncomeSuit(
   state: GameState,
   action: Extract<GameAction, { type: 'choose-income-suit' }>
 ): GameState {
+  const activePlayer = state.players[state.activePlayerIndex];
+  if (!activePlayer || activePlayer.id !== action.playerId) {
+    throw new Error(
+      `Income choice must be made by active player ${activePlayer?.id ?? 'unknown'}.`
+    );
+  }
+
   const [nextChoice, ...restChoices] = state.pendingIncomeChoices ?? [];
   if (!nextChoice) {
     throw new Error('No pending income choices available.');
@@ -148,13 +169,20 @@ function chooseIncomeSuit(
 
   const pendingIncomeChoices = restChoices.length > 0 ? restChoices : undefined;
   const phase = pendingIncomeChoices ? 'CollectIncome' : 'OptionalTrade';
+  const nextActivePlayerIndex = pendingIncomeChoices
+    ? findPlayerIndexById(state, pendingIncomeChoices[0].playerId)
+    : (state.incomeChoiceReturnPlayerIndex ?? state.activePlayerIndex);
 
   const next = replacePlayerById(state, action.playerId, updatedPlayer);
   return log(
     {
       ...next,
+      activePlayerIndex: nextActivePlayerIndex,
       phase,
       pendingIncomeChoices,
+      incomeChoiceReturnPlayerIndex: pendingIncomeChoices
+        ? state.incomeChoiceReturnPlayerIndex
+        : undefined,
     },
     `income choice ${action.cardId}:${action.suit}`
   );
@@ -267,7 +295,15 @@ function developOutright(
   }));
 
   const updated = replaceActivePlayer(state, { ...player, hand, resources });
-  return log({ ...updated, districts, phase: 'DrawCard' }, `develop ${action.cardId}`);
+  return log(
+    {
+      ...updated,
+      districts,
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: true,
+    },
+    `develop ${action.cardId}`
+  );
 }
 
 function buyDeed(
@@ -297,7 +333,12 @@ function buyDeed(
 
   const updated = replaceActivePlayer(state, { ...player, hand, resources });
   return log(
-    { ...updated, districts, phase: 'OptionalDevelop' },
+    {
+      ...updated,
+      districts,
+      phase: 'OptionalDevelop',
+      cardPlayedThisTurn: true,
+    },
     `buy deed ${action.cardId}`
   );
 }
@@ -320,7 +361,15 @@ function sellCard(
   const updated = replaceActivePlayer(state, { ...player, hand, resources });
   const deck = discard(state.deck, action.cardId);
 
-  return log({ ...updated, deck, phase: 'DrawCard' }, `sell ${action.cardId}`);
+  return log(
+    {
+      ...updated,
+      deck,
+      phase: 'OptionalTrade',
+      cardPlayedThisTurn: true,
+    },
+    `sell ${action.cardId}`
+  );
 }
 
 function validateSuitSpend(
@@ -413,6 +462,14 @@ function findPlayerById(state: GameState, playerId: PlayerId): PlayerState {
     throw new Error(`Unknown player: ${playerId}`);
   }
   return player;
+}
+
+function findPlayerIndexById(state: GameState, playerId: PlayerId): number {
+  const index = state.players.findIndex((entry) => entry.id === playerId);
+  if (index < 0) {
+    throw new Error(`Unknown player: ${playerId}`);
+  }
+  return index;
 }
 
 function updateDistricts(

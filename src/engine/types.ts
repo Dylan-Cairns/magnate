@@ -128,10 +128,12 @@ export interface GameState {
   turn: number;
   phase: GamePhase;
   districts: DistrictLine;
+  cardPlayedThisTurn: boolean;
   exhaustionStage: 0 | 1 | 2;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
   pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
+  incomeChoiceReturnPlayerIndex?: number;
   finalScore?: FinalScore;
   log: ReadonlyArray<GameLogEntry>;
 }
@@ -143,6 +145,7 @@ export type ActionId =
   | 'develop-outright'
   | 'end-optional-develop'
   | 'end-optional-trade'
+  | 'end-turn'
   | 'sell-card'
   | 'trade';
 
@@ -185,6 +188,10 @@ export interface EndOptionalDevelopAction {
   type: 'end-optional-develop';
 }
 
+export interface EndTurnAction {
+  type: 'end-turn';
+}
+
 export interface ChooseIncomeSuitAction {
   type: 'choose-income-suit';
   playerId: PlayerId;
@@ -200,5 +207,6 @@ export type GameAction =
   | DevelopOutrightAction
   | EndOptionalDevelopAction
   | EndOptionalTradeAction
+  | EndTurnAction
   | SellCardAction
   | TradeAction;

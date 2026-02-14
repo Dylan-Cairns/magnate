@@ -7,11 +7,9 @@ import {
   enumerateOutrightPayments,
   placementAllowed,
 } from './stateHelpers';
-import type { GameState, GameAction, GamePhase } from './types';
+import type { GameAction, GamePhase, GameState } from './types';
 
-type PhaseBuilderMap = Partial<
-  Record<GamePhase, (state: GameState) => GameAction[]>
->;
+type PhaseBuilderMap = Partial<Record<GamePhase, (state: GameState) => GameAction[]>>;
 
 const builders: PhaseBuilderMap = {
   CollectIncome: collectIncomeChoiceActions,
@@ -36,36 +34,40 @@ function tradeActions(state: GameState): GameAction[] {
           receive,
         }))
   );
-  return [{ type: 'end-optional-trade' as const }, ...trades];
+  return [...optionalEndActions(state, 'trade'), ...trades];
 }
 
 function developActions(state: GameState): GameAction[] {
-  const playerId = state.players[state.activePlayerIndex].id;
   const player = state.players[state.activePlayerIndex];
+  const playerId = player.id;
+
   const develops: Extract<GameAction, { type: 'develop-deed' }>[] = state.districts.flatMap(
     (district) => {
       const deed = district.stacks[playerId]?.deed;
       if (!deed) {
         return [];
-    }
-    const card = CARD_BY_ID[deed.cardId];
-    if (!card || card.kind !== 'Property') {
-      return [];
-    }
-    if (deed.progress >= developmentCost(card)) {
-      return [];
-    }
-    return card.suits
-      .filter((suit) => player.resources[suit] > 0)
-      .map((suit) => ({
-        type: 'develop-deed' as const,
-        districtId: district.id,
-        cardId: deed.cardId,
-        tokens: { [suit]: 1 },
-      }));
+      }
+
+      const card = CARD_BY_ID[deed.cardId];
+      if (!card || card.kind !== 'Property') {
+        return [];
+      }
+      if (deed.progress >= developmentCost(card)) {
+        return [];
+      }
+
+      return card.suits
+        .filter((suit) => player.resources[suit] > 0)
+        .map((suit) => ({
+          type: 'develop-deed' as const,
+          districtId: district.id,
+          cardId: deed.cardId,
+          tokens: { [suit]: 1 },
+        }));
     }
   );
-  return [{ type: 'end-optional-develop' as const }, ...develops];
+
+  return [...optionalEndActions(state, 'develop'), ...develops];
 }
 
 function collectIncomeChoiceActions(state: GameState): GameAction[] {
@@ -73,6 +75,12 @@ function collectIncomeChoiceActions(state: GameState): GameAction[] {
   if (!choice) {
     return [];
   }
+
+  const activePlayer = state.players[state.activePlayerIndex];
+  if (!activePlayer || activePlayer.id !== choice.playerId) {
+    return [];
+  }
+
   return choice.suits.map((suit) => ({
     type: 'choose-income-suit' as const,
     playerId: choice.playerId,
@@ -83,20 +91,24 @@ function collectIncomeChoiceActions(state: GameState): GameAction[] {
 }
 
 function playActions(state: GameState): GameAction[] {
+  if (state.cardPlayedThisTurn) {
+    return [];
+  }
+
   const player = state.players[state.activePlayerIndex];
   const playerId = player.id;
+
   return player.hand.flatMap((cardId) => {
     const card = CARD_BY_ID[cardId];
-    if (!card) {
+    if (!card || card.kind !== 'Property') {
       return [];
     }
-    if (card.kind !== 'Property') {
-      return [];
-    }
+
     const sell = { type: 'sell-card' as const, cardId };
     const placements = state.districts.filter((district) =>
       placementAllowed(card, district, playerId)
     );
+
     const canBuyDeed = canAfford(player.resources, deedCost(card));
     const deedable = placements
       .filter((district) => !district.stacks[playerId]?.deed)
@@ -118,4 +130,18 @@ function playActions(state: GameState): GameAction[] {
 
     return [sell, ...deedable, ...developOutright];
   });
+}
+
+function optionalEndActions(
+  state: GameState,
+  phase: 'trade' | 'develop'
+): GameAction[] {
+  const base =
+    phase === 'trade'
+      ? ({ type: 'end-optional-trade' } as const)
+      : ({ type: 'end-optional-develop' } as const);
+  if (!state.cardPlayedThisTurn) {
+    return [base];
+  }
+  return [base, { type: 'end-turn' as const }];
 }
