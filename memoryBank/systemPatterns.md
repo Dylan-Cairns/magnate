@@ -21,6 +21,14 @@ Design expectations:
 - Immutable state updates.
 - Phase-driven turn flow.
 
+## Client Controller Pattern
+
+- Client loop should stay thin and deterministic:
+  - `state = advanceToDecision(newGame(...))`
+  - render from `toPlayerView(state, viewerId)`
+  - apply only `legalActions(state)` through `applyAction`
+- Bot/human action selection should sit behind a shared policy contract so swapping random -> trained does not change controller flow.
+
 ## Turn-Flow Pattern
 
 - Non-decision phases auto-resolve via `advanceToDecision`.

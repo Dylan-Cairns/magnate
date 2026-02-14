@@ -14,6 +14,7 @@
 - TS engine and browser app in this repo.
 - Python trainer as a bridge client.
 - Shared cross-runtime contract is small and versioned.
+- Browser app entry now exists at `index.html` + `src/main.tsx` with gameplay shell in `src/App.tsx`.
 
 ## Tooling Notes
 
@@ -32,5 +33,5 @@
 
 - Full rules-parity scenario coverage is not complete yet.
 - Bridge runtime and trainer scaffolding are not complete yet.
-- Web app entry/deploy flow is not complete yet.
+- Policy abstraction for random/human/trained bot swapping is not complete yet.
 - Browser/bridge wiring to drive games from `newGame(seed, { firstPlayer })` is not complete yet.
