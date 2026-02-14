@@ -75,6 +75,9 @@ Create additional files/folders within `memoryBank/` when they help organize:
 - Testing strategies
 - Deployment procedures
 
+Current additional context file:
+- `bridgeInterfaceContract.md` (TS<->Python boundary contract)
+
 ## Core Workflows
 
 ### Plan Mode
@@ -110,6 +113,7 @@ Memory Bank updates occur when:
 2. After implementing significant changes
 3. When the user requests with "update memory bank" (review ALL files)
 4. When context needs clarification
+5. When architecture decisions change (update `README.md`, `AGENTS.md`, and relevant Memory Bank files in the same pass)
 
 flowchart TD
 Start[Update Process]
