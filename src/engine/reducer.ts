@@ -4,6 +4,7 @@ import {
   SUITS,
   applyDelta,
   deedCost,
+  developmentCost,
   findProperty,
   mergeTokens,
   sumTokens,
@@ -49,7 +50,7 @@ function developDeed(
   const payment = applyDelta(player.resources, negate(action.tokens));
   const districts = updateDistricts(state, action.districtId, player.id, (stack) => {
     const progress = (stack.deed?.progress ?? 0) + sumTokens(action.tokens);
-    if (progress >= card.rank) {
+    if (progress >= developmentCost(card)) {
       return {
         developed: [...stack.developed, action.cardId],
       };
