@@ -89,14 +89,14 @@
   --chip-count-text: #f4f7fb;
   --shadow-popover: rgba(0, 0, 0, 0.66);
   --ring-cell-size: 150px;
-  --ring-line: #2a45661c;
+  --ring-line: #2a456615;
   --ring-fill: #08111e1f;
   --ring-arcs: radial-gradient(
     #00000044 60%,
     var(--ring-line) 61% 62%,
     #00000026 64% 77%,
     var(--ring-line) 78% 79%,
-    #0000008e 81%
+    #00000084 81%
   );
   --grain-scale-a: 320px;
   --grain-scale-b: 520px;
