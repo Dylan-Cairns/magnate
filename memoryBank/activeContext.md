@@ -56,7 +56,7 @@
   - chip icon sizing is tuned to fill nearly the full circular chip area
 - Player/board layout is now split for district-space priority:
   - side columns are sized to three-card hand width; each player panel shows title/score + hand only
-  - non-hand side-column panels (actions/info cards) render at 80% width, aligned to outer edges
+  - non-hand side-column panels (actions/info cards) render at 80% width, aligned to outer edges, with ~50% opacity fill so the background texture shows through
   - bot hand panel is at the top of the right column; human hand panel is at the bottom of the left column
   - crowns/resources render inside the middle board column as mirrored edge rows:
     - top row: bot resources-left/crowns-right, right-aligned in center lane
@@ -76,7 +76,7 @@
   - champion PPO profile is the default bot selection in UI
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
 - Right info column includes bot hand, roll result, deck state, and full scrollable log.
-  - roll panel is above deck state, uses larger dice icons, and renders taxed suit as an icon
+  - roll panel is above deck state, uses larger dice icons, and renders taxed suit using the shared token-chip component
   - deck state now renders visual deck/discard piles with count badges:
     - deck uses striped card-back styling with "Cards remaining" hover text
     - discard shows top discarded card face-up with "Discard pile" hover text
