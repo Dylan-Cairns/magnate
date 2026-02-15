@@ -36,10 +36,14 @@
   - player resources/crowns, district marker tokens, and card/deed chips all render from `src/assets/icons/*.svg`
   - action text now renders suits with the shared token-chip component (not standalone transparent icons)
   - chip icon CSS scales SVGs to fill nearly the full chip area
-- Player row crown/score presentation was streamlined:
-  - crowns render as suit token aggregates instead of crown card tiles
-  - live-score side panel removed; current district score is shown inline in each player header
-  - full score breakdown is available via hover/focus popovers on score badges
+- Player/board column layout was rebalanced for district space:
+  - side columns now anchor player panels by hand only (title/score + 3-card hand footprint)
+  - non-hand panels in the side columns are now 80% width and outer-edge aligned
+  - bot hand sits at top-right column and human hand at bottom-left column
+  - crowns/resources now render in mirrored top/bottom rows inside the center board column
+  - center-lane token rows are edge-aligned: bot row packed right, human row packed left
+  - crown/resource token chips in the center rows are enlarged (2.7rem)
+  - full score breakdown remains available via hover/focus popovers on score badges
 - Brand panel controls were reorganized:
   - title now sits above Actions in the left column with a right-side hamburger trigger
   - seed/new-game and bot-profile controls now live in a dropdown options menu

@@ -54,10 +54,15 @@
   - cards, action text, resource/crown rows, district markers, and deed-token chips all render the same SVG set from `src/assets/icons/*.svg`
   - action labels now reuse the same token-chip component styling as board/resource chips for consistent opaque presentation
   - chip icon sizing is tuned to fill nearly the full circular chip area
-- Player-area presentation is compacted:
-  - crown cards are no longer rendered as card tiles in player rows; crowns now display as suit token aggregates
-  - right-column live score panel was removed; current district score is shown beside each player name
-  - full score breakdown moved to hover/focus popovers on each player score badge
+- Player/board layout is now split for district-space priority:
+  - side columns are sized to three-card hand width; each player panel shows title/score + hand only
+  - non-hand side-column panels (actions/info cards) render at 80% width, aligned to outer edges
+  - bot hand panel is at the top of the right column; human hand panel is at the bottom of the left column
+  - crowns/resources render inside the middle board column as mirrored edge rows:
+    - top row: bot resources-left/crowns-right, right-aligned in center lane
+    - bottom row: human crowns-left/resources-right, left-aligned in center lane
+    - crown/resource chips are upscaled for readability (2.7rem token size)
+  - full score breakdown is available via hover/focus popovers on each player score badge
 - Brand/info controls are now menu-driven:
   - title row (top-left, above Actions) includes a right-aligned hamburger button
   - seed/new-game controls and bot-profile selector moved into a toggleable options dropdown
@@ -70,7 +75,7 @@
   - browser-trained PPO profile is now enabled (`ppo_champion_2026-02-23_seed7`)
   - champion PPO profile is the default bot selection in UI
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
-- Right info column includes controls, deck state, roll result, and full scrollable log.
+- Right info column includes bot hand, deck state, roll result, and full scrollable log.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
 

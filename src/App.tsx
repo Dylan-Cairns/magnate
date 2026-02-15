@@ -870,22 +870,6 @@ export function App() {
               )}
             </div>
           </section>
-        </aside>
-
-        <section className="board-pane">
-          <PlayerPanel
-            title="Bot"
-            player={botPlayer}
-            isActive={humanView.activePlayerId === BOT_PLAYER}
-            score={score}
-            terminal={terminal}
-          />
-
-          <div className="district-strip" aria-label="District board">
-            {humanView.districts.map((district) => (
-              <DistrictColumn key={district.id} district={district} />
-            ))}
-          </div>
 
           <PlayerPanel
             title="You"
@@ -894,7 +878,26 @@ export function App() {
             score={score}
             terminal={terminal}
           />
+        </aside>
+
+        <section className="board-pane">
+          <PlayerTokenRail player={botPlayer} side="bot" />
+          <div className="district-strip" aria-label="District board">
+            {humanView.districts.map((district) => (
+              <DistrictColumn key={district.id} district={district} />
+            ))}
+          </div>
+          <PlayerTokenRail player={humanPlayer} side="human" />
         </section>
+
+        <aside className="info-pane">
+          <PlayerPanel
+            title="Bot"
+            player={botPlayer}
+            isActive={humanView.activePlayerId === BOT_PLAYER}
+            score={score}
+            terminal={terminal}
+          />
 
         <aside className="info-pane">
           <section className="panel brand-panel">
@@ -1135,6 +1138,62 @@ function PlayerPanel({
             })}
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+function PlayerTokenRail({
+  player,
+  side,
+}: {
+  player: ObservedPlayerState;
+  side: 'bot' | 'human';
+}) {
+  const crownSuits = crownsToSuits(player.crowns);
+
+  const crowns = (
+    <div className="token-rail-group">
+      <h3>Crowns</h3>
+      {crownSuits.length > 0 ? (
+        <div className="token-row compact crowns-rail-row">
+          {crownSuits.map((suit, index) => (
+            <TokenChip
+              key={`crown-${player.id}-${suit}-${index}`}
+              suit={suit}
+              count={1}
+              compact
+              className="crown-rail-chip"
+            />
+          ))}
+        </div>
+      ) : (
+        <span className="empty-note">None</span>
+      )}
+    </div>
+  );
+
+  const resources = (
+    <div className="token-rail-group">
+      <h3>Resources</h3>
+      <TokenRow tokens={player.resources} compact fixedSuitSlots className="rail-resources-row" />
+    </div>
+  );
+
+  return (
+    <section className={`token-rail token-rail-${side}`} aria-label={`${player.id} crowns and resources`}>
+      <div className="token-rail-inner">
+        {side === 'human' ? (
+          <>
+            {crowns}
+            {resources}
+          </>
+        ) : (
+          <>
+            {resources}
+            {crowns}
+          </>
+        )}
       </div>
     </section>
   );
@@ -1436,10 +1495,9 @@ function crownsToTokens(
     if (!card || card.kind !== 'Crown') {
       continue;
     }
-    const suit = card.suits[0];
-    tokens[suit] = (tokens[suit] ?? 0) + 1;
+    suits.push(card.suits[0]);
   }
-  return tokens;
+  return suits;
 }
 
 function RollResult({
