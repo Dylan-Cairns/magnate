@@ -159,6 +159,8 @@ Training script:
   - PPO clipped objective over collected bridge trajectories
   - fixed-holdout checkpoint selection (`--eval-mode fixed-holdout` by default)
   - default progress heartbeat prints to stderr every 5 updates (`--progress-every-updates 0` disables)
+- Seed queue helper (sequential runs):
+  - `python -m scripts.train_ppo_queue --seeds 2 3 4 --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout --progress-every-updates 5`
 
 Checkpoint type:
 

@@ -31,6 +31,7 @@
   - `python -m scripts.benchmark`
   - `python -m scripts.train`
   - `python -m scripts.finetune`
+  - `python -m scripts.train_ppo_queue`
   - PPO uses PyTorch from `requirements.txt`
   - PPO scaffold entrypoint: `python -m scripts.train_ppo`
 
