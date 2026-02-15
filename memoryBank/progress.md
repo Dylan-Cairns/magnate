@@ -38,6 +38,10 @@
   - bridge client + env wrapper in `trainer/bridge_client.py` and `trainer/env.py`
   - training encoders in `trainer/encoding.py` with spec in `docs/TRAINING_ENCODING.md`
   - baseline policies/eval in `trainer/policies.py` and `trainer/evaluate.py`
+  - canonical benchmark protocol in `trainer/benchmarking.py` + `scripts/benchmark.py`
+    - fixed holdout seeds (`bench-random-holdout`, `bench-heuristic-holdout`)
+    - default 200 games per matchup
+    - locked selection score (`0.7 * heuristic + 0.3 * random`)
   - sample collection + sample IO in `trainer/training.py`
   - behavior-cloning optimizer/checkpointing in `trainer/behavior_cloning.py`
   - stabilized RL fine-tuning in `trainer/reinforcement.py`:

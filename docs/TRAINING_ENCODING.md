@@ -88,6 +88,18 @@ Evaluation harness:
 - PPO eval example:
   - `python -m scripts.eval --games 50 --player-a-policy ppo --player-a-checkpoint artifacts/ppo_checkpoint.pt --player-b-policy heuristic`
 
+Canonical benchmark protocol:
+
+- Script: `python -m scripts.benchmark --candidate-policy bc --candidate-checkpoint artifacts/bc_checkpoint.json`
+- Fixed holdout seed prefixes:
+  - `bench-random-holdout`
+  - `bench-heuristic-holdout`
+- Default games per matchup: `200`
+- Selection score:
+  - `0.7 * win_rate_vs_heuristic + 0.3 * win_rate_vs_random`
+- Artifact output:
+  - one JSON file per run under `artifacts/benchmarks/` by default
+
 ## Behavior-Cloning Warm Start
 
 Training script:
