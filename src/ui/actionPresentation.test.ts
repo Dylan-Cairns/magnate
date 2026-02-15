@@ -9,7 +9,7 @@ import {
   makeResources,
   withDeed,
 } from '../engine/__tests__/fixtures';
-import type { GameAction, Suit } from '../engine/types';
+import type { GameAction } from '../engine/types';
 import {
   actionStableKey,
   buildHumanActionList,
@@ -18,15 +18,7 @@ import {
   pickerTitle,
   type ActionPickerQuery,
 } from './actionPresentation';
-
-const SUIT_EMOJI: Record<Suit, string> = {
-  Moons: '🌙',
-  Suns: '☀️',
-  Waves: '🌊',
-  Leaves: '🍃',
-  Wyrms: '🐉',
-  Knots: '🪢',
-};
+import { SUIT_TEXT_TOKEN } from './suitIcons';
 
 describe('buildHumanActionList', () => {
   it('groups trade actions by give suit', () => {
@@ -104,10 +96,10 @@ describe('picker helpers', () => {
     const actions = legalActions(state);
     const picker: ActionPickerQuery = { kind: 'trade', give: 'Moons' };
 
-    const options = buildPickerOptions(picker, actions, SUIT_EMOJI);
+    const options = buildPickerOptions(picker, actions, SUIT_TEXT_TOKEN);
     expect(options).toHaveLength(5);
-    expect(options.map((option) => option.label)).toContain('☀️ x1');
-    expect(pickerTitle(picker, SUIT_EMOJI)).toBe('Trade 🌙x3 for');
+    expect(options.map((option) => option.label)).toContain('{Suns} x1');
+    expect(pickerTitle(picker, SUIT_TEXT_TOKEN)).toBe('Trade {Moons}x3 for');
   });
 });
 

@@ -31,6 +31,10 @@
   - cards display art in a framed image panel with a 1px gray border
   - rank/suit and in-progress deed value render on one metadata line
   - image panel uses Decktet aspect-ratio sizing with scaled `object-fit: contain`
+- Official Decktet suit SVG icons are now wired across the UI:
+  - shared suit-token mapping in `src/ui/suitIcons.tsx` replaces suit emojis in action text, card metadata, and token chips
+  - player resources/crowns, district marker tokens, and card/deed chips all render from `src/assets/icons/*.svg`
+  - chip icon CSS scales SVGs to fill nearly the full chip area
 - Player row crown/score presentation was streamlined:
   - crowns render as suit token aggregates instead of crown card tiles
   - live-score side panel removed; current district score is shown inline in each player header

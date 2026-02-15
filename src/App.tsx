@@ -45,6 +45,12 @@ import {
   type TurnResetAnchor,
 } from './ui/turnReset';
 import { getCardImage } from './ui/cardImages';
+import {
+  SuitIcon,
+  SUIT_TEXT_TOKEN,
+  SUIT_TOKEN_REGEX,
+  SUIT_TOKEN_TO_SUIT,
+} from './ui/suitIcons';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -62,24 +68,6 @@ type ActionPickerState = ActionPickerQuery & {
 
 type CardPerspective = 'human' | 'bot';
 
-const SUIT_EMOJI: Record<Suit, string> = {
-  Moons: '🌙',
-  Suns: '☀️',
-  Waves: '🌊',
-  Leaves: '🍃',
-  Wyrms: '🐉',
-  Knots: '🪢',
-};
-
-const SUIT_CLASS: Record<Suit, string> = {
-  Moons: 'moons',
-  Suns: 'suns',
-  Waves: 'waves',
-  Leaves: 'leaves',
-  Wyrms: 'wyrms',
-  Knots: 'knots',
-};
-
 const SUIT_TOKEN_BG: Record<Suit, string> = {
   Moons: '#e4e7eb',
   Suns: '#f7cc95',
@@ -88,22 +76,6 @@ const SUIT_TOKEN_BG: Record<Suit, string> = {
   Wyrms: '#bfe3b3',
   Knots: '#f6f4bf',
 };
-
-const EMOJI_TO_SUIT = Object.entries(SUIT_EMOJI).reduce(
-  (acc, [suit, glyph]) => {
-    acc[glyph] = suit as Suit;
-    return acc;
-  },
-  {} as Record<string, Suit>
-);
-
-const SUIT_EMOJI_REGEX = new RegExp(
-  Object.values(SUIT_EMOJI)
-    .sort((a, b) => b.length - a.length)
-    .map((glyph) => escapeRegex(glyph))
-    .join('|'),
-  'gu'
-);
 
 function makeSeed(): string {
   return `seed-${Date.now()}`;
@@ -174,14 +146,14 @@ export function App() {
     if (!actionPicker) {
       return [];
     }
-    return buildPickerOptions(toPickerQuery(actionPicker), humanActions, SUIT_EMOJI);
+    return buildPickerOptions(toPickerQuery(actionPicker), humanActions, SUIT_TEXT_TOKEN);
   }, [actionPicker, humanActions]);
 
   const actionPickerTitle = useMemo((): string => {
     if (!actionPicker) {
       return '';
     }
-    return pickerTitle(toPickerQuery(actionPicker), SUIT_EMOJI);
+    return pickerTitle(toPickerQuery(actionPicker), SUIT_TEXT_TOKEN);
   }, [actionPicker]);
 
   const canResetTurn = useMemo(
@@ -464,7 +436,7 @@ export function App() {
                             >
                               <span className="action-kind">trade</span>
                               <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
                               </span>
                             </button>
                           );
@@ -486,7 +458,7 @@ export function App() {
                           >
                             <span className="action-kind">trade</span>
                             <span className="action-text">
-                              {renderSuitText(`Trade ${SUIT_EMOJI[item.give]}x3`)}
+                              {renderSuitText(`Trade ${SUIT_TEXT_TOKEN[item.give]}x3`)}
                             </span>
                           </button>
                         );
@@ -504,7 +476,7 @@ export function App() {
                             >
                               <span className="action-kind">{onlyOption.type}</span>
                               <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
                               </span>
                             </button>
                           );
@@ -537,7 +509,7 @@ export function App() {
                           >
                             <span className="action-kind">buy-deed</span>
                             <span className="action-text">
-                              {renderSuitText(`Buy deed ${cardSummary(item.cardId, SUIT_EMOJI)}`)}
+                              {renderSuitText(`Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`)}
                             </span>
                           </button>
                         );
@@ -555,7 +527,7 @@ export function App() {
                             >
                               <span className="action-kind">{onlyOption.type}</span>
                               <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
                               </span>
                             </button>
                           );
@@ -589,7 +561,7 @@ export function App() {
                             <span className="action-kind">develop-deed</span>
                             <span className="action-text">
                               {renderSuitText(
-                                `Develop deed ${cardSummary(item.cardId, SUIT_EMOJI)} in ${item.districtId}`
+                                `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`
                               )}
                             </span>
                           </button>
@@ -608,7 +580,7 @@ export function App() {
                             >
                               <span className="action-kind">{onlyOption.type}</span>
                               <span className="action-text">
-                                {renderSuitText(describeAction(onlyOption, SUIT_EMOJI))}
+                                {renderSuitText(describeAction(onlyOption, SUIT_TEXT_TOKEN))}
                               </span>
                             </button>
                           );
@@ -645,7 +617,7 @@ export function App() {
                             <span className="action-kind">develop-outright</span>
                             <span className="action-text">
                               {renderSuitText(
-                                `Develop ${cardSummary(item.cardId, SUIT_EMOJI)} (${formatTokens(item.payment, SUIT_EMOJI)})`
+                                `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(item.payment, SUIT_TEXT_TOKEN)})`
                               )}
                             </span>
                           </button>
@@ -661,7 +633,7 @@ export function App() {
                         >
                           <span className="action-kind">{item.action.type}</span>
                           <span className="action-text">
-                            {renderSuitText(describeAction(item.action, SUIT_EMOJI))}
+                            {renderSuitText(describeAction(item.action, SUIT_TEXT_TOKEN))}
                           </span>
                         </button>
                       );
@@ -1051,7 +1023,7 @@ function CardTile({
         <span className="card-rank">{rank}</span>
         <div className="card-suits-row">
           {suits.length > 0 ? (
-            suits.map((suit) => <SuitEmoji key={`${cardId}-${suit}`} suit={suit} />)
+            suits.map((suit) => <SuitIcon key={`${cardId}-${suit}`} suit={suit} className="card-suit-icon" />)
           ) : (
             <span className="card-suit-placeholder" />
           )}
@@ -1126,7 +1098,7 @@ function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compac
       title={`${suit} x${count}`}
       style={{ '--token-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
     >
-      <SuitEmoji suit={suit} />
+      <SuitIcon suit={suit} className="chip-suit-icon" />
       {count > 1 && <span className="token-count">x{count}</span>}
     </span>
   );
@@ -1198,14 +1170,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-function SuitEmoji({ suit }: { suit: Suit }) {
-  return (
-    <span className={`suit-emoji suit-${SUIT_CLASS[suit]}`} aria-label={suit} role="img">
-      {SUIT_EMOJI[suit]}
-    </span>
-  );
-}
-
 function renderSuitText(text: string): ReactNode {
   if (!text) {
     return text;
@@ -1214,22 +1178,22 @@ function renderSuitText(text: string): ReactNode {
   const nodes: ReactNode[] = [];
   let cursor = 0;
 
-  for (const match of text.matchAll(SUIT_EMOJI_REGEX)) {
+  for (const match of text.matchAll(SUIT_TOKEN_REGEX)) {
     const index = match.index ?? 0;
-    const glyph = match[0];
-    const suit = EMOJI_TO_SUIT[glyph];
+    const token = match[0];
+    const suit = SUIT_TOKEN_TO_SUIT[token];
 
     if (index > cursor) {
       nodes.push(text.slice(cursor, index));
     }
 
     if (suit) {
-      nodes.push(<SuitEmoji key={`suit-${index}-${suit}`} suit={suit} />);
+      nodes.push(<SuitIcon key={`suit-${index}-${suit}`} suit={suit} className="inline-suit-icon" />);
     } else {
-      nodes.push(glyph);
+      nodes.push(token);
     }
 
-    cursor = index + glyph.length;
+    cursor = index + token.length;
   }
 
   if (cursor < text.length) {
@@ -1237,10 +1201,6 @@ function renderSuitText(text: string): ReactNode {
   }
 
   return nodes.length > 0 ? <>{nodes}</> : text;
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function toPickerQuery(picker: ActionPickerState): ActionPickerQuery {
