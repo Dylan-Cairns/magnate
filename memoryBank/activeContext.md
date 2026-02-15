@@ -49,6 +49,10 @@
   - rank/suits and deed progress share a single metadata row
   - image panel sizing follows Decktet source aspect ratio and uses scaled `object-fit: contain`
   - deed-token overlays are retained without reserving a separate top/bottom progress lane
+- Player-area presentation is compacted:
+  - crown cards are no longer rendered as card tiles in player rows; crowns now display as suit token aggregates
+  - right-column live score panel was removed; current district score is shown beside each player name
+  - full score breakdown moved to hover/focus popovers on each player score badge
 - Human-only turn reset is available in the actions list:
   - snapshot is captured at the start of the human `ActionWindow` (post roll/income resolution).
   - reset restores that snapshot before `end-turn`; it is not part of engine `legalActions`.
@@ -58,7 +62,7 @@
   - browser-trained PPO profile is now enabled (`ppo_champion_2026-02-23_seed7`)
   - champion PPO profile is the default bot selection in UI
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
-- Right info column includes controls, score, deck state, roll result, and full scrollable log.
+- Right info column includes controls, deck state, roll result, and full scrollable log.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
 

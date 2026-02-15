@@ -49,7 +49,6 @@ import { getCardImage } from './ui/cardImages';
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
 const BOT_DELAY_MS = 450;
-const PLAYER_CROWN_SLOT_COUNT = 3;
 const PLAYER_HAND_SLOT_COUNT = 3;
 const TRADE_POPOVER_WIDTH_PX = 220;
 const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
@@ -697,6 +696,8 @@ export function App() {
             title="Bot"
             player={botPlayer}
             isActive={humanView.activePlayerId === BOT_PLAYER}
+            score={score}
+            terminal={terminal}
           />
 
           <div className="district-strip" aria-label="District board">
@@ -709,6 +710,8 @@ export function App() {
             title="You"
             player={humanPlayer}
             isActive={humanView.activePlayerId === HUMAN_PLAYER}
+            score={score}
+            terminal={terminal}
           />
         </section>
 
@@ -748,11 +751,6 @@ export function App() {
                 {resolvedBotProfile.statusText}
               </p>
             </div>
-          </section>
-
-          <section className="panel">
-            <h2>Live Score</h2>
-            <ScorePanel score={score} terminal={terminal} />
           </section>
 
           <section className="panel">
@@ -833,20 +831,41 @@ function PlayerPanel({
   title,
   player,
   isActive,
+  score,
+  terminal,
 }: {
   title: string;
   player: ObservedPlayerState;
   isActive: boolean;
+  score: FinalScore;
+  terminal: boolean;
 }) {
-  const crownSlots = Math.max(PLAYER_CROWN_SLOT_COUNT, player.crowns.length);
   const handCardCount = player.handHidden ? player.handCount : player.hand.length;
   const handSlots = Math.max(PLAYER_HAND_SLOT_COUNT, handCardCount);
   const cardPerspective: CardPerspective = player.id === BOT_PLAYER ? 'bot' : 'human';
+  const crownTokens = crownsToTokens(player.crowns);
+  const districtScore = score.districtPoints[player.id];
+  const scoreHeadline = terminal ? 'Winner' : 'Leader';
 
   return (
     <section className={`player-panel${isActive ? ' is-active' : ''}`}>
       <header className="player-header">
-        <h2>{title}</h2>
+        <div className="player-title-line">
+          <h2>{title}</h2>
+          <div className="player-score-wrap">
+            <span className="player-score-badge" tabIndex={0}>
+              {districtScore} VP
+            </span>
+            <section className="player-score-popover" role="tooltip" aria-label="Score details">
+              <p className="score-result">
+                {scoreHeadline}: <strong>{score.winner}</strong> ({score.decidedBy})
+              </p>
+              <ScoreLine label="Districts" a={score.districtPoints.PlayerA} b={score.districtPoints.PlayerB} />
+              <ScoreLine label="Rank Total" a={score.rankTotals.PlayerA} b={score.rankTotals.PlayerB} />
+              <ScoreLine label="Resources" a={score.resourceTotals.PlayerA} b={score.resourceTotals.PlayerB} />
+            </section>
+          </div>
+        </div>
         <span className="player-meta">{player.id}</span>
       </header>
 
@@ -858,16 +877,7 @@ function PlayerPanel({
 
         <div className="player-section crowns-section">
           <h3>Crowns</h3>
-          <div className="card-row-wrap fixed-slots">
-            {Array.from({ length: crownSlots }).map((_, index) => {
-              const cardId = player.crowns[index];
-              if (!cardId) {
-                return <CardTile key={`crown-slot-${player.id}-${index}`} placeholder />;
-              }
-
-              return <CardTile key={`${cardId}-${index}`} cardId={cardId} perspective={cardPerspective} />;
-            })}
-          </div>
+          <TokenRow tokens={crownTokens} compact className="crowns-token-row" emptyLabel="None" />
         </div>
 
         <div className="player-section hand-section">
@@ -1122,25 +1132,6 @@ function TokenChip({ suit, count, compact }: { suit: Suit; count: number; compac
   );
 }
 
-function ScorePanel({
-  score,
-  terminal,
-}: {
-  score: FinalScore;
-  terminal: boolean;
-}) {
-  return (
-    <div className="score-grid">
-      <p className="score-result">
-        {terminal ? 'Winner' : 'Leader'}: <strong>{score.winner}</strong> ({score.decidedBy})
-      </p>
-      <ScoreLine label="Districts" a={score.districtPoints.PlayerA} b={score.districtPoints.PlayerB} />
-      <ScoreLine label="Rank Total" a={score.rankTotals.PlayerA} b={score.rankTotals.PlayerB} />
-      <ScoreLine label="Resources" a={score.resourceTotals.PlayerA} b={score.resourceTotals.PlayerB} />
-    </div>
-  );
-}
-
 function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
   return (
     <p className="score-line">
@@ -1156,6 +1147,19 @@ function tokenEntries(tokens: Partial<Record<Suit, number>> | ResourcePool): Arr
   return SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 })).filter(
     (entry) => entry.count > 0
   );
+}
+
+function crownsToTokens(crowns: readonly CardId[]): Partial<Record<Suit, number>> {
+  const tokens: Partial<Record<Suit, number>> = {};
+  for (const crownId of crowns) {
+    const card = CARD_BY_ID[crownId];
+    if (!card || card.kind !== 'Crown') {
+      continue;
+    }
+    const suit = card.suits[0];
+    tokens[suit] = (tokens[suit] ?? 0) + 1;
+  }
+  return tokens;
 }
 
 function RollResult({
