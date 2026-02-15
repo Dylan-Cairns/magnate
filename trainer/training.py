@@ -4,7 +4,7 @@ import json
 import random
 from dataclasses import replace
 from pathlib import Path
-from typing import Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Mapping, Sequence
 
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
@@ -91,6 +91,22 @@ def write_samples_jsonl(samples: Sequence[DecisionSample], output_path: Path) ->
             handle.write(json.dumps(sample.as_json()) + "\n")
 
 
+def read_samples_jsonl(input_path: Path) -> List[DecisionSample]:
+    samples: List[DecisionSample] = []
+    with input_path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            candidate = line.strip()
+            if not candidate:
+                continue
+            payload = json.loads(candidate)
+            if not isinstance(payload, dict):
+                raise ValueError(
+                    f"Expected JSON object on line {line_number}, got {type(payload).__name__}."
+                )
+            samples.append(_decision_sample_from_json(payload, line_number))
+    return samples
+
+
 def _find_action_index(actions, action_key: str) -> int:
     for index, action in enumerate(actions):
         if action.action_key == action_key:
@@ -116,3 +132,71 @@ def _attach_reward(sample: DecisionSample, winner: Winner) -> DecisionSample:
         reward = -1.0
     return replace(sample, winner=winner, reward=reward)
 
+
+def _decision_sample_from_json(payload: Mapping[str, Any], line_number: int) -> DecisionSample:
+    active_player_id = payload.get("activePlayerId")
+    if active_player_id not in ("PlayerA", "PlayerB"):
+        raise ValueError(f"Invalid activePlayerId on line {line_number}: {active_player_id!r}")
+
+    winner = payload.get("winner")
+    if winner not in ("PlayerA", "PlayerB", "Draw"):
+        raise ValueError(f"Invalid winner on line {line_number}: {winner!r}")
+
+    observation = _float_list(payload.get("observation"), line_number, "observation")
+    action_features_raw = payload.get("actionFeatures")
+    if not isinstance(action_features_raw, list):
+        raise ValueError(f"actionFeatures must be a list on line {line_number}.")
+
+    action_features: List[List[float]] = []
+    for index, features in enumerate(action_features_raw):
+        action_features.append(
+            _float_list(
+                features,
+                line_number=line_number,
+                field=f"actionFeatures[{index}]",
+            )
+        )
+
+    action_index = _as_int(payload.get("actionIndex"), line_number, "actionIndex")
+    if action_index < 0 or action_index >= len(action_features):
+        raise ValueError(
+            "actionIndex is out of bounds on line "
+            f"{line_number}: index={action_index}, candidates={len(action_features)}."
+        )
+
+    return DecisionSample(
+        seed=str(payload.get("seed", "")),
+        turn=_as_int(payload.get("turn"), line_number, "turn"),
+        phase=str(payload.get("phase", "")),
+        active_player_id=active_player_id,
+        action_key=str(payload.get("actionKey", "")),
+        action_id=str(payload.get("actionId", "")),
+        action_index=action_index,
+        observation=observation,
+        action_features=action_features,
+        winner=winner,
+        reward=_as_float(payload.get("reward"), line_number, "reward"),
+    )
+
+
+def _float_list(value: Any, line_number: int, field: str) -> List[float]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be a list on line {line_number}.")
+    out: List[float] = []
+    for entry in value:
+        out.append(_as_float(entry, line_number, field))
+    return out
+
+
+def _as_int(value: Any, line_number: int, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} must be an integer on line {line_number}.")
+    return value
+
+
+def _as_float(value: Any, line_number: int, field: str) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"{field} must be numeric on line {line_number}.")
+    if isinstance(value, (int, float)):
+        return float(value)
+    raise ValueError(f"{field} must be numeric on line {line_number}.")

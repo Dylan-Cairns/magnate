@@ -4,7 +4,7 @@
 
 - Close remaining rules-parity gaps with scenario-driven integration tests.
 - Keep the UI/controller thin and policy-agnostic so random and trained bots share one action-selection boundary.
-- Preserve a stable TS-Python contract while baseline training/evaluation loops are exercised through the new bridge runtime.
+- Preserve a stable TS-Python contract while warm-start training/evaluation loops are exercised through the bridge runtime.
 
 ## Locked Decisions
 
@@ -70,16 +70,20 @@
   - `trainer/encoding.py` (`OBSERVATION_DIM=186`, `ACTION_FEATURE_DIM=40`)
   - `docs/TRAINING_ENCODING.md`
 - Baseline policy/eval/training scripts are implemented:
-  - policies: `trainer/policies.py` (random + heuristic)
+  - policies: `trainer/policies.py` (random + heuristic + checkpoint-backed BC)
   - eval: `trainer/evaluate.py` + `scripts/eval.py`
-  - sample collection scaffold: `trainer/training.py` + `scripts/train.py`
+  - sample collection + JSONL IO: `trainer/training.py`
+  - behavior cloning warm-start: `trainer/behavior_cloning.py`
+  - training CLI: `scripts/train.py` (collect + optimize + checkpoint)
+  - checkpoint-backed policy loading: `policy_from_name(..., checkpoint_path=...)`
+  - project Python environment bootstrap: `requirements.txt` + `scripts/setup_python_env.ps1`
 - Python scaffold has dedicated unittest coverage in `trainer_tests/`.
 
 ## Immediate Next Steps
 
 1. Expand full-turn/full-game scenario coverage for rules parity.
-2. Add model optimization/checkpoint loop on top of collected decision samples.
-3. Introduce self-play/evaluation schedules and metrics tracking for baseline experiments.
+2. Introduce self-play/evaluation schedules and metrics tracking on top of BC warm-start checkpoints.
+3. Add RL fine-tuning loop initialized from BC checkpoints.
 4. Replace trained-profile placeholders with model-backed policies through the existing `ActionPolicy` boundary.
 
 _Updated: 2026-02-21._

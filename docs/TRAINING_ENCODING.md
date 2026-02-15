@@ -76,8 +76,31 @@ Baseline policies currently implemented in `trainer.policies`:
 
 - `RandomLegalPolicy`
 - `HeuristicPolicy`
+- `BehaviorCloningPolicy` (checkpoint-backed)
 
 Evaluation harness:
 
 - `trainer.evaluate.evaluate_matchup`
-- Script: `py -3.12 scripts/eval.py --games 50 --player-a-policy heuristic --player-b-policy random`
+- Script (with project `.venv` active): `python scripts/eval.py --games 50 --player-a-policy heuristic --player-b-policy random`
+- BC eval example:
+  - `python scripts/eval.py --games 50 --player-a-policy bc --player-a-checkpoint artifacts/bc_checkpoint.json --player-b-policy random`
+
+## Behavior-Cloning Warm Start
+
+Training script:
+
+- `python scripts/train.py --games 20` (with project `.venv` active)
+  - collects decision samples (`artifacts/training_samples.jsonl` by default)
+  - optimizes a supervised action-ranking model from chosen legal actions
+  - writes checkpoint (`artifacts/bc_checkpoint.json` by default)
+
+Model scoring form (`trainer.behavior_cloning`):
+
+- Input: observation vector + legal action feature vectors
+- Score for candidate `a`: `score(a) = obs^T W a + w_action^T a`
+- Optimization: SGD on per-decision softmax cross-entropy over the legal action list
+- Checkpoint payload includes:
+  - `checkpointType = magnate_behavior_cloning_v1`
+  - observation/action dimensions
+  - `obsActionWeights`, `actionWeights`
+  - metadata (sample source + optimizer params)

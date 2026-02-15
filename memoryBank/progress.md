@@ -38,20 +38,22 @@
   - bridge client + env wrapper in `trainer/bridge_client.py` and `trainer/env.py`
   - training encoders in `trainer/encoding.py` with spec in `docs/TRAINING_ENCODING.md`
   - baseline policies/eval in `trainer/policies.py` and `trainer/evaluate.py`
-  - sample collection scaffold in `trainer/training.py`
-  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py`
+  - sample collection + sample IO in `trainer/training.py`
+  - behavior-cloning optimizer/checkpointing in `trainer/behavior_cloning.py`
+  - scripts: `scripts/smoke_trainer.py`, `scripts/eval.py`, `scripts/train.py` (collect + BC warm start)
+  - project Python venv bootstrap is standardized (`requirements.txt`, `scripts/setup_python_env.ps1`)
   - unittest coverage in `trainer_tests/`
 - Tooling gates include lint + typecheck + tests.
 
 ## In Progress
 
 - Expanding rules-parity scenario coverage, especially full-turn/full-game edges.
-- Preparing model optimization/checkpoint wiring against the implemented trainer scaffold.
+- Building RL fine-tuning and self-play schedules on top of BC warm-start checkpoints.
 
 ## Remaining
 
-- Model optimization/checkpoint training loop implementation.
-- Experiment tracking/metrics for baseline and self-play runs.
+- RL optimization loop initialized from BC checkpoints.
+- Experiment tracking/metrics for BC baseline, RL fine-tuning, and self-play runs.
 - Model inference wiring in browser client.
 - Deployment polish for static hosting path.
 
