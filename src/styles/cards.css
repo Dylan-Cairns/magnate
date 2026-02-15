@@ -1,0 +1,279 @@
+.card-tile {
+  width: var(--card-width);
+  min-height: var(--card-height);
+  height: var(--card-height);
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background: linear-gradient(
+    135deg,
+    var(--card-bg-start) 0%,
+    var(--card-bg-end) 100%
+  );
+  box-shadow:
+    var(--card-drop-shadow),
+    inset 0 0 0 1px var(--card-inset-border);
+  color: var(--card-ink);
+  padding: var(--card-padding);
+  display: grid;
+  grid-template-rows: var(--card-meta-height) minmax(0, 1fr);
+  gap: var(--card-meta-gap);
+}
+
+.card-tile.perspective-bot {
+  grid-template-rows: minmax(0, 1fr) var(--card-meta-height);
+}
+
+.card-back {
+  border-style: solid;
+  border-color: var(--card-back-border);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--card-back-stripe-a) 0,
+    var(--card-back-stripe-a) 8px,
+    var(--card-back-stripe-b) 8px,
+    var(--card-back-stripe-b) 16px
+  );
+  box-shadow: var(--card-drop-shadow);
+}
+
+.lane-stack-card .card-tile {
+  box-shadow: inset 0 0 0 1px var(--card-inset-border);
+}
+
+.lane-stack.is-human .lane-stack-card:not(:first-child) .card-tile {
+  box-shadow:
+    0 -2px 4px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px var(--card-inset-border);
+}
+
+.lane-stack.is-bot .lane-stack-card:not(:first-child) .card-tile {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px var(--card-inset-border);
+}
+
+.card-placeholder {
+  border-style: dashed;
+  border-color: var(--card-placeholder-border);
+  background: var(--card-placeholder-bg);
+}
+
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: 0.24rem;
+}
+
+.card-meta {
+  justify-content: space-between;
+  min-height: var(--card-meta-height);
+}
+
+.card-meta-leading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+.card-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--card-rank);
+  min-height: 1rem;
+  line-height: 1;
+}
+
+.card-suits-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1rem;
+  line-height: 1;
+}
+
+.card-suits-row > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suit-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.card-suit-icon {
+  width: 0.82rem;
+  height: 0.82rem;
+}
+
+.card-suit-placeholder {
+  display: inline-block;
+  width: 0.82rem;
+  min-height: 0.82rem;
+  opacity: 0;
+}
+
+.card-body {
+  position: relative;
+  align-items: stretch;
+  justify-content: center;
+  min-height: 0;
+  overflow: visible;
+}
+
+.card-image-frame {
+  flex: 0 1 auto;
+  position: relative;
+  width: var(--card-image-area-width);
+  height: var(--card-image-area-height);
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--card-image-bg);
+}
+
+.card-image-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--card-image-border);
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+.card-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  object-position: center;
+}
+
+.card-token-row {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  gap: 0.16rem;
+  padding: 0.22rem 0.26rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.79);
+  border: 1px solid rgb(220, 220, 220);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.24);
+}
+
+.card-token-row .token-chip.compact {
+  width: var(--token-rail-chip-size);
+  height: var(--token-rail-chip-size);
+}
+
+.card-token-row .token-chip.compact .chip-suit-icon {
+  width: calc(100% - 0.16rem);
+  height: calc(100% - 0.16rem);
+}
+
+.card-token-row .token-count {
+  top: -0.3rem;
+  right: -0.28rem;
+  min-width: 1.02rem;
+  font-size: 0.68rem;
+}
+
+.deed-progress {
+  font-size: 0.68rem;
+  color: var(--card-ink);
+}
+
+.deed-progress-placeholder {
+  display: inline-block;
+  min-width: 1.45rem;
+  min-height: 0.7rem;
+  opacity: 0;
+}
+
+.token-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.token-row.fixed-suits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.token-row.compact {
+  gap: 0.18rem;
+}
+
+.token-chip {
+  position: relative;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--chip-border);
+  background: var(--token-bg, var(--chip-bg));
+  display: grid;
+  place-items: center;
+  font-size: 0.84rem;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.token-chip .chip-suit-icon {
+  width: calc(100% - 0.16rem);
+  height: calc(100% - 0.16rem);
+}
+
+.token-chip.compact {
+  width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.72rem;
+}
+
+.token-chip.compact .chip-suit-icon {
+  width: calc(100% - 0.12rem);
+  height: calc(100% - 0.12rem);
+}
+
+.inline-token-chip {
+  display: inline-grid;
+  width: 1.02rem;
+  height: 1.02rem;
+  margin: 0 0.15em;
+  vertical-align: -0.35em;
+}
+
+.token-chip.empty {
+  opacity: 0.38;
+  border-style: dashed;
+}
+
+.token-count {
+  position: absolute;
+  top: -0.28rem;
+  right: -0.25rem;
+  min-width: 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--chip-count-border);
+  background: var(--chip-count-bg);
+  color: var(--chip-count-text);
+  font-size: 0.58rem;
+  text-align: center;
+  padding: 0.03rem 0.2rem;
+}
+
