@@ -1,62 +1,62 @@
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
 
 :root {
-  --page-bg: #1e2f44;
-  --panel: #3c3838;
-  --panel-border: rgba(211, 212, 209, 0.28);
-  --ink: #ffffff;
-  --muted: #d3d4d1;
-  --accent: #dfcb58;
-  --accent-soft: #d0c296;
-  --moss: #519947;
-  --input-border: rgba(211, 212, 209, 0.5);
-  --input-bg: #5d6266;
-  --button-primary-text: #484343;
-  --button-primary-bg: #dfcb58;
-  --button-primary-bg-hover: #ebda79;
-  --divider-subtle: rgba(211, 212, 209, 0.28);
-  --last-turn-border: #dfcb58;
-  --last-turn-bg: #dfcb58;
-  --last-turn-text: #484343;
-  --last-turn-ring: rgba(223, 203, 88, 0.32);
-  --error-border: #d0c296;
-  --error-bg: #5d6266;
-  --error-text: #ffffff;
-  --board-border: rgba(211, 212, 209, 0.28);
-  --active-border: #d0c296;
-  --active-ring: rgba(208, 194, 150, 0.42);
-  --active-glow: rgba(174, 213, 239, 0.25);
-  --board-dashed: rgba(211, 212, 209, 0.26);
-  --card-inset-border: rgba(255, 255, 255, 0.08);
-  --card-back-border: rgba(211, 212, 209, 0.34);
-  --card-back-stripe-a: #5d6266;
-  --card-back-stripe-b: #4e4846;
-  --card-placeholder-border: rgba(211, 212, 209, 0.24);
-  --card-placeholder-bg: rgba(72, 67, 67, 0.55);
-  --action-border: rgba(208, 194, 150, 0.45);
-  --action-bg: #519947;
-  --action-bg-hover: #61a857;
-  --reset-turn-border: rgba(81, 153, 71, 0.72);
-  --reset-turn-bg: #519947;
-  --reset-turn-bg-hover: #5bad50;
-  --card-border: #d0c296;
-  --card-bg: #4e4846;
-  --chip-border: #484343;
-  --chip-bg: #ecece9;
-  --chip-count-border: rgba(211, 212, 209, 0.8);
-  --chip-count-bg: #484343;
-  --chip-count-text: #ffffff;
-  --shadow-popover: rgba(0, 0, 0, 0.32);
-  --popover-cancel-bg: #484343;
-  --popover-cancel-bg-hover: #5d6266;
-  --dice-icon-filter: invert(1) brightness(1.45);
-  --suit-outline: rgba(72, 67, 67, 0.75);
-  --suit-moons: #c7c8ca;
-  --suit-suns: #f7901e;
-  --suit-waves: #85b6e2;
-  --suit-leaves: #bc8a5d;
-  --suit-wyrms: #6fc055;
-  --suit-knots: #efed6a;
+  --page-bg: #ffffff;
+  --panel: #ffffff;
+  --panel-border: #000000;
+  --ink: #000000;
+  --muted: #000000;
+  --accent: #000000;
+  --accent-soft: #000000;
+  --moss: #000000;
+  --input-border: #000000;
+  --input-bg: #ffffff;
+  --button-primary-text: #000000;
+  --button-primary-bg: #ffffff;
+  --button-primary-bg-hover: #ffffff;
+  --divider-subtle: #000000;
+  --last-turn-border: #000000;
+  --last-turn-bg: #ffffff;
+  --last-turn-text: #000000;
+  --last-turn-ring: rgba(0, 0, 0, 0.15);
+  --error-border: #000000;
+  --error-bg: #ffffff;
+  --error-text: #000000;
+  --board-border: #000000;
+  --active-border: #000000;
+  --active-ring: rgba(0, 0, 0, 0.2);
+  --active-glow: rgba(0, 0, 0, 0.08);
+  --board-dashed: rgba(0, 0, 0, 0.3);
+  --card-inset-border: rgba(0, 0, 0, 0.08);
+  --card-back-border: #000000;
+  --card-back-stripe-a: #ffffff;
+  --card-back-stripe-b: #000000;
+  --card-placeholder-border: #000000;
+  --card-placeholder-bg: #ffffff;
+  --action-border: #000000;
+  --action-bg: #ffffff;
+  --action-bg-hover: #ffffff;
+  --reset-turn-border: #000000;
+  --reset-turn-bg: #ffffff;
+  --reset-turn-bg-hover: #ffffff;
+  --card-border: #000000;
+  --card-bg: #ffffff;
+  --chip-border: #000000;
+  --chip-bg: #ffffff;
+  --chip-count-border: #000000;
+  --chip-count-bg: #ffffff;
+  --chip-count-text: #000000;
+  --shadow-popover: rgba(0, 0, 0, 0.12);
+  --popover-cancel-bg: #ffffff;
+  --popover-cancel-bg-hover: #ffffff;
+  --dice-icon-filter: none;
+  --suit-outline: #000000;
+  --suit-moons: #000000;
+  --suit-suns: #000000;
+  --suit-waves: #000000;
+  --suit-leaves: #000000;
+  --suit-wyrms: #000000;
+  --suit-knots: #000000;
   --card-width: 5.1rem;
   --card-height: 5.8rem;
   --card-compact-width: 4.1rem;
@@ -304,6 +304,9 @@ h1 {
   display: grid;
   gap: 0.45rem;
   height: var(--player-panel-height);
+  width: fit-content;
+  max-width: 100%;
+  justify-self: center;
   min-height: 0;
   overflow: hidden;
 }
@@ -392,16 +395,16 @@ h1 {
 }
 
 .district-column {
-  border: 1px solid var(--board-border);
-  border-radius: 10px;
-  background: var(--panel);
+  border: none;
+  border-radius: 0;
+  background: transparent;
   backdrop-filter: none;
-  padding: 0.45rem;
+  padding: 0;
   min-height: 0;
   height: 100%;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
 .district-header {
@@ -448,18 +451,13 @@ h1 {
 }
 
 .district-lane {
-  border: 1px dashed var(--board-dashed);
-  border-radius: 8px;
-  padding: 0.35rem;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.25rem;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
   min-height: 0;
-}
-
-.district-lane > header {
-  color: var(--muted);
-  font-size: 0.75rem;
 }
 
 .card-row-wrap {
