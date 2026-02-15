@@ -813,7 +813,7 @@ function PlayerPanel({
         </div>
 
         <div className="player-section hand-section">
-          <h3>{player.handHidden ? 'Hidden Hand' : 'Hand'}</h3>
+          <h3>Hand</h3>
           <div className="card-row-wrap fixed-slots">
             {Array.from({ length: handSlots }).map((_, index) => {
               if (player.handHidden) {
