@@ -52,6 +52,7 @@
 - Official Decktet suit icons are now canonical in `src/ui/suitIcons.tsx`:
   - shared `{Suit}` text tokens drive action-label formatting and inline suit-icon replacement
   - cards, action text, resource/crown rows, district markers, and deed-token chips all render the same SVG set from `src/assets/icons/*.svg`
+  - action labels now reuse the same token-chip component styling as board/resource chips for consistent opaque presentation
   - chip icon sizing is tuned to fill nearly the full circular chip area
 - Player-area presentation is compacted:
   - crown cards are no longer rendered as card tiles in player rows; crowns now display as suit token aggregates
