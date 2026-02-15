@@ -101,7 +101,7 @@
     (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +
       var(--card-image-area-height)
   );
-  --card-stack-step: calc(var(--card-height) / 3);
+  --card-stack-step: calc(var(--card-height) / 4.5);
   --player-panel-height: 15rem;
   --side-column-panel-width-factor: 0.8;
   --token-rail-chip-size: 3rem;
@@ -113,6 +113,9 @@
   --deck-pile-stack-step: 0.24rem;
   --deck-pile-fan-shift: 0.18rem;
   --card-drop-shadow: var(--container-shadow-soft);
+  --card-stack-drop-shadow: var(--container-shadow-soft);
+  --card-stack-inner-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22), 0 -1px 1px rgba(255, 255, 255, 0.06);
 }
 
 * {
@@ -753,6 +756,7 @@ h1 {
     var(--card-height) + (var(--stack-count) - 1) * var(--card-stack-step)
   );
   flex: 0 0 auto;
+  filter: drop-shadow(var(--card-stack-drop-shadow));
 }
 
 .lane-stack-card {
@@ -811,9 +815,15 @@ h1 {
   box-shadow: inset 0 0 0 1px var(--card-inset-border);
 }
 
-.lane-stack-card:last-child .card-tile {
+.lane-stack.is-human .lane-stack-card:not(:first-child) .card-tile {
   box-shadow:
-    var(--card-drop-shadow),
+    0 -2px 4px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px var(--card-inset-border);
+}
+
+.lane-stack.is-bot .lane-stack-card:not(:first-child) .card-tile {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.24),
     inset 0 0 0 1px var(--card-inset-border);
 }
 
