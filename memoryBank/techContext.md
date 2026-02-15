@@ -29,6 +29,7 @@
   - `python -m scripts.smoke_trainer`
   - `python -m scripts.eval`
   - `python -m scripts.benchmark`
+  - `python -m scripts.benchmark_queue`
   - `python -m scripts.train`
   - `python -m scripts.finetune`
   - `python -m scripts.train_ppo_queue`

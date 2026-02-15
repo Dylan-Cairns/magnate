@@ -76,6 +76,7 @@
     - fixed seed prefixes: `bench-random-holdout`, `bench-heuristic-holdout`
     - default games per matchup: 200
     - selection score: `0.7 * heuristic + 0.3 * random`
+  - benchmark seed queue runner: `scripts/benchmark_queue.py` (sequential multi-seed benchmark automation + ranked summary)
   - sample collection + JSONL IO: `trainer/training.py`
   - behavior cloning warm-start: `trainer/behavior_cloning.py`
   - RL fine-tuning (stabilized REINFORCE): `trainer/reinforcement.py` + `scripts/finetune.py`
@@ -96,4 +97,4 @@
 3. Improve experiment logging/tracking around checkpoint-selection decisions over long runs.
 4. Replace trained-profile placeholders with model-backed policies through the existing `ActionPolicy` boundary.
 
-_Updated: 2026-02-21._
+_Updated: 2026-02-22._

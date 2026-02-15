@@ -99,6 +99,8 @@ Canonical benchmark protocol:
   - `0.7 * win_rate_vs_heuristic + 0.3 * win_rate_vs_random`
 - Artifact output:
   - one JSON file per run under `artifacts/benchmarks/` by default
+- Seed queue helper (sequential benchmark runs + sorted summary):
+  - `python -m scripts.benchmark_queue --seeds 1 2 3 4 --candidate-policy ppo`
 
 ## Behavior-Cloning Warm Start
 
