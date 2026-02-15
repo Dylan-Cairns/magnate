@@ -40,6 +40,9 @@
   - crowns render as suit token aggregates instead of crown card tiles
   - live-score side panel removed; current district score is shown inline in each player header
   - full score breakdown is available via hover/focus popovers on score badges
+- Brand panel controls were reorganized:
+  - title now sits above Actions in the left column with a right-side hamburger trigger
+  - seed/new-game and bot-profile controls now live in a dropdown options menu
 - UI now exposes bot-profile selection and status text while keeping random legal fallback available.
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime

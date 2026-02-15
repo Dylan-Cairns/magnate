@@ -58,6 +58,9 @@
   - crown cards are no longer rendered as card tiles in player rows; crowns now display as suit token aggregates
   - right-column live score panel was removed; current district score is shown beside each player name
   - full score breakdown moved to hover/focus popovers on each player score badge
+- Brand/info controls are now menu-driven:
+  - title row (top-left, above Actions) includes a right-aligned hamburger button
+  - seed/new-game controls and bot-profile selector moved into a toggleable options dropdown
 - Human-only turn reset is available in the actions list:
   - snapshot is captured at the start of the human `ActionWindow` (post roll/income resolution).
   - reset restores that snapshot before `end-turn`; it is not part of engine `legalActions`.
