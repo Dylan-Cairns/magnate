@@ -105,16 +105,19 @@ Model scoring form (`trainer.behavior_cloning`):
   - `obsActionWeights`, `actionWeights`
   - metadata (sample source + optimizer params)
 
-## RL Fine-Tuning (Self-Play REINFORCE)
+## RL Fine-Tuning (Stabilized REINFORCE)
 
 Fine-tuning script:
 
-- `python scripts/finetune.py --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 200 --eval-games 100`
+- `python scripts/finetune.py --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300 --eval-games 100 --eval-every 50`
   - loads a BC checkpoint
-  - runs seeded self-play with stochastic softmax action sampling
+  - runs seeded mixed-opponent training with stochastic learner sampling
+    - self-play snapshot opponent
+    - heuristic opponent
+    - random opponent
   - applies REINFORCE policy-gradient updates to the same model weights
-  - writes a fine-tuned checkpoint using the same checkpoint schema
-  - optional final eval snapshots vs `random` and `heuristic`
+  - anchors weights toward source BC checkpoint (`--bc-anchor-coeff`)
+  - evaluates every `N` episodes and keeps the best-scoring checkpoint
 
 Update shape:
 
@@ -124,3 +127,4 @@ Update shape:
   - `advantage = winner_reward / decisions_by_player_in_episode`
   - `winner_reward in {-1, 0, +1}`
   - L2 weight decay from config
+  - BC-anchor penalty toward source checkpoint weights
