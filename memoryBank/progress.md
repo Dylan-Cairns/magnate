@@ -27,6 +27,10 @@
 - UI card-image mapping is now integrated from Adaman assets:
   - canonical mapping module in `src/ui/cardImages.ts` (`CardId` -> image filename/url)
   - regression tests in `src/ui/cardImages.test.ts` enforce full-card coverage and expected relationships
+- UI card rendering now consumes the mapping in `src/App.tsx`:
+  - cards display art in a framed image panel with a 1px gray border
+  - rank/suit and in-progress deed value render on one metadata line
+  - image panel uses Decktet aspect-ratio sizing with scaled `object-fit: contain`
 - UI now exposes bot-profile selection and status text while keeping random legal fallback available.
 - Runtime hardening and audit fixes landed:
   - `newGame` now validates `firstPlayer` at runtime
