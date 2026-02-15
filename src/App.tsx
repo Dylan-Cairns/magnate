@@ -488,7 +488,8 @@ export function App() {
   }
 
   const recentLog = [...humanView.log].reverse();
-  const topDiscardCardId = humanView.deck.discard[0];
+  const deckStackCount = Math.min(3, humanView.deck.drawCount);
+  const discardStackCardIds = humanView.deck.discard.slice(0, 3).reverse();
 
   return (
     <div className="app-shell">
@@ -959,19 +960,34 @@ export function App() {
             </p>
             <div className="deck-piles" aria-label="Deck and discard piles">
               <div className="deck-pile">
-                <div className="deck-pile-card deck-pile-card-back" title="Cards remaining" aria-label="Cards remaining" />
+                <div className="deck-pile-stack is-deck" title="Cards remaining" aria-label="Cards remaining">
+                  {deckStackCount === 0 ? (
+                    <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
+                  ) : (
+                    Array.from({ length: deckStackCount }).map((_, index) => (
+                      <div key={`deck-back-${index}`} className="deck-pile-card deck-pile-card-back deck-pile-stack-card" />
+                    ))
+                  )}
+                </div>
                 <strong className="deck-pile-count">{humanView.deck.drawCount}</strong>
               </div>
               <div className="deck-pile">
                 <div
-                  className={`deck-pile-card deck-pile-card-discard${topDiscardCardId ? '' : ' is-empty'}`}
+                  className={`deck-pile-stack is-discard${discardStackCardIds.length > 1 ? ' is-fanned' : ''}`}
                   title="Discard pile"
                   aria-label="Discard pile"
                 >
-                  {topDiscardCardId ? (
-                    <img className="deck-pile-image" src={getCardImage(topDiscardCardId)} alt="" />
+                  {discardStackCardIds.length > 0 ? (
+                    discardStackCardIds.map((cardId, index) => (
+                      <div
+                        key={`discard-${cardId}-${index}`}
+                        className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
+                      >
+                        <img className="deck-pile-image" src={getCardImage(cardId)} alt="" />
+                      </div>
+                    ))
                   ) : (
-                    <span className="deck-pile-empty-marker" aria-hidden="true" />
+                    <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
                   )}
                 </div>
                 <strong className="deck-pile-count">{humanView.deck.discard.length}</strong>

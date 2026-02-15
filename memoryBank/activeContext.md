@@ -78,12 +78,13 @@
 - Right info column includes bot hand, roll result, deck state, and full scrollable log.
   - roll panel is above deck state, uses larger dice icons, and renders taxed suit using the shared token-chip component
   - deck state now renders visual deck/discard piles with count badges:
-    - deck uses striped card-back styling with "Cards remaining" hover text
-    - discard shows top discarded card face-up with "Discard pile" hover text
+    - deck uses striped card-back styling with "Cards remaining" hover text, showing up to three stacked backs (or a dashed empty placeholder when draw count is zero); deck mini-stack uses a uniform diagonal offset
+    - discard shows up to three top discarded cards in a stacked mini-pile, with a slight fan effect when multiple cards are visible ("Discard pile" hover text)
     - reshuffles remaining is shown above the piles
 - Hidden opponent hand cards use striped card-back styling.
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
+  - card drop shadows now match district-divider strength; in stacked district lanes only the top card keeps the outer shadow
 
 ### Bridge
 
