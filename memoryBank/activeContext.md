@@ -74,6 +74,7 @@
   - eval: `trainer/evaluate.py` + `scripts/eval.py`
   - sample collection + JSONL IO: `trainer/training.py`
   - behavior cloning warm-start: `trainer/behavior_cloning.py`
+  - RL fine-tuning (REINFORCE self-play): `trainer/reinforcement.py` + `scripts/finetune.py`
   - training CLI: `scripts/train.py` (collect + optimize + checkpoint)
   - checkpoint-backed policy loading: `policy_from_name(..., checkpoint_path=...)`
   - project Python environment bootstrap: `requirements.txt` + `scripts/setup_python_env.ps1`
@@ -82,8 +83,8 @@
 ## Immediate Next Steps
 
 1. Expand full-turn/full-game scenario coverage for rules parity.
-2. Introduce self-play/evaluation schedules and metrics tracking on top of BC warm-start checkpoints.
-3. Add RL fine-tuning loop initialized from BC checkpoints.
+2. Improve RL experiment scheduling and metrics tracking (checkpoints, benchmark matrix history).
+3. Tune RL hyperparameters and opponent mix to close the gap vs heuristic baseline.
 4. Replace trained-profile placeholders with model-backed policies through the existing `ActionPolicy` boundary.
 
 _Updated: 2026-02-21._
