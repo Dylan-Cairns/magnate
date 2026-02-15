@@ -76,6 +76,7 @@
   - champion PPO profile is the default bot selection in UI
   - action grouping/picker presentation helpers in `src/ui/actionPresentation.ts`
 - Right info column includes bot hand, deck state, roll result, and full scrollable log.
+  - deck state now includes draw count, discard count, and reshuffles remaining
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
 
