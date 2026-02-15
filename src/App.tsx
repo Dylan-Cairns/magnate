@@ -144,7 +144,11 @@ export function App() {
 
   const terminal = isTerminal(state);
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
-  const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
+  const activePlayer = state.players[state.activePlayerIndex];
+  if (!activePlayer) {
+    throw new Error(`Active player index is out of bounds: ${state.activePlayerIndex}`);
+  }
+  const activePlayerId = activePlayer.id;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
   const resolvedBotProfile = useMemo(() => resolveBotProfile(botProfileId), [botProfileId]);
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
@@ -725,16 +729,16 @@ export function App() {
             </div>
             <div className="bot-profile-controls">
               <label htmlFor="bot-profile-select">Bot Profile</label>
-              <select
-                id="bot-profile-select"
-                className="bot-profile-select"
-                value={botProfileId}
+                <select
+                  id="bot-profile-select"
+                  className="bot-profile-select"
+                  value={botProfileId}
                 onChange={(event) =>
                   setBotProfileId(event.target.value as BotProfileId)
                 }
-              >
-                {BOT_PROFILES.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
+                >
+                  {BOT_PROFILES.map((profile) => (
+                  <option key={profile.id} value={profile.id} disabled={!profile.available}>
                     {profile.label}
                   </option>
                 ))}

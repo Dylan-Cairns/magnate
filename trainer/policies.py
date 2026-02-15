@@ -5,8 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Sequence
 
+import torch
+
 from .behavior_cloning import BehaviorCloningModel, load_behavior_cloning_checkpoint
 from .encoding import _card_rank, encode_action_candidates, encode_observation
+from .ppo_model import CandidateActorCritic, load_ppo_checkpoint
 from .types import KeyedAction
 
 
@@ -110,6 +113,46 @@ class BehaviorCloningPolicy(Policy):
         return legal_actions[action_index].action_key
 
 
+@dataclass
+class TorchPpoPolicy(Policy):
+    model: CandidateActorCritic
+    checkpoint_path: str = ""
+    deterministic: bool = True
+    temperature: float = 1.0
+    name: str = "ppo"
+
+    def choose_action_key(
+        self,
+        view: Dict,
+        legal_actions: Sequence[KeyedAction],
+        rng: random.Random,
+    ) -> str:
+        if not legal_actions:
+            raise ValueError("PPO policy requires at least one legal action.")
+
+        observation_vector = encode_observation(view)
+        action_vectors = encode_action_candidates(legal_actions)
+        observation = torch.tensor(observation_vector, dtype=torch.float32)
+        action_features = torch.tensor(action_vectors, dtype=torch.float32)
+
+        with torch.no_grad():
+            logits = self.model.policy_logits_tensor(observation, action_features) / self.temperature
+            if self.deterministic:
+                action_index = int(torch.argmax(logits).item())
+            else:
+                probs = torch.softmax(logits, dim=-1).tolist()
+                draw = rng.random()
+                cumulative = 0.0
+                action_index = 0
+                for index, value in enumerate(probs):
+                    cumulative += value
+                    if draw <= cumulative:
+                        action_index = index
+                        break
+
+        return legal_actions[action_index].action_key
+
+
 def policy_from_name(name: str, checkpoint_path: str | Path | None = None) -> Policy:
     normalized = name.strip().lower()
     if normalized == "random":
@@ -126,4 +169,14 @@ def policy_from_name(name: str, checkpoint_path: str | Path | None = None) -> Po
             checkpoint_path=str(path),
             name=f"behavior-cloned:{path.name}",
         )
-    raise ValueError(f"Unknown policy name: {name!r}. Expected one of: random, heuristic, bc.")
+    if normalized == "ppo":
+        if checkpoint_path is None:
+            raise ValueError("Policy 'ppo' requires a checkpoint path.")
+        path = Path(checkpoint_path)
+        model, _ = load_ppo_checkpoint(path)
+        return TorchPpoPolicy(
+            model=model,
+            checkpoint_path=str(path),
+            name=f"ppo:{path.name}",
+        )
+    raise ValueError(f"Unknown policy name: {name!r}. Expected one of: random, heuristic, bc, ppo.")

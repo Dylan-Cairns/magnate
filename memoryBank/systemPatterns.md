@@ -33,7 +33,7 @@ Design expectations:
 - Policy contract should allow async selection so browser model inference can plug in without changing controller flow.
 - Bot profile selection should resolve through a small catalog:
   - available profiles use their own policy implementation
-  - unavailable trained profiles fall back explicitly to random legal policy with visible UI status text
+  - unavailable trained profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render

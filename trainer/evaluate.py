@@ -41,15 +41,17 @@ def play_game(
         action_key = policy.choose_action_key(step_result.view, legal.actions, rng)
         step_result = env.step(action_key=action_key)
 
-    final_score = step_result.state.get("finalScore", {})
-    winner = str(final_score.get("winner", "Draw"))
+    final_score = step_result.state.get("finalScore")
+    if not isinstance(final_score, dict):
+        raise RuntimeError("Terminal state is missing finalScore payload.")
+    winner = final_score.get("winner")
     if winner not in ("PlayerA", "PlayerB", "Draw"):
-        winner = "Draw"
+        raise RuntimeError(f"Invalid winner in terminal state: {winner!r}")
 
     return GameResult(
         seed=seed,
         first_player=first_player,
-        winner=winner,  # type: ignore[arg-type]
+        winner=winner,
         turn=int(step_result.state.get("turn", 0)),
     )
 
@@ -98,4 +100,3 @@ def evaluate_matchup(
         wins_by_policy=wins_by_policy,
         average_turn=average_turn,
     )
-

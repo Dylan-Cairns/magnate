@@ -2,12 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
@@ -28,25 +23,25 @@ def parse_args() -> argparse.Namespace:
         "--player-a-policy",
         type=str,
         default="heuristic",
-        help="Policy name for PlayerA (random|heuristic|bc).",
+        help="Policy name for PlayerA (random|heuristic|bc|ppo).",
     )
     parser.add_argument(
         "--player-b-policy",
         type=str,
         default="random",
-        help="Policy name for PlayerB (random|heuristic|bc).",
+        help="Policy name for PlayerB (random|heuristic|bc|ppo).",
     )
     parser.add_argument(
         "--player-a-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --player-a-policy=bc.",
+        help="Checkpoint path required when --player-a-policy=bc or ppo.",
     )
     parser.add_argument(
         "--player-b-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --player-b-policy=bc.",
+        help="Checkpoint path required when --player-b-policy=bc or ppo.",
     )
     return parser.parse_args()
 

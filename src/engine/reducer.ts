@@ -152,7 +152,7 @@ function chooseIncomeSuit(
 
   const pendingIncomeChoices = restChoices.length > 0 ? restChoices : undefined;
   const phase = pendingIncomeChoices ? 'CollectIncome' : 'ActionWindow';
-  const returnPlayerId = state.incomeChoiceReturnPlayerId ?? state.players[state.activePlayerIndex]?.id;
+  const returnPlayerId = state.incomeChoiceReturnPlayerId;
   if (!returnPlayerId) {
     throw new Error('Missing return player while resolving income choice.');
   }

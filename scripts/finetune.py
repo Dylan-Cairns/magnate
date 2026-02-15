@@ -3,13 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 from typing import Dict, List
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from trainer.behavior_cloning import (
     BehaviorCloningModel,
@@ -108,6 +103,17 @@ def parse_args() -> argparse.Namespace:
         default="rl-eval",
         help="Seed prefix used for evaluation games.",
     )
+    parser.add_argument(
+        "--eval-mode",
+        type=str,
+        choices=("fixed-holdout", "rolling"),
+        default="fixed-holdout",
+        help=(
+            "Evaluation seed strategy. "
+            "'fixed-holdout' keeps the same seed set across checkpoints; "
+            "'rolling' uses episode-specific seeds."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -142,19 +148,24 @@ def main() -> int:
             nonlocal best_model, best_score, best_episode
             if args.eval_games <= 0:
                 return
+            eval_suffix = (
+                "-holdout"
+                if args.eval_mode == "fixed-holdout"
+                else f"-{episode_number}"
+            )
             random_summary = evaluate_matchup(
                 env=env,
                 policy_player_a=BehaviorCloningPolicy(model=model, name="rl-finetuned"),
                 policy_player_b=policy_from_name("random"),
                 games=args.eval_games,
-                seed_prefix=f"{args.eval_seed_prefix}-random-{episode_number}",
+                seed_prefix=f"{args.eval_seed_prefix}-random{eval_suffix}",
             )
             heuristic_summary = evaluate_matchup(
                 env=env,
                 policy_player_a=BehaviorCloningPolicy(model=model, name="rl-finetuned"),
                 policy_player_b=policy_from_name("heuristic"),
                 games=args.eval_games,
-                seed_prefix=f"{args.eval_seed_prefix}-heuristic-{episode_number}",
+                seed_prefix=f"{args.eval_seed_prefix}-heuristic{eval_suffix}",
             )
             score = _selection_score(random_summary, heuristic_summary)
             snapshot = {
@@ -215,6 +226,7 @@ def main() -> int:
             },
             "evalGames": args.eval_games,
             "evalEvery": args.eval_every,
+            "evalMode": args.eval_mode,
             "selectedEpisode": selected_episode,
             "selectionScore": best_score if args.eval_games > 0 else None,
         },
