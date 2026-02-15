@@ -1,6 +1,6 @@
 .action-list {
   display: grid;
-  gap: 0.45rem;
+  gap: var(--space-3);
   overflow-y: auto;
   min-height: 0;
   flex: 1;
@@ -507,12 +507,12 @@
 
 .info-pane {
   display: grid;
-  gap: 0.9rem;
+  gap: var(--layout-gap);
   grid-template-rows: auto auto auto minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   align-content: stretch;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .info-pane > .panel {

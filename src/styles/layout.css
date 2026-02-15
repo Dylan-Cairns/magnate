@@ -3,10 +3,9 @@
   grid-template-columns: var(--side-column-width) minmax(0, 1fr) var(
       --side-column-width
     );
-  gap: 0.9rem;
+  gap: var(--layout-gap);
   flex: 1;
   min-height: 0;
-  overflow: hidden;
   align-items: stretch;
 }
 
@@ -32,16 +31,15 @@
   margin: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.55rem;
+  gap: var(--section-gap);
   min-height: 0;
-  overflow: hidden;
 }
 
 .actions-pane {
   min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.9rem;
+  gap: var(--layout-gap);
   align-content: stretch;
 }
 
@@ -81,8 +79,8 @@
 }
 
 .actions-footer {
-  margin-top: 0.45rem;
-  padding-top: 0.45rem;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
   border-top: 1px dashed var(--divider-subtle);
 }
 
@@ -116,7 +114,7 @@
 }
 
 .panel {
-  padding: 0.8rem;
+  padding: var(--panel-padding);
 }
 
 .panel h2 {

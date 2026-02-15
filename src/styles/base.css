@@ -15,6 +15,19 @@
   --panel-border-end: #2e2f35;
   --container-shadow: 0 14px 32px rgba(0, 0, 0, 0.62);
   --container-shadow-soft: 0 9px 22px rgba(0, 0, 0, 0.54);
+  --space-1: 0.2rem;
+  --space-2: 0.35rem;
+  --space-3: 0.5rem;
+  --space-4: 0.6rem;
+  --space-5: 0.8rem;
+  --space-6: 0.9rem;
+  --space-7: 1rem;
+  --space-8: 1.2rem;
+  --page-padding: var(--space-8);
+  --layout-gap: var(--space-6);
+  --panel-padding: var(--space-5);
+  --panel-padding-compact: var(--space-3) var(--space-4);
+  --section-gap: var(--space-4);
   --ink: #fafcff;
   --muted: #c8d0dc;
   --accent: #e0b986;
@@ -202,6 +215,7 @@ body,
     calc(var(--ring-cell-size) / 2) calc(var(--ring-cell-size) / 2),
     center;
   background-blend-mode: normal;
+  background: #ffffff;
   color: var(--ink);
 }
 
@@ -212,10 +226,10 @@ body {
 .app-shell {
   height: 100vh;
   min-height: 100vh;
-  padding: 1rem;
+  padding: var(--page-padding);
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: var(--layout-gap);
   background: transparent;
 }
 
