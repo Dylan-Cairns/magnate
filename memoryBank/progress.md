@@ -42,9 +42,14 @@
   - bot hand sits at top-right column and human hand at bottom-left column
   - crowns/resources now render in mirrored top/bottom rows inside the center board column
   - center-lane token rows are edge-aligned: bot row packed right, human row packed left
-  - crown/resource token chips in the center rows are enlarged (2.7rem)
+  - crown/resource token chips in the center rows are enlarged (3rem)
   - full score breakdown remains available via hover/focus popovers on score badges
-- Deck state panel now shows discard count in addition to draw count and reshuffles remaining.
+- Deck state panel now uses a visual pile layout:
+  - deck pile shows striped card-back styling with hover text ("Cards remaining") and numeric count
+  - discard pile shows face-up top discarded card with hover text ("Discard pile") and numeric count
+  - reshuffles remaining is shown as a text line above the piles
+- Hidden bot-hand cards use striped card-back styling.
+- Roll result panel now appears above deck state, doubles die icon size, and shows taxed suit as an icon.
 - Brand panel controls were reorganized:
   - title now sits above Actions in the left column with a right-side hamburger trigger
   - seed/new-game and bot-profile controls now live in a dropdown options menu
