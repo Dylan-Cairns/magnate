@@ -51,6 +51,7 @@
   --active-border: #e2bf89;
   --active-ring: rgba(226, 191, 137, 0.48);
   --active-glow: rgba(164, 119, 79, 0.34);
+  --active-glow-outer: rgba(226, 191, 137, 0.3);
   --board-dashed: rgba(171, 139, 112, 0.34);
   --wood-start: #140f0c;
   --wood-end: #5b2f1e;
@@ -138,8 +139,8 @@
   );
   --deck-pile-stack-step: 0.24rem;
   --deck-pile-fan-shift: 0.18rem;
-  --card-drop-shadow: var(--container-shadow-soft);
-  --card-stack-drop-shadow: var(--container-shadow-soft);
+  --card-drop-shadow: var(--rail-panel-shadow);
+  --card-stack-drop-shadow: var(--rail-panel-shadow);
   --card-stack-inner-shadow:
     0 1px 2px rgba(0, 0, 0, 0.22), 0 -1px 1px rgba(255, 255, 255, 0.06);
 }
@@ -216,7 +217,6 @@ body,
     calc(var(--ring-cell-size) / 2) calc(var(--ring-cell-size) / 2),
     center;
   background-blend-mode: normal;
-  background: #ffffff;
   color: var(--ink);
 }
 
