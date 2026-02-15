@@ -33,8 +33,10 @@
   - `python -m scripts.train`
   - `python -m scripts.finetune`
   - `python -m scripts.train_ppo_queue`
+  - `python -m scripts.export_ppo_browser_checkpoint`
   - PPO uses PyTorch from `requirements.txt`
   - PPO scaffold entrypoint: `python -m scripts.train_ppo`
+  - browser PPO inference profile is served from `public/models/*.browser.json`
 
 ## Constraints
 

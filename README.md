@@ -20,8 +20,9 @@ Single-player Magnate with a trained bot opponent.
 - Player-view projection exists (`toPlayerView` / `toActivePlayerView`) with hidden opponent hand contents and hidden draw order.
 - React gameplay shell exists (`index.html`, `src/main.tsx`, `src/App.tsx`) for human vs bot play using engine APIs.
 - UI exposes a bot profile selector:
-  - random legal policy is available now
-  - trained profile entries are scaffolded as disabled placeholders until model/runtime wiring lands
+  - champion PPO profile is available in browser and set as default
+  - random legal profile remains available for baseline play
+  - champion browser weights are served from `public/models/ppo_champion_2026-02-23_seed7.browser.json`
 - Controller boundaries are extracted for bot swapping:
   - `createSession` / `stepToDecision` (`src/engine/session.ts`)
   - async-capable `ActionPolicy` + profile catalog (`src/policies/`)
@@ -41,6 +42,7 @@ Single-player Magnate with a trained bot opponent.
     - fixed-holdout eval-based best-checkpoint selection
   - PyTorch PPO scaffold (`scripts/train_ppo.py`) with candidate-action actor-critic model
   - canonical fixed-holdout benchmark CLI (`scripts/benchmark.py`) for consistent checkpoint comparison
+  - browser PPO export utility (`scripts/export_ppo_browser_checkpoint.py`)
 - Competitive RL tuning vs human-level play is still in progress.
 
 ## Local Commands
@@ -83,6 +85,8 @@ With `.venv` active:
   - `python -m scripts.train_ppo_queue --seeds 2 3 4 --episodes 1024 --episodes-per-update 32 --eval-games 100 --eval-every-updates 5 --eval-mode fixed-holdout --progress-every-updates 5`
 - Queue canonical benchmarks by seed (sequential, with ranked summary):
   - `python -m scripts.benchmark_queue --seeds 1 2 3 4 --candidate-policy ppo`
+- Export a trained PPO `.pt` checkpoint for browser inference:
+  - `python -m scripts.export_ppo_browser_checkpoint --checkpoint-in models/ppo_champion_2026-02-23_seed7.pt --out public/models/ppo_champion_2026-02-23_seed7.browser.json`
 
 ## Source-of-Truth Docs
 
