@@ -4,9 +4,18 @@ import { legalActions } from './engine/actionBuilders';
 import cubeDieIcon from './assets/icons/cube.png';
 import dodecahedronDieIcon from './assets/icons/dodecahedron.png';
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from './engine/cards';
+import { rngFromSeed } from './engine/rng';
 import { createSession, stepToDecision } from './engine/session';
 import { isTerminal, scoreLive } from './engine/scoring';
 import { developmentCost, findProperty, SUITS } from './engine/stateHelpers';
+import type {
+  BotProfileId,
+} from './policies/catalog';
+import {
+  BOT_PROFILES,
+  DEFAULT_BOT_PROFILE_ID,
+  resolveBotProfile,
+} from './policies/catalog';
 import type {
   DistrictStack,
   DistrictState,
@@ -19,7 +28,6 @@ import type {
   Suit,
 } from './engine/types';
 import { toPlayerView } from './engine/view';
-import { randomPolicy } from './policies/randomPolicy';
 import {
   actionStableKey,
   buildHumanActionList,
@@ -105,6 +113,12 @@ function createInitialState(seed: string): GameState {
   return createSession(seed, HUMAN_PLAYER);
 }
 
+function botRandomForState(state: GameState, profileId: string): () => number {
+  return rngFromSeed(
+    `${state.seed}:bot:${profileId}:turn:${state.turn}:phase:${state.phase}:log:${state.log.length}:actor:${state.activePlayerIndex}`
+  );
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
@@ -114,6 +128,8 @@ function errorMessage(error: unknown): string {
 
 export function App() {
   const [seedInput, setSeedInput] = useState<string>(() => makeSeed());
+  const [botProfileId, setBotProfileId] =
+    useState<BotProfileId>(DEFAULT_BOT_PROFILE_ID);
   const [state, setState] = useState<GameState>(() => createInitialState(seedInput));
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
@@ -130,6 +146,7 @@ export function App() {
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
   const activePlayerId = state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
   const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
+  const resolvedBotProfile = useMemo(() => resolveBotProfile(botProfileId), [botProfileId]);
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
   const reshufflesRemaining = Math.max(0, 2 - humanView.deck.reshuffles);
 
@@ -186,48 +203,57 @@ export function App() {
       return;
     }
 
+    let cancelled = false;
     setBotThinking(true);
     const timerId = window.setTimeout(() => {
-      const current = stateRef.current;
-      const currentActive = current.players[current.activePlayerIndex]?.id;
-      if (isTerminal(current) || currentActive !== BOT_PLAYER) {
-        setBotThinking(false);
-        return;
-      }
+      void (async () => {
+        const current = stateRef.current;
+        const currentActive = current.players[current.activePlayerIndex]?.id;
+        if (cancelled || isTerminal(current) || currentActive !== BOT_PLAYER) {
+          setBotThinking(false);
+          return;
+        }
 
-      const actions = legalActions(current);
-      if (actions.length === 0) {
-        setError('Bot has no legal actions.');
-        setBotThinking(false);
-        return;
-      }
-      const botView = toPlayerView(current, BOT_PLAYER);
-      const choice = randomPolicy.selectAction({
-        view: botView,
-        legalActions: actions,
-        random: Math.random,
-      });
-      if (!choice) {
-        setError('Bot policy could not select an action.');
-        setBotThinking(false);
-        return;
-      }
+        const actions = legalActions(current);
+        if (actions.length === 0) {
+          setError('Bot has no legal actions.');
+          setBotThinking(false);
+          return;
+        }
 
-      try {
-        const next = stepToDecision(current, choice);
-        setState(next);
-        setError(null);
-      } catch (err) {
-        setError(`Bot action failed: ${errorMessage(err)}`);
-      } finally {
-        setBotThinking(false);
-      }
+        try {
+          const botView = toPlayerView(current, BOT_PLAYER);
+          const choice = await resolvedBotProfile.policy.selectAction({
+            view: botView,
+            legalActions: actions,
+            random: botRandomForState(current, resolvedBotProfile.selected.id),
+          });
+
+          if (cancelled) {
+            return;
+          }
+
+          if (!choice) {
+            setError('Bot policy could not select an action.');
+            return;
+          }
+
+          const next = stepToDecision(current, choice);
+          setState(next);
+          setError(null);
+        } catch (err) {
+          setError(`Bot action failed: ${errorMessage(err)}`);
+        } finally {
+          setBotThinking(false);
+        }
+      })();
     }, BOT_DELAY_MS);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timerId);
     };
-  }, [activePlayerId, state, terminal]);
+  }, [activePlayerId, resolvedBotProfile, state, terminal]);
 
   useEffect(() => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
@@ -696,6 +722,26 @@ export function App() {
               <button className="reset-button" type="button" onClick={handleReset}>
                 New Game
               </button>
+            </div>
+            <div className="bot-profile-controls">
+              <label htmlFor="bot-profile-select">Bot Profile</label>
+              <select
+                id="bot-profile-select"
+                className="bot-profile-select"
+                value={botProfileId}
+                onChange={(event) =>
+                  setBotProfileId(event.target.value as BotProfileId)
+                }
+              >
+                {BOT_PROFILES.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.label}
+                  </option>
+                ))}
+              </select>
+              <p className="bot-profile-note">
+                {resolvedBotProfile.statusText}
+              </p>
             </div>
           </section>
 

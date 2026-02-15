@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CARD_BY_ID } from './cards';
 import { initialSetup } from './deck';
 import { newGame } from './game';
+import type { PlayerId } from './types';
 
 function resourceTotal(resources: Record<string, number>): number {
   return Object.values(resources).reduce((sum, count) => sum + count, 0);
@@ -43,6 +44,14 @@ describe('newGame', () => {
 
     expect(firstA.players[firstA.activePlayerIndex].id).toBe('PlayerA');
     expect(firstB.players[firstB.activePlayerIndex].id).toBe('PlayerB');
+  });
+
+  it('throws when firstPlayer is invalid at runtime boundary', () => {
+    expect(() =>
+      newGame('invalid-first-player-seed', {
+        firstPlayer: 'Ghost' as PlayerId,
+      })
+    ).toThrow('Unknown first player');
   });
 
   it('starts with turn-state flags reset for a fresh turn', () => {

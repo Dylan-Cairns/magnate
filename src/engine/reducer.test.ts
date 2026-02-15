@@ -162,6 +162,40 @@ describe('income choice reducer semantics', () => {
     expect(next.pendingIncomeChoices).toHaveLength(1);
     expect(next.pendingIncomeChoices?.[0].playerId).toBe(PLAYER_B);
   });
+
+  it('choose-income-suit logs the acting chooser even when turn owner is restored', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      activePlayerIndex: 1,
+      players: [
+        makePlayer(PLAYER_A),
+        makePlayer(PLAYER_B, {
+          resources: makeResources({ Waves: 0, Leaves: 0 }),
+        }),
+      ] as const,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+      incomeChoiceReturnPlayerId: PLAYER_A,
+    });
+
+    const next = applyAction(state, {
+      type: 'choose-income-suit',
+      playerId: PLAYER_B,
+      districtId: 'D2',
+      cardId: '8',
+      suit: 'Leaves',
+    });
+
+    expect(next.activePlayerIndex).toBe(0);
+    expect(next.log.at(-1)?.summary).toBe('income choice 8:Leaves');
+    expect(next.log.at(-1)?.player).toBe(PLAYER_B);
+  });
 });
 
 describe('buy-deed reducer semantics', () => {

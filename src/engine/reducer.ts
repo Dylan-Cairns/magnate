@@ -171,7 +171,8 @@ function chooseIncomeSuit(
         ? state.incomeChoiceReturnPlayerId
         : undefined,
     },
-    `income choice ${action.cardId}:${action.suit}`
+    `income choice ${action.cardId}:${action.suit}`,
+    action.playerId
   );
 }
 
@@ -491,10 +492,15 @@ function negate(tokens: Partial<Record<Suit, number>>): Partial<Record<Suit, num
   return result;
 }
 
-function log(state: GameState, summary: string): GameState {
+function log(state: GameState, summary: string, playerId?: PlayerId): GameState {
+  const entryPlayerId = playerId ?? state.players[state.activePlayerIndex]?.id;
+  if (!entryPlayerId) {
+    throw new Error('Cannot append log entry without an active player.');
+  }
+
   const entry = {
     turn: state.turn,
-    player: state.players[state.activePlayerIndex].id,
+    player: entryPlayerId,
     phase: state.phase,
     summary,
   };
