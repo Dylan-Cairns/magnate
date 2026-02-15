@@ -60,6 +60,11 @@ Design expectations:
 - Bridge is the runtime boundary between TS engine and Python trainer.
 - Contract is versioned and intentionally small.
 - Stable items: request/response envelope, commands, action IDs, observation layout metadata, model I/O names.
+- Runtime transport is NDJSON over stdin/stdout via `src/bridge/cli.ts`.
+- Command handling lives in `src/bridge/runtime.ts` and returns strict success/error envelopes.
+- Canonical bridge action surface comes from `src/engine/actionSurface.ts`:
+  - stable action keys
+  - canonical legal-action ordering by lexicographic action key
 
 ## Testing Pattern
 
@@ -67,6 +72,7 @@ Design expectations:
 - Unit tests for visibility boundaries (hidden opponent hand, hidden draw order).
 - Deterministic fixtures and seed-based replay paths.
 - Contract tests to protect TS/Python integration behavior.
+- Python bridge-client/encoding/eval scaffolding should have its own tests (`trainer_tests/`) that run against the live bridge process.
 
 ## Versioning Pattern
 

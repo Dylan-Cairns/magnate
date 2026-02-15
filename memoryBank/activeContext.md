@@ -4,7 +4,7 @@
 
 - Close remaining rules-parity gaps with scenario-driven integration tests.
 - Keep the UI/controller thin and policy-agnostic so random and trained bots share one action-selection boundary.
-- Preserve a stable TS-Python contract while bridge runtime and trainer work begin.
+- Preserve a stable TS-Python contract while baseline training/evaluation loops are exercised through the new bridge runtime.
 
 ## Locked Decisions
 
@@ -28,6 +28,9 @@
   - deck reshuffle state is canonical for exhaustion/final-turn flow.
   - income-choice return owner is stored as `PlayerId` in state.
   - transitional `IncomeRoll` phase was removed.
+- Canonical bridge action surface exists in `src/engine/actionSurface.ts`:
+  - stable `actionStableKey` generation
+  - canonical lexicographic `legalActions` ordering by key
 
 ### Observability
 
@@ -50,11 +53,33 @@
 - Final-turn warning is surfaced in the actions header during the final-turn window.
 - District lanes render centered overlapping card stacks; bot-visible cards (district + crowns) use bot perspective (rank/suits at bottom, progress at top).
 
+### Bridge
+
+- Node NDJSON bridge runtime is implemented at `src/bridge/cli.ts` + `src/bridge/runtime.ts` (`yarn bridge`).
+- Implemented commands: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
+- Error-code envelope handling is implemented per contract (`INVALID_COMMAND`, `INVALID_PAYLOAD`, `ILLEGAL_ACTION`, `STATE_DESERIALIZATION_FAILED`, `INTERNAL_ENGINE_ERROR`).
+- Bridge contract artifact is versioned at `contracts/magnate_bridge.v1.json`.
+- Bridge behavior has dedicated tests in `src/bridge/runtime.test.ts`.
+
+### Trainer Scaffold
+
+- Python bridge client and environment wrapper are implemented:
+  - `trainer/bridge_client.py`
+  - `trainer/env.py`
+- Training encoders are implemented and documented:
+  - `trainer/encoding.py` (`OBSERVATION_DIM=186`, `ACTION_FEATURE_DIM=40`)
+  - `docs/TRAINING_ENCODING.md`
+- Baseline policy/eval/training scripts are implemented:
+  - policies: `trainer/policies.py` (random + heuristic)
+  - eval: `trainer/evaluate.py` + `scripts/eval.py`
+  - sample collection scaffold: `trainer/training.py` + `scripts/train.py`
+- Python scaffold has dedicated unittest coverage in `trainer_tests/`.
+
 ## Immediate Next Steps
 
 1. Expand full-turn/full-game scenario coverage for rules parity.
-2. Implement bridge runtime against `memoryBank/bridgeInterfaceContract.md`.
-3. Add trainer scaffold and baseline loop.
+2. Add model optimization/checkpoint loop on top of collected decision samples.
+3. Introduce self-play/evaluation schedules and metrics tracking for baseline experiments.
 4. Replace trained-profile placeholders with model-backed policies through the existing `ActionPolicy` boundary.
 
 _Updated: 2026-02-21._

@@ -6,6 +6,7 @@ Define the minimal stable boundary for Python training to call the canonical TS 
 
 - Contract name: `magnate_bridge`
 - Contract version: `v1`
+- Versioned contract artifact: `contracts/magnate_bridge.v1.json`
 
 ## Scope
 
@@ -25,7 +26,7 @@ Out of scope:
 
 ## Transport
 
-- Newline-delimited JSON over stdin/stdout (initial implementation)
+- Newline-delimited JSON over stdin/stdout (`yarn bridge`)
 - One request -> one response
 - `requestId` must be echoed
 
@@ -68,17 +69,50 @@ Error response:
 ## Commands (v1)
 
 - `metadata`
-  - returns `contractName`, `contractVersion`, action ID maps, observation spec, model I/O names
+  - payload: optional object
+  - returns `contractName`, `contractVersion`, `schemaVersion`, command list, action IDs, action-surface metadata, observation spec, model I/O names
 - `reset`
-  - optional seed; returns fresh state + active actor view
+  - payload:
+    - `seed?`: string
+    - `firstPlayer?`: `PlayerA | PlayerB`
+    - `serializedState?`: canonical state snapshot to load
+    - `skipAdvanceToDecision?`: boolean (only used with `serializedState`)
+  - returns state snapshot + active actor view + terminal flag
 - `legalActions`
-  - returns legal action payloads for current state
+  - payload: optional object
+  - returns canonical legal actions for current state, each with:
+    - `actionId`
+    - `actionKey`
+    - `action` payload
+  - canonical order is lexicographic by `actionKey`
 - `observation`
-  - returns actor observation (+ optional mask)
+  - payload:
+    - `viewerId?`: `PlayerA | PlayerB` (default active player)
+    - `includeLegalActionMask?`: boolean
+  - returns `toPlayerView` payload (+ optional legal-action-key mask)
 - `step`
-  - applies action; returns next state view and terminal info if game ended
+  - payload:
+    - `action?`: full action payload
+    - `actionKey?`: stable action key from `legalActions`
+  - requires either `action` or `actionKey`
+  - if both are provided, they must refer to the same action
+  - applies action, advances to decision, returns state snapshot + active actor view + terminal flag
 - `serialize`
+  - payload: optional object
   - returns canonical state snapshot with `schemaVersion`
+
+## Deterministic Action Surface
+
+- Stable action IDs:
+  - `buy-deed`
+  - `choose-income-suit`
+  - `develop-deed`
+  - `develop-outright`
+  - `end-turn`
+  - `sell-card`
+  - `trade`
+- Stable action keys are canonicalized by `src/engine/actionSurface.ts`.
+- `legalActions` canonical order is deterministic: ascending lexicographic `actionKey`.
 
 ## Error Codes
 
@@ -91,6 +125,7 @@ Error response:
 ## Stability Rules
 
 - Action IDs are stable once used by training/checkpoints.
+- Action key generation and canonical legal-action ordering are stable within a contract version.
 - Observation layout is stable within a contract version.
 - Model I/O names are stable within a contract version.
 - Additive fields are allowed without a major version bump.

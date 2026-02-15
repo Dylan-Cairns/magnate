@@ -1,0 +1,74 @@
+{
+  "contract_name": "magnate_bridge",
+  "version": "1.0.0",
+  "description": "Versioned cross-runtime bridge contract for Magnate training and inference.",
+  "bridge": {
+    "transport": "ndjson_stdin_stdout",
+    "commands": [
+      "metadata",
+      "reset",
+      "step",
+      "legalActions",
+      "observation",
+      "serialize"
+    ],
+    "error_codes": [
+      "INVALID_COMMAND",
+      "INVALID_PAYLOAD",
+      "ILLEGAL_ACTION",
+      "STATE_DESERIALIZATION_FAILED",
+      "INTERNAL_ENGINE_ERROR"
+    ]
+  },
+  "engine": {
+    "schema_version": 1,
+    "deterministic": true,
+    "player_ids": ["PlayerA", "PlayerB"],
+    "first_player_ids": ["PlayerA", "PlayerB"]
+  },
+  "action_surface": {
+    "action_ids": [
+      "buy-deed",
+      "choose-income-suit",
+      "develop-deed",
+      "develop-outright",
+      "end-turn",
+      "sell-card",
+      "trade"
+    ],
+    "stable_key_by_action_id": {
+      "buy-deed": "buy-deed:{cardId}:{districtId}",
+      "choose-income-suit": "choose-income-suit:{playerId}:{districtId}:{cardId}:{suit}",
+      "develop-deed": "develop-deed:{cardId}:{districtId}:{paymentSignature(tokens)}",
+      "develop-outright": "develop-outright:{cardId}:{districtId}:{paymentSignature(payment)}",
+      "end-turn": "end-turn",
+      "sell-card": "sell-card:{cardId}",
+      "trade": "trade:{give}:{receive}"
+    },
+    "payment_signature_suit_order": [
+      "Moons",
+      "Suns",
+      "Waves",
+      "Leaves",
+      "Wyrms",
+      "Knots"
+    ],
+    "canonical_legal_action_order": "ascending_lexicographic_action_key"
+  },
+  "observation": {
+    "name": "player_view_v1",
+    "default_viewer": "active-player",
+    "payload": "toPlayerView(state, viewerId)",
+    "optional_legal_action_mask": "list of legal action keys for current state/viewer"
+  },
+  "model_io": {
+    "inputs": {
+      "observation": "observation",
+      "action_mask": "action_mask"
+    },
+    "outputs": {
+      "masked_logits": "masked_logits",
+      "value": "value"
+    }
+  }
+}
