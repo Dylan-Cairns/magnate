@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import copy
 import math
 import random
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
@@ -362,6 +364,8 @@ class _MctsNode:
     terminal: bool
     active_player: PlayerId | None
     edges: Dict[str, _MctsEdge]
+    root_ranked_actions: list[KeyedAction] | None = None
+    root_priors: Dict[str, float] | None = None
     expanded: bool = False
 
 
@@ -374,6 +378,8 @@ class DeterminizedMctsPolicy(Policy):
         self._heuristic_policy = HeuristicPolicy()
         self._sim_client: BridgeClient | None = None
         self._sim_env: MagnateBridgeEnv | None = None
+        self._step_cache: OrderedDict[tuple[str, str], Dict[str, Any]] = OrderedDict()
+        self._step_cache_limit = 20_000
 
     def choose_action_key(
         self,
@@ -390,7 +396,7 @@ class DeterminizedMctsPolicy(Policy):
             raise ValueError("MCTS policy requires a serialized state payload.")
 
         root_player = _active_player_id(view)
-        root_candidates = self._root_candidates(legal_actions)
+        root_candidates = self._ranked_root_actions(legal_actions)
         worlds = self._sample_worlds(state=state, view=view, root_player=root_player, rng=rng)
 
         aggregate_visits: Dict[str, int] = {action.action_key: 0 for action in root_candidates}
@@ -455,15 +461,14 @@ class DeterminizedMctsPolicy(Policy):
         except Exception:
             return None
 
-    def _root_candidates(self, legal_actions: Sequence[KeyedAction]) -> list[KeyedAction]:
-        ranked = sorted(
+    def _ranked_root_actions(self, legal_actions: Sequence[KeyedAction]) -> list[KeyedAction]:
+        return sorted(
             legal_actions,
             key=lambda action: (
                 -self._heuristic_policy.score_action(action),
                 action.action_key,
             ),
         )
-        return ranked[: min(len(ranked), self.config.max_root_actions)]
 
     def _run_world_search(
         self,
@@ -476,9 +481,10 @@ class DeterminizedMctsPolicy(Policy):
             terminal=_is_terminal_state(world_state),
             active_player=_state_active_player_id(world_state),
             edges={},
+            root_ranked_actions=list(root_candidates),
             expanded=False,
         )
-        self._expand_node(node=root_node, root_candidates=root_candidates)
+        self._expand_node(node=root_node)
         if root_node.terminal or not root_node.edges:
             return {}
 
@@ -496,13 +502,14 @@ class DeterminizedMctsPolicy(Policy):
         if depth_remaining <= 0:
             return _value_from_serialized_state(node.state, root_player)
         if not node.expanded:
-            self._expand_node(node=node, root_candidates=None)
+            self._expand_node(node=node)
             if node.terminal:
                 return _terminal_value(node.state, root_player)
             return _value_from_serialized_state(node.state, root_player)
         if not node.edges:
             return _value_from_serialized_state(node.state, root_player)
 
+        self._maybe_widen_root(node=node)
         edge = self._select_edge(node=node, root_player=root_player)
         if edge.child is None:
             child_state = self._step_state(node.state, edge.action_key)
@@ -549,7 +556,6 @@ class DeterminizedMctsPolicy(Policy):
     def _expand_node(
         self,
         node: _MctsNode,
-        root_candidates: Sequence[KeyedAction] | None,
     ) -> None:
         if node.terminal:
             node.expanded = True
@@ -570,10 +576,6 @@ class DeterminizedMctsPolicy(Policy):
 
         legal = sim_env.legal_actions()
         legal_actions = legal.actions
-        if root_candidates is not None:
-            allowed = {action.action_key for action in root_candidates}
-            legal_actions = [action for action in legal_actions if action.action_key in allowed]
-
         if not legal_actions:
             node.edges = {}
             node.active_player = legal.active_player_id
@@ -581,15 +583,60 @@ class DeterminizedMctsPolicy(Policy):
             return
 
         priors = self._action_priors(legal_actions)
+        actions_to_expand = legal_actions
+        if node.root_ranked_actions is not None:
+            legal_by_key = {action.action_key: action for action in legal_actions}
+            ranked_legal_actions = [
+                legal_by_key[action.action_key]
+                for action in node.root_ranked_actions
+                if action.action_key in legal_by_key
+            ]
+            if not ranked_legal_actions:
+                ranked_legal_actions = self._ranked_root_actions(legal_actions)
+
+            node.root_ranked_actions = ranked_legal_actions
+            node.root_priors = priors
+            initial_count = min(len(ranked_legal_actions), self.config.max_root_actions)
+            actions_to_expand = ranked_legal_actions[:initial_count]
+
         node.edges = {
             action.action_key: _MctsEdge(
                 action_key=action.action_key,
                 prior=priors[action.action_key],
             )
-            for action in legal_actions
+            for action in actions_to_expand
         }
         node.active_player = legal.active_player_id
         node.expanded = True
+
+    def _maybe_widen_root(self, node: _MctsNode) -> None:
+        if node.root_ranked_actions is None or node.root_priors is None:
+            return
+        if not node.root_ranked_actions:
+            return
+
+        total_actions = len(node.root_ranked_actions)
+        current_actions = len(node.edges)
+        if current_actions >= total_actions:
+            return
+
+        parent_visits = sum(edge.visits for edge in node.edges.values())
+        target_actions = min(
+            total_actions,
+            self.config.max_root_actions + int(math.sqrt(float(parent_visits) + 1.0)),
+        )
+        if target_actions <= current_actions:
+            return
+
+        for action in node.root_ranked_actions:
+            if action.action_key in node.edges:
+                continue
+            node.edges[action.action_key] = _MctsEdge(
+                action_key=action.action_key,
+                prior=node.root_priors.get(action.action_key, 0.0),
+            )
+            if len(node.edges) >= target_actions:
+                break
 
     def _action_priors(self, legal_actions: Sequence[KeyedAction]) -> Dict[str, float]:
         if not legal_actions:
@@ -607,13 +654,25 @@ class DeterminizedMctsPolicy(Policy):
         }
 
     def _step_state(self, state: Mapping[str, Any], action_key: str) -> Dict[str, Any]:
+        state_key = _state_cache_key(state)
+        cache_key = (state_key, action_key)
+        cached = self._step_cache.get(cache_key)
+        if cached is not None:
+            self._step_cache.move_to_end(cache_key)
+            return copy.deepcopy(cached)
+
         sim_env = self._simulator_env()
         sim_env.reset(
             serialized_state=copy.deepcopy(dict(state)),
             skip_advance_to_decision=True,
         )
         step_result = sim_env.step(action_key=action_key)
-        return step_result.state
+        next_state = copy.deepcopy(step_result.state)
+        self._step_cache[cache_key] = next_state
+        self._step_cache.move_to_end(cache_key)
+        while len(self._step_cache) > self._step_cache_limit:
+            self._step_cache.popitem(last=False)
+        return copy.deepcopy(next_state)
 
     def _sample_worlds(
         self,
@@ -909,6 +968,36 @@ def _stack_score(stack: Mapping[str, Any]) -> tuple[float, float]:
     return rank_total, progress_total
 
 
+def _developed_rank_total(stack: Mapping[str, Any]) -> float:
+    total = 0.0
+    for card_id in _as_card_list(stack.get("developed")):
+        total += float(_card_rank(card_id))
+    return total
+
+
+def _ace_pressure_proxy(stack: Mapping[str, Any]) -> float:
+    developed = _as_card_list(stack.get("developed"))
+    ace_count = sum(1 for card_id in developed if _card_rank(card_id) == 1)
+    if ace_count <= 0:
+        return 0.0
+    # Aces only score when district properties share suit; use a conservative proxy.
+    return 0.35 * float(ace_count * max(0, len(developed) - 1))
+
+
+def _deed_completion_ratio(stack: Mapping[str, Any]) -> float:
+    deed = stack.get("deed")
+    if not isinstance(deed, dict):
+        return 0.0
+    card_id = str(deed.get("cardId", ""))
+    rank = _card_rank(card_id)
+    if rank <= 0:
+        return 0.0
+    target = 3 if rank == 1 else rank
+    progress = _as_int(deed.get("progress"))
+    clipped = min(max(progress, 0), target)
+    return clipped / float(target)
+
+
 def _resource_total(player_state: Mapping[str, Any]) -> int:
     resources = player_state.get("resources")
     if not isinstance(resources, dict):
@@ -947,6 +1036,10 @@ def _safe_div(total: float, count: int) -> float:
     if count <= 0:
         return 0.0
     return total / float(count)
+
+
+def _state_cache_key(state: Mapping[str, Any]) -> str:
+    return json.dumps(state, sort_keys=True, separators=(",", ":"))
 
 
 def _is_terminal_state(state: Mapping[str, Any]) -> bool:
@@ -999,12 +1092,13 @@ def _value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId
     resource_root = _resource_total(root_state)
     resource_opponent = _resource_total(opponent_state)
     hand_diff = len(_as_card_list(root_state.get("hand"))) - len(_as_card_list(opponent_state.get("hand")))
+    resource_diff = resource_root - resource_opponent
 
     districts = state.get("districts")
     district_count = len(districts) if isinstance(districts, list) else 0
-    district_lead = 0.0
-    rank_diff = 0.0
-    progress_diff = 0.0
+    district_point_diff = 0.0
+    rank_total_diff = 0.0
+    deed_completion_diff = 0.0
     if isinstance(districts, list):
         for district in districts:
             if not isinstance(district, dict):
@@ -1016,26 +1110,44 @@ def _value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId
             opponent_stack = stacks.get(opponent)
             if not isinstance(root_stack, dict) or not isinstance(opponent_stack, dict):
                 continue
-            root_rank, root_progress = _stack_score(root_stack)
-            opponent_rank, opponent_progress = _stack_score(opponent_stack)
-            rank_diff += root_rank - opponent_rank
-            progress_diff += root_progress - opponent_progress
-            if root_rank > opponent_rank:
-                district_lead += 1.0
-            elif root_rank < opponent_rank:
-                district_lead -= 1.0
 
-    district_term = district_lead / float(max(1, district_count))
-    rank_term = math.tanh(rank_diff / 18.0)
-    progress_term = math.tanh(progress_diff / 8.0)
-    resource_term = math.tanh((resource_root - resource_opponent) / 10.0)
-    hand_term = math.tanh(hand_diff / 4.0)
+            root_developed_rank = _developed_rank_total(root_stack)
+            opponent_developed_rank = _developed_rank_total(opponent_stack)
+            rank_total_diff += root_developed_rank - opponent_developed_rank
+
+            root_district_strength = root_developed_rank + _ace_pressure_proxy(root_stack)
+            opponent_district_strength = opponent_developed_rank + _ace_pressure_proxy(opponent_stack)
+            if root_district_strength > opponent_district_strength:
+                district_point_diff += 1.0
+            elif root_district_strength < opponent_district_strength:
+                district_point_diff -= 1.0
+
+            deed_completion_diff += (
+                _deed_completion_ratio(root_stack) - _deed_completion_ratio(opponent_stack)
+            )
+
+    deck = state.get("deck")
+    reshuffles = _as_int(_as_mapping(deck).get("reshuffles")) if isinstance(deck, dict) else 0
+    final_turns_remaining = _as_int(state.get("finalTurnsRemaining"))
+    endgame = reshuffles >= 2 or final_turns_remaining > 0
+
+    district_term = district_point_diff / float(max(1, district_count))
+    rank_term = math.tanh(rank_total_diff / 16.0)
+    progress_term = math.tanh(deed_completion_diff / 2.5)
+    resource_term = math.tanh(resource_diff / 8.0)
+    hand_term = math.tanh(hand_diff / 3.0)
+
+    district_weight = 0.72 if endgame else 0.6
+    rank_weight = 0.16 if endgame else 0.2
+    progress_weight = 0.05 if endgame else 0.12
+    resource_weight = 0.05
+    hand_weight = 0.02
 
     score = (
-        (0.55 * district_term)
-        + (0.2 * rank_term)
-        + (0.1 * progress_term)
-        + (0.1 * resource_term)
-        + (0.05 * hand_term)
+        (district_weight * district_term)
+        + (rank_weight * rank_term)
+        + (progress_weight * progress_term)
+        + (resource_weight * resource_term)
+        + (hand_weight * hand_term)
     )
     return max(-1.0, min(1.0, score))
