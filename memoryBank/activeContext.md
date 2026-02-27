@@ -6,6 +6,7 @@
 - Keep the existing BC/REINFORCE/PPO training path stable.
 - Evaluate and tune the additive `search` policy as a stronger teacher candidate.
 - Decide whether to proceed with teacher-data distillation into a fast browser policy.
+- Keep `docs/TRAINING_HANDOFF.md` as the restart document for training continuity across fresh sessions.
 
 ## Locked Decisions
 
@@ -43,6 +44,7 @@
 ### Trainer
 
 - Bridge environment, encoders, eval/benchmark harnesses, and queue scripts are implemented.
+- Teacher-data collection for distillation is now implemented (`scripts/generate_teacher_data.py`).
 - Supported policy families in tooling:
   - `random`, `heuristic`
   - checkpoint-backed `bc`, `ppo`
@@ -52,7 +54,8 @@
 
 1. Finalize a search-teacher configuration based on larger holdout evals.
 2. Document promotion criteria for teacher/champion checkpoints.
-3. Build teacher-data generation + distillation path (search -> fast policy).
+3. Run teacher-data generation with the locked teacher config, then build distillation training path (search -> fast policy).
 4. Reuse opponent-pool PPO only if distillation still needs RL fine-tuning.
+5. Sync any major training result changes into `docs/TRAINING_HANDOFF.md`.
 
 _Updated: 2026-02-27._
