@@ -22,6 +22,14 @@
 - Turn resolution is phase-driven via `advanceToDecision`, with a unified decision phase (`ActionWindow`).
 - Income suit choice is explicit (`choose-income-suit`) and actor ownership is handled correctly.
 - Income-choice logging now attributes entries to the chooser even when turn ownership is restored in the same transition.
+- Rules edge-case regression coverage was expanded for:
+  - taxation-before-income sequencing with deed-token immunity in the same scenario
+  - mixed d10 income branches (`1/x` non-ace handling, higher-die selection, no-match zero-income)
+  - generated multi-choice income queue order + active-player handoff/restore
+  - Excuse subsequent-placement overlap enforcement
+  - ace-specific action-cost legality paths (ace deed cost and ace outright cost)
+  - sell-only pre-card action surface when develop/deed are unavailable
+  - full second-exhaustion final-turn countdown progression to `GameOver`
 - Scoring and terminal resolution are implemented (`scoreGame`, terminal finalization, `isTerminal`).
 - Canonical game init exists via `newGame(seed, { firstPlayer })`.
 - `newGame` now validates `firstPlayer` at runtime and throws on unknown values.
