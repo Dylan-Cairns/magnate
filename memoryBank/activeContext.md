@@ -35,6 +35,8 @@
 - Browser game is playable (human vs bot) with engine-legal action dispatch.
 - Policy boundary is unified (`ActionPolicy`), and bot profiles are selector-driven.
 - Champion browser PPO profile is enabled and set as default bot.
+- Browser determinized search profiles (T2/T3 configs) are now wired into the same policy catalog for direct play/testing.
+- Bot policy failures are surfaced explicitly in the UI (no silent policy fallback).
 
 ### Bridge
 
@@ -53,7 +55,7 @@
 ## Immediate Next Steps
 
 1. Finalize a search-teacher configuration based on larger holdout evals.
-2. Document promotion criteria for teacher/champion checkpoints.
+2. Use the new browser search profiles for qualitative sanity checks while keeping PPO as default for responsiveness.
 3. Run teacher-data generation with the locked teacher config, then build distillation training path (search -> fast policy).
 4. Reuse opponent-pool PPO only if distillation still needs RL fine-tuning.
 5. Sync any major training result changes into `docs/TRAINING_HANDOFF.md`.

@@ -183,6 +183,7 @@ export function App() {
         try {
           const botView = toPlayerView(current, BOT_PLAYER);
           const choice = await resolvedBotProfile.policy.selectAction({
+            state: current,
             view: botView,
             legalActions: actions,
             random: botRandomForState(current, resolvedBotProfile.selected.id),
