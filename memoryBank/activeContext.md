@@ -5,6 +5,7 @@
 - Keep rules behavior deterministic and validated in the TypeScript engine.
 - Keep the existing BC/REINFORCE/PPO training path stable.
 - Evaluate and tune the additive `search` policy as a stronger teacher candidate.
+- Evaluate additive `mcts` policy as the next search upgrade candidate.
 - Decide whether to proceed with teacher-data distillation into a fast browser policy.
 - Keep `docs/TRAINING_HANDOFF.md` as the restart document for training continuity across fresh sessions.
 
@@ -35,7 +36,7 @@
 - Browser game is playable (human vs bot) with engine-legal action dispatch.
 - Policy boundary is unified (`ActionPolicy`), and bot profiles are selector-driven.
 - Champion browser PPO profile is enabled and set as default bot.
-- Browser determinized search profiles (T2/T3 configs) are now wired into the same policy catalog for direct play/testing.
+- Browser rollout-eval search profile (T3 config) is wired for direct play/testing.
 - Bot policy failures are surfaced explicitly in the UI (no silent policy fallback).
 
 ### Bridge
@@ -50,13 +51,13 @@
 - Supported policy families in tooling:
   - `random`, `heuristic`
   - checkpoint-backed `bc`, `ppo`
-  - additive deterministic `search` baseline with configurable search knobs
+  - additive deterministic `search` and `mcts` baselines with configurable knobs
 
 ## Immediate Next Steps
 
-1. Finalize a search-teacher configuration based on larger holdout evals.
-2. Use the new browser search profiles for qualitative sanity checks while keeping PPO as default for responsiveness.
-3. Run teacher-data generation with the locked teacher config, then build distillation training path (search -> fast policy).
+1. Finalize a rollout-search teacher configuration based on larger holdout evals.
+2. Run first MCTS-vs-heuristic eval sweep to measure whether MCTS outperforms rollout-search baseline.
+3. Run teacher-data generation with the locked teacher policy config, then build distillation training path (teacher -> fast policy).
 4. Reuse opponent-pool PPO only if distillation still needs RL fine-tuning.
 5. Sync any major training result changes into `docs/TRAINING_HANDOFF.md`.
 

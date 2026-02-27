@@ -134,6 +134,27 @@ class SearchConfig:
             raise ValueError("SearchConfig.rollout_epsilon must be in [0, 1].")
 
 
+@dataclass(frozen=True)
+class MctsConfig:
+    worlds: int = 6
+    simulations: int = 96
+    depth: int = 24
+    max_root_actions: int = 8
+    c_puct: float = 1.25
+
+    def __post_init__(self) -> None:
+        if self.worlds <= 0:
+            raise ValueError("MctsConfig.worlds must be > 0.")
+        if self.simulations <= 0:
+            raise ValueError("MctsConfig.simulations must be > 0.")
+        if self.depth <= 0:
+            raise ValueError("MctsConfig.depth must be > 0.")
+        if self.max_root_actions <= 0:
+            raise ValueError("MctsConfig.max_root_actions must be > 0.")
+        if self.c_puct <= 0.0:
+            raise ValueError("MctsConfig.c_puct must be > 0.")
+
+
 @dataclass
 class DeterminizedSearchPolicy(Policy):
     config: SearchConfig
@@ -327,6 +348,323 @@ class DeterminizedSearchPolicy(Policy):
 
 
 @dataclass
+class _MctsEdge:
+    action_key: str
+    prior: float
+    visits: int = 0
+    value_sum: float = 0.0
+    child: "_MctsNode | None" = None
+
+
+@dataclass
+class _MctsNode:
+    state: Dict[str, Any]
+    terminal: bool
+    active_player: PlayerId | None
+    edges: Dict[str, _MctsEdge]
+    expanded: bool = False
+
+
+@dataclass
+class DeterminizedMctsPolicy(Policy):
+    config: MctsConfig
+    name: str = "mcts"
+
+    def __post_init__(self) -> None:
+        self._heuristic_policy = HeuristicPolicy()
+        self._sim_client: BridgeClient | None = None
+        self._sim_env: MagnateBridgeEnv | None = None
+
+    def choose_action_key(
+        self,
+        view: Dict,
+        legal_actions: Sequence[KeyedAction],
+        rng: random.Random,
+        state: Mapping[str, Any] | None = None,
+    ) -> str:
+        if not legal_actions:
+            raise ValueError("MCTS policy requires at least one legal action.")
+        if len(legal_actions) == 1:
+            return legal_actions[0].action_key
+        if state is None:
+            raise ValueError("MCTS policy requires a serialized state payload.")
+
+        root_player = _active_player_id(view)
+        root_candidates = self._root_candidates(legal_actions)
+        worlds = self._sample_worlds(state=state, view=view, root_player=root_player, rng=rng)
+
+        aggregate_visits: Dict[str, int] = {action.action_key: 0 for action in root_candidates}
+        aggregate_value_sum: Dict[str, float] = {action.action_key: 0.0 for action in root_candidates}
+        for world_state in worlds:
+            world_stats = self._run_world_search(
+                world_state=world_state,
+                root_player=root_player,
+                root_candidates=root_candidates,
+            )
+            for action in root_candidates:
+                visits, value_sum = world_stats.get(action.action_key, (0, 0.0))
+                aggregate_visits[action.action_key] += visits
+                aggregate_value_sum[action.action_key] += value_sum
+
+        best_action = root_candidates[0]
+        best_visits = aggregate_visits[best_action.action_key]
+        best_avg_value = _safe_div(
+            aggregate_value_sum[best_action.action_key],
+            aggregate_visits[best_action.action_key],
+        )
+        best_prior = self._heuristic_policy.score_action(best_action)
+        for action in root_candidates[1:]:
+            visits = aggregate_visits[action.action_key]
+            avg_value = _safe_div(aggregate_value_sum[action.action_key], visits)
+            prior = self._heuristic_policy.score_action(action)
+            if (
+                visits > best_visits
+                or (
+                    visits == best_visits
+                    and (
+                        avg_value > best_avg_value
+                        or (
+                            math.isclose(avg_value, best_avg_value, abs_tol=1e-9)
+                            and (
+                                prior > best_prior
+                                or (
+                                    math.isclose(prior, best_prior, abs_tol=1e-9)
+                                    and action.action_key < best_action.action_key
+                                )
+                            )
+                        )
+                    )
+                )
+            ):
+                best_action = action
+                best_visits = visits
+                best_avg_value = avg_value
+                best_prior = prior
+
+        return best_action.action_key
+
+    def close(self) -> None:
+        if self._sim_client is not None:
+            self._sim_client.close()
+            self._sim_client = None
+            self._sim_env = None
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            return None
+
+    def _root_candidates(self, legal_actions: Sequence[KeyedAction]) -> list[KeyedAction]:
+        ranked = sorted(
+            legal_actions,
+            key=lambda action: (
+                -self._heuristic_policy.score_action(action),
+                action.action_key,
+            ),
+        )
+        return ranked[: min(len(ranked), self.config.max_root_actions)]
+
+    def _run_world_search(
+        self,
+        world_state: Dict[str, Any],
+        root_player: PlayerId,
+        root_candidates: Sequence[KeyedAction],
+    ) -> Dict[str, tuple[int, float]]:
+        root_node = _MctsNode(
+            state=copy.deepcopy(world_state),
+            terminal=_is_terminal_state(world_state),
+            active_player=_state_active_player_id(world_state),
+            edges={},
+            expanded=False,
+        )
+        self._expand_node(node=root_node, root_candidates=root_candidates)
+        if root_node.terminal or not root_node.edges:
+            return {}
+
+        for _ in range(self.config.simulations):
+            self._simulate(node=root_node, root_player=root_player, depth_remaining=self.config.depth)
+
+        stats: Dict[str, tuple[int, float]] = {}
+        for action_key, edge in root_node.edges.items():
+            stats[action_key] = (edge.visits, edge.value_sum)
+        return stats
+
+    def _simulate(self, node: _MctsNode, root_player: PlayerId, depth_remaining: int) -> float:
+        if node.terminal:
+            return _terminal_value(node.state, root_player)
+        if depth_remaining <= 0:
+            return _value_from_serialized_state(node.state, root_player)
+        if not node.expanded:
+            self._expand_node(node=node, root_candidates=None)
+            if node.terminal:
+                return _terminal_value(node.state, root_player)
+            return _value_from_serialized_state(node.state, root_player)
+        if not node.edges:
+            return _value_from_serialized_state(node.state, root_player)
+
+        edge = self._select_edge(node=node, root_player=root_player)
+        if edge.child is None:
+            child_state = self._step_state(node.state, edge.action_key)
+            edge.child = _MctsNode(
+                state=child_state,
+                terminal=_is_terminal_state(child_state),
+                active_player=_state_active_player_id(child_state),
+                edges={},
+                expanded=False,
+            )
+        value = self._simulate(node=edge.child, root_player=root_player, depth_remaining=depth_remaining - 1)
+        edge.visits += 1
+        edge.value_sum += value
+        return value
+
+    def _select_edge(self, node: _MctsNode, root_player: PlayerId) -> _MctsEdge:
+        parent_visits = sum(edge.visits for edge in node.edges.values())
+        sqrt_parent = math.sqrt(float(parent_visits) + 1.0)
+        root_turn = node.active_player == root_player
+
+        best_edge: _MctsEdge | None = None
+        best_score = float("-inf")
+        for edge in node.edges.values():
+            q = _safe_div(edge.value_sum, edge.visits)
+            exploit = q if root_turn else -q
+            explore = self.config.c_puct * edge.prior * sqrt_parent / (1.0 + float(edge.visits))
+            score = exploit + explore
+            if (
+                score > best_score
+                or (
+                    math.isclose(score, best_score, abs_tol=1e-9)
+                    and best_edge is not None
+                    and edge.action_key < best_edge.action_key
+                )
+                or best_edge is None
+            ):
+                best_edge = edge
+                best_score = score
+
+        if best_edge is None:
+            raise RuntimeError("MCTS selection failed: node has no edges.")
+        return best_edge
+
+    def _expand_node(
+        self,
+        node: _MctsNode,
+        root_candidates: Sequence[KeyedAction] | None,
+    ) -> None:
+        if node.terminal:
+            node.expanded = True
+            return
+
+        sim_env = self._simulator_env()
+        step_result = sim_env.reset(
+            serialized_state=copy.deepcopy(node.state),
+            skip_advance_to_decision=True,
+        )
+        node.state = step_result.state
+        if step_result.terminal:
+            node.terminal = True
+            node.active_player = None
+            node.edges = {}
+            node.expanded = True
+            return
+
+        legal = sim_env.legal_actions()
+        legal_actions = legal.actions
+        if root_candidates is not None:
+            allowed = {action.action_key for action in root_candidates}
+            legal_actions = [action for action in legal_actions if action.action_key in allowed]
+
+        if not legal_actions:
+            node.edges = {}
+            node.active_player = legal.active_player_id
+            node.expanded = True
+            return
+
+        priors = self._action_priors(legal_actions)
+        node.edges = {
+            action.action_key: _MctsEdge(
+                action_key=action.action_key,
+                prior=priors[action.action_key],
+            )
+            for action in legal_actions
+        }
+        node.active_player = legal.active_player_id
+        node.expanded = True
+
+    def _action_priors(self, legal_actions: Sequence[KeyedAction]) -> Dict[str, float]:
+        if not legal_actions:
+            return {}
+        scores = [self._heuristic_policy.score_action(action) for action in legal_actions]
+        max_score = max(scores)
+        exp_scores = [math.exp(score - max_score) for score in scores]
+        normalizer = sum(exp_scores)
+        if normalizer <= 0.0:
+            uniform = 1.0 / float(len(legal_actions))
+            return {action.action_key: uniform for action in legal_actions}
+        return {
+            action.action_key: exp_scores[index] / normalizer
+            for index, action in enumerate(legal_actions)
+        }
+
+    def _step_state(self, state: Mapping[str, Any], action_key: str) -> Dict[str, Any]:
+        sim_env = self._simulator_env()
+        sim_env.reset(
+            serialized_state=copy.deepcopy(dict(state)),
+            skip_advance_to_decision=True,
+        )
+        step_result = sim_env.step(action_key=action_key)
+        return step_result.state
+
+    def _sample_worlds(
+        self,
+        state: Mapping[str, Any],
+        view: Mapping[str, Any],
+        root_player: PlayerId,
+        rng: random.Random,
+    ) -> list[Dict[str, Any]]:
+        opponent_player = "PlayerB" if root_player == "PlayerA" else "PlayerA"
+        players_by_id = _player_views_by_id(view)
+        root_view = players_by_id[root_player]
+        opponent_view = players_by_id[opponent_player]
+        root_hand = _as_card_list(root_view.get("hand"))
+        opponent_hand_count = _as_int(opponent_view.get("handCount"))
+        draw_count = _as_int(_as_mapping(view.get("deck")).get("drawCount"))
+
+        known_cards = set(root_hand)
+        known_cards.update(_as_card_list(_as_mapping(view.get("deck")).get("discard")))
+        known_cards.update(_district_property_cards(view))
+        hidden_pool = [card_id for card_id in PROPERTY_CARD_IDS if card_id not in known_cards]
+
+        expected_hidden = opponent_hand_count + draw_count
+        if len(hidden_pool) != expected_hidden:
+            raise ValueError(
+                "Determinization card accounting mismatch. "
+                f"expected={expected_hidden}, actual={len(hidden_pool)}"
+            )
+
+        worlds: list[Dict[str, Any]] = []
+        for _ in range(self.config.worlds):
+            shuffled_hidden = list(hidden_pool)
+            rng.shuffle(shuffled_hidden)
+            opponent_hand = shuffled_hidden[:opponent_hand_count]
+            draw_cards = shuffled_hidden[opponent_hand_count : opponent_hand_count + draw_count]
+
+            world_state = copy.deepcopy(dict(state))
+            _replace_player_hand(world_state, root_player, root_hand)
+            _replace_player_hand(world_state, opponent_player, opponent_hand)
+            deck = _as_mapping(world_state.get("deck"))
+            deck["draw"] = draw_cards
+            worlds.append(world_state)
+        return worlds
+
+    def _simulator_env(self) -> MagnateBridgeEnv:
+        if self._sim_env is None:
+            self._sim_client = BridgeClient()
+            self._sim_env = MagnateBridgeEnv(client=self._sim_client)
+        return self._sim_env
+
+
+@dataclass
 class BehaviorCloningPolicy(Policy):
     model: BehaviorCloningModel
     checkpoint_path: str = ""
@@ -396,6 +734,7 @@ def policy_from_name(
     name: str,
     checkpoint_path: str | Path | None = None,
     search_config: SearchConfig | None = None,
+    mcts_config: MctsConfig | None = None,
 ) -> Policy:
     normalized = name.strip().lower()
     if normalized == "random":
@@ -404,6 +743,8 @@ def policy_from_name(
         return HeuristicPolicy()
     if normalized == "search":
         return DeterminizedSearchPolicy(config=search_config or SearchConfig())
+    if normalized == "mcts":
+        return DeterminizedMctsPolicy(config=mcts_config or MctsConfig())
     if normalized in ("bc", "behavior-cloned", "behavior_cloned"):
         if checkpoint_path is None:
             raise ValueError("Policy 'bc' requires a checkpoint path.")
@@ -425,7 +766,7 @@ def policy_from_name(
             name=f"ppo:{path.name}",
         )
     raise ValueError(
-        f"Unknown policy name: {name!r}. Expected one of: random, heuristic, search, bc, ppo."
+        f"Unknown policy name: {name!r}. Expected one of: random, heuristic, search, mcts, bc, ppo."
     )
 
 
@@ -600,3 +941,101 @@ def _as_int(value: Any) -> int:
     if isinstance(value, (int, float)):
         return int(value)
     return 0
+
+
+def _safe_div(total: float, count: int) -> float:
+    if count <= 0:
+        return 0.0
+    return total / float(count)
+
+
+def _is_terminal_state(state: Mapping[str, Any]) -> bool:
+    phase = state.get("phase")
+    if phase == "GameOver":
+        return True
+    return isinstance(state.get("finalScore"), dict)
+
+
+def _state_active_player_id(state: Mapping[str, Any]) -> PlayerId | None:
+    if _is_terminal_state(state):
+        return None
+    players = state.get("players")
+    if not isinstance(players, list):
+        raise ValueError("Serialized state is missing players list.")
+    active_index = _as_int(state.get("activePlayerIndex"))
+    if active_index < 0 or active_index >= len(players):
+        raise ValueError(f"Serialized state activePlayerIndex out of range: {active_index}")
+    active_player = players[active_index]
+    if not isinstance(active_player, dict):
+        raise ValueError("Serialized state active player is not an object.")
+    player_id = active_player.get("id")
+    if player_id not in ("PlayerA", "PlayerB"):
+        raise ValueError(f"Serialized state has invalid active player id: {player_id!r}")
+    return player_id
+
+
+def _value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId) -> float:
+    if _is_terminal_state(state):
+        return _terminal_value(state, root_player)
+
+    opponent = "PlayerB" if root_player == "PlayerA" else "PlayerA"
+    players = state.get("players")
+    if not isinstance(players, list):
+        return 0.0
+
+    root_state = None
+    opponent_state = None
+    for player in players:
+        if not isinstance(player, dict):
+            continue
+        player_id = player.get("id")
+        if player_id == root_player:
+            root_state = player
+        elif player_id == opponent:
+            opponent_state = player
+    if root_state is None or opponent_state is None:
+        return 0.0
+
+    resource_root = _resource_total(root_state)
+    resource_opponent = _resource_total(opponent_state)
+    hand_diff = len(_as_card_list(root_state.get("hand"))) - len(_as_card_list(opponent_state.get("hand")))
+
+    districts = state.get("districts")
+    district_count = len(districts) if isinstance(districts, list) else 0
+    district_lead = 0.0
+    rank_diff = 0.0
+    progress_diff = 0.0
+    if isinstance(districts, list):
+        for district in districts:
+            if not isinstance(district, dict):
+                continue
+            stacks = district.get("stacks")
+            if not isinstance(stacks, dict):
+                continue
+            root_stack = stacks.get(root_player)
+            opponent_stack = stacks.get(opponent)
+            if not isinstance(root_stack, dict) or not isinstance(opponent_stack, dict):
+                continue
+            root_rank, root_progress = _stack_score(root_stack)
+            opponent_rank, opponent_progress = _stack_score(opponent_stack)
+            rank_diff += root_rank - opponent_rank
+            progress_diff += root_progress - opponent_progress
+            if root_rank > opponent_rank:
+                district_lead += 1.0
+            elif root_rank < opponent_rank:
+                district_lead -= 1.0
+
+    district_term = district_lead / float(max(1, district_count))
+    rank_term = math.tanh(rank_diff / 18.0)
+    progress_term = math.tanh(progress_diff / 8.0)
+    resource_term = math.tanh((resource_root - resource_opponent) / 10.0)
+    hand_term = math.tanh(hand_diff / 4.0)
+
+    score = (
+        (0.55 * district_term)
+        + (0.2 * rank_term)
+        + (0.1 * progress_term)
+        + (0.1 * resource_term)
+        + (0.05 * hand_term)
+    )
+    return max(-1.0, min(1.0, score))
