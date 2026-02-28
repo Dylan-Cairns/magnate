@@ -35,31 +35,31 @@ def parse_args() -> argparse.Namespace:
         "--candidate-policy",
         type=str,
         default="search",
-        help="Candidate policy (random|heuristic|search|mcts|bc|ppo).",
+        help="Candidate policy (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--opponent-policy",
         type=str,
         default="heuristic",
-        help="Opponent policy (random|heuristic|search|mcts|bc|ppo).",
+        help="Opponent policy (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--candidate-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --candidate-policy=bc or ppo.",
+        help="Checkpoint path required when --candidate-policy=ppo.",
     )
     parser.add_argument(
         "--opponent-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --opponent-policy=bc or ppo.",
+        help="Checkpoint path required when --opponent-policy=ppo.",
     )
-    parser.add_argument("--search-worlds", type=int, default=8)
+    parser.add_argument("--search-worlds", type=int, default=6)
     parser.add_argument("--search-rollouts", type=int, default=1)
-    parser.add_argument("--search-depth", type=int, default=16)
+    parser.add_argument("--search-depth", type=int, default=14)
     parser.add_argument("--search-max-root-actions", type=int, default=6)
-    parser.add_argument("--search-rollout-epsilon", type=float, default=0.12)
+    parser.add_argument("--search-rollout-epsilon", type=float, default=0.08)
     parser.add_argument("--mcts-worlds", type=int, default=6)
     parser.add_argument("--mcts-simulations", type=int, default=96)
     parser.add_argument("--mcts-depth", type=int, default=24)

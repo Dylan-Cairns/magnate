@@ -34,10 +34,10 @@ Design expectations:
 - Bot profile selection should resolve through a small catalog:
   - available profiles use their own policy implementation
   - unavailable profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
-  - champion trained profiles can be served from static browser artifacts and loaded lazily by the policy
+  - current browser profiles prioritize deterministic search-based play over legacy model artifact loading
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
 - Additive policy implementations should not replace existing training/eval paths:
-  - new policy kinds (for example `search`) are wired through the same `policy_from_name(...)` factory and existing eval/benchmark harnesses.
+  - new policy kinds (for example `search`) are wired through the same `policy_from_name(...)` factory and existing eval harnesses.
   - policies that spawn external resources (for example bridge subprocesses for simulation) must expose `close()` so scripts can shut them down cleanly.
   - search-class policies may optionally load PPO-format guidance checkpoints for:
     - action priors

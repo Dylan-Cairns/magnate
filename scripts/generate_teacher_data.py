@@ -35,25 +35,25 @@ def parse_args() -> argparse.Namespace:
         "--teacher-policy",
         type=str,
         default="search",
-        help="Teacher policy (random|heuristic|search|mcts|bc|ppo).",
+        help="Teacher policy (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--teacher-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --teacher-policy=bc or ppo.",
+        help="Checkpoint path required when --teacher-policy=ppo.",
     )
     parser.add_argument(
         "--opponent-policy",
         type=str,
         default="heuristic",
-        help="Opponent policy for non-teacher turns (random|heuristic|search|mcts|bc|ppo).",
+        help="Opponent policy for non-teacher turns (random|heuristic|search|mcts|ppo).",
     )
     parser.add_argument(
         "--opponent-checkpoint",
         type=Path,
         default=None,
-        help="Checkpoint path required when --opponent-policy=bc or ppo.",
+        help="Checkpoint path required when --opponent-policy=ppo.",
     )
     parser.add_argument(
         "--teacher-players",
@@ -92,7 +92,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-worlds",
         type=int,
-        default=8,
+        default=6,
         help="Search world samples per decision.",
     )
     parser.add_argument(
@@ -104,7 +104,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-depth",
         type=int,
-        default=16,
+        default=14,
         help="Search rollout depth limit.",
     )
     parser.add_argument(
@@ -116,7 +116,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--search-rollout-epsilon",
         type=float,
-        default=0.12,
+        default=0.08,
         help="Search rollout epsilon for random exploratory moves.",
     )
     parser.add_argument(
