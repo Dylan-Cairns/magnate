@@ -64,9 +64,10 @@ function districtScore(stack: DistrictStack): number {
     .filter((property) => property.rank === 1 && property.suits.length === 1)
     .reduce((sum, ace) => {
       const suit = ace.suits[0];
-      const matching = properties.filter((property) => property.suits.includes(suit))
-        .length;
-      return sum + matching;
+      const additionalMatches = properties.filter(
+        (property) => property.id !== ace.id && property.suits.includes(suit)
+      ).length;
+      return sum + additionalMatches;
     }, 0);
   return base + aceBonus;
 }
