@@ -149,6 +149,17 @@ python -m scripts.eval --games 200 --seed-prefix eval-mcts-v-heur-200 --player-a
 python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-distill-v1 --teacher-policy search --teacher-players both --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/teacher_data/teacher_distill_v1.jsonl --summary-out artifacts/teacher_data/teacher_distill_v1.summary.json
 ```
 
+### Side-swapped rollout-search sweep (ranked presets)
+
+```powershell
+python -m scripts.search_teacher_sweep --run-label search-grid-v1 --games 50 --presets t2 t3 t4 t5 t6 --opponent-policy heuristic
+```
+
+Artifacts:
+- Manifest JSON: `artifacts/sweeps/<run-id>-manifest.json`
+- Ranked summary: `artifacts/sweeps/<run-id>-summary.md`
+- Per-preset evals (both sides): `artifacts/evals/<run-id>-<preset>-searchA.json` and `...-searchB.json`
+
 ### Train guidance checkpoint from teacher data
 
 ```powershell
