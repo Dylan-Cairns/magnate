@@ -24,7 +24,7 @@ const rolloutEvalSearchPolicy = createSearchPolicy({
   rollouts: 1,
   depth: 14,
   maxRootActions: 6,
-  rolloutEpsilon: 0.08,
+  rolloutEpsilon: 0.04,
 });
 
 export const BOT_PROFILES: readonly BotProfile[] = [
@@ -32,7 +32,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     id: 'rollout-eval-search',
     label: 'Rollout Eval Search',
     description:
-      'Default bot. Determinized search: worlds=6, depth=14, rootActions=6, rolloutEpsilon=0.08. No fallback on failure.',
+      'Default bot. Determinized search: worlds=6, depth=14, rootActions=6, rolloutEpsilon=0.04. No fallback on failure.',
     kind: 'search',
     available: true,
     policy: rolloutEvalSearchPolicy,

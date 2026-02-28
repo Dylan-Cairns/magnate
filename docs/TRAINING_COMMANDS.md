@@ -43,7 +43,7 @@ python -m scripts.search_teacher_sweep --pack rollouts-v1 --games-per-side 200 -
 ## 6) One-Off Canonical Eval
 
 ```powershell
-python -m scripts.eval_suite --games-per-side 200 --seed-prefix eval-suite-search --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/evals/search_v_heur_eval_suite_400.json
+python -m scripts.eval_suite --games-per-side 200 --seed-prefix eval-suite-search --candidate-policy search --opponent-policy heuristic --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out artifacts/evals/search_v_heur_eval_suite_400.json
 ```
 
 ## 7) Teacher Data + Guidance Training
@@ -51,7 +51,7 @@ python -m scripts.eval_suite --games-per-side 200 --seed-prefix eval-suite-searc
 Teacher data:
 
 ```powershell
-python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-search --teacher-policy search --teacher-players both --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.08 --out artifacts/teacher_data/teacher_search.jsonl --summary-out artifacts/teacher_data/teacher_search.summary.json
+python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-search --teacher-policy search --teacher-players both --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out artifacts/teacher_data/teacher_search.jsonl --summary-out artifacts/teacher_data/teacher_search.summary.json
 ```
 
 Guidance train:

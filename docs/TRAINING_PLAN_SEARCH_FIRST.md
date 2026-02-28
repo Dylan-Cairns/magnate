@@ -53,7 +53,7 @@ To avoid 5D grid explosion:
 
 1. Structure first:
    - tune `worlds`, `depth`, `max_root_actions`
-   - keep `rollouts=1`, `rollout_epsilon=0.08`
+   - keep `rollouts=1`, `rollout_epsilon=0.04`
 2. Exploration next:
    - tune `rollout_epsilon` (`epsilon-v1` pack)
 3. Extra compute last:

@@ -36,7 +36,7 @@ const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   rollouts: 1,
   depth: 12,
   maxRootActions: 6,
-  rolloutEpsilon: 0.1,
+  rolloutEpsilon: 0.04,
 };
 
 export function createSearchPolicy(
