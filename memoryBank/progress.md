@@ -12,6 +12,9 @@
 - Search sweep runner was modernized:
   - now eval-suite based (one artifact per preset with win rate/CI/side-gap)
   - legacy `t1..t8` presets removed in favor of modern preset packs
+- Eval throughput controls added:
+  - `scripts.eval_suite` now supports `--workers` deterministic shard parallelism
+  - `scripts.search_teacher_sweep` now supports `--jobs` and forwards `--workers`
 - Guidance A/B pipeline now uses paired eval seeds for cleaner baseline vs guided comparison.
 
 ## Removed (Intentional Cleanup)

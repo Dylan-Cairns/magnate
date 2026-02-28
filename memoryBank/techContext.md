@@ -26,8 +26,8 @@
   - `.\.venv\Scripts\Activate.ps1`
 - Active Python entrypoints:
   - `python -m scripts.eval`
-  - `python -m scripts.eval_suite`
-  - `python -m scripts.search_teacher_sweep`
+  - `python -m scripts.eval_suite` (`--workers` for deterministic parallel sharding)
+  - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
   - `python -m scripts.train_search_guidance`
   - `python -m scripts.run_guidance_ab_pipeline`

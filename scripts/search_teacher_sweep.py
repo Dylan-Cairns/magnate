@@ -5,6 +5,7 @@ import json
 import shlex
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,6 +78,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=60,
         help="Games per side for each preset (total per preset = 2x this value).",
+    )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Number of presets to evaluate in parallel.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel eval workers passed to scripts.eval_suite.",
     )
     parser.add_argument(
         "--run-label",
@@ -158,6 +171,10 @@ def main() -> int:
     if args.list_packs:
         print(json.dumps(_pack_payload(), indent=2))
         return 0
+    if args.jobs <= 0:
+        raise SystemExit("--jobs must be > 0.")
+    if args.workers <= 0:
+        raise SystemExit("--workers must be > 0.")
 
     presets = _resolve_presets(pack_name=args.pack, selected=args.presets)
     started_at = time.perf_counter()
@@ -176,12 +193,14 @@ def main() -> int:
 
     planned_commands: List[Dict[str, object]] = []
     rows: List[SweepRow] = []
+    scheduled: List[tuple[SearchPreset, Path, List[str]]] = []
 
     for index, preset in enumerate(presets, start=1):
         eval_out = eval_dir / f"{run_id}-{preset.preset_id}.json"
         command = _build_eval_suite_command(
             python_bin=str(args.python_bin),
             games_per_side=args.games_per_side,
+            workers=args.workers,
             seed_prefix=f"{safe_label}-{preset.preset_id}",
             opponent_policy=args.opponent_policy,
             opponent_checkpoint=args.opponent_checkpoint,
@@ -208,34 +227,52 @@ def main() -> int:
         if args.dry_run:
             print(f"[sweep] dry-run cmd: {_join_command(command)}")
             continue
+        scheduled.append((preset, eval_out, command))
 
-        result = _run_step(name=preset.preset_id, command=command)
-        if result != 0:
-            _write_json(
-                manifest_path,
-                _manifest_payload(
-                    run_id=run_id,
-                    args=args,
-                    presets=presets,
-                    started_at_seconds=started_at,
-                    status="failed",
-                    rows=rows,
-                    planned_commands=planned_commands,
-                    manifest_path=manifest_path,
-                    summary_path=summary_path,
-                ),
-            )
-            return result
+    if not args.dry_run:
+        if args.jobs == 1:
+            for preset, eval_out, command in scheduled:
+                row = _run_preset_eval(preset=preset, eval_out=eval_out, command=command)
+                rows.append(row)
+        else:
+            failures: List[str] = []
+            with ThreadPoolExecutor(max_workers=args.jobs) as executor:
+                future_by_preset = {
+                    executor.submit(
+                        _run_preset_eval,
+                        preset=preset,
+                        eval_out=eval_out,
+                        command=command,
+                    ): preset.preset_id
+                    for preset, eval_out, command in scheduled
+                }
+                for future in as_completed(future_by_preset):
+                    preset_id = future_by_preset[future]
+                    try:
+                        row = future.result()
+                    except Exception as exc:
+                        failures.append(f"{preset_id}: {exc}")
+                        continue
+                    rows.append(row)
 
-        row = _read_eval_suite_row(eval_out, preset)
-        rows.append(row)
-        print(
-            "[sweep] finished preset "
-            f"{preset.preset_id} winRate={row.candidate_win_rate:.3f} "
-            f"ci95=[{row.ci_low:.3f},{row.ci_high:.3f}] "
-            f"sideGap={row.side_gap:.3f} "
-            f"wins={row.candidate_wins}/{row.total_games}"
-        )
+            if failures:
+                for failure in failures:
+                    print(f"[sweep] failed preset {failure}")
+                _write_json(
+                    manifest_path,
+                    _manifest_payload(
+                        run_id=run_id,
+                        args=args,
+                        presets=presets,
+                        started_at_seconds=started_at,
+                        status="failed",
+                        rows=rows,
+                        planned_commands=planned_commands,
+                        manifest_path=manifest_path,
+                        summary_path=summary_path,
+                    ),
+                )
+                return 1
 
     ranked_rows = sorted(
         rows,
@@ -306,6 +343,7 @@ def _build_eval_suite_command(
     *,
     python_bin: str,
     games_per_side: int,
+    workers: int,
     seed_prefix: str,
     opponent_policy: str,
     opponent_checkpoint: Path | None,
@@ -320,6 +358,8 @@ def _build_eval_suite_command(
         "scripts.eval_suite",
         "--games-per-side",
         str(games_per_side),
+        "--workers",
+        str(workers),
         "--seed-prefix",
         seed_prefix,
         "--candidate-policy",
@@ -351,6 +391,21 @@ def _build_eval_suite_command(
             ]
         )
     return command
+
+
+def _run_preset_eval(*, preset: SearchPreset, eval_out: Path, command: List[str]) -> SweepRow:
+    result = _run_step(name=preset.preset_id, command=command)
+    if result != 0:
+        raise RuntimeError(f"returnCode={result}")
+    row = _read_eval_suite_row(eval_out, preset)
+    print(
+        "[sweep] finished preset "
+        f"{preset.preset_id} winRate={row.candidate_win_rate:.3f} "
+        f"ci95=[{row.ci_low:.3f},{row.ci_high:.3f}] "
+        f"sideGap={row.side_gap:.3f} "
+        f"wins={row.candidate_wins}/{row.total_games}"
+    )
+    return row
 
 
 def _run_step(*, name: str, command: List[str]) -> int:
@@ -418,6 +473,8 @@ def _manifest_payload(
         "config": {
             "pythonBin": str(args.python_bin),
             "gamesPerSide": args.games_per_side,
+            "jobs": args.jobs,
+            "workers": args.workers,
             "runLabel": args.run_label,
             "pack": args.pack,
             "presets": [preset.preset_id for preset in presets],
