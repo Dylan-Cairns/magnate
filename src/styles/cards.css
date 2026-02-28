@@ -2,6 +2,7 @@
   width: var(--card-width);
   min-height: var(--card-height);
   height: var(--card-height);
+  position: relative;
   border-radius: 10px;
   border: 1px solid var(--card-border);
   background: linear-gradient(
@@ -165,10 +166,92 @@
 }
 
 .card-tile.is-in-development .card-meta {
+  justify-content: flex-start;
+}
+
+.card-tile.is-in-development .card-meta-leading {
   border: 1px solid rgba(123, 133, 145, 0.92);
   border-radius: 5px;
   background: linear-gradient(135deg, #f7faff 0%, #d9e2eb 100%);
-  padding: 0 0.2rem;
+  padding: 0 0.22rem;
+}
+
+.card-tile.is-in-development .deed-progress {
+  --deed-progress-ratio: 0;
+  --deed-progress-angle: calc(var(--deed-progress-ratio) * 1turn);
+  position: absolute;
+  left: 50%;
+  top: calc(
+    var(--card-padding) + var(--card-meta-height) + var(--card-meta-gap) +
+      (var(--card-image-area-height) / 2)
+  );
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  width: var(--token-rail-chip-size);
+  height: var(--token-rail-chip-size);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(7, 12, 20, 0.9);
+  box-shadow: none;
+  color: #d2dde9;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-align: center;
+  pointer-events: none;
+}
+
+.card-tile.perspective-bot.is-in-development .deed-progress {
+  top: calc(var(--card-padding) + (var(--card-image-area-height) / 2));
+}
+
+.card-tile.is-in-development .deed-progress::before,
+.card-tile.is-in-development .deed-progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card-tile.is-in-development .deed-progress::before {
+  background: rgba(210, 221, 233, 0.24);
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2.6px),
+    #000 calc(100% - 2.6px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2.6px),
+    #000 calc(100% - 2.6px)
+  );
+}
+
+.card-tile.is-in-development .deed-progress::after {
+  background: conic-gradient(
+    from -90deg,
+    #d2dde9 0turn,
+    #d2dde9 var(--deed-progress-angle),
+    rgba(7, 12, 20, 0.95) var(--deed-progress-angle),
+    rgba(7, 12, 20, 0.95) calc(var(--deed-progress-angle) + 0.008turn),
+    transparent calc(var(--deed-progress-angle) + 0.008turn),
+    transparent 1turn
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2.6px),
+    #000 calc(100% - 2.6px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2.6px),
+    #000 calc(100% - 2.6px)
+  );
 }
 
 .card-tile.is-in-development .card-image-frame::before {
