@@ -89,7 +89,20 @@ export function buildTradeSourceGroups(
 export function buildHumanActionList(
   actions: readonly GameAction[]
 ): HumanActionListItem[] {
-  const result: HumanActionListItem[] = [];
+  const tradeItems: Extract<HumanActionListItem, { kind: 'trade-group' }>[] = [];
+  const buyDeedItems: Extract<
+    HumanActionListItem,
+    { kind: 'buy-deed-group' }
+  >[] = [];
+  const developDeedItems: Extract<
+    HumanActionListItem,
+    { kind: 'develop-deed-group' }
+  >[] = [];
+  const developOutrightItems: Extract<
+    HumanActionListItem,
+    { kind: 'develop-outright-group' }
+  >[] = [];
+  const nonGroupedByType = new Map<NonGroupedAction['type'], NonGroupedAction[]>();
   const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
   const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
   const developDeedGroups = new Map<string, { options: DevelopDeedAction[] }>();
@@ -106,7 +119,7 @@ export function buildHumanActionList(
       } else {
         const options = [action];
         tradeGroups.set(action.give, { options });
-        result.push({ kind: 'trade-group', give: action.give, options });
+        tradeItems.push({ kind: 'trade-group', give: action.give, options });
       }
       continue;
     }
@@ -118,7 +131,11 @@ export function buildHumanActionList(
       } else {
         const options = [action];
         buyDeedGroups.set(action.cardId, { options });
-        result.push({ kind: 'buy-deed-group', cardId: action.cardId, options });
+        buyDeedItems.push({
+          kind: 'buy-deed-group',
+          cardId: action.cardId,
+          options,
+        });
       }
       continue;
     }
@@ -131,7 +148,7 @@ export function buildHumanActionList(
       } else {
         const options = [action];
         developDeedGroups.set(groupKey, { options });
-        result.push({
+        developDeedItems.push({
           kind: 'develop-deed-group',
           cardId: action.cardId,
           districtId: action.districtId,
@@ -151,7 +168,7 @@ export function buildHumanActionList(
       } else {
         const options = [action];
         developOutrightGroups.set(groupKey, { options });
-        result.push({
+        developOutrightItems.push({
           kind: 'develop-outright-group',
           cardId: action.cardId,
           payment: action.payment,
@@ -162,19 +179,35 @@ export function buildHumanActionList(
       continue;
     }
 
-    result.push({ kind: 'action', action });
+    const existing = nonGroupedByType.get(action.type);
+    if (existing) {
+      existing.push(action);
+    } else {
+      nonGroupedByType.set(action.type, [action]);
+    }
   }
 
-  const beforeTrades = result.filter(
-    (item) => !(item.kind === 'trade-group') && !isEndTurnActionItem(item)
-  );
-  const trades = result.filter(
-    (item): item is Extract<HumanActionListItem, { kind: 'trade-group' }> =>
-      item.kind === 'trade-group'
-  );
-  const endTurn = result.filter(isEndTurnActionItem);
+  const sellCardItems = toActionItems(nonGroupedByType.get('sell-card'));
+  const endTurnItems = toActionItems(nonGroupedByType.get('end-turn'));
+  const otherActionItems: Extract<HumanActionListItem, { kind: 'action' }>[] =
+    [];
 
-  return [...beforeTrades, ...trades, ...endTurn];
+  for (const [type, grouped] of nonGroupedByType.entries()) {
+    if (type === 'sell-card' || type === 'end-turn') {
+      continue;
+    }
+    otherActionItems.push(...toActionItems(grouped));
+  }
+
+  return [
+    ...developOutrightItems,
+    ...buyDeedItems,
+    ...sellCardItems,
+    ...developDeedItems,
+    ...tradeItems,
+    ...otherActionItems,
+    ...endTurnItems,
+  ];
 }
 
 export function pickerStillLegal(
@@ -367,6 +400,11 @@ function tokenEntries(
   );
 }
 
-function isEndTurnActionItem(item: HumanActionListItem): boolean {
-  return item.kind === 'action' && item.action.type === 'end-turn';
+function toActionItems(
+  actions: readonly NonGroupedAction[] | undefined
+): Array<Extract<HumanActionListItem, { kind: 'action' }>> {
+  if (!actions || actions.length === 0) {
+    return [];
+  }
+  return actions.map((action) => ({ kind: 'action', action }));
 }
