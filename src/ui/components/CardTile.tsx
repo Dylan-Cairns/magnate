@@ -1,34 +1,21 @@
+import { useEffect, useRef, useState } from 'react';
+
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
 import { getCardImage } from '../cardImages';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
+import {
+  buildDeedProgressArcPath,
+  canonicalDeedProgressRatio,
+  DEED_PROGRESS_ANIMATION_DURATION_MS,
+  DEED_PROGRESS_RING_RADIUS,
+  shouldAnimateDeedProgress,
+  tweenAnimatedDeedProgressRatio,
+} from './deedProgress';
 
 export type CardPerspective = 'human' | 'bot';
-const DEED_PROGRESS_RING_RADIUS = 16;
-const DEED_PROGRESS_RING_CENTER = 18;
-const DEED_PROGRESS_START_ANGLE_DEGREES = -90;
-
-function pointOnProgressRing(angleDegrees: number): { x: number; y: number } {
-  const angleRadians = (angleDegrees * Math.PI) / 180;
-  return {
-    x: DEED_PROGRESS_RING_CENTER + DEED_PROGRESS_RING_RADIUS * Math.cos(angleRadians),
-    y: DEED_PROGRESS_RING_CENTER + DEED_PROGRESS_RING_RADIUS * Math.sin(angleRadians),
-  };
-}
-
-function buildDeedProgressArcPath(progressRatio: number): string | null {
-  if (progressRatio <= 0 || progressRatio >= 1) {
-    return null;
-  }
-  const start = pointOnProgressRing(DEED_PROGRESS_START_ANGLE_DEGREES);
-  const end = pointOnProgressRing(DEED_PROGRESS_START_ANGLE_DEGREES + progressRatio * 360);
-  const largeArcFlag = progressRatio > 0.5 ? 1 : 0;
-  return [
-    `M ${start.x} ${start.y}`,
-    `A ${DEED_PROGRESS_RING_RADIUS} ${DEED_PROGRESS_RING_RADIUS} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
-  ].join(' ');
-}
+const LAST_DEED_PROGRESS_RATIO_BY_CARD = new Map<CardId, number>();
 
 function splitDeedTokensBySide(
   entries: Array<{ suit: Suit; count: number }>,
@@ -101,11 +88,82 @@ export function CardTile({
   const hasDeedProgress = deedProgress !== undefined && deedTarget !== undefined;
   const progressValue = deedProgress ?? 0;
   const progressTarget = deedTarget ?? 0;
-  const deedProgressRatio =
-    progressTarget > 0
-      ? Math.max(0, Math.min(1, progressValue / progressTarget))
-      : 0;
-  const deedProgressArcPath = buildDeedProgressArcPath(deedProgressRatio);
+  const deedProgressRatio = canonicalDeedProgressRatio(progressValue, progressTarget);
+  const [animatedDeedProgressRatio, setAnimatedDeedProgressRatio] = useState<number>(deedProgressRatio);
+  const animatedRatioRef = useRef(animatedDeedProgressRatio);
+  const initializedRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    animatedRatioRef.current = animatedDeedProgressRatio;
+  }, [animatedDeedProgressRatio]);
+
+  useEffect(() => {
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    const targetRatio = deedProgressRatio;
+    let currentRatio = animatedRatioRef.current;
+
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      const rememberedRatio = LAST_DEED_PROGRESS_RATIO_BY_CARD.get(cardId);
+      if (rememberedRatio !== undefined) {
+        currentRatio = rememberedRatio;
+        animatedRatioRef.current = rememberedRatio;
+        setAnimatedDeedProgressRatio(rememberedRatio);
+      }
+    }
+
+    if (!shouldAnimateDeedProgress(currentRatio, targetRatio)) {
+      animatedRatioRef.current = targetRatio;
+      setAnimatedDeedProgressRatio(targetRatio);
+      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, targetRatio);
+      return;
+    }
+
+    let startTime: number | null = null;
+    const fromRatio = currentRatio;
+
+    const tick = (timestamp: number) => {
+      if (startTime === null) {
+        startTime = timestamp;
+      }
+      const elapsed = timestamp - startTime;
+      const nextRatio = tweenAnimatedDeedProgressRatio(
+        fromRatio,
+        targetRatio,
+        elapsed,
+        DEED_PROGRESS_ANIMATION_DURATION_MS
+      );
+      animatedRatioRef.current = nextRatio;
+      setAnimatedDeedProgressRatio(nextRatio);
+      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, nextRatio);
+
+      if (elapsed < DEED_PROGRESS_ANIMATION_DURATION_MS) {
+        animationFrameRef.current = window.requestAnimationFrame(tick);
+        return;
+      }
+
+      animatedRatioRef.current = targetRatio;
+      setAnimatedDeedProgressRatio(targetRatio);
+      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, targetRatio);
+      animationFrameRef.current = null;
+    };
+
+    animationFrameRef.current = window.requestAnimationFrame(tick);
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [cardId, deedProgressRatio]);
+
+  const displayedDeedProgressRatio = hasDeedProgress ? animatedDeedProgressRatio : deedProgressRatio;
+  const deedProgressArcPath = buildDeedProgressArcPath(displayedDeedProgressRatio);
   const cardImage = getCardImage(cardId);
 
   const metadataRow = (
@@ -133,7 +191,7 @@ export function CardTile({
               cy="18"
               r={DEED_PROGRESS_RING_RADIUS}
             />
-            {deedProgressRatio >= 1 ? (
+            {displayedDeedProgressRatio >= 1 ? (
               <circle className="deed-progress-ring-value" cx="18" cy="18" r={DEED_PROGRESS_RING_RADIUS} />
             ) : deedProgressArcPath ? (
               <path className="deed-progress-ring-value" d={deedProgressArcPath} />

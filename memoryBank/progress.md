@@ -15,6 +15,7 @@
 - Browser PPO inference path is wired, and a champion profile is available as default bot.
 - Browser rollout-eval search policy path is wired into the UI bot catalog (T3 config) for direct in-browser play/testing.
 - Search policy failure behavior in UI remains explicit (no silent fallback to another bot).
+- Development-card progress ring fill now animates on upward progress only (including across remounts), with helper-level tests to protect canonical ratio/arc math.
 - Bridge runtime and contract tests are in place.
 - Trainer scaffold is in place for:
   - sample collection + BC warm-start
