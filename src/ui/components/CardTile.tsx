@@ -134,12 +134,7 @@ export function CardTile({
               r={DEED_PROGRESS_RING_RADIUS}
             />
             {deedProgressRatio >= 1 ? (
-              <circle
-                className="deed-progress-ring-value"
-                cx="18"
-                cy="18"
-                r={DEED_PROGRESS_RING_RADIUS}
-              />
+              <circle className="deed-progress-ring-value" cx="18" cy="18" r={DEED_PROGRESS_RING_RADIUS} />
             ) : deedProgressArcPath ? (
               <path className="deed-progress-ring-value" d={deedProgressArcPath} />
             ) : null}
