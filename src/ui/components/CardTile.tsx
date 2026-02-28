@@ -39,6 +39,7 @@ export function CardTile({
   deedTokens,
   deedProgress,
   deedTarget,
+  inDevelopment,
   perspective = 'human',
 }: {
   cardId?: CardId;
@@ -47,6 +48,7 @@ export function CardTile({
   deedTokens?: Partial<Record<Suit, number>>;
   deedProgress?: number;
   deedTarget?: number;
+  inDevelopment?: boolean;
   perspective?: CardPerspective;
 }) {
   if (placeholder) {
@@ -120,7 +122,10 @@ export function CardTile({
   );
 
   return (
-    <div className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}`} title={card.name}>
+    <div
+      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}`}
+      title={card.name}
+    >
       {perspective === 'bot' ? imageBody : metadataRow}
       {perspective === 'bot' ? metadataRow : imageBody}
     </div>

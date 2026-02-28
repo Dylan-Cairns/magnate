@@ -39,14 +39,29 @@ function markerSuitTokens(markerSuitMask: readonly Suit[]): Partial<Record<Suit,
   return tokens;
 }
 
+function districtStackScore(stack: DistrictStack): number {
+  const developedProperties = stack.developed.map(findProperty).filter(isDefined);
+  const baseScore = developedProperties.reduce((total, property) => total + property.rank, 0);
+  const aceBonus = developedProperties
+    .filter((property) => property.rank === 1 && property.suits.length === 1)
+    .reduce((total, aceProperty) => {
+      const aceSuit = aceProperty.suits[0];
+      const matchingCount = developedProperties.filter((property) => property.suits.includes(aceSuit)).length;
+      return total + matchingCount;
+    }, 0);
+  return baseScore + aceBonus;
+}
+
 function DistrictLane({
   playerId,
   stack,
   botPlayerId,
+  districtScore,
 }: {
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
+  districtScore: number;
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
@@ -57,6 +72,7 @@ function DistrictLane({
     deedTokens?: Partial<Record<Suit, number>>;
     deedProgress?: number;
     deedTarget?: number;
+    inDevelopment?: boolean;
   }> = stack.developed.map((cardId, index) => ({
     key: `developed-${cardId}-${index}`,
     cardId,
@@ -69,6 +85,7 @@ function DistrictLane({
       deedTokens: stack.deed.tokens,
       deedProgress: stack.deed.progress,
       deedTarget,
+      inDevelopment: true,
     });
   }
 
@@ -97,12 +114,16 @@ function DistrictLane({
                   deedTokens={laneCard.deedTokens}
                   deedProgress={laneCard.deedProgress}
                   deedTarget={laneCard.deedTarget}
+                  inDevelopment={laneCard.inDevelopment}
                   perspective={perspective}
                 />
               </div>
             ))}
           </div>
         ) : null}
+        <span className="district-lane-score" aria-label={`District score: ${districtScore}`}>
+          {districtScore}
+        </span>
       </div>
     </section>
   );
@@ -118,10 +139,17 @@ export function DistrictColumn({
   botPlayerId: PlayerId;
 }) {
   const markerName = districtMarkerName(district.markerSuitMask);
+  const botDistrictScore = districtStackScore(district.stacks[botPlayerId]);
+  const humanDistrictScore = districtStackScore(district.stacks[humanPlayerId]);
 
   return (
     <article className="district-column">
-      <DistrictLane playerId={botPlayerId} stack={district.stacks[botPlayerId]} botPlayerId={botPlayerId} />
+      <DistrictLane
+        playerId={botPlayerId}
+        stack={district.stacks[botPlayerId]}
+        botPlayerId={botPlayerId}
+        districtScore={botDistrictScore}
+      />
 
       <header className="district-header">
         <span className="district-id">{district.id}</span>
@@ -135,9 +163,18 @@ export function DistrictColumn({
         )}
       </header>
 
-      <DistrictLane playerId={humanPlayerId} stack={district.stacks[humanPlayerId]} botPlayerId={botPlayerId} />
+      <DistrictLane
+        playerId={humanPlayerId}
+        stack={district.stacks[humanPlayerId]}
+        botPlayerId={botPlayerId}
+        districtScore={humanDistrictScore}
+      />
     </article>
   );
+}
+
+function isDefined<T>(value: T | undefined): value is T {
+  return value !== undefined;
 }
 
 export function PlayerTokenRail({
