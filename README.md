@@ -58,8 +58,17 @@ With `.venv` active:
 - RL fine-tune from BC: `python -m scripts.finetune --checkpoint-in artifacts/bc_checkpoint.json --checkpoint-out artifacts/rl_checkpoint.json --episodes 300`
 - PPO training: `python -m scripts.train_ppo --checkpoint-out artifacts/ppo_checkpoint.pt --episodes 1024 --episodes-per-update 32`
 - Teacher-data generation (for distillation): `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
+- Train search guidance checkpoint from teacher data: `python -m scripts.train_search_guidance --samples-in artifacts/teacher_data/teacher_search.jsonl --checkpoint-out artifacts/search_guidance_checkpoint.pt`
 
 Use `--help` on each script for full options.
+
+Guidance-enabled search and MCTS:
+
+- `scripts.eval`, `scripts.benchmark`, and `scripts.generate_teacher_data` now support:
+  - `--search-guidance-checkpoint`
+  - `--mcts-guidance-checkpoint`
+  - `--guidance-temperature`
+- Guidance checkpoints use PPO checkpoint format (`magnate_ppo_policy_v1`) and can be trained with `scripts.train_search_guidance`.
 
 ## Source-of-Truth Docs
 

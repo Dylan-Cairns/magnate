@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import random
+import tempfile
 import unittest
+from pathlib import Path
 
 from trainer.bridge_client import BridgeClient
+from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.env import MagnateBridgeEnv
-from trainer.policies import DeterminizedMctsPolicy, MctsConfig
+from trainer.policies import DeterminizedMctsPolicy, MctsConfig, policy_from_name
+from trainer.ppo_model import CandidateActorCritic, save_ppo_checkpoint
 
 
 class MctsPolicyTests(unittest.TestCase):
@@ -119,6 +123,40 @@ class MctsPolicyTests(unittest.TestCase):
             self.assertEqual(first, second)
         finally:
             policy.close()
+
+    def test_mcts_guidance_checkpoint_path_is_usable(self) -> None:
+        config = MctsConfig(
+            worlds=1,
+            simulations=6,
+            depth=3,
+            max_root_actions=3,
+            c_puct=1.0,
+        )
+        model = CandidateActorCritic(
+            observation_dim=OBSERVATION_DIM,
+            action_feature_dim=ACTION_FEATURE_DIM,
+            hidden_dim=32,
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoint = Path(tmp_dir) / "guidance.pt"
+            save_ppo_checkpoint(model, checkpoint)
+            policy = policy_from_name(
+                "mcts",
+                mcts_config=config,
+                mcts_guidance_checkpoint=checkpoint,
+            )
+            try:
+                step_result = self.env.reset(seed="mcts-guidance-checkpoint", first_player="PlayerA")
+                legal = self.env.legal_actions()
+                action_key = policy.choose_action_key(
+                    step_result.view,
+                    legal.actions,
+                    random.Random(17),
+                    state=step_result.state,
+                )
+                self.assertIn(action_key, {entry.action_key for entry in legal.actions})
+            finally:
+                policy.close()
 
 
 if __name__ == "__main__":
