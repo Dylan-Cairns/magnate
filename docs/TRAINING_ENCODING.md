@@ -12,7 +12,8 @@ This file defines the first-pass Python-side training encoding used by the bridg
 
 - Function: `trainer.encoding.encode_observation(view)`
 - Input: bridge `observation.view` payload (active-player view by default).
-- Output dimension: `OBSERVATION_DIM = 186`.
+- Output dimension: `OBSERVATION_DIM = 206`.
+- Encoding version: `ENCODING_VERSION = 2`.
 
 Feature groups:
 
@@ -28,7 +29,15 @@ Feature groups:
    - resources by suit
    - hand counts
    - crown-suit counts.
-4. District board state (5 districts, active then opponent stack features):
+4. Active-player hand composition:
+   - suit histogram from known hand card suits
+   - rank histogram (`1..10`) from known hand card ranks.
+5. Endgame/tiebreak context:
+   - endgame flag
+   - district-control proxy differential
+   - developed-rank differential proxy
+   - resource differential proxy.
+6. District board state (5 districts, active then opponent stack features):
    - marker suit counts
    - developed count
    - developed rank sum
@@ -171,6 +180,7 @@ Training script:
 Checkpoint type:
 
 - `magnate_ppo_policy_v1` (`trainer/ppo_model.py`)
+- PPO checkpoints now include required `encodingVersion` metadata; legacy checkpoints without this field are treated as incompatible with the v2 encoder.
 - Browser-export checkpoint type:
   - `magnate_ppo_browser_v1` (generated via `scripts/export_ppo_browser_checkpoint.py`)
-  - consumed by `src/policies/ppoBrowserPolicy.ts`
+  - no longer used by the current web bot catalog (legacy/export-only path)

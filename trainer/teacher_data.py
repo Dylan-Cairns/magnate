@@ -87,6 +87,11 @@ def collect_teacher_samples(
                 action_vectors = encode_action_candidates(legal.actions)
                 action_index = _find_action_index(legal.actions, action_key)
                 chosen_action = legal.actions[action_index]
+                action_probs = _action_probs_from_policy(
+                    policy=active_policy,
+                    legal_actions=legal.actions,
+                    chosen_action_index=action_index,
+                )
                 staged.append(
                     DecisionSample(
                         seed=seed,
@@ -100,6 +105,7 @@ def collect_teacher_samples(
                         action_features=action_vectors,
                         winner="Draw",
                         reward=0.0,
+                        action_probs=action_probs,
                     )
                 )
                 decisions_by_player[active_player] += 1
@@ -169,3 +175,29 @@ def _find_action_index(actions, action_key: str) -> int:
         if action.action_key == action_key:
             return index
     raise ValueError(f"Selected action key was not present in legal actions: {action_key}")
+
+
+def _action_probs_from_policy(
+    *,
+    policy: Policy,
+    legal_actions,
+    chosen_action_index: int,
+) -> list[float]:
+    by_key = policy.root_action_probs()
+    if not by_key:
+        return _one_hot_distribution(len(legal_actions), chosen_action_index)
+
+    raw: list[float] = []
+    for action in legal_actions:
+        raw.append(max(0.0, float(by_key.get(action.action_key, 0.0))))
+    total = sum(raw)
+    if total <= 0.0:
+        return _one_hot_distribution(len(legal_actions), chosen_action_index)
+    return [value / total for value in raw]
+
+
+def _one_hot_distribution(size: int, index: int) -> list[float]:
+    out = [0.0] * size
+    if 0 <= index < size:
+        out[index] = 1.0
+    return out

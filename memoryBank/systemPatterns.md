@@ -86,6 +86,10 @@ Design expectations:
   - deterministic action choice under fixed state + RNG
   - legal-action guarantees under live bridge legality responses
   - guidance-checkpoint integration paths for search and MCTS
+- Side-swapped promotion evals should run through a single canonical pipeline:
+  - paired seeds with swapped policy seats
+  - Wilson confidence interval reporting
+  - explicit side-gap reporting
 
 ## Versioning Pattern
 
