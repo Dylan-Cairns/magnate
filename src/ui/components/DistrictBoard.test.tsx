@@ -28,5 +28,27 @@ describe('DistrictColumn', () => {
     );
     expect(laneScores).toEqual([4, 0]);
   });
-});
 
+  it('marks only the leading district score as bold', () => {
+    const district: DistrictState = {
+      id: 'D2',
+      markerSuitMask: ['Suns'],
+      stacks: {
+        PlayerA: {
+          developed: ['10'],
+        },
+        PlayerB: {
+          developed: ['6'],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+    );
+
+    expect(html).toContain('class="district-lane-score is-leading"');
+    const nonLeadingScoreMatches = [...html.matchAll(/class="district-lane-score"/g)];
+    expect(nonLeadingScoreMatches).toHaveLength(1);
+  });
+});

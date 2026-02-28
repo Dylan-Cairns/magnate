@@ -18,7 +18,12 @@ export type HumanActionListItem =
   | { kind: 'action'; action: NonGroupedAction }
   | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
   | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
-  | { kind: 'develop-deed-group'; cardId: CardId; districtId: string; options: DevelopDeedAction[] }
+  | {
+      kind: 'develop-deed-group';
+      cardId: CardId;
+      districtId: string;
+      options: DevelopDeedAction[];
+    }
   | {
       kind: 'develop-outright-group';
       cardId: CardId;
@@ -51,12 +56,47 @@ export interface PickerOption {
   action: GameAction;
 }
 
-export function buildHumanActionList(actions: readonly GameAction[]): HumanActionListItem[] {
+export interface TradeSourceGroup {
+  give: Suit;
+  options: TradeAction[];
+}
+
+export function buildTradeSourceGroups(
+  actions: readonly GameAction[]
+): TradeSourceGroup[] {
+  const groups: TradeSourceGroup[] = [];
+  const byGive = new Map<Suit, TradeAction[]>();
+
+  for (const action of actions) {
+    if (action.type !== 'trade') {
+      continue;
+    }
+
+    const existing = byGive.get(action.give);
+    if (existing) {
+      existing.push(action);
+      continue;
+    }
+
+    const options = [action];
+    byGive.set(action.give, options);
+    groups.push({ give: action.give, options });
+  }
+
+  return groups;
+}
+
+export function buildHumanActionList(
+  actions: readonly GameAction[]
+): HumanActionListItem[] {
   const result: HumanActionListItem[] = [];
   const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
   const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
   const developDeedGroups = new Map<string, { options: DevelopDeedAction[] }>();
-  const developOutrightGroups = new Map<string, { options: DevelopOutrightAction[] }>();
+  const developOutrightGroups = new Map<
+    string,
+    { options: DevelopOutrightAction[] }
+  >();
 
   for (const action of actions) {
     if (action.type === 'trade') {
@@ -125,13 +165,26 @@ export function buildHumanActionList(actions: readonly GameAction[]): HumanActio
     result.push({ kind: 'action', action });
   }
 
-  return result;
+  const beforeTrades = result.filter(
+    (item) => !(item.kind === 'trade-group') && !isEndTurnActionItem(item)
+  );
+  const trades = result.filter(
+    (item): item is Extract<HumanActionListItem, { kind: 'trade-group' }> =>
+      item.kind === 'trade-group'
+  );
+  const endTurn = result.filter(isEndTurnActionItem);
+
+  return [...beforeTrades, ...trades, ...endTurn];
 }
 
-export function pickerStillLegal(picker: ActionPickerQuery, actions: readonly GameAction[]): boolean {
+export function pickerStillLegal(
+  picker: ActionPickerQuery,
+  actions: readonly GameAction[]
+): boolean {
   if (picker.kind === 'trade') {
     return actions.some(
-      (action): action is TradeAction => action.type === 'trade' && action.give === picker.give
+      (action): action is TradeAction =>
+        action.type === 'trade' && action.give === picker.give
     );
   }
 
@@ -169,7 +222,10 @@ export function buildPickerOptions(
 ): PickerOption[] {
   if (picker.kind === 'trade') {
     return actions
-      .filter((action): action is TradeAction => action.type === 'trade' && action.give === picker.give)
+      .filter(
+        (action): action is TradeAction =>
+          action.type === 'trade' && action.give === picker.give
+      )
       .map((action) => ({
         id: actionStableKey(action),
         label: `${suitEmoji[action.receive]} x1`,
@@ -241,10 +297,13 @@ export function pickerTitle(
   )}) in`;
 }
 
-export function describeAction(action: GameAction, suitEmoji: Record<Suit, string>): string {
+export function describeAction(
+  action: GameAction,
+  suitEmoji: Record<Suit, string>
+): string {
   switch (action.type) {
     case 'end-turn':
-      return 'Draw card and end turn';
+      return 'End turn';
     case 'trade':
       return `Trade ${suitEmoji[action.give]}x3 for ${suitEmoji[action.receive]}x1`;
     case 'sell-card':
@@ -277,10 +336,15 @@ export function formatTokens(
   if (entries.length === 0) {
     return '-';
   }
-  return entries.map((entry) => `${suitEmoji[entry.suit]}x${entry.count}`).join(' ');
+  return entries
+    .map((entry) => `${suitEmoji[entry.suit]}x${entry.count}`)
+    .join(' ');
 }
 
-export function cardSummary(cardId: CardId, suitEmoji: Record<Suit, string>): string {
+export function cardSummary(
+  cardId: CardId,
+  suitEmoji: Record<Suit, string>
+): string {
   const card = CARD_BY_ID[cardId];
   const rank =
     card.kind === 'Property' || card.kind === 'Crown'
@@ -288,12 +352,21 @@ export function cardSummary(cardId: CardId, suitEmoji: Record<Suit, string>): st
       : card.kind === 'Pawn'
         ? 'P'
         : 'X';
-  const suits = card.kind === 'Excuse' ? '' : card.suits.map((suit) => suitEmoji[suit]).join('');
+  const suits =
+    card.kind === 'Excuse'
+      ? ''
+      : card.suits.map((suit) => suitEmoji[suit]).join('');
   return `${rank}${suits}`;
 }
 
-function tokenEntries(tokens: Partial<Record<Suit, number>>): Array<{ suit: Suit; count: number }> {
+function tokenEntries(
+  tokens: Partial<Record<Suit, number>>
+): Array<{ suit: Suit; count: number }> {
   return SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 })).filter(
     (entry) => entry.count > 0
   );
+}
+
+function isEndTurnActionItem(item: HumanActionListItem): boolean {
+  return item.kind === 'action' && item.action.type === 'end-turn';
 }
