@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import type { DistrictState } from '../../engine/types';
-import { DistrictColumn } from './DistrictBoard';
+import type { DistrictState, ObservedPlayerState } from '../../engine/types';
+import { DistrictColumn, PlayerTokenRail } from './DistrictBoard';
 
 describe('DistrictColumn', () => {
   it('uses canonical ace scoring for district lane totals', () => {
@@ -84,5 +84,57 @@ describe('DistrictColumn', () => {
     expect(html).toContain('>1/2<');
     expect(html).toContain('card-tile perspective-bot is-in-development');
     expect(html).toContain('card-tile is-in-development');
+    expect(html).toContain('data-card-id="6"');
+    expect(html).toContain('data-in-development="true"');
+    expect(html).toContain('data-token-suit="Waves"');
+  });
+
+  it('adds player-id data anchor on token rail for animation targeting', () => {
+    const player: ObservedPlayerState = {
+      id: 'PlayerA',
+      crowns: ['30', '31', '32'],
+      resources: {
+        Moons: 1,
+        Suns: 2,
+        Waves: 0,
+        Leaves: 1,
+        Wyrms: 0,
+        Knots: 3,
+      },
+      hand: [],
+      handCount: 0,
+      handHidden: true,
+    };
+
+    const html = renderToStaticMarkup(
+      <PlayerTokenRail player={player} side="human" />
+    );
+
+    expect(html).toContain('data-token-rail-player-id="PlayerA"');
+    expect(html).toContain('data-token-suit="Moons"');
+    expect(html).toContain('data-token-suit="Knots"');
+  });
+
+  it('renders empty deed token rails for in-development cards with no deed tokens yet', () => {
+    const district: DistrictState = {
+      id: 'D4',
+      markerSuitMask: ['Moons'],
+      stacks: {
+        PlayerA: {
+          developed: [],
+          deed: { cardId: '6', progress: 0, tokens: {} },
+        },
+        PlayerB: {
+          developed: [],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+    );
+
+    expect(html).toContain('data-deed-token-rail="left"');
+    expect(html).toContain('data-deed-token-rail="right"');
   });
 });
