@@ -57,7 +57,7 @@ export function scoreLive(state: GameState): FinalScore {
   return scoreGame(state);
 }
 
-function districtScore(stack: DistrictStack): number {
+export function districtScore(stack: DistrictStack): number {
   const properties = developedProperties(stack);
   const base = properties.reduce((sum, property) => sum + property.rank, 0);
   const aceBonus = properties
