@@ -949,7 +949,7 @@ export function App() {
           <PlayerPanel
             title="You"
             player={humanPlayer}
-            isActive={humanView.activePlayerId === HUMAN_PLAYER}
+            isActive={!terminal && humanView.activePlayerId === HUMAN_PLAYER}
             score={score}
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
@@ -976,7 +976,7 @@ export function App() {
           <PlayerPanel
             title="Bot"
             player={botPlayer}
-            isActive={humanView.activePlayerId === BOT_PLAYER}
+            isActive={!terminal && humanView.activePlayerId === BOT_PLAYER}
             score={score}
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
