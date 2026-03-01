@@ -141,6 +141,40 @@ describe('buildHumanActionList', () => {
     ]);
   });
 
+  it('groups outright development actions by card instead of payment pattern', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({
+            Moons: 6,
+            Suns: 6,
+            Waves: 6,
+            Leaves: 6,
+            Wyrms: 6,
+            Knots: 6,
+          }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const actions = legalActions(state).filter(
+      (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
+        action.type === 'develop-outright' && action.cardId === '6'
+    );
+    const grouped = buildHumanActionList(legalActions(state));
+    const outrightGroups = grouped.filter(
+      (item): item is Extract<(typeof grouped)[number], { kind: 'develop-outright-group' }> =>
+        item.kind === 'develop-outright-group' && item.cardId === '6'
+    );
+
+    expect(actions.length).toBeGreaterThan(1);
+    expect(outrightGroups).toHaveLength(1);
+    expect(outrightGroups[0].options).toHaveLength(actions.length);
+  });
+
   it('orders post-card action categories by fixed precedence subset', () => {
     let state = makeGameState({
       phase: 'ActionWindow',
@@ -220,6 +254,58 @@ describe('picker helpers', () => {
     expect(options).toHaveLength(5);
     expect(options.map((option) => option.label)).toContain('{Suns} x1');
     expect(pickerTitle(picker, SUIT_TEXT_TOKEN)).toBe('Trade {Moons}x3 for');
+  });
+
+  it('builds district-then-payment picker options for develop-outright', () => {
+    const actions: GameAction[] = [
+      {
+        type: 'develop-outright',
+        cardId: '6',
+        districtId: 'D1',
+        payment: { Moons: 2, Knots: 1 },
+      },
+      {
+        type: 'develop-outright',
+        cardId: '6',
+        districtId: 'D1',
+        payment: { Moons: 1, Knots: 2 },
+      },
+      {
+        type: 'develop-outright',
+        cardId: '6',
+        districtId: 'D2',
+        payment: { Moons: 3 },
+      },
+    ];
+
+    const districtPicker: ActionPickerQuery = {
+      kind: 'develop-outright-district',
+      cardId: '6',
+    };
+    const districtOptions = buildPickerOptions(
+      districtPicker,
+      actions,
+      SUIT_TEXT_TOKEN
+    );
+    expect(districtOptions.map((option) => option.label)).toEqual(['D1', 'D2']);
+    expect(pickerStillLegal(districtPicker, actions)).toBe(true);
+    expect(pickerTitle(districtPicker, SUIT_TEXT_TOKEN)).toMatch(
+      /^Develop .* in$/
+    );
+
+    const paymentPicker: ActionPickerQuery = {
+      kind: 'develop-outright-payment',
+      cardId: '6',
+      districtId: 'D1',
+    };
+    const paymentOptions = buildPickerOptions(paymentPicker, actions, SUIT_TEXT_TOKEN);
+    expect(paymentOptions).toHaveLength(2);
+    expect(paymentOptions.map((option) => option.label)).toContain('{Moons}x2 {Knots}x1');
+    expect(paymentOptions.map((option) => option.label)).toContain('{Moons}x1 {Knots}x2');
+    expect(pickerStillLegal(paymentPicker, actions)).toBe(true);
+    expect(pickerTitle(paymentPicker, SUIT_TEXT_TOKEN)).toMatch(
+      /^Develop .* in D1 with$/
+    );
   });
 });
 
