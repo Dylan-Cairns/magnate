@@ -3,26 +3,23 @@
 ## Current Focus
 
 - Keep TypeScript rules deterministic and canonical.
-- Improve teacher strength through search-first tuning (determinized rollout search + optional guidance).
+- Keep rollout search as the temporary warm-start baseline.
 - Use `scripts.eval_suite` as the canonical promotion protocol (paired seeds, side-swapped, CI + side-gap).
-- Run staged sweep gates (`120 -> 400 -> 2000` total games per preset).
-- Train guidance from teacher data only after strong teacher configs are confirmed.
+- Keep Python training surface clean while preparing for TD/Keldon implementation.
 
 ## Locked Decisions
 
 - TS engine is canonical gameplay truth.
 - Python training/eval uses the TS bridge contract, not duplicated rules.
 - Bridge contract remains small and versioned.
-- Legacy BC/REINFORCE benchmark pipeline is out of scope.
+- PPO, MCTS, and guidance codepaths are removed from active scope.
 
 ## Current State
 
 ### UI
 
-- Browser bot catalog now includes rollout search (default) and random.
-- Legacy browser PPO profile/model path was removed.
-- Bot policy failures are explicit (no silent fallback).
-- Browser rollout-search policy now mirrors Python search root logic:
+- Browser bot catalog includes rollout search (default) and random.
+- Browser rollout-search policy mirrors Python search root logic:
   - heuristic prior softmax
   - progressive root widening
   - root UCB selection across a fixed visit budget
@@ -37,25 +34,22 @@
 - Canonical side-swapped eval suite is implemented:
   - `scripts/eval_suite.py`
   - `trainer/eval_suite.py`
-  - supports deterministic game sharding via `--workers` (seed-offset shards merged into one artifact)
-- Search/MCTS internals are modularized:
+  - deterministic game sharding via `--workers`
+- Search internals remain modularized:
   - `trainer/search/belief_sampler.py`
   - `trainer/search/forward_model.py`
   - `trainer/search/leaf_evaluator.py`
   - `trainer/search/root_selector.py`
-- Search and MCTS support optional PPO-format guidance checkpoints for priors/value/opponent modeling.
-- Teacher samples support soft policy targets (`actionProbs`).
-- Encoding is v2 (`OBSERVATION_DIM=206`) with TS parity encoder.
-- Search sweep runner is now eval-suite based with modern pack definitions (`scripts/search_teacher_sweep.py`).
-  - supports preset-level parallelism via `--jobs` and forwards eval sharding via `--workers`
-- Guidance A/B pipeline uses paired eval seeds for baseline vs guided comparison (`scripts/run_guidance_ab_pipeline.py`).
+- Active Python policy surface is now only:
+  - `random`
+  - `heuristic`
+  - `search`
+- Search sweep runner remains eval-suite based with preset packs (`scripts/search_teacher_sweep.py`).
 
 ## Immediate Next Steps
 
-1. Run coarse search sweep (`coarse-v1`, 60 games/side) and keep top 2-3 presets.
-2. Confirm top presets at 200 games/side.
-3. Run final promotion gate at 1000 games/side for best preset.
-4. Generate teacher data from promoted teacher and train guidance checkpoint.
-5. Re-run matched-seed eval_suite A/B for guided vs unguided teacher.
+1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
+2. Generate warm-start teacher data from promoted search baseline.
+3. Implement TD value + opponent-model training pipeline on this cleaned stack.
 
 _Updated: 2026-03-01._

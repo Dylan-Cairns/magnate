@@ -1,37 +1,37 @@
 # Training Handoff (2026-03-01)
 
-Use this file as the restart context for training work in a new session.
+Use this file as restart context for Python training work.
 
 ## Goal
 
-Ship a search-first bot pipeline that clearly outperforms heuristic, then distill/guidance for practical deployment speed.
+Keep the repo focused on one direction:
 
-## Canonical Approach
+1. retain rollout search as a warm-start signal generator,
+2. remove all legacy PPO/MCTS/guidance complexity,
+3. implement a TD-Gammon / Keldon-like training loop next.
 
-1. Tune determinized rollout search first (teacher quality).
-2. Evaluate with side-swapped paired-seed protocol (`scripts.eval_suite`).
-3. Train guidance from teacher data (`scripts.generate_teacher_data` + `scripts.train_search_guidance`).
-4. Re-evaluate search/MCTS with matched paired seeds.
-5. Promote only when stability gates pass at larger sample sizes.
+## Canonical Approach (Current)
 
-## What Was Removed
+1. Tune and evaluate rollout search with side-swapped paired seeds.
+2. Use search teacher to generate warm-start decision data.
+3. Start TD value + opponent-model implementation on the cleaned stack.
 
-- Browser PPO export path (`scripts/export_ppo_browser_checkpoint.py`).
-- BC/REINFORCE training entrypoints (`scripts/train.py`, `scripts/finetune.py`).
-- Legacy benchmark/queue pipeline (`scripts/benchmark.py`, `scripts/benchmark_queue.py`).
-- Legacy BC/reinforcement modules and tests.
-- Legacy named sweep presets (`t1..t8`) and non-canonical two-leg sweep flow.
+## Removed in Cleanup
 
-## Canonical Scripts
+- PPO training stack and queue runner.
+- MCTS policy stack and all MCTS CLI options.
+- Guidance training/checkpoint pipeline.
+- Related tests and documentation references.
+
+## Canonical Scripts (Now)
 
 - Matchup eval (single-seat): `scripts.eval`
 - Side-swapped paired-seed eval: `scripts.eval_suite`
 - Search sweep runner (eval_suite-based): `scripts.search_teacher_sweep`
-- Teacher data collection: `scripts.generate_teacher_data`
-- Guidance training: `scripts.train_search_guidance`
-- End-to-end A/B pipeline: `scripts.run_guidance_ab_pipeline`
+- Teacher data collection (warm-start labels): `scripts.generate_teacher_data`
+- Smoke check: `scripts.smoke_trainer`
 
-## Default Search Baseline (T3-style)
+## Default Search Baseline
 
 - `worlds=6`
 - `rollouts=1`
@@ -39,9 +39,7 @@ Ship a search-first bot pipeline that clearly outperforms heuristic, then distil
 - `max_root_actions=6`
 - `rollout_epsilon=0.04`
 
-These are the defaults in current search-oriented scripts unless explicitly overridden.
-
-## Promotion Protocol
+## Promotion Protocol for Search Baseline
 
 Stage A (coarse):
 
@@ -57,35 +55,33 @@ Stage B (confirm):
 Stage C (final):
 
 - Final gate at `games_per_side=1000` (2000 total).
-- Use this result for promotion decisions.
+- Use this as search baseline evidence for TD warm-start.
 
 ## Command Templates
 
 Coarse sweep:
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-coarse
+python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse
 ```
 
 Confirm top presets:
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --jobs 2 --workers 2 --opponent-policy heuristic --run-label search-confirm
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s03 s04 s06 --games-per-side 200 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-confirm
 ```
 
 Final gate:
 
 ```powershell
-python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --jobs 1 --workers 2 --opponent-policy heuristic --run-label search-final
+python -m scripts.search_teacher_sweep --pack coarse-v1 --presets s04 --games-per-side 1000 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-final
 ```
 
-Guidance pipeline:
+Teacher-data generation:
 
 ```powershell
-python -m scripts.run_guidance_ab_pipeline --run-label guidance-pilot --games 200
+python -m scripts.generate_teacher_data --games 200 --seed-prefix teacher-search --teacher-policy search --teacher-players both --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out artifacts/teacher_data/teacher_search.jsonl --summary-out artifacts/teacher_data/teacher_search.summary.json
 ```
-
-The A/B pipeline now uses a shared eval seed prefix for baseline and guided eval_suite runs.
 
 ## Artifacts
 
@@ -94,18 +90,16 @@ The A/B pipeline now uses a shared eval seed prefix for baseline and guided eval
   - manifest: `artifacts/sweeps/<run-id>-manifest.json`
   - summary: `artifacts/sweeps/<run-id>-summary.md`
 - Teacher data: `artifacts/teacher_data/*.jsonl` + `*.summary.json`
-- Guidance checkpoints: `artifacts/search_guidance_*.pt`
-- Pipeline manifests: `artifacts/*-pipeline-manifest.json`
 
 ## Risks / Watch Items
 
 - Search quality and latency trade off sharply with `worlds * rollouts * depth`.
 - Side-gap instability means determinization bias or seat dependence; treat as a promotion blocker.
-- Guidance can help strength while increasing per-decision cost if overused.
+- Search warm-start data can encode heuristic bias; TD training must eventually self-correct beyond it.
 
 ## Next Session Checklist
 
 1. Read this file and `docs/TRAINING_PLAN_SEARCH_FIRST.md`.
-2. Start with `scripts.search_teacher_sweep --pack coarse-v1`.
-3. Promote only through 120 -> 400 -> 2000 total-game stages.
-4. Keep documentation updated when promotion criteria or defaults change.
+2. Confirm a promoted search baseline via `scripts.search_teacher_sweep`.
+3. Generate a clean warm-start dataset with `scripts.generate_teacher_data`.
+4. Begin TD value/opponent model implementation on the cleaned trainer stack.
