@@ -40,6 +40,7 @@ Keep the repo focused on one direction:
 - Teacher data collection (warm-start labels): `scripts.generate_teacher_data`
 - TD replay collection: `scripts.collect_td_self_play`
 - TD training loop: `scripts.train_td`
+- Full TD loop orchestration: `scripts.run_td_loop`
 - TD-guided search policy path: `td-search` through `scripts.eval` / `scripts.eval_suite`
 - Smoke check: `scripts.smoke_trainer`
 
@@ -99,6 +100,12 @@ TD replay generation:
 
 ```powershell
 python -m scripts.collect_td_self_play --games 200 --seed-prefix td-replay --player-a-policy search --player-b-policy search --search-worlds 6 --search-rollouts 1 --search-depth 14 --search-max-root-actions 6 --search-rollout-epsilon 0.04 --out-dir artifacts/td_replay --run-label td-replay-search
+```
+
+Full TD loop orchestration (8 vCPU cloud profile):
+
+```powershell
+python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search
 ```
 
 TD training:
