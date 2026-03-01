@@ -241,10 +241,14 @@ export function pickerStillLegal(
   }
 
   if (picker.kind === 'develop-outright-district') {
-    return actions.some(
-      (action): action is DevelopOutrightAction =>
-        action.type === 'develop-outright' && action.cardId === picker.cardId
-    );
+    const districtIds = new Set<string>();
+    for (const action of actions) {
+      if (action.type !== 'develop-outright' || action.cardId !== picker.cardId) {
+        continue;
+      }
+      districtIds.add(action.districtId);
+    }
+    return districtIds.size > 1;
   }
 
   if (picker.kind !== 'develop-outright-payment') {
