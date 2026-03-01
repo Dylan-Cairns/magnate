@@ -120,12 +120,17 @@ class TDSelfPlayTests(unittest.TestCase):
     def test_collect_self_play_games_alternates_first_player(self, _obs, _acts) -> None:
         env = _ScriptedEnv()
         policies = {"PlayerA": _StubPolicy(), "PlayerB": _StubPolicy()}
+        progress_events = []
         episodes = collect_self_play_games(
             env=env,
             policy_player_a=policies["PlayerA"],
             policy_player_b=policies["PlayerB"],
             games=3,
             seed_prefix="batch",
+            progress_every_games=2,
+            on_progress=lambda completed, total, winners: progress_events.append(
+                (completed, total, dict(winners))
+            ),
         )
         self.assertEqual([episode.first_player for episode in episodes], ["PlayerA", "PlayerB", "PlayerA"])
 
@@ -134,6 +139,8 @@ class TDSelfPlayTests(unittest.TestCase):
         self.assertEqual(len(flattened_transitions), 9)
         self.assertEqual(len(flattened_samples), 9)
         self.assertTrue(all(isinstance(episode, SelfPlayEpisode) for episode in episodes))
+        self.assertEqual(progress_events[0][0], 2)
+        self.assertEqual(progress_events[-1][0], 3)
 
 
 if __name__ == "__main__":

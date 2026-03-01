@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -12,7 +13,12 @@ from typing import Dict, List
 from trainer.bridge_client import BridgeClient
 from trainer.env import MagnateBridgeEnv
 from trainer.eval_suite import evaluate_side_swapped, wilson_interval
-from trainer.policies import SearchConfig, policy_from_name
+from trainer.policies import (
+    SearchConfig,
+    TDSearchPolicyConfig,
+    TDValuePolicyConfig,
+    policy_from_name,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,20 +43,55 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--candidate-policy",
         type=str,
-        default="search",
-        help="Candidate policy (random|heuristic|search).",
+        required=True,
+        help="Candidate policy (random|heuristic|search|td-value|td-search).",
     )
     parser.add_argument(
         "--opponent-policy",
         type=str,
-        default="heuristic",
-        help="Opponent policy (random|heuristic|search).",
+        required=True,
+        help="Opponent policy (random|heuristic|search|td-value|td-search).",
     )
     parser.add_argument("--search-worlds", type=int, default=6)
     parser.add_argument("--search-rollouts", type=int, default=1)
     parser.add_argument("--search-depth", type=int, default=14)
     parser.add_argument("--search-max-root-actions", type=int, default=6)
     parser.add_argument("--search-rollout-epsilon", type=float, default=0.04)
+    parser.add_argument(
+        "--td-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Path to TD value checkpoint used when candidate/opponent policy is td-value.",
+    )
+    parser.add_argument(
+        "--td-worlds",
+        type=int,
+        default=8,
+        help="Determinization world samples per decision for td-value policy.",
+    )
+    parser.add_argument(
+        "--td-search-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Path to TD value checkpoint used when candidate/opponent policy is td-search.",
+    )
+    parser.add_argument(
+        "--td-search-opponent-checkpoint",
+        type=Path,
+        default=None,
+        help="TD opponent checkpoint used when candidate/opponent policy is td-search.",
+    )
+    parser.add_argument(
+        "--td-search-opponent-temperature",
+        type=float,
+        default=1.0,
+        help="Opponent policy temperature for td-search (lower is greedier).",
+    )
+    parser.add_argument(
+        "--td-search-sample-opponent-actions",
+        action="store_true",
+        help="Sample opponent rollout actions from opponent model distribution in td-search.",
+    )
     parser.add_argument(
         "--out",
         type=Path,
@@ -77,6 +118,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    _require_supported_runtime()
+    _validate_policy_args(args)
     if args.workers <= 0:
         raise SystemExit("--workers must be > 0.")
     if args.seed_start_index < 0:
@@ -107,6 +150,24 @@ def main() -> int:
                 "depth": args.search_depth,
                 "maxRootActions": args.search_max_root_actions,
                 "rolloutEpsilon": args.search_rollout_epsilon,
+            },
+            "tdValue": {
+                "checkpoint": str(args.td_value_checkpoint) if args.td_value_checkpoint else None,
+                "worlds": args.td_worlds,
+            },
+            "tdSearch": {
+                "valueCheckpoint": (
+                    str(args.td_search_value_checkpoint)
+                    if args.td_search_value_checkpoint
+                    else None
+                ),
+                "opponentCheckpoint": (
+                    str(args.td_search_opponent_checkpoint)
+                    if args.td_search_opponent_checkpoint
+                    else None
+                ),
+                "opponentTemperature": args.td_search_opponent_temperature,
+                "sampleOpponentActions": args.td_search_sample_opponent_actions,
             },
         },
         "results": results,
@@ -144,6 +205,12 @@ def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
             search_depth=args.search_depth,
             search_max_root_actions=args.search_max_root_actions,
             search_rollout_epsilon=args.search_rollout_epsilon,
+            td_value_checkpoint=args.td_value_checkpoint,
+            td_worlds=args.td_worlds,
+            td_search_value_checkpoint=args.td_search_value_checkpoint,
+            td_search_opponent_checkpoint=args.td_search_opponent_checkpoint,
+            td_search_opponent_temperature=args.td_search_opponent_temperature,
+            td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
         )
 
     worker_count = min(args.workers, args.games_per_side)
@@ -159,6 +226,12 @@ def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
             search_depth=args.search_depth,
             search_max_root_actions=args.search_max_root_actions,
             search_rollout_epsilon=args.search_rollout_epsilon,
+            td_value_checkpoint=args.td_value_checkpoint,
+            td_worlds=args.td_worlds,
+            td_search_value_checkpoint=args.td_search_value_checkpoint,
+            td_search_opponent_checkpoint=args.td_search_opponent_checkpoint,
+            td_search_opponent_temperature=args.td_search_opponent_temperature,
+            td_search_sample_opponent_actions=args.td_search_sample_opponent_actions,
         )
 
     shard_sizes = _split_games(args.games_per_side, worker_count)
@@ -178,6 +251,24 @@ def _evaluate_results(args: argparse.Namespace) -> Dict[str, object]:
                 "searchDepth": args.search_depth,
                 "searchMaxRootActions": args.search_max_root_actions,
                 "searchRolloutEpsilon": args.search_rollout_epsilon,
+                "tdValueCheckpoint": (
+                    str(args.td_value_checkpoint)
+                    if args.td_value_checkpoint is not None
+                    else None
+                ),
+                "tdWorlds": args.td_worlds,
+                "tdSearchValueCheckpoint": (
+                    str(args.td_search_value_checkpoint)
+                    if args.td_search_value_checkpoint is not None
+                    else None
+                ),
+                "tdSearchOpponentCheckpoint": (
+                    str(args.td_search_opponent_checkpoint)
+                    if args.td_search_opponent_checkpoint is not None
+                    else None
+                ),
+                "tdSearchOpponentTemperature": args.td_search_opponent_temperature,
+                "tdSearchSampleOpponentActions": args.td_search_sample_opponent_actions,
             }
         )
         seed_index += shard_games
@@ -203,7 +294,14 @@ def _run_eval_shard(
     search_depth: int,
     search_max_root_actions: int,
     search_rollout_epsilon: float,
+    td_value_checkpoint: Path | None,
+    td_worlds: int,
+    td_search_value_checkpoint: Path | None,
+    td_search_opponent_checkpoint: Path | None,
+    td_search_opponent_temperature: float,
+    td_search_sample_opponent_actions: bool,
 ) -> Dict[str, object]:
+    policies = {candidate_policy.strip().lower(), opponent_policy.strip().lower()}
     search_config = SearchConfig(
         worlds=search_worlds,
         rollouts=search_rollouts,
@@ -211,14 +309,41 @@ def _run_eval_shard(
         max_root_actions=search_max_root_actions,
         rollout_epsilon=search_rollout_epsilon,
     )
+    td_value_config = (
+        TDValuePolicyConfig(
+            checkpoint_path=td_value_checkpoint,
+            worlds=td_worlds,
+        )
+        if td_value_checkpoint is not None
+        else None
+    )
+    td_search_config = (
+        TDSearchPolicyConfig(
+            value_checkpoint_path=td_search_value_checkpoint,
+            opponent_checkpoint_path=td_search_opponent_checkpoint,
+            worlds=search_worlds,
+            rollouts=search_rollouts,
+            depth=search_depth,
+            max_root_actions=search_max_root_actions,
+            rollout_epsilon=search_rollout_epsilon,
+            opponent_temperature=td_search_opponent_temperature,
+            sample_opponent_actions=td_search_sample_opponent_actions,
+        )
+        if "td-search" in policies
+        else None
+    )
 
     candidate = policy_from_name(
         candidate_policy,
         search_config=search_config,
+        td_value_config=td_value_config,
+        td_search_config=td_search_config,
     )
     opponent = policy_from_name(
         opponent_policy,
         search_config=search_config,
+        td_value_config=td_value_config,
+        td_search_config=td_search_config,
     )
 
     try:
@@ -251,6 +376,24 @@ def _evaluate_shard(payload: Dict[str, object]) -> Dict[str, object]:
         search_depth=int(payload["searchDepth"]),
         search_max_root_actions=int(payload["searchMaxRootActions"]),
         search_rollout_epsilon=float(payload["searchRolloutEpsilon"]),
+        td_value_checkpoint=(
+            Path(str(payload["tdValueCheckpoint"]))
+            if payload.get("tdValueCheckpoint")
+            else None
+        ),
+        td_worlds=int(payload["tdWorlds"]),
+        td_search_value_checkpoint=(
+            Path(str(payload["tdSearchValueCheckpoint"]))
+            if payload.get("tdSearchValueCheckpoint")
+            else None
+        ),
+        td_search_opponent_checkpoint=(
+            Path(str(payload["tdSearchOpponentCheckpoint"]))
+            if payload.get("tdSearchOpponentCheckpoint")
+            else None
+        ),
+        td_search_opponent_temperature=float(payload["tdSearchOpponentTemperature"]),
+        td_search_sample_opponent_actions=bool(payload["tdSearchSampleOpponentActions"]),
     )
 
 
@@ -374,6 +517,24 @@ def _default_output_path(seed_prefix: str, candidate_policy: str, opponent_polic
 def _slug(value: str) -> str:
     compact = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower())
     return compact.strip("-") or "unknown"
+
+
+def _require_supported_runtime() -> None:
+    if sys.version_info < (3, 11):
+        raise SystemExit("Python 3.11+ is required.")
+    if sys.prefix == sys.base_prefix:
+        raise SystemExit("Run this script from the project virtual environment (.venv).")
+
+
+def _validate_policy_args(args: argparse.Namespace) -> None:
+    policies = {args.candidate_policy.strip().lower(), args.opponent_policy.strip().lower()}
+    if "td-value" in policies and args.td_value_checkpoint is None:
+        raise SystemExit("--td-value-checkpoint is required when using td-value policy.")
+    if "td-search" in policies:
+        if args.td_search_value_checkpoint is None:
+            raise SystemExit("--td-search-value-checkpoint is required when using td-search policy.")
+        if args.td_search_opponent_checkpoint is None:
+            raise SystemExit("--td-search-opponent-checkpoint is required when using td-search policy.")
 
 
 if __name__ == "__main__":

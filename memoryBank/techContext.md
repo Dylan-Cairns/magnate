@@ -36,10 +36,12 @@
 - Static deployment target (no gameplay backend).
 - Deterministic gameplay required for replay/eval/training.
 - Rule semantics stay in TS unless explicitly re-approved.
+- Python training scripts are fail-fast and expect an active project virtualenv.
 
 ## Known Gaps
 
-- TD module primitives exist (`trainer/td`), but no end-to-end TD orchestration scripts are wired yet.
+- TD replay/train/eval orchestration exists, but automated online replay refresh is not wired yet.
+- `td-search` exists, but current form is still rollout-guided and needs stronger search/value coupling and throughput optimization.
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser deployment path for learned TD models is not implemented yet.
 

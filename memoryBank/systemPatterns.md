@@ -76,12 +76,20 @@ Design expectations:
 - Search is treated as warm-start infrastructure, not final architecture.
 - TD/Keldon pipeline is being built incrementally:
   - Phase 1 landed shared primitives (`trainer/td`).
-  - Phase 2+ adds orchestrated self-play/replay/train/eval loops.
+  - Phase 2 landed orchestrated self-play/replay/train/eval loops.
+  - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
+  - Current active loop is offline replay generation (`collect_td_self_play`) followed by checkpointed training (`train_td`) and side-swapped eval (`eval_suite`).
 - Canonical evaluation is side-swapped paired-seed runs (`scripts.eval_suite`).
 - Python policy surface is intentionally narrow during TD pivot:
   - `random`
   - `heuristic`
   - `search`
+  - `td-value` (checkpoint-backed value policy for benchmarking)
+  - `td-search` (checkpoint-backed TD-guided search policy)
+- Training code uses fail-fast semantics:
+  - no silent fallback to heuristic labels/actions when required TD/search signals are missing
+  - malformed bridge payloads and invalid distributions raise immediately with context
+  - script entrypoints require explicit policy args and active virtualenv runtime
 
 ## Testing Pattern
 

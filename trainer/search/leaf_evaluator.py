@@ -45,7 +45,10 @@ class LeafEvaluator:
 def terminal_value(state: Mapping[str, Any], root_player: PlayerId) -> float:
     final_score = state.get("finalScore")
     if not isinstance(final_score, dict):
-        return 0.0
+        raise ValueError(
+            "Terminal state is missing finalScore. "
+            f"turn={state.get('turn')} phase={state.get('phase')!r}"
+        )
     winner = final_score.get("winner")
     if winner == "Draw":
         return 0.0
@@ -53,7 +56,7 @@ def terminal_value(state: Mapping[str, Any], root_player: PlayerId) -> float:
         return 1.0
     if winner in ("PlayerA", "PlayerB"):
         return -1.0
-    return 0.0
+    raise ValueError(f"Invalid finalScore.winner value: {winner!r}")
 
 
 def is_terminal_state(state: Mapping[str, Any]) -> bool:
@@ -144,20 +147,23 @@ def value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId)
     opponent = "PlayerB" if root_player == "PlayerA" else "PlayerA"
     players = state.get("players")
     if not isinstance(players, list):
-        return 0.0
+        raise ValueError("Serialized state is missing players list.")
 
     root_state = None
     opponent_state = None
     for player in players:
         if not isinstance(player, dict):
-            continue
+            raise ValueError(f"Player entry must be an object, got {type(player).__name__}.")
         player_id = player.get("id")
         if player_id == root_player:
             root_state = player
         elif player_id == opponent:
             opponent_state = player
     if root_state is None or opponent_state is None:
-        return 0.0
+        raise ValueError(
+            "Serialized state is missing one or more players required for evaluation. "
+            f"root={root_player} opponent={opponent}"
+        )
 
     resource_root = resource_total(root_state)
     resource_opponent = resource_total(opponent_state)
@@ -165,36 +171,37 @@ def value_from_serialized_state(state: Mapping[str, Any], root_player: PlayerId)
     resource_diff = resource_root - resource_opponent
 
     districts = state.get("districts")
-    district_count = len(districts) if isinstance(districts, list) else 0
+    if not isinstance(districts, list):
+        raise ValueError("Serialized state is missing districts list.")
+    district_count = len(districts)
     district_point_diff = 0.0
     rank_total_diff = 0.0
     deed_completion_diff = 0.0
-    if isinstance(districts, list):
-        for district in districts:
-            if not isinstance(district, dict):
-                continue
-            stacks = district.get("stacks")
-            if not isinstance(stacks, dict):
-                continue
-            root_stack = stacks.get(root_player)
-            opponent_stack = stacks.get(opponent)
-            if not isinstance(root_stack, dict) or not isinstance(opponent_stack, dict):
-                continue
+    for district in districts:
+        if not isinstance(district, dict):
+            raise ValueError(f"District entry must be an object, got {type(district).__name__}.")
+        stacks = district.get("stacks")
+        if not isinstance(stacks, dict):
+            raise ValueError("District payload is missing stacks object.")
+        root_stack = stacks.get(root_player)
+        opponent_stack = stacks.get(opponent)
+        if not isinstance(root_stack, dict) or not isinstance(opponent_stack, dict):
+            raise ValueError("District stacks are missing root/opponent entries.")
 
-            root_developed_rank = developed_rank_total(root_stack)
-            opponent_developed_rank = developed_rank_total(opponent_stack)
-            rank_total_diff += root_developed_rank - opponent_developed_rank
+        root_developed_rank = developed_rank_total(root_stack)
+        opponent_developed_rank = developed_rank_total(opponent_stack)
+        rank_total_diff += root_developed_rank - opponent_developed_rank
 
-            root_district_strength = root_developed_rank + ace_pressure_proxy(root_stack)
-            opponent_district_strength = opponent_developed_rank + ace_pressure_proxy(opponent_stack)
-            if root_district_strength > opponent_district_strength:
-                district_point_diff += 1.0
-            elif root_district_strength < opponent_district_strength:
-                district_point_diff -= 1.0
+        root_district_strength = root_developed_rank + ace_pressure_proxy(root_stack)
+        opponent_district_strength = opponent_developed_rank + ace_pressure_proxy(opponent_stack)
+        if root_district_strength > opponent_district_strength:
+            district_point_diff += 1.0
+        elif root_district_strength < opponent_district_strength:
+            district_point_diff -= 1.0
 
-            deed_completion_diff += (
-                deed_completion_ratio(root_stack) - deed_completion_ratio(opponent_stack)
-            )
+        deed_completion_diff += (
+            deed_completion_ratio(root_stack) - deed_completion_ratio(opponent_stack)
+        )
 
     district_term = district_point_diff / float(max(1, district_count))
     rank_term = math.tanh(rank_total_diff / 18.0)
@@ -216,10 +223,10 @@ def stack_score(stack: Mapping[str, Any]) -> tuple[float, float]:
     developed = as_card_list(stack.get("developed"))
     developed_rank = sum(_card_rank(card_id) for card_id in developed)
 
-    deed = as_mapping(stack.get("deed"))
+    deed = as_optional_mapping(stack.get("deed"))
     deed_card = str(deed.get("cardId", ""))
     deed_rank = _card_rank(deed_card)
-    deed_progress = as_int(deed.get("progress"))
+    deed_progress = as_optional_int(deed.get("progress"), default=0)
 
     progress_ratio = 0.0
     if deed_card and deed_rank > 0:
@@ -240,12 +247,12 @@ def ace_pressure_proxy(stack: Mapping[str, Any]) -> int:
 
 
 def deed_completion_ratio(stack: Mapping[str, Any]) -> float:
-    deed = as_mapping(stack.get("deed"))
+    deed = as_optional_mapping(stack.get("deed"))
     card_id = str(deed.get("cardId", ""))
     rank = _card_rank(card_id)
     if rank <= 0:
         return 0.0
-    progress = as_int(deed.get("progress"))
+    progress = as_optional_int(deed.get("progress"), default=0)
     return min(1.0, max(0.0, progress / float(rank)))
 
 
@@ -269,7 +276,7 @@ def player_views_by_id(view: Mapping[str, Any]) -> Dict[PlayerId, Dict[str, Any]
 def resource_total(player_state: Mapping[str, Any]) -> int:
     resources = player_state.get("resources")
     if not isinstance(resources, dict):
-        return 0
+        raise ValueError("Player payload is missing resources object.")
     total = 0
     for value in resources.values():
         total += as_int(value)
@@ -279,21 +286,38 @@ def resource_total(player_state: Mapping[str, Any]) -> int:
 def as_mapping(value: Any) -> Dict[str, Any]:
     if isinstance(value, dict):
         return value
-    return {}
+    raise ValueError(f"Expected object mapping, got {type(value).__name__}.")
+
+
+def as_optional_mapping(value: Any) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    return as_mapping(value)
 
 
 def as_card_list(value: Any) -> list[str]:
     if not isinstance(value, list):
-        return []
-    return [str(card_id) for card_id in value]
+        raise ValueError(f"Expected list of card ids, got {type(value).__name__}.")
+    out: list[str] = []
+    for card_id in value:
+        if not isinstance(card_id, str):
+            raise ValueError(f"Expected card id string, got {type(card_id).__name__}.")
+        out.append(card_id)
+    return out
 
 
 def as_int(value: Any) -> int:
     if isinstance(value, bool):
-        return int(value)
+        raise ValueError("Expected integer value, got bool.")
     if isinstance(value, (int, float)):
         return int(value)
-    return 0
+    raise ValueError(f"Expected numeric value, got {type(value).__name__}.")
+
+
+def as_optional_int(value: Any, *, default: int) -> int:
+    if value is None:
+        return default
+    return as_int(value)
 
 
 def _state_cache_key(state: Mapping[str, Any]) -> str:

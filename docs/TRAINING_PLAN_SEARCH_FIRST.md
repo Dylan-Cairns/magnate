@@ -1,6 +1,6 @@
-# Search Warm-Start Plan
+# Search Warm-Start Plan (Completed Foundation)
 
-This file defines the post-cleanup plan before TD implementation lands.
+This file defines the search-first warm-start strategy that led into TD Phase 2.
 
 ## Objective
 
@@ -15,6 +15,7 @@ Use rollout search only for warm-start leverage:
 - The repo is intentionally stripped of PPO/MCTS/guidance paths.
 - Search is useful for immediate signal, but not the long-run ceiling.
 - TD/Keldon approach is the target architecture for stronger play.
+- Python training follows fail-fast execution: malformed state/features/checkpoints abort runs instead of falling back.
 
 ## Evaluation Standard
 
@@ -81,3 +82,9 @@ First TD priorities:
 1. value network with TD targets,
 2. opponent action prediction model,
 3. integration into `td-search` rollout/leaf evaluation.
+
+Status:
+
+- TD Phase 1/2 foundations are now implemented (replay collection, TD training loop, checkpointed eval support).
+- TD Phase 3 initial integration is implemented (`td-search` policy path).
+- This plan remains as search-baseline guidance, not the active build tracker.

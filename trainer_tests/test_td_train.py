@@ -4,9 +4,16 @@ import unittest
 
 import torch
 
-from trainer.td.models import ValueNet
-from trainer.td.train import TDTrainConfig, TDValueTrainer, train_value_batch
-from trainer.td.types import ValueTransition
+from trainer.td.models import OpponentModel, ValueNet
+from trainer.td.train import (
+    OpponentTrainConfig,
+    TDOpponentTrainer,
+    TDTrainConfig,
+    TDValueTrainer,
+    train_opponent_batch,
+    train_value_batch,
+)
+from trainer.td.types import OpponentSample, ValueTransition
 
 
 def _sample_transitions() -> list[ValueTransition]:
@@ -30,6 +37,23 @@ def _sample_transitions() -> list[ValueTransition]:
             reward=0.0,
             done=False,
             next_observation=[0.1, 0.4, 0.2, 0.3],
+            player_id="PlayerB",
+        ),
+    ]
+
+
+def _sample_opponent_samples() -> list[OpponentSample]:
+    return [
+        OpponentSample(
+            observation=[0.1, 0.2, 0.3, 0.4],
+            action_features=[[1.0, 0.0], [0.0, 1.0]],
+            action_index=0,
+            player_id="PlayerA",
+        ),
+        OpponentSample(
+            observation=[0.4, 0.3, 0.2, 0.1],
+            action_features=[[0.0, 1.0], [1.0, 0.0]],
+            action_index=1,
             player_id="PlayerB",
         ),
     ]
@@ -80,6 +104,37 @@ class TDTrainTests(unittest.TestCase):
 
         for key, value in model.state_dict().items():
             self.assertTrue(torch.allclose(value, target_model.state_dict()[key]))
+
+    def test_train_opponent_batch_updates_model(self) -> None:
+        model = OpponentModel(observation_dim=4, action_feature_dim=2, hidden_dim=16)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        before = [parameter.detach().clone() for parameter in model.parameters()]
+
+        loss, accuracy = train_opponent_batch(
+            model=model,
+            optimizer=optimizer,
+            samples=_sample_opponent_samples(),
+            max_grad_norm=1.0,
+        )
+        after = [parameter.detach() for parameter in model.parameters()]
+
+        self.assertGreaterEqual(loss, 0.0)
+        self.assertGreaterEqual(accuracy, 0.0)
+        self.assertLessEqual(accuracy, 1.0)
+        changed = any(not torch.allclose(before[index], after[index]) for index in range(len(before)))
+        self.assertTrue(changed)
+
+    def test_td_opponent_trainer_tracks_steps(self) -> None:
+        model = OpponentModel(observation_dim=4, action_feature_dim=2, hidden_dim=16)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        trainer = TDOpponentTrainer(
+            model=model,
+            optimizer=optimizer,
+            config=OpponentTrainConfig(max_grad_norm=1.0),
+        )
+        summary = trainer.train_batch(samples=_sample_opponent_samples())
+        self.assertEqual(summary.step, 1)
+        self.assertGreaterEqual(summary.loss, 0.0)
 
 
 if __name__ == "__main__":
