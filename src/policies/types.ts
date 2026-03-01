@@ -1,6 +1,7 @@
-import type { GameAction, PlayerView } from '../engine/types';
+import type { GameAction, GameState, PlayerView } from '../engine/types';
 
 export interface ActionSelectionContext {
+  state: GameState;
   view: PlayerView;
   legalActions: readonly GameAction[];
   random: () => number;

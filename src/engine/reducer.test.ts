@@ -260,6 +260,33 @@ describe('buy-deed reducer semantics', () => {
     expect(player.resources.Knots).toBe(0);
     expect(player.resources.Suns).toBe(4);
   });
+
+  it('ace deed purchase consumes one matching token', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['0'],
+          resources: makeResources({ Knots: 1, Suns: 4 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const buy = legalActions(state).find(
+      (item): item is Extract<GameAction, { type: 'buy-deed' }> =>
+        item.type === 'buy-deed' && item.cardId === '0'
+    );
+    if (!buy) {
+      throw new Error('Missing expected legal ace buy-deed action.');
+    }
+
+    const next = applyAction(state, buy);
+    const player = getPlayerAState(next);
+    expect(player.resources.Knots).toBe(0);
+    expect(player.resources.Suns).toBe(4);
+    expect(getDistrict(next, 'D5').stacks[PLAYER_A].deed?.cardId).toBe('0');
+  });
 });
 
 describe('develop-deed reducer semantics', () => {
@@ -497,6 +524,39 @@ describe('develop-outright reducer semantics', () => {
     expect(next.cardPlayedThisTurn).toBe(true);
     expect(getPlayerAState(next).hand).not.toContain('6');
     expect(getDistrict(next, 'D1').stacks[PLAYER_A].developed).toContain('6');
+  });
+
+  it('ace outright development requires and spends three matching tokens', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['0'],
+          resources: makeResources({ Knots: 3, Suns: 2 }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+      districts: makeDefaultDistricts(),
+    });
+
+    const action = legalActions(state).find(
+      (item): item is Extract<GameAction, { type: 'develop-outright' }> =>
+        item.type === 'develop-outright' &&
+        item.cardId === '0' &&
+        item.districtId === 'D5' &&
+        item.payment.Knots === 3
+    );
+    if (!action) {
+      throw new Error('Missing expected legal ace develop-outright action.');
+    }
+
+    const next = applyAction(state, action);
+    expect(next.phase).toBe('ActionWindow');
+    expect(next.cardPlayedThisTurn).toBe(true);
+    expect(getPlayerAState(next).hand).not.toContain('0');
+    expect(getPlayerAState(next).resources.Knots).toBe(0);
+    expect(getPlayerAState(next).resources.Suns).toBe(2);
+    expect(getDistrict(next, 'D5').stacks[PLAYER_A].developed).toContain('0');
   });
 });
 

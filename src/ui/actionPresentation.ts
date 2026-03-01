@@ -18,12 +18,15 @@ export type HumanActionListItem =
   | { kind: 'action'; action: NonGroupedAction }
   | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
   | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
-  | { kind: 'develop-deed-group'; cardId: CardId; districtId: string; options: DevelopDeedAction[] }
+  | {
+      kind: 'develop-deed-group';
+      cardId: CardId;
+      districtId: string;
+      options: DevelopDeedAction[];
+    }
   | {
       kind: 'develop-outright-group';
       cardId: CardId;
-      payment: Partial<Record<Suit, number>>;
-      paymentKey: string;
       options: DevelopOutrightAction[];
     };
 
@@ -34,10 +37,17 @@ export type ActionPickerQuery =
     }
   | {
       kind: 'district';
-      actionType: 'buy-deed' | 'develop-outright';
+      actionType: 'buy-deed';
       cardId: CardId;
-      payment?: Partial<Record<Suit, number>>;
-      paymentKey?: string;
+    }
+  | {
+      kind: 'develop-outright-district';
+      cardId: CardId;
+    }
+  | {
+      kind: 'develop-outright-payment';
+      cardId: CardId;
+      districtId: string;
     }
   | {
       kind: 'deed-payment';
@@ -51,12 +61,60 @@ export interface PickerOption {
   action: GameAction;
 }
 
-export function buildHumanActionList(actions: readonly GameAction[]): HumanActionListItem[] {
-  const result: HumanActionListItem[] = [];
+export interface TradeSourceGroup {
+  give: Suit;
+  options: TradeAction[];
+}
+
+export function buildTradeSourceGroups(
+  actions: readonly GameAction[]
+): TradeSourceGroup[] {
+  const groups: TradeSourceGroup[] = [];
+  const byGive = new Map<Suit, TradeAction[]>();
+
+  for (const action of actions) {
+    if (action.type !== 'trade') {
+      continue;
+    }
+
+    const existing = byGive.get(action.give);
+    if (existing) {
+      existing.push(action);
+      continue;
+    }
+
+    const options = [action];
+    byGive.set(action.give, options);
+    groups.push({ give: action.give, options });
+  }
+
+  return groups;
+}
+
+export function buildHumanActionList(
+  actions: readonly GameAction[]
+): HumanActionListItem[] {
+  const tradeItems: Extract<HumanActionListItem, { kind: 'trade-group' }>[] = [];
+  const buyDeedItems: Extract<
+    HumanActionListItem,
+    { kind: 'buy-deed-group' }
+  >[] = [];
+  const developDeedItems: Extract<
+    HumanActionListItem,
+    { kind: 'develop-deed-group' }
+  >[] = [];
+  const developOutrightItems: Extract<
+    HumanActionListItem,
+    { kind: 'develop-outright-group' }
+  >[] = [];
+  const nonGroupedByType = new Map<NonGroupedAction['type'], NonGroupedAction[]>();
   const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
   const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
   const developDeedGroups = new Map<string, { options: DevelopDeedAction[] }>();
-  const developOutrightGroups = new Map<string, { options: DevelopOutrightAction[] }>();
+  const developOutrightGroups = new Map<
+    CardId,
+    { options: DevelopOutrightAction[] }
+  >();
 
   for (const action of actions) {
     if (action.type === 'trade') {
@@ -66,7 +124,7 @@ export function buildHumanActionList(actions: readonly GameAction[]): HumanActio
       } else {
         const options = [action];
         tradeGroups.set(action.give, { options });
-        result.push({ kind: 'trade-group', give: action.give, options });
+        tradeItems.push({ kind: 'trade-group', give: action.give, options });
       }
       continue;
     }
@@ -78,7 +136,11 @@ export function buildHumanActionList(actions: readonly GameAction[]): HumanActio
       } else {
         const options = [action];
         buyDeedGroups.set(action.cardId, { options });
-        result.push({ kind: 'buy-deed-group', cardId: action.cardId, options });
+        buyDeedItems.push({
+          kind: 'buy-deed-group',
+          cardId: action.cardId,
+          options,
+        });
       }
       continue;
     }
@@ -91,7 +153,7 @@ export function buildHumanActionList(actions: readonly GameAction[]): HumanActio
       } else {
         const options = [action];
         developDeedGroups.set(groupKey, { options });
-        result.push({
+        developDeedItems.push({
           kind: 'develop-deed-group',
           cardId: action.cardId,
           districtId: action.districtId,
@@ -102,36 +164,61 @@ export function buildHumanActionList(actions: readonly GameAction[]): HumanActio
     }
 
     if (action.type === 'develop-outright') {
-      const paymentKey = paymentSignature(action.payment);
-      const groupKey = `${action.cardId}|${paymentKey}`;
-      const existing = developOutrightGroups.get(groupKey);
+      const existing = developOutrightGroups.get(action.cardId);
 
       if (existing) {
         existing.options.push(action);
       } else {
         const options = [action];
-        developOutrightGroups.set(groupKey, { options });
-        result.push({
+        developOutrightGroups.set(action.cardId, { options });
+        developOutrightItems.push({
           kind: 'develop-outright-group',
           cardId: action.cardId,
-          payment: action.payment,
-          paymentKey,
           options,
         });
       }
       continue;
     }
 
-    result.push({ kind: 'action', action });
+    const existing = nonGroupedByType.get(action.type);
+    if (existing) {
+      existing.push(action);
+    } else {
+      nonGroupedByType.set(action.type, [action]);
+    }
   }
 
-  return result;
+  const sellCardItems = toActionItems(nonGroupedByType.get('sell-card'));
+  const endTurnItems = toActionItems(nonGroupedByType.get('end-turn'));
+  const otherActionItems: Extract<HumanActionListItem, { kind: 'action' }>[] =
+    [];
+
+  for (const [type, grouped] of nonGroupedByType.entries()) {
+    if (type === 'sell-card' || type === 'end-turn') {
+      continue;
+    }
+    otherActionItems.push(...toActionItems(grouped));
+  }
+
+  return [
+    ...developOutrightItems,
+    ...buyDeedItems,
+    ...sellCardItems,
+    ...developDeedItems,
+    ...tradeItems,
+    ...otherActionItems,
+    ...endTurnItems,
+  ];
 }
 
-export function pickerStillLegal(picker: ActionPickerQuery, actions: readonly GameAction[]): boolean {
+export function pickerStillLegal(
+  picker: ActionPickerQuery,
+  actions: readonly GameAction[]
+): boolean {
   if (picker.kind === 'trade') {
     return actions.some(
-      (action): action is TradeAction => action.type === 'trade' && action.give === picker.give
+      (action): action is TradeAction =>
+        action.type === 'trade' && action.give === picker.give
     );
   }
 
@@ -145,7 +232,7 @@ export function pickerStillLegal(picker: ActionPickerQuery, actions: readonly Ga
     return options.length > 1;
   }
 
-  if (picker.actionType === 'buy-deed') {
+  if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
     const options = actions.filter(
       (action): action is BuyDeedAction =>
         action.type === 'buy-deed' && action.cardId === picker.cardId
@@ -153,13 +240,24 @@ export function pickerStillLegal(picker: ActionPickerQuery, actions: readonly Ga
     return options.length > 1;
   }
 
+  if (picker.kind === 'develop-outright-district') {
+    return actions.some(
+      (action): action is DevelopOutrightAction =>
+        action.type === 'develop-outright' && action.cardId === picker.cardId
+    );
+  }
+
+  if (picker.kind !== 'develop-outright-payment') {
+    return false;
+  }
+
   const options = actions.filter(
     (action): action is DevelopOutrightAction =>
       action.type === 'develop-outright' &&
       action.cardId === picker.cardId &&
-      paymentSignature(action.payment) === picker.paymentKey
+      action.districtId === picker.districtId
   );
-  return options.length > 1;
+  return options.length > 0;
 }
 
 export function buildPickerOptions(
@@ -169,7 +267,10 @@ export function buildPickerOptions(
 ): PickerOption[] {
   if (picker.kind === 'trade') {
     return actions
-      .filter((action): action is TradeAction => action.type === 'trade' && action.give === picker.give)
+      .filter(
+        (action): action is TradeAction =>
+          action.type === 'trade' && action.give === picker.give
+      )
       .map((action) => ({
         id: actionStableKey(action),
         label: `${suitEmoji[action.receive]} x1`,
@@ -192,7 +293,7 @@ export function buildPickerOptions(
       }));
   }
 
-  if (picker.actionType === 'buy-deed') {
+  if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
     return actions
       .filter(
         (action): action is BuyDeedAction =>
@@ -205,16 +306,39 @@ export function buildPickerOptions(
       }));
   }
 
+  if (picker.kind === 'develop-outright-district') {
+    const firstActionByDistrict = new Map<string, DevelopOutrightAction>();
+    for (const action of actions) {
+      if (
+        action.type !== 'develop-outright'
+        || action.cardId !== picker.cardId
+        || firstActionByDistrict.has(action.districtId)
+      ) {
+        continue;
+      }
+      firstActionByDistrict.set(action.districtId, action);
+    }
+    return [...firstActionByDistrict.values()].map((action) => ({
+      id: `develop-outright-district:${picker.cardId}:${action.districtId}`,
+      label: action.districtId,
+      action,
+    }));
+  }
+
+  if (picker.kind !== 'develop-outright-payment') {
+    return [];
+  }
+
   return actions
     .filter(
       (action): action is DevelopOutrightAction =>
         action.type === 'develop-outright' &&
         action.cardId === picker.cardId &&
-        paymentSignature(action.payment) === picker.paymentKey
+        action.districtId === picker.districtId
     )
     .map((action) => ({
       id: actionStableKey(action),
-      label: action.districtId,
+      label: formatTokens(action.payment, suitEmoji),
       action,
     }));
 }
@@ -231,20 +355,31 @@ export function pickerTitle(
     return `Develop deed ${cardSummary(picker.cardId, suitEmoji)} in ${picker.districtId} with`;
   }
 
-  if (picker.actionType === 'buy-deed') {
+  if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
     return `Buy deed ${cardSummary(picker.cardId, suitEmoji)} in`;
   }
 
-  return `Develop ${cardSummary(picker.cardId, suitEmoji)} (${formatTokens(
-    picker.payment ?? {},
+  if (picker.kind === 'develop-outright-district') {
+    return `Develop ${cardSummary(picker.cardId, suitEmoji)} in`;
+  }
+
+  if (picker.kind !== 'develop-outright-payment') {
+    return 'Select option';
+  }
+
+  return `Develop ${cardSummary(
+    picker.cardId,
     suitEmoji
-  )}) in`;
+  )} in ${picker.districtId} with`;
 }
 
-export function describeAction(action: GameAction, suitEmoji: Record<Suit, string>): string {
+export function describeAction(
+  action: GameAction,
+  suitEmoji: Record<Suit, string>
+): string {
   switch (action.type) {
     case 'end-turn':
-      return 'Draw card and end turn';
+      return 'End turn';
     case 'trade':
       return `Trade ${suitEmoji[action.give]}x3 for ${suitEmoji[action.receive]}x1`;
     case 'sell-card':
@@ -277,10 +412,15 @@ export function formatTokens(
   if (entries.length === 0) {
     return '-';
   }
-  return entries.map((entry) => `${suitEmoji[entry.suit]}x${entry.count}`).join(' ');
+  return entries
+    .map((entry) => `${suitEmoji[entry.suit]}x${entry.count}`)
+    .join(' ');
 }
 
-export function cardSummary(cardId: CardId, suitEmoji: Record<Suit, string>): string {
+export function cardSummary(
+  cardId: CardId,
+  suitEmoji: Record<Suit, string>
+): string {
   const card = CARD_BY_ID[cardId];
   const rank =
     card.kind === 'Property' || card.kind === 'Crown'
@@ -288,12 +428,26 @@ export function cardSummary(cardId: CardId, suitEmoji: Record<Suit, string>): st
       : card.kind === 'Pawn'
         ? 'P'
         : 'X';
-  const suits = card.kind === 'Excuse' ? '' : card.suits.map((suit) => suitEmoji[suit]).join('');
+  const suits =
+    card.kind === 'Excuse'
+      ? ''
+      : card.suits.map((suit) => suitEmoji[suit]).join('');
   return `${rank}${suits}`;
 }
 
-function tokenEntries(tokens: Partial<Record<Suit, number>>): Array<{ suit: Suit; count: number }> {
+function tokenEntries(
+  tokens: Partial<Record<Suit, number>>
+): Array<{ suit: Suit; count: number }> {
   return SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 })).filter(
     (entry) => entry.count > 0
   );
+}
+
+function toActionItems(
+  actions: readonly NonGroupedAction[] | undefined
+): Array<Extract<HumanActionListItem, { kind: 'action' }>> {
+  if (!actions || actions.length === 0) {
+    return [];
+  }
+  return actions.map((action) => ({ kind: 'action', action }));
 }

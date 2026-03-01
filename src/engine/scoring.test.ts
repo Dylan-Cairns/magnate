@@ -9,7 +9,7 @@ import {
   PLAYER_A,
   PLAYER_B,
 } from './__tests__/fixtures';
-import { isTerminal, scoreGame } from './scoring';
+import { districtWinnersByPlayer, isTerminal, scoreGame } from './scoring';
 
 describe('isTerminal', () => {
   it('returns true only for GameOver phase', () => {
@@ -54,10 +54,10 @@ describe('scoreGame', () => {
     expect(score.decidedBy).toBe('districts');
   });
 
-  it('uses rank-total tiebreaker when district points tie', () => {
+  it('counts an ace as 1 when it has no additional suit matches in the district', () => {
     const districts = withStacks('D1', {
-      [PLAYER_A]: { developed: ['0', '6'] },
-      [PLAYER_B]: { developed: ['15'] },
+      [PLAYER_A]: { developed: ['0'] },
+      [PLAYER_B]: { developed: ['6'] },
     });
     const state = makeGameState({
       phase: 'GameOver',
@@ -66,8 +66,37 @@ describe('scoreGame', () => {
     });
 
     const score = scoreGame(state);
-    expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 0 });
-    expect(score.rankTotals).toEqual({ PlayerA: 3, PlayerB: 5 });
+    expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 1 });
+    expect(score.winner).toBe('PlayerB');
+    expect(score.decidedBy).toBe('districts');
+  });
+
+  it('uses rank-total tiebreaker when district points tie', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: { developed: ['10'] },
+      [PLAYER_B]: { developed: ['6'] },
+    }).map((district) => {
+      if (district.id !== 'D2') {
+        return district;
+      }
+      return {
+        ...district,
+        stacks: {
+          ...district.stacks,
+          [PLAYER_A]: { developed: [asCardId('7')], deed: undefined },
+          [PLAYER_B]: { developed: [asCardId('15')], deed: undefined },
+        },
+      };
+    });
+    const state = makeGameState({
+      phase: 'GameOver',
+      districts,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+
+    const score = scoreGame(state);
+    expect(score.districtPoints).toEqual({ PlayerA: 1, PlayerB: 1 });
+    expect(score.rankTotals).toEqual({ PlayerA: 5, PlayerB: 7 });
     expect(score.winner).toBe('PlayerB');
     expect(score.decidedBy).toBe('rank-total');
   });
@@ -129,6 +158,68 @@ describe('scoreGame', () => {
     const score = scoreGame(state);
     expect(score.rankTotals).toEqual({ PlayerA: 2, PlayerB: 2 });
     expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 0 });
+  });
+
+  it('does not include in-development deeds in ace district bonus matching', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: {
+        developed: ['0', '10'],
+        deed: { cardId: '21', progress: 1, tokens: { Knots: 1 } },
+      },
+      [PLAYER_B]: { developed: ['18'] },
+    });
+    const state = makeGameState({
+      phase: 'GameOver',
+      districts,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+
+    const score = scoreGame(state);
+    expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 1 });
+    expect(score.rankTotals).toEqual({ PlayerA: 4, PlayerB: 6 });
+    expect(score.winner).toBe('PlayerB');
+    expect(score.decidedBy).toBe('districts');
+  });
+
+  it('exposes district winners by player using canonical district scoring', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: { developed: ['0', '6'] },
+      [PLAYER_B]: { developed: ['7'] },
+    }).map((district) => {
+      if (district.id === 'D2') {
+        return {
+          ...district,
+          stacks: {
+            ...district.stacks,
+            [PLAYER_A]: { developed: [asCardId('6')], deed: undefined },
+            [PLAYER_B]: { developed: [asCardId('7')], deed: undefined },
+          },
+        };
+      }
+      if (district.id === 'D3') {
+        return {
+          ...district,
+          stacks: {
+            ...district.stacks,
+            [PLAYER_A]: { developed: [asCardId('10')], deed: undefined },
+            [PLAYER_B]: { developed: [asCardId('18')], deed: undefined },
+          },
+        };
+      }
+      return district;
+    });
+
+    const state = makeGameState({
+      phase: 'GameOver',
+      districts,
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const,
+    });
+
+    expect(districtWinnersByPlayer(state)).toEqual({
+      PlayerA: ['D1'],
+      PlayerB: ['D3'],
+    });
+    expect(scoreGame(state).districtPoints).toEqual({ PlayerA: 1, PlayerB: 1 });
   });
 });
 

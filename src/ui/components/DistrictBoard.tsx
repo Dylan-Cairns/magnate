@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from '../../engine/cards';
+import { districtScore } from '../../engine/scoring';
 import { developmentCost, findProperty } from '../../engine/stateHelpers';
 import type { DistrictStack, DistrictState, ObservedPlayerState, PlayerId, Suit } from '../../engine/types';
 import { CardTile, type CardPerspective } from './CardTile';
@@ -43,10 +44,12 @@ function DistrictLane({
   playerId,
   stack,
   botPlayerId,
+  animateDeedProgress = true,
 }: {
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
+  animateDeedProgress?: boolean;
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
@@ -57,6 +60,7 @@ function DistrictLane({
     deedTokens?: Partial<Record<Suit, number>>;
     deedProgress?: number;
     deedTarget?: number;
+    inDevelopment?: boolean;
   }> = stack.developed.map((cardId, index) => ({
     key: `developed-${cardId}-${index}`,
     cardId,
@@ -69,6 +73,7 @@ function DistrictLane({
       deedTokens: stack.deed.tokens,
       deedProgress: stack.deed.progress,
       deedTarget,
+      inDevelopment: true,
     });
   }
 
@@ -77,7 +82,10 @@ function DistrictLane({
   } as CSSProperties;
 
   return (
-    <section className={`district-lane${playerId === botPlayerId ? ' is-bot' : ' is-human'}`}>
+    <section
+      className={`district-lane${playerId === botPlayerId ? ' is-bot' : ' is-human'}`}
+      data-lane-player-id={playerId}
+    >
       <div className={`lane-stack-frame${playerId === botPlayerId ? ' is-bot' : ''}`}>
         {laneCards.length > 0 ? (
           <div className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`} style={laneStyle}>
@@ -97,7 +105,9 @@ function DistrictLane({
                   deedTokens={laneCard.deedTokens}
                   deedProgress={laneCard.deedProgress}
                   deedTarget={laneCard.deedTarget}
+                  inDevelopment={laneCard.inDevelopment}
                   perspective={perspective}
+                  animateDeedProgress={animateDeedProgress}
                 />
               </div>
             ))}
@@ -112,30 +122,60 @@ export function DistrictColumn({
   district,
   humanPlayerId,
   botPlayerId,
+  animateDeedProgress = true,
 }: {
   district: DistrictState;
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
+  animateDeedProgress?: boolean;
 }) {
   const markerName = districtMarkerName(district.markerSuitMask);
+  const botDistrictScore = districtScore(district.stacks[botPlayerId]);
+  const humanDistrictScore = districtScore(district.stacks[humanPlayerId]);
+  const botLeadsDistrict = botDistrictScore > humanDistrictScore;
+  const humanLeadsDistrict = humanDistrictScore > botDistrictScore;
 
   return (
-    <article className="district-column">
-      <DistrictLane playerId={botPlayerId} stack={district.stacks[botPlayerId]} botPlayerId={botPlayerId} />
+    <article className="district-column" data-district-id={district.id}>
+      <DistrictLane
+        playerId={botPlayerId}
+        stack={district.stacks[botPlayerId]}
+        botPlayerId={botPlayerId}
+        animateDeedProgress={animateDeedProgress}
+      />
 
-      <header className="district-header">
-        <span className="district-id">{district.id}</span>
-        <strong className="district-marker-name" title={markerName}>
-          {markerName}
-        </strong>
-        {district.markerSuitMask.length > 0 ? (
-          <TokenRow className="district-marker-tokens" tokens={markerSuitTokens(district.markerSuitMask)} compact />
-        ) : (
-          <span className="district-marker-tokens district-marker-placeholder" aria-hidden="true" />
-        )}
-      </header>
+      <div className="district-header-wrap">
+        <span
+          className={`district-lane-score district-lane-score-bot${botLeadsDistrict ? ' is-leading' : ''}`}
+          aria-label={`District score: ${botDistrictScore}`}
+        >
+          {botDistrictScore}
+        </span>
+        <header className="district-header" title={markerName}>
+          <span className="district-id">{district.id}</span>
+          <strong className="district-marker-name" title={markerName}>
+            {markerName}
+          </strong>
+          {district.markerSuitMask.length > 0 ? (
+            <TokenRow className="district-marker-tokens" tokens={markerSuitTokens(district.markerSuitMask)} compact />
+          ) : (
+            <span className="district-marker-tokens district-marker-placeholder" aria-hidden="true" />
+          )}
+        </header>
+        <span
+          className={`district-lane-score district-lane-score-human${humanLeadsDistrict ? ' is-leading' : ''}`}
+          aria-label={`District score: ${humanDistrictScore}`}
+        >
+          {humanDistrictScore}
+        </span>
+      </div>
 
-      <DistrictLane playerId={humanPlayerId} stack={district.stacks[humanPlayerId]} botPlayerId={botPlayerId} />
+      <DistrictLane
+        playerId={humanPlayerId}
+        stack={district.stacks[humanPlayerId]}
+        botPlayerId={botPlayerId}
+        animateDeedProgress={animateDeedProgress}
+      />
     </article>
   );
 }
@@ -169,7 +209,11 @@ export function PlayerTokenRail({
   );
 
   return (
-    <section className={`token-rail token-rail-${side}`} aria-label={`${player.id} crowns and resources`}>
+    <section
+      className={`token-rail token-rail-${side}`}
+      aria-label={`${player.id} crowns and resources`}
+      data-token-rail-player-id={player.id}
+    >
       <div className="token-rail-inner">
         {side === 'human' ? (
           <>
