@@ -40,6 +40,11 @@
 - Bot policy failures are surfaced explicitly in the UI (no silent policy fallback).
 - Development-card progress rings now animate only on fill increases using UI-local interpolation; canonical `progress/target` math remains unchanged and deterministic.
 - Deed development now triggers a UI-only linear resource-flight animation from the acting player's resource rail to the deed token-side target on the in-development card (human and bot actions), and deed-token UI state is deferred until flight completion for visual consistency.
+- Buying/playing a property card (`buy-deed` or `develop-outright`) now triggers a UI-only linear card-flight animation from the acting player's hand area to the destination district lane, with board state commit deferred until flight completion; `buy-deed` flights render with in-development (deed) styling.
+- Card flights now also cover `sell-card` (acting hand -> discard pile) and `end-turn` draw resolution (deck -> acting hand); `sell-card` commits state at flight start so the sold card leaves hand immediately, and discard visibility is UI-held until settle so destination appearance aligns with flight completion.
+- Card flights now interpolate width/height across source and destination anchors so deck/discard size differences animate smoothly instead of snapping.
+- In-development deed token side assignment is now stable per card/perspective in UI layout memory, preventing existing suit tokens from switching columns when new suits are added.
+- Options menu now includes an Animations toggle persisted in browser `localStorage` (`magnate:animationsEnabled`); when disabled, flight animations are skipped and deed-progress rings render without tweening.
 
 ### Bridge
 
