@@ -74,6 +74,9 @@ Design expectations:
 
 - Current baseline policy is determinized rollout search.
 - Search is treated as warm-start infrastructure, not final architecture.
+- TD/Keldon pipeline is being built incrementally:
+  - Phase 1 landed shared primitives (`trainer/td`).
+  - Phase 2+ adds orchestrated self-play/replay/train/eval loops.
 - Canonical evaluation is side-swapped paired-seed runs (`scripts.eval_suite`).
 - Python policy surface is intentionally narrow during TD pivot:
   - `random`
