@@ -126,6 +126,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-seed-prefix", type=str, default="td-loop-eval")
     parser.add_argument("--eval-seed-start-index", type=int, default=0)
     parser.add_argument("--eval-all-checkpoints", action="store_true")
+    parser.add_argument(
+        "--eval-first-last-checkpoints",
+        action="store_true",
+        help="Evaluate both earliest and latest eligible checkpoints.",
+    )
     parser.add_argument("--eval-search-worlds", type=int, default=6)
     parser.add_argument("--eval-search-rollouts", type=int, default=1)
     parser.add_argument("--eval-search-depth", type=int, default=14)
@@ -193,6 +198,7 @@ def main() -> int:
         checkpoints=checkpoints,
         candidate_policy=args.eval_candidate_policy,
         all_checkpoints=args.eval_all_checkpoints,
+        first_last_checkpoints=args.eval_first_last_checkpoints,
     )
     if not selected:
         raise SystemExit("No checkpoints selected for evaluation.")
@@ -221,6 +227,8 @@ def main() -> int:
             row.step,
         ),
     )
+    by_step_rows = sorted(eval_rows, key=lambda row: row.step)
+    improvement = _compute_improvement(by_step_rows)
 
     loop_elapsed = time.perf_counter() - loop_started
     payload: Dict[str, Any] = {
@@ -257,6 +265,21 @@ def main() -> int:
             }
             for row in ranked_rows
         ],
+        "evaluationsByStep": [
+            {
+                "step": row.step,
+                "artifact": str(row.artifact),
+                "candidateWinRate": row.candidate_win_rate,
+                "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
+                "sideGap": row.side_gap,
+                "candidateWins": row.candidate_wins,
+                "opponentWins": row.opponent_wins,
+                "draws": row.draws,
+                "totalGames": row.total_games,
+            }
+            for row in by_step_rows
+        ],
+        "improvement": improvement,
     }
     loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -271,6 +294,7 @@ def main() -> int:
                 "bestCandidateWinRate": best.candidate_win_rate,
                 "bestCi95": {"low": best.ci_low, "high": best.ci_high},
                 "bestSideGap": best.side_gap,
+                "improvement": improvement,
             },
             indent=2,
         )
@@ -751,6 +775,7 @@ def _select_eval_checkpoints(
     checkpoints: Sequence[LoopCheckpoint],
     candidate_policy: str,
     all_checkpoints: bool,
+    first_last_checkpoints: bool,
 ) -> List[LoopCheckpoint]:
     if candidate_policy == "td-search":
         eligible = [
@@ -766,7 +791,28 @@ def _select_eval_checkpoints(
         raise SystemExit(f"No eligible checkpoints for candidate policy {candidate_policy}.")
     if all_checkpoints:
         return list(eligible)
+    if first_last_checkpoints:
+        if len(eligible) == 1:
+            return [eligible[0]]
+        return [eligible[0], eligible[-1]]
     return [eligible[-1]]
+
+
+def _compute_improvement(rows_by_step: Sequence[EvalRow]) -> Dict[str, Any] | None:
+    if len(rows_by_step) < 2:
+        return None
+    first = rows_by_step[0]
+    last = rows_by_step[-1]
+    return {
+        "fromStep": first.step,
+        "toStep": last.step,
+        "fromCandidateWinRate": first.candidate_win_rate,
+        "toCandidateWinRate": last.candidate_win_rate,
+        "deltaCandidateWinRate": last.candidate_win_rate - first.candidate_win_rate,
+        "fromSideGap": first.side_gap,
+        "toSideGap": last.side_gap,
+        "deltaSideGap": last.side_gap - first.side_gap,
+    }
 
 
 def _read_eval_row(path: Path, step: int) -> EvalRow:
@@ -834,6 +880,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "seedPrefix": args.eval_seed_prefix,
             "seedStartIndex": args.eval_seed_start_index,
             "allCheckpoints": bool(args.eval_all_checkpoints),
+            "firstLastCheckpoints": bool(args.eval_first_last_checkpoints),
             "search": {
                 "worlds": args.eval_search_worlds,
                 "rollouts": args.eval_search_rollouts,
