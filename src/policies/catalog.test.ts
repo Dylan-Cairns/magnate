@@ -39,6 +39,13 @@ describe('bot policy catalog', () => {
     );
   });
 
+  it('includes a heuristic profile', () => {
+    const heuristic = getBotProfile('heuristic');
+
+    expect(heuristic.kind).toBe('heuristic');
+    expect(heuristic.available).toBe(true);
+  });
+
   it('includes a fast td-search profile', () => {
     expect(BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')).toBe(
       true

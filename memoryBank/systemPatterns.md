@@ -35,6 +35,8 @@ Design expectations:
   - available profiles use their own policy implementation
   - unavailable profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
   - current browser profiles prioritize deterministic search-based play
+- Browser heuristic play should use one shared TypeScript scorer for direct heuristic play, rollout-search root ranking, and TD-search heuristic root priors.
+- Heuristic scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Browser model-backed policies should load from static model-pack artifacts:
   - `public/model-packs/index.json` selects default pack
   - each pack provides `manifest.json` + `weights.json`
