@@ -150,7 +150,7 @@ export function scoreHeuristicAction(
   }
   if (action.type === 'buy-deed') {
     score += cardRank * 0.25;
-    if (cardRank <= 2) {
+    if (cardRank === 2) {
       score -= 100.0;
     }
     if (cardRank >= HIGH_RANK_DEED_THRESHOLD && isLateGame(context.state)) {

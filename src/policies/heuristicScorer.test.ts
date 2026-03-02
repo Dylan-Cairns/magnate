@@ -107,6 +107,26 @@ describe('heuristic scorer', () => {
     );
   });
 
+  it('does not reject ace deed purchases as rank 2 deeds', () => {
+    const state = heuristicFixtureState({
+      resources: fixtureResources({ Knots: 1 }),
+      hand: ['0'],
+    });
+    const buyAce: GameAction = {
+      type: 'buy-deed',
+      cardId: '0',
+      districtId: 'D0',
+    };
+    const sellAce: GameAction = {
+      type: 'sell-card',
+      cardId: '0',
+    };
+
+    expect(scoreHeuristicAction(buyAce, { state })).toBeGreaterThan(
+      scoreHeuristicAction(sellAce, { state })
+    );
+  });
+
   it('avoids high-rank deed purchases in the final turns', () => {
     const state = heuristicFixtureState({
       finalTurnsRemaining: 2,
