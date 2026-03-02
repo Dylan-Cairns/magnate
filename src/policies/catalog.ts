@@ -28,10 +28,10 @@ export interface ResolvedBotProfile {
 }
 
 const rolloutEvalSearchPolicy = createSearchPolicy({
-  worlds: 64,
-  rollouts: 8,
-  depth: 28,
-  maxRootActions: 12,
+  worlds: 8,
+  rollouts: 4,
+  depth: 14,
+  maxRootActions: 8,
   rolloutEpsilon: 0.0,
 });
 const tdSearchFastPolicy = createTdSearchPolicy({

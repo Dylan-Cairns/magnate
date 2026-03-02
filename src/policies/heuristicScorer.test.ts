@@ -233,6 +233,90 @@ describe('heuristic scorer', () => {
     expect(ranked[0].action).toEqual(shelterSurplusSun);
   });
 
+  it('prefers ending the turn over non-completing deed progress that spends a last suit token', () => {
+    const state = heuristicFixtureState({
+      cardPlayedThisTurn: true,
+      resources: fixtureResources({ Moons: 1 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeed: { cardId: '29', progress: 6, tokens: { Suns: 6 } },
+        }),
+        fixtureDistrict({ id: 'D1' }),
+        fixtureDistrict({ id: 'D2' }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const spendLastMoon: GameAction = {
+      type: 'develop-deed',
+      cardId: '29',
+      districtId: 'D0',
+      tokens: { Moons: 1 },
+    };
+    const endTurn: GameAction = { type: 'end-turn' };
+
+    expect(scoreHeuristicAction(endTurn, { state })).toBeGreaterThan(
+      scoreHeuristicAction(spendLastMoon, { state })
+    );
+  });
+
+  it('still completes a deed with the last token when completion is available', () => {
+    const state = heuristicFixtureState({
+      cardPlayedThisTurn: true,
+      resources: fixtureResources({ Moons: 1 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeed: { cardId: '29', progress: 8, tokens: { Suns: 8 } },
+        }),
+        fixtureDistrict({ id: 'D1' }),
+        fixtureDistrict({ id: 'D2' }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const completeDeed: GameAction = {
+      type: 'develop-deed',
+      cardId: '29',
+      districtId: 'D0',
+      tokens: { Moons: 1 },
+    };
+    const endTurn: GameAction = { type: 'end-turn' };
+
+    expect(scoreHeuristicAction(completeDeed, { state })).toBeGreaterThan(
+      scoreHeuristicAction(endTurn, { state })
+    );
+  });
+
+  it('allows non-completing deed progress with surplus tokens in a useful district', () => {
+    const state = heuristicFixtureState({
+      cardPlayedThisTurn: true,
+      resources: fixtureResources({ Moons: 2 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeed: { cardId: '29', progress: 6, tokens: { Suns: 6 } },
+        }),
+        fixtureDistrict({ id: 'D1' }),
+        fixtureDistrict({ id: 'D2' }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const shelterSurplusMoon: GameAction = {
+      type: 'develop-deed',
+      cardId: '29',
+      districtId: 'D0',
+      tokens: { Moons: 1 },
+    };
+    const endTurn: GameAction = { type: 'end-turn' };
+
+    expect(scoreHeuristicAction(shelterSurplusMoon, { state })).toBeGreaterThan(
+      scoreHeuristicAction(endTurn, { state })
+    );
+  });
+
   it('penalizes trades that do not unlock a high-value move', () => {
     const state = heuristicFixtureState({
       resources: fixtureResources({ Moons: 3 }),
@@ -373,6 +457,133 @@ describe('heuristic scorer', () => {
 
     expect(ranked[0].action).toEqual(defendFragile);
   });
+
+  it('prefers a credible third-district deed start over a safe controlled district', () => {
+    const state = heuristicFixtureState({
+      hand: ['23'],
+      resources: fixtureResources({ Moons: 1, Leaves: 1 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeveloped: ['19'],
+        }),
+        fixtureDistrict({
+          id: 'D1',
+          playerADeveloped: ['29'],
+        }),
+        fixtureDistrict({
+          id: 'D2',
+          playerADeveloped: ['25'],
+          playerBDeveloped: ['29'],
+        }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const safeControlledDistrict: GameAction = {
+      type: 'buy-deed',
+      cardId: '23',
+      districtId: 'D0',
+    };
+    const credibleThirdDistrict: GameAction = {
+      type: 'buy-deed',
+      cardId: '23',
+      districtId: 'D2',
+    };
+
+    const ranked = rankHeuristicActions(
+      [safeControlledDistrict, credibleThirdDistrict],
+      { state }
+    );
+
+    expect(ranked[0].action).toEqual(credibleThirdDistrict);
+  });
+
+  it('prefers selling over dumping a card into a safe district when expansion is unrealistic', () => {
+    const state = heuristicFixtureState({
+      hand: ['15'],
+      resources: fixtureResources({ Suns: 2, Waves: 3 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeveloped: ['19'],
+        }),
+        fixtureDistrict({
+          id: 'D1',
+          playerADeveloped: ['29'],
+        }),
+        fixtureDistrict({
+          id: 'D2',
+          playerBDeveloped: ['29', '25'],
+        }),
+        fixtureDistrict({
+          id: 'D3',
+          playerBDeveloped: ['27', '17'],
+        }),
+        fixtureDistrict({
+          id: 'D4',
+          playerBDeveloped: ['28', '24'],
+        }),
+      ],
+    });
+    const overinvest: GameAction = {
+      type: 'develop-outright',
+      cardId: '15',
+      districtId: 'D0',
+      payment: { Suns: 2, Waves: 3 },
+    };
+    const sell: GameAction = {
+      type: 'sell-card',
+      cardId: '15',
+    };
+
+    expect(scoreHeuristicAction(sell, { state })).toBeGreaterThan(
+      scoreHeuristicAction(overinvest, { state })
+    );
+  });
+
+  it('treats far-from-complete opponent deeds as less urgent than close deeds', () => {
+    const farThreat = heuristicFixtureState({
+      hand: ['25'],
+      resources: fixtureResources({ Moons: 4, Suns: 4 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeveloped: ['18'],
+          playerBDeed: { cardId: '27', progress: 0, tokens: {} },
+        }),
+        fixtureDistrict({ id: 'D1' }),
+        fixtureDistrict({ id: 'D2' }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const closeThreat = heuristicFixtureState({
+      hand: ['25'],
+      resources: fixtureResources({ Moons: 4, Suns: 4 }),
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeveloped: ['18'],
+          playerBDeed: { cardId: '27', progress: 7, tokens: { Waves: 7 } },
+        }),
+        fixtureDistrict({ id: 'D1' }),
+        fixtureDistrict({ id: 'D2' }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const defendDistrict: GameAction = {
+      type: 'develop-outright',
+      cardId: '25',
+      districtId: 'D0',
+      payment: { Moons: 4, Suns: 4 },
+    };
+
+    expect(scoreHeuristicAction(defendDistrict, { state: closeThreat })).toBeGreaterThan(
+      scoreHeuristicAction(defendDistrict, { state: farThreat })
+    );
+  });
 });
 
 describe('heuristic policy', () => {
@@ -407,12 +618,14 @@ function heuristicFixtureState({
   finalTurnsRemaining,
   hand = ['6', '9', '13', '29'],
   crowns = [],
+  cardPlayedThisTurn = false,
 }: {
   resources?: ResourcePool;
   districts?: DistrictState[];
   finalTurnsRemaining?: number;
   hand?: CardId[];
   crowns?: CardId[];
+  cardPlayedThisTurn?: boolean;
 } = {}): GameState {
   return {
     schemaVersion: 1,
@@ -441,7 +654,7 @@ function heuristicFixtureState({
     turn: 20,
     phase: 'ActionWindow',
     districts,
-    cardPlayedThisTurn: false,
+    cardPlayedThisTurn,
     finalTurnsRemaining,
     log: [],
   };
@@ -452,11 +665,13 @@ function fixtureDistrict({
   playerADeveloped = [],
   playerBDeveloped = [],
   playerADeed,
+  playerBDeed,
 }: {
   id: string;
   playerADeveloped?: CardId[];
   playerBDeveloped?: CardId[];
   playerADeed?: DeedState;
+  playerBDeed?: DeedState;
 }): DistrictState {
   return {
     id,
@@ -468,6 +683,7 @@ function fixtureDistrict({
       },
       PlayerB: {
         developed: playerBDeveloped,
+        deed: playerBDeed,
       },
     },
   };
