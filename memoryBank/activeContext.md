@@ -36,6 +36,7 @@
   - `scripts/eval_suite.py`
   - `trainer/eval_suite.py`
   - deterministic game sharding via `--workers`
+  - shard/summary leg reporting is seat-keyed (`winsBySeat` + `policyBySeat`) to prevent same-policy-name collisions
 - Search internals remain modularized:
   - `trainer/search/belief_sampler.py`
   - `trainer/search/forward_model.py`

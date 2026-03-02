@@ -152,6 +152,7 @@ def _match_summary_to_json(summary: MatchSummary) -> Dict[str, object]:
     return {
         "games": summary.games,
         "winners": dict(summary.winners),
-        "winsByPolicy": dict(summary.wins_by_policy),
+        "winsBySeat": dict(summary.wins_by_seat),
+        "policyBySeat": dict(summary.policy_name_by_seat),
         "averageTurn": summary.average_turn,
     }

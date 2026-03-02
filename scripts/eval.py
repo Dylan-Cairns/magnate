@@ -177,7 +177,7 @@ def main() -> int:
                 completed_games: int,
                 total_games: int,
                 winners: dict,
-                _wins_by_policy: dict,
+                _wins_by_seat: dict,
             ) -> None:
                 elapsed_minutes = (time.perf_counter() - started_at) / 60.0
                 player_a_wins = int(winners.get("PlayerA", 0))
@@ -248,7 +248,8 @@ def main() -> int:
         "results": {
             "games": summary.games,
             "winners": summary.winners,
-            "winsByPolicy": summary.wins_by_policy,
+            "winsBySeat": summary.wins_by_seat,
+            "policyBySeat": summary.policy_name_by_seat,
             "averageTurn": summary.average_turn,
         },
     }
@@ -260,7 +261,8 @@ def main() -> int:
                 "artifact": str(output_path),
                 "games": payload["results"]["games"],
                 "winners": payload["results"]["winners"],
-                "winsByPolicy": payload["results"]["winsByPolicy"],
+                "winsBySeat": payload["results"]["winsBySeat"],
+                "policyBySeat": payload["results"]["policyBySeat"],
                 "averageTurn": payload["results"]["averageTurn"],
             },
             indent=2,
