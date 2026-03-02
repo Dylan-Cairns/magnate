@@ -36,6 +36,7 @@ Design expectations:
   - unavailable profiles are disabled in UI; profile resolution throws if selected programmatically (no silent fallback)
   - current browser profiles prioritize deterministic search-based play
 - Browser heuristic play should use one shared TypeScript scorer for direct heuristic play, rollout-search root ranking, and TD-search heuristic root priors.
+- Browser rollout-search leaf evaluation should stay separate from action scoring and estimate unfinished rollout states from canonical district scoring, deed potential/threat pressure, late-game urgency, and resource quality.
 - Heuristic scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
