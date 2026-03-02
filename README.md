@@ -4,7 +4,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## At A Glance
 
-- Browser game is playable; default bot is `TD Search`.
+- Browser game is playable; default bot is `Rollout Search`.
 - Browser bot profiles currently include `TD Search`, `TD Search Fast`, `Heuristic`, `Rollout Search`, and `Random legal`.
 - TypeScript engine is the canonical rules implementation.
 - Python training and evaluation call the engine through the Node bridge.
