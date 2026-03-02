@@ -57,6 +57,9 @@ Design expectations:
 - Characterization tests should protect UI commit timing, tax-resource previews,
   composite picker resolution/invalidation, and log presentation while
   `App.tsx` is decomposed.
+- Stateless browser rendering blocks should live under `src/ui/components/`
+  and receive derived data plus callbacks from `App.tsx`; selector-bearing
+  classes, IDs, and `data-*` animation anchors are compatibility surfaces.
 
 ## Turn-Flow Pattern
 
