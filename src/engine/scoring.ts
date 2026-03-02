@@ -89,7 +89,10 @@ export function districtScore(stack: DistrictStack): number {
 }
 
 function rankTotal(stack: DistrictStack): number {
-  return developedProperties(stack).reduce((sum, property) => sum + property.rank, 0);
+  return developedProperties(stack).reduce(
+    (sum, property) => sum + property.rank,
+    0
+  );
 }
 
 function developedProperties(stack: DistrictStack) {
@@ -110,13 +113,17 @@ function decideWinner(
   resourceTotals: Record<PlayerId, number>
 ): Winner {
   if (districtPoints.PlayerA !== districtPoints.PlayerB) {
-    return districtPoints.PlayerA > districtPoints.PlayerB ? 'PlayerA' : 'PlayerB';
+    return districtPoints.PlayerA > districtPoints.PlayerB
+      ? 'PlayerA'
+      : 'PlayerB';
   }
   if (rankTotals.PlayerA !== rankTotals.PlayerB) {
     return rankTotals.PlayerA > rankTotals.PlayerB ? 'PlayerA' : 'PlayerB';
   }
   if (resourceTotals.PlayerA !== resourceTotals.PlayerB) {
-    return resourceTotals.PlayerA > resourceTotals.PlayerB ? 'PlayerA' : 'PlayerB';
+    return resourceTotals.PlayerA > resourceTotals.PlayerB
+      ? 'PlayerA'
+      : 'PlayerB';
   }
   return 'Draw';
 }

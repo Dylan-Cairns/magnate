@@ -99,8 +99,16 @@ describe('advanceToDecision', () => {
       turn: 1,
       activePlayerIndex: 0,
       players: [
-        makePlayer(PLAYER_A, { hand: ['6'], crowns: [], resources: makeResources() }),
-        makePlayer(PLAYER_B, { hand: ['7'], crowns: [], resources: makeResources() }),
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          crowns: [],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B, {
+          hand: ['7'],
+          crowns: [],
+          resources: makeResources(),
+        }),
       ],
     });
 
@@ -264,9 +272,9 @@ describe('tax and income resolution', () => {
     });
 
     const advanced = advanceToDecision(state);
-    expect(advanced.lastIncomeRoll?.die1 === 1 || advanced.lastIncomeRoll?.die2 === 1).toBe(
-      true
-    );
+    expect(
+      advanced.lastIncomeRoll?.die1 === 1 || advanced.lastIncomeRoll?.die2 === 1
+    ).toBe(true);
 
     advanced.players.forEach((player) => {
       const values = Object.values(player.resources);
@@ -323,9 +331,12 @@ describe('tax and income resolution', () => {
     expect(
       advanced.lastIncomeRoll?.die1 === 1 || advanced.lastIncomeRoll?.die2 === 1
     ).toBe(true);
-    expect(Math.max(advanced.lastIncomeRoll?.die1 ?? 0, advanced.lastIncomeRoll?.die2 ?? 0)).toBe(
-      2
-    );
+    expect(
+      Math.max(
+        advanced.lastIncomeRoll?.die1 ?? 0,
+        advanced.lastIncomeRoll?.die2 ?? 0
+      )
+    ).toBe(2);
 
     const playerA = advanced.players.find((player) => player.id === PLAYER_A);
     if (!playerA) {
@@ -334,8 +345,8 @@ describe('tax and income resolution', () => {
     expect(playerA.resources.Moons).toBe(2);
     expect(playerA.resources.Knots).toBe(1);
 
-    const deed = advanced.districts.find((district) => district.id === 'D2')?.stacks[PLAYER_A]
-      .deed;
+    const deed = advanced.districts.find((district) => district.id === 'D2')
+      ?.stacks[PLAYER_A].deed;
     expect(deed?.tokens).toEqual({ Moons: 3 });
   });
 
@@ -344,8 +355,14 @@ describe('tax and income resolution', () => {
       phase: 'CollectIncome',
       lastIncomeRoll: { die1: 10, die2: 7 },
       players: [
-        makePlayer(PLAYER_A, { resources: makeResources(), crowns: ['30', '31', '32'] }),
-        makePlayer(PLAYER_B, { resources: makeResources(), crowns: ['30', '31', '32'] }),
+        makePlayer(PLAYER_A, {
+          resources: makeResources(),
+          crowns: ['30', '31', '32'],
+        }),
+        makePlayer(PLAYER_B, {
+          resources: makeResources(),
+          crowns: ['30', '31', '32'],
+        }),
       ],
     });
 
@@ -437,8 +454,12 @@ describe('tax and income resolution', () => {
 
     const advancedA = advanceToDecision(rollA);
     const advancedB = advanceToDecision(rollB);
-    const playerAFromA = advancedA.players.find((player) => player.id === PLAYER_A);
-    const playerAFromB = advancedB.players.find((player) => player.id === PLAYER_A);
+    const playerAFromA = advancedA.players.find(
+      (player) => player.id === PLAYER_A
+    );
+    const playerAFromB = advancedB.players.find(
+      (player) => player.id === PLAYER_A
+    );
     if (!playerAFromA || !playerAFromB) {
       throw new Error('Missing PlayerA.');
     }
@@ -457,7 +478,10 @@ describe('tax and income resolution', () => {
           resources: makeResources({ Moons: 2, Knots: 1 }),
           crowns: [],
         }),
-        makePlayer(PLAYER_B, { resources: makeResources({ Suns: 1 }), crowns: [] }),
+        makePlayer(PLAYER_B, {
+          resources: makeResources({ Suns: 1 }),
+          crowns: [],
+        }),
       ] as const,
     });
 
@@ -645,12 +669,16 @@ describe('tax and income resolution', () => {
     const choice1 = findLegalActionByType(advanced, 'choose-income-suit');
     const afterChoice1 = applyAction(advanced, choice1);
     expect(afterChoice1.phase).toBe('CollectIncome');
-    expect(afterChoice1.players[afterChoice1.activePlayerIndex].id).toBe(PLAYER_A);
+    expect(afterChoice1.players[afterChoice1.activePlayerIndex].id).toBe(
+      PLAYER_A
+    );
     expect(afterChoice1.pendingIncomeChoices).toHaveLength(2);
 
     const choice2 = findLegalActionByType(afterChoice1, 'choose-income-suit');
     const afterChoice2 = applyAction(afterChoice1, choice2);
-    expect(afterChoice2.players[afterChoice2.activePlayerIndex].id).toBe(PLAYER_B);
+    expect(afterChoice2.players[afterChoice2.activePlayerIndex].id).toBe(
+      PLAYER_B
+    );
     expect(afterChoice2.pendingIncomeChoices).toHaveLength(1);
 
     const choice3 = findLegalActionByType(afterChoice2, 'choose-income-suit');
@@ -665,8 +693,12 @@ describe('tax and income resolution', () => {
     if (!playerA || !playerB) {
       throw new Error('Missing expected players.');
     }
-    expect(Object.values(playerA.resources).reduce((sum, value) => sum + value, 0)).toBe(2);
-    expect(Object.values(playerB.resources).reduce((sum, value) => sum + value, 0)).toBe(1);
+    expect(
+      Object.values(playerA.resources).reduce((sum, value) => sum + value, 0)
+    ).toBe(2);
+    expect(
+      Object.values(playerB.resources).reduce((sum, value) => sum + value, 0)
+    ).toBe(1);
   });
 
   it('CollectIncome on double ones pays ace income for ace properties in play', () => {
@@ -730,15 +762,23 @@ function findSeedWithTaxTrigger(): string {
     });
 
     const advanced = advanceToDecision(state);
-    if (advanced.lastIncomeRoll?.die1 === 1 || advanced.lastIncomeRoll?.die2 === 1) {
+    if (
+      advanced.lastIncomeRoll?.die1 === 1 ||
+      advanced.lastIncomeRoll?.die2 === 1
+    ) {
       return seed;
     }
   }
 
-  throw new Error('Failed to find a deterministic seed that triggers taxation.');
+  throw new Error(
+    'Failed to find a deterministic seed that triggers taxation.'
+  );
 }
 
-function findSeedWithTaxSuitAndMaxRoll(expectedTaxSuit: string, maxRoll: number): string {
+function findSeedWithTaxSuitAndMaxRoll(
+  expectedTaxSuit: string,
+  maxRoll: number
+): string {
   const taxSuitToDie: Record<string, number> = {
     Moons: 1,
     Suns: 2,

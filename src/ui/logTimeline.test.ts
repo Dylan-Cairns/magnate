@@ -43,8 +43,12 @@ describe('transitionLogEntries', () => {
     const previous = withLog(
       makeGameState({
         players: [
-          makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1, Suns: 0 }) }),
-          makePlayer(PLAYER_B, { resources: makeResources({ Moons: 0, Suns: 0 }) }),
+          makePlayer(PLAYER_A, {
+            resources: makeResources({ Moons: 1, Suns: 0 }),
+          }),
+          makePlayer(PLAYER_B, {
+            resources: makeResources({ Moons: 0, Suns: 0 }),
+          }),
         ] as const,
       }),
       [
@@ -63,8 +67,12 @@ describe('transitionLogEntries', () => {
           phase: 'ActionWindow',
           activePlayerIndex: 1,
           players: [
-            makePlayer(PLAYER_A, { resources: makeResources({ Moons: 2, Suns: 0 }) }),
-            makePlayer(PLAYER_B, { resources: makeResources({ Moons: 0, Suns: 1 }) }),
+            makePlayer(PLAYER_A, {
+              resources: makeResources({ Moons: 2, Suns: 0 }),
+            }),
+            makePlayer(PLAYER_B, {
+              resources: makeResources({ Moons: 0, Suns: 1 }),
+            }),
           ] as const,
           lastIncomeRoll: { die1: 7, die2: 4 },
         }),
@@ -96,14 +104,12 @@ describe('transitionLogEntries', () => {
     const previous = withLog(
       makeGameState({
         players: [
-          makePlayer(
-            PLAYER_A,
-            { resources: makeResources({ Moons: 3, Suns: 0, Leaves: 1 }) }
-          ),
-          makePlayer(
-            PLAYER_B,
-            { resources: makeResources({ Moons: 2, Suns: 1, Leaves: 0 }) }
-          ),
+          makePlayer(PLAYER_A, {
+            resources: makeResources({ Moons: 3, Suns: 0, Leaves: 1 }),
+          }),
+          makePlayer(PLAYER_B, {
+            resources: makeResources({ Moons: 2, Suns: 1, Leaves: 0 }),
+          }),
         ] as const,
       }),
       []
@@ -115,14 +121,12 @@ describe('transitionLogEntries', () => {
           phase: 'CollectIncome',
           activePlayerIndex: 0,
           players: [
-            makePlayer(
-              PLAYER_A,
-              { resources: makeResources({ Moons: 1, Suns: 1, Leaves: 1 }) }
-            ),
-            makePlayer(
-              PLAYER_B,
-              { resources: makeResources({ Moons: 1, Suns: 1, Leaves: 0 }) }
-            ),
+            makePlayer(PLAYER_A, {
+              resources: makeResources({ Moons: 1, Suns: 1, Leaves: 1 }),
+            }),
+            makePlayer(PLAYER_B, {
+              resources: makeResources({ Moons: 1, Suns: 1, Leaves: 0 }),
+            }),
           ] as const,
           lastIncomeRoll: { die1: 1, die2: 8 },
           pendingIncomeChoices: [

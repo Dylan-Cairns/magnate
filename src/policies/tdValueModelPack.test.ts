@@ -69,8 +69,7 @@ describe('td value model pack', () => {
     observation[0] = 0.4;
     observation[1] = 0.1;
     const score = network.predict(observation);
-    const expected =
-      Math.tanh(Math.tanh(0.4)) - Math.tanh(Math.tanh(0.1));
+    const expected = Math.tanh(Math.tanh(0.4)) - Math.tanh(Math.tanh(0.1));
     expect(score).toBeCloseTo(expected, 6);
   });
 });

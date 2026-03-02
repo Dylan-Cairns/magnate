@@ -25,11 +25,20 @@ export function evaluateSearchLeafState(
   const districtTerm = districtControlTerm(state, rootPlayer, opponent);
   const rankTerm = developedRankTerm(state, rootPlayer, opponent);
   const deedTerm = deedPotentialTerm(state, rootPlayer, opponent);
-  const resourceTerm = resourceQualityTerm(root.resources, opponentState.resources);
+  const resourceTerm = resourceQualityTerm(
+    root.resources,
+    opponentState.resources
+  );
 
   const score = lateGame
-    ? 0.7 * districtTerm + 0.18 * rankTerm + 0.05 * deedTerm + 0.07 * resourceTerm
-    : 0.56 * districtTerm + 0.16 * rankTerm + 0.18 * deedTerm + 0.1 * resourceTerm;
+    ? 0.7 * districtTerm +
+      0.18 * rankTerm +
+      0.05 * deedTerm +
+      0.07 * resourceTerm
+    : 0.56 * districtTerm +
+      0.16 * rankTerm +
+      0.18 * deedTerm +
+      0.1 * resourceTerm;
 
   return clamp(score, -1, 1);
 }
@@ -82,7 +91,13 @@ function deedPotentialTerm(
   for (const district of state.districts) {
     diff +=
       deedPotentialForPlayer(state, district, rootPlayer, opponent, root) -
-      deedPotentialForPlayer(state, district, opponent, rootPlayer, opponentState);
+      deedPotentialForPlayer(
+        state,
+        district,
+        opponent,
+        rootPlayer,
+        opponentState
+      );
   }
   return clamp(diff / Math.max(1, state.districts.length), -1, 1);
 }
@@ -113,7 +128,12 @@ function deedPotentialForPlayer(
   const remaining = Math.max(0, target - deed.progress);
   const progressRatio = clamp(deed.progress / target, 0, 1);
   const progressWeight = deedProgressWeight(progressRatio, remaining);
-  const accessMultiplier = deedAccessMultiplier(state, playerId, player, card.suits);
+  const accessMultiplier = deedAccessMultiplier(
+    state,
+    playerId,
+    player,
+    card.suits
+  );
   const ownCurrentScore = districtScore(stack);
   const opponentScore = districtScore(district.stacks[opponentId]);
   const ownCompletedScore = districtScore({
@@ -124,7 +144,11 @@ function deedPotentialForPlayer(
   const controlImpact = deedControlImpact(currentMargin, completedMargin);
   const rankImpact = card.rank / 9;
 
-  return progressWeight * accessMultiplier * (0.78 * controlImpact + 0.22 * rankImpact);
+  return (
+    progressWeight *
+    accessMultiplier *
+    (0.78 * controlImpact + 0.22 * rankImpact)
+  );
 }
 
 function deedProgressWeight(progressRatio: number, remaining: number): number {
@@ -146,7 +170,10 @@ function deedProgressWeight(progressRatio: number, remaining: number): number {
   return 0.04;
 }
 
-function deedControlImpact(currentMargin: number, completedMargin: number): number {
+function deedControlImpact(
+  currentMargin: number,
+  completedMargin: number
+): number {
   if (completedMargin > 0 && currentMargin <= 0) {
     return 1;
   }
@@ -182,10 +209,18 @@ function deedAccessMultiplier(
   return Math.max(0.35, 1 - missingSuits * 0.25);
 }
 
-function resourceQualityTerm(root: ResourcePool, opponent: ResourcePool): number {
-  const coverageDiff = (suitCoverage(root) - suitCoverage(opponent)) / SUITS.length;
-  const resourceTotalTerm = Math.tanh((resourceTotal(root) - resourceTotal(opponent)) / 12);
-  const taxExposureTerm = Math.tanh((taxExposure(opponent) - taxExposure(root)) / 6);
+function resourceQualityTerm(
+  root: ResourcePool,
+  opponent: ResourcePool
+): number {
+  const coverageDiff =
+    (suitCoverage(root) - suitCoverage(opponent)) / SUITS.length;
+  const resourceTotalTerm = Math.tanh(
+    (resourceTotal(root) - resourceTotal(opponent)) / 12
+  );
+  const taxExposureTerm = Math.tanh(
+    (taxExposure(opponent) - taxExposure(root)) / 6
+  );
   return clamp(
     0.55 * coverageDiff + 0.25 * resourceTotalTerm + 0.2 * taxExposureTerm,
     -1,
@@ -212,7 +247,9 @@ function crownSuitCounts(player: PlayerState): Partial<Record<Suit, number>> {
 }
 
 function playerHandHasSuit(player: PlayerState, suit: Suit): boolean {
-  return player.hand.some((cardId) => findProperty(cardId)?.suits.includes(suit));
+  return player.hand.some((cardId) =>
+    findProperty(cardId)?.suits.includes(suit)
+  );
 }
 
 function playerDevelopedBoardHasSuit(
@@ -242,7 +279,10 @@ function taxExposure(resources: ResourcePool): number {
   );
 }
 
-function requiredPlayerState(state: GameState, playerId: PlayerId): PlayerState {
+function requiredPlayerState(
+  state: GameState,
+  playerId: PlayerId
+): PlayerState {
   const player = state.players.find((candidate) => candidate.id === playerId);
   if (!player) {
     throw new Error(`Search state evaluator missing player ${playerId}.`);
@@ -253,7 +293,8 @@ function requiredPlayerState(state: GameState, playerId: PlayerId): PlayerState 
 function isLateGame(state: GameState): boolean {
   return (
     (state.finalTurnsRemaining ?? 0) > 0 ||
-    (state.deck.reshuffles >= 1 && state.deck.draw.length <= LATE_GAME_DRAW_COUNT)
+    (state.deck.reshuffles >= 1 &&
+      state.deck.draw.length <= LATE_GAME_DRAW_COUNT)
   );
 }
 

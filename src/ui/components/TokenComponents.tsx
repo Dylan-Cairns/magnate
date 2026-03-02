@@ -13,7 +13,9 @@ export const SUIT_TOKEN_BG: Record<Suit, string> = {
   Knots: '#f6f4bf',
 };
 
-export function tokenEntries(tokens: Partial<Record<Suit, number>> | ResourcePool): Array<{ suit: Suit; count: number }> {
+export function tokenEntries(
+  tokens: Partial<Record<Suit, number>> | ResourcePool
+): Array<{ suit: Suit; count: number }> {
   return SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 })).filter(
     (entry) => entry.count > 0
   );
@@ -54,7 +56,9 @@ export function TokenRow({
           suit={suit}
           count={count}
           compact={compact}
-          className={highlightedSuits?.has(suit) ? 'is-income-highlighted' : undefined}
+          className={
+            highlightedSuits?.has(suit) ? 'is-income-highlighted' : undefined
+          }
         />
       ))}
     </div>

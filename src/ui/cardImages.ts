@@ -144,7 +144,10 @@ export function preloadCardImageUrl(url: string): Promise<void> {
 
     image.onload = () => {
       if (typeof image.decode === 'function') {
-        image.decode().catch(() => undefined).finally(finish);
+        image
+          .decode()
+          .catch(() => undefined)
+          .finally(finish);
         return;
       }
       finish();

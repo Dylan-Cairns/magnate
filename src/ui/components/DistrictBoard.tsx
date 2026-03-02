@@ -3,7 +3,13 @@ import type { CSSProperties } from 'react';
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from '../../engine/cards';
 import { districtScore } from '../../engine/scoring';
 import { developmentCost, findProperty } from '../../engine/stateHelpers';
-import type { DistrictStack, DistrictState, ObservedPlayerState, PlayerId, Suit } from '../../engine/types';
+import type {
+  DistrictStack,
+  DistrictState,
+  ObservedPlayerState,
+  PlayerId,
+  Suit,
+} from '../../engine/types';
 import { CardTile, type CardPerspective } from './CardTile';
 import { TokenRow } from './TokenComponents';
 
@@ -28,11 +34,15 @@ function districtMarkerName(markerSuitMask: readonly Suit[]): string {
     return 'Excuse';
   }
 
-  const marker = PAWN_CARDS.find((card) => suitMaskKey(card.suits) === suitMaskKey(markerSuitMask));
+  const marker = PAWN_CARDS.find(
+    (card) => suitMaskKey(card.suits) === suitMaskKey(markerSuitMask)
+  );
   return marker?.name ?? markerSuitMask.join('/');
 }
 
-function markerSuitTokens(markerSuitMask: readonly Suit[]): Partial<Record<Suit, number>> {
+function markerSuitTokens(
+  markerSuitMask: readonly Suit[]
+): Partial<Record<Suit, number>> {
   const tokens: Partial<Record<Suit, number>> = {};
   for (const suit of markerSuitMask) {
     tokens[suit] = 1;
@@ -55,7 +65,8 @@ function DistrictLane({
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
-  const perspective: CardPerspective = playerId === botPlayerId ? 'bot' : 'human';
+  const perspective: CardPerspective =
+    playerId === botPlayerId ? 'bot' : 'human';
   const laneCards: Array<{
     key: string;
     cardId: CardId;
@@ -78,7 +89,8 @@ function DistrictLane({
       deedProgress: stack.deed.progress,
       deedTarget,
       inDevelopment: true,
-      incomeHighlighted: highlightedIncomeCardIds?.has(stack.deed.cardId) ?? false,
+      incomeHighlighted:
+        highlightedIncomeCardIds?.has(stack.deed.cardId) ?? false,
     });
   }
 
@@ -91,9 +103,14 @@ function DistrictLane({
       className={`district-lane${playerId === botPlayerId ? ' is-bot' : ' is-human'}`}
       data-lane-player-id={playerId}
     >
-      <div className={`lane-stack-frame${playerId === botPlayerId ? ' is-bot' : ''}`}>
+      <div
+        className={`lane-stack-frame${playerId === botPlayerId ? ' is-bot' : ''}`}
+      >
         {laneCards.length > 0 ? (
-          <div className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`} style={laneStyle}>
+          <div
+            className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`}
+            style={laneStyle}
+          >
             {laneCards.map((laneCard, index) => (
               <div
                 key={laneCard.key}
@@ -166,9 +183,16 @@ export function DistrictColumn({
             {markerName}
           </strong>
           {district.markerSuitMask.length > 0 ? (
-            <TokenRow className="district-marker-tokens" tokens={markerSuitTokens(district.markerSuitMask)} compact />
+            <TokenRow
+              className="district-marker-tokens"
+              tokens={markerSuitTokens(district.markerSuitMask)}
+              compact
+            />
           ) : (
-            <span className="district-marker-tokens district-marker-placeholder" aria-hidden="true" />
+            <span
+              className="district-marker-tokens district-marker-placeholder"
+              aria-hidden="true"
+            />
           )}
         </header>
         <span
@@ -204,7 +228,9 @@ export function PlayerTokenRail({
       <h3>Crowns</h3>
       <TokenRow
         className="crowns-rail-row"
-        tokens={crownsToSuits(player.crowns).reduce<Partial<Record<Suit, number>>>((acc, suit) => {
+        tokens={crownsToSuits(player.crowns).reduce<
+          Partial<Record<Suit, number>>
+        >((acc, suit) => {
           acc[suit] = (acc[suit] ?? 0) + 1;
           return acc;
         }, {})}
@@ -217,7 +243,12 @@ export function PlayerTokenRail({
   const resources = (
     <div className="token-rail-group">
       <h3>Resources</h3>
-      <TokenRow className="rail-resources-row" tokens={player.resources} compact fixedSuitSlots />
+      <TokenRow
+        className="rail-resources-row"
+        tokens={player.resources}
+        compact
+        fixedSuitSlots
+      />
     </div>
   );
 

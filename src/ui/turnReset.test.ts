@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { makeGameState, PLAYER_A, PLAYER_B } from '../engine/__tests__/fixtures';
+import {
+  makeGameState,
+  PLAYER_A,
+  PLAYER_B,
+} from '../engine/__tests__/fixtures';
 import type { GameState, PlayerId } from '../engine/types';
 import {
   canUseTurnReset,
@@ -10,7 +14,11 @@ import {
 
 const HUMAN_PLAYER: PlayerId = PLAYER_A;
 
-function makeAnchor(state: GameState, turn = state.turn, playerId: PlayerId = HUMAN_PLAYER): TurnResetAnchor {
+function makeAnchor(
+  state: GameState,
+  turn = state.turn,
+  playerId: PlayerId = HUMAN_PLAYER
+): TurnResetAnchor {
   return {
     turn,
     playerId,
@@ -27,7 +35,9 @@ describe('shouldCaptureTurnResetAnchor', () => {
       turn: 3,
     });
 
-    expect(shouldCaptureTurnResetAnchor(state, PLAYER_A, HUMAN_PLAYER, null)).toBe(true);
+    expect(
+      shouldCaptureTurnResetAnchor(state, PLAYER_A, HUMAN_PLAYER, null)
+    ).toBe(true);
   });
 
   it('does not capture outside human pre-card action window', () => {
@@ -47,9 +57,15 @@ describe('shouldCaptureTurnResetAnchor', () => {
       cardPlayedThisTurn: false,
     });
 
-    expect(shouldCaptureTurnResetAnchor(humanPostCard, PLAYER_A, HUMAN_PLAYER, null)).toBe(false);
-    expect(shouldCaptureTurnResetAnchor(botTurn, PLAYER_B, HUMAN_PLAYER, null)).toBe(false);
-    expect(shouldCaptureTurnResetAnchor(collectIncome, PLAYER_A, HUMAN_PLAYER, null)).toBe(false);
+    expect(
+      shouldCaptureTurnResetAnchor(humanPostCard, PLAYER_A, HUMAN_PLAYER, null)
+    ).toBe(false);
+    expect(
+      shouldCaptureTurnResetAnchor(botTurn, PLAYER_B, HUMAN_PLAYER, null)
+    ).toBe(false);
+    expect(
+      shouldCaptureTurnResetAnchor(collectIncome, PLAYER_A, HUMAN_PLAYER, null)
+    ).toBe(false);
   });
 
   it('captures again when a new human turn starts', () => {
@@ -67,7 +83,9 @@ describe('shouldCaptureTurnResetAnchor', () => {
       turn: 4,
     });
 
-    expect(shouldCaptureTurnResetAnchor(newTurnState, PLAYER_A, HUMAN_PLAYER, anchor)).toBe(true);
+    expect(
+      shouldCaptureTurnResetAnchor(newTurnState, PLAYER_A, HUMAN_PLAYER, anchor)
+    ).toBe(true);
   });
 
   it('does not recapture when anchor already matches current turn/player', () => {
@@ -79,7 +97,9 @@ describe('shouldCaptureTurnResetAnchor', () => {
     });
     const anchor = makeAnchor(state, 5, PLAYER_A);
 
-    expect(shouldCaptureTurnResetAnchor(state, PLAYER_A, HUMAN_PLAYER, anchor)).toBe(false);
+    expect(
+      shouldCaptureTurnResetAnchor(state, PLAYER_A, HUMAN_PLAYER, anchor)
+    ).toBe(false);
   });
 });
 
@@ -131,9 +151,15 @@ describe('canUseTurnReset', () => {
       turn: 5,
     };
 
-    expect(canUseTurnReset(botTurnState, PLAYER_B, HUMAN_PLAYER, anchor)).toBe(false);
-    expect(canUseTurnReset(collectIncomeState, PLAYER_A, HUMAN_PLAYER, anchor)).toBe(false);
-    expect(canUseTurnReset(differentTurnState, PLAYER_A, HUMAN_PLAYER, anchor)).toBe(false);
+    expect(canUseTurnReset(botTurnState, PLAYER_B, HUMAN_PLAYER, anchor)).toBe(
+      false
+    );
+    expect(
+      canUseTurnReset(collectIncomeState, PLAYER_A, HUMAN_PLAYER, anchor)
+    ).toBe(false);
+    expect(
+      canUseTurnReset(differentTurnState, PLAYER_A, HUMAN_PLAYER, anchor)
+    ).toBe(false);
   });
 
   it('is false when current state is already the anchor snapshot', () => {

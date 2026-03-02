@@ -7,6 +7,9 @@ export function createSession(seed: string, firstPlayer: PlayerId): GameState {
   return advanceToDecision(newGame(seed, { firstPlayer }));
 }
 
-export function stepToDecision(state: GameState, action: GameAction): GameState {
+export function stepToDecision(
+  state: GameState,
+  action: GameAction
+): GameState {
   return advanceToDecision(applyAction(state, action));
 }

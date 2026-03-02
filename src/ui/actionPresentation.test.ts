@@ -26,19 +26,25 @@ describe('buildHumanActionList', () => {
     const state = makeGameState({
       phase: 'ActionWindow',
       players: [
-        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3, Suns: 3 }) }),
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 3, Suns: 3 }),
+        }),
         makePlayer(PLAYER_B),
       ] as const,
     });
 
     const grouped = buildHumanActionList(legalActions(state));
     const tradeGroups = grouped.filter(
-      (item): item is Extract<(typeof grouped)[number], { kind: 'trade-group' }> =>
+      (
+        item
+      ): item is Extract<(typeof grouped)[number], { kind: 'trade-group' }> =>
         item.kind === 'trade-group'
     );
 
     expect(tradeGroups).toHaveLength(2);
-    expect(new Set(tradeGroups.map((group) => group.give))).toEqual(new Set(['Moons', 'Suns']));
+    expect(new Set(tradeGroups.map((group) => group.give))).toEqual(
+      new Set(['Moons', 'Suns'])
+    );
     expect(tradeGroups.every((group) => group.options.length === 5)).toBe(true);
   });
 
@@ -46,16 +52,26 @@ describe('buildHumanActionList', () => {
     let state = makeGameState({
       phase: 'ActionWindow',
       players: [
-        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1, Knots: 1 }) }),
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
         makePlayer(PLAYER_B),
       ] as const,
     });
-    state = withDeed(state, 'D1', PLAYER_A, { cardId: '6', progress: 0, tokens: {} });
+    state = withDeed(state, 'D1', PLAYER_A, {
+      cardId: '6',
+      progress: 0,
+      tokens: {},
+    });
 
     const grouped = buildHumanActionList(legalActions(state));
     const deedGroups = grouped.filter(
-      (item): item is Extract<(typeof grouped)[number], { kind: 'develop-deed-group' }> =>
-        item.kind === 'develop-deed-group'
+      (
+        item
+      ): item is Extract<
+        (typeof grouped)[number],
+        { kind: 'develop-deed-group' }
+      > => item.kind === 'develop-deed-group'
     );
 
     expect(deedGroups).toHaveLength(1);
@@ -85,7 +101,11 @@ describe('buildHumanActionList', () => {
     );
 
     expect(firstTradeIndex).toBeGreaterThan(nonTradeIndex);
-    expect(grouped.slice(firstTradeIndex).every((item) => item.kind === 'trade-group')).toBe(true);
+    expect(
+      grouped
+        .slice(firstTradeIndex)
+        .every((item) => item.kind === 'trade-group')
+    ).toBe(true);
   });
 
   it('places trade options before end-turn during post-card action windows', () => {
@@ -99,7 +119,11 @@ describe('buildHumanActionList', () => {
         makePlayer(PLAYER_B),
       ] as const,
     });
-    state = withDeed(state, 'D1', PLAYER_A, { cardId: '6', progress: 0, tokens: {} });
+    state = withDeed(state, 'D1', PLAYER_A, {
+      cardId: '6',
+      progress: 0,
+      tokens: {},
+    });
 
     const grouped = buildHumanActionList(legalActions(state));
     const firstTradeIndex = grouped.findIndex(
@@ -111,7 +135,10 @@ describe('buildHumanActionList', () => {
 
     expect(firstTradeIndex).toBeGreaterThanOrEqual(0);
     expect(endTurnIndex).toBeGreaterThan(firstTradeIndex);
-    expect(grouped.at(-1)).toMatchObject({ kind: 'action', action: { type: 'end-turn' } });
+    expect(grouped.at(-1)).toMatchObject({
+      kind: 'action',
+      action: { type: 'end-turn' },
+    });
   });
 
   it('orders pre-card action categories by fixed precedence', () => {
@@ -166,8 +193,12 @@ describe('buildHumanActionList', () => {
     );
     const grouped = buildHumanActionList(legalActions(state));
     const outrightGroups = grouped.filter(
-      (item): item is Extract<(typeof grouped)[number], { kind: 'develop-outright-group' }> =>
-        item.kind === 'develop-outright-group' && item.cardId === '6'
+      (
+        item
+      ): item is Extract<
+        (typeof grouped)[number],
+        { kind: 'develop-outright-group' }
+      > => item.kind === 'develop-outright-group' && item.cardId === '6'
     );
 
     expect(actions.length).toBeGreaterThan(1);
@@ -206,7 +237,9 @@ describe('buildTradeSourceGroups', () => {
     const state = makeGameState({
       phase: 'ActionWindow',
       players: [
-        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3, Suns: 3 }) }),
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 3, Suns: 3 }),
+        }),
         makePlayer(PLAYER_B),
       ] as const,
     });
@@ -223,14 +256,24 @@ describe('picker helpers', () => {
     let state = makeGameState({
       phase: 'ActionWindow',
       players: [
-        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1, Knots: 1 }) }),
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
         makePlayer(PLAYER_B),
       ] as const,
     });
-    state = withDeed(state, 'D1', PLAYER_A, { cardId: '6', progress: 0, tokens: {} });
+    state = withDeed(state, 'D1', PLAYER_A, {
+      cardId: '6',
+      progress: 0,
+      tokens: {},
+    });
     const actions = legalActions(state);
 
-    const picker: ActionPickerQuery = { kind: 'deed-payment', cardId: '6', districtId: 'D1' };
+    const picker: ActionPickerQuery = {
+      kind: 'deed-payment',
+      cardId: '6',
+      districtId: 'D1',
+    };
     expect(pickerStillLegal(picker, actions)).toBe(true);
 
     const narrowed = actions.filter((action) =>
@@ -298,10 +341,18 @@ describe('picker helpers', () => {
       cardId: '6',
       districtId: 'D1',
     };
-    const paymentOptions = buildPickerOptions(paymentPicker, actions, SUIT_TEXT_TOKEN);
+    const paymentOptions = buildPickerOptions(
+      paymentPicker,
+      actions,
+      SUIT_TEXT_TOKEN
+    );
     expect(paymentOptions).toHaveLength(2);
-    expect(paymentOptions.map((option) => option.label)).toContain('{Moons}x2 {Knots}x1');
-    expect(paymentOptions.map((option) => option.label)).toContain('{Moons}x1 {Knots}x2');
+    expect(paymentOptions.map((option) => option.label)).toContain(
+      '{Moons}x2 {Knots}x1'
+    );
+    expect(paymentOptions.map((option) => option.label)).toContain(
+      '{Moons}x1 {Knots}x2'
+    );
     expect(pickerStillLegal(paymentPicker, actions)).toBe(true);
     expect(pickerTitle(paymentPicker, SUIT_TEXT_TOKEN)).toMatch(
       /^Develop .* in D1 with$/

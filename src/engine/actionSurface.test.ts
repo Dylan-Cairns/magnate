@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { makeGameState, makePlayer, makeResources, PLAYER_A, PLAYER_B } from './__tests__/fixtures';
+import {
+  makeGameState,
+  makePlayer,
+  makeResources,
+  PLAYER_A,
+  PLAYER_B,
+} from './__tests__/fixtures';
 import type { GameAction } from './types';
-import { actionStableKey, legalActionsCanonical, paymentSignature, toKeyedActions } from './actionSurface';
+import {
+  actionStableKey,
+  legalActionsCanonical,
+  paymentSignature,
+  toKeyedActions,
+} from './actionSurface';
 
 describe('action surface', () => {
   it('paymentSignature is stable regardless of object insertion order', () => {
@@ -56,4 +67,3 @@ describe('action surface', () => {
     expect(first).toEqual(second);
   });
 });
-

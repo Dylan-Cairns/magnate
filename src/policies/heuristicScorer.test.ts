@@ -176,10 +176,9 @@ describe('heuristic scorer', () => {
       payment: { Moons: 5, Suns: 4 },
     };
 
-    const ranked = rankHeuristicActions(
-      [reinforceControlled, flipDistrict],
-      { state }
-    );
+    const ranked = rankHeuristicActions([reinforceControlled, flipDistrict], {
+      state,
+    });
 
     expect(ranked[0].action).toEqual(flipDistrict);
   });
@@ -210,10 +209,9 @@ describe('heuristic scorer', () => {
       payment: { Moons: 2, Waves: 1 },
     };
 
-    const ranked = rankHeuristicActions(
-      [unrealisticDistrict, mainDistrict],
-      { state }
-    );
+    const ranked = rankHeuristicActions([unrealisticDistrict, mainDistrict], {
+      state,
+    });
 
     expect(ranked[0].action).toEqual(mainDistrict);
   });
@@ -245,10 +243,9 @@ describe('heuristic scorer', () => {
       tokens: { Suns: 1 },
     };
 
-    const ranked = rankHeuristicActions(
-      [spendLastMoon, shelterSurplusSun],
-      { state }
-    );
+    const ranked = rankHeuristicActions([spendLastMoon, shelterSurplusSun], {
+      state,
+    });
 
     expect(ranked[0].action).toEqual(shelterSurplusSun);
   });
@@ -437,7 +434,9 @@ describe('heuristic scorer', () => {
       tokens: { Suns: 1 },
     };
 
-    expect(scoreHeuristicAction(developDeed, { state: closeToCompletion })).toBeGreaterThan(
+    expect(
+      scoreHeuristicAction(developDeed, { state: closeToCompletion })
+    ).toBeGreaterThan(
       scoreHeuristicAction(developDeed, { state: farFromCompletion })
     );
   });
@@ -600,7 +599,9 @@ describe('heuristic scorer', () => {
       payment: { Moons: 4, Suns: 4 },
     };
 
-    expect(scoreHeuristicAction(defendDistrict, { state: closeThreat })).toBeGreaterThan(
+    expect(
+      scoreHeuristicAction(defendDistrict, { state: closeThreat })
+    ).toBeGreaterThan(
       scoreHeuristicAction(defendDistrict, { state: farThreat })
     );
   });

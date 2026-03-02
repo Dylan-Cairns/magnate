@@ -537,9 +537,9 @@
 
   100% {
     transform: translate(
-        calc(-50% + var(--resource-flight-dx)),
-        calc(-50% + var(--resource-flight-dy))
-      );
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
     opacity: 1;
   }
 }
@@ -552,9 +552,9 @@
 
   100% {
     transform: translate(
-        calc(-50% + var(--resource-flight-dx)),
-        calc(-50% + var(--resource-flight-dy))
-      );
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
     opacity: 0;
   }
 }
@@ -567,9 +567,9 @@
 
   100% {
     transform: translate(
-        calc(-50% + var(--resource-flight-dx)),
-        calc(-50% + var(--resource-flight-dy))
-      );
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
     opacity: 0;
   }
 }

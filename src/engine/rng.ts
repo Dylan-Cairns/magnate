@@ -41,4 +41,3 @@ export function shuffleInPlace<T>(items: T[], rand: RandomFn): void {
     [items[i], items[j]] = [items[j], items[i]];
   }
 }
-

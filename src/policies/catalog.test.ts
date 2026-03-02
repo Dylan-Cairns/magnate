@@ -9,7 +9,9 @@ import {
 
 describe('bot policy catalog', () => {
   it('throws when profile id is unknown', () => {
-    expect(() => getBotProfile('unknown-profile')).toThrow('Unknown bot profile');
+    expect(() => getBotProfile('unknown-profile')).toThrow(
+      'Unknown bot profile'
+    );
   });
 
   it('uses rollout search as default and resolves an available policy', () => {
@@ -25,7 +27,9 @@ describe('bot policy catalog', () => {
   });
 
   it('includes at least one search profile', () => {
-    expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(true);
+    expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(
+      true
+    );
   });
 
   it('does not include a browser td-value profile', () => {
@@ -34,9 +38,9 @@ describe('bot policy catalog', () => {
   });
 
   it('includes a browser td-search profile', () => {
-    expect(BOT_PROFILES.some((profile) => profile.id === 'td-search-browser')).toBe(
-      true
-    );
+    expect(
+      BOT_PROFILES.some((profile) => profile.id === 'td-search-browser')
+    ).toBe(true);
   });
 
   it('includes a heuristic profile', () => {
@@ -47,8 +51,8 @@ describe('bot policy catalog', () => {
   });
 
   it('includes a fast td-search profile', () => {
-    expect(BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')).toBe(
-      true
-    );
+    expect(
+      BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')
+    ).toBe(true);
   });
 });

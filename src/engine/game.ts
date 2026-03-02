@@ -1,7 +1,13 @@
 import { CARD_BY_ID } from './cards';
 import type { CardId } from './cards';
 import { initialSetup } from './deck';
-import type { DistrictState, GameState, PlayerId, PlayerState, ResourcePool } from './types';
+import type {
+  DistrictState,
+  GameState,
+  PlayerId,
+  PlayerState,
+  ResourcePool,
+} from './types';
 
 const PLAYER_IDS: readonly [PlayerId, PlayerId] = ['PlayerA', 'PlayerB'];
 
@@ -14,8 +20,18 @@ export function newGame(seed: string, options: NewGameOptions = {}): GameState {
   const firstPlayer = options.firstPlayer ?? 'PlayerA';
 
   const players: readonly [PlayerState, PlayerState] = [
-    createPlayerState('PlayerA', setup.handsByPlayer.PlayerA, setup.crownsByPlayer.PlayerA, setup.startingResourcesByPlayer.PlayerA),
-    createPlayerState('PlayerB', setup.handsByPlayer.PlayerB, setup.crownsByPlayer.PlayerB, setup.startingResourcesByPlayer.PlayerB),
+    createPlayerState(
+      'PlayerA',
+      setup.handsByPlayer.PlayerA,
+      setup.crownsByPlayer.PlayerA,
+      setup.startingResourcesByPlayer.PlayerA
+    ),
+    createPlayerState(
+      'PlayerB',
+      setup.handsByPlayer.PlayerB,
+      setup.crownsByPlayer.PlayerB,
+      setup.startingResourcesByPlayer.PlayerB
+    ),
   ];
 
   const districts = setup.districts.map((markerCardId, index) =>
@@ -72,7 +88,10 @@ function cloneResources(resources: ResourcePool): ResourcePool {
   };
 }
 
-function districtFromMarker(markerCardId: CardId, districtId: string): DistrictState {
+function districtFromMarker(
+  markerCardId: CardId,
+  districtId: string
+): DistrictState {
   const marker = CARD_BY_ID[markerCardId];
   if (marker.kind === 'Pawn') {
     return {

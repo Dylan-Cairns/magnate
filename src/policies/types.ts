@@ -10,5 +10,7 @@ export interface ActionSelectionContext {
 export type MaybePromise<T> = T | Promise<T>;
 
 export interface ActionPolicy {
-  selectAction(context: ActionSelectionContext): MaybePromise<GameAction | undefined>;
+  selectAction(
+    context: ActionSelectionContext
+  ): MaybePromise<GameAction | undefined>;
 }

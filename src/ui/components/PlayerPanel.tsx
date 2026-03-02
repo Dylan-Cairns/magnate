@@ -1,4 +1,8 @@
-import type { FinalScore, ObservedPlayerState, PlayerId } from '../../engine/types';
+import type {
+  FinalScore,
+  ObservedPlayerState,
+  PlayerId,
+} from '../../engine/types';
 import { CardTile, type CardPerspective } from './CardTile';
 
 function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
@@ -31,14 +35,20 @@ export function PlayerPanel({
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
 }) {
-  const handCardCount = player.handHidden ? player.handCount : player.hand.length;
+  const handCardCount = player.handHidden
+    ? player.handCount
+    : player.hand.length;
   const handSlots = Math.max(handSlotCount, handCardCount);
-  const cardPerspective: CardPerspective = player.id === botPlayerId ? 'bot' : 'human';
+  const cardPerspective: CardPerspective =
+    player.id === botPlayerId ? 'bot' : 'human';
   const districtScore = score.districtPoints[player.id];
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
 
   return (
-    <section className={`player-panel${isActive ? ' is-active' : ''}`} data-player-id={player.id}>
+    <section
+      className={`player-panel${isActive ? ' is-active' : ''}`}
+      data-player-id={player.id}
+    >
       <header className="player-header">
         <div className="player-title-line">
           <h2>{title}</h2>
@@ -46,13 +56,30 @@ export function PlayerPanel({
             <span className="player-score-badge" tabIndex={0}>
               {districtScore} VP
             </span>
-            <section className="player-score-popover" role="tooltip" aria-label="Score details">
+            <section
+              className="player-score-popover"
+              role="tooltip"
+              aria-label="Score details"
+            >
               <p className="score-result">
-                {scoreHeadline}: <strong>{score.winner}</strong> ({score.decidedBy})
+                {scoreHeadline}: <strong>{score.winner}</strong> (
+                {score.decidedBy})
               </p>
-              <ScoreLine label="Districts" a={score.districtPoints.PlayerA} b={score.districtPoints.PlayerB} />
-              <ScoreLine label="Rank Total" a={score.rankTotals.PlayerA} b={score.rankTotals.PlayerB} />
-              <ScoreLine label="Resources" a={score.resourceTotals.PlayerA} b={score.resourceTotals.PlayerB} />
+              <ScoreLine
+                label="Districts"
+                a={score.districtPoints.PlayerA}
+                b={score.districtPoints.PlayerB}
+              />
+              <ScoreLine
+                label="Rank Total"
+                a={score.rankTotals.PlayerA}
+                b={score.rankTotals.PlayerB}
+              />
+              <ScoreLine
+                label="Resources"
+                a={score.resourceTotals.PlayerA}
+                b={score.resourceTotals.PlayerB}
+              />
             </section>
           </div>
         </div>
@@ -93,16 +120,16 @@ export function PlayerPanel({
                 );
               }
               return (
-                  <CardTile
-                    key={`hand-${player.id}-${cardId}-${index}`}
-                    cardId={cardId}
-                    perspective={cardPerspective}
-                    handOwnerId={player.id}
-                    handCardId={cardId}
-                    handSlotKind="occupied"
-                    animateDeedProgress={animateDeedProgress}
-                  />
-                );
+                <CardTile
+                  key={`hand-${player.id}-${cardId}-${index}`}
+                  cardId={cardId}
+                  perspective={cardPerspective}
+                  handOwnerId={player.id}
+                  handCardId={cardId}
+                  handSlotKind="occupied"
+                  animateDeedProgress={animateDeedProgress}
+                />
+              );
             })}
           </div>
         </div>

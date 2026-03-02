@@ -171,14 +171,22 @@ export async function loadTdValueModelFromIndexUrl(
   }
 
   let selected = tdValuePacks[0];
-  if (typeof index.defaultPackId === 'string' && index.defaultPackId.length > 0) {
-    const match = tdValuePacks.find((entry) => entry.id === index.defaultPackId);
+  if (
+    typeof index.defaultPackId === 'string' &&
+    index.defaultPackId.length > 0
+  ) {
+    const match = tdValuePacks.find(
+      (entry) => entry.id === index.defaultPackId
+    );
     if (match) {
       selected = match;
     }
   }
 
-  const manifestUrl = resolveManifestUrl(absoluteIndexUrl, selected.manifestPath);
+  const manifestUrl = resolveManifestUrl(
+    absoluteIndexUrl,
+    selected.manifestPath
+  );
   return loadTdValueModelFromManifestUrl(manifestUrl);
 }
 
@@ -211,7 +219,10 @@ export function createTdValueNetworkFromWeights(
   const observationDim = manifest.model.observationDim;
   const tensors = weightsFile.tensors;
 
-  const w1 = parseTensor(tensors, 'encoder.0.weight', [hiddenDim, observationDim]);
+  const w1 = parseTensor(tensors, 'encoder.0.weight', [
+    hiddenDim,
+    observationDim,
+  ]);
   const b1 = parseTensor(tensors, 'encoder.0.bias', [hiddenDim]);
   const w2 = parseTensor(tensors, 'encoder.2.weight', [hiddenDim, hiddenDim]);
   const b2 = parseTensor(tensors, 'encoder.2.bias', [hiddenDim]);
@@ -232,15 +243,24 @@ export function createTdValueNetworkFromWeights(
 
 export function parseModelPackIndex(value: unknown): TdValueModelPackIndex {
   const source = requiredRecord(value, 'TD value model-pack index');
-  const schemaVersion = requiredInteger(source.schemaVersion, 'index.schemaVersion');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'index.schemaVersion'
+  );
   if (schemaVersion !== TD_VALUE_MODEL_PACK_INDEX_SCHEMA_VERSION) {
     throw new Error(
       `Unsupported TD value model-pack index schemaVersion=${String(schemaVersion)}.`
     );
   }
 
-  const generatedAtUtc = requiredString(source.generatedAtUtc, 'index.generatedAtUtc');
-  const defaultPackId = optionalStringOrNull(source.defaultPackId, 'index.defaultPackId');
+  const generatedAtUtc = requiredString(
+    source.generatedAtUtc,
+    'index.generatedAtUtc'
+  );
+  const defaultPackId = optionalStringOrNull(
+    source.defaultPackId,
+    'index.defaultPackId'
+  );
   const packsRaw = source.packs;
   if (!Array.isArray(packsRaw)) {
     throw new Error('TD value model-pack index packs must be an array.');
@@ -280,9 +300,14 @@ export function parseModelPackIndex(value: unknown): TdValueModelPackIndex {
   };
 }
 
-export function parseModelPackManifest(value: unknown): TdValueModelPackManifest {
+export function parseModelPackManifest(
+  value: unknown
+): TdValueModelPackManifest {
   const source = requiredRecord(value, 'TD value model-pack manifest');
-  const schemaVersion = requiredInteger(source.schemaVersion, 'manifest.schemaVersion');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'manifest.schemaVersion'
+  );
   if (schemaVersion !== TD_VALUE_MODEL_PACK_MANIFEST_SCHEMA_VERSION) {
     throw new Error(
       `Unsupported TD value model-pack manifest schemaVersion=${String(schemaVersion)}.`
@@ -290,7 +315,10 @@ export function parseModelPackManifest(value: unknown): TdValueModelPackManifest
   }
 
   const modelRaw = requiredRecord(source.model, 'manifest.model');
-  const modelType = requiredString(modelRaw.modelType, 'manifest.model.modelType');
+  const modelType = requiredString(
+    modelRaw.modelType,
+    'manifest.model.modelType'
+  );
   if (modelType !== TD_VALUE_MODEL_TYPE) {
     throw new Error(`Unsupported modelType in manifest: ${modelType}`);
   }
@@ -299,7 +327,9 @@ export function parseModelPackManifest(value: unknown): TdValueModelPackManifest
     'manifest.model.checkpointType'
   );
   if (checkpointType !== TD_VALUE_CHECKPOINT_TYPE) {
-    throw new Error(`Unsupported checkpointType in manifest: ${checkpointType}`);
+    throw new Error(
+      `Unsupported checkpointType in manifest: ${checkpointType}`
+    );
   }
   const encodingVersion = requiredInteger(
     modelRaw.encodingVersion,
@@ -319,11 +349,17 @@ export function parseModelPackManifest(value: unknown): TdValueModelPackManifest
       `Observation dim mismatch in manifest. expected=${String(OBSERVATION_DIM)} actual=${String(observationDim)}.`
     );
   }
-  const hiddenDim = requiredInteger(modelRaw.hiddenDim, 'manifest.model.hiddenDim');
+  const hiddenDim = requiredInteger(
+    modelRaw.hiddenDim,
+    'manifest.model.hiddenDim'
+  );
   if (hiddenDim <= 0) {
     throw new Error('Manifest hiddenDim must be > 0.');
   }
-  const weightsPath = requiredString(modelRaw.weightsPath, 'manifest.model.weightsPath');
+  const weightsPath = requiredString(
+    modelRaw.weightsPath,
+    'manifest.model.weightsPath'
+  );
   const requiredStateDictKeys = requiredStringArray(
     modelRaw.requiredStateDictKeys,
     'manifest.model.requiredStateDictKeys'
@@ -365,7 +401,10 @@ export function parseModelPackManifest(value: unknown): TdValueModelPackManifest
 
 export function parseWeightsFile(value: unknown): TdValueWeightsFile {
   const source = requiredRecord(value, 'TD value model-pack weights');
-  const schemaVersion = requiredInteger(source.schemaVersion, 'weights.schemaVersion');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'weights.schemaVersion'
+  );
   if (schemaVersion !== TD_VALUE_MODEL_PACK_WEIGHTS_SCHEMA_VERSION) {
     throw new Error(
       `Unsupported TD value model-pack weights schemaVersion=${String(schemaVersion)}.`
@@ -376,8 +415,14 @@ export function parseWeightsFile(value: unknown): TdValueWeightsFile {
   const tensors: Record<string, TdValueTensorPayload> = {};
   for (const [key, tensorValue] of Object.entries(tensorsRaw)) {
     const tensor = requiredRecord(tensorValue, `weights.tensors.${key}`);
-    const shape = requiredIntegerArray(tensor.shape, `weights.tensors.${key}.shape`);
-    const values = requiredNumberArray(tensor.values, `weights.tensors.${key}.values`);
+    const shape = requiredIntegerArray(
+      tensor.shape,
+      `weights.tensors.${key}.shape`
+    );
+    const values = requiredNumberArray(
+      tensor.values,
+      `weights.tensors.${key}.values`
+    );
     tensors[key] = { shape, values };
   }
   return {
@@ -396,8 +441,8 @@ function parseTensor(
     throw new Error(`TD value model weights are missing tensor ${key}.`);
   }
   if (
-    payload.shape.length !== expectedShape.length
-    || payload.shape.some((value, index) => value !== expectedShape[index])
+    payload.shape.length !== expectedShape.length ||
+    payload.shape.some((value, index) => value !== expectedShape[index])
   ) {
     throw new Error(
       `Tensor shape mismatch for ${key}. expected=[${expectedShape.join(',')}] actual=[${payload.shape.join(',')}]`
@@ -450,7 +495,10 @@ async function fetchJson(url: string): Promise<unknown> {
   return response.json();
 }
 
-function requiredRecord(value: unknown, label: string): Record<string, unknown> {
+function requiredRecord(
+  value: unknown,
+  label: string
+): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} must be an object.`);
   }

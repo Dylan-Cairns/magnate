@@ -1,4 +1,8 @@
-import { ACTION_FEATURE_DIM, ENCODING_VERSION, OBSERVATION_DIM } from './trainingEncoding';
+import {
+  ACTION_FEATURE_DIM,
+  ENCODING_VERSION,
+  OBSERVATION_DIM,
+} from './trainingEncoding';
 import {
   TD_VALUE_CHECKPOINT_TYPE,
   TD_VALUE_MODEL_PACK_WEIGHTS_SCHEMA_VERSION,
@@ -27,7 +31,8 @@ export const TD_SEARCH_OPPONENT_REQUIRED_TENSOR_KEYS = [
   'policy_head.2.bias',
 ] as const;
 
-type OpponentTensorKey = (typeof TD_SEARCH_OPPONENT_REQUIRED_TENSOR_KEYS)[number];
+type OpponentTensorKey =
+  (typeof TD_SEARCH_OPPONENT_REQUIRED_TENSOR_KEYS)[number];
 type ValueTensorKey = (typeof TD_VALUE_REQUIRED_TENSOR_KEYS)[number];
 
 interface TdSearchTensorPayload {
@@ -159,7 +164,11 @@ export class TdSearchOpponentNetwork implements TdSearchOpponentScorer {
 
     const obsEmbedding = this.encodeObservation(observation);
     const logits = new Float32Array(actionFeatures.length);
-    for (let actionIndex = 0; actionIndex < actionFeatures.length; actionIndex += 1) {
+    for (
+      let actionIndex = 0;
+      actionIndex < actionFeatures.length;
+      actionIndex += 1
+    ) {
       const actionEmbedding = this.encodeAction(actionFeatures[actionIndex]);
       logits[actionIndex] = this.policyLogit(obsEmbedding, actionEmbedding);
     }
@@ -212,7 +221,7 @@ export class TdSearchOpponentNetwork implements TdSearchOpponentScorer {
       const act = actionEmbedding[index] ?? 0;
       pair[index] = obs;
       pair[this.hiddenDim + index] = act;
-      pair[(this.hiddenDim * 2) + index] = obs * act;
+      pair[this.hiddenDim * 2 + index] = obs * act;
     }
 
     const headHidden = new Float32Array(this.hiddenDim);
@@ -250,7 +259,10 @@ export async function loadTdSearchModelFromIndexUrl(
     );
   }
   const selected = selectPack(tdSearchPacks, index.defaultPackId);
-  const manifestUrl = resolveManifestUrl(absoluteIndexUrl, selected.manifestPath);
+  const manifestUrl = resolveManifestUrl(
+    absoluteIndexUrl,
+    selected.manifestPath
+  );
   return loadTdSearchModelFromManifestUrl(manifestUrl);
 }
 
@@ -277,18 +289,27 @@ export function parseTdSearchModelPackManifest(
   value: unknown
 ): TdSearchModelPackManifest {
   const source = requiredRecord(value, 'TD search model-pack manifest');
-  const schemaVersion = requiredInteger(source.schemaVersion, 'manifest.schemaVersion');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'manifest.schemaVersion'
+  );
   if (schemaVersion !== TD_SEARCH_MODEL_PACK_MANIFEST_SCHEMA_VERSION) {
     throw new Error(
       `Unsupported TD search model-pack manifest schemaVersion=${String(schemaVersion)}.`
     );
   }
   const modelRaw = requiredRecord(source.model, 'manifest.model');
-  const modelType = requiredString(modelRaw.modelType, 'manifest.model.modelType');
+  const modelType = requiredString(
+    modelRaw.modelType,
+    'manifest.model.modelType'
+  );
   if (modelType !== TD_SEARCH_MODEL_TYPE) {
     throw new Error(`Unsupported TD search modelType: ${modelType}`);
   }
-  const weightsPath = requiredString(modelRaw.weightsPath, 'manifest.model.weightsPath');
+  const weightsPath = requiredString(
+    modelRaw.weightsPath,
+    'manifest.model.weightsPath'
+  );
 
   const valueRaw = requiredRecord(modelRaw.value, 'manifest.model.value');
   const valueEncoding = requiredInteger(
@@ -335,7 +356,10 @@ export function parseTdSearchModelPackManifest(
     }
   }
 
-  const opponentRaw = requiredRecord(modelRaw.opponent, 'manifest.model.opponent');
+  const opponentRaw = requiredRecord(
+    modelRaw.opponent,
+    'manifest.model.opponent'
+  );
   const opponentEncoding = requiredInteger(
     opponentRaw.encodingVersion,
     'manifest.model.opponent.encodingVersion'
@@ -434,13 +458,19 @@ export function parseTdSearchModelPackManifest(
 
 function parseTdSearchWeightsFile(value: unknown): TdSearchWeightsFile {
   const source = requiredRecord(value, 'TD search model-pack weights');
-  const schemaVersion = requiredInteger(source.schemaVersion, 'weights.schemaVersion');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'weights.schemaVersion'
+  );
   if (schemaVersion !== TD_VALUE_MODEL_PACK_WEIGHTS_SCHEMA_VERSION) {
     throw new Error(
       `Unsupported TD search weights schemaVersion=${String(schemaVersion)}.`
     );
   }
-  const valueTensors = requiredTensorRecord(source.valueTensors, 'weights.valueTensors');
+  const valueTensors = requiredTensorRecord(
+    source.valueTensors,
+    'weights.valueTensors'
+  );
   const opponentTensors = requiredTensorRecord(
     source.opponentTensors,
     'weights.opponentTensors'
@@ -461,13 +491,15 @@ function createTdSearchValueNetwork(
   return new TdValueNetwork({
     observationDim,
     hiddenDim,
-    w1: parseTensor(
-      weights.valueTensors,
-      'encoder.0.weight',
-      [hiddenDim, observationDim]
-    ),
+    w1: parseTensor(weights.valueTensors, 'encoder.0.weight', [
+      hiddenDim,
+      observationDim,
+    ]),
     b1: parseTensor(weights.valueTensors, 'encoder.0.bias', [hiddenDim]),
-    w2: parseTensor(weights.valueTensors, 'encoder.2.weight', [hiddenDim, hiddenDim]),
+    w2: parseTensor(weights.valueTensors, 'encoder.2.weight', [
+      hiddenDim,
+      hiddenDim,
+    ]),
     b2: parseTensor(weights.valueTensors, 'encoder.2.bias', [hiddenDim]),
     w3: parseTensor(weights.valueTensors, 'encoder.4.weight', [1, hiddenDim]),
     b3: parseTensor(weights.valueTensors, 'encoder.4.bias', [1]),
@@ -485,35 +517,38 @@ function createTdSearchOpponentNetwork(
     observationDim,
     actionFeatureDim,
     hiddenDim,
-    obsW1: parseTensor(
-      weights.opponentTensors,
-      'obs_encoder.0.weight',
-      [hiddenDim, observationDim]
-    ),
-    obsB1: parseTensor(weights.opponentTensors, 'obs_encoder.0.bias', [hiddenDim]),
-    obsW2: parseTensor(
-      weights.opponentTensors,
-      'obs_encoder.2.weight',
-      [hiddenDim, hiddenDim]
-    ),
-    obsB2: parseTensor(weights.opponentTensors, 'obs_encoder.2.bias', [hiddenDim]),
-    actionW: parseTensor(
-      weights.opponentTensors,
-      'action_encoder.0.weight',
-      [hiddenDim, actionFeatureDim]
-    ),
-    actionB: parseTensor(
-      weights.opponentTensors,
-      'action_encoder.0.bias',
-      [hiddenDim]
-    ),
-    headW1: parseTensor(
-      weights.opponentTensors,
-      'policy_head.0.weight',
-      [hiddenDim, hiddenDim * 3]
-    ),
-    headB1: parseTensor(weights.opponentTensors, 'policy_head.0.bias', [hiddenDim]),
-    headW2: parseTensor(weights.opponentTensors, 'policy_head.2.weight', [1, hiddenDim]),
+    obsW1: parseTensor(weights.opponentTensors, 'obs_encoder.0.weight', [
+      hiddenDim,
+      observationDim,
+    ]),
+    obsB1: parseTensor(weights.opponentTensors, 'obs_encoder.0.bias', [
+      hiddenDim,
+    ]),
+    obsW2: parseTensor(weights.opponentTensors, 'obs_encoder.2.weight', [
+      hiddenDim,
+      hiddenDim,
+    ]),
+    obsB2: parseTensor(weights.opponentTensors, 'obs_encoder.2.bias', [
+      hiddenDim,
+    ]),
+    actionW: parseTensor(weights.opponentTensors, 'action_encoder.0.weight', [
+      hiddenDim,
+      actionFeatureDim,
+    ]),
+    actionB: parseTensor(weights.opponentTensors, 'action_encoder.0.bias', [
+      hiddenDim,
+    ]),
+    headW1: parseTensor(weights.opponentTensors, 'policy_head.0.weight', [
+      hiddenDim,
+      hiddenDim * 3,
+    ]),
+    headB1: parseTensor(weights.opponentTensors, 'policy_head.0.bias', [
+      hiddenDim,
+    ]),
+    headW2: parseTensor(weights.opponentTensors, 'policy_head.2.weight', [
+      1,
+      hiddenDim,
+    ]),
     headB2: parseTensor(weights.opponentTensors, 'policy_head.2.bias', [1]),
   });
 }
@@ -544,14 +579,17 @@ function parseTensor(
     throw new Error(`TD search model weights are missing tensor ${key}.`);
   }
   if (
-    payload.shape.length !== expectedShape.length
-    || payload.shape.some((value, index) => value !== expectedShape[index])
+    payload.shape.length !== expectedShape.length ||
+    payload.shape.some((value, index) => value !== expectedShape[index])
   ) {
     throw new Error(
       `TD search tensor shape mismatch for ${key}. expected=[${expectedShape.join(',')}] actual=[${payload.shape.join(',')}]`
     );
   }
-  const expectedLength = expectedShape.reduce((product, current) => product * current, 1);
+  const expectedLength = expectedShape.reduce(
+    (product, current) => product * current,
+    1
+  );
   if (payload.values.length !== expectedLength) {
     throw new Error(
       `TD search tensor length mismatch for ${key}. expected=${String(expectedLength)} actual=${String(payload.values.length)}`
@@ -611,7 +649,10 @@ async function fetchJson(url: string): Promise<unknown> {
   return response.json();
 }
 
-function requiredRecord(value: unknown, label: string): Record<string, unknown> {
+function requiredRecord(
+  value: unknown,
+  label: string
+): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} must be an object.`);
   }

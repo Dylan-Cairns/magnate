@@ -85,4 +85,3 @@ describe('PlayerPanel hand anchors', () => {
     expect(html).toContain('data-hand-slot-kind="empty"');
   });
 });
-

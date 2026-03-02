@@ -18,13 +18,23 @@ export function RollResult({
     <div className="roll-value" aria-label="Roll result">
       <span className="roll-item">
         <span className="roll-die-shell roll-die-shell-d10" aria-hidden="true">
-          <img src={dodecahedronDieIcon} alt="" title="d10" className="roll-die-icon" />
+          <img
+            src={dodecahedronDieIcon}
+            alt=""
+            title="d10"
+            className="roll-die-icon"
+          />
         </span>
         <strong>{roll.die1}</strong>
       </span>
       <span className="roll-item">
         <span className="roll-die-shell roll-die-shell-d10" aria-hidden="true">
-          <img src={dodecahedronDieIcon} alt="" title="d10" className="roll-die-icon" />
+          <img
+            src={dodecahedronDieIcon}
+            alt=""
+            title="d10"
+            className="roll-die-icon"
+          />
         </span>
         <strong>{roll.die2}</strong>
       </span>
@@ -32,7 +42,16 @@ export function RollResult({
         <span className="roll-die-shell roll-die-shell-d6" aria-hidden="true">
           <img src={cubeDieIcon} alt="" title="d6" className="roll-die-icon" />
         </span>
-        {taxSuit ? <TokenChip suit={taxSuit} count={1} compact className="roll-tax-chip" /> : <strong>-</strong>}
+        {taxSuit ? (
+          <TokenChip
+            suit={taxSuit}
+            count={1}
+            compact
+            className="roll-tax-chip"
+          />
+        ) : (
+          <strong>-</strong>
+        )}
       </span>
     </div>
   );
