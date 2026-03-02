@@ -409,8 +409,16 @@ def _run_collect_stage(
                         pending.cancel()
                 raise SystemExit(f"[td-loop] failed collect shard: {exc}") from exc
 
-    _concat_jsonl_files(inputs=shard_value_paths, output=collect_value_path)
-    _concat_jsonl_files(inputs=shard_opponent_paths, output=collect_opponent_path)
+    _concat_jsonl_files(
+        inputs=shard_value_paths,
+        output=collect_value_path,
+        delete_inputs_after_merge=True,
+    )
+    _concat_jsonl_files(
+        inputs=shard_opponent_paths,
+        output=collect_opponent_path,
+        delete_inputs_after_merge=True,
+    )
     _write_merged_collect_summary(
         args=args,
         shard_summaries=shard_summary_paths,
@@ -440,15 +448,42 @@ def _run_collect_stage(
     }
 
 
-def _concat_jsonl_files(*, inputs: Sequence[Path], output: Path) -> None:
+def _concat_jsonl_files(
+    *,
+    inputs: Sequence[Path],
+    output: Path,
+    delete_inputs_after_merge: bool = False,
+) -> None:
+    if not inputs:
+        raise SystemExit("No JSONL shard inputs were provided for merge.")
+    for path in inputs:
+        if not path.exists():
+            raise SystemExit(f"Missing collect shard artifact: {path}")
+
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8") as target:
-        for path in inputs:
-            if not path.exists():
-                raise SystemExit(f"Missing collect shard artifact: {path}")
+
+    if not delete_inputs_after_merge:
+        with output.open("w", encoding="utf-8") as target:
+            for path in inputs:
+                with path.open("r", encoding="utf-8") as source:
+                    for line in source:
+                        target.write(line)
+        return
+
+    # Reduce peak disk usage by moving the first shard in place, then appending
+    # and deleting remaining shards one by one.
+    first = inputs[0]
+    if first.resolve() != output.resolve():
+        if output.exists():
+            output.unlink()
+        first.replace(output)
+    remaining = inputs[1:]
+    with output.open("a", encoding="utf-8") as target:
+        for path in remaining:
             with path.open("r", encoding="utf-8") as source:
                 for line in source:
                     target.write(line)
+            path.unlink()
 
 
 def _write_merged_collect_summary(
