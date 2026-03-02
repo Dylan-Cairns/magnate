@@ -20,6 +20,10 @@ import {
   preloadTdSearchBrowserModel,
 } from './modelRuntimeCache';
 import {
+  heuristicPriorsByKey,
+  rankHeuristicActions,
+} from './heuristicScorer';
+import {
   type LoadedTdSearchModel,
 } from './tdSearchModelPack';
 
@@ -80,7 +84,11 @@ export function createTdSearchPolicy(
 
       const model = await getModel();
       const rootPlayer = view.activePlayerId;
-      const rankedRootActions = rankRootActions(candidateActions);
+      const heuristicContext = { state, view };
+      const rankedRootActions = rankHeuristicActions(
+        candidateActions,
+        heuristicContext
+      );
       const worldStates = sampleWorldStates(
         state,
         view,
@@ -95,7 +103,10 @@ export function createTdSearchPolicy(
       const actionByKey = new Map(
         rankedRootActions.map((candidate) => [candidate.actionKey, candidate.action])
       );
-      const rootPriorByKey = rootPriorsByKey(candidateActions);
+      const rootPriorByKey = heuristicPriorsByKey(
+        candidateActions,
+        heuristicContext
+      );
       const expandedCount = Math.min(
         rankedRootActions.length,
         config.maxRootActions
@@ -238,44 +249,6 @@ function resolveTdSearchConfig(options: TdSearchPolicyOptions): TdSearchPolicyCo
   };
 }
 
-function rankRootActions(candidateActions: readonly GameAction[]): KeyedAction[] {
-  const keyed = toKeyedActions(candidateActions);
-  const ranked = [...keyed].sort((left, right) => {
-    const scoreDelta = actionScore(right.action) - actionScore(left.action);
-    if (!approximatelyEqual(scoreDelta, 0)) {
-      return scoreDelta > 0 ? 1 : -1;
-    }
-    return left.actionKey.localeCompare(right.actionKey);
-  });
-  return ranked;
-}
-
-function rootPriorsByKey(candidateActions: readonly GameAction[]): Map<string, number> {
-  const keyed = toKeyedActions(candidateActions);
-  if (keyed.length === 0) {
-    return new Map<string, number>();
-  }
-  const scores = keyed.map((candidate) => actionScore(candidate.action));
-  let maxScore = Number.NEGATIVE_INFINITY;
-  for (const score of scores) {
-    maxScore = Math.max(maxScore, score);
-  }
-  const expScores = scores.map((score) => Math.exp(score - maxScore));
-  const normalizer = expScores.reduce((sum, score) => sum + score, 0);
-  const priors = new Map<string, number>();
-  if (!Number.isFinite(normalizer) || normalizer <= 0) {
-    const uniform = 1 / keyed.length;
-    for (const candidate of keyed) {
-      priors.set(candidate.actionKey, uniform);
-    }
-    return priors;
-  }
-  keyed.forEach((candidate, index) => {
-    priors.set(candidate.actionKey, expScores[index] / normalizer);
-  });
-  return priors;
-}
-
 function progressiveTargetActionCount(
   totalActions: number,
   initialActions: number,
@@ -355,7 +328,7 @@ function runRollout({
 
     const nextActionKey =
       activePlayer === rootPlayer
-        ? chooseRootRolloutActionKey(actions, random, config.rolloutEpsilon)
+        ? chooseRootRolloutActionKey(state, actions, random, config.rolloutEpsilon)
         : chooseOpponentRolloutActionKey({
             actions,
             state,
@@ -375,6 +348,7 @@ function runRollout({
 }
 
 function chooseRootRolloutActionKey(
+  state: GameState,
   actions: readonly GameAction[],
   random: () => number,
   rolloutEpsilon: number
@@ -383,7 +357,7 @@ function chooseRootRolloutActionKey(
   if (random() < rolloutEpsilon) {
     return keyed[Math.floor(random() * keyed.length)].actionKey;
   }
-  return rankRootActions(actions)[0].actionKey;
+  return rankHeuristicActions(actions, { state })[0].actionKey;
 }
 
 function chooseOpponentRolloutActionKey({
@@ -586,58 +560,6 @@ function districtPropertyCards(view: PlayerView): Set<string> {
     }
   }
   return cards;
-}
-
-function actionScore(action: GameAction): number {
-  let score = {
-    'develop-outright': 8,
-    'develop-deed': 6,
-    'buy-deed': 5,
-    'choose-income-suit': 4,
-    trade: 2,
-    'sell-card': 1,
-    'end-turn': 0,
-  }[action.type];
-
-  const cardRank = 'cardId' in action ? propertyRank(action.cardId) : 0;
-
-  if (action.type === 'develop-outright' || action.type === 'develop-deed') {
-    score += cardRank * 0.4;
-  }
-  if (action.type === 'buy-deed') {
-    score += cardRank * 0.25;
-    if (cardRank <= 2) {
-      score -= 1.5;
-    }
-  }
-  if (action.type === 'sell-card') {
-    score -= cardRank * 0.3;
-  }
-  if (action.type === 'trade') {
-    if (action.give === action.receive) {
-      score -= 10;
-    } else {
-      score += 0.2;
-    }
-  }
-  return score;
-}
-
-function propertyRank(cardId: string): number {
-  const numeric = Number.parseInt(cardId, 10);
-  if (!Number.isFinite(numeric)) {
-    return 0;
-  }
-  if (numeric >= 0 && numeric <= 5) {
-    return 1;
-  }
-  if (numeric >= 6 && numeric <= 29) {
-    return 2 + Math.floor((numeric - 6) / 3);
-  }
-  if (numeric >= 30 && numeric <= 35) {
-    return 10;
-  }
-  return 0;
 }
 
 function terminalValue(state: GameState, rootPlayer: PlayerId): number {

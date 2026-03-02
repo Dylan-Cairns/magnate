@@ -1,9 +1,11 @@
 import { randomPolicy } from './randomPolicy';
+import { heuristicPolicy } from './heuristicPolicy';
 import { createSearchPolicy } from './searchPolicy';
 import { createTdSearchPolicy } from './tdSearchPolicy';
 import type { ActionPolicy } from './types';
 
 export type BotProfileId =
+  | 'heuristic'
   | 'td-search-fast'
   | 'rollout-eval-search'
   | 'td-search-browser'
@@ -13,7 +15,7 @@ export interface BotProfile {
   id: BotProfileId;
   label: string;
   description: string;
-  kind: 'random' | 'search' | 'td-search';
+  kind: 'random' | 'heuristic' | 'search' | 'td-search';
   available: boolean;
   turnDelayMs: number;
   policy: ActionPolicy;
@@ -52,6 +54,15 @@ const tdSearchBrowserPolicy = createTdSearchPolicy({
 });
 
 export const BOT_PROFILES: readonly BotProfile[] = [
+  {
+    id: 'heuristic',
+    label: 'Heuristic',
+    description: 'Fast deterministic heuristic.',
+    kind: 'heuristic',
+    available: true,
+    turnDelayMs: 250,
+    policy: heuristicPolicy,
+  },
   {
     id: 'td-search-fast',
     label: 'TD Search Fast',
