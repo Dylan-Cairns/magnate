@@ -7,41 +7,43 @@
 - React + Vite
 - Vitest
 - ESLint + Prettier
-- Python 3.11+ (local `.venv`)
-- PyTorch + NumPy for training
+- Python 3.11+ (`.venv`)
+- PyTorch + NumPy
 
 ## Layout
 
-- Engine + browser app in this repo (`src/`).
-- Bridge runtime in `src/bridge/`.
-- Python trainer/tooling in `trainer/` and `scripts/`.
-- Versioned bridge contract in `contracts/`.
+- Engine + browser app: `src/`
+- Bridge runtime: `src/bridge/`
+- Python trainer/tooling: `trainer/`, `scripts/`
+- Bridge contract: `contracts/`
 
 ## Tooling Notes
 
 - Package manager: Yarn
-- Main JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
-- Python environment bootstrap:
+- JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
+- Python bootstrap:
   - `scripts/setup_python_env.ps1`
-  - activate: `.\.venv\Scripts\Activate.ps1`
-- Python entrypoints run as modules:
+  - `./.venv/Scripts/Activate.ps1`
+- Active Python entrypoints:
   - `python -m scripts.eval`
-  - `python -m scripts.benchmark`
-  - `python -m scripts.train`
-  - `python -m scripts.finetune`
-  - `python -m scripts.train_ppo`
-  - `python -m scripts.train_search_guidance`
-  - queue helpers for PPO and benchmark sweeps
+  - `python -m scripts.eval_suite` (`--workers` for deterministic parallel sharding)
+  - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
+  - `python -m scripts.generate_teacher_data`
+  - `python -m scripts.run_td_loop` (collect -> train -> eval orchestration; `--collect-workers` shards replay collection across CPUs; `--cloud` applies fixed 8 vCPU worker profile)
+  - `python -m scripts.smoke_trainer`
 
 ## Constraints
 
 - Static deployment target (no gameplay backend).
-- Deterministic gameplay required for replay/test/training.
-- Rules semantics remain in TS unless explicitly re-approved.
+- Deterministic gameplay required for replay/eval/training.
+- Rule semantics stay in TS unless explicitly re-approved.
+- Python training scripts are fail-fast and expect an active project virtualenv.
 
 ## Known Gaps
 
-- Guidance training path now exists, but checkpoint quality and tuning are not yet standardized.
-- Search teacher is stronger than PPO, but still below target dominance; learned priors/value/opponent-model tuning remains in progress.
-- Experiment tracking and promotion criteria are still lightweight/manual.
-- Long-run training automation exists, but tuning strategy and reporting are not yet standardized.
+- TD replay/train/eval orchestration exists, but automated online replay refresh is not wired yet.
+- `td-search` exists, but current form is still rollout-guided and needs stronger search/value coupling and throughput optimization.
+- Search baseline promotion thresholds still need repeated confirmation.
+- Browser deployment path for learned TD models is not implemented yet.
+
+_Updated: 2026-03-01._
