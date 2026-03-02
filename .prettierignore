@@ -1,0 +1,4 @@
+artifacts/
+dist/
+*.har
+public/model-packs/**/weights.json
