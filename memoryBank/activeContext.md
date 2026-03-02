@@ -80,6 +80,7 @@
 - Runtime guardrails:
   - training/eval scripts require active `.venv` and explicit policy flags
   - `td-search` configuration requires both value and opponent checkpoints
+  - TD value transitions are strict: `done=False` requires `nextObservation`; `done=True` requires `nextObservation=null`
 
 ### TD Value Semantics
 
