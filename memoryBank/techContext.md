@@ -29,7 +29,7 @@
   - `python -m scripts.eval_suite` (`--workers` for deterministic parallel sharding)
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
-  - `python -m scripts.run_td_loop` (collect -> train -> eval orchestration; `--collect-workers` shards replay collection across CPUs; `--cloud` applies fixed 8 vCPU worker profile; `--eval-first-last-checkpoints` emits begin/end improvement summary; `--train-value-target-mode td-lambda` enables TD(lambda) path)
+  - `python -m scripts.run_td_loop` (collect -> train -> eval orchestration; `--collect-workers` shards replay collection across CPUs; `--cloud` applies fixed 8 vCPU worker profile; `--eval-first-last-checkpoints` emits begin/end improvement summary; `--train-value-target-mode td-lambda` enables TD(lambda) path; `--eval-benchmark-opponents` adds thresholded benchmark gating)
   - `python -m scripts.smoke_trainer`
 
 ## Constraints
@@ -46,4 +46,4 @@
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser deployment path for learned TD models is not implemented yet.
 
-_Updated: 2026-03-01._
+_Updated: 2026-03-02._

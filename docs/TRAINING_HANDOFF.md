@@ -16,6 +16,7 @@ Keep the repo focused on one direction:
 2. Use search teacher to generate warm-start decision data.
 3. Run TD replay collection + TD training + TD checkpoint eval cycles.
 4. Evaluate `td-search` checkpoints (TD-guided search) against heuristic/search baselines.
+5. Use benchmark-gated begin/end evaluation (`run_td_loop --eval-benchmark-opponents ...`) for promotion decisions.
 
 ## Value Semantics (Locked)
 
@@ -132,6 +133,12 @@ Built-in begin/end improvement comparison:
 
 ```powershell
 python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --train-save-every-steps 200 --eval-games-per-side 200 --eval-opponent-policy search --eval-first-last-checkpoints
+```
+
+Begin/end benchmark-gated comparison (recommended for promotion decisions):
+
+```powershell
+python -m scripts.run_td_loop --cloud --run-label td-loop-r1 --collect-games 2000 --train-steps 20000 --train-save-every-steps 200 --eval-games-per-side 200 --eval-opponent-policy search --eval-first-last-checkpoints --eval-benchmark-opponents search heuristic --eval-benchmark-games-per-side 200 --eval-benchmark-min-delta-win-rate 0.02 --eval-benchmark-min-end-win-rate 0.55 --eval-benchmark-max-end-side-gap 0.08
 ```
 
 TD training:
