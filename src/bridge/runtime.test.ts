@@ -27,12 +27,16 @@ function expectOk<TResult>(
 ): TResult {
   expect(response.ok).toBe(true);
   if (!response.ok) {
-    throw new Error(`Expected ok response, got ${response.error.code}: ${response.error.message}`);
+    throw new Error(
+      `Expected ok response, got ${response.error.code}: ${response.error.message}`
+    );
   }
   return response.result as TResult;
 }
 
-function expectErr(response: ReturnType<MagnateBridgeRuntime['handleRequest']>) {
+function expectErr(
+  response: ReturnType<MagnateBridgeRuntime['handleRequest']>
+) {
   expect(response.ok).toBe(false);
   if (response.ok) {
     throw new Error('Expected error response.');
@@ -84,7 +88,9 @@ describe('MagnateBridgeRuntime', () => {
       request(runtime, { requestId: 'req-3', command: 'legalActions' })
     );
 
-    const actionKeys = result.actions.map((entry: KeyedAction) => entry.actionKey);
+    const actionKeys = result.actions.map(
+      (entry: KeyedAction) => entry.actionKey
+    );
     const sorted = [...actionKeys].sort();
     expect(actionKeys).toEqual(sorted);
   });
@@ -137,7 +143,8 @@ describe('MagnateBridgeRuntime', () => {
       })
     );
 
-    const viewerId = reset.view.activePlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+    const viewerId =
+      reset.view.activePlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
     const observation = expectOk<BridgeObservationResult>(
       request(runtime, {
         requestId: 'req-6b',

@@ -228,11 +228,19 @@ function withStacks(
   stacks: {
     PlayerA: {
       developed: string[];
-      deed?: { cardId: string; progress: number; tokens: Record<string, number> };
+      deed?: {
+        cardId: string;
+        progress: number;
+        tokens: Record<string, number>;
+      };
     };
     PlayerB: {
       developed: string[];
-      deed?: { cardId: string; progress: number; tokens: Record<string, number> };
+      deed?: {
+        cardId: string;
+        progress: number;
+        tokens: Record<string, number>;
+      };
     };
   }
 ) {

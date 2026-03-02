@@ -8,8 +8,12 @@ export const DEED_PROGRESS_ANIMATION_DURATION_MS = 420;
 function pointOnProgressRing(angleDegrees: number): { x: number; y: number } {
   const angleRadians = (angleDegrees * Math.PI) / 180;
   return {
-    x: DEED_PROGRESS_RING_CENTER + DEED_PROGRESS_RING_RADIUS * Math.cos(angleRadians),
-    y: DEED_PROGRESS_RING_CENTER + DEED_PROGRESS_RING_RADIUS * Math.sin(angleRadians),
+    x:
+      DEED_PROGRESS_RING_CENTER +
+      DEED_PROGRESS_RING_RADIUS * Math.cos(angleRadians),
+    y:
+      DEED_PROGRESS_RING_CENTER +
+      DEED_PROGRESS_RING_RADIUS * Math.sin(angleRadians),
   };
 }
 
@@ -18,7 +22,10 @@ function easeOutCubic(value: number): number {
   return 1 - (1 - clamped) ** 3;
 }
 
-export function canonicalDeedProgressRatio(progressValue: number, progressTarget: number): number {
+export function canonicalDeedProgressRatio(
+  progressValue: number,
+  progressTarget: number
+): number {
   if (progressTarget <= 0) {
     return 0;
   }
@@ -31,7 +38,9 @@ export function buildDeedProgressArcPath(progressRatio: number): string | null {
   }
 
   const start = pointOnProgressRing(DEED_PROGRESS_START_ANGLE_DEGREES);
-  const end = pointOnProgressRing(DEED_PROGRESS_START_ANGLE_DEGREES + progressRatio * 360);
+  const end = pointOnProgressRing(
+    DEED_PROGRESS_START_ANGLE_DEGREES + progressRatio * 360
+  );
   const largeArcFlag = progressRatio > 0.5 ? 1 : 0;
   return [
     `M ${start.x} ${start.y}`,

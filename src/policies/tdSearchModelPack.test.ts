@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { ACTION_FEATURE_DIM, ENCODING_VERSION, OBSERVATION_DIM } from './trainingEncoding';
+import {
+  ACTION_FEATURE_DIM,
+  ENCODING_VERSION,
+  OBSERVATION_DIM,
+} from './trainingEncoding';
 import {
   TdSearchOpponentNetwork,
   parseTdSearchModelPackManifest,
@@ -75,7 +79,7 @@ describe('td search model pack', () => {
     actionW[ACTION_FEATURE_DIM + 1] = 1;
     const headW1 = new Array<number>(hiddenDim * hiddenDim * 3).fill(0);
     headW1[2] = 1;
-    headW1[(hiddenDim * 3) + 3] = 1;
+    headW1[hiddenDim * 3 + 3] = 1;
     const headW2 = [1, -1];
 
     const model = new TdSearchOpponentNetwork({

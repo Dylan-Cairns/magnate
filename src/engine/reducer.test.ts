@@ -18,7 +18,10 @@ function getPlayerAState(state: ReturnType<typeof makeGameState>) {
   return state.players[state.activePlayerIndex];
 }
 
-function getDistrict(state: ReturnType<typeof makeGameState>, districtId: string) {
+function getDistrict(
+  state: ReturnType<typeof makeGameState>,
+  districtId: string
+) {
   const district = state.districts.find((item) => item.id === districtId);
   if (!district) {
     throw new Error(`Missing district ${districtId}`);
@@ -29,7 +32,11 @@ function getDistrict(state: ReturnType<typeof makeGameState>, districtId: string
 describe('applyAction legality gate', () => {
   it('rejects actions that are illegal for the current phase', () => {
     const state = makeGameState({ phase: 'StartTurn' });
-    const action: GameAction = { type: 'trade', give: 'Moons', receive: 'Suns' };
+    const action: GameAction = {
+      type: 'trade',
+      give: 'Moons',
+      receive: 'Suns',
+    };
     expect(() => applyAction(state, action)).toThrow('Illegal action');
   });
 
@@ -102,7 +109,9 @@ describe('income choice reducer semantics', () => {
     const state = makeGameState({
       phase: 'CollectIncome',
       players: [
-        makePlayer(PLAYER_A, { resources: makeResources({ Suns: 0, Wyrms: 0 }) }),
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Suns: 0, Wyrms: 0 }),
+        }),
         makePlayer(PLAYER_B),
       ] as const,
       pendingIncomeChoices: [
@@ -616,7 +625,10 @@ describe('sell-card reducer semantics', () => {
   it('transitions to post-play optionals after selling', () => {
     const state = makeGameState({
       phase: 'ActionWindow',
-      players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer(PLAYER_B)] as const,
+      players: [
+        makePlayer(PLAYER_A, { hand: ['6'] }),
+        makePlayer(PLAYER_B),
+      ] as const,
     });
     const next = applyAction(state, { type: 'sell-card', cardId: '6' });
     expect(next.phase).toBe('ActionWindow');
@@ -653,18 +665,31 @@ describe('one card per turn flow', () => {
     const afterPlay = applyAction(state, play);
     expect(afterPlay.phase).toBe('ActionWindow');
 
-    expect(legalActions(afterPlay).some((action) => action.type === 'buy-deed')).toBe(false);
-    expect(legalActions(afterPlay).some((action) => action.type === 'sell-card')).toBe(false);
-    expect(legalActions(afterPlay).some((action) => action.type === 'develop-outright')).toBe(
-      false
-    );
-    expect(legalActions(afterPlay).some((action) => action.type === 'trade')).toBe(false);
-    expect(legalActions(afterPlay).some((action) => action.type === 'develop-deed')).toBe(
-      false
-    );
-    expect(legalActions(afterPlay).some((action) => action.type === 'end-turn')).toBe(true);
+    expect(
+      legalActions(afterPlay).some((action) => action.type === 'buy-deed')
+    ).toBe(false);
+    expect(
+      legalActions(afterPlay).some((action) => action.type === 'sell-card')
+    ).toBe(false);
+    expect(
+      legalActions(afterPlay).some(
+        (action) => action.type === 'develop-outright'
+      )
+    ).toBe(false);
+    expect(
+      legalActions(afterPlay).some((action) => action.type === 'trade')
+    ).toBe(false);
+    expect(
+      legalActions(afterPlay).some((action) => action.type === 'develop-deed')
+    ).toBe(false);
+    expect(
+      legalActions(afterPlay).some((action) => action.type === 'end-turn')
+    ).toBe(true);
 
-    const draw = applyAction(afterPlay, findLegalActionByType(afterPlay, 'end-turn'));
+    const draw = applyAction(
+      afterPlay,
+      findLegalActionByType(afterPlay, 'end-turn')
+    );
     expect(draw.phase).toBe('DrawCard');
   });
 });
@@ -730,7 +755,9 @@ describe('issue regressions', () => {
       makeGameState({
         phase: 'ActionWindow',
         players: [
-          makePlayer(PLAYER_A, { resources: makeResources({ Knots: 1, Moons: 2 }) }),
+          makePlayer(PLAYER_A, {
+            resources: makeResources({ Knots: 1, Moons: 2 }),
+          }),
           makePlayer(PLAYER_B),
         ] as const,
       }),

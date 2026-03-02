@@ -18,7 +18,9 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
 
   const activePlayer = state.players[state.activePlayerIndex];
   if (!activePlayer) {
-    throw new Error(`Active player index ${state.activePlayerIndex} is out of bounds.`);
+    throw new Error(
+      `Active player index ${state.activePlayerIndex} is out of bounds.`
+    );
   }
 
   return {
@@ -47,12 +49,17 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
 export function toActivePlayerView(state: GameState): PlayerView {
   const activePlayer = state.players[state.activePlayerIndex];
   if (!activePlayer) {
-    throw new Error(`Active player index ${state.activePlayerIndex} is out of bounds.`);
+    throw new Error(
+      `Active player index ${state.activePlayerIndex} is out of bounds.`
+    );
   }
   return toPlayerView(state, activePlayer.id);
 }
 
-function toObservedPlayer(player: PlayerState, viewerId: PlayerId): ObservedPlayerState {
+function toObservedPlayer(
+  player: PlayerState,
+  viewerId: PlayerId
+): ObservedPlayerState {
   const ownPerspective = player.id === viewerId;
   return {
     id: player.id,
@@ -100,7 +107,9 @@ function cloneResources(resources: ResourcePool): ResourcePool {
   };
 }
 
-function cloneIncomeRoll(roll: IncomeRollResult | undefined): IncomeRollResult | undefined {
+function cloneIncomeRoll(
+  roll: IncomeRollResult | undefined
+): IncomeRollResult | undefined {
   if (!roll) {
     return undefined;
   }
@@ -134,7 +143,9 @@ function cloneLogEntry(entry: GameLogEntry): GameLogEntry {
   };
 }
 
-function cloneFinalScore(score: FinalScore | undefined): FinalScore | undefined {
+function cloneFinalScore(
+  score: FinalScore | undefined
+): FinalScore | undefined {
   if (!score) {
     return undefined;
   }

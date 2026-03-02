@@ -69,7 +69,10 @@ export function deriveTurnCycleEvents(
 
   const incomeRank = Math.max(roll.die1, roll.die2);
   const tax = summarizeTax(previousState, nextState);
-  const { incomeTokens, incomeHighlights } = resolveIncome(previousState, incomeRank);
+  const { incomeTokens, incomeHighlights } = resolveIncome(
+    previousState,
+    incomeRank
+  );
 
   return {
     cycleOwner,
@@ -127,7 +130,11 @@ function resolveIncome(
   const highlights: TurnCycleIncomeHighlight[] = [];
   const highlightedCardIds = new Set<CardId>();
 
-  const addHighlight = (playerId: PlayerId, districtId: string, cardId: CardId): void => {
+  const addHighlight = (
+    playerId: PlayerId,
+    districtId: string,
+    cardId: CardId
+  ): void => {
     if (highlightedCardIds.has(cardId)) {
       return;
     }
@@ -189,14 +196,21 @@ function resolveIncome(
         }
       }
 
-      const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
+      const deedProperty = stack.deed
+        ? findProperty(stack.deed.cardId)
+        : undefined;
       if (!deedProperty || deedProperty.rank !== incomeRank) {
         continue;
       }
 
       addHighlight(player.id, district.id, deedProperty.id);
       if (deedProperty.suits.length === 1) {
-        addDistrictCardToken(player.id, district.id, deedProperty.id, deedProperty.suits[0]);
+        addDistrictCardToken(
+          player.id,
+          district.id,
+          deedProperty.id,
+          deedProperty.suits[0]
+        );
       }
     }
   }

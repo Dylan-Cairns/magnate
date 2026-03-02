@@ -30,7 +30,10 @@ function tieBreakSide(perspective: DeedTokenPerspective): DeedTokenSide {
   return perspective === 'bot' ? 'right' : 'left';
 }
 
-function ensureLayoutMemory(cardId: CardId, perspective: DeedTokenPerspective): LayoutMemory {
+function ensureLayoutMemory(
+  cardId: CardId,
+  perspective: DeedTokenPerspective
+): LayoutMemory {
   const key = memoryKey(cardId, perspective);
   const existing = LAYOUT_MEMORY_BY_CARD.get(key);
   if (existing) {
@@ -46,7 +49,10 @@ function ensureLayoutMemory(cardId: CardId, perspective: DeedTokenPerspective): 
   return created;
 }
 
-export function resetDeedTokenLayout(cardId: CardId, perspective: DeedTokenPerspective): void {
+export function resetDeedTokenLayout(
+  cardId: CardId,
+  perspective: DeedTokenPerspective
+): void {
   LAYOUT_MEMORY_BY_CARD.delete(memoryKey(cardId, perspective));
 }
 
@@ -109,7 +115,11 @@ export function layoutDeedTokensBySide(
 
   for (const entry of entries) {
     if (!memory.sideBySuit[entry.suit]) {
-      memory.sideBySuit[entry.suit] = assignSideForNewSuit(entries, memory, perspective);
+      memory.sideBySuit[entry.suit] = assignSideForNewSuit(
+        entries,
+        memory,
+        perspective
+      );
     }
     if (memory.orderBySuit[entry.suit] === undefined) {
       memory.orderBySuit[entry.suit] = memory.nextOrder;
@@ -118,11 +128,16 @@ export function layoutDeedTokensBySide(
   }
 
   const sortedByFirstSeen = [...entries].sort(
-    (a, b) => (memory.orderBySuit[a.suit] ?? 0) - (memory.orderBySuit[b.suit] ?? 0)
+    (a, b) =>
+      (memory.orderBySuit[a.suit] ?? 0) - (memory.orderBySuit[b.suit] ?? 0)
   );
 
   return {
-    left: sortedByFirstSeen.filter((entry) => memory.sideBySuit[entry.suit] === 'left'),
-    right: sortedByFirstSeen.filter((entry) => memory.sideBySuit[entry.suit] === 'right'),
+    left: sortedByFirstSeen.filter(
+      (entry) => memory.sideBySuit[entry.suit] === 'left'
+    ),
+    right: sortedByFirstSeen.filter(
+      (entry) => memory.sideBySuit[entry.suit] === 'right'
+    ),
   };
 }

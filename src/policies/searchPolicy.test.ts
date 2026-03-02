@@ -56,7 +56,9 @@ describe('search policy', () => {
       const state = createSession(seed, 'PlayerB');
       const view = toPlayerView(state, 'PlayerB');
       const actions = legalActions(state);
-      const legalKeys = new Set(actions.map((action) => actionStableKey(action)));
+      const legalKeys = new Set(
+        actions.map((action) => actionStableKey(action))
+      );
       const selected = await Promise.resolve(
         policy.selectAction({
           state,

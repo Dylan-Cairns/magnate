@@ -1,4 +1,10 @@
-import type { ActionId, GameAction, GameState, PlayerId, PlayerView } from '../engine/types';
+import type {
+  ActionId,
+  GameAction,
+  GameState,
+  PlayerId,
+  PlayerView,
+} from '../engine/types';
 import type { KeyedAction } from '../engine/actionSurface';
 
 export const BRIDGE_CONTRACT_NAME = 'magnate_bridge' as const;
@@ -111,4 +117,3 @@ export interface BridgeStepPayload {
   action?: GameAction;
   actionKey?: string;
 }
-

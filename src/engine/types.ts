@@ -40,7 +40,6 @@ export interface DeckState {
   reshuffles: 0 | 1 | 2;
 }
 
-
 export interface DistrictStack {
   developed: CardId[];
   deed?: DeedState;
@@ -101,11 +100,7 @@ export interface GameLogEntry {
 }
 
 export type Winner = PlayerId | 'Draw';
-export type WinnerDecider =
-  | 'districts'
-  | 'rank-total'
-  | 'resources'
-  | 'draw';
+export type WinnerDecider = 'districts' | 'rank-total' | 'resources' | 'draw';
 
 export interface FinalScore {
   districtPoints: Record<PlayerId, number>;

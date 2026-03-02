@@ -1,7 +1,16 @@
 import type { GameAction, PlayerId, PlayerView, Suit } from '../engine/types';
 
-const SUITS: readonly Suit[] = ['Moons', 'Suns', 'Waves', 'Leaves', 'Wyrms', 'Knots'];
-const SUIT_INDEX = new Map<Suit, number>(SUITS.map((suit, index) => [suit, index]));
+const SUITS: readonly Suit[] = [
+  'Moons',
+  'Suns',
+  'Waves',
+  'Leaves',
+  'Wyrms',
+  'Knots',
+];
+const SUIT_INDEX = new Map<Suit, number>(
+  SUITS.map((suit, index) => [suit, index])
+);
 
 const PHASES = [
   'StartTurn',
@@ -11,7 +20,9 @@ const PHASES = [
   'DrawCard',
   'GameOver',
 ] as const;
-const PHASE_INDEX = new Map<string, number>(PHASES.map((phase, index) => [phase, index]));
+const PHASE_INDEX = new Map<string, number>(
+  PHASES.map((phase, index) => [phase, index])
+);
 
 const ACTION_IDS = [
   'buy-deed',
@@ -27,7 +38,9 @@ const ACTION_ID_INDEX = new Map<string, number>(
 );
 
 const PLAYER_IDS: readonly PlayerId[] = ['PlayerA', 'PlayerB'];
-const PLAYER_INDEX = new Map<PlayerId, number>(PLAYER_IDS.map((id, index) => [id, index]));
+const PLAYER_INDEX = new Map<PlayerId, number>(
+  PLAYER_IDS.map((id, index) => [id, index])
+);
 
 const CROWN_SUIT_BY_CARD_ID: Readonly<Record<string, Suit>> = {
   '30': 'Knots',
@@ -87,8 +100,11 @@ const PROPERTY_SUITS_BY_CARD_ID: Readonly<Record<string, readonly Suit[]>> = {
 
 export function encodeObservation(view: PlayerView): number[] {
   const activePlayerId = view.activePlayerId;
-  const opponentId: PlayerId = activePlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
-  const playersById = new Map(view.players.map((player) => [player.id, player]));
+  const opponentId: PlayerId =
+    activePlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  const playersById = new Map(
+    view.players.map((player) => [player.id, player])
+  );
   const activePlayer = playersById.get(activePlayerId);
   const opponentPlayer = playersById.get(opponentId);
 
@@ -123,7 +139,9 @@ export function encodeObservation(view: PlayerView): number[] {
     })
   );
 
-  const districts = [...view.districts].sort((a, b) => a.id.localeCompare(b.id));
+  const districts = [...view.districts].sort((a, b) =>
+    a.id.localeCompare(b.id)
+  );
   for (const district of districts) {
     vector.push(...suitCountVector(district.markerSuitMask, 3.0));
     vector.push(...districtStackFeatures(district.stacks[activePlayerId]));
@@ -138,7 +156,9 @@ export function encodeObservation(view: PlayerView): number[] {
   return vector;
 }
 
-export function encodeActionCandidates(actions: readonly GameAction[]): number[][] {
+export function encodeActionCandidates(
+  actions: readonly GameAction[]
+): number[][] {
   return actions.map((action) => encodeAction(action));
 }
 
@@ -146,7 +166,9 @@ export function encodeAction(action: GameAction): number[] {
   const payload = action as unknown as Partial<Record<string, unknown>>;
   const vector: number[] = [];
 
-  vector.push(...oneHot(ACTION_ID_INDEX.get(action.type) ?? -1, ACTION_IDS.length));
+  vector.push(
+    ...oneHot(ACTION_ID_INDEX.get(action.type) ?? -1, ACTION_IDS.length)
+  );
 
   const cardId = asString(payload.cardId);
   const cardRank = cardRankFromId(cardId);
@@ -158,14 +180,17 @@ export function encodeAction(action: GameAction): number[] {
 
   const playerId = payload.playerId;
   const playerIndex =
-    playerId === 'PlayerA' || playerId === 'PlayerB' ? PLAYER_INDEX.get(playerId) ?? -1 : -1;
+    playerId === 'PlayerA' || playerId === 'PlayerB'
+      ? (PLAYER_INDEX.get(playerId) ?? -1)
+      : -1;
   vector.push(...oneHot(playerIndex, 2));
 
   vector.push(...suitOneHot(suitOrUndefined(payload.suit)));
   vector.push(...suitOneHot(suitOrUndefined(payload.give)));
   vector.push(...suitOneHot(suitOrUndefined(payload.receive)));
 
-  const tokenMap = mapFromUnknown(payload.payment) ?? mapFromUnknown(payload.tokens) ?? {};
+  const tokenMap =
+    mapFromUnknown(payload.payment) ?? mapFromUnknown(payload.tokens) ?? {};
   const tokenVector = resourceVector(tokenMap, MAX_TOKEN_COUNT);
   vector.push(...tokenVector);
   vector.push(norm(sumResourceMap(tokenMap), MAX_TOKEN_COUNT));
@@ -184,7 +209,11 @@ export function encodeAction(action: GameAction): number[] {
 
 function districtStackFeatures(stack: {
   developed: string[];
-  deed?: { cardId: string; progress: number; tokens: Partial<Record<Suit, number>> };
+  deed?: {
+    cardId: string;
+    progress: number;
+    tokens: Partial<Record<Suit, number>>;
+  };
 }): number[] {
   const developedRanks = stack.developed
     .filter((cardId) => isPropertyCard(cardId))
@@ -276,7 +305,9 @@ function endgameTiebreakFeatures({
     | undefined;
 }): number[] {
   const endgameFlag =
-    view.deck.reshuffles >= 2 || (view.finalTurnsRemaining ?? 0) > 0 ? 1.0 : 0.0;
+    view.deck.reshuffles >= 2 || (view.finalTurnsRemaining ?? 0) > 0
+      ? 1.0
+      : 0.0;
 
   let districtPointDiff = 0.0;
   let developedRankDiff = 0.0;
@@ -296,7 +327,9 @@ function endgameTiebreakFeatures({
   const districtTerm = districtPointDiff / Math.max(1, view.districts.length);
   const rankTerm = Math.tanh(developedRankDiff / 18.0);
   const resourceTerm = Math.tanh(
-    (resourceTotal(activePlayer?.resources) - resourceTotal(opponentPlayer?.resources)) / 10.0
+    (resourceTotal(activePlayer?.resources) -
+      resourceTotal(opponentPlayer?.resources)) /
+      10.0
   );
   return [
     endgameFlag,
@@ -315,13 +348,19 @@ function developedRankSum(stack: { developed: string[] }): number {
 }
 
 function resourceVector(
-  resourceMap: Partial<Record<Suit, number>> | Record<string, unknown> | undefined,
+  resourceMap:
+    | Partial<Record<Suit, number>>
+    | Record<string, unknown>
+    | undefined,
   normalizeBy: number = MAX_RESOURCES
 ): number[] {
   return SUITS.map((suit) => norm(asInt(resourceMap?.[suit]), normalizeBy));
 }
 
-function suitCountVector(suits: readonly Suit[], normalizeBy: number): number[] {
+function suitCountVector(
+  suits: readonly Suit[],
+  normalizeBy: number
+): number[] {
   const counts: Record<Suit, number> = {
     Moons: 0,
     Suns: 0,
@@ -337,7 +376,7 @@ function suitCountVector(suits: readonly Suit[], normalizeBy: number): number[] 
 }
 
 function suitOneHot(suit: Suit | undefined): number[] {
-  const index = suit ? SUIT_INDEX.get(suit) ?? -1 : -1;
+  const index = suit ? (SUIT_INDEX.get(suit) ?? -1) : -1;
   return oneHot(index, SUITS.length);
 }
 
@@ -449,7 +488,9 @@ function sumResourceMap(resourceMap: Record<string, unknown>): number {
   return total;
 }
 
-function resourceTotal(resourceMap: Partial<Record<Suit, number>> | undefined): number {
+function resourceTotal(
+  resourceMap: Partial<Record<Suit, number>> | undefined
+): number {
   if (!resourceMap) {
     return 0;
   }

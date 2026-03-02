@@ -26,14 +26,19 @@ export function transitionLogEntries(
   action?: GameAction
 ): GameLogEntry[] {
   const startIndex =
-    nextState.log.length >= previousState.log.length ? previousState.log.length : 0;
+    nextState.log.length >= previousState.log.length
+      ? previousState.log.length
+      : 0;
   const engineEntries = nextState.log.slice(startIndex);
 
   if (!action || action.type !== 'end-turn') {
     return engineEntries;
   }
 
-  return [...engineEntries, ...resolveTurnCycleEntries(previousState, nextState, action)];
+  return [
+    ...engineEntries,
+    ...resolveTurnCycleEntries(previousState, nextState, action),
+  ];
 }
 
 function resolveTurnCycleEntries(
@@ -104,7 +109,10 @@ function summarizeTax(tax: TurnCycleTaxSummary | null): string | null {
     return null;
   }
 
-  const totalLoss = tax.lossesByPlayer.reduce((sum, entry) => sum + entry.count, 0);
+  const totalLoss = tax.lossesByPlayer.reduce(
+    (sum, entry) => sum + entry.count,
+    0
+  );
   if (totalLoss <= 0) {
     return `Tax ${tax.suit} (no losses)`;
   }

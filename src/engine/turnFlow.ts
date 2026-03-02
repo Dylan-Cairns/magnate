@@ -78,7 +78,10 @@ function advanceOnePhase(state: GameState): GameState {
 function resolveTaxCheck(state: GameState): GameState {
   const first = rollDie(state.seed, state.rngCursor, 10);
   const second = rollDie(state.seed, first.rngCursor, 10);
-  const incomeRoll: IncomeRollResult = { die1: first.value, die2: second.value };
+  const incomeRoll: IncomeRollResult = {
+    die1: first.value,
+    die2: second.value,
+  };
 
   let nextState: GameState = {
     ...state,
@@ -106,14 +109,19 @@ function resolveTaxCheck(state: GameState): GameState {
 
 function resolveCollectIncome(state: GameState): GameState {
   if (!state.lastIncomeRoll) {
-    throw new Error('CollectIncome phase requires lastIncomeRoll to be present.');
+    throw new Error(
+      'CollectIncome phase requires lastIncomeRoll to be present.'
+    );
   }
   if ((state.pendingIncomeChoices?.length ?? 0) > 0) {
     const [nextChoice] = state.pendingIncomeChoices ?? [];
     if (!nextChoice) {
       return state;
     }
-    const nextActivePlayerIndex = findPlayerIndexById(state, nextChoice.playerId);
+    const nextActivePlayerIndex = findPlayerIndexById(
+      state,
+      nextChoice.playerId
+    );
     if (nextActivePlayerIndex === state.activePlayerIndex) {
       return state;
     }
@@ -136,7 +144,10 @@ function resolveCollectIncome(state: GameState): GameState {
 
   if (pendingChoices.length > 0) {
     const [nextChoice] = pendingChoices;
-    const nextActivePlayerIndex = findPlayerIndexById(state, nextChoice.playerId);
+    const nextActivePlayerIndex = findPlayerIndexById(
+      state,
+      nextChoice.playerId
+    );
     return {
       ...state,
       players,

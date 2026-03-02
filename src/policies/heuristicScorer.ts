@@ -95,12 +95,14 @@ export function scoreHeuristicActions(
   context: HeuristicEvaluationContext = {}
 ): HeuristicScoredAction[] {
   const priors = heuristicPriorsByKey(candidateActions, context);
-  return rankHeuristicActions(candidateActions, context).map((candidate, index) => ({
-    ...candidate,
-    score: scoreHeuristicAction(candidate.action, context),
-    prior: priors.get(candidate.actionKey) ?? 0,
-    rank: index,
-  }));
+  return rankHeuristicActions(candidateActions, context).map(
+    (candidate, index) => ({
+      ...candidate,
+      score: scoreHeuristicAction(candidate.action, context),
+      prior: priors.get(candidate.actionKey) ?? 0,
+      rank: index,
+    })
+  );
 }
 
 export function heuristicPriorsByKey(
@@ -255,7 +257,9 @@ function resolveContext(context: HeuristicEvaluationContext):
   if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
     return undefined;
   }
-  const activePlayer = state.players.find((player) => player.id === activePlayerId);
+  const activePlayer = state.players.find(
+    (player) => player.id === activePlayerId
+  );
   if (!activePlayer) {
     return undefined;
   }
@@ -419,8 +423,8 @@ function bestTradeUnlockScore({
     }
 
     const deedCostForCard = deedCost(card);
-    const buyUnlocked = !canAfford(before, deedCostForCard) &&
-      canAfford(after, deedCostForCard);
+    const buyUnlocked =
+      !canAfford(before, deedCostForCard) && canAfford(after, deedCostForCard);
     if (buyUnlocked && card.rank > 2 && !isLateGame(state)) {
       best = Math.max(
         best,
@@ -607,7 +611,10 @@ function endgameActionScore(
         district,
         activePlayerId
       );
-      const remainingAfter = Math.max(0, completion.target - completion.progress);
+      const remainingAfter = Math.max(
+        0,
+        completion.target - completion.progress
+      );
       if (completion.completes) {
         score += 3.0;
       } else {
@@ -647,7 +654,9 @@ function districtInvestmentScore({
   opponentId: PlayerId;
   plan: DistrictPlan;
 }): number {
-  const district = state.districts.find((candidate) => candidate.id === action.districtId);
+  const district = state.districts.find(
+    (candidate) => candidate.id === action.districtId
+  );
   if (!district) {
     return 0;
   }
@@ -721,11 +730,8 @@ function districtInvestmentScore({
 
   if (current.winner === activePlayerId) {
     score += mainDistrict ? 4.0 : 1.0;
-    const opponentCanThreaten = opponentThreatMargin(
-      district,
-      activePlayerId,
-      opponentId
-    ) >= 0;
+    const opponentCanThreaten =
+      opponentThreatMargin(district, activePlayerId, opponentId) >= 0;
     if (current.margin <= 2 || opponentCanThreaten) {
       score += mainDistrict ? 6.0 : 3.5;
     }
@@ -790,7 +796,10 @@ function districtInvestmentScore({
         score += 2.5;
       }
     }
-    const shelteredSurplus = surplusTokenCount(action.tokens, activePlayer.resources);
+    const shelteredSurplus = surplusTokenCount(
+      action.tokens,
+      activePlayer.resources
+    );
     if (shelteredSurplus > 0) {
       const productiveShelter =
         completion.completes ||
@@ -816,7 +825,9 @@ function incomeChoiceScore(
   state: GameState,
   activePlayerId: PlayerId
 ): number {
-  const district = state.districts.find((candidate) => candidate.id === action.districtId);
+  const district = state.districts.find(
+    (candidate) => candidate.id === action.districtId
+  );
   if (!district) {
     return 0;
   }
@@ -961,12 +972,19 @@ function projectedStackDevelopDeedCompletion(
   };
 }
 
-function districtPlan(state: GameState, activePlayerId: PlayerId): DistrictPlan {
+function districtPlan(
+  state: GameState,
+  activePlayerId: PlayerId
+): DistrictPlan {
   const opponentId = otherPlayerId(activePlayerId);
   const rows = state.districts.map((district) => {
     const status = districtStatus(district, activePlayerId, opponentId);
     const stack = district.stacks[activePlayerId];
-    const eventualMargin = eventualDistrictMargin(district, activePlayerId, opponentId);
+    const eventualMargin = eventualDistrictMargin(
+      district,
+      activePlayerId,
+      opponentId
+    );
     let score = 0;
     if (status.winner === activePlayerId) {
       score += 120 + Math.min(20, status.margin * 2);
@@ -1010,7 +1028,8 @@ function controlledDistrictCount(
   opponentId: PlayerId
 ): number {
   return state.districts.filter(
-    (district) => districtStatus(district, playerId, opponentId).winner === playerId
+    (district) =>
+      districtStatus(district, playerId, opponentId).winner === playerId
   ).length;
 }
 
@@ -1081,7 +1100,9 @@ function opponentThreatMargin(
   const activeScore = districtScore(district.stacks[activePlayerId]);
   const opponentStack = district.stacks[opponentId];
   const opponentDevelopedScore = scoreStackDeveloped(opponentStack.developed);
-  return opponentDevelopedScore + deedThreatValue(opponentStack.deed) - activeScore;
+  return (
+    opponentDevelopedScore + deedThreatValue(opponentStack.deed) - activeScore
+  );
 }
 
 function deedThreatValue(deed: DistrictStack['deed']): number {
@@ -1123,7 +1144,10 @@ function districtControlValue(
   return -1;
 }
 
-function countUnfinishedDeeds(state: GameState, activePlayerId: PlayerId): number {
+function countUnfinishedDeeds(
+  state: GameState,
+  activePlayerId: PlayerId
+): number {
   return state.districts.filter((district) => {
     const deed = district.stacks[activePlayerId].deed;
     if (!deed) {
@@ -1193,7 +1217,9 @@ function playerBoardHasSuit(
 }
 
 function scoreStackDeveloped(cardIds: readonly CardId[]): number {
-  const properties = cardIds.map((cardId) => findProperty(cardId)).filter(isDefined);
+  const properties = cardIds
+    .map((cardId) => findProperty(cardId))
+    .filter(isDefined);
   const base = properties.reduce((sum, property) => sum + property.rank, 0);
   const aceBonus = properties
     .filter((property) => property.rank === 1 && property.suits.length === 1)
@@ -1207,7 +1233,9 @@ function scoreStackDeveloped(cardIds: readonly CardId[]): number {
   return base + aceBonus;
 }
 
-function resourceDeltaForAction(action: GameAction): Partial<Record<Suit, number>> {
+function resourceDeltaForAction(
+  action: GameAction
+): Partial<Record<Suit, number>> {
   switch (action.type) {
     case 'develop-deed':
       return negateTokens(action.tokens);
@@ -1281,7 +1309,8 @@ function surplusTokenCount(
   resources: ResourcePool
 ): number {
   return SUITS.reduce(
-    (total, suit) => total + Math.min(tokens[suit] ?? 0, Math.max(0, resources[suit] - 1)),
+    (total, suit) =>
+      total + Math.min(tokens[suit] ?? 0, Math.max(0, resources[suit] - 1)),
     0
   );
 }
@@ -1329,7 +1358,8 @@ function isLateGame(state: GameState | undefined): boolean {
   }
   return (
     (state.finalTurnsRemaining ?? 0) > 0 ||
-    (state.deck.reshuffles >= 1 && state.deck.draw.length <= LATE_GAME_DRAW_COUNT)
+    (state.deck.reshuffles >= 1 &&
+      state.deck.draw.length <= LATE_GAME_DRAW_COUNT)
   );
 }
 

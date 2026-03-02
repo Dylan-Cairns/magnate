@@ -37,18 +37,18 @@ Update memoryBank/bridgeInterfaceContract.md.
 Shape:
 
 {
-  "activePlayerId": "PlayerA",
-  "phase": "ActionWindow",
-  "selectedActionKey": "...",
-  "actions": [
-    {
-      "actionKey": "...",
-      "actionId": "develop-outright",
-      "score": 1.23,
-      "prior": 0.42,
-      "rank": 0
-    }
-  ]
+"activePlayerId": "PlayerA",
+"phase": "ActionWindow",
+"selectedActionKey": "...",
+"actions": [
+{
+"actionKey": "...",
+"actionId": "develop-outright",
+"score": 1.23,
+"prior": 0.42,
+"rank": 0
+}
+]
 }
 Add TS bridge tests.
 

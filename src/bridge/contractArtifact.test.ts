@@ -34,4 +34,3 @@ describe('magnate bridge contract artifact', () => {
     expect(artifact.action_surface.action_ids).toEqual(ACTION_IDS);
   });
 });
-

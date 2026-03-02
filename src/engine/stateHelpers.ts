@@ -109,10 +109,13 @@ export function enumerateOutrightPayments(
     return [];
   }
 
-  const basePayment = suits.reduce<Partial<Record<Suit, number>>>((acc, suit) => {
-    acc[suit] = 1;
-    return acc;
-  }, {});
+  const basePayment = suits.reduce<Partial<Record<Suit, number>>>(
+    (acc, suit) => {
+      acc[suit] = 1;
+      return acc;
+    },
+    {}
+  );
 
   if (suits.some((suit) => pool[suit] < (basePayment[suit] ?? 0))) {
     return [];

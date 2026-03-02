@@ -9,7 +9,9 @@ import {
 } from './stateHelpers';
 import type { GameAction, GamePhase, GameState } from './types';
 
-type PhaseBuilderMap = Partial<Record<GamePhase, (state: GameState) => GameAction[]>>;
+type PhaseBuilderMap = Partial<
+  Record<GamePhase, (state: GameState) => GameAction[]>
+>;
 
 const builders: PhaseBuilderMap = {
   CollectIncome: collectIncomeChoiceActions,
@@ -52,31 +54,29 @@ function developActions(
   const player = state.players[state.activePlayerIndex];
   const playerId = player.id;
 
-  return state.districts.flatMap(
-    (district) => {
-      const deed = district.stacks[playerId]?.deed;
-      if (!deed) {
-        return [];
-      }
-
-      const card = CARD_BY_ID[deed.cardId];
-      if (!card || card.kind !== 'Property') {
-        return [];
-      }
-      if (deed.progress >= developmentCost(card)) {
-        return [];
-      }
-
-      return card.suits
-        .filter((suit) => player.resources[suit] > 0)
-        .map((suit) => ({
-          type: 'develop-deed' as const,
-          districtId: district.id,
-          cardId: deed.cardId,
-          tokens: { [suit]: 1 },
-        }));
+  return state.districts.flatMap((district) => {
+    const deed = district.stacks[playerId]?.deed;
+    if (!deed) {
+      return [];
     }
-  );
+
+    const card = CARD_BY_ID[deed.cardId];
+    if (!card || card.kind !== 'Property') {
+      return [];
+    }
+    if (deed.progress >= developmentCost(card)) {
+      return [];
+    }
+
+    return card.suits
+      .filter((suit) => player.resources[suit] > 0)
+      .map((suit) => ({
+        type: 'develop-deed' as const,
+        districtId: district.id,
+        cardId: deed.cardId,
+        tokens: { [suit]: 1 },
+      }));
+  });
 }
 
 function collectIncomeChoiceActions(state: GameState): GameAction[] {

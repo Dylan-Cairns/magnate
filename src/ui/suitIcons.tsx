@@ -26,7 +26,9 @@ export const SUIT_TEXT_TOKEN: Record<Suit, string> = {
 
 export const SUIT_TOKEN_TO_SUIT: Record<string, Suit> = Object.freeze(
   Object.fromEntries(
-    (Object.entries(SUIT_TEXT_TOKEN) as Array<[Suit, string]>).map(([suit, token]) => [token, suit])
+    (Object.entries(SUIT_TEXT_TOKEN) as Array<[Suit, string]>).map(
+      ([suit, token]) => [token, suit]
+    )
   ) as Record<string, Suit>
 );
 
