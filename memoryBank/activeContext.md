@@ -25,7 +25,7 @@
 - Browser `Heuristic`, rollout-search priors, and TD-search heuristic root priors share the TS heuristic scorer; current scorer intent is resource sheltering without losing suit coverage, three-district control, district flips/defense, close deed completion, avoiding non-completing deed progress that spends a last suit token, projected control from newly bought deeds, progress-aware opponent deed threats, rank-2 deed rejection, high-rank deed caution late or without suit access, and trade penalties unless a trade immediately unlocks a high-value move.
 - Browser rollout-search leaf evaluation now uses a dedicated TS state evaluator that weights canonical district control with Ace bonuses, final-score tiebreak pressure, progress-aware deed potential/threats, late-game urgency, and resource quality without using hand-size as a value signal.
 - Default browser `Rollout Search` profile now uses a slightly larger search budget (`worlds=10`, `rollouts=4`, `depth=16`, `maxRootActions=8`, `rolloutEpsilon=0`) to make the web opponent stronger while preserving deterministic rollout play.
-- Browser UI decomposition has started with behavior-preserving extraction of pure animation timing, turn-cycle visual planning, composite action-picker modeling, and log presentation helpers. Focused characterization tests now protect those surfaces while `App.tsx` remains the next UI decomposition target.
+- Browser UI decomposition now includes behavior-preserving extraction of pure animation timing, turn-cycle visual planning, composite action-picker modeling, log presentation helpers, and stateless rendering components for deck piles, logs, options, terminal scoring, overlays, and flight layers. Focused characterization tests protect those surfaces while `App.tsx` remains the controller and action-panel decomposition target.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - The failed 2026-04-21 cache rollout was reverted with git revert commits; td-search rollouts are back on the stateful bridge simulation path.
@@ -63,7 +63,7 @@
 - Improve `td-search` strength and throughput.
 - Tune replay-window size/caps from repeated runs; a broader online reservoir remains a future option.
 - Tune browser rollout-search strength/latency now that `Rollout Search` is the default, while keeping TD-search profiles available for comparison.
-- Continue decomposing `App.tsx` around stateless panels, DOM animation targeting, shared action dispatch, and controller hooks while preserving the characterization-tested behavior.
+- Continue decomposing `App.tsx` around the action panel and picker, DOM animation targeting, shared action dispatch, and controller hooks while preserving the characterization-tested behavior.
 - Continue shrinking untyped/dynamic payload handling in the remaining Python script/orchestration layer outside the typed `trainer/` package.
 
 ## Immediate Next Steps

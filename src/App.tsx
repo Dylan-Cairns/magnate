@@ -4,12 +4,11 @@ import {
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
-import { CARD_BY_ID, type CardId } from './engine/cards';
+import type { CardId } from './engine/cards';
 import { rngFromSeed } from './engine/rng';
 import { createSession, stepToDecision } from './engine/session';
 import {
@@ -18,11 +17,7 @@ import {
   scoreLive,
 } from './engine/scoring';
 import type { BotProfileId } from './policies/catalog';
-import {
-  BOT_PROFILES,
-  DEFAULT_BOT_PROFILE_ID,
-  resolveBotProfile,
-} from './policies/catalog';
+import { DEFAULT_BOT_PROFILE_ID, resolveBotProfile } from './policies/catalog';
 import type {
   FinalScore,
   GameAction,
@@ -60,9 +55,7 @@ import {
   applySingleTaxLossToPreview,
   buildResourcePreviewByPlayer,
   CARD_DRAW_FLIGHT_DELAY_MS,
-  CARD_FLIGHT_DURATION_MS,
   cardFlightSettleMs,
-  RESOURCE_FLIGHT_DURATION_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   resourceFlightSettleMs,
   shouldAllowHumanActionsDuringAnimationSettle,
@@ -89,14 +82,23 @@ import {
   shouldCaptureTurnResetAnchor,
   type TurnResetAnchor,
 } from './ui/turnReset';
-import { getCardImage } from './ui/cardImages';
 import {
   preloadStartupAssets,
   type StartupPreloadProgress,
 } from './ui/startupPreload';
-import cubeDieIcon from './assets/icons/cube.png';
-import dodecahedronDieIcon from './assets/icons/dodecahedron.png';
-import { CardTile, type CardPerspective } from './ui/components/CardTile';
+import type { CardPerspective } from './ui/components/CardTile';
+import { CardFlightLayer } from './ui/components/CardFlightLayer';
+import { DeckPiles } from './ui/components/DeckPiles';
+import {
+  ResolutionWarningOverlay,
+  StartupPreloadOverlay,
+  TurnCycleOverlay,
+} from './ui/components/GameOverlays';
+import { LogPanel } from './ui/components/LogPanel';
+import { OptionsBackdrop, OptionsMenu } from './ui/components/OptionsMenu';
+import { ResourceFlightLayer } from './ui/components/ResourceFlightLayer';
+import { SuitText } from './ui/components/SuitText';
+import { TerminalScoreSummary } from './ui/components/TerminalScoreSummary';
 import {
   clearAllDeedTokenLayouts,
   layoutDeedTokensBySide,
@@ -106,30 +108,14 @@ import {
 import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
-import {
-  SUIT_TOKEN_BG,
-  TokenChip,
-  tokenEntries,
-} from './ui/components/TokenComponents';
+import { tokenEntries } from './ui/components/TokenComponents';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
 import { transitionLogEntries } from './ui/logTimeline';
-import {
-  formatLogSummary,
-  groupLogEntriesByTurn,
-  seedSummaryValue,
-  SUIT_CODE_PATTERN,
-  suitCodeToSuit,
-  type SuitLogCode,
-} from './ui/logPresentation';
 import {
   deriveTurnCycleEvents,
   type TurnCycleIncomeToken,
 } from './ui/turnCycleEvents';
-import {
-  SUIT_TEXT_TOKEN,
-  SUIT_TOKEN_REGEX,
-  SUIT_TOKEN_TO_SUIT,
-} from './ui/suitIcons';
+import { SUIT_TEXT_TOKEN } from './ui/suitIcons';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -1515,9 +1501,6 @@ export function App() {
     () => districtWinnersByPlayer(state),
     [state]
   );
-  const isSecondShuffle = humanView.deck.reshuffles > 0;
-  const showSecondShuffleLabel =
-    isSecondShuffle && !(terminal && humanView.deck.drawCount === 0);
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
   );
@@ -2254,42 +2237,6 @@ export function App() {
       }
     : botPlayer;
 
-  const recentLog = [...timelineLog].reverse();
-  const recentLogGroups = groupLogEntriesByTurn(recentLog);
-  const deckStackCount = Math.min(3, humanView.deck.drawCount);
-  const deckOverlayShiftClass =
-    deckStackCount >= 3
-      ? 'overlay-shift-2'
-      : deckStackCount === 2
-        ? 'overlay-shift-1'
-        : 'overlay-shift-0';
-  const visibleDiscardCards =
-    pendingDiscardHoldback > 0
-      ? humanView.deck.discard.slice(pendingDiscardHoldback)
-      : humanView.deck.discard;
-  const discardStackCardIds = visibleDiscardCards.slice(0, 3).reverse();
-  const discardCardDetails = visibleDiscardCards.map((cardId) => {
-    const card = CARD_BY_ID[cardId];
-    const rank =
-      card.kind === 'Property' || card.kind === 'Crown'
-        ? String(card.rank)
-        : card.kind;
-    const suitTokenText =
-      card.kind === 'Excuse'
-        ? ''
-        : card.suits.map((suit) => SUIT_TEXT_TOKEN[suit]).join(' ');
-    return {
-      id: card.id,
-      name: card.name,
-      rank,
-      suitTokenText,
-    };
-  });
-  const startupPreloadPercent = clamp(startupPreloadProgress.percent, 0, 100);
-  const startupPreloadCompleted = Math.min(
-    startupPreloadProgress.completed,
-    startupPreloadProgress.total
-  );
   return (
     <div className={`app-shell${optionsMenuOpen ? ' is-options-open' : ''}`}>
       {error && (
@@ -2326,43 +2273,12 @@ export function App() {
             </div>
             <div className="actions-body">
               {terminal ? (
-                <section
-                  className="terminal-score-summary"
-                  aria-label="Final score breakdown"
-                >
-                  <p className="score-result terminal-score-winner">
-                    Winner: <strong>{winnerLabel(score.winner)}</strong>
-                  </p>
-                  <p className="score-line terminal-score-decider">
-                    <span>Decided By</span>
-                    <strong>{deciderLabel(score.decidedBy)}</strong>
-                  </p>
-
-                  <div className="terminal-score-players">
-                    {([HUMAN_PLAYER, BOT_PLAYER] as const).map((playerId) => (
-                      <article
-                        key={`terminal-score-${playerId}`}
-                        className="terminal-score-player"
-                      >
-                        <h3>{playerId === HUMAN_PLAYER ? 'You' : 'Bot'}</h3>
-                        <p className="score-line">
-                          <span>Districts Won</span>
-                          <strong>
-                            {formatDistrictList(wonDistrictsByPlayer[playerId])}
-                          </strong>
-                        </p>
-                        <p className="score-line">
-                          <span>Total Properties</span>
-                          <strong>{score.rankTotals[playerId]}</strong>
-                        </p>
-                        <p className="score-line">
-                          <span>Resources</span>
-                          <strong>{score.resourceTotals[playerId]}</strong>
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                </section>
+                <TerminalScoreSummary
+                  score={score}
+                  wonDistrictsByPlayer={wonDistrictsByPlayer}
+                  humanPlayerId={HUMAN_PLAYER}
+                  botPlayerId={BOT_PLAYER}
+                />
               ) : activePlayerId === HUMAN_PLAYER ? (
                 <div className="actions-human-layout">
                   <div className="actions-human-main">
@@ -2780,473 +2696,58 @@ export function App() {
             />
           </section>
 
-          <section className="panel">
-            <h2>Deck State</h2>
-            <div className="deck-piles" aria-label="Deck and discard piles">
-              <div className="deck-pile">
-                <div
-                  className={`deck-pile-stack is-deck ${deckOverlayShiftClass}`}
-                  title="Cards remaining"
-                  aria-label="Cards remaining"
-                >
-                  {deckStackCount === 0 ? (
-                    <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
-                  ) : (
-                    Array.from({ length: deckStackCount }).map((_, index) => (
-                      <div
-                        key={`deck-back-${index}`}
-                        className="deck-pile-card deck-pile-card-back deck-pile-stack-card"
-                      />
-                    ))
-                  )}
-                  {showSecondShuffleLabel ? (
-                    <span
-                      className="deck-pile-overlay-label"
-                      aria-hidden="true"
-                    >
-                      2nd shuffle
-                    </span>
-                  ) : null}
-                </div>
-                <strong className="deck-pile-count">
-                  {humanView.deck.drawCount}
-                </strong>
-              </div>
-              <div className="deck-pile">
-                <div className="player-score-wrap discard-pile-wrap">
-                  <div
-                    className={`deck-pile-stack is-discard${discardStackCardIds.length > 1 ? ' is-fanned' : ''}`}
-                    title="Discard pile"
-                    aria-label="Discard pile"
-                    tabIndex={0}
-                  >
-                    {discardStackCardIds.length > 0 ? (
-                      discardStackCardIds.map((cardId, index) => (
-                        <div
-                          key={`discard-${cardId}-${index}`}
-                          className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
-                        >
-                          <img
-                            className="deck-pile-image"
-                            src={getCardImage(cardId)}
-                            alt=""
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
-                    )}
-                  </div>
-                  <section
-                    className="player-score-popover discard-pile-popover"
-                    role="tooltip"
-                    aria-label="Discard pile details"
-                  >
-                    <p className="score-result">
-                      Discarded Cards:{' '}
-                      <strong>{discardCardDetails.length}</strong>
-                    </p>
-                    {discardCardDetails.length === 0 ? (
-                      <p className="score-line">
-                        <span>None yet</span>
-                        <strong>-</strong>
-                      </p>
-                    ) : (
-                      <ol className="discard-pile-list">
-                        {discardCardDetails.map((card, index) => (
-                          <li
-                            key={`discard-detail-${card.id}-${index}`}
-                            className="discard-pile-item"
-                          >
-                            <p className="discard-pile-card-row">
-                              <strong className="discard-pile-card-rank">
-                                {card.rank}
-                              </strong>
-                              <span className="discard-pile-card-suits">
-                                {card.suitTokenText.length > 0 ? (
-                                  renderSuitText(card.suitTokenText)
-                                ) : (
-                                  <strong>-</strong>
-                                )}
-                              </span>
-                              <span className="discard-pile-card-name">
-                                {card.name}
-                              </span>
-                            </p>
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                  </section>
-                </div>
-                <strong className="deck-pile-count">
-                  {visibleDiscardCards.length}
-                </strong>
-              </div>
-            </div>
-          </section>
+          <DeckPiles
+            drawCount={humanView.deck.drawCount}
+            reshuffles={humanView.deck.reshuffles}
+            discard={humanView.deck.discard}
+            pendingDiscardHoldback={pendingDiscardHoldback}
+            terminal={terminal}
+          />
 
-          <section className="panel log-panel">
-            <h2>Log</h2>
-            {recentLog.length === 0 ? (
-              <p className="empty-note">No actions yet.</p>
-            ) : (
-              <ol className="log-list">
-                {recentLogGroups.map((group, groupIndex) => (
-                  <li
-                    key={`${group.turn}-${groupIndex}`}
-                    className="log-turn-group"
-                  >
-                    <div className="log-turn-head">
-                      <span className="log-turn">T{group.turn}</span>
-                      <span className="log-player">
-                        {group.player} (
-                        {group.player === HUMAN_PLAYER ? 'You' : 'Bot'})
-                      </span>
-                    </div>
-                    <ol className="log-turn-entries">
-                      {group.entries.map((entry, entryIndex) =>
-                        (() => {
-                          const seedValue = seedSummaryValue(entry.summary);
-                          if (seedValue !== null) {
-                            return (
-                              <li
-                                key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
-                                className="log-turn-entry log-turn-entry-seed"
-                              >
-                                <div className="log-turn-head">
-                                  <span className="log-turn">Seed</span>
-                                  <span className="log-player">
-                                    {seedValue}
-                                  </span>
-                                </div>
-                              </li>
-                            );
-                          }
-                          return (
-                            <li
-                              key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
-                              className="log-turn-entry"
-                            >
-                              <span className="log-summary">
-                                {entry.player !== group.player
-                                  ? renderLogSummary(
-                                      `[${entry.player}] ${entry.summary}`
-                                    )
-                                  : renderLogSummary(entry.summary)}
-                              </span>
-                            </li>
-                          );
-                        })()
-                      )}
-                    </ol>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+          <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />
 
-          <div className="corner-options-anchor">
-            <button
-              ref={optionsMenuButtonRef}
-              type="button"
-              className={`hamburger-button${optionsMenuOpen ? ' is-open' : ''}`}
-              aria-label="Game options"
-              aria-controls="brand-options-menu"
-              aria-expanded={optionsMenuOpen}
-              onClick={() => setOptionsMenuOpen((open) => !open)}
-            >
-              <span />
-              <span />
-              <span />
-            </button>
-
-            {optionsMenuOpen ? (
-              <section
-                id="brand-options-menu"
-                ref={optionsMenuRef}
-                className="brand-options-menu"
-                aria-label="Game options"
-              >
-                <div className="brand-controls">
-                  <input
-                    id="seed-input"
-                    aria-label="Seed"
-                    className="seed-input"
-                    ref={seedInputRef}
-                    autoComplete="off"
-                    defaultValue=""
-                    placeholder="seed (blank=random)"
-                  />
-                  <button
-                    className="reset-button"
-                    type="button"
-                    onClick={handleReset}
-                  >
-                    New Game
-                  </button>
-                </div>
-                <div className="bot-profile-controls">
-                  <label htmlFor="bot-profile-select">Bot Profile</label>
-                  <select
-                    id="bot-profile-select"
-                    className="bot-profile-select"
-                    value={botProfileId}
-                    onChange={(event) =>
-                      setBotProfileId(event.target.value as BotProfileId)
-                    }
-                  >
-                    {BOT_PROFILES.map((profile) => (
-                      <option key={profile.id} value={profile.id}>
-                        {profile.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="bot-profile-note">
-                    {resolvedBotProfile.statusText}
-                  </p>
-                </div>
-                <div className="bot-profile-controls animation-controls">
-                  <label
-                    className="animation-toggle-row"
-                    htmlFor="animations-toggle"
-                  >
-                    <span>Animations</span>
-                    <input
-                      id="animations-toggle"
-                      type="checkbox"
-                      checked={animationsEnabled}
-                      onChange={(event) =>
-                        setAnimationsEnabled(event.target.checked)
-                      }
-                    />
-                  </label>
-                </div>
-              </section>
-            ) : null}
-          </div>
+          <OptionsMenu
+            open={optionsMenuOpen}
+            botProfileId={botProfileId}
+            botStatusText={resolvedBotProfile.statusText}
+            animationsEnabled={animationsEnabled}
+            menuRef={optionsMenuRef}
+            buttonRef={optionsMenuButtonRef}
+            seedInputRef={seedInputRef}
+            onToggle={() => setOptionsMenuOpen((open) => !open)}
+            onReset={handleReset}
+            onBotProfileChange={setBotProfileId}
+            onAnimationsEnabledChange={setAnimationsEnabled}
+          />
         </aside>
       </main>
 
-      {optionsMenuOpen ? (
-        <div
-          className="options-backdrop"
-          aria-hidden="true"
-          onClick={closeOptionsMenu}
-        />
-      ) : null}
+      <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
 
-      {!startupPreloadReady ? (
-        <div
-          className="app-bootstrap-shell startup-preload-overlay"
-          role="presentation"
-        >
-          <section
-            className="app-bootstrap-card startup-preload-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="startup-preload-title"
-          >
-            <h2 id="startup-preload-title" className="app-bootstrap-title">
-              {startupPreloadError ? 'Loading Failed' : 'Preparing Game Assets'}
-            </h2>
-            <p className="app-bootstrap-copy startup-preload-message">
-              {startupPreloadError
-                ? `Could not preload assets: ${startupPreloadError}`
-                : startupPreloadProgress.message}
-            </p>
-            <div
-              className="app-bootstrap-bar startup-preload-progress"
-              role="progressbar"
-              aria-label="Startup asset preload progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={startupPreloadPercent}
-            >
-              <span
-                className="startup-preload-progress-fill"
-                style={{ width: `${startupPreloadPercent}%` }}
-              />
-            </div>
-            <p className="startup-preload-progress-text">
-              {startupPreloadCompleted} / {startupPreloadProgress.total}
-            </p>
-            {startupPreloadError ? (
-              <button
-                type="button"
-                className="reset-button startup-preload-retry"
-                onClick={retryStartupPreload}
-              >
-                Retry
-              </button>
-            ) : null}
-          </section>
-        </div>
-      ) : null}
+      <StartupPreloadOverlay
+        ready={startupPreloadReady}
+        error={startupPreloadError}
+        progress={startupPreloadProgress}
+        onRetry={retryStartupPreload}
+      />
 
-      {resolutionWarningOpen ? (
-        <div className="resolution-warning-overlay" role="presentation">
-          <section
-            className="app-bootstrap-card resolution-warning-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="resolution-warning-title"
-          >
-            <h2 id="resolution-warning-title" className="app-bootstrap-title">
-              Display Warning
-            </h2>
-            <p className="app-bootstrap-copy resolution-warning-message">
-              The UI was designed with a minimum size of 1920 x 1080p and will
-              likely be unusable at smaller resolutions :(
-            </p>
-            <div className="resolution-warning-actions">
-              <button
-                type="button"
-                className="reset-button"
-                onClick={() => setResolutionWarningOpen(false)}
-              >
-                OK
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
+      <ResolutionWarningOverlay
+        open={resolutionWarningOpen}
+        onDismiss={() => setResolutionWarningOpen(false)}
+      />
 
-      {turnCycleOverlay || terminalWinnerOverlayWinner ? (
-        <div className="turn-cycle-overlay" aria-live="polite">
-          <section className="turn-cycle-banner">
-            {terminalWinnerOverlayWinner ? (
-              <>
-                <span className="turn-cycle-label">Winner:</span>
-                <strong className="turn-cycle-income-rank turn-cycle-winner-name">
-                  {winnerLabel(terminalWinnerOverlayWinner)}
-                </strong>
-              </>
-            ) : turnCycleOverlay?.kind === 'tax' ? (
-              <>
-                <img
-                  src={cubeDieIcon}
-                  alt=""
-                  aria-hidden="true"
-                  className="turn-cycle-inline-die"
-                />
-                <span className="turn-cycle-label">Taxes:</span>
-                <TokenChip
-                  suit={turnCycleOverlay.suit}
-                  count={1}
-                  compact
-                  className="turn-cycle-banner-chip"
-                />
-              </>
-            ) : (
-              <>
-                <span className="turn-cycle-inline-dice" aria-hidden="true">
-                  <img
-                    src={dodecahedronDieIcon}
-                    alt=""
-                    className="turn-cycle-inline-die"
-                  />
-                  <img
-                    src={dodecahedronDieIcon}
-                    alt=""
-                    className="turn-cycle-inline-die"
-                  />
-                </span>
-                <span className="turn-cycle-label">Income:</span>
-                <strong className="turn-cycle-income-rank">
-                  {turnCycleOverlay?.rank}
-                </strong>
-              </>
-            )}
-          </section>
-        </div>
-      ) : null}
+      <TurnCycleOverlay
+        overlay={turnCycleOverlay}
+        terminalWinner={terminalWinnerOverlayWinner}
+        humanPlayerId={HUMAN_PLAYER}
+      />
 
-      {resourceFlights.length > 0 ? (
-        <div className="resource-flight-layer" aria-hidden="true">
-          {resourceFlights.map((flight) => {
-            const dx = flight.endX - flight.startX;
-            const dy = flight.endY - flight.startY;
-            const variantClass =
-              flight.variant === 'tax-loss'
-                ? ' is-tax-loss'
-                : flight.variant === 'terminal-clear'
-                  ? ' is-terminal-clear'
-                  : ' is-transfer';
-            return (
-              <div
-                key={flight.id}
-                className={`resource-flight${variantClass}`}
-                style={
-                  {
-                    '--resource-flight-start-x': `${flight.startX}px`,
-                    '--resource-flight-start-y': `${flight.startY}px`,
-                    '--resource-flight-dx': `${dx}px`,
-                    '--resource-flight-dy': `${dy}px`,
-                    '--resource-flight-delay-ms': `${flight.delayMs}ms`,
-                    '--resource-flight-duration-ms': `${flight.durationMs ?? RESOURCE_FLIGHT_DURATION_MS}ms`,
-                  } as CSSProperties
-                }
-              >
-                <TokenChip
-                  suit={flight.suit}
-                  count={1}
-                  compact
-                  className="resource-flight-chip"
-                />
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+      <ResourceFlightLayer flights={resourceFlights} />
 
-      {cardFlights.length > 0 ? (
-        <div className="card-flight-layer" aria-hidden="true">
-          {cardFlights.map((flight) => {
-            const dx = flight.endX - flight.startX;
-            const dy = flight.endY - flight.startY;
-            const scaleX =
-              flight.startWidth > 0 && Number.isFinite(flight.endWidth)
-                ? flight.endWidth / flight.startWidth
-                : 1;
-            const scaleY =
-              flight.startHeight > 0 && Number.isFinite(flight.endHeight)
-                ? flight.endHeight / flight.startHeight
-                : 1;
-            return (
-              <div
-                key={flight.id}
-                className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${flight.variant === 'terminal-clear' ? ' is-terminal-clear' : ''}`}
-                style={
-                  {
-                    '--card-flight-start-x': `${flight.startX}px`,
-                    '--card-flight-start-y': `${flight.startY}px`,
-                    '--card-flight-dx': `${dx}px`,
-                    '--card-flight-dy': `${dy}px`,
-                    '--card-flight-delay-ms': `${flight.delayMs}ms`,
-                    '--card-flight-duration-ms': `${flight.durationMs ?? CARD_FLIGHT_DURATION_MS}ms`,
-                    '--card-flight-scale-x': `${Number.isFinite(scaleX) ? scaleX : 1}`,
-                    '--card-flight-scale-y': `${Number.isFinite(scaleY) ? scaleY : 1}`,
-                    width: `${flight.startWidth}px`,
-                    height: `${flight.startHeight}px`,
-                  } as CSSProperties
-                }
-              >
-                {flight.visual === 'face' && flight.cardId ? (
-                  <CardTile
-                    cardId={flight.cardId}
-                    perspective={flight.perspective}
-                    inDevelopment={flight.isDeed}
-                    animateDeedProgress={animationsEnabled}
-                  />
-                ) : (
-                  <CardTile hidden />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+      <CardFlightLayer
+        flights={cardFlights}
+        animationsEnabled={animationsEnabled}
+      />
 
       {actionPicker && (
         <section
@@ -3536,33 +3037,6 @@ function actionCategoryLabel(category: string): string {
   }
 }
 
-function winnerLabel(winner: FinalScore['winner']): string {
-  if (winner === 'Draw') {
-    return 'Tie';
-  }
-  return winner === HUMAN_PLAYER ? 'You' : 'Bot';
-}
-
-function deciderLabel(decidedBy: FinalScore['decidedBy']): string {
-  switch (decidedBy) {
-    case 'districts':
-      return 'Districts';
-    case 'rank-total':
-      return 'Total Properties';
-    case 'resources':
-      return 'Resources';
-    case 'draw':
-      return 'Tie';
-  }
-}
-
-function formatDistrictList(districtIds: readonly string[]): string {
-  if (districtIds.length === 0) {
-    return 'None';
-  }
-  return districtIds.join(', ');
-}
-
 function clamp(value: number, min: number, max: number): number {
   if (max < min) {
     return min;
@@ -3571,76 +3045,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function renderSuitText(text: string): ReactNode {
-  if (!text) {
-    return text;
-  }
-
-  const nodes: ReactNode[] = [];
-  let cursor = 0;
-
-  for (const match of text.matchAll(SUIT_TOKEN_REGEX)) {
-    const index = match.index ?? 0;
-    const token = match[0];
-    const suit = SUIT_TOKEN_TO_SUIT[token];
-
-    if (index > cursor) {
-      nodes.push(text.slice(cursor, index));
-    }
-
-    if (suit) {
-      nodes.push(
-        <TokenChip
-          key={`suit-${index}-${suit}`}
-          suit={suit}
-          count={1}
-          compact
-          className="inline-token-chip"
-        />
-      );
-    } else {
-      nodes.push(token);
-    }
-
-    cursor = index + token.length;
-  }
-
-  if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
-  }
-
-  return nodes.length > 0 ? <>{nodes}</> : text;
-}
-
-function renderLogSummary(summary: string): ReactNode {
-  const text = formatLogSummary(summary);
-  const nodes: ReactNode[] = [];
-  let cursor = 0;
-
-  for (const match of text.matchAll(SUIT_CODE_PATTERN)) {
-    const index = match.index ?? 0;
-    if (index > cursor) {
-      nodes.push(text.slice(cursor, index));
-    }
-
-    const suitCode = match[0] as SuitLogCode;
-    const suit = suitCodeToSuit(suitCode);
-    nodes.push(
-      <span
-        key={`log-suit-${index}-${suitCode}`}
-        className="log-suit-code"
-        style={{ color: SUIT_TOKEN_BG[suit] }}
-      >
-        {suitCode}
-      </span>
-    );
-    cursor = index + suitCode.length;
-  }
-
-  if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
-  }
-
-  return nodes.length > 0 ? <>{nodes}</> : text;
+  return <SuitText text={text} />;
 }
 
 function toPickerQuery(
