@@ -26,6 +26,17 @@ Keep the repo focused on one direction:
   - `v_root = -v_active` when `activePlayerId != rootPlayer`
 - This sign-conversion is required for every non-terminal TD leaf evaluation.
 
+## TD Target Mode (Locked)
+
+- Default training target mode is one-step TD(0).
+- Sequence-aware replay is now emitted by `collect_td_self_play` value rows via:
+  - `episodeId`
+  - `timestep`
+- `scripts.train_td` can now run TD(lambda) targets with:
+  - `--value-target-mode td-lambda`
+  - `--td-lambda <0..1>`
+- `n_step_bootstrap_targets` remains available but is not wired into CLI training.
+
 ## Fail-Fast Policy (Locked)
 
 - No silent fallback action selection in training/eval pipelines.

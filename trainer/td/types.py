@@ -13,6 +13,8 @@ class ValueTransition:
     done: bool
     next_observation: Sequence[float] | None
     player_id: PlayerId
+    episode_id: str | None = None
+    timestep: int | None = None
 
 
 @dataclass(frozen=True)
