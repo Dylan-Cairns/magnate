@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "rollout-depth-high",
+  "seedPrefix": "rollout-depth-high",
+  "gamesPerSide": 25,
+  "opponent": {
+    "profileId": "rollout-eval-search"
+  },
+  "candidates": [
+    {
+      "id": "rollout-depth-20",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 20,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-depth-30",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 30,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-depth-40",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 40,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    }
+  ]
+}
