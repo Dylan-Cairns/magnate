@@ -1,0 +1,159 @@
+.startup-preload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  backdrop-filter: blur(6px);
+  background:
+    radial-gradient(
+      ellipse 90% 70% at 50% 50%,
+      rgba(78, 108, 157, 0.29) 0%,
+      rgba(47, 68, 104, 0.16) 34%,
+      rgba(14, 21, 36, 0.05) 68%,
+      rgba(8, 13, 24, 0) 80%
+    ),
+    radial-gradient(
+      ellipse 145% 120% at 50% 50%,
+      rgba(0, 0, 0, 0) 40%,
+      rgba(1, 4, 12, 0.62) 84%,
+      rgba(0, 2, 8, 0.86) 100%
+    ),
+    rgba(4, 7, 12, 0.34);
+}
+
+.startup-preload-modal {
+  width: min(24rem, calc(100vw - 1rem));
+  display: grid;
+  gap: 0.64rem;
+}
+
+.startup-preload-modal h2 {
+  margin: 0;
+}
+
+.startup-preload-message {
+  line-height: 1.35;
+}
+
+.startup-preload-progress {
+  width: 100%;
+  margin-top: 0.85rem;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: rgba(56, 69, 89, 0.82);
+  overflow: hidden;
+  position: relative;
+}
+
+.startup-preload-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 160ms ease-out;
+}
+
+.startup-preload-progress-text {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.startup-preload-retry {
+  justify-self: end;
+}
+
+.resolution-warning-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  backdrop-filter: blur(4px);
+  background: rgba(4, 7, 12, 0.52);
+}
+
+.resolution-warning-modal {
+  width: min(32rem, calc(100vw - 1rem));
+  display: grid;
+  gap: 0.72rem;
+}
+
+.resolution-warning-modal h2 {
+  margin: 0;
+}
+
+.resolution-warning-message {
+  line-height: 1.4;
+}
+
+.resolution-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.turn-cycle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.turn-cycle-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  background: rgb(8, 12, 19);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.44),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  color: var(--accent-soft);
+  padding: 0.58rem 1.15rem;
+  font-size: 1.8rem;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+}
+
+.turn-cycle-label {
+  color: var(--accent-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.turn-cycle-banner-chip {
+  width: 2.15rem;
+  height: 2.15rem;
+  box-shadow: none;
+}
+
+.turn-cycle-inline-die {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.turn-cycle-inline-dice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.14em;
+}
+
+.turn-cycle-income-rank {
+  color: var(--ink);
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.turn-cycle-winner-name {
+  color: var(--accent-soft);
+  text-transform: uppercase;
+}

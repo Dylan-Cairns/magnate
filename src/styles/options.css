@@ -1,0 +1,200 @@
+.brand-panel {
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+  z-index: 1;
+}
+
+.brand-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  z-index: 5;
+}
+
+.brand-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.brand-title-block {
+  min-width: 0;
+}
+
+.brand-panel h1 {
+  margin: 0;
+  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  letter-spacing: 0.03em;
+}
+
+.brand-subtitle {
+  margin: 0.05rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+}
+
+.brand-title-block .brand-options-link {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+}
+
+.hamburger-button {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--action-border);
+  background: var(--action-bg);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.24rem;
+  cursor: pointer;
+  box-shadow: var(--button-shadow);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.hamburger-button:hover {
+  background: var(--action-bg-hover);
+  border-color: #60789a;
+  box-shadow: var(--button-shadow-hover);
+}
+
+.hamburger-button span {
+  display: block;
+  width: 0.92rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  transition:
+    transform 140ms ease,
+    opacity 140ms ease;
+}
+
+.hamburger-button.is-open span:nth-child(1) {
+  transform: translateY(0.34rem) rotate(45deg);
+}
+
+.hamburger-button.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-button.is-open span:nth-child(3) {
+  transform: translateY(-0.34rem) rotate(-45deg);
+}
+
+.brand-options-menu {
+  position: absolute;
+  top: calc(100% + 0.36rem);
+  right: 0;
+  width: min(20.5rem, calc(100vw - 2.5rem));
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(9, 13, 20, 0.97);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  padding: 0.62rem;
+  display: grid;
+  gap: 0.55rem;
+  z-index: 149;
+}
+
+.brand-options-link {
+  color: var(--accent-soft);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  text-decoration: underline;
+  text-underline-offset: 0.14rem;
+}
+
+.brand-options-link:hover {
+  color: var(--ink);
+}
+
+.corner-options-anchor {
+  position: relative;
+  width: calc(100% * var(--side-column-panel-width-factor));
+  justify-self: end;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 148;
+}
+
+.corner-options-anchor .brand-options-menu {
+  top: auto;
+  bottom: calc(100% + 0.36rem);
+  left: auto;
+  right: 0;
+  width: 100%;
+}
+
+.options-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 146;
+  backdrop-filter: blur(3px);
+  background: rgba(4, 7, 12, 0.2);
+}
+
+.brand-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-controls .seed-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.bot-profile-controls {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.bot-profile-controls label {
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.bot-profile-select {
+  width: 100%;
+  padding: 0.42rem 0.5rem;
+  border-radius: 7px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.bot-profile-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.animation-controls .animation-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  color: var(--ink);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.animation-controls .animation-toggle-row input {
+  width: 0.92rem;
+  height: 0.92rem;
+  accent-color: var(--accent-soft);
+}

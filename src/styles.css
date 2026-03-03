@@ -2,4 +2,13 @@
 @import './styles/layout.css';
 @import './styles/board.css';
 @import './styles/cards.css';
-@import './styles/panels.css';
+@import './styles/flights.css';
+@import './styles/actions.css';
+@import './styles/scores.css';
+@import './styles/log.css';
+@import './styles/options.css';
+@import './styles/overlays.css';
+@import './styles/deck-piles.css';
+@import './styles/roll-result.css';
+@import './styles/info-pane.css';
+@import './styles/responsive.css';

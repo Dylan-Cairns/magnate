@@ -1,0 +1,51 @@
+.score-result {
+  margin: 0;
+  color: var(--accent-soft);
+  font-size: 0.76rem;
+}
+
+.score-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.terminal-score-summary {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.08rem var(--space-3);
+}
+
+.terminal-score-player {
+  display: grid;
+  gap: 0.24rem;
+  padding: 0;
+}
+
+.terminal-score-player h3 {
+  margin: 0;
+  color: var(--accent-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.terminal-score-winner {
+  font-size: 1.1rem;
+}
+
+.terminal-score-winner strong {
+  font-size: inherit;
+}
+
+.terminal-score-decider {
+  font-size: 0.9rem;
+}
+
+.terminal-score-players {
+  margin-top: 0.42rem;
+  display: grid;
+  gap: 0.45rem;
+}

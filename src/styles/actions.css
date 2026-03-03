@@ -1,0 +1,166 @@
+.action-list {
+  display: grid;
+  gap: var(--space-3);
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  align-content: start;
+  padding: 0.08rem 0.15rem 0.08rem 0;
+}
+
+.action-button {
+  border: 1px solid var(--action-border);
+  background: var(--action-bg);
+  border-radius: 9px;
+  color: var(--ink);
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.14rem;
+  box-shadow: var(--button-shadow);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.action-button.has-submenu {
+  position: relative;
+  padding-right: 1.5rem;
+}
+
+.action-button.has-submenu::after {
+  content: '>';
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent-soft);
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+.action-button:hover {
+  background: var(--action-bg-hover);
+  border-color: #60789a;
+  box-shadow: var(--button-shadow-hover);
+}
+
+.action-button.reset-turn-button {
+  border-color: var(--reset-turn-border);
+  background: var(--reset-turn-bg);
+}
+
+.action-button.reset-turn-button:hover {
+  background: var(--reset-turn-bg-hover);
+}
+
+.action-entry {
+  display: grid;
+  gap: 0;
+}
+
+.action-entry.has-category {
+  gap: 0.18rem;
+  margin-top: 0.16rem;
+}
+
+.action-entry.has-category:first-child {
+  margin-top: 0;
+}
+
+.action-category {
+  margin: 0;
+  color: var(--accent-soft);
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.action-text {
+  font-size: 0.86rem;
+}
+
+.action-list .inline-token-chip,
+.trade-popover .inline-token-chip {
+  box-shadow: none;
+}
+
+.empty-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.trade-popover {
+  position: fixed;
+  width: min(13.75rem, calc(100vw - 1.25rem));
+  display: grid;
+  gap: 0.7rem;
+  z-index: 60;
+  box-shadow: 0 10px 24px var(--shadow-popover);
+}
+
+.trade-popover h2 {
+  margin: 0;
+}
+
+.trade-choice-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.trade-choice-list.single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.trade-choice-button,
+.trade-cancel-button {
+  border: 1px solid var(--action-border);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  padding: 0.5rem 0.6rem;
+  box-shadow: var(--container-shadow-soft);
+}
+
+.trade-choice-button {
+  background: var(--action-bg);
+  text-align: left;
+}
+
+.trade-choice-button:hover {
+  background: var(--action-bg-hover);
+}
+
+.trade-choice-button.is-selected {
+  border-color: var(--accent-soft);
+  box-shadow:
+    0 0 0 1px rgba(120, 168, 246, 0.45),
+    var(--container-shadow-soft);
+}
+
+.trade-cancel-button {
+  background: var(--popover-cancel-bg);
+  text-align: center;
+}
+
+.trade-cancel-button:hover {
+  background: var(--popover-cancel-bg-hover);
+}
+
+.composite-picker-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.composite-picker-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
