@@ -90,7 +90,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
       config: {
         worlds: 10,
         rollouts: 4,
-        depth: 12,
+        depth: 160,
         maxRootActions: 8,
         rolloutEpsilon: 0.0,
       },

@@ -15,6 +15,7 @@ import {
   DEFAULT_BOT_PROFILE_ID,
   resolveBotProfile,
 } from '../../policies/catalog';
+import type { SearchDecisionDiagnostics } from '../../policies/types';
 import { prepareActionDispatch } from '../actionDispatcher';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import {
@@ -43,6 +44,20 @@ type UseGameControllerOptions = {
   botPlayerId: PlayerId;
   startupPreloadReady: boolean;
 };
+
+function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
+  console.info('[Magnate bot search]', {
+    workers: diagnostics.parallelWorkers ?? 1,
+    batches: diagnostics.parallelBatches ?? null,
+    batchSize: diagnostics.parallelBatchSize ?? null,
+    legalRootActions: diagnostics.legalRootActions,
+    expandedRootActions: diagnostics.expandedRootActions,
+    rootVisits: diagnostics.rootVisitBudget,
+    simulatedActionSteps: diagnostics.simulatedActionSteps,
+    maxSimulatedActionSteps: diagnostics.maxSimulatedActionSteps,
+    terminalRollouts: diagnostics.terminalRollouts,
+  });
+}
 
 export function useGameController({
   humanPlayerId,
@@ -259,6 +274,7 @@ export function useGameController({
               current,
               resolvedBotProfile.selected.id
             ),
+            onSearchDiagnostics: logBotSearchDiagnostics,
           });
 
           if (cancelled) {

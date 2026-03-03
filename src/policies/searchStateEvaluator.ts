@@ -1,5 +1,9 @@
 import { CARD_BY_ID } from '../engine/cards';
-import { districtScore } from '../engine/scoring';
+import {
+  districtScore,
+  scoreGame,
+  scoreMarginsForPlayer,
+} from '../engine/scoring';
 import { developmentCost, findProperty, SUITS } from '../engine/stateHelpers';
 import type {
   DistrictState,
@@ -12,6 +16,8 @@ import type {
 } from '../engine/types';
 
 const LATE_GAME_DRAW_COUNT = 6;
+const TERMINAL_OUTCOME_BASE_VALUE = 0.72;
+const TERMINAL_MARGIN_VALUE = 1 - TERMINAL_OUTCOME_BASE_VALUE;
 
 export function evaluateSearchLeafState(
   state: GameState,
@@ -41,6 +47,34 @@ export function evaluateSearchLeafState(
       0.1 * resourceTerm;
 
   return clamp(score, -1, 1);
+}
+
+export function evaluateSearchTerminalState(
+  state: GameState,
+  rootPlayer: PlayerId
+): number {
+  const finalScore = state.finalScore ?? scoreGame(state);
+  if (finalScore.winner === 'Draw') {
+    return 0;
+  }
+
+  const outcomeSign = finalScore.winner === rootPlayer ? 1 : -1;
+  const margins = scoreMarginsForPlayer(state, rootPlayer, finalScore);
+  const marginFromWinnerPerspective = clamp(
+    outcomeSign *
+      (0.55 * Math.tanh(margins.districtPointMargin / 3) +
+        0.22 * Math.tanh(margins.districtScoreMarginTotal / 18) +
+        0.15 * Math.tanh(margins.rankTotalMargin / 24) +
+        0.08 * Math.tanh(margins.resourceMargin / 12)),
+    0,
+    1
+  );
+
+  return (
+    outcomeSign *
+    (TERMINAL_OUTCOME_BASE_VALUE +
+      TERMINAL_MARGIN_VALUE * marginFromWinnerPerspective)
+  );
 }
 
 function districtControlTerm(
