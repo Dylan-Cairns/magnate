@@ -9,7 +9,12 @@ import {
   PLAYER_A,
   PLAYER_B,
 } from './__tests__/fixtures';
-import { districtWinnersByPlayer, isTerminal, scoreGame } from './scoring';
+import {
+  districtWinnersByPlayer,
+  isTerminal,
+  scoreGame,
+  scoreMarginsForPlayer,
+} from './scoring';
 
 describe('isTerminal', () => {
   it('returns true only for GameOver phase', () => {
@@ -220,6 +225,42 @@ describe('scoreGame', () => {
       PlayerB: ['D3'],
     });
     expect(scoreGame(state).districtPoints).toEqual({ PlayerA: 1, PlayerB: 1 });
+  });
+
+  it('exposes player-relative final margins using ace-aware district scoring', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: { developed: ['0', '6'] },
+      [PLAYER_B]: { developed: ['10'] },
+    });
+    const state = makeGameState({
+      phase: 'GameOver',
+      districts,
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
+        makePlayer(PLAYER_B, { resources: makeResources({ Moons: 1 }) }),
+      ] as const,
+    });
+    const finalScore = scoreGame(state);
+
+    expect(scoreMarginsForPlayer(state, PLAYER_A, finalScore)).toEqual({
+      districtPointMargin: 1,
+      districtScoreMargins: [
+        { districtId: 'D1', margin: 1 },
+        { districtId: 'D2', margin: 0 },
+        { districtId: 'D3', margin: 0 },
+        { districtId: 'D4', margin: 0 },
+        { districtId: 'D5', margin: 0 },
+      ],
+      districtScoreMarginTotal: 1,
+      rankTotalMargin: 0,
+      resourceMargin: 2,
+    });
+    expect(scoreMarginsForPlayer(state, PLAYER_B, finalScore)).toMatchObject({
+      districtPointMargin: -1,
+      districtScoreMarginTotal: -1,
+      rankTotalMargin: 0,
+      resourceMargin: -2,
+    });
   });
 });
 

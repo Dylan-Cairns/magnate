@@ -18,7 +18,10 @@ import {
   selectBestRootActionKey,
   selectRootUcbAction,
 } from './searchRoot';
-import { evaluateSearchLeafState } from './searchStateEvaluator';
+import {
+  evaluateSearchLeafState,
+  evaluateSearchTerminalState,
+} from './searchStateEvaluator';
 import type { SearchDecisionDiagnostics } from './types';
 
 export interface RolloutSearchSelectionInput {
@@ -499,7 +502,7 @@ function runRollout(
   const terminatedBeforeDepthLimit = isTerminal(state) && depth < config.depth;
   if (isTerminal(state)) {
     return {
-      score: terminalValue(state, rootPlayer),
+      score: evaluateSearchTerminalState(state, rootPlayer),
       simulatedActionSteps,
       terminatedBeforeDepthLimit,
     };
@@ -535,14 +538,6 @@ function stepByActionKey(state: GameState, actionKey: string): GameState {
     );
   }
   return stepToDecision(state, action);
-}
-
-function terminalValue(state: GameState, rootPlayer: PlayerId): number {
-  const winner = state.finalScore?.winner;
-  if (!winner || winner === 'Draw') {
-    return 0;
-  }
-  return winner === rootPlayer ? 1 : -1;
 }
 
 function randomSeedForVisit(
