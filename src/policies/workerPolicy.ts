@@ -3,10 +3,7 @@ import type { GameAction } from '../engine/types';
 import type { BotSpec } from './botSpec';
 import { policyRandomSeedForState } from './policyRandom';
 import type { ActionPolicy, ActionSelectionContext } from './types';
-import type {
-  BotWorkerRequest,
-  BotWorkerResponse,
-} from './workerBotProtocol';
+import type { BotWorkerRequest, BotWorkerResponse } from './workerBotProtocol';
 
 export interface WorkerBackedPolicyWorker {
   onmessage: ((event: { data: BotWorkerResponse }) => void) | null;
@@ -45,6 +42,7 @@ export function createWorkerBackedPolicy(
   const randomSeedForContext =
     options.randomSeedForContext ??
     ((context: ActionSelectionContext, policySpec: BotSpec) =>
+      context.randomSeed ??
       policyRandomSeedForState(context.state, policySpec.id));
 
   function ensureWorker(): WorkerBackedPolicyWorker {
@@ -120,7 +118,8 @@ export function createWorkerBackedPolicy(
     error?: unknown;
   }): void {
     const message = event.message ?? 'Bot worker failed.';
-    const error = event.error instanceof Error ? event.error : new Error(message);
+    const error =
+      event.error instanceof Error ? event.error : new Error(message);
     terminateWorker();
     for (const pending of pendingByRequestId.values()) {
       pending.reject(error);

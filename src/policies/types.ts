@@ -9,6 +9,9 @@ export interface SearchDecisionDiagnostics {
   maxSimulatedActionSteps: number;
   simulatedActionSteps: number;
   terminalRollouts: number;
+  parallelWorkers?: number;
+  parallelBatches?: number;
+  parallelBatchSize?: number;
 }
 
 export interface ActionSelectionContext {
@@ -16,6 +19,7 @@ export interface ActionSelectionContext {
   view: PlayerView;
   legalActions: readonly GameAction[];
   random: () => number;
+  randomSeed?: string;
   onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
   onProgress?: () => void;
 }

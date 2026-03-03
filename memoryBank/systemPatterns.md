@@ -37,6 +37,19 @@ Design expectations:
   - current browser profiles prioritize deterministic search-based play
 - Browser heuristic play should use one shared TypeScript scorer for direct heuristic play, rollout-search root ranking, and TD-search heuristic root priors.
 - Browser rollout-search leaf evaluation should stay separate from action scoring and estimate unfinished rollout states from canonical district scoring, deed potential/threat pressure, late-game urgency, and resource quality.
+- Browser rollout-search parallelism should live below the `ActionPolicy`
+  boundary:
+  - the UI/controller still awaits one async policy decision;
+  - the worker-backed bot may coordinate nested browser search workers for
+    deterministic root-visit batches;
+  - seeded per-visit RNG and ordered result merging must make worker response
+    timing irrelevant;
+  - worker-count resolution may choose an explicit serial path, but unexpected
+    parallel pool, worker, protocol, or clone failures are hard errors.
+- New search algorithms should reuse the deterministic search-session pattern
+  where practical: root state/stat ownership in the coordinator, cloneable
+  worker tasks/results, stable action keys for merging, and algorithm-specific
+  rollout/leaf/opponent kernels behind a small task-result union.
 - Heuristic scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.

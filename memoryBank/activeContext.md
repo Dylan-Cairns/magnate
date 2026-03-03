@@ -25,7 +25,12 @@
 - Browser `Heuristic`, rollout-search priors, and TD-search heuristic root priors share the TS heuristic scorer; current scorer intent is resource sheltering without losing suit coverage, three-district control, district flips/defense, close deed completion, avoiding non-completing deed progress that spends a last suit token, projected control from newly bought deeds, progress-aware opponent deed threats, rank-2 deed rejection, high-rank deed caution late or without suit access, and trade penalties unless a trade immediately unlocks a high-value move.
 - Browser rollout-search leaf evaluation now uses a dedicated TS state evaluator that weights canonical district control with Ace bonuses, final-score tiebreak pressure, progress-aware deed potential/threats, late-game urgency, and resource quality without using hand-size as a value signal.
 - Current worktree browser `Rollout Search` profile uses `worlds=6`, `rollouts=2`, `depth=120`, `maxRootActions=6`, and `rolloutEpsilon=0.04`; prior high-cost sweep artifacts still cover wider `10w/4r/12d` style candidates.
-- Browser `Rollout Search` is now selected through a lazy dedicated Web Worker wrapper that runs the same TS policy off the main thread and returns stable action keys; worker-pool search remains future work.
+- Browser `Rollout Search` is now selected through a lazy dedicated Web Worker wrapper that coordinates deterministic rollout-search batches across a nested browser search-worker pool when worker count resolves above one, returns stable action keys, and fails fast on unexpected pool or worker errors. Worker count `1` remains the explicit serial path.
+- Browser rollout-search internals now share a deterministic root-search core:
+  seeded world sampling, per-visit rollout RNG seeds, progressive root expansion,
+  UCB scheduling with pending virtual visits for batched workers, ordered result
+  merging, and optional parallel diagnostics. The same core is intended as the
+  extension point for future search variants such as TD-guided search and IFMCTS.
 - Direct TypeScript browser-bot evaluation now lives under `src/botEval/`:
   - browser catalog presets carry serializable `BotSpec` definitions and use
     one shared policy factory;
@@ -106,4 +111,4 @@
    strength ceiling. Prefer `--workers 4` for throughput on the current laptop
    and `--workers 1` when measuring browser-relevant latency.
 
-_Updated: 2026-06-01._
+_Updated: 2026-06-04._

@@ -1,0 +1,555 @@
+import { legalActions as legalActionsForState } from '../engine/actionBuilders';
+import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
+import { rngFromSeed, type RandomFn } from '../engine/rng';
+import { isTerminal } from '../engine/scoring';
+import { stepToDecision } from '../engine/session';
+import type {
+  GameAction,
+  GameState,
+  PlayerId,
+  PlayerView,
+} from '../engine/types';
+import { sampleHiddenWorldStates } from './determinization';
+import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
+import type { SearchPolicyConfig } from './searchConfig';
+import {
+  createSearchDecisionDiagnostics,
+  progressiveTargetActionCount,
+  selectBestRootActionKey,
+  selectRootUcbAction,
+} from './searchRoot';
+import { evaluateSearchLeafState } from './searchStateEvaluator';
+import type { SearchDecisionDiagnostics } from './types';
+
+export interface RolloutSearchSelectionInput {
+  state: GameState;
+  view: PlayerView;
+  candidateActions: readonly GameAction[];
+  config: SearchPolicyConfig;
+  random: RandomFn;
+  randomSeed?: string;
+  onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
+  onProgress?: () => void;
+}
+
+export interface RolloutSearchParallelSelectionInput extends RolloutSearchSelectionInput {
+  batchSize: number;
+  parallelWorkers: number;
+  runBatch: (
+    tasks: readonly RolloutSearchWorkerTask[]
+  ) => Promise<readonly RolloutSearchVisitResult[]>;
+}
+
+export interface RolloutSearchWorkerTask {
+  kind: 'rollout-search';
+  visitIndex: number;
+  world: GameState;
+  rootPlayer: PlayerId;
+  rootActionKey: string;
+  config: SearchPolicyConfig;
+  randomSeed?: string;
+}
+
+export interface RolloutSearchVisitResult {
+  kind: 'rollout-search';
+  visitIndex: number;
+  actionKey: string;
+  score: number;
+  simulatedActionSteps: number;
+  terminatedBeforeDepthLimit: boolean;
+}
+
+interface RankedRootAction {
+  action: GameAction;
+  actionKey: string;
+}
+
+interface ScheduledVisit {
+  actionKey: string;
+}
+
+interface RolloutSearchFinalResult {
+  action: GameAction;
+  actionKey: string;
+  diagnostics: SearchDecisionDiagnostics;
+}
+
+export function selectRolloutSearchActionSync(
+  input: RolloutSearchSelectionInput
+): GameAction | undefined {
+  if (input.candidateActions.length === 0) {
+    return undefined;
+  }
+  if (input.candidateActions.length === 1) {
+    return input.candidateActions[0];
+  }
+
+  const session = createRolloutSearchSession(input);
+  if (!session) {
+    return rankHeuristicActions(input.candidateActions, {
+      state: input.state,
+      view: input.view,
+    })[0].action;
+  }
+
+  while (session.hasUnscheduledVisits()) {
+    input.onProgress?.();
+    const visitIndex = session.nextVisitIndex();
+    const task = session.nextTask(
+      randomSeedForVisit(input.randomSeed, visitIndex)
+    );
+    const result = runRolloutSearchTask(
+      task,
+      task.randomSeed ? undefined : input.random
+    );
+    session.mergeResult(result);
+  }
+
+  const finalResult = session.finish({
+    parallelWorkers: input.randomSeed ? 1 : undefined,
+    parallelBatches: input.randomSeed ? session.mergedVisitCount() : undefined,
+    parallelBatchSize: input.randomSeed ? 1 : undefined,
+  });
+  input.onSearchDiagnostics?.(finalResult.diagnostics);
+  return finalResult.action;
+}
+
+export async function selectRolloutSearchActionParallel(
+  input: RolloutSearchParallelSelectionInput
+): Promise<GameAction | undefined> {
+  if (input.candidateActions.length === 0) {
+    return undefined;
+  }
+  if (input.candidateActions.length === 1) {
+    return input.candidateActions[0];
+  }
+  if (input.randomSeed === undefined) {
+    throw new Error('Parallel rollout search requires a randomSeed.');
+  }
+  if (!Number.isInteger(input.batchSize) || input.batchSize <= 0) {
+    throw new Error('Parallel rollout search batchSize must be positive.');
+  }
+  if (!Number.isInteger(input.parallelWorkers) || input.parallelWorkers <= 0) {
+    throw new Error(
+      'Parallel rollout search parallelWorkers must be positive.'
+    );
+  }
+
+  const session = createRolloutSearchSession(input);
+  if (!session) {
+    return rankHeuristicActions(input.candidateActions, {
+      state: input.state,
+      view: input.view,
+    })[0].action;
+  }
+
+  let batches = 0;
+  while (session.hasUnscheduledVisits()) {
+    const tasks: RolloutSearchWorkerTask[] = [];
+    while (tasks.length < input.batchSize && session.hasUnscheduledVisits()) {
+      input.onProgress?.();
+      const visitIndex = session.nextVisitIndex();
+      tasks.push(
+        session.nextTask(randomSeedForVisit(input.randomSeed, visitIndex))
+      );
+    }
+    batches += 1;
+    const results = await input.runBatch(tasks);
+    if (results.length !== tasks.length) {
+      throw new Error(
+        `Parallel rollout search expected ${String(tasks.length)} results but received ${String(results.length)}.`
+      );
+    }
+    for (const result of [...results].sort(
+      (left, right) => left.visitIndex - right.visitIndex
+    )) {
+      session.mergeResult(result);
+    }
+  }
+
+  const finalResult = session.finish({
+    parallelWorkers: input.parallelWorkers,
+    parallelBatches: batches,
+    parallelBatchSize: input.batchSize,
+  });
+  input.onSearchDiagnostics?.(finalResult.diagnostics);
+  return finalResult.action;
+}
+
+export function runRolloutSearchTask(
+  task: RolloutSearchWorkerTask,
+  fallbackRandom?: RandomFn
+): RolloutSearchVisitResult {
+  const random = task.randomSeed
+    ? rngFromSeed(task.randomSeed)
+    : fallbackRandom;
+  if (!random) {
+    throw new Error('Rollout search task requires randomSeed or fallback RNG.');
+  }
+
+  const rollout = runRollout(
+    task.world,
+    task.rootPlayer,
+    task.rootActionKey,
+    task.config,
+    random
+  );
+  return {
+    kind: 'rollout-search',
+    visitIndex: task.visitIndex,
+    actionKey: task.rootActionKey,
+    score: rollout.score,
+    simulatedActionSteps: rollout.simulatedActionSteps,
+    terminatedBeforeDepthLimit: rollout.terminatedBeforeDepthLimit,
+  };
+}
+
+export function rolloutSearchRootBudget(
+  config: SearchPolicyConfig,
+  sampledWorldCount: number
+): number {
+  const visitCount = Math.max(1, sampledWorldCount * config.rollouts);
+  return visitCount * Math.max(1, config.maxRootActions);
+}
+
+function createRolloutSearchSession({
+  state,
+  view,
+  candidateActions,
+  config,
+  random,
+}: RolloutSearchSelectionInput): RolloutSearchSession | null {
+  const rootPlayer = view.activePlayerId;
+  const heuristicContext = { state, view };
+  const rankedRootActions = rankHeuristicActions(
+    candidateActions,
+    heuristicContext
+  );
+  const worldStates = sampleHiddenWorldStates({
+    state,
+    view,
+    rootPlayer,
+    worldCount: config.worlds,
+    random,
+    errorPrefix: 'Search',
+  });
+  if (worldStates.length === 0) {
+    return null;
+  }
+
+  return new RolloutSearchSession({
+    candidateActions,
+    rankedRootActions,
+    rootPriorByKey: heuristicPriorsByKey(candidateActions, heuristicContext),
+    worldStates,
+    rootPlayer,
+    config,
+  });
+}
+
+class RolloutSearchSession {
+  private readonly actionByKey: ReadonlyMap<string, GameAction>;
+  private readonly rankedRootActions: readonly RankedRootAction[];
+  private readonly rootPriorByKey: ReadonlyMap<string, number>;
+  private readonly worldStates: readonly GameState[];
+  private readonly rootPlayer: PlayerId;
+  private readonly config: SearchPolicyConfig;
+  private readonly rootBudget: number;
+  private readonly rootVisits = new Map<string, number>();
+  private readonly rootValueSum = new Map<string, number>();
+  private readonly pendingVisits = new Map<string, number>();
+  private readonly scheduledVisits = new Map<number, ScheduledVisit>();
+  private readonly mergedVisits = new Set<number>();
+  private readonly expandedKeys: string[];
+  private readonly pendingUnvisited: string[];
+  private scheduledVisitCount = 0;
+  private mergedVisitTotal = 0;
+  private simulatedActionSteps = 0;
+  private terminalRollouts = 0;
+
+  constructor({
+    candidateActions,
+    rankedRootActions,
+    rootPriorByKey,
+    worldStates,
+    rootPlayer,
+    config,
+  }: {
+    candidateActions: readonly GameAction[];
+    rankedRootActions: readonly RankedRootAction[];
+    rootPriorByKey: ReadonlyMap<string, number>;
+    worldStates: readonly GameState[];
+    rootPlayer: PlayerId;
+    config: SearchPolicyConfig;
+  }) {
+    this.actionByKey = new Map(
+      rankedRootActions.map((candidate) => [
+        candidate.actionKey,
+        candidate.action,
+      ])
+    );
+    this.rankedRootActions = rankedRootActions;
+    this.rootPriorByKey = rootPriorByKey;
+    this.worldStates = worldStates;
+    this.rootPlayer = rootPlayer;
+    this.config = config;
+    this.rootBudget = rolloutSearchRootBudget(config, worldStates.length);
+
+    for (const candidate of rankedRootActions) {
+      this.rootVisits.set(candidate.actionKey, 0);
+      this.rootValueSum.set(candidate.actionKey, 0);
+      this.pendingVisits.set(candidate.actionKey, 0);
+    }
+
+    const expandedCount = Math.min(
+      rankedRootActions.length,
+      config.maxRootActions
+    );
+    this.expandedKeys = rankedRootActions
+      .slice(0, expandedCount)
+      .map((candidate) => candidate.actionKey);
+    this.pendingUnvisited = [...this.expandedKeys];
+
+    if (candidateActions.length !== rankedRootActions.length) {
+      throw new Error(
+        'Rollout search root ranking did not preserve action count.'
+      );
+    }
+  }
+
+  hasUnscheduledVisits(): boolean {
+    return this.scheduledVisitCount < this.rootBudget;
+  }
+
+  nextVisitIndex(): number {
+    return this.scheduledVisitCount;
+  }
+
+  mergedVisitCount(): number {
+    return this.mergedVisitTotal;
+  }
+
+  nextTask(randomSeed?: string): RolloutSearchWorkerTask {
+    if (!this.hasUnscheduledVisits()) {
+      throw new Error('Rollout search has no unscheduled visits.');
+    }
+
+    const visitIndex = this.scheduledVisitCount;
+    const targetCount = progressiveTargetActionCount(
+      this.rankedRootActions.length,
+      this.config.maxRootActions,
+      visitIndex
+    );
+    while (this.expandedKeys.length < targetCount) {
+      const nextKey =
+        this.rankedRootActions[this.expandedKeys.length].actionKey;
+      this.expandedKeys.push(nextKey);
+      this.pendingUnvisited.push(nextKey);
+    }
+
+    const actionKey =
+      this.pendingUnvisited.length > 0
+        ? this.pendingUnvisited.shift()!
+        : selectRootUcbAction(
+            this.expandedKeys,
+            this.rootVisits,
+            this.rootValueSum,
+            this.rootPriorByKey,
+            visitIndex,
+            1,
+            this.pendingVisits
+          );
+    const worldIndex = visitIndex % this.worldStates.length;
+
+    this.scheduledVisitCount += 1;
+    this.scheduledVisits.set(visitIndex, { actionKey });
+    this.pendingVisits.set(
+      actionKey,
+      (this.pendingVisits.get(actionKey) ?? 0) + 1
+    );
+
+    return {
+      kind: 'rollout-search',
+      visitIndex,
+      world: this.worldStates[worldIndex],
+      rootPlayer: this.rootPlayer,
+      rootActionKey: actionKey,
+      config: this.config,
+      ...(randomSeed ? { randomSeed } : {}),
+    };
+  }
+
+  mergeResult(result: RolloutSearchVisitResult): void {
+    if (result.kind !== 'rollout-search') {
+      throw new Error(`Unsupported search result kind: ${result.kind}`);
+    }
+    const scheduled = this.scheduledVisits.get(result.visitIndex);
+    if (!scheduled) {
+      throw new Error(
+        `Rollout search received result for unscheduled visit ${String(result.visitIndex)}.`
+      );
+    }
+    if (this.mergedVisits.has(result.visitIndex)) {
+      throw new Error(
+        `Rollout search received duplicate result for visit ${String(result.visitIndex)}.`
+      );
+    }
+    if (scheduled.actionKey !== result.actionKey) {
+      throw new Error(
+        `Rollout search visit ${String(result.visitIndex)} returned ${result.actionKey} but expected ${scheduled.actionKey}.`
+      );
+    }
+
+    this.mergedVisits.add(result.visitIndex);
+    this.mergedVisitTotal += 1;
+    this.pendingVisits.set(
+      result.actionKey,
+      Math.max(0, (this.pendingVisits.get(result.actionKey) ?? 0) - 1)
+    );
+    this.rootVisits.set(
+      result.actionKey,
+      (this.rootVisits.get(result.actionKey) ?? 0) + 1
+    );
+    this.rootValueSum.set(
+      result.actionKey,
+      (this.rootValueSum.get(result.actionKey) ?? 0) + result.score
+    );
+    this.simulatedActionSteps += result.simulatedActionSteps;
+    this.terminalRollouts += result.terminatedBeforeDepthLimit ? 1 : 0;
+  }
+
+  finish({
+    parallelWorkers,
+    parallelBatches,
+    parallelBatchSize,
+  }: {
+    parallelWorkers?: number;
+    parallelBatches?: number;
+    parallelBatchSize?: number;
+  }): RolloutSearchFinalResult {
+    if (this.scheduledVisitCount !== this.rootBudget) {
+      throw new Error('Rollout search finished before scheduling all visits.');
+    }
+    if (this.mergedVisitTotal !== this.rootBudget) {
+      throw new Error('Rollout search finished before merging all visits.');
+    }
+
+    const actionKey = selectBestRootActionKey({
+      expandedKeys: this.expandedKeys,
+      visitsByKey: this.rootVisits,
+      valueSumByKey: this.rootValueSum,
+      priorsByKey: this.rootPriorByKey,
+    });
+    const action = this.actionByKey.get(actionKey);
+    if (!action) {
+      throw new Error(
+        `Search policy selected root action key that is no longer legal: ${actionKey}.`
+      );
+    }
+
+    return {
+      action,
+      actionKey,
+      diagnostics: createSearchDecisionDiagnostics({
+        config: this.config,
+        legalRootActions: this.rankedRootActions.length,
+        expandedRootActions: this.expandedKeys.length,
+        rootVisitBudget: this.rootBudget,
+        simulatedActionSteps: this.simulatedActionSteps,
+        terminalRollouts: this.terminalRollouts,
+        parallelWorkers,
+        parallelBatches,
+        parallelBatchSize,
+      }),
+    };
+  }
+}
+
+function runRollout(
+  initialState: GameState,
+  rootPlayer: PlayerId,
+  rootActionKey: string,
+  config: SearchPolicyConfig,
+  random: RandomFn
+): {
+  score: number;
+  simulatedActionSteps: number;
+  terminatedBeforeDepthLimit: boolean;
+} {
+  let state = stepByActionKey(initialState, rootActionKey);
+  let depth = 0;
+  let simulatedActionSteps = 1;
+
+  while (!isTerminal(state) && depth < config.depth) {
+    const actions = legalActionsForState(state);
+    if (actions.length === 0) {
+      break;
+    }
+    const nextActionKey = chooseRolloutActionKey(
+      state,
+      actions,
+      random,
+      config.rolloutEpsilon
+    );
+    state = stepByActionKey(state, nextActionKey);
+    depth += 1;
+    simulatedActionSteps += 1;
+  }
+
+  const terminatedBeforeDepthLimit = isTerminal(state) && depth < config.depth;
+  if (isTerminal(state)) {
+    return {
+      score: terminalValue(state, rootPlayer),
+      simulatedActionSteps,
+      terminatedBeforeDepthLimit,
+    };
+  }
+  return {
+    score: evaluateSearchLeafState(state, rootPlayer),
+    simulatedActionSteps,
+    terminatedBeforeDepthLimit,
+  };
+}
+
+function chooseRolloutActionKey(
+  state: GameState,
+  actions: readonly GameAction[],
+  random: RandomFn,
+  rolloutEpsilon: number
+): string {
+  const keyed = toKeyedActions(actions);
+  if (random() < rolloutEpsilon) {
+    return keyed[Math.floor(random() * keyed.length)].actionKey;
+  }
+  return rankHeuristicActions(actions, { state })[0].actionKey;
+}
+
+function stepByActionKey(state: GameState, actionKey: string): GameState {
+  const actions = legalActionsForState(state);
+  const action = actions.find(
+    (candidate) => actionStableKey(candidate) === actionKey
+  );
+  if (!action) {
+    throw new Error(
+      `Search policy rollout could not find legal action for key ${actionKey}.`
+    );
+  }
+  return stepToDecision(state, action);
+}
+
+function terminalValue(state: GameState, rootPlayer: PlayerId): number {
+  const winner = state.finalScore?.winner;
+  if (!winner || winner === 'Draw') {
+    return 0;
+  }
+  return winner === rootPlayer ? 1 : -1;
+}
+
+function randomSeedForVisit(
+  randomSeed: string | undefined,
+  visitIndex: number
+): string | undefined {
+  return randomSeed === undefined
+    ? undefined
+    : `${randomSeed}:rollout-visit:${String(visitIndex)}`;
+}

@@ -20,6 +20,7 @@ import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import {
   activePlayerIdForState,
   botRandomForState,
+  botRandomSeedForState,
   createBrowserSession,
   errorMessage,
   humanActionsAcceptingInputForState,
@@ -254,6 +255,10 @@ export function useGameController({
             view: botView,
             legalActions: actions,
             random: botRandomForState(current, resolvedBotProfile.selected.id),
+            randomSeed: botRandomSeedForState(
+              current,
+              resolvedBotProfile.selected.id
+            ),
           });
 
           if (cancelled) {
