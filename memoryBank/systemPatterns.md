@@ -55,6 +55,9 @@ Design expectations:
   derivation, injectable browser-only DOM target resolution, and flight
   planning in `src/ui/animations/`; browser DOM access remains outside the
   engine and isolated in `domTargets.ts`.
+- UI animation lifecycle state, timer cleanup, preview scheduling, and delayed
+  commit coordination should live in `useGameAnimations`; canonical state
+  transitions and timeline logging remain injected controller callbacks.
 - Characterization tests should protect UI commit timing, tax-resource previews,
   composite picker resolution/invalidation, and log presentation while
   `App.tsx` is decomposed.
