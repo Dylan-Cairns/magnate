@@ -1,0 +1,39 @@
+.roll-value {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+}
+
+.roll-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  color: var(--ink);
+}
+
+.roll-die-shell {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.roll-die-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  position: relative;
+  z-index: 1;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.roll-tax-chip {
+  width: 1.3rem;
+  height: 1.3rem;
+}

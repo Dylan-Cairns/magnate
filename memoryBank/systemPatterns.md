@@ -72,6 +72,10 @@ Design expectations:
 - Stateless browser rendering blocks should live under `src/ui/components/`
   and receive derived data plus callbacks from `App.tsx`; selector-bearing
   classes, IDs, and `data-*` animation anchors are compatibility surfaces.
+- Browser styles should stay split by ownership under `src/styles/`: global
+  primitives, layout, board, card primitives, flights, rendered side-panel
+  components, and a final responsive override layer. Preserve import order
+  when moving rules so selector-bearing compatibility surfaces do not change.
 - Action-panel and picker components stay controlled: `App.tsx` owns picker
   state, positioning callbacks, refs, dismiss hooks, and action execution,
   while pure category and picker-conversion helpers live under `src/ui/`.

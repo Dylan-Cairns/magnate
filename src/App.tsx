@@ -452,7 +452,7 @@ export function App() {
     : botPlayer;
 
   return (
-    <div className={`app-shell${optionsMenuOpen ? ' is-options-open' : ''}`}>
+    <div className="app-shell">
       {error && (
         <section className="error-banner">
           <strong>Engine Error:</strong> {error}
