@@ -17,6 +17,7 @@ export interface ActionSelectionContext {
   legalActions: readonly GameAction[];
   random: () => number;
   onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
+  onProgress?: () => void;
 }
 
 export type MaybePromise<T> = T | Promise<T>;

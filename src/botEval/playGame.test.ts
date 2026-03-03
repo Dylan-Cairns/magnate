@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { heuristicPolicy } from '../policies/heuristicPolicy';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import type { ActionPolicy } from '../policies/types';
 import { playGame, type RuntimeBot } from './playGame';
@@ -38,6 +39,42 @@ describe('TypeScript bot game runner', () => {
         },
       })
     ).rejects.toThrow('selected illegal action');
+  });
+
+  it('emits timed heartbeats while a policy is selecting actions', async () => {
+    let currentTime = 0;
+    const heartbeats: string[] = [];
+    const heartbeatPolicy: ActionPolicy = {
+      selectAction(context) {
+        currentTime += 31_000;
+        context.onProgress?.();
+        return heuristicPolicy.selectAction(context);
+      },
+    };
+
+    await playGame({
+      gameId: 'heartbeat-game',
+      seed: 'heartbeat-game',
+      firstPlayer: 'PlayerA',
+      botBySeat: {
+        PlayerA: runtimeBot(
+          { id: 'heartbeat-a', kind: 'heuristic' },
+          heartbeatPolicy
+        ),
+        PlayerB: runtimeBot(
+          { id: 'heartbeat-b', kind: 'heuristic' },
+          heartbeatPolicy
+        ),
+      },
+      now: () => currentTime,
+      progressIntervalMs: 30_000,
+      onHeartbeat(heartbeat) {
+        heartbeats.push(heartbeat.gameId);
+      },
+    });
+
+    expect(heartbeats.length).toBeGreaterThan(0);
+    expect(new Set(heartbeats)).toEqual(new Set(['heartbeat-game']));
   });
 });
 

@@ -39,6 +39,8 @@
   `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep:
   `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
+- Override bot-eval heartbeat cadence:
+  append `--progress-interval-seconds 10` (`0` disables timed heartbeats).
 - Replay one recorded TypeScript bot game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Test: `yarn test`
@@ -233,6 +235,16 @@ Use `--help` on each script for the full option surface.
   paired-seed prefix. It writes aggregate `sweep.json`, `sweep.csv`, and
   `summary.md` files plus replayable child head-to-head artifacts under
   `matchups/`.
+- Bot-eval progress logs stream to stderr while final JSON stays on stdout.
+  Sweep logs announce candidate boundaries, every completed paired seed, and
+  timed in-game heartbeats (`30` seconds by default). Rollout search checks the
+  heartbeat during root visits so long synchronous search decisions can report
+  progress.
+- Sweep aggregate artifacts are written with `status=running` before compute
+  starts and atomically refreshed after each completed candidate. Each completed
+  candidate's child matchup is durable before the next starts. Automatic sweep
+  resume is not implemented; follow-up runs must be constructed explicitly, and
+  an interrupted active candidate has no partial child artifact.
 - Browser `td-search` specs are serializable through the shared policy factory,
   but direct Node eval of those specs still needs a local model-pack loader.
 

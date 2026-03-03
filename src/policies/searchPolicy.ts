@@ -45,6 +45,7 @@ export function createSearchPolicy(
       legalActions: candidateActions,
       random,
       onSearchDiagnostics,
+      onProgress,
     }) {
       if (candidateActions.length === 0) {
         return undefined;
@@ -102,6 +103,7 @@ export function createSearchPolicy(
       let simulatedActionSteps = 0;
       let terminalRollouts = 0;
       for (let visitIndex = 0; visitIndex < rootBudget; visitIndex += 1) {
+        onProgress?.();
         const targetCount = progressiveTargetActionCount(
           rankedRootActions.length,
           config.maxRootActions,

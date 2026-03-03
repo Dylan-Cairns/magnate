@@ -35,6 +35,7 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for the full setup, t
 - Format: `yarn format`
 - TypeScript browser-bot head-to-head eval: `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep: `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
+- Override bot-eval heartbeat cadence: append `--progress-interval-seconds 10` (`0` disables heartbeats).
 - Replay one recorded TypeScript bot game: `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`

@@ -54,6 +54,56 @@ describe('rollout-search sweep artifacts', () => {
     expect(markdown).toContain('## Root-Action Latency: search,candidate');
     expect(child.config.candidate.id).toBe('search,candidate');
   });
+
+  it('refreshes partial running artifacts before sweep completion', async () => {
+    const outputDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'magnate-bot-sweep-partial-')
+    );
+    cleanupPaths.push(outputDirectory);
+    const completeRun = await runRolloutSearchSweep(sweepConfig());
+    const options = {
+      generatedAtUtc: '2026-06-01T00:00:00.000Z',
+      git: { commit: 'test-commit', dirty: false },
+      nodeVersion: 'test-node',
+    };
+
+    await writeRolloutSearchSweepArtifacts(
+      { config: completeRun.config, matchups: [] },
+      outputDirectory,
+      {
+        ...options,
+        status: 'running',
+        matchupIndicesToWrite: [],
+      }
+    );
+    const initial = await loadRolloutSearchSweepArtifact(
+      path.join(outputDirectory, 'sweep.json')
+    );
+    expect(initial.status).toBe('running');
+    expect(initial.completedCandidates).toBe(0);
+
+    const written = await writeRolloutSearchSweepArtifacts(
+      completeRun,
+      outputDirectory,
+      {
+        ...options,
+        status: 'running',
+        matchupIndicesToWrite: [0],
+      }
+    );
+    const partial = await loadRolloutSearchSweepArtifact(written.artifactPath);
+    const markdown = await readFile(written.summaryPath, 'utf8');
+
+    expect(partial.status).toBe('running');
+    expect(partial.completedCandidates).toBe(1);
+    expect(partial.totalCandidates).toBe(1);
+    expect(markdown).toContain('Status: running (1/1 candidates)');
+    await expect(
+      loadHeadToHeadArtifact(
+        path.join(outputDirectory, partial.rows[0].matchupArtifactPath)
+      )
+    ).resolves.toBeDefined();
+  });
 });
 
 function sweepConfig(): RolloutSearchSweepConfig {

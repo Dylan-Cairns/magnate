@@ -5,7 +5,14 @@ import { runHeadToHead } from './matchup';
 
 describe('paired TypeScript bot matchups', () => {
   it('uses paired seeds, swaps seats, and alternates the first player seat', async () => {
-    const run = await runHeadToHead(testHeadToHeadConfig(2));
+    const completedPairs: number[] = [];
+    const run = await runHeadToHead(testHeadToHeadConfig(2), {
+      onProgress(progress) {
+        if (progress.type === 'pair-completed') {
+          completedPairs.push(progress.completedPairs);
+        }
+      },
+    });
 
     expect(run.games).toHaveLength(4);
     expect(run.games.map((game) => game.seed)).toEqual([
@@ -46,5 +53,6 @@ describe('paired TypeScript bot matchups', () => {
     expect(
       run.summary.multiChoiceLatencyByBotId['heuristic-candidate'].actions
     ).toBeLessThan(run.summary.latencyByBotId['heuristic-candidate'].actions);
+    expect(completedPairs).toEqual([1, 2]);
   });
 });

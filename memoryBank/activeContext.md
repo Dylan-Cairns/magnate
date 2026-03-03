@@ -40,6 +40,9 @@
   - sequential rollout-search sweeps run explicit high-cost configs against one
     fixed opponent with shared paired seeds and write aggregate JSON, CSV, and
     Markdown plus replayable child matchups;
+  - bot-eval progress streams to stderr with candidate boundaries, completed
+    pairs, and timed in-game heartbeats; sweep aggregates start in `running`
+    state and refresh atomically after each durable completed candidate;
   - `configs/bot-eval/head-to-head.example.json` and
     `configs/bot-eval/rollout-search-width-sweep.example.json` are runnable
     examples.
