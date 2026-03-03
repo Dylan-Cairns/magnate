@@ -4,6 +4,7 @@ import { testHeadToHeadConfig } from './__tests__/fixtures';
 import { createHeadToHeadArtifact } from './artifacts';
 import { runHeadToHead } from './matchup';
 import { replayArtifactGame } from './replay';
+import type { DecisionRecord } from './types';
 
 describe('TypeScript bot evaluation replay', () => {
   it('replays a recorded game exactly', async () => {
@@ -30,6 +31,21 @@ describe('TypeScript bot evaluation replay', () => {
     await expect(
       replayArtifactGame(artifact, artifact.games[0].gameId)
     ).rejects.toThrow('RNG scheme mismatch');
+  });
+
+  it('replays schema-v1 artifacts without diagnostics', async () => {
+    const artifact = await makeArtifact();
+    artifact.schemaVersion = 1;
+    for (const game of artifact.games) {
+      for (const decision of game.transcript) {
+        delete (decision as Partial<DecisionRecord>).legalActionCount;
+        delete decision.searchDiagnostics;
+      }
+    }
+
+    const result = await replayArtifactGame(artifact, artifact.games[0].gameId);
+
+    expect(result.matched).toBe(true);
   });
 });
 

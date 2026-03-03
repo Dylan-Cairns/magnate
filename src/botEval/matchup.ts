@@ -2,9 +2,17 @@ import { performance } from 'node:perf_hooks';
 
 import type { PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
-import type { ActionPolicy } from '../policies/types';
+import type {
+  ActionPolicy,
+  SearchDecisionDiagnostics,
+} from '../policies/types';
 import { playGame, type RuntimeBot } from './playGame';
-import { summarizeLatencies, wilsonInterval } from './stats';
+import {
+  summarizeLatencies,
+  summarizeSearchLatenciesByRootActionCount,
+  summarizeSearchWork,
+  wilsonInterval,
+} from './stats';
 import type {
   HeadToHeadConfig,
   HeadToHeadRun,
@@ -133,6 +141,15 @@ function summarizeHeadToHead(
     draw: 0,
   };
   const latencyValuesByBotId = new Map<string, number[]>();
+  const multiChoiceLatencyValuesByBotId = new Map<string, number[]>();
+  const searchDiagnosticsByBotId = new Map<
+    string,
+    SearchDecisionDiagnostics[]
+  >();
+  const searchLatencySamplesByBotId = new Map<
+    string,
+    { legalRootActions: number; latencyMs: number }[]
+  >();
 
   for (const game of games) {
     const candidateSeat = seatForBot(game, candidateId);
@@ -166,9 +183,25 @@ function summarizeHeadToHead(
     finalScoreDeciders[game.finalScore.decidedBy] += 1;
     turnTotal += game.turns;
     for (const decision of game.transcript) {
-      const existing = latencyValuesByBotId.get(decision.botId) ?? [];
-      existing.push(decision.latencyMs);
-      latencyValuesByBotId.set(decision.botId, existing);
+      appendMapValue(latencyValuesByBotId, decision.botId, decision.latencyMs);
+      if (decision.legalActionCount > 1) {
+        appendMapValue(
+          multiChoiceLatencyValuesByBotId,
+          decision.botId,
+          decision.latencyMs
+        );
+      }
+      if (decision.searchDiagnostics) {
+        appendMapValue(
+          searchDiagnosticsByBotId,
+          decision.botId,
+          decision.searchDiagnostics
+        );
+        appendMapValue(searchLatencySamplesByBotId, decision.botId, {
+          legalRootActions: decision.searchDiagnostics.legalRootActions,
+          latencyMs: decision.latencyMs,
+        });
+      }
     }
   }
 
@@ -207,6 +240,26 @@ function summarizeHeadToHead(
         summarizeLatencies(latencyValuesByBotId.get(botId) ?? []),
       ])
     ),
+    multiChoiceLatencyByBotId: Object.fromEntries(
+      [candidateId, opponentId].map((botId) => [
+        botId,
+        summarizeLatencies(multiChoiceLatencyValuesByBotId.get(botId) ?? []),
+      ])
+    ),
+    searchWorkByBotId: Object.fromEntries(
+      [candidateId, opponentId].map((botId) => [
+        botId,
+        summarizeSearchWork(searchDiagnosticsByBotId.get(botId) ?? []),
+      ])
+    ),
+    searchLatencyByRootActionCountByBotId: Object.fromEntries(
+      [candidateId, opponentId].map((botId) => [
+        botId,
+        summarizeSearchLatenciesByRootActionCount(
+          searchLatencySamplesByBotId.get(botId) ?? []
+        ),
+      ])
+    ),
   };
 }
 
@@ -218,4 +271,14 @@ function seatForBot(game: PlayedGame, botId: string): PlayerId {
     return 'PlayerB';
   }
   throw new Error(`Game ${game.gameId} does not include bot ${botId}.`);
+}
+
+function appendMapValue<T>(
+  valuesByKey: Map<string, T[]>,
+  key: string,
+  value: T
+): void {
+  const values = valuesByKey.get(key) ?? [];
+  values.push(value);
+  valuesByKey.set(key, values);
 }

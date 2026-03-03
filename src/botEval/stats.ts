@@ -1,4 +1,16 @@
-import type { ConfidenceInterval, LatencySummary } from './types';
+import type { SearchDecisionDiagnostics } from '../policies/types';
+import {
+  ROOT_ACTION_COUNT_BUCKETS,
+  type ConfidenceInterval,
+  type LatencySummary,
+  type RootActionCountBucket,
+  type SearchWorkSummary,
+} from './types';
+
+export interface SearchDecisionLatencySample {
+  legalRootActions: number;
+  latencyMs: number;
+}
 
 export function wilsonInterval(
   successes: number,
@@ -50,6 +62,80 @@ export function summarizeLatencies(values: readonly number[]): LatencySummary {
   };
 }
 
+export function rootActionCountBucket(
+  legalRootActions: number
+): RootActionCountBucket {
+  if (!Number.isInteger(legalRootActions) || legalRootActions < 2) {
+    throw new Error('legalRootActions must be an integer >= 2.');
+  }
+  if (legalRootActions <= 4) {
+    return '2-4';
+  }
+  if (legalRootActions <= 8) {
+    return '5-8';
+  }
+  if (legalRootActions <= 16) {
+    return '9-16';
+  }
+  if (legalRootActions <= 32) {
+    return '17-32';
+  }
+  if (legalRootActions <= 64) {
+    return '33-64';
+  }
+  return '65+';
+}
+
+export function summarizeSearchWork(
+  diagnostics: readonly SearchDecisionDiagnostics[]
+): SearchWorkSummary {
+  const summary: SearchWorkSummary = {
+    searchedDecisions: diagnostics.length,
+    rootVisits: 0,
+    configProxyCost: 0,
+    maxSimulatedActionSteps: 0,
+    simulatedActionSteps: 0,
+    stepUtilization: 0,
+    meanSimulatedActionSteps: 0,
+    terminalRollouts: 0,
+  };
+  for (const diagnostic of diagnostics) {
+    summary.rootVisits += diagnostic.rootVisitBudget;
+    summary.configProxyCost += diagnostic.configProxyCost;
+    summary.maxSimulatedActionSteps += diagnostic.maxSimulatedActionSteps;
+    summary.simulatedActionSteps += diagnostic.simulatedActionSteps;
+    summary.terminalRollouts += diagnostic.terminalRollouts;
+  }
+  summary.stepUtilization = safeDiv(
+    summary.simulatedActionSteps,
+    summary.maxSimulatedActionSteps
+  );
+  summary.meanSimulatedActionSteps = safeDiv(
+    summary.simulatedActionSteps,
+    summary.searchedDecisions
+  );
+  return summary;
+}
+
+export function summarizeSearchLatenciesByRootActionCount(
+  samples: readonly SearchDecisionLatencySample[]
+): Record<RootActionCountBucket, LatencySummary> {
+  const valuesByBucket = new Map<RootActionCountBucket, number[]>(
+    ROOT_ACTION_COUNT_BUCKETS.map((bucket) => [bucket, []])
+  );
+  for (const sample of samples) {
+    valuesByBucket
+      .get(rootActionCountBucket(sample.legalRootActions))!
+      .push(sample.latencyMs);
+  }
+  return Object.fromEntries(
+    ROOT_ACTION_COUNT_BUCKETS.map((bucket) => [
+      bucket,
+      summarizeLatencies(valuesByBucket.get(bucket) ?? []),
+    ])
+  ) as Record<RootActionCountBucket, LatencySummary>;
+}
+
 function nearestRankPercentile(
   sortedValues: readonly number[],
   percentile: number
@@ -65,4 +151,11 @@ function nearestRankPercentile(
     )
   );
   return sortedValues[index];
+}
+
+function safeDiv(total: number, count: number): number {
+  if (count <= 0) {
+    return 0;
+  }
+  return total / count;
 }

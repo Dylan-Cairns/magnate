@@ -12,6 +12,9 @@ describe('TypeScript bot game runner', () => {
     expect(actionKeys(first)).toEqual(actionKeys(second));
     expect(first.finalScore).toEqual(second.finalScore);
     expect(first.transcript.length).toBeGreaterThan(0);
+    expect(
+      first.transcript.every((decision) => decision.legalActionCount >= 1)
+    ).toBe(true);
   });
 
   it('rejects an action that is not legal in the current state', async () => {

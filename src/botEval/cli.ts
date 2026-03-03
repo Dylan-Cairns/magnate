@@ -7,9 +7,14 @@ import {
   loadHeadToHeadArtifact,
   writeHeadToHeadArtifacts,
 } from './artifacts';
-import { parseHeadToHeadConfig } from './config';
+import { parseHeadToHeadConfig, parseRolloutSearchSweepConfig } from './config';
 import { runHeadToHead } from './matchup';
 import { replayArtifactGame } from './replay';
+import {
+  defaultRolloutSearchSweepOutputDirectory,
+  writeRolloutSearchSweepArtifacts,
+} from './sweepArtifacts';
+import { runRolloutSearchSweep } from './sweep';
 
 async function main(): Promise<void> {
   const [command, ...args] = process.argv.slice(2);
@@ -20,9 +25,12 @@ async function main(): Promise<void> {
     case 'replay':
       await runReplayCommand(args);
       return;
+    case 'rollout-search-sweep':
+      await runRolloutSearchSweepCommand(args);
+      return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] | rollout-search-sweep --config <path> [--out-dir <path>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -45,6 +53,34 @@ async function runHeadToHeadCommand(args: readonly string[]): Promise<void> {
         artifact: path.resolve(written.artifactPath),
         summary: path.resolve(written.summaryPath),
         results: artifact.summary,
+      },
+      null,
+      2
+    )}\n`
+  );
+}
+
+async function runRolloutSearchSweepCommand(
+  args: readonly string[]
+): Promise<void> {
+  const flags = parseFlags(args);
+  const configPath = requiredFlag(flags, '--config');
+  const config = parseRolloutSearchSweepConfig(
+    JSON.parse(await readFile(configPath, 'utf8'))
+  );
+  const outputDirectory =
+    flags.get('--out-dir') ??
+    defaultRolloutSearchSweepOutputDirectory(config.runLabel);
+  const run = await runRolloutSearchSweep(config);
+  const written = await writeRolloutSearchSweepArtifacts(run, outputDirectory);
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: 'completed',
+        artifact: path.resolve(written.artifactPath),
+        csv: path.resolve(written.csvPath),
+        summary: path.resolve(written.summaryPath),
+        results: written.artifact.rows,
       },
       null,
       2
