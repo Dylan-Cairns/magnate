@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from './engine/actionBuilders';
 import type { CardId } from './engine/cards';
@@ -29,27 +22,15 @@ import type {
 } from './engine/types';
 import { toPlayerView } from './engine/view';
 import {
-  actionStableKey,
   buildHumanActionList,
   buildTradeSourceGroups,
-  buildPickerOptions,
-  cardSummary,
-  describeAction,
-  formatTokens,
-  paymentSignature,
   pickerStillLegal,
-  pickerTitle,
-  type ActionPickerQuery,
-  type HumanActionListItem,
 } from './ui/actionPresentation';
 import {
-  buildDevelopOutrightCompositeOptions,
   developOutrightCompositePickerStillLegal,
-  resolveDevelopOutrightCompositeAction,
-  resolveTradeCompositeAction,
-  tradeActionsForPicker,
+  toPickerQuery,
   tradeCompositePickerStillLegal,
-  tradeReceiveOptions,
+  type ActionPickerState,
 } from './ui/actionPickerModel';
 import {
   applySingleTaxLossToPreview,
@@ -86,6 +67,8 @@ import {
   preloadStartupAssets,
   type StartupPreloadProgress,
 } from './ui/startupPreload';
+import { ActionPicker } from './ui/components/ActionPicker';
+import { ActionsPanel } from './ui/components/ActionsPanel';
 import type { CardPerspective } from './ui/components/CardTile';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
 import { DeckPiles } from './ui/components/DeckPiles';
@@ -97,8 +80,6 @@ import {
 import { LogPanel } from './ui/components/LogPanel';
 import { OptionsBackdrop, OptionsMenu } from './ui/components/OptionsMenu';
 import { ResourceFlightLayer } from './ui/components/ResourceFlightLayer';
-import { SuitText } from './ui/components/SuitText';
-import { TerminalScoreSummary } from './ui/components/TerminalScoreSummary';
 import {
   clearAllDeedTokenLayouts,
   layoutDeedTokensBySide,
@@ -115,7 +96,6 @@ import {
   deriveTurnCycleEvents,
   type TurnCycleIncomeToken,
 } from './ui/turnCycleEvents';
-import { SUIT_TEXT_TOKEN } from './ui/suitIcons';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -137,27 +117,6 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   percent: 0,
   message: 'Loading card images and bot models...',
 };
-
-type ActionPickerState =
-  | (ActionPickerQuery & {
-      top: number;
-      left: number;
-    })
-  | {
-      kind: 'trade-combined';
-      top: number;
-      left: number;
-      selectedGive?: Suit;
-      selectedReceive?: Suit;
-    }
-  | {
-      kind: 'develop-outright-combined';
-      top: number;
-      left: number;
-      cardId: CardId;
-      selectedDistrictId?: string;
-      selectedPaymentKey?: string;
-    };
 
 function makeSeed(): string {
   return `seed-${Date.now()}`;
@@ -1567,34 +1526,6 @@ export function App() {
     );
   }, [firstTradeGroupIndex, hasMultipleTradeSources, humanActionItems]);
 
-  const actionPickerOptions = useMemo(() => {
-    if (
-      !actionPicker ||
-      actionPicker.kind === 'trade-combined' ||
-      actionPicker.kind === 'develop-outright-combined'
-    ) {
-      return [];
-    }
-    return buildPickerOptions(
-      toPickerQuery(actionPicker),
-      humanActionsAcceptingInput,
-      SUIT_TEXT_TOKEN
-    );
-  }, [actionPicker, humanActionsAcceptingInput]);
-
-  const actionPickerTitle = useMemo((): string => {
-    if (!actionPicker) {
-      return '';
-    }
-    if (actionPicker.kind === 'trade-combined') {
-      return 'Trade resources';
-    }
-    if (actionPicker.kind === 'develop-outright-combined') {
-      return `Develop ${cardSummary(actionPicker.cardId, SUIT_TEXT_TOKEN)}`;
-    }
-    return pickerTitle(toPickerQuery(actionPicker), SUIT_TEXT_TOKEN);
-  }, [actionPicker]);
-
   const canResetTurn = useMemo(
     () => canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor),
     [activePlayerId, state, turnResetAnchor]
@@ -2266,374 +2197,43 @@ export function App() {
             </section>
           </div>
 
-          <section className="panel actions-panel">
-            <div className="actions-heading">
-              <h2>{terminal ? 'Game Over' : 'Actions'}</h2>
-              {isLastTurn && <span className="last-turn-badge">Last Turn</span>}
-            </div>
-            <div className="actions-body">
-              {terminal ? (
-                <TerminalScoreSummary
-                  score={score}
-                  wonDistrictsByPlayer={wonDistrictsByPlayer}
-                  humanPlayerId={HUMAN_PLAYER}
-                  botPlayerId={BOT_PLAYER}
-                />
-              ) : activePlayerId === HUMAN_PLAYER ? (
-                <div className="actions-human-layout">
-                  <div className="actions-human-main">
-                    {humanActionUiBlockedByTurnCycleAnimation ? (
-                      <p className="empty-note">
-                        Resolving income and taxation...
-                      </p>
-                    ) : humanActionUiBlockedByAnimation ? null : visibleHumanActionItems.length ===
-                      0 ? (
-                      <p className="empty-note">No legal actions.</p>
-                    ) : (
-                      <div className="action-list">
-                        {visibleHumanActionItems.map((item, index) => {
-                          const categoryKey = actionCategoryForItem(item);
-                          const previousCategoryKey =
-                            index > 0
-                              ? actionCategoryForItem(
-                                  visibleHumanActionItems[index - 1]
-                                )
-                              : null;
-                          const showCategory =
-                            previousCategoryKey !== categoryKey;
-                          const categoryLabel =
-                            actionCategoryLabel(categoryKey);
-                          const renderCategorizedAction = (
-                            key: string,
-                            button: ReactNode
-                          ) => (
-                            <div
-                              key={key}
-                              className={`action-entry${showCategory ? ' has-category' : ''}`}
-                            >
-                              {showCategory ? (
-                                <p className="action-category">
-                                  {categoryLabel}
-                                </p>
-                              ) : null}
-                              {button}
-                            </div>
-                          );
-
-                          if (item.kind === 'trade-group') {
-                            if (hasMultipleTradeSources) {
-                              return renderCategorizedAction(
-                                'trade-source-group',
-                                <button
-                                  type="button"
-                                  className="action-button has-submenu"
-                                  onClick={(event) => {
-                                    const trigger = event.currentTarget;
-                                    if (
-                                      actionPicker?.kind === 'trade-combined'
-                                    ) {
-                                      closeActionPicker();
-                                      return;
-                                    }
-                                    openTradeCombinedPicker(trigger);
-                                  }}
-                                >
-                                  <span className="action-text">
-                                    Trade resources
-                                  </span>
-                                </button>
-                              );
-                            }
-
-                            if (item.options.length === 1) {
-                              const [onlyOption] = item.options;
-                              return renderCategorizedAction(
-                                `trade-direct-${item.give}`,
-                                <button
-                                  type="button"
-                                  className="action-button"
-                                  onClick={() => handleHumanAction(onlyOption)}
-                                >
-                                  <span className="action-text">
-                                    {renderSuitText(
-                                      describeAction(
-                                        onlyOption,
-                                        SUIT_TEXT_TOKEN
-                                      )
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            }
-
-                            return renderCategorizedAction(
-                              `trade-group-${item.give}`,
-                              <button
-                                type="button"
-                                className="action-button has-submenu"
-                                onClick={(event) => {
-                                  const trigger = event.currentTarget;
-                                  if (
-                                    actionPicker?.kind === 'trade' &&
-                                    actionPicker.give === item.give
-                                  ) {
-                                    closeActionPicker();
-                                    return;
-                                  }
-                                  openTradePicker(
-                                    item.give,
-                                    trigger,
-                                    item.options.length
-                                  );
-                                }}
-                              >
-                                <span className="action-text">
-                                  {renderSuitText(
-                                    `Trade ${SUIT_TEXT_TOKEN[item.give]}x3`
-                                  )}
-                                </span>
-                              </button>
-                            );
-                          }
-
-                          if (item.kind === 'buy-deed-group') {
-                            if (item.options.length === 1) {
-                              const [onlyOption] = item.options;
-                              return renderCategorizedAction(
-                                `buy-deed-direct-${actionStableKey(onlyOption)}`,
-                                <button
-                                  type="button"
-                                  className="action-button"
-                                  onClick={() => handleHumanAction(onlyOption)}
-                                >
-                                  <span className="action-text">
-                                    {renderSuitText(
-                                      describeAction(
-                                        onlyOption,
-                                        SUIT_TEXT_TOKEN
-                                      )
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            }
-
-                            return renderCategorizedAction(
-                              `buy-deed-group-${item.cardId}`,
-                              <button
-                                type="button"
-                                className="action-button has-submenu"
-                                onClick={(event) => {
-                                  const trigger = event.currentTarget;
-                                  if (
-                                    actionPicker?.kind === 'district' &&
-                                    actionPicker.actionType === 'buy-deed' &&
-                                    actionPicker.cardId === item.cardId
-                                  ) {
-                                    closeActionPicker();
-                                    return;
-                                  }
-                                  openDistrictPicker(
-                                    {
-                                      actionType: 'buy-deed',
-                                      cardId: item.cardId,
-                                    },
-                                    trigger,
-                                    item.options.length
-                                  );
-                                }}
-                              >
-                                <span className="action-text">
-                                  {renderSuitText(
-                                    `Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
-                                  )}
-                                </span>
-                              </button>
-                            );
-                          }
-
-                          if (item.kind === 'develop-deed-group') {
-                            if (item.options.length === 1) {
-                              const [onlyOption] = item.options;
-                              return renderCategorizedAction(
-                                `develop-deed-direct-${actionStableKey(onlyOption)}`,
-                                <button
-                                  type="button"
-                                  className="action-button"
-                                  onClick={() => handleHumanAction(onlyOption)}
-                                >
-                                  <span className="action-text">
-                                    {renderSuitText(
-                                      describeAction(
-                                        onlyOption,
-                                        SUIT_TEXT_TOKEN
-                                      )
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            }
-
-                            return renderCategorizedAction(
-                              `develop-deed-group-${item.cardId}-${item.districtId}`,
-                              <button
-                                type="button"
-                                className="action-button has-submenu"
-                                onClick={(event) => {
-                                  const trigger = event.currentTarget;
-                                  if (
-                                    actionPicker?.kind === 'deed-payment' &&
-                                    actionPicker.cardId === item.cardId &&
-                                    actionPicker.districtId === item.districtId
-                                  ) {
-                                    closeActionPicker();
-                                    return;
-                                  }
-                                  openDeedPaymentPicker(
-                                    {
-                                      cardId: item.cardId,
-                                      districtId: item.districtId,
-                                    },
-                                    trigger,
-                                    item.options.length
-                                  );
-                                }}
-                              >
-                                <span className="action-text">
-                                  {renderSuitText(
-                                    `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`
-                                  )}
-                                </span>
-                              </button>
-                            );
-                          }
-
-                          if (item.kind === 'develop-outright-group') {
-                            if (item.options.length === 1) {
-                              const [onlyOption] = item.options;
-                              return renderCategorizedAction(
-                                `develop-outright-direct-${actionStableKey(onlyOption)}`,
-                                <button
-                                  type="button"
-                                  className="action-button"
-                                  onClick={() => handleHumanAction(onlyOption)}
-                                >
-                                  <span className="action-text">
-                                    {renderSuitText(
-                                      describeAction(
-                                        onlyOption,
-                                        SUIT_TEXT_TOKEN
-                                      )
-                                    )}
-                                  </span>
-                                </button>
-                              );
-                            }
-
-                            const firstOptionByPayment = new Map<
-                              string,
-                              Extract<GameAction, { type: 'develop-outright' }>
-                            >();
-                            const districtIds = new Set<string>();
-                            for (const option of item.options) {
-                              districtIds.add(option.districtId);
-                              const paymentKey = paymentSignature(
-                                option.payment
-                              );
-                              if (!firstOptionByPayment.has(paymentKey)) {
-                                firstOptionByPayment.set(paymentKey, option);
-                              }
-                            }
-                            const paymentOptions = [
-                              ...firstOptionByPayment.values(),
-                            ];
-                            const hasSinglePaymentPattern =
-                              paymentOptions.length === 1;
-
-                            return renderCategorizedAction(
-                              `develop-outright-group-${item.cardId}`,
-                              <button
-                                type="button"
-                                className="action-button has-submenu"
-                                onClick={(event) => {
-                                  const trigger = event.currentTarget;
-                                  if (
-                                    (actionPicker?.kind ===
-                                      'develop-outright-combined' ||
-                                      actionPicker?.kind ===
-                                        'develop-outright-district') &&
-                                    actionPicker.cardId === item.cardId
-                                  ) {
-                                    closeActionPicker();
-                                    return;
-                                  }
-                                  if (hasSinglePaymentPattern) {
-                                    openDevelopOutrightDistrictOnlyPicker(
-                                      item.cardId,
-                                      trigger,
-                                      districtIds.size
-                                    );
-                                    return;
-                                  }
-                                  openDevelopOutrightCombinedPicker(
-                                    item.cardId,
-                                    trigger,
-                                    item.options.length
-                                  );
-                                }}
-                              >
-                                <span className="action-text">
-                                  {renderSuitText(
-                                    hasSinglePaymentPattern
-                                      ? `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(paymentOptions[0].payment, SUIT_TEXT_TOKEN)})`
-                                      : `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
-                                  )}
-                                </span>
-                              </button>
-                            );
-                          }
-
-                          return renderCategorizedAction(
-                            actionStableKey(item.action),
-                            <button
-                              type="button"
-                              className="action-button"
-                              onClick={() => handleHumanAction(item.action)}
-                            >
-                              <span className="action-text">
-                                {renderSuitText(
-                                  describeAction(item.action, SUIT_TEXT_TOKEN)
-                                )}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  {canResetTurn ? (
-                    <div className="actions-footer">
-                      <button
-                        key="reset-turn"
-                        type="button"
-                        className="action-button reset-turn-button"
-                        onClick={handleTurnReset}
-                      >
-                        <span className="action-text">Reset turn</span>
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : hideBotWaitMessageDuringTurnCycleLock ? null : (
-                <p className="empty-note">
-                  {showBotThinkingDuringIncomeChoiceLock || botThinking
-                    ? 'Bot is thinking...'
-                    : 'Waiting for bot...'}
-                </p>
-              )}
-            </div>
-          </section>
+          <ActionsPanel
+            terminal={terminal}
+            isLastTurn={isLastTurn}
+            score={score}
+            wonDistrictsByPlayer={wonDistrictsByPlayer}
+            activePlayerId={activePlayerId}
+            humanPlayerId={HUMAN_PLAYER}
+            botPlayerId={BOT_PLAYER}
+            visibleActionItems={visibleHumanActionItems}
+            hasMultipleTradeSources={hasMultipleTradeSources}
+            actionPicker={actionPicker}
+            canResetTurn={canResetTurn}
+            botThinking={botThinking}
+            showBotThinkingDuringIncomeChoiceLock={
+              showBotThinkingDuringIncomeChoiceLock
+            }
+            hideBotWaitMessageDuringTurnCycleLock={
+              hideBotWaitMessageDuringTurnCycleLock
+            }
+            humanActionUiBlockedByAnimation={humanActionUiBlockedByAnimation}
+            humanActionUiBlockedByTurnCycleAnimation={
+              humanActionUiBlockedByTurnCycleAnimation
+            }
+            onAction={handleHumanAction}
+            onResetTurn={handleTurnReset}
+            onClosePicker={closeActionPicker}
+            onOpenTradeCombinedPicker={openTradeCombinedPicker}
+            onOpenTradePicker={openTradePicker}
+            onOpenDistrictPicker={openDistrictPicker}
+            onOpenDevelopOutrightCombinedPicker={
+              openDevelopOutrightCombinedPicker
+            }
+            onOpenDevelopOutrightDistrictOnlyPicker={
+              openDevelopOutrightDistrictOnlyPicker
+            }
+            onOpenDeedPaymentPicker={openDeedPaymentPicker}
+          />
 
           <PlayerPanel
             title="You"
@@ -2749,292 +2349,19 @@ export function App() {
         animationsEnabled={animationsEnabled}
       />
 
-      {actionPicker && (
-        <section
-          ref={actionPopoverRef}
-          className="panel trade-popover"
-          role="dialog"
-          aria-label="Choose follow-up action option"
-          style={{
-            top: `${actionPicker.top}px`,
-            left: `${actionPicker.left}px`,
-          }}
-        >
-          <h2>{renderSuitText(actionPickerTitle)}</h2>
-
-          {actionPicker.kind === 'trade-combined' ? (
-            <>
-              {(() => {
-                const tradeActions = tradeActionsForPicker(
-                  humanActionsAcceptingInput
-                );
-                const receiveOptions = tradeReceiveOptions(tradeActions);
-                return (
-                  <>
-                    <div className="composite-picker-group">
-                      <p className="composite-picker-label">Give x3</p>
-                      <div className="trade-choice-list">
-                        {tradeSourceGroups.map((group) => (
-                          <button
-                            key={`trade-combined-source-${group.give}`}
-                            type="button"
-                            className={`trade-choice-button${actionPicker.selectedGive === group.give ? ' is-selected' : ''}`}
-                            onClick={() => {
-                              const nextGive = group.give;
-                              const nextReceive = actionPicker.selectedReceive;
-                              if (nextReceive) {
-                                const selectedAction =
-                                  resolveTradeCompositeAction(tradeActions, {
-                                    selectedGive: nextGive,
-                                    selectedReceive: nextReceive,
-                                  });
-                                if (selectedAction) {
-                                  handlePickerSelection(selectedAction);
-                                  return;
-                                }
-                              }
-                              setActionPicker((current) => {
-                                if (
-                                  !current ||
-                                  current.kind !== 'trade-combined'
-                                ) {
-                                  return current;
-                                }
-                                return {
-                                  ...current,
-                                  selectedGive: nextGive,
-                                };
-                              });
-                            }}
-                          >
-                            {renderSuitText(
-                              `${SUIT_TEXT_TOKEN[group.give]} x3`
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="composite-picker-group">
-                      <p className="composite-picker-label">Receive x1</p>
-                      <div className="trade-choice-list">
-                        {receiveOptions.map((receiveSuit) => (
-                          <button
-                            key={`trade-combined-receive-${receiveSuit}`}
-                            type="button"
-                            className={`trade-choice-button${actionPicker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
-                            onClick={() => {
-                              const nextReceive = receiveSuit;
-                              const nextGive = actionPicker.selectedGive;
-                              if (nextGive) {
-                                const selectedAction =
-                                  resolveTradeCompositeAction(tradeActions, {
-                                    selectedGive: nextGive,
-                                    selectedReceive: nextReceive,
-                                  });
-                                if (selectedAction) {
-                                  handlePickerSelection(selectedAction);
-                                  return;
-                                }
-                              }
-                              setActionPicker((current) => {
-                                if (
-                                  !current ||
-                                  current.kind !== 'trade-combined'
-                                ) {
-                                  return current;
-                                }
-                                return {
-                                  ...current,
-                                  selectedReceive: nextReceive,
-                                };
-                              });
-                            }}
-                          >
-                            {renderSuitText(
-                              `${SUIT_TEXT_TOKEN[receiveSuit]} x1`
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </>
-          ) : actionPicker.kind === 'develop-outright-combined' ? (
-            <>
-              {(() => {
-                const { outrightOptions, districtOptions, paymentOptions } =
-                  buildDevelopOutrightCompositeOptions(
-                    humanActionsAcceptingInput,
-                    actionPicker.cardId
-                  );
-                return (
-                  <>
-                    <div className="composite-picker-group">
-                      <p className="composite-picker-label">District</p>
-                      <div className="trade-choice-list">
-                        {districtOptions.map((option) => (
-                          <button
-                            key={`develop-outright-district-${option.districtId}`}
-                            type="button"
-                            className={`trade-choice-button${actionPicker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
-                            onClick={() => {
-                              const nextDistrictId = option.districtId;
-                              const nextPaymentKey =
-                                actionPicker.selectedPaymentKey;
-                              if (nextPaymentKey) {
-                                const selectedAction =
-                                  resolveDevelopOutrightCompositeAction(
-                                    outrightOptions,
-                                    {
-                                      cardId: actionPicker.cardId,
-                                      selectedDistrictId: nextDistrictId,
-                                      selectedPaymentKey: nextPaymentKey,
-                                    }
-                                  );
-                                if (selectedAction) {
-                                  handlePickerSelection(selectedAction);
-                                  return;
-                                }
-                              }
-                              setActionPicker((current) => {
-                                if (
-                                  !current ||
-                                  current.kind !== 'develop-outright-combined'
-                                ) {
-                                  return current;
-                                }
-                                return {
-                                  ...current,
-                                  selectedDistrictId: nextDistrictId,
-                                };
-                              });
-                            }}
-                          >
-                            {option.districtId}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="composite-picker-group">
-                      <p className="composite-picker-label">Payment</p>
-                      <div className="trade-choice-list single-column">
-                        {paymentOptions.map(([paymentKey, option]) => (
-                          <button
-                            key={`develop-outright-payment-${paymentKey}`}
-                            type="button"
-                            className={`trade-choice-button${actionPicker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
-                            onClick={() => {
-                              const nextPaymentKey = paymentKey;
-                              const nextDistrictId =
-                                actionPicker.selectedDistrictId;
-                              if (nextDistrictId) {
-                                const selectedAction =
-                                  resolveDevelopOutrightCompositeAction(
-                                    outrightOptions,
-                                    {
-                                      cardId: actionPicker.cardId,
-                                      selectedDistrictId: nextDistrictId,
-                                      selectedPaymentKey: nextPaymentKey,
-                                    }
-                                  );
-                                if (selectedAction) {
-                                  handlePickerSelection(selectedAction);
-                                  return;
-                                }
-                              }
-                              setActionPicker((current) => {
-                                if (
-                                  !current ||
-                                  current.kind !== 'develop-outright-combined'
-                                ) {
-                                  return current;
-                                }
-                                return {
-                                  ...current,
-                                  selectedPaymentKey: nextPaymentKey,
-                                };
-                              });
-                            }}
-                          >
-                            {renderSuitText(
-                              formatTokens(option.payment, SUIT_TEXT_TOKEN)
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </>
-          ) : actionPickerOptions.length === 0 ? (
-            <p className="empty-note">No options available.</p>
-          ) : (
-            <div className="trade-choice-list">
-              {actionPickerOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className="trade-choice-button"
-                  onClick={() => handlePickerSelection(option.action)}
-                >
-                  {renderSuitText(option.label)}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="trade-cancel-button"
-            onClick={closeActionPicker}
-          >
-            Cancel
-          </button>
-        </section>
-      )}
+      {actionPicker ? (
+        <ActionPicker
+          picker={actionPicker}
+          pickerRef={actionPopoverRef}
+          legalActions={humanActionsAcceptingInput}
+          tradeSourceGroups={tradeSourceGroups}
+          onPickerChange={setActionPicker}
+          onSelectAction={handlePickerSelection}
+          onClose={closeActionPicker}
+        />
+      ) : null}
     </div>
   );
-}
-
-function actionCategoryForItem(item: HumanActionListItem): string {
-  switch (item.kind) {
-    case 'trade-group':
-      return 'trade';
-    case 'buy-deed-group':
-      return 'buy-deed';
-    case 'develop-deed-group':
-      return 'develop-deed';
-    case 'develop-outright-group':
-      return 'develop-outright';
-    case 'action':
-      return item.action.type;
-  }
-}
-
-function actionCategoryLabel(category: string): string {
-  switch (category) {
-    case 'trade':
-      return 'Trade';
-    case 'buy-deed':
-      return 'Buy Deed';
-    case 'develop-deed':
-      return 'Develop Deed';
-    case 'develop-outright':
-      return 'Develop Outright';
-    case 'sell-card':
-      return 'Sell Card';
-    case 'choose-income-suit':
-      return 'Choose Income';
-    case 'end-turn':
-      return 'End Turn';
-    default:
-      return category;
-  }
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -3042,44 +2369,4 @@ function clamp(value: number, min: number, max: number): number {
     return min;
   }
   return Math.max(min, Math.min(value, max));
-}
-
-function renderSuitText(text: string): ReactNode {
-  return <SuitText text={text} />;
-}
-
-function toPickerQuery(
-  picker: Exclude<
-    ActionPickerState,
-    { kind: 'trade-combined' } | { kind: 'develop-outright-combined' }
-  >
-): ActionPickerQuery {
-  if (picker.kind === 'trade') {
-    return { kind: 'trade', give: picker.give };
-  }
-  if (picker.kind === 'deed-payment') {
-    return {
-      kind: 'deed-payment',
-      cardId: picker.cardId,
-      districtId: picker.districtId,
-    };
-  }
-  if (picker.kind === 'develop-outright-district') {
-    return {
-      kind: 'develop-outright-district',
-      cardId: picker.cardId,
-    };
-  }
-  if (picker.kind === 'develop-outright-payment') {
-    return {
-      kind: 'develop-outright-payment',
-      cardId: picker.cardId,
-      districtId: picker.districtId,
-    };
-  }
-  return {
-    kind: 'district',
-    actionType: picker.actionType,
-    cardId: picker.cardId,
-  };
 }
