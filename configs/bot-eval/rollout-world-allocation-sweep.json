@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "rollout-world-allocation",
+  "seedPrefix": "rollout-world-allocation",
+  "gamesPerSide": 25,
+  "opponent": {
+    "profileId": "rollout-eval-search"
+  },
+  "candidates": [
+    {
+      "id": "rollout-allocation-1w-40r",
+      "kind": "search",
+      "config": {
+        "worlds": 1,
+        "rollouts": 40,
+        "depth": 12,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-allocation-5w-8r",
+      "kind": "search",
+      "config": {
+        "worlds": 5,
+        "rollouts": 8,
+        "depth": 12,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-allocation-10w-4r-control",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 12,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-allocation-20w-2r",
+      "kind": "search",
+      "config": {
+        "worlds": 20,
+        "rollouts": 2,
+        "depth": 12,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-allocation-40w-1r",
+      "kind": "search",
+      "config": {
+        "worlds": 40,
+        "rollouts": 1,
+        "depth": 12,
+        "maxRootActions": 8,
+        "rolloutEpsilon": 0
+      }
+    }
+  ]
+}

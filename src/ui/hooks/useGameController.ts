@@ -266,9 +266,13 @@ export function useGameController({
 
           dispatchAction(current, choice, currentActive);
         } catch (err) {
-          setError(`Bot action failed: ${errorMessage(err)}`);
+          if (!cancelled) {
+            setError(`Bot action failed: ${errorMessage(err)}`);
+          }
         } finally {
-          setBotThinking(false);
+          if (!cancelled) {
+            setBotThinking(false);
+          }
         }
       })();
     }, botTurnDelayMs);
