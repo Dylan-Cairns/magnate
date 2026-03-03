@@ -60,12 +60,14 @@ export function createRolloutSearchSweepArtifact(
       nodeVersion: options.nodeVersion ?? process.version,
     },
     git: options.git ?? collectGitMetadata(options.cwd),
+    execution: structuredClone(run.execution),
     status,
     completedCandidates: run.matchups.length,
     totalCandidates: run.config.candidates.length,
     config: structuredClone(run.config),
     rows: run.matchups.map((matchup, index) => ({
       candidate: structuredClone(run.config.candidates[index]),
+      execution: structuredClone(matchup.execution),
       summary: structuredClone(matchup.summary),
       matchupArtifactPath: `${matchupRelativeDirectory(
         index,
@@ -124,7 +126,10 @@ export async function loadRolloutSearchSweepArtifact(
 ): Promise<RolloutSearchSweepArtifact> {
   const payload: unknown = JSON.parse(await readFile(artifactPath, 'utf8'));
   const source = requiredRecord(payload, 'rollout-search sweep artifact');
-  if (source.schemaVersion !== ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION) {
+  if (
+    source.schemaVersion !== 1 &&
+    source.schemaVersion !== ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION
+  ) {
     throw new Error(
       `Unsupported rollout-search sweep artifact schemaVersion=${String(source.schemaVersion)}.`
     );
@@ -184,6 +189,8 @@ export function renderRolloutSearchSweepCsv(
     'depth',
     'maxRootActions',
     'rolloutEpsilon',
+    'workers',
+    'latencyMode',
     'configProxyCost',
     'totalGames',
     'candidateWins',
@@ -230,6 +237,8 @@ export function renderRolloutSearchSweepCsv(
       row.candidate.config.depth,
       row.candidate.config.maxRootActions,
       row.candidate.config.rolloutEpsilon,
+      row.execution?.workers ?? 1,
+      row.execution?.latencyMode ?? 'isolated',
       configProxyCost(row),
       summary.totalGames,
       summary.candidateWins,
@@ -264,10 +273,12 @@ export function renderRolloutSearchSweepSummary(
     '',
     `Generated: ${artifact.generatedAtUtc}`,
     '',
+    `Execution: workers=${String(artifact.execution?.workers ?? 1)} requestedWorkers=${String(artifact.execution?.requestedWorkers ?? 1)} parallelUnit=${artifact.execution?.parallelUnit ?? 'paired-seed'} latencyMode=${artifact.execution?.latencyMode ?? 'isolated'}`,
+    '',
     `Status: ${artifact.status} (${String(artifact.completedCandidates)}/${String(artifact.totalCandidates)} candidates)`,
     '',
-    '| candidate | opponent | config | proxy cost | games | win rate | ci95 | side gap | games/min | multi p50 ms | multi p95 ms | multi max ms | actual steps | utilization |',
-    '|:---|:---|:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|---:|---:|',
+    '| candidate | opponent | config | workers | latency mode | proxy cost | games | win rate | ci95 | side gap | games/min | multi p50 ms | multi p95 ms | multi max ms | actual steps | utilization |',
+    '|:---|:---|:---|---:|:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|---:|---:|',
   ];
   for (const row of artifact.rows) {
     const summary = row.summary;
@@ -283,7 +294,7 @@ export function renderRolloutSearchSweepSummary(
       'search work'
     );
     lines.push(
-      `| ${candidateId} | ${summary.opponentId} | ${searchConfigLabel(row)} | ${configProxyCost(row)} | ${summary.totalGames} | ${format(summary.candidateWinRate)} | [${format(summary.candidateWinRateCi95.low)}, ${format(summary.candidateWinRateCi95.high)}] | ${format(summary.sideGap)} | ${format(summary.gamesPerMinute)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} | ${work.simulatedActionSteps} | ${format(work.stepUtilization)} |`
+      `| ${candidateId} | ${summary.opponentId} | ${searchConfigLabel(row)} | ${String(row.execution?.workers ?? 1)} | ${row.execution?.latencyMode ?? 'isolated'} | ${configProxyCost(row)} | ${summary.totalGames} | ${format(summary.candidateWinRate)} | [${format(summary.candidateWinRateCi95.low)}, ${format(summary.candidateWinRateCi95.high)}] | ${format(summary.sideGap)} | ${format(summary.gamesPerMinute)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} | ${work.simulatedActionSteps} | ${format(work.stepUtilization)} |`
     );
   }
   for (const row of artifact.rows) {

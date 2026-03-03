@@ -5,6 +5,7 @@ import {
   type HeadToHeadDependencies,
   type HeadToHeadProgress,
 } from './matchup';
+import { resolveEvaluationExecution } from './execution';
 import type {
   HeadToHeadConfig,
   HeadToHeadRun,
@@ -18,6 +19,7 @@ export interface RolloutSearchSweepDependencies {
     dependencies?: HeadToHeadDependencies
   ) => Promise<HeadToHeadRun>;
   now?: () => number;
+  workers?: number;
   progressIntervalMs?: number;
   onProgress?: (progress: RolloutSearchSweepProgress) => void;
   onCandidateCompleted?: (
@@ -31,6 +33,7 @@ export type RolloutSearchSweepProgress =
       candidates: number;
       gamesPerSide: number;
       totalGames: number;
+      workers: number;
     }
   | {
       type: 'candidate-started';
@@ -72,6 +75,10 @@ export async function runRolloutSearchSweep(
   const runMatchup = dependencies.runMatchup ?? runHeadToHead;
   const now = dependencies.now ?? (() => performance.now());
   const matchups: HeadToHeadRun[] = [];
+  const execution = resolveEvaluationExecution(
+    dependencies.workers ?? 1,
+    config.gamesPerSide
+  );
   const startedAt = now();
   const totalCandidates = config.candidates.length;
   dependencies.onProgress?.({
@@ -79,6 +86,7 @@ export async function runRolloutSearchSweep(
     candidates: totalCandidates,
     gamesPerSide: config.gamesPerSide,
     totalGames: totalCandidates * config.gamesPerSide * 2,
+    workers: execution.workers,
   });
   for (let index = 0; index < config.candidates.length; index += 1) {
     const candidate = config.candidates[index];
@@ -102,6 +110,7 @@ export async function runRolloutSearchSweep(
         maxDecisionsPerGame: config.maxDecisionsPerGame,
       },
       {
+        workers: execution.requestedWorkers,
         progressIntervalMs: dependencies.progressIntervalMs,
         onProgress(progress) {
           dependencies.onProgress?.({
@@ -114,7 +123,7 @@ export async function runRolloutSearchSweep(
     );
     matchups.push(matchup);
     await dependencies.onCandidateCompleted?.({
-      run: partialRun(config, matchups),
+      run: partialRun(config, execution, matchups),
       candidateIndex,
       totalCandidates,
       matchup,
@@ -128,7 +137,7 @@ export async function runRolloutSearchSweep(
       elapsedMs: now() - startedAt,
     });
   }
-  const run = partialRun(config, matchups);
+  const run = partialRun(config, execution, matchups);
   dependencies.onProgress?.({
     type: 'sweep-completed',
     candidates: totalCandidates,
@@ -139,10 +148,12 @@ export async function runRolloutSearchSweep(
 
 function partialRun(
   config: RolloutSearchSweepConfig,
+  execution: RolloutSearchSweepRun['execution'],
   matchups: readonly HeadToHeadRun[]
 ): RolloutSearchSweepRun {
   return {
     config: structuredClone(config),
+    execution: structuredClone(execution),
     matchups: [...matchups],
   };
 }

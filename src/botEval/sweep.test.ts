@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { resolveEvaluationExecution } from './execution';
 import { runRolloutSearchSweep } from './sweep';
 import type { HeadToHeadSummary, RolloutSearchSweepConfig } from './types';
 
 describe('rollout-search sweeps', () => {
   it('runs candidates sequentially with one shared seed prefix', async () => {
     const capturedSeedPrefixes: string[] = [];
+    const capturedWorkers: number[] = [];
     const progressEvents: string[] = [];
     const persistedCandidateIds: string[] = [];
     let activeCalls = 0;
@@ -14,11 +16,14 @@ describe('rollout-search sweeps', () => {
     const run = await runRolloutSearchSweep(sweepConfig(), {
       async runMatchup(config, dependencies) {
         capturedSeedPrefixes.push(config.seedPrefix);
+        capturedWorkers.push(dependencies?.workers ?? 1);
         activeCalls += 1;
         maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
         dependencies?.onProgress?.({
           type: 'pair-completed',
           candidateId: config.candidate.id,
+          pairNumber: 1,
+          workerId: 1,
           completedPairs: 1,
           totalPairs: 1,
           completedGames: 2,
@@ -31,10 +36,15 @@ describe('rollout-search sweeps', () => {
         activeCalls -= 1;
         return {
           config,
+          execution: resolveEvaluationExecution(
+            dependencies?.workers ?? 1,
+            config.gamesPerSide
+          ),
           summary: {} as HeadToHeadSummary,
           games: [],
         };
       },
+      workers: 4,
       onProgress(progress) {
         progressEvents.push(progress.type);
       },
@@ -51,6 +61,13 @@ describe('rollout-search sweeps', () => {
       'shared-sweep-seed',
     ]);
     expect(maxActiveCalls).toBe(1);
+    expect(capturedWorkers).toEqual([4, 4]);
+    expect(run.execution).toEqual({
+      requestedWorkers: 4,
+      workers: 1,
+      parallelUnit: 'paired-seed',
+      latencyMode: 'isolated',
+    });
     expect(persistedCandidateIds).toEqual(['search-one', 'search-two']);
     expect(progressEvents).toEqual([
       'sweep-started',

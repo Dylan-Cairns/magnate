@@ -34,12 +34,17 @@
     swapped seats, alternating first-player seats, Wilson confidence intervals,
     latency summaries, JSON plus Markdown artifacts, and exact stable-action-key
     replay checks;
-  - head-to-head artifact schema v2 adds legal-action counts, multi-choice
+  - head-to-head artifact schema v3 adds execution metadata on top of v2
+    legal-action counts, multi-choice
     latency, rollout-search simulated-work diagnostics, and root-action-count
-    latency buckets while keeping schema v1 replay compatibility;
-  - sequential rollout-search sweeps run explicit high-cost configs against one
-    fixed opponent with shared paired seeds and write aggregate JSON, CSV, and
+    latency buckets while keeping schema v1 and v2 replay compatibility;
+  - rollout-search sweep artifact schema v2 records execution metadata;
+    sweeps run explicit high-cost candidates sequentially against one fixed
+    opponent with shared paired seeds and write aggregate JSON, CSV, and
     Markdown plus replayable child matchups;
+  - head-to-head and sweep commands accept opt-in `--workers`; paired seeds
+    distribute across persistent Node children while candidate configs remain
+    sequential. Multi-worker artifacts mark latency as loaded latency;
   - bot-eval progress streams to stderr with candidate boundaries, completed
     pairs, and timed in-game heartbeats; sweep aggregates start in `running`
     state and refresh atomically after each durable completed candidate;
@@ -96,7 +101,8 @@
 3. Track checkpoint-selection winners, block-selection winners, sequential generator-gate accept/reject or inconclusive outcomes, final dual-gate outcomes, and side-gap stability.
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
-6. Use the sequential TypeScript rollout-search sweep artifacts to map the
-   high-cost strength ceiling and browser latency frontier.
+6. Use the TypeScript rollout-search sweep artifacts to map the high-cost
+   strength ceiling. Prefer `--workers 4` for throughput on the current laptop
+   and `--workers 1` when measuring browser-relevant latency.
 
 _Updated: 2026-06-01._

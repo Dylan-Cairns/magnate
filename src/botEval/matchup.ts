@@ -2,11 +2,15 @@ import { performance } from 'node:perf_hooks';
 
 import type { PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
-import type {
-  ActionPolicy,
-  SearchDecisionDiagnostics,
-} from '../policies/types';
-import { playGame, type RuntimeBot } from './playGame';
+import type { ActionPolicy, SearchDecisionDiagnostics } from '../policies/types';
+import { resolveEvaluationExecution } from './execution';
+import {
+  createPairedSeedJobs,
+  createRuntimePairBots,
+  playPairedSeed,
+  type PairedSeedResult,
+} from './pair';
+import { runPairedSeedJobsInChildPool } from './pairWorkerPool';
 import {
   summarizeLatencies,
   summarizeSearchLatenciesByRootActionCount,
@@ -23,6 +27,7 @@ import type {
 export interface HeadToHeadDependencies {
   createPolicy?: (spec: BotSpec) => ActionPolicy;
   now?: () => number;
+  workers?: number;
   progressIntervalMs?: number;
   onProgress?: (progress: HeadToHeadProgress) => void;
 }
@@ -31,6 +36,8 @@ export type HeadToHeadProgress =
   | {
       type: 'game-heartbeat';
       candidateId: string;
+      pairNumber: number;
+      workerId: number;
       gameId: string;
       turn: number;
       decisions: number;
@@ -39,6 +46,8 @@ export type HeadToHeadProgress =
   | {
       type: 'pair-completed';
       candidateId: string;
+      pairNumber: number;
+      workerId: number;
       completedPairs: number;
       totalPairs: number;
       completedGames: number;
@@ -56,68 +65,31 @@ export async function runHeadToHead(
 
   const createPolicy = dependencies.createPolicy ?? createPolicyFromBotSpec;
   const now = dependencies.now ?? (() => performance.now());
+  const execution = resolveEvaluationExecution(
+    dependencies.workers ?? 1,
+    config.gamesPerSide
+  );
   const progressIntervalMs = dependencies.progressIntervalMs ?? 0;
-  const candidate = createRuntimeBot(config.candidate, createPolicy);
-  const opponent = createRuntimeBot(config.opponent, createPolicy);
-  const games: PlayedGame[] = [];
+  const jobs = createPairedSeedJobs(config);
+  const results: PairedSeedResult[] = [];
   const startedAt = now();
 
-  for (let pairIndex = 0; pairIndex < config.gamesPerSide; pairIndex += 1) {
-    const pairNumber = pairIndex + 1;
-    const seed = `${config.seedPrefix}-${String(pairNumber).padStart(4, '0')}`;
-    const firstPlayer: PlayerId = pairIndex % 2 === 0 ? 'PlayerA' : 'PlayerB';
-
-    games.push(
-      await playGame({
-        gameId: `pair-${String(pairNumber).padStart(4, '0')}-candidate-as-a`,
-        seed,
-        firstPlayer,
-        botBySeat: {
-          PlayerA: candidate,
-          PlayerB: opponent,
-        },
-        maxDecisions: config.maxDecisionsPerGame,
-        now,
-        progressIntervalMs,
-        onHeartbeat(heartbeat) {
-          dependencies.onProgress?.({
-            type: 'game-heartbeat',
-            candidateId: config.candidate.id,
-            ...heartbeat,
-          });
-        },
-      })
-    );
-    games.push(
-      await playGame({
-        gameId: `pair-${String(pairNumber).padStart(4, '0')}-candidate-as-b`,
-        seed,
-        firstPlayer,
-        botBySeat: {
-          PlayerA: opponent,
-          PlayerB: candidate,
-        },
-        maxDecisions: config.maxDecisionsPerGame,
-        now,
-        progressIntervalMs,
-        onHeartbeat(heartbeat) {
-          dependencies.onProgress?.({
-            type: 'game-heartbeat',
-            candidateId: config.candidate.id,
-            ...heartbeat,
-          });
-        },
-      })
-    );
+  function reportPairCompleted(
+    workerId: number,
+    result: PairedSeedResult
+  ): void {
+    results.push(result);
     const elapsedMs = now() - startedAt;
-    const completedGames = games.length;
+    const completedGames = results.length * 2;
     const totalGames = config.gamesPerSide * 2;
     const gamesPerMinute =
       elapsedMs > 0 ? (completedGames * 60_000) / elapsedMs : 0;
     dependencies.onProgress?.({
       type: 'pair-completed',
       candidateId: config.candidate.id,
-      completedPairs: pairNumber,
+      pairNumber: result.pairIndex + 1,
+      workerId,
+      completedPairs: results.length,
       totalPairs: config.gamesPerSide,
       completedGames,
       totalGames,
@@ -130,8 +102,57 @@ export async function runHeadToHead(
     });
   }
 
+  if (execution.workers === 1) {
+    const bots = createRuntimePairBots(config, createPolicy);
+    for (const job of jobs) {
+      const result = await playPairedSeed({
+        config,
+        bots,
+        job,
+        now,
+        progressIntervalMs,
+        onHeartbeat(heartbeat) {
+          dependencies.onProgress?.({
+            type: 'game-heartbeat',
+            candidateId: config.candidate.id,
+            pairNumber: job.pairNumber,
+            workerId: 1,
+            ...heartbeat,
+          });
+        },
+      });
+      reportPairCompleted(1, result);
+    }
+  } else {
+    if (dependencies.createPolicy) {
+      throw new Error(
+        'Custom createPolicy dependencies are only supported with workers=1.'
+      );
+    }
+    await runPairedSeedJobsInChildPool({
+      config,
+      jobs,
+      workers: execution.workers,
+      progressIntervalMs,
+      onHeartbeat(workerId, pairIndex, heartbeat) {
+        dependencies.onProgress?.({
+          type: 'game-heartbeat',
+          candidateId: config.candidate.id,
+          pairNumber: pairIndex + 1,
+          workerId,
+          ...heartbeat,
+        });
+      },
+      onPairCompleted: reportPairCompleted,
+    });
+  }
+
+  const games = results
+    .sort((left, right) => left.pairIndex - right.pairIndex)
+    .flatMap((result) => result.games);
   return {
     config: structuredClone(config),
+    execution,
     summary: summarizeHeadToHead(config, games, now() - startedAt),
     games,
   };
@@ -162,16 +183,6 @@ export function validateHeadToHeadConfig(config: HeadToHeadConfig): void {
   if (config.candidate.id === config.opponent.id) {
     throw new Error('candidate and opponent bot ids must be distinct.');
   }
-}
-
-function createRuntimeBot(
-  spec: BotSpec,
-  createPolicy: (spec: BotSpec) => ActionPolicy
-): RuntimeBot {
-  return {
-    spec,
-    policy: createPolicy(spec),
-  };
 }
 
 function summarizeHeadToHead(

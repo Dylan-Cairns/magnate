@@ -39,6 +39,9 @@
   `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep:
   `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
+- Parallel TypeScript bot eval:
+  append `--workers 4` for throughput on the current 4-core / 8-thread laptop.
+  The default is `1`; use `--workers 1` for browser-relevant latency.
 - Override bot-eval heartbeat cadence:
   append `--progress-interval-seconds 10` (`0` disables timed heartbeats).
 - Replay one recorded TypeScript bot game:
@@ -224,17 +227,23 @@ Use `--help` on each script for the full option surface.
   - `artifacts/ts-bot-evals/<run>/summary.md`
 - `matchup.json` includes full serializable bot specs, git metadata, runtime
   metadata, final scores, and stable action-key transcripts for exact replay.
-- Head-to-head artifact schema v2 adds legal-action counts per decision,
-  multi-choice latency summaries, optional rollout-search work diagnostics, and
-  rollout-search latency buckets by legal root-action count. Schema v1 artifacts
-  remain replayable.
+- Head-to-head artifact schema v3 adds execution metadata on top of v2
+  legal-action counts per decision, multi-choice latency summaries, optional
+  rollout-search work diagnostics, and rollout-search latency buckets by legal
+  root-action count. Schema v1 and v2 artifacts remain replayable.
 - Config inputs can reference catalog presets with `{ "profileId": "heuristic" }`
   or define arbitrary `random`, `heuristic`, or `search` bot specs directly.
-- `yarn bot:eval rollout-search-sweep --config <path>` runs explicit rollout
-  `search` candidates sequentially against one fixed opponent with one shared
-  paired-seed prefix. It writes aggregate `sweep.json`, `sweep.csv`, and
-  `summary.md` files plus replayable child head-to-head artifacts under
-  `matchups/`.
+- `yarn bot:eval rollout-search-sweep --config <path> [--workers <count>]`
+  runs explicit rollout `search` candidates sequentially against one fixed
+  opponent with one shared paired-seed prefix. Within each matchup, opt-in
+  workers distribute whole paired seeds across persistent Node children. It
+  writes aggregate `sweep.json`, `sweep.csv`, and `summary.md` files plus
+  replayable child head-to-head artifacts under `matchups/`.
+- `--workers` defaults to `1` and is capped at `gamesPerSide`. Use `--workers 4`
+  for throughput on the current Intel i5-8350U laptop; use `--workers 3` if the
+  machine must stay responsive. Worker counts above `1` record `latencyMode` as
+  `loaded`, so those timings are throughput diagnostics rather than isolated
+  browser latency measurements.
 - Bot-eval progress logs stream to stderr while final JSON stays on stdout.
   Sweep logs announce candidate boundaries, every completed paired seed, and
   timed in-game heartbeats (`30` seconds by default). Rollout search checks the

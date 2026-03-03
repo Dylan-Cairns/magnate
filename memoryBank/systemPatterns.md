@@ -53,9 +53,12 @@ Design expectations:
   policy seats, record stable action-key transcripts, write JSON plus Markdown
   artifacts, and support exact-game replay checks.
 - TypeScript rollout-search sweeps should run candidate configs sequentially
-  against one fixed opponent with one shared paired-seed prefix so latency and
-  strength comparisons remain comparable. Preserve replayable child matchups
-  and write aggregate JSON, CSV, and Markdown summaries.
+  against one fixed opponent with one shared paired-seed prefix. A configurable
+  persistent child-process pool may distribute whole paired seeds for
+  throughput while preserving deterministic artifact ordering. Preserve
+  replayable child matchups and write aggregate JSON, CSV, and Markdown
+  summaries. Record whether latency is isolated (`workers=1`) or loaded
+  (`workers>1`) so the two measurements are not conflated.
 - Long bot-eval runs should stream human-readable progress to stderr while
   preserving final machine-readable JSON on stdout. Sweep aggregates should be
   written before compute starts and atomically refreshed after each durable
