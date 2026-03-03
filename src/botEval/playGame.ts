@@ -7,7 +7,10 @@ import { createSession, stepToDecision } from '../engine/session';
 import type { PlayerId } from '../engine/types';
 import { toPlayerView } from '../engine/view';
 import type { BotSpec } from '../policies/botSpec';
-import { policyRandomForState } from '../policies/policyRandom';
+import {
+  policyRandomForState,
+  policyRandomSeedForState,
+} from '../policies/policyRandom';
 import type {
   ActionPolicy,
   SearchDecisionDiagnostics,
@@ -105,6 +108,7 @@ export async function playGame({
       view: toPlayerView(state, activePlayerId),
       legalActions: actions,
       random: policyRandomForState(state, bot.spec.id),
+      randomSeed: policyRandomSeedForState(state, bot.spec.id),
       onSearchDiagnostics(diagnostics) {
         if (searchDiagnostics) {
           throw new Error(

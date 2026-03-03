@@ -7,7 +7,10 @@ import type {
   GameState,
   PlayerId,
 } from '../engine/types';
-export { policyRandomForState as botRandomForState } from '../policies/policyRandom';
+export {
+  policyRandomForState as botRandomForState,
+  policyRandomSeedForState as botRandomSeedForState,
+} from '../policies/policyRandom';
 
 export function makeBrowserSessionSeed(now = Date.now()): string {
   return `seed-${now}`;
