@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -48,11 +48,28 @@ describe('rollout-search sweep artifacts', () => {
 
     expect(loaded).toEqual(written.artifact);
     expect(csv).toContain('"search,candidate"');
+    expect(csv).toContain('workers,latencyMode');
     expect(markdown).toContain(
       '# TypeScript Rollout Search Sweep: artifact-test'
     );
+    expect(markdown).toContain(
+      'Execution: workers=1 requestedWorkers=1 parallelUnit=paired-seed latencyMode=isolated'
+    );
     expect(markdown).toContain('## Root-Action Latency: search,candidate');
+    expect(child.execution?.latencyMode).toBe('isolated');
     expect(child.config.candidate.id).toBe('search,candidate');
+
+    const legacy = structuredClone(written.artifact);
+    legacy.schemaVersion = 1;
+    delete legacy.execution;
+    for (const row of legacy.rows) {
+      delete (row as Partial<typeof row>).execution;
+    }
+    const legacyPath = path.join(outputDirectory, 'legacy-sweep.json');
+    await writeFile(legacyPath, `${JSON.stringify(legacy)}\n`, 'utf8');
+    await expect(loadRolloutSearchSweepArtifact(legacyPath)).resolves.toEqual(
+      legacy
+    );
   });
 
   it('refreshes partial running artifacts before sweep completion', async () => {
@@ -68,7 +85,11 @@ describe('rollout-search sweep artifacts', () => {
     };
 
     await writeRolloutSearchSweepArtifacts(
-      { config: completeRun.config, matchups: [] },
+      {
+        config: completeRun.config,
+        execution: completeRun.execution,
+        matchups: [],
+      },
       outputDirectory,
       {
         ...options,

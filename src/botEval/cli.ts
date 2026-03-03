@@ -9,6 +9,7 @@ import {
   writeHeadToHeadArtifacts,
 } from './artifacts';
 import { parseHeadToHeadConfig, parseRolloutSearchSweepConfig } from './config';
+import { resolveEvaluationExecution } from './execution';
 import { runHeadToHead, type HeadToHeadProgress } from './matchup';
 import { replayArtifactGame } from './replay';
 import {
@@ -37,7 +38,7 @@ async function main(): Promise<void> {
       return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -51,10 +52,13 @@ async function runHeadToHeadCommand(args: readonly string[]): Promise<void> {
   const outputDirectory =
     flags.get('--out-dir') ?? defaultHeadToHeadOutputDirectory(config.runLabel);
   const progressIntervalMs = parseProgressIntervalMs(flags);
+  const workers = parseWorkers(flags);
+  const execution = resolveEvaluationExecution(workers, config.gamesPerSide);
   process.stderr.write(
-    `[matchup] started candidate=${config.candidate.id} opponent=${config.opponent.id} games=${String(config.gamesPerSide * 2)}\n`
+    `[matchup] started candidate=${config.candidate.id} opponent=${config.opponent.id} games=${String(config.gamesPerSide * 2)} workers=${String(execution.workers)} requestedWorkers=${String(execution.requestedWorkers)} latencyMode=${execution.latencyMode}\n`
   );
   const run = await runHeadToHead(config, {
+    workers,
     progressIntervalMs,
     onProgress: logHeadToHeadProgress,
   });
@@ -86,8 +90,11 @@ async function runRolloutSearchSweepCommand(
     flags.get('--out-dir') ??
     defaultRolloutSearchSweepOutputDirectory(config.runLabel);
   const progressIntervalMs = parseProgressIntervalMs(flags);
+  const workers = parseWorkers(flags);
+  const execution = resolveEvaluationExecution(workers, config.gamesPerSide);
   const initialRun: RolloutSearchSweepRun = {
     config,
+    execution,
     matchups: [],
   };
   let written = await writeRolloutSearchSweepArtifacts(
@@ -105,6 +112,7 @@ async function runRolloutSearchSweepCommand(
   };
   process.stderr.write(`[sweep] artifacts=${path.resolve(outputDirectory)}\n`);
   const run = await runRolloutSearchSweep(config, {
+    workers,
     progressIntervalMs,
     onProgress: logRolloutSearchSweepProgress,
     async onCandidateCompleted(completed) {
@@ -189,13 +197,22 @@ function parseProgressIntervalMs(flags: ReadonlyMap<string, string>): number {
   return seconds * 1000;
 }
 
+function parseWorkers(flags: ReadonlyMap<string, string>): number {
+  const value = flags.get('--workers') ?? '1';
+  const workers = Number(value);
+  if (!Number.isInteger(workers) || workers <= 0) {
+    throw new Error('--workers must be a positive integer.');
+  }
+  return workers;
+}
+
 function logRolloutSearchSweepProgress(
   progress: RolloutSearchSweepProgress
 ): void {
   switch (progress.type) {
     case 'sweep-started':
       process.stderr.write(
-        `[sweep] started candidates=${String(progress.candidates)} gamesPerSide=${String(progress.gamesPerSide)} totalGames=${String(progress.totalGames)}\n`
+        `[sweep] started candidates=${String(progress.candidates)} gamesPerSide=${String(progress.gamesPerSide)} totalGames=${String(progress.totalGames)} workers=${String(progress.workers)}\n`
       );
       return;
     case 'candidate-started':
@@ -226,12 +243,12 @@ function logHeadToHeadProgress(progress: HeadToHeadProgress): void {
   switch (progress.type) {
     case 'game-heartbeat':
       process.stderr.write(
-        `[matchup] ${progress.candidateId} heartbeat game=${progress.gameId} turn=${String(progress.turn)} decisions=${String(progress.decisions)} elapsed=${formatDuration(progress.elapsedMs)}\n`
+        `[matchup] ${progress.candidateId} heartbeat worker=${String(progress.workerId)} pair=${String(progress.pairNumber)} game=${progress.gameId} turn=${String(progress.turn)} decisions=${String(progress.decisions)} elapsed=${formatDuration(progress.elapsedMs)}\n`
       );
       return;
     case 'pair-completed':
       process.stderr.write(
-        `[matchup] ${progress.candidateId} pair ${String(progress.completedPairs)}/${String(progress.totalPairs)} completed games=${String(progress.completedGames)}/${String(progress.totalGames)} elapsed=${formatDuration(progress.elapsedMs)} rate=${formatDecimal(progress.gamesPerMinute)} games/min eta=${formatDuration(progress.etaMs)}\n`
+        `[matchup] ${progress.candidateId} pair completed=${String(progress.completedPairs)}/${String(progress.totalPairs)} pair=${String(progress.pairNumber)} worker=${String(progress.workerId)} games=${String(progress.completedGames)}/${String(progress.totalGames)} elapsed=${formatDuration(progress.elapsedMs)} rate=${formatDecimal(progress.gamesPerMinute)} games/min eta=${formatDuration(progress.etaMs)}\n`
       );
       return;
   }

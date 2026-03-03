@@ -55,4 +55,71 @@ describe('paired TypeScript bot matchups', () => {
     ).toBeLessThan(run.summary.latencyByBotId['heuristic-candidate'].actions);
     expect(completedPairs).toEqual([1, 2]);
   });
+
+  it(
+    'runs paired seeds in child processes and preserves deterministic artifact ordering',
+    async () => {
+      const config = testHeadToHeadConfig(2);
+      const sequential = await runHeadToHead(config);
+      const parallel = await runHeadToHead(config, { workers: 2 });
+
+      expect(parallel.execution).toEqual({
+        requestedWorkers: 2,
+        workers: 2,
+        parallelUnit: 'paired-seed',
+        latencyMode: 'loaded',
+      });
+      expect(parallel.games.map(gameResult)).toEqual(
+        sequential.games.map(gameResult)
+      );
+    },
+    15_000
+  );
+
+  it('caps workers at the number of paired seeds', async () => {
+    const run = await runHeadToHead(testHeadToHeadConfig(1), { workers: 4 });
+
+    expect(run.execution).toEqual({
+      requestedWorkers: 4,
+      workers: 1,
+      parallelUnit: 'paired-seed',
+      latencyMode: 'isolated',
+    });
+  });
+
+  it('rejects invalid worker counts', async () => {
+    await expect(
+      runHeadToHead(testHeadToHeadConfig(), { workers: 0 })
+    ).rejects.toThrow('workers must be a positive integer.');
+  });
+
+  it(
+    'fails the parent matchup when a child pair fails',
+    async () => {
+      await expect(
+        runHeadToHead(
+          {
+            ...testHeadToHeadConfig(2),
+            maxDecisionsPerGame: 1,
+          },
+          { workers: 2 }
+        )
+      ).rejects.toThrow(/Pair worker \d+ failed on pair \d+: Game .* exceeded/);
+    },
+    10_000
+  );
 });
+
+function gameResult(
+  game: Awaited<ReturnType<typeof runHeadToHead>>['games'][number]
+) {
+  return {
+    gameId: game.gameId,
+    seed: game.seed,
+    firstPlayer: game.firstPlayer,
+    botBySeat: game.botBySeat,
+    actionKeys: game.transcript.map((decision) => decision.actionKey),
+    finalScore: game.finalScore,
+    turns: game.turns,
+  };
+}

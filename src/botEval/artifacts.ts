@@ -37,6 +37,7 @@ export function createHeadToHeadArtifact(
       nodeVersion: options.nodeVersion ?? process.version,
     },
     git: options.git ?? collectGitMetadata(options.cwd),
+    execution: structuredClone(run.execution),
     config: structuredClone(run.config),
     summary: structuredClone(run.summary),
     games: structuredClone(run.games),
@@ -65,6 +66,7 @@ export async function loadHeadToHeadArtifact(
   const source = requiredRecord(payload, 'head-to-head artifact');
   if (
     source.schemaVersion !== 1 &&
+    source.schemaVersion !== 2 &&
     source.schemaVersion !== HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION
   ) {
     throw new Error(
@@ -106,6 +108,8 @@ export function renderHeadToHeadSummary(artifact: HeadToHeadArtifact): string {
     `# TypeScript Bot Evaluation: ${artifact.config.runLabel}`,
     '',
     `Generated: ${artifact.generatedAtUtc}`,
+    '',
+    `Execution: workers=${String(artifact.execution?.workers ?? 1)} requestedWorkers=${String(artifact.execution?.requestedWorkers ?? 1)} parallelUnit=${artifact.execution?.parallelUnit ?? 'paired-seed'} latencyMode=${artifact.execution?.latencyMode ?? 'isolated'}`,
     '',
     '| candidate | opponent | games | wins | losses | draws | win rate | ci95 | side gap | avg turns | games/min |',
     '|:---|:---|---:|---:|---:|---:|---:|:---|---:|---:|---:|',
