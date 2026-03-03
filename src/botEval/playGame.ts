@@ -8,7 +8,10 @@ import type { PlayerId } from '../engine/types';
 import { toPlayerView } from '../engine/view';
 import type { BotSpec } from '../policies/botSpec';
 import { policyRandomForState } from '../policies/policyRandom';
-import type { ActionPolicy } from '../policies/types';
+import type {
+  ActionPolicy,
+  SearchDecisionDiagnostics,
+} from '../policies/types';
 import type { PlayedGame } from './types';
 
 const DEFAULT_MAX_DECISIONS_PER_GAME = 10_000;
@@ -64,11 +67,20 @@ export async function playGame({
     }
 
     const selectedAt = now();
+    let searchDiagnostics: SearchDecisionDiagnostics | undefined;
     const selected = await bot.policy.selectAction({
       state,
       view: toPlayerView(state, activePlayerId),
       legalActions: actions,
       random: policyRandomForState(state, bot.spec.id),
+      onSearchDiagnostics(diagnostics) {
+        if (searchDiagnostics) {
+          throw new Error(
+            `Bot ${bot.spec.id} emitted duplicate search diagnostics in game ${gameId}.`
+          );
+        }
+        searchDiagnostics = structuredClone(diagnostics);
+      },
     });
     const latencyMs = now() - selectedAt;
     if (!selected) {
@@ -94,7 +106,9 @@ export async function playGame({
       activePlayerId,
       botId: bot.spec.id,
       actionKey,
+      legalActionCount: actions.length,
       latencyMs,
+      ...(searchDiagnostics ? { searchDiagnostics } : {}),
     });
     state = stepToDecision(state, canonicalAction);
   }

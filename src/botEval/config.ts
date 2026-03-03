@@ -2,7 +2,9 @@ import { getBotProfile } from '../policies/catalog';
 import { parseBotSpec, type BotSpec } from '../policies/botSpec';
 import {
   HEAD_TO_HEAD_CONFIG_SCHEMA_VERSION,
+  ROLLOUT_SEARCH_SWEEP_CONFIG_SCHEMA_VERSION,
   type HeadToHeadConfig,
+  type RolloutSearchSweepConfig,
 } from './types';
 
 export function parseHeadToHeadConfig(value: unknown): HeadToHeadConfig {
@@ -48,6 +50,78 @@ export function parseHeadToHeadConfig(value: unknown): HeadToHeadConfig {
   return config;
 }
 
+export function parseRolloutSearchSweepConfig(
+  value: unknown
+): RolloutSearchSweepConfig {
+  const source = requiredRecord(value, 'rollout-search sweep config');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'rollout-search sweep config.schemaVersion'
+  );
+  if (schemaVersion !== ROLLOUT_SEARCH_SWEEP_CONFIG_SCHEMA_VERSION) {
+    throw new Error(
+      `Unsupported rollout-search sweep config schemaVersion=${String(schemaVersion)}.`
+    );
+  }
+
+  const opponent = parseBotReference(
+    source.opponent,
+    'rollout-search sweep config.opponent'
+  );
+  const candidates = requiredArray(
+    source.candidates,
+    'rollout-search sweep config.candidates'
+  ).map((candidate, index) => {
+    const parsed = parseBotSpec(
+      candidate,
+      `rollout-search sweep config.candidates[${String(index)}]`
+    );
+    if (parsed.kind !== 'search') {
+      throw new Error(
+        `rollout-search sweep config.candidates[${String(index)}] must have kind search.`
+      );
+    }
+    return parsed;
+  });
+  if (candidates.length === 0) {
+    throw new Error(
+      'rollout-search sweep config.candidates must include at least one candidate.'
+    );
+  }
+
+  const ids = new Set<string>([opponent.id]);
+  for (const candidate of candidates) {
+    if (ids.has(candidate.id)) {
+      throw new Error(
+        `rollout-search sweep bot ids must be distinct; duplicate=${candidate.id}.`
+      );
+    }
+    ids.add(candidate.id);
+  }
+
+  return {
+    schemaVersion,
+    runLabel: requiredString(
+      source.runLabel,
+      'rollout-search sweep config.runLabel'
+    ),
+    seedPrefix: requiredString(
+      source.seedPrefix,
+      'rollout-search sweep config.seedPrefix'
+    ),
+    gamesPerSide: requiredPositiveInteger(
+      source.gamesPerSide,
+      'rollout-search sweep config.gamesPerSide'
+    ),
+    opponent,
+    candidates,
+    maxDecisionsPerGame: optionalPositiveInteger(
+      source.maxDecisionsPerGame,
+      'rollout-search sweep config.maxDecisionsPerGame'
+    ),
+  };
+}
+
 function parseBotReference(value: unknown, label: string): BotSpec {
   const source = requiredRecord(value, label);
   if ('profileId' in source) {
@@ -55,6 +129,13 @@ function parseBotReference(value: unknown, label: string): BotSpec {
     return structuredClone(getBotProfile(profileId).spec);
   }
   return parseBotSpec(source, label);
+}
+
+function requiredArray(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be an array.`);
+  }
+  return value;
 }
 
 function requiredRecord(

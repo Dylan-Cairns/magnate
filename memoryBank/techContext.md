@@ -37,6 +37,8 @@
 - Bridge runtime: `yarn bridge`
 - TypeScript browser-bot head-to-head eval:
   `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
+- TypeScript rollout-search sweep:
+  `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
 - Replay one recorded TypeScript bot game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Test: `yarn test`
@@ -220,8 +222,17 @@ Use `--help` on each script for the full option surface.
   - `artifacts/ts-bot-evals/<run>/summary.md`
 - `matchup.json` includes full serializable bot specs, git metadata, runtime
   metadata, final scores, and stable action-key transcripts for exact replay.
+- Head-to-head artifact schema v2 adds legal-action counts per decision,
+  multi-choice latency summaries, optional rollout-search work diagnostics, and
+  rollout-search latency buckets by legal root-action count. Schema v1 artifacts
+  remain replayable.
 - Config inputs can reference catalog presets with `{ "profileId": "heuristic" }`
   or define arbitrary `random`, `heuristic`, or `search` bot specs directly.
+- `yarn bot:eval rollout-search-sweep --config <path>` runs explicit rollout
+  `search` candidates sequentially against one fixed opponent with one shared
+  paired-seed prefix. It writes aggregate `sweep.json`, `sweep.csv`, and
+  `summary.md` files plus replayable child head-to-head artifacts under
+  `matchups/`.
 - Browser `td-search` specs are serializable through the shared policy factory,
   but direct Node eval of those specs still needs a local model-pack loader.
 
