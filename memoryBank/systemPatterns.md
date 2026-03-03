@@ -51,9 +51,10 @@ Design expectations:
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
-- UI animation sequencing should keep pure timing and turn-cycle visual-plan
-  derivation in `src/ui/animations/`; browser-only DOM target resolution remains
-  outside the engine.
+- UI animation sequencing should keep pure timing, turn-cycle visual-plan
+  derivation, injectable browser-only DOM target resolution, and flight
+  planning in `src/ui/animations/`; browser DOM access remains outside the
+  engine and isolated in `domTargets.ts`.
 - Characterization tests should protect UI commit timing, tax-resource previews,
   composite picker resolution/invalidation, and log presentation while
   `App.tsx` is decomposed.

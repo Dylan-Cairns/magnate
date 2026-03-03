@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { makeGameState } from '../../engine/__tests__/fixtures';
 import type { TurnCycleEvents } from '../turnCycleEvents';
-import { buildTurnCycleVisualPlan } from './turnCycleVisualPlan';
+import {
+  buildTurnCycleVisualPlan,
+  collectTurnCycleAnimationPlan,
+} from './turnCycleVisualPlan';
 
 describe('buildTurnCycleVisualPlan', () => {
   it('schedules a text-only income stage after an existing card-flight delay', () => {
@@ -152,6 +156,29 @@ describe('buildTurnCycleVisualPlan', () => {
     expect(plan.visualPlan.incomeHighlightEndAtMs).toBe(
       plan.incomeAnimationEndMs
     );
+  });
+});
+
+describe('collectTurnCycleAnimationPlan', () => {
+  it('derives a turn-cycle plan only for an end-turn income roll', () => {
+    const previous = makeGameState();
+    const next = makeGameState({ lastIncomeRoll: { die1: 7, die2: 4 } });
+
+    expect(
+      collectTurnCycleAnimationPlan(
+        previous,
+        next,
+        { type: 'trade', give: 'Moons', receive: 'Suns' },
+        280
+      )
+    ).toBeNull();
+    expect(
+      collectTurnCycleAnimationPlan(previous, next, { type: 'end-turn' }, 280)
+        ?.visualPlan
+    ).toMatchObject({
+      incomeLabelAtMs: 280,
+      incomeRank: 7,
+    });
   });
 });
 
