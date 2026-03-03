@@ -1,25 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { legalActions } from './engine/actionBuilders';
 import type { CardId } from './engine/cards';
-import { rngFromSeed } from './engine/rng';
-import { createSession } from './engine/session';
-import {
-  districtWinnersByPlayer,
-  isTerminal,
-  scoreLive,
-} from './engine/scoring';
-import type { BotProfileId } from './policies/catalog';
-import { DEFAULT_BOT_PROFILE_ID, resolveBotProfile } from './policies/catalog';
-import type {
-  FinalScore,
-  GameAction,
-  GameLogEntry,
-  GameState,
-  PlayerId,
-  Suit,
-} from './engine/types';
-import { toPlayerView } from './engine/view';
+import { districtWinnersByPlayer, scoreLive } from './engine/scoring';
+import type { GameAction, PlayerId, Suit } from './engine/types';
 import {
   buildHumanActionList,
   buildTradeSourceGroups,
@@ -31,12 +14,7 @@ import {
   tradeCompositePickerStillLegal,
   type ActionPickerState,
 } from './ui/actionPickerModel';
-import { prepareActionDispatch } from './ui/actionDispatcher';
-import {
-  canUseTurnReset,
-  shouldCaptureTurnResetAnchor,
-  type TurnResetAnchor,
-} from './ui/turnReset';
+import { errorMessage } from './ui/gameControllerModel';
 import {
   preloadStartupAssets,
   type StartupPreloadProgress,
@@ -53,17 +31,14 @@ import {
 import { LogPanel } from './ui/components/LogPanel';
 import { OptionsBackdrop, OptionsMenu } from './ui/components/OptionsMenu';
 import { ResourceFlightLayer } from './ui/components/ResourceFlightLayer';
-import { clearAllDeedTokenLayouts } from './ui/components/deedTokenLayout';
 import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
-import { useGameAnimations } from './ui/hooks/useGameAnimations';
-import { transitionLogEntries } from './ui/logTimeline';
+import { useGameController } from './ui/hooks/useGameController';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
-const DEFAULT_BOT_DELAY_MS = 450;
 const PLAYER_HAND_SLOT_COUNT = 3;
 const TRADE_POPOVER_WIDTH_PX = 220;
 const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
@@ -78,10 +53,6 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   percent: 0,
   message: 'Loading card images and bot models...',
 };
-
-function makeSeed(): string {
-  return `seed-${Date.now()}`;
-}
 
 function shouldShowResolutionWarningOnLoad(): boolean {
   if (typeof window === 'undefined') {
@@ -98,56 +69,7 @@ function shouldShowResolutionWarningOnLoad(): boolean {
   );
 }
 
-function createInitialState(seed: string): GameState {
-  return createSession(seed, HUMAN_PLAYER);
-}
-
-function withSeedLogPrefix(
-  state: GameState,
-  entries: readonly GameLogEntry[]
-): ReadonlyArray<GameLogEntry> {
-  const seedSummary = `Seed ${state.seed}`;
-  if (entries[0]?.summary === seedSummary) {
-    return [...entries];
-  }
-  const activePlayerId =
-    state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
-  return [
-    {
-      turn: state.turn,
-      player: activePlayerId,
-      phase: state.phase,
-      summary: seedSummary,
-    },
-    ...entries,
-  ];
-}
-
-function botRandomForState(state: GameState, profileId: string): () => number {
-  return rngFromSeed(
-    `${state.seed}:bot:${profileId}:turn:${state.turn}:phase:${state.phase}:log:${state.log.length}:actor:${state.activePlayerIndex}`
-  );
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-}
-
 export function App() {
-  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
-    DEFAULT_BOT_PROFILE_ID
-  );
-  const [state, setState] = useState<GameState>(() =>
-    createInitialState(makeSeed())
-  );
-  const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
-    () => withSeedLogPrefix(state, state.log)
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [botThinking, setBotThinking] = useState<boolean>(false);
   const [actionPicker, setActionPicker] = useState<ActionPickerState | null>(
     null
   );
@@ -163,14 +85,41 @@ export function App() {
   const [resolutionWarningOpen, setResolutionWarningOpen] = useState<boolean>(
     shouldShowResolutionWarningOnLoad
   );
-  const [terminalWinnerOverlayWinner, setTerminalWinnerOverlayWinner] =
-    useState<FinalScore['winner'] | null>(null);
-  const [turnResetAnchor, setTurnResetAnchor] =
-    useState<TurnResetAnchor | null>(null);
-  const [turnResetTimelineAnchor, setTurnResetTimelineAnchor] =
-    useState<ReadonlyArray<GameLogEntry> | null>(null);
-
-  const stateRef = useRef(state);
+  const {
+    state,
+    humanView,
+    timelineLog,
+    error,
+    terminal,
+    activePlayerId,
+    botThinking,
+    botProfileId,
+    botStatusText,
+    setBotProfileId,
+    humanActionsAcceptingInput,
+    canResetTurn,
+    performHumanAction,
+    resetSession,
+    resetTurn,
+    terminalWinnerOverlayWinner,
+    animations: {
+      enabled: animationsEnabled,
+      setEnabled: setAnimationsEnabled,
+      resourceFlights,
+      cardFlights,
+      turnCycleOverlay,
+      incomeHighlightCardIds,
+      incomeHighlightCrowns,
+      incomeResourcePreviewByPlayer,
+      pendingDiscardHoldback,
+      actionCommitPending,
+      allowHumanActionsWhileCommitPending,
+    },
+  } = useGameController({
+    humanPlayerId: HUMAN_PLAYER,
+    botPlayerId: BOT_PLAYER,
+    startupPreloadReady,
+  });
   const actionPopoverRef = useRef<HTMLElement | null>(null);
   const optionsMenuRef = useRef<HTMLElement | null>(null);
   const optionsMenuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -181,99 +130,11 @@ export function App() {
     () => setStartupPreloadAttempt((current) => current + 1),
     []
   );
-  const clearTerminalWinnerOverlay = useCallback(() => {
-    setTerminalWinnerOverlayWinner(null);
-  }, []);
-  const commitImmediateTransition = useCallback(
-    (previousState: GameState, nextState: GameState, action?: GameAction) => {
-      setTimelineLog((existing) => [
-        ...existing,
-        ...transitionLogEntries(previousState, nextState, action),
-      ]);
-      setState(nextState);
-    },
-    []
-  );
-  const {
-    enabled: animationsEnabled,
-    setEnabled: setAnimationsEnabled,
-    resourceFlights,
-    cardFlights,
-    turnCycleOverlay,
-    incomeHighlightCardIds,
-    incomeHighlightCrowns,
-    incomeResourcePreviewByPlayer,
-    pendingDiscardHoldback,
-    actionCommitPending,
-    allowHumanActionsWhileCommitPending,
-    makeResourceFlightId,
-    makeCardFlightId,
-    clearPendingActionCommit,
-    clearAllFlights: clearAnimationFlights,
-    runTransition: runAnimationTransition,
-  } = useGameAnimations({
-    onCommitTransition: commitImmediateTransition,
-  });
-  const clearAllFlights = useCallback(() => {
-    clearAnimationFlights();
-    clearTerminalWinnerOverlay();
-  }, [clearAnimationFlights, clearTerminalWinnerOverlay]);
-  const dispatchAction = useCallback(
-    (
-      previousState: GameState,
-      action: GameAction,
-      actingPlayerId: PlayerId
-    ) => {
-      const plan = prepareActionDispatch({
-        previousState,
-        action,
-        actingPlayerId,
-        animationsEnabled,
-        makeResourceFlightId,
-        makeCardFlightId,
-      });
-      if (!animationsEnabled) {
-        clearAllFlights();
-        commitImmediateTransition(previousState, plan.nextState, action);
-        setError(null);
-        return;
-      }
-
-      runAnimationTransition({
-        previousState,
-        nextState: plan.nextState,
-        action,
-        resourceFlights: plan.resourceFlights,
-        cardFlights: plan.cardFlights,
-        turnCyclePlan: plan.turnCyclePlan,
-        onSettle: plan.enteredTerminal
-          ? () => {
-              setTerminalWinnerOverlayWinner(
-                (plan.nextState.finalScore ?? scoreLive(plan.nextState)).winner
-              );
-            }
-          : undefined,
-      });
-      setError(null);
-    },
-    [
-      animationsEnabled,
-      clearAllFlights,
-      commitImmediateTransition,
-      makeCardFlightId,
-      makeResourceFlightId,
-      runAnimationTransition,
-    ]
-  );
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
     () => [optionsMenuRef, optionsMenuButtonRef],
     []
   );
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
   useEffect(() => {
     let cancelled = false;
     setStartupPreloadReady(false);
@@ -306,15 +167,7 @@ export function App() {
     };
   }, [startupPreloadAttempt]);
 
-  const terminal = isTerminal(state);
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
-  const activePlayerId =
-    state.players[state.activePlayerIndex]?.id ?? HUMAN_PLAYER;
-  const humanView = useMemo(() => toPlayerView(state, HUMAN_PLAYER), [state]);
-  const resolvedBotProfile = useMemo(
-    () => resolveBotProfile(botProfileId),
-    [botProfileId]
-  );
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
   const wonDistrictsByPlayer = useMemo(
     () => districtWinnersByPlayer(state),
@@ -345,24 +198,6 @@ export function App() {
     return byPlayer;
   }, [incomeHighlightCrowns]);
 
-  const humanActions = useMemo(() => {
-    if (terminal || activePlayerId !== HUMAN_PLAYER) {
-      return [] as readonly GameAction[];
-    }
-    return legalActions(state);
-  }, [activePlayerId, state, terminal]);
-  const humanActionsAcceptingInput = useMemo(() => {
-    if (!actionCommitPending) {
-      return humanActions;
-    }
-    if (!allowHumanActionsWhileCommitPending) {
-      return [] as readonly GameAction[];
-    }
-    return humanActions.filter(
-      (action) => action.type === 'choose-income-suit'
-    );
-  }, [actionCommitPending, allowHumanActionsWhileCommitPending, humanActions]);
-
   const humanActionItems = useMemo(
     () => buildHumanActionList(humanActionsAcceptingInput),
     [humanActionsAcceptingInput]
@@ -386,10 +221,6 @@ export function App() {
     );
   }, [firstTradeGroupIndex, hasMultipleTradeSources, humanActionItems]);
 
-  const canResetTurn = useMemo(
-    () => canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor),
-    [activePlayerId, state, turnResetAnchor]
-  );
   const isTurnCycleAnimationLock =
     actionCommitPending && allowHumanActionsWhileCommitPending;
   const showBotThinkingDuringIncomeChoiceLock =
@@ -405,106 +236,6 @@ export function App() {
     humanActionsAcceptingInput.length === 0;
   const humanActionUiBlockedByTurnCycleAnimation =
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
-
-  useEffect(() => {
-    if (!terminal) {
-      clearTerminalWinnerOverlay();
-    }
-  }, [clearTerminalWinnerOverlay, terminal]);
-
-  useEffect(() => {
-    if (
-      !shouldCaptureTurnResetAnchor(
-        state,
-        activePlayerId,
-        HUMAN_PLAYER,
-        turnResetAnchor
-      )
-    ) {
-      return;
-    }
-
-    setTurnResetAnchor({
-      turn: state.turn,
-      playerId: HUMAN_PLAYER,
-      state,
-    });
-    setTurnResetTimelineAnchor(timelineLog);
-  }, [activePlayerId, state, timelineLog, turnResetAnchor]);
-
-  useEffect(() => {
-    if (
-      terminal ||
-      activePlayerId !== BOT_PLAYER ||
-      actionCommitPending ||
-      !startupPreloadReady
-    ) {
-      setBotThinking(false);
-      return;
-    }
-
-    let cancelled = false;
-    setBotThinking(true);
-    const botTurnDelayMs =
-      resolvedBotProfile.selected.turnDelayMs ?? DEFAULT_BOT_DELAY_MS;
-    const timerId = window.setTimeout(() => {
-      void (async () => {
-        const current = stateRef.current;
-        const currentActive = current.players[current.activePlayerIndex]?.id;
-        if (cancelled || isTerminal(current) || currentActive !== BOT_PLAYER) {
-          setBotThinking(false);
-          return;
-        }
-
-        const actions = legalActions(current);
-        if (actions.length === 0) {
-          setError('Bot has no legal actions.');
-          setBotThinking(false);
-          return;
-        }
-
-        try {
-          const botView = toPlayerView(current, BOT_PLAYER);
-          const choice = await resolvedBotProfile.policy.selectAction({
-            state: current,
-            view: botView,
-            legalActions: actions,
-            random: botRandomForState(current, resolvedBotProfile.selected.id),
-          });
-
-          if (cancelled) {
-            return;
-          }
-
-          if (!choice) {
-            setError('Bot policy could not select an action.');
-            return;
-          }
-
-          const actingPlayerId =
-            current.players[current.activePlayerIndex]?.id ?? BOT_PLAYER;
-          dispatchAction(current, choice, actingPlayerId);
-        } catch (err) {
-          setError(`Bot action failed: ${errorMessage(err)}`);
-        } finally {
-          setBotThinking(false);
-        }
-      })();
-    }, botTurnDelayMs);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timerId);
-    };
-  }, [
-    actionCommitPending,
-    activePlayerId,
-    dispatchAction,
-    resolvedBotProfile,
-    state,
-    startupPreloadReady,
-    terminal,
-  ]);
 
   useEffect(() => {
     if (terminal || activePlayerId !== HUMAN_PLAYER) {
@@ -569,78 +300,28 @@ export function App() {
     insideRefs: optionsMenuLayerRefs,
   });
 
-  const handleHumanAction = (action: GameAction) => {
-    if (terminal || activePlayerId !== HUMAN_PLAYER) {
-      return;
-    }
-    if (actionCommitPending) {
-      const canActDuringCommit =
-        allowHumanActionsWhileCommitPending &&
-        action.type === 'choose-income-suit';
-      if (!canActDuringCommit) {
-        return;
-      }
-    }
-
-    try {
-      dispatchAction(state, action, activePlayerId);
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
-
   const handleReset = () => {
     const specifiedSeed = seedInputRef.current?.value.trim() ?? '';
     if (seedInputRef.current) {
       seedInputRef.current.value = '';
     }
-    const seed = specifiedSeed || makeSeed();
     closeActionPicker();
     closeOptionsMenu();
-    setTurnResetAnchor(null);
-    setTurnResetTimelineAnchor(null);
-    clearPendingActionCommit();
-    clearAllFlights();
-    clearAllDeedTokenLayouts();
-
-    try {
-      const initialState = createInitialState(seed);
-      setState(initialState);
-      setTimelineLog(withSeedLogPrefix(initialState, initialState.log));
-      setError(null);
-      setBotThinking(false);
-    } catch (err) {
-      setError(`Failed to start game: ${errorMessage(err)}`);
-    }
+    resetSession(specifiedSeed || undefined);
   };
 
   const handlePickerSelection = (action: GameAction) => {
     closeActionPicker();
-    handleHumanAction(action);
+    performHumanAction(action);
   };
 
   const handleTurnReset = () => {
-    if (!turnResetAnchor) {
-      return;
-    }
-    if (
-      !canUseTurnReset(state, activePlayerId, HUMAN_PLAYER, turnResetAnchor)
-    ) {
+    if (!canResetTurn) {
       return;
     }
 
     closeActionPicker();
-    clearPendingActionCommit();
-    setState(turnResetAnchor.state);
-    setTimelineLog(
-      turnResetTimelineAnchor
-        ? [...turnResetTimelineAnchor]
-        : withSeedLogPrefix(turnResetAnchor.state, turnResetAnchor.state.log)
-    );
-    setError(null);
-    setBotThinking(false);
-    clearAllFlights();
-    clearAllDeedTokenLayouts();
+    resetTurn();
   };
 
   const openTradePicker = (
@@ -822,7 +503,7 @@ export function App() {
             humanActionUiBlockedByTurnCycleAnimation={
               humanActionUiBlockedByTurnCycleAnimation
             }
-            onAction={handleHumanAction}
+            onAction={performHumanAction}
             onResetTurn={handleTurnReset}
             onClosePicker={closeActionPicker}
             onOpenTradeCombinedPicker={openTradeCombinedPicker}
@@ -911,7 +592,7 @@ export function App() {
           <OptionsMenu
             open={optionsMenuOpen}
             botProfileId={botProfileId}
-            botStatusText={resolvedBotProfile.statusText}
+            botStatusText={botStatusText}
             animationsEnabled={animationsEnabled}
             menuRef={optionsMenuRef}
             buttonRef={optionsMenuButtonRef}
