@@ -58,6 +58,10 @@ Design expectations:
 - UI animation lifecycle state, timer cleanup, preview scheduling, and delayed
   commit coordination should live in `useGameAnimations`; canonical state
   transitions and timeline logging remain injected controller callbacks.
+- Human and bot browser actions should share `prepareActionDispatch` for
+  engine validation and animation-plan assembly. Validate with
+  `stepToDecision` before DOM-dependent planning so invalid actions cannot
+  mutate UI-only deed-layout memory.
 - Characterization tests should protect UI commit timing, tax-resource previews,
   composite picker resolution/invalidation, and log presentation while
   `App.tsx` is decomposed.
