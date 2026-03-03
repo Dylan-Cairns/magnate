@@ -1,6 +1,11 @@
 import type { CardId } from '../engine/cards';
 import type { GameAction, Suit } from '../engine/types';
-import { paymentSignature } from './actionPresentation';
+import {
+  cardSummary,
+  paymentSignature,
+  pickerTitle,
+  type ActionPickerQuery,
+} from './actionPresentation';
 
 type TradeAction = Extract<GameAction, { type: 'trade' }>;
 type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
@@ -15,6 +20,26 @@ export type DevelopOutrightCompositePicker = {
   selectedDistrictId?: string;
   selectedPaymentKey?: string;
 };
+
+type Positioned<T> = T & {
+  top: number;
+  left: number;
+};
+
+export type StandardActionPickerState = Positioned<ActionPickerQuery>;
+
+export type ActionPickerState =
+  | StandardActionPickerState
+  | Positioned<
+      TradeCompositePicker & {
+        kind: 'trade-combined';
+      }
+    >
+  | Positioned<
+      DevelopOutrightCompositePicker & {
+        kind: 'develop-outright-combined';
+      }
+    >;
 
 export function tradeActionsForPicker(
   actions: readonly GameAction[]
@@ -128,4 +153,50 @@ export function developOutrightCompositePickerStillLegal(
     return false;
   }
   return true;
+}
+
+export function toPickerQuery(
+  picker: StandardActionPickerState
+): ActionPickerQuery {
+  if (picker.kind === 'trade') {
+    return { kind: 'trade', give: picker.give };
+  }
+  if (picker.kind === 'deed-payment') {
+    return {
+      kind: 'deed-payment',
+      cardId: picker.cardId,
+      districtId: picker.districtId,
+    };
+  }
+  if (picker.kind === 'develop-outright-district') {
+    return {
+      kind: 'develop-outright-district',
+      cardId: picker.cardId,
+    };
+  }
+  if (picker.kind === 'develop-outright-payment') {
+    return {
+      kind: 'develop-outright-payment',
+      cardId: picker.cardId,
+      districtId: picker.districtId,
+    };
+  }
+  return {
+    kind: 'district',
+    actionType: picker.actionType,
+    cardId: picker.cardId,
+  };
+}
+
+export function actionPickerTitle(
+  picker: ActionPickerState,
+  suitTokens: Record<Suit, string>
+): string {
+  if (picker.kind === 'trade-combined') {
+    return 'Trade resources';
+  }
+  if (picker.kind === 'develop-outright-combined') {
+    return `Develop ${cardSummary(picker.cardId, suitTokens)}`;
+  }
+  return pickerTitle(toPickerQuery(picker), suitTokens);
 }
