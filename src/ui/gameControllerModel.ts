@@ -1,5 +1,4 @@
 import { legalActions } from '../engine/actionBuilders';
-import { rngFromSeed } from '../engine/rng';
 import { createSession } from '../engine/session';
 import { isTerminal } from '../engine/scoring';
 import type {
@@ -8,6 +7,7 @@ import type {
   GameState,
   PlayerId,
 } from '../engine/types';
+export { policyRandomForState as botRandomForState } from '../policies/policyRandom';
 
 export function makeBrowserSessionSeed(now = Date.now()): string {
   return `seed-${now}`;
@@ -46,15 +46,6 @@ export function activePlayerIdForState(
   fallbackPlayerId: PlayerId
 ): PlayerId {
   return state.players[state.activePlayerIndex]?.id ?? fallbackPlayerId;
-}
-
-export function botRandomForState(
-  state: GameState,
-  profileId: string
-): () => number {
-  return rngFromSeed(
-    `${state.seed}:bot:${profileId}:turn:${state.turn}:phase:${state.phase}:log:${state.log.length}:actor:${state.activePlayerIndex}`
-  );
 }
 
 export function humanActionsAcceptingInputForState({

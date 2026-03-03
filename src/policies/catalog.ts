@@ -1,7 +1,4 @@
-import { randomPolicy } from './randomPolicy';
-import { heuristicPolicy } from './heuristicPolicy';
-import { createSearchPolicy } from './searchPolicy';
-import { createTdSearchPolicy } from './tdSearchPolicy';
+import { createPolicyFromBotSpec, type BotKind, type BotSpec } from './botSpec';
 import type { ActionPolicy } from './types';
 
 export type BotProfileId =
@@ -15,9 +12,10 @@ export interface BotProfile {
   id: BotProfileId;
   label: string;
   description: string;
-  kind: 'random' | 'heuristic' | 'search' | 'td-search';
+  kind: BotKind;
   available: boolean;
   turnDelayMs: number;
+  spec: BotSpec;
   policy: ActionPolicy;
 }
 
@@ -27,78 +25,87 @@ export interface ResolvedBotProfile {
   statusText: string;
 }
 
-const rolloutEvalSearchPolicy = createSearchPolicy({
-  worlds: 10,
-  rollouts: 4,
-  depth: 12,
-  maxRootActions: 8,
-  rolloutEpsilon: 0.0,
-});
-const tdSearchFastPolicy = createTdSearchPolicy({
-  worlds: 1,
-  rollouts: 1,
-  depth: 6,
-  maxRootActions: 4,
-  rolloutEpsilon: 0.01,
-  opponentTemperature: 1.0,
-  sampleOpponentActions: false,
-});
-const tdSearchBrowserPolicy = createTdSearchPolicy({
-  worlds: 6,
-  rollouts: 1,
-  depth: 14,
-  maxRootActions: 6,
-  rolloutEpsilon: 0.04,
-  opponentTemperature: 1.0,
-  sampleOpponentActions: false,
-});
-
 export const BOT_PROFILES: readonly BotProfile[] = [
-  {
+  createBotProfile({
     id: 'heuristic',
     label: 'Heuristic',
     description: 'Fast deterministic heuristic.',
-    kind: 'heuristic',
     available: true,
     turnDelayMs: 250,
-    policy: heuristicPolicy,
-  },
-  {
+    spec: {
+      id: 'heuristic',
+      kind: 'heuristic',
+    },
+  }),
+  createBotProfile({
     id: 'td-search-fast',
     label: 'TD Search Fast',
     description: '',
-    kind: 'td-search',
     available: true,
     turnDelayMs: 175,
-    policy: tdSearchFastPolicy,
-  },
-  {
+    spec: {
+      id: 'td-search-fast',
+      kind: 'td-search',
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 6,
+        maxRootActions: 4,
+        rolloutEpsilon: 0.01,
+        opponentTemperature: 1.0,
+        sampleOpponentActions: false,
+      },
+    },
+  }),
+  createBotProfile({
     id: 'td-search-browser',
     label: 'TD Search',
     description: '',
-    kind: 'td-search',
     available: true,
     turnDelayMs: 450,
-    policy: tdSearchBrowserPolicy,
-  },
-  {
+    spec: {
+      id: 'td-search-browser',
+      kind: 'td-search',
+      config: {
+        worlds: 6,
+        rollouts: 1,
+        depth: 14,
+        maxRootActions: 6,
+        rolloutEpsilon: 0.04,
+        opponentTemperature: 1.0,
+        sampleOpponentActions: false,
+      },
+    },
+  }),
+  createBotProfile({
     id: 'rollout-eval-search',
     label: 'Rollout Search',
     description: '',
-    kind: 'search',
     available: true,
     turnDelayMs: 450,
-    policy: rolloutEvalSearchPolicy,
-  },
-  {
+    spec: {
+      id: 'rollout-eval-search',
+      kind: 'search',
+      config: {
+        worlds: 10,
+        rollouts: 4,
+        depth: 12,
+        maxRootActions: 8,
+        rolloutEpsilon: 0.0,
+      },
+    },
+  }),
+  createBotProfile({
     id: 'random-legal',
     label: 'Random legal',
     description: 'Random choice among legal actions.',
-    kind: 'random',
     available: true,
     turnDelayMs: 250,
-    policy: randomPolicy,
-  },
+    spec: {
+      id: 'random-legal',
+      kind: 'random',
+    },
+  }),
 ];
 
 export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-eval-search';
@@ -121,5 +128,15 @@ export function resolveBotProfile(id: string): ResolvedBotProfile {
     selected,
     policy: selected.policy,
     statusText: selected.description,
+  };
+}
+
+function createBotProfile(
+  profile: Omit<BotProfile, 'kind' | 'policy'>
+): BotProfile {
+  return {
+    ...profile,
+    kind: profile.spec.kind,
+    policy: createPolicyFromBotSpec(profile.spec),
   };
 }

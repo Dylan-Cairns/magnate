@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "bridge": "tsx src/bridge/cli.ts",
+    "bot:eval": "tsx src/botEval/cli.ts",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint . && yarn typecheck",

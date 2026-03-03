@@ -23,7 +23,7 @@
 ## Tooling Notes
 
 - Package manager: Yarn
-- JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
+- JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`
 - GitHub Pages deploy: `.github/workflows/deploy_pages.yml` runs on pushes to `main` (and manual dispatch), then gates deployment on `yarn test` + `yarn lint` before `yarn build` using Node `22.12.0`.
 - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`.
 - Checked-in static analysis runs from the repo venv: `.\.venv\Scripts\python -m pyright -p .`.
@@ -35,6 +35,10 @@
 - Install JS deps: `yarn install`
 - Dev server: `yarn dev`
 - Bridge runtime: `yarn bridge`
+- TypeScript browser-bot head-to-head eval:
+  `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
+- Replay one recorded TypeScript bot game:
+  `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
@@ -205,6 +209,22 @@ With `.venv` active:
 
 Use `--help` on each script for the full option surface.
 
+## TypeScript Browser-Bot Evaluation
+
+- `src/botEval/` runs the actual browser `ActionPolicy` implementations
+  directly against the canonical TypeScript engine.
+- Head-to-head evals use paired seeds, swap candidate/opponent seats for each
+  seed, alternate the first-player seat, report Wilson confidence intervals and
+  latency summaries, and write:
+  - `artifacts/ts-bot-evals/<run>/matchup.json`
+  - `artifacts/ts-bot-evals/<run>/summary.md`
+- `matchup.json` includes full serializable bot specs, git metadata, runtime
+  metadata, final scores, and stable action-key transcripts for exact replay.
+- Config inputs can reference catalog presets with `{ "profileId": "heuristic" }`
+  or define arbitrary `random`, `heuristic`, or `search` bot specs directly.
+- Browser `td-search` specs are serializable through the shared policy factory,
+  but direct Node eval of those specs still needs a local model-pack loader.
+
 ## Constraints
 
 - Static deployment target (no gameplay backend).
@@ -219,5 +239,8 @@ Use `--help` on each script for the full option surface.
 - `td-search` exists, but current form is still rollout-guided and needs stronger search/value coupling and throughput optimization.
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
+- The direct TypeScript browser-bot harness supports `random`, `heuristic`, and
+  rollout `search` evaluation; local Node model-pack loading for direct
+  `td-search` harness runs remains to be added.
 
-_Updated: 2026-05-13._
+_Updated: 2026-06-01._
