@@ -14,6 +14,7 @@ import {
   ROLLOUT_SEARCH_SWEEP_ARTIFACT_TYPE,
   type RolloutSearchSweepArtifact,
   type RolloutSearchSweepArtifactRow,
+  type RolloutSearchSweepArtifactStatus,
   type RolloutSearchSweepRun,
 } from './types';
 
@@ -24,13 +25,31 @@ export interface WrittenRolloutSearchSweepArtifactPaths {
   summaryPath: string;
 }
 
+export interface RolloutSearchSweepArtifactOptions extends HeadToHeadArtifactOptions {
+  status?: RolloutSearchSweepArtifactStatus;
+  matchupIndicesToWrite?: readonly number[];
+}
+
 export function createRolloutSearchSweepArtifact(
   run: RolloutSearchSweepRun,
-  options: HeadToHeadArtifactOptions = {}
+  options: RolloutSearchSweepArtifactOptions = {}
 ): RolloutSearchSweepArtifact {
-  if (run.config.candidates.length !== run.matchups.length) {
+  if (run.matchups.length > run.config.candidates.length) {
     throw new Error(
-      'Rollout-search sweep candidate and matchup counts differ.'
+      'Rollout-search sweep has more matchups than configured candidates.'
+    );
+  }
+  const status =
+    options.status ??
+    (run.matchups.length === run.config.candidates.length
+      ? 'completed'
+      : 'running');
+  if (
+    status === 'completed' &&
+    run.matchups.length !== run.config.candidates.length
+  ) {
+    throw new Error(
+      'Completed rollout-search sweeps require every candidate matchup.'
     );
   }
   return {
@@ -41,6 +60,9 @@ export function createRolloutSearchSweepArtifact(
       nodeVersion: options.nodeVersion ?? process.version,
     },
     git: options.git ?? collectGitMetadata(options.cwd),
+    status,
+    completedCandidates: run.matchups.length,
+    totalCandidates: run.config.candidates.length,
     config: structuredClone(run.config),
     rows: run.matchups.map((matchup, index) => ({
       candidate: structuredClone(run.config.candidates[index]),
@@ -56,11 +78,18 @@ export function createRolloutSearchSweepArtifact(
 export async function writeRolloutSearchSweepArtifacts(
   run: RolloutSearchSweepRun,
   outputDirectory: string,
-  options: HeadToHeadArtifactOptions = {}
+  options: RolloutSearchSweepArtifactOptions = {}
 ): Promise<WrittenRolloutSearchSweepArtifactPaths> {
   const artifact = createRolloutSearchSweepArtifact(run, options);
   await mkdir(outputDirectory, { recursive: true });
-  for (let index = 0; index < run.matchups.length; index += 1) {
+  const matchupIndices =
+    options.matchupIndicesToWrite ?? run.matchups.map((_, index) => index);
+  for (const index of matchupIndices) {
+    if (!Number.isInteger(index) || index < 0 || index >= run.matchups.length) {
+      throw new Error(
+        `Rollout-search sweep matchup index is out of range: ${String(index)}.`
+      );
+    }
     const childDirectory = path.join(
       outputDirectory,
       matchupRelativeDirectory(index, run.config.candidates[index].id)
@@ -105,9 +134,30 @@ export async function loadRolloutSearchSweepArtifact(
       `Unsupported rollout-search sweep artifact type=${String(source.artifactType)}.`
     );
   }
-  parseRolloutSearchSweepConfig(source.config);
+  const config = parseRolloutSearchSweepConfig(source.config);
   if (!Array.isArray(source.rows)) {
     throw new Error('rollout-search sweep artifact.rows must be an array.');
+  }
+  if (source.status !== 'running' && source.status !== 'completed') {
+    throw new Error('rollout-search sweep artifact.status is invalid.');
+  }
+  if (source.completedCandidates !== source.rows.length) {
+    throw new Error(
+      'rollout-search sweep artifact.completedCandidates must match rows.'
+    );
+  }
+  if (source.totalCandidates !== config.candidates.length) {
+    throw new Error(
+      'rollout-search sweep artifact.totalCandidates must match config.'
+    );
+  }
+  if (
+    source.status === 'completed' &&
+    source.completedCandidates !== source.totalCandidates
+  ) {
+    throw new Error(
+      'completed rollout-search sweep artifacts require every candidate.'
+    );
   }
   return payload as RolloutSearchSweepArtifact;
 }
@@ -213,6 +263,8 @@ export function renderRolloutSearchSweepSummary(
     `# TypeScript Rollout Search Sweep: ${artifact.config.runLabel}`,
     '',
     `Generated: ${artifact.generatedAtUtc}`,
+    '',
+    `Status: ${artifact.status} (${String(artifact.completedCandidates)}/${String(artifact.totalCandidates)} candidates)`,
     '',
     '| candidate | opponent | config | proxy cost | games | win rate | ci95 | side gap | games/min | multi p50 ms | multi p95 ms | multi max ms | actual steps | utilization |',
     '|:---|:---|:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|---:|---:|',

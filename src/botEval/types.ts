@@ -151,6 +151,8 @@ export interface RolloutSearchSweepArtifactRow {
   matchupArtifactPath: string;
 }
 
+export type RolloutSearchSweepArtifactStatus = 'running' | 'completed';
+
 export interface RolloutSearchSweepArtifact {
   schemaVersion: typeof ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION;
   artifactType: typeof ROLLOUT_SEARCH_SWEEP_ARTIFACT_TYPE;
@@ -159,6 +161,9 @@ export interface RolloutSearchSweepArtifact {
     nodeVersion: string;
   };
   git: GitMetadata;
+  status: RolloutSearchSweepArtifactStatus;
+  completedCandidates: number;
+  totalCandidates: number;
   config: RolloutSearchSweepConfig;
   rows: RolloutSearchSweepArtifactRow[];
 }

@@ -28,6 +28,15 @@ export interface PlayGameOptions {
   botBySeat: Record<PlayerId, RuntimeBot>;
   maxDecisions?: number;
   now?: () => number;
+  progressIntervalMs?: number;
+  onHeartbeat?: (heartbeat: PlayGameHeartbeat) => void;
+}
+
+export interface PlayGameHeartbeat {
+  gameId: string;
+  turn: number;
+  decisions: number;
+  elapsedMs: number;
 }
 
 export async function playGame({
@@ -37,14 +46,37 @@ export async function playGame({
   botBySeat,
   maxDecisions = DEFAULT_MAX_DECISIONS_PER_GAME,
   now = () => performance.now(),
+  progressIntervalMs = 0,
+  onHeartbeat,
 }: PlayGameOptions): Promise<PlayedGame> {
   if (!Number.isInteger(maxDecisions) || maxDecisions <= 0) {
     throw new Error('maxDecisions must be a positive integer.');
   }
+  if (!Number.isFinite(progressIntervalMs) || progressIntervalMs < 0) {
+    throw new Error('progressIntervalMs must be a finite number >= 0.');
+  }
 
   const gameStartedAt = now();
+  let nextHeartbeatAt = gameStartedAt + progressIntervalMs;
   const transcript: PlayedGame['transcript'] = [];
   let state = createSession(seed, firstPlayer);
+
+  function emitHeartbeatIfDue(): void {
+    if (!onHeartbeat || progressIntervalMs === 0) {
+      return;
+    }
+    const currentTime = now();
+    if (currentTime < nextHeartbeatAt) {
+      return;
+    }
+    onHeartbeat({
+      gameId,
+      turn: state.turn,
+      decisions: transcript.length,
+      elapsedMs: currentTime - gameStartedAt,
+    });
+    nextHeartbeatAt = currentTime + progressIntervalMs;
+  }
 
   while (!isTerminal(state)) {
     if (transcript.length >= maxDecisions) {
@@ -81,6 +113,7 @@ export async function playGame({
         }
         searchDiagnostics = structuredClone(diagnostics);
       },
+      onProgress: emitHeartbeatIfDue,
     });
     const latencyMs = now() - selectedAt;
     if (!selected) {
@@ -111,6 +144,7 @@ export async function playGame({
       ...(searchDiagnostics ? { searchDiagnostics } : {}),
     });
     state = stepToDecision(state, canonicalAction);
+    emitHeartbeatIfDue();
   }
 
   if (!state.finalScore) {

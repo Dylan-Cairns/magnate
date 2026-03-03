@@ -109,12 +109,16 @@ describe('search policy', () => {
       rolloutEpsilon: 0,
     });
 
+    let progressChecks = 0;
     const first = await selectWithDiagnostics(
       policy,
       state,
       view,
       actions,
-      'search-diagnostics-rng'
+      'search-diagnostics-rng',
+      () => {
+        progressChecks += 1;
+      }
     );
     const second = await selectWithDiagnostics(
       policy,
@@ -135,6 +139,7 @@ describe('search policy', () => {
     expect(first[0].simulatedActionSteps).toBeLessThanOrEqual(
       first[0].maxSimulatedActionSteps
     );
+    expect(progressChecks).toBe(first[0].rootVisitBudget);
   });
 
   it('does not emit diagnostics for the single-action fast path', async () => {
@@ -165,7 +170,8 @@ async function selectWithDiagnostics(
   state: ReturnType<typeof createSession>,
   view: ReturnType<typeof toPlayerView>,
   actions: ReturnType<typeof legalActions>,
-  randomSeed: string
+  randomSeed: string,
+  onProgress?: () => void
 ): Promise<SearchDecisionDiagnostics[]> {
   const diagnostics: SearchDecisionDiagnostics[] = [];
   await Promise.resolve(
@@ -177,6 +183,7 @@ async function selectWithDiagnostics(
       onSearchDiagnostics(value) {
         diagnostics.push(value);
       },
+      onProgress,
     })
   );
   return diagnostics;
