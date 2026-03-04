@@ -4,8 +4,10 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Keep rollout search as the temporary warm-start baseline.
-- Use `scripts.eval_suite` as the canonical promotion protocol (paired seeds, side-swapped, CI + side-gap).
-- Execute and iterate Phase 2 TD loops (`collect_td_self_play` -> `train_td` -> checkpoint eval).
+- Use `scripts.eval_suite` with explicit modes:
+  - `--mode gate` for sequential SPRT gating vs search
+  - `--mode certify` for fixed-size side-swapped confidence evals
+- Execute and iterate gate-first TD loops (`collect/train` chunks -> gate -> optional certify).
 
 ## Locked Decisions
 
@@ -61,16 +63,13 @@
     - `<stamp>-<label>.opponent.jsonl`
   - `scripts.train_td` trains value/opponent models from replay with checkpoint cadence.
   - `scripts.run_td_loop` orchestrates:
-    - collect replay -> train checkpoints -> eval checkpoints
-    - loop-level summary artifact under `artifacts/td_loops/<run-id>/loop.summary.json`
+    - multiple collect/train chunks (`--chunks-per-gate`)
+    - gate decision on latest checkpoint only (`eval_suite --mode gate`)
+    - certify panel only on gate pass (`eval_suite --mode certify`)
+    - explicit promotion decision in `loop.summary.json`
     - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
     - `--cloud` applies fixed 8 vCPU worker profile for hosted runs
-    - shard merge now deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
-    - `--eval-first-last-checkpoints` evaluates earliest + latest checkpoints and writes begin/end delta in loop summary output
-    - optional benchmark-gated begin/end panel:
-      - `--eval-benchmark-opponents ...`
-      - thresholded pass/fail decision in `loop.summary.json`
-      - per-opponent begin/end artifacts + CI/side-gap/delta checks
+    - shard merge deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`
     - `--td-value-checkpoint`
@@ -84,6 +83,7 @@
   - surfaced via `scripts.eval`, `scripts.eval_suite`, `scripts.generate_teacher_data`, and `scripts.collect_td_self_play`.
 - Runtime guardrails:
   - training/eval scripts require active `.venv` and explicit policy flags
+  - `scripts.eval_suite` requires explicit `--mode gate|certify`
   - `td-search` configuration requires both value and opponent checkpoints
   - TD value transitions are strict: `done=False` requires `nextObservation`; `done=True` requires `nextObservation=null`
 
@@ -103,8 +103,8 @@
 
 1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
 2. Generate warm-start teacher data from promoted search baseline.
-3. Run repeated TD cycles and track promotion gates:
-   - run `scripts.run_td_loop` for standardized collect/train/eval cycles,
-   - benchmark and rank promoted checkpoints against search baselines.
+3. Run repeated TD cycles and track promotion decisions:
+   - run `scripts.run_td_loop` for standardized chunked collect/train + gate/certify cycles,
+   - rank promoted checkpoints against search baselines.
 
-_Updated: 2026-03-02._
+_Updated: 2026-03-03._

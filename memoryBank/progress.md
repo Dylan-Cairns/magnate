@@ -6,6 +6,10 @@
 - Browser app is playable with policy-agnostic bot selection.
 - Default web bot is rollout-eval search.
 - Canonical side-swapped eval suite is implemented (`scripts/eval_suite.py`).
+- Eval suite now has explicit mode contract:
+  - `scripts.eval_suite --mode gate` (sequential SPRT with batch decisions)
+  - `scripts.eval_suite --mode certify` (fixed-size confidence eval)
+  - gate artifacts are incremental/resumable with running -> terminal status transitions
 - Search root logic parity was implemented between Python and browser TS policy.
 - Search sweep runner is eval-suite based (`scripts/search_teacher_sweep.py`).
 - Eval throughput controls are in place:
@@ -22,11 +26,11 @@
 - TD Phase 2 orchestration is implemented:
   - `scripts/collect_td_self_play.py` (bridge-driven replay generation)
   - `scripts/train_td.py` (value/opponent training from replay + checkpoint cadence)
-  - `scripts/run_td_loop.py` (single-command collect -> train -> eval orchestration)
+  - `scripts/run_td_loop.py` (single-command chunked collect/train -> gate -> optional certify orchestration)
     - includes collect-stage sharding via `--collect-workers` and merged replay summaries
-    - includes `--cloud` fixed 8 vCPU profile (`collect-workers=6`, `eval-workers=6`)
-    - sharded replay merge now appends + deletes shard JSONL files to avoid large temporary disk spikes
-    - includes `--eval-first-last-checkpoints` and an `improvement` summary block (`fromStep`, `toStep`, win-rate delta, side-gap delta)
+    - includes `--cloud` fixed 8 vCPU profile (`collect-workers=6`, `gate-workers=6`, `certify-workers=6`)
+    - sharded replay merge appends + deletes shard JSONL files to avoid large temporary disk spikes
+    - promotion decision is explicit in `loop.summary.json` (`promoted`, `reason`)
   - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
   - TD replay JSONL I/O helpers in `trainer/td/io.py`
 - TD Phase 3 initial integration is implemented:
@@ -55,9 +59,11 @@
   - `scripts.train_td` supports `--value-target-mode td-lambda --td-lambda <0..1>`
   - TD(lambda) training uses contiguous per-episode/per-player sequence indexing with fail-fast invariants
 - Confidence protocol automation landed:
-  - `scripts.run_td_loop` supports benchmark begin/end panels with fixed opponent sets via `--eval-benchmark-opponents`
-  - panel emits per-opponent delta/CI/side-gap checks and overall pass/fail gate in `loop.summary.json`
-  - configurable thresholds for min delta win rate, min end win rate, max end side gap, optional CI separation
+  - gate-first decision flow in `scripts.run_td_loop`:
+    - latest checkpoint only
+    - SPRT gate vs search
+    - certify panel only on gate accept
+  - certify checks are thresholded per opponent and aggregated into overall pass/fail
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout
@@ -91,7 +97,7 @@
 ## Remaining
 
 - Add online/self-play replay refresh loop (not only offline replay files).
-- Define checkpoint promotion/reporting conventions across TD runs.
+- Continue tuning gate/certify thresholds and chunk cadence based on observed variance/runtime.
 - Improve `td-search` quality (deeper integration than current rollout-guided form, plus caching/throughput improvements).
 - Define browser deployment path for learned TD checkpoint inference.
 
@@ -101,4 +107,4 @@
 - Side-gap instability can hide seat bias; treat as a hard promotion risk.
 - Warm-start data can encode heuristic biases; TD training must move beyond it.
 
-_Updated: 2026-03-02._
+_Updated: 2026-03-03._

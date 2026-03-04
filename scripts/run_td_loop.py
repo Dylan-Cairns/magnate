@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Sequence
 
 
 @dataclass(frozen=True)
@@ -23,8 +23,8 @@ class LoopCheckpoint:
 
 @dataclass(frozen=True)
 class EvalRow:
-    step: int
     artifact: Path
+    opponent_policy: str
     candidate_win_rate: float
     ci_low: float
     ci_high: float
@@ -36,22 +36,17 @@ class EvalRow:
 
 
 @dataclass(frozen=True)
-class BenchmarkComparison:
-    opponent_policy: str
-    begin: EvalRow
-    end: EvalRow
-    delta_candidate_win_rate: float
-    delta_side_gap: float
-    ci_overlap: bool
-    passed: bool
+class CertifyComparison:
+    row: EvalRow
     checks: Dict[str, bool]
+    passed: bool
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run one full TD loop: collect_td_self_play -> train_td -> eval_suite. "
-            "This script fails fast if any stage fails."
+            "Run TD loop in gate-first mode: multiple collect/train chunks, "
+            "then gate eval and optional certify panel."
         )
     )
     parser.add_argument(
@@ -75,10 +70,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cloud",
         action="store_true",
-        help="Use fixed cloud worker profile (8 vCPU: collect-workers=6, eval-workers=6).",
+        help=(
+            "Use fixed cloud worker profile for 8 vCPU: "
+            "collect-workers=6, gate-workers=6, certify-workers=6."
+        ),
     )
 
-    parser.add_argument("--collect-games", type=int, default=2000)
+    parser.add_argument(
+        "--chunks-per-gate",
+        type=int,
+        default=3,
+        help="Number of collect/train chunks before a gate decision.",
+    )
+
+    parser.add_argument("--collect-games", type=int, default=1500)
     parser.add_argument(
         "--collect-workers",
         type=int,
@@ -101,7 +106,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collect-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--collect-td-search-sample-opponent-actions", action="store_true")
 
-    parser.add_argument("--train-steps", type=int, default=20000)
+    parser.add_argument("--train-steps", type=int, default=15000)
     parser.add_argument("--train-value-batch-size", type=int, default=128)
     parser.add_argument("--train-opponent-batch-size", type=int, default=64)
     parser.add_argument("--train-seed", type=int, default=0)
@@ -134,22 +139,6 @@ def parse_args() -> argparse.Namespace:
         choices=("td-search", "td-value"),
         default="td-search",
     )
-    parser.add_argument(
-        "--eval-opponent-policy",
-        type=str,
-        choices=("random", "heuristic", "search"),
-        default="search",
-    )
-    parser.add_argument("--eval-games-per-side", type=int, default=200)
-    parser.add_argument("--eval-workers", type=int, default=1)
-    parser.add_argument("--eval-seed-prefix", type=str, default="td-loop-eval")
-    parser.add_argument("--eval-seed-start-index", type=int, default=0)
-    parser.add_argument("--eval-all-checkpoints", action="store_true")
-    parser.add_argument(
-        "--eval-first-last-checkpoints",
-        action="store_true",
-        help="Evaluate both earliest and latest eligible checkpoints.",
-    )
     parser.add_argument("--eval-search-worlds", type=int, default=6)
     parser.add_argument("--eval-search-rollouts", type=int, default=1)
     parser.add_argument("--eval-search-depth", type=int, default=14)
@@ -158,56 +147,39 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-td-worlds", type=int, default=8)
     parser.add_argument("--eval-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--eval-td-search-sample-opponent-actions", action="store_true")
+
+    parser.add_argument("--gate-workers", type=int, default=1)
+    parser.add_argument("--gate-seed-prefix", type=str, default="td-loop-gate")
+    parser.add_argument("--gate-seed-start-index", type=int, default=0)
+    parser.add_argument("--gate-h0-win-rate", type=float, default=0.50)
+    parser.add_argument("--gate-h1-win-rate", type=float, default=0.55)
+    parser.add_argument("--gate-alpha", type=float, default=0.05)
+    parser.add_argument("--gate-beta", type=float, default=0.10)
+    parser.add_argument("--gate-batch-games-per-side", type=int, default=25)
+    parser.add_argument("--gate-max-games-per-side", type=int, default=400)
+    parser.add_argument("--gate-max-side-gap", type=float, default=0.08)
+
+    parser.add_argument("--certify-workers", type=int, default=1)
+    parser.add_argument("--certify-games-per-side", type=int, default=400)
     parser.add_argument(
-        "--eval-benchmark-opponents",
+        "--certify-opponents",
         type=str,
         nargs="+",
-        default=None,
+        default=["search", "heuristic"],
         choices=("random", "heuristic", "search"),
-        help=(
-            "Optional benchmark panel opponents for begin-vs-end checkpoint comparison. "
-            "When set, run_td_loop evaluates earliest and latest selected checkpoints "
-            "against each listed opponent and reports pass/fail gates."
-        ),
+        help="Opponent panel for certify mode.",
     )
+    parser.add_argument("--certify-seed-prefix", type=str, default="td-loop-certify")
     parser.add_argument(
-        "--eval-benchmark-games-per-side",
+        "--certify-seed-start-index",
         type=int,
-        default=None,
-        help="Games per side for benchmark panel (defaults to --eval-games-per-side).",
+        default=100000,
+        help="Seed index offset for certify panel (disjoint from gate seeds).",
     )
-    parser.add_argument(
-        "--eval-benchmark-workers",
-        type=int,
-        default=None,
-        help="Workers for benchmark panel evals (defaults to --eval-workers).",
-    )
-    parser.add_argument(
-        "--eval-benchmark-min-delta-win-rate",
-        type=float,
-        default=0.02,
-        help="Minimum required end-begin candidate win-rate delta per benchmark opponent.",
-    )
-    parser.add_argument(
-        "--eval-benchmark-min-end-win-rate",
-        type=float,
-        default=0.55,
-        help="Minimum required end checkpoint candidate win rate per benchmark opponent.",
-    )
-    parser.add_argument(
-        "--eval-benchmark-max-end-side-gap",
-        type=float,
-        default=0.08,
-        help="Maximum allowed end checkpoint side gap per benchmark opponent.",
-    )
-    parser.add_argument(
-        "--eval-benchmark-require-ci-separation",
-        action="store_true",
-        help=(
-            "Require begin/end 95 percent CI non-overlap in the improvement direction "
-            "(end ci low > begin ci high) to pass each benchmark opponent."
-        ),
-    )
+    parser.add_argument("--certify-min-win-rate", type=float, default=0.55)
+    parser.add_argument("--certify-max-side-gap", type=float, default=0.08)
+    parser.add_argument("--certify-min-ci-low", type=float, default=0.50)
+
     return parser.parse_args()
 
 
@@ -215,105 +187,186 @@ def main() -> int:
     args = parse_args()
     if args.cloud:
         args.collect_workers = 6
-        args.eval_workers = 6
+        args.gate_workers = 6
+        args.certify_workers = 6
+
     _require_supported_runtime(args.python_bin)
     _validate_args(args)
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
     run_id = f"{stamp}-{_slug(args.run_label)}"
     run_dir = args.artifact_dir / run_id
-    replay_dir = run_dir / "replay"
-    train_dir = run_dir / "train"
+    chunks_dir = run_dir / "chunks"
     eval_dir = run_dir / "evals"
-    for path in (run_dir, replay_dir, train_dir, eval_dir):
+    loop_summary_path = run_dir / "loop.summary.json"
+    for path in (run_dir, chunks_dir, eval_dir):
         path.mkdir(parents=True, exist_ok=True)
 
     loop_started = time.perf_counter()
-    collect_value_path = replay_dir / "self_play.value.jsonl"
-    collect_opponent_path = replay_dir / "self_play.opponent.jsonl"
-    collect_summary_path = replay_dir / "self_play.summary.json"
-    train_summary_path = train_dir / "summary.json"
-    train_checkpoint_root = train_dir / "checkpoints"
-    loop_summary_path = run_dir / "loop.summary.json"
+    commands: Dict[str, Any] = {"chunks": []}
+    chunk_rows: List[Dict[str, Any]] = []
 
-    commands: Dict[str, Any] = {}
+    latest_checkpoint: LoopCheckpoint | None = None
+    warm_value = args.train_warm_start_value_checkpoint
+    warm_opponent = args.train_warm_start_opponent_checkpoint
 
-    collect_stage = _run_collect_stage(
-        python_bin=args.python_bin,
-        args=args,
-        replay_dir=replay_dir,
-        collect_value_path=collect_value_path,
-        collect_opponent_path=collect_opponent_path,
-        collect_summary_path=collect_summary_path,
-        run_id=run_id,
-    )
-    commands["collect"] = collect_stage
+    for chunk_index in range(1, args.chunks_per_gate + 1):
+        chunk_label = f"chunk-{chunk_index:03d}"
+        chunk_dir = chunks_dir / chunk_label
+        replay_dir = chunk_dir / "replay"
+        train_dir = chunk_dir / "train"
+        for path in (chunk_dir, replay_dir, train_dir):
+            path.mkdir(parents=True, exist_ok=True)
 
-    train_command = _build_train_command(
-        python_bin=args.python_bin,
-        args=args,
-        value_replay=collect_value_path,
-        opponent_replay=collect_opponent_path,
-        train_summary_path=train_summary_path,
-        train_checkpoint_root=train_checkpoint_root,
-        run_id=run_id,
-    )
-    commands["train"] = train_command
-    _run_step(name="train", command=train_command)
+        collect_value_path = replay_dir / "self_play.value.jsonl"
+        collect_opponent_path = replay_dir / "self_play.opponent.jsonl"
+        collect_summary_path = replay_dir / "self_play.summary.json"
 
-    train_summary = _read_json(train_summary_path, label="train summary")
-    checkpoints = _checkpoints_from_train_summary(train_summary)
-    selected = _select_eval_checkpoints(
-        checkpoints=checkpoints,
-        candidate_policy=args.eval_candidate_policy,
-        all_checkpoints=args.eval_all_checkpoints,
-        first_last_checkpoints=args.eval_first_last_checkpoints,
-    )
-    if not selected:
-        raise SystemExit("No checkpoints selected for evaluation.")
-
-    eval_rows: List[EvalRow] = []
-    eval_commands: List[List[str]] = []
-    for checkpoint in selected:
-        eval_out = eval_dir / f"eval-step-{checkpoint.step:07d}.json"
-        eval_command = _build_eval_command(
+        collect_stage = _run_collect_stage(
             python_bin=args.python_bin,
             args=args,
-            checkpoint=checkpoint,
-            eval_out=eval_out,
+            replay_dir=replay_dir,
+            collect_value_path=collect_value_path,
+            collect_opponent_path=collect_opponent_path,
+            collect_summary_path=collect_summary_path,
+            run_id=f"{run_id}-{chunk_label}",
+            seed_prefix=f"{args.collect_seed_prefix}-{chunk_label}",
         )
-        eval_commands.append(eval_command)
-        _run_step(name=f"eval@{checkpoint.step:07d}", command=eval_command)
-        eval_rows.append(_read_eval_row(eval_out, checkpoint.step))
-    commands["eval"] = eval_commands
 
-    ranked_rows = sorted(
-        eval_rows,
-        key=lambda row: (
-            -row.candidate_win_rate,
-            row.side_gap,
-            (row.ci_high - row.ci_low),
-            row.step,
-        ),
+        train_summary_path = train_dir / "summary.json"
+        train_checkpoint_root = train_dir / "checkpoints"
+        train_command = _build_train_command(
+            python_bin=args.python_bin,
+            args=args,
+            value_replay=collect_value_path,
+            opponent_replay=collect_opponent_path,
+            train_summary_path=train_summary_path,
+            train_checkpoint_root=train_checkpoint_root,
+            run_id=f"{run_id}-{chunk_label}",
+            warm_start_value=warm_value,
+            warm_start_opponent=warm_opponent,
+        )
+        _run_step(name=f"train[{chunk_label}]", command=train_command)
+
+        train_summary = _read_json(train_summary_path, label=f"train summary {chunk_label}")
+        checkpoints = _checkpoints_from_train_summary(train_summary)
+        latest_checkpoint = _select_latest_checkpoint(
+            checkpoints=checkpoints,
+            candidate_policy=args.eval_candidate_policy,
+        )
+        if latest_checkpoint.value_path is not None:
+            warm_value = latest_checkpoint.value_path
+        if latest_checkpoint.opponent_path is not None:
+            warm_opponent = latest_checkpoint.opponent_path
+
+        commands["chunks"].append(
+            {
+                "chunk": chunk_label,
+                "collect": collect_stage,
+                "train": train_command,
+            }
+        )
+        chunk_rows.append(
+            {
+                "chunk": chunk_label,
+                "collectSummary": str(collect_summary_path),
+                "trainSummary": str(train_summary_path),
+                "latestCheckpoint": {
+                    "step": latest_checkpoint.step,
+                    "value": str(latest_checkpoint.value_path) if latest_checkpoint.value_path else None,
+                    "opponent": (
+                        str(latest_checkpoint.opponent_path)
+                        if latest_checkpoint.opponent_path
+                        else None
+                    ),
+                },
+            }
+        )
+
+    if latest_checkpoint is None:
+        raise SystemExit("No latest checkpoint available after chunk training.")
+
+    gate_artifact = eval_dir / "gate.json"
+    gate_command = _build_eval_command(
+        python_bin=args.python_bin,
+        args=args,
+        checkpoint=latest_checkpoint,
+        mode="gate",
+        opponent_policy="search",
+        seed_prefix=args.gate_seed_prefix,
+        seed_start_index=args.gate_seed_start_index,
+        workers=args.gate_workers,
+        games_per_side=args.gate_max_games_per_side,
+        out_path=gate_artifact,
     )
-    by_step_rows = sorted(eval_rows, key=lambda row: row.step)
-    improvement = _compute_improvement(by_step_rows)
-    benchmark = None
-    if args.eval_benchmark_opponents:
-        if len(by_step_rows) < 2:
-            raise SystemExit(
-                "Benchmark panel requires at least two evaluated checkpoints. "
-                "Use --eval-first-last-checkpoints or --eval-all-checkpoints."
+    commands["gate"] = gate_command
+    _run_step(name="gate", command=gate_command)
+    gate_payload = _read_json(gate_artifact, label="gate artifact")
+    gate_outcome = _read_gate_outcome(gate_payload=gate_payload, artifact=gate_artifact)
+
+    certify_payload: Dict[str, Any] = {
+        "ran": False,
+        "overallPassed": False,
+        "comparisons": [],
+    }
+    commands["certify"] = []
+
+    if gate_outcome["decision"] == "accepted":
+        certify_payload["ran"] = True
+        seed_index = args.certify_seed_start_index
+        comparisons: List[CertifyComparison] = []
+        certify_commands: List[List[str]] = []
+
+        for opponent_policy in args.certify_opponents:
+            certify_artifact = eval_dir / f"certify-{opponent_policy}.json"
+            certify_command = _build_eval_command(
+                python_bin=args.python_bin,
+                args=args,
+                checkpoint=latest_checkpoint,
+                mode="certify",
+                opponent_policy=opponent_policy,
+                seed_prefix=f"{args.certify_seed_prefix}-{opponent_policy}",
+                seed_start_index=seed_index,
+                workers=args.certify_workers,
+                games_per_side=args.certify_games_per_side,
+                out_path=certify_artifact,
             )
-        selected_by_step: Dict[int, LoopCheckpoint] = {checkpoint.step: checkpoint for checkpoint in selected}
-        benchmark = _run_benchmark_panel(
-            python_bin=args.python_bin,
-            args=args,
-            selected_by_step=selected_by_step,
-            begin_step=by_step_rows[0].step,
-            end_step=by_step_rows[-1].step,
-            eval_dir=eval_dir,
-        )
+            certify_commands.append(certify_command)
+            _run_step(name=f"certify[{opponent_policy}]", command=certify_command)
+            row = _read_eval_row(
+                path=certify_artifact,
+                opponent_policy=opponent_policy,
+            )
+            comparisons.append(_evaluate_certify_result(row=row, args=args))
+            seed_index += args.certify_games_per_side
+
+        commands["certify"] = certify_commands
+        certify_payload["comparisons"] = [
+            {
+                "opponentPolicy": comparison.row.opponent_policy,
+                "artifact": str(comparison.row.artifact),
+                "candidateWinRate": comparison.row.candidate_win_rate,
+                "candidateWinRateCi95": {
+                    "low": comparison.row.ci_low,
+                    "high": comparison.row.ci_high,
+                },
+                "sideGap": comparison.row.side_gap,
+                "candidateWins": comparison.row.candidate_wins,
+                "opponentWins": comparison.row.opponent_wins,
+                "draws": comparison.row.draws,
+                "totalGames": comparison.row.total_games,
+                "checks": dict(comparison.checks),
+                "passed": comparison.passed,
+            }
+            for comparison in comparisons
+        ]
+        certify_payload["overallPassed"] = all(comparison.passed for comparison in comparisons)
+
+    promotion = _promotion_decision(
+        gate_decision=gate_outcome["decision"],
+        gate_reason=gate_outcome["reason"],
+        certify=certify_payload,
+    )
 
     loop_elapsed = time.perf_counter() - loop_started
     payload: Dict[str, Any] = {
@@ -324,69 +377,30 @@ def main() -> int:
         "commands": commands,
         "artifacts": {
             "runDir": str(run_dir),
-            "collectSummary": str(collect_summary_path),
-            "trainSummary": str(train_summary_path),
             "loopSummary": str(loop_summary_path),
+            "chunksDir": str(chunks_dir),
+            "evalDir": str(eval_dir),
+            "gateArtifact": str(gate_artifact),
         },
-        "selectedCheckpoints": [
-            {
-                "step": checkpoint.step,
-                "value": str(checkpoint.value_path) if checkpoint.value_path else None,
-                "opponent": str(checkpoint.opponent_path) if checkpoint.opponent_path else None,
-            }
-            for checkpoint in selected
-        ],
-        "evaluations": [
-            {
-                "step": row.step,
-                "artifact": str(row.artifact),
-                "candidateWinRate": row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
-                "sideGap": row.side_gap,
-                "candidateWins": row.candidate_wins,
-                "opponentWins": row.opponent_wins,
-                "draws": row.draws,
-                "totalGames": row.total_games,
-            }
-            for row in ranked_rows
-        ],
-        "evaluationsByStep": [
-            {
-                "step": row.step,
-                "artifact": str(row.artifact),
-                "candidateWinRate": row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
-                "sideGap": row.side_gap,
-                "candidateWins": row.candidate_wins,
-                "opponentWins": row.opponent_wins,
-                "draws": row.draws,
-                "totalGames": row.total_games,
-            }
-            for row in by_step_rows
-        ],
-        "improvement": improvement,
+        "chunks": chunk_rows,
+        "gate": gate_outcome,
+        "certify": certify_payload,
+        "promotion": promotion,
     }
-    if benchmark is not None:
-        payload["benchmark"] = benchmark
     loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    best = ranked_rows[0]
     print(
         json.dumps(
             {
                 "runId": run_id,
                 "runDir": str(run_dir),
                 "loopSummary": str(loop_summary_path),
-                "bestStep": best.step,
-                "bestCandidateWinRate": best.candidate_win_rate,
-                "bestCi95": {"low": best.ci_low, "high": best.ci_high},
-                "bestSideGap": best.side_gap,
-                "improvement": improvement,
-                "benchmarkPassed": (
-                    bool(benchmark["overallPassed"])
-                    if isinstance(benchmark, dict) and "overallPassed" in benchmark
-                    else None
-                ),
+                "gateDecision": gate_outcome["decision"],
+                "gateReason": gate_outcome["reason"],
+                "certifyRan": bool(certify_payload["ran"]),
+                "certifyPassed": bool(certify_payload["overallPassed"]),
+                "promoted": bool(promotion["promoted"]),
+                "promotionReason": promotion["reason"],
             },
             indent=2,
         )
@@ -450,7 +464,10 @@ def _build_collect_command(
         )
     if args.collect_td_search_opponent_checkpoint is not None:
         command.extend(
-            ["--td-search-opponent-checkpoint", str(args.collect_td_search_opponent_checkpoint)]
+            [
+                "--td-search-opponent-checkpoint",
+                str(args.collect_td_search_opponent_checkpoint),
+            ]
         )
     if args.collect_td_search_sample_opponent_actions:
         command.append("--td-search-sample-opponent-actions")
@@ -466,19 +483,20 @@ def _run_collect_stage(
     collect_opponent_path: Path,
     collect_summary_path: Path,
     run_id: str,
+    seed_prefix: str,
 ) -> Dict[str, Any]:
     if args.collect_workers == 1:
         command = _build_collect_command(
             python_bin=python_bin,
             args=args,
             games=args.collect_games,
-            seed_prefix=args.collect_seed_prefix,
+            seed_prefix=seed_prefix,
             run_label=run_id,
             value_out=collect_value_path,
             opponent_out=collect_opponent_path,
             summary_out=collect_summary_path,
         )
-        _run_step(name="collect", command=command)
+        _run_step(name=f"collect[{run_id}]", command=command)
         return {"mode": "single", "commands": [command]}
 
     worker_count = min(args.collect_workers, args.collect_games)
@@ -500,7 +518,7 @@ def _run_collect_stage(
             python_bin=python_bin,
             args=args,
             games=shard_games,
-            seed_prefix=f"{args.collect_seed_prefix}-{shard_id}",
+            seed_prefix=f"{seed_prefix}-{shard_id}",
             run_label=f"{run_id}-{shard_id}",
             value_out=shard_value,
             opponent_out=shard_opponent,
@@ -513,7 +531,7 @@ def _run_collect_stage(
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         futures = {
-            executor.submit(_run_step, name=f"collect[{index + 1}/{worker_count}]", command=command): index
+            executor.submit(_run_step, name=f"collect[{run_id} {index + 1}/{worker_count}]", command=command): index
             for index, command in enumerate(shard_commands)
         }
         for future in as_completed(futures):
@@ -586,8 +604,6 @@ def _concat_jsonl_files(
                         target.write(line)
         return
 
-    # Reduce peak disk usage by moving the first shard in place, then appending
-    # and deleting remaining shards one by one.
     first = inputs[0]
     if first.resolve() != output.resolve():
         if output.exists():
@@ -707,6 +723,8 @@ def _build_train_command(
     train_summary_path: Path,
     train_checkpoint_root: Path,
     run_id: str,
+    warm_start_value: Path | None,
+    warm_start_opponent: Path | None,
 ) -> List[str]:
     command = [
         str(python_bin),
@@ -761,17 +779,10 @@ def _build_train_command(
         command.append("--disable-value")
     if args.train_disable_opponent:
         command.append("--disable-opponent")
-    if args.train_warm_start_value_checkpoint is not None:
-        command.extend(
-            ["--warm-start-value-checkpoint", str(args.train_warm_start_value_checkpoint)]
-        )
-    if args.train_warm_start_opponent_checkpoint is not None:
-        command.extend(
-            [
-                "--warm-start-opponent-checkpoint",
-                str(args.train_warm_start_opponent_checkpoint),
-            ]
-        )
+    if warm_start_value is not None:
+        command.extend(["--warm-start-value-checkpoint", str(warm_start_value)])
+    if warm_start_opponent is not None:
+        command.extend(["--warm-start-opponent-checkpoint", str(warm_start_opponent)])
     return command
 
 
@@ -780,29 +791,30 @@ def _build_eval_command(
     python_bin: Path,
     args: argparse.Namespace,
     checkpoint: LoopCheckpoint,
-    eval_out: Path,
-    opponent_policy: str | None = None,
-    games_per_side: int | None = None,
-    workers: int | None = None,
-    seed_prefix: str | None = None,
-    seed_start_index: int | None = None,
+    mode: str,
+    opponent_policy: str,
+    seed_prefix: str,
+    seed_start_index: int,
+    workers: int,
+    games_per_side: int,
+    out_path: Path,
 ) -> List[str]:
     command = [
         str(python_bin),
         "-m",
         "scripts.eval_suite",
-        "--games-per-side",
-        str(games_per_side if games_per_side is not None else args.eval_games_per_side),
+        "--mode",
+        mode,
         "--workers",
-        str(workers if workers is not None else args.eval_workers),
+        str(workers),
         "--seed-prefix",
-        seed_prefix if seed_prefix is not None else args.eval_seed_prefix,
+        seed_prefix,
         "--seed-start-index",
-        str(seed_start_index if seed_start_index is not None else args.eval_seed_start_index),
+        str(seed_start_index),
         "--candidate-policy",
         args.eval_candidate_policy,
         "--opponent-policy",
-        opponent_policy if opponent_policy is not None else args.eval_opponent_policy,
+        opponent_policy,
         "--search-worlds",
         str(args.eval_search_worlds),
         "--search-rollouts",
@@ -816,13 +828,33 @@ def _build_eval_command(
         "--td-worlds",
         str(args.eval_td_worlds),
         "--out",
-        str(eval_out),
+        str(out_path),
     ]
+    if mode == "certify":
+        command.extend(["--games-per-side", str(games_per_side)])
+    else:
+        command.extend(
+            [
+                "--gate-h0-win-rate",
+                str(args.gate_h0_win_rate),
+                "--gate-h1-win-rate",
+                str(args.gate_h1_win_rate),
+                "--gate-alpha",
+                str(args.gate_alpha),
+                "--gate-beta",
+                str(args.gate_beta),
+                "--gate-batch-games-per-side",
+                str(args.gate_batch_games_per_side),
+                "--gate-max-games-per-side",
+                str(args.gate_max_games_per_side),
+                "--gate-max-side-gap",
+                str(args.gate_max_side_gap),
+            ]
+        )
+
     if args.eval_candidate_policy == "td-search":
         if checkpoint.value_path is None or checkpoint.opponent_path is None:
-            raise SystemExit(
-                "td-search evaluation requires both value and opponent checkpoints."
-            )
+            raise SystemExit("td-search evaluation requires both value and opponent checkpoints.")
         command.extend(["--td-search-value-checkpoint", str(checkpoint.value_path)])
         command.extend(["--td-search-opponent-checkpoint", str(checkpoint.opponent_path)])
         command.extend(
@@ -871,13 +903,11 @@ def _checkpoints_from_train_summary(payload: Dict[str, Any]) -> List[LoopCheckpo
     return sorted(out, key=lambda checkpoint: checkpoint.step)
 
 
-def _select_eval_checkpoints(
+def _select_latest_checkpoint(
     *,
     checkpoints: Sequence[LoopCheckpoint],
     candidate_policy: str,
-    all_checkpoints: bool,
-    first_last_checkpoints: bool,
-) -> List[LoopCheckpoint]:
+) -> LoopCheckpoint:
     if candidate_policy == "td-search":
         eligible = [
             checkpoint
@@ -888,200 +918,30 @@ def _select_eval_checkpoints(
         eligible = [checkpoint for checkpoint in checkpoints if checkpoint.value_path is not None]
     else:
         raise SystemExit(f"Unsupported eval candidate policy: {candidate_policy!r}")
+
     if not eligible:
         raise SystemExit(f"No eligible checkpoints for candidate policy {candidate_policy}.")
-    if all_checkpoints:
-        return list(eligible)
-    if first_last_checkpoints:
-        if len(eligible) == 1:
-            return [eligible[0]]
-        return [eligible[0], eligible[-1]]
-    return [eligible[-1]]
+    return eligible[-1]
 
 
-def _compute_improvement(rows_by_step: Sequence[EvalRow]) -> Dict[str, Any] | None:
-    if len(rows_by_step) < 2:
-        return None
-    first = rows_by_step[0]
-    last = rows_by_step[-1]
+def _read_gate_outcome(*, gate_payload: Dict[str, Any], artifact: Path) -> Dict[str, Any]:
+    status = str(gate_payload.get("status", "unknown"))
+    decision = gate_payload.get("decision")
+    if not isinstance(decision, dict):
+        raise SystemExit(f"Gate artifact is missing decision payload: {artifact}")
+    decision_state = str(decision.get("state", status))
+    decision_reason = str(decision.get("reason", "unknown"))
+
+    results = gate_payload.get("results")
+    if not isinstance(results, dict):
+        raise SystemExit(f"Gate artifact is missing results payload: {artifact}")
+
+    row = _row_from_results(path=artifact, opponent_policy="search", results=results)
     return {
-        "fromStep": first.step,
-        "toStep": last.step,
-        "fromCandidateWinRate": first.candidate_win_rate,
-        "toCandidateWinRate": last.candidate_win_rate,
-        "deltaCandidateWinRate": last.candidate_win_rate - first.candidate_win_rate,
-        "fromSideGap": first.side_gap,
-        "toSideGap": last.side_gap,
-        "deltaSideGap": last.side_gap - first.side_gap,
-    }
-
-
-def _run_benchmark_panel(
-    *,
-    python_bin: Path,
-    args: argparse.Namespace,
-    selected_by_step: Mapping[int, LoopCheckpoint],
-    begin_step: int,
-    end_step: int,
-    eval_dir: Path,
-) -> Dict[str, Any]:
-    begin_checkpoint = selected_by_step.get(begin_step)
-    end_checkpoint = selected_by_step.get(end_step)
-    if begin_checkpoint is None or end_checkpoint is None:
-        raise SystemExit(
-            "Unable to resolve begin/end checkpoints for benchmark panel. "
-            f"beginStep={begin_step} endStep={end_step}"
-        )
-
-    benchmark_games = (
-        args.eval_benchmark_games_per_side
-        if args.eval_benchmark_games_per_side is not None
-        else args.eval_games_per_side
-    )
-    benchmark_workers = (
-        args.eval_benchmark_workers
-        if args.eval_benchmark_workers is not None
-        else args.eval_workers
-    )
-    comparisons: List[BenchmarkComparison] = []
-
-    for opponent_policy in args.eval_benchmark_opponents:
-        begin_out = eval_dir / (
-            f"benchmark-{opponent_policy}-begin-step-{begin_step:07d}.json"
-        )
-        end_out = eval_dir / (
-            f"benchmark-{opponent_policy}-end-step-{end_step:07d}.json"
-        )
-
-        begin_command = _build_eval_command(
-            python_bin=python_bin,
-            args=args,
-            checkpoint=begin_checkpoint,
-            eval_out=begin_out,
-            opponent_policy=opponent_policy,
-            games_per_side=benchmark_games,
-            workers=benchmark_workers,
-            seed_prefix=f"{args.eval_seed_prefix}-bench-{opponent_policy}-begin",
-        )
-        end_command = _build_eval_command(
-            python_bin=python_bin,
-            args=args,
-            checkpoint=end_checkpoint,
-            eval_out=end_out,
-            opponent_policy=opponent_policy,
-            games_per_side=benchmark_games,
-            workers=benchmark_workers,
-            seed_prefix=f"{args.eval_seed_prefix}-bench-{opponent_policy}-end",
-        )
-        _run_step(
-            name=f"benchmark-{opponent_policy}-begin@{begin_step:07d}",
-            command=begin_command,
-        )
-        _run_step(
-            name=f"benchmark-{opponent_policy}-end@{end_step:07d}",
-            command=end_command,
-        )
-        begin_row = _read_eval_row(begin_out, begin_step)
-        end_row = _read_eval_row(end_out, end_step)
-        comparisons.append(
-            _evaluate_benchmark_comparison(
-                opponent_policy=opponent_policy,
-                begin=begin_row,
-                end=end_row,
-                min_delta_win_rate=args.eval_benchmark_min_delta_win_rate,
-                min_end_win_rate=args.eval_benchmark_min_end_win_rate,
-                max_end_side_gap=args.eval_benchmark_max_end_side_gap,
-                require_ci_separation=bool(args.eval_benchmark_require_ci_separation),
-            )
-        )
-
-    overall_passed = all(comparison.passed for comparison in comparisons)
-    return {
-        "protocol": {
-            "opponents": list(args.eval_benchmark_opponents),
-            "candidatePolicy": args.eval_candidate_policy,
-            "gamesPerSide": benchmark_games,
-            "workers": benchmark_workers,
-            "beginStep": begin_step,
-            "endStep": end_step,
-            "thresholds": {
-                "minDeltaWinRate": args.eval_benchmark_min_delta_win_rate,
-                "minEndWinRate": args.eval_benchmark_min_end_win_rate,
-                "maxEndSideGap": args.eval_benchmark_max_end_side_gap,
-                "requireCiSeparation": bool(args.eval_benchmark_require_ci_separation),
-            },
-        },
-        "comparisons": [
-            {
-                "opponentPolicy": comparison.opponent_policy,
-                "begin": _eval_row_payload(comparison.begin),
-                "end": _eval_row_payload(comparison.end),
-                "deltaCandidateWinRate": comparison.delta_candidate_win_rate,
-                "deltaSideGap": comparison.delta_side_gap,
-                "ciOverlap": comparison.ci_overlap,
-                "checks": dict(comparison.checks),
-                "passed": comparison.passed,
-            }
-            for comparison in comparisons
-        ],
-        "overallPassed": overall_passed,
-    }
-
-
-def _evaluate_benchmark_comparison(
-    *,
-    opponent_policy: str,
-    begin: EvalRow,
-    end: EvalRow,
-    min_delta_win_rate: float,
-    min_end_win_rate: float,
-    max_end_side_gap: float,
-    require_ci_separation: bool,
-) -> BenchmarkComparison:
-    delta_win_rate = end.candidate_win_rate - begin.candidate_win_rate
-    delta_side_gap = end.side_gap - begin.side_gap
-    ci_overlap = _intervals_overlap(
-        begin_low=begin.ci_low,
-        begin_high=begin.ci_high,
-        end_low=end.ci_low,
-        end_high=end.ci_high,
-    )
-    ci_separation_pass = True
-    if require_ci_separation:
-        ci_separation_pass = end.ci_low > begin.ci_high
-
-    checks = {
-        "deltaWinRate": delta_win_rate >= min_delta_win_rate,
-        "endWinRate": end.candidate_win_rate >= min_end_win_rate,
-        "endSideGap": end.side_gap <= max_end_side_gap,
-        "ciSeparation": ci_separation_pass,
-    }
-    return BenchmarkComparison(
-        opponent_policy=opponent_policy,
-        begin=begin,
-        end=end,
-        delta_candidate_win_rate=delta_win_rate,
-        delta_side_gap=delta_side_gap,
-        ci_overlap=ci_overlap,
-        passed=all(checks.values()),
-        checks=checks,
-    )
-
-
-def _intervals_overlap(
-    *,
-    begin_low: float,
-    begin_high: float,
-    end_low: float,
-    end_high: float,
-) -> bool:
-    return not (end_high < begin_low or begin_high < end_low)
-
-
-def _eval_row_payload(row: EvalRow) -> Dict[str, Any]:
-    return {
-        "step": row.step,
-        "artifact": str(row.artifact),
+        "artifact": str(artifact),
+        "status": status,
+        "decision": decision_state,
+        "reason": decision_reason,
         "candidateWinRate": row.candidate_win_rate,
         "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
         "sideGap": row.side_gap,
@@ -1092,14 +952,18 @@ def _eval_row_payload(row: EvalRow) -> Dict[str, Any]:
     }
 
 
-def _read_eval_row(path: Path, step: int) -> EvalRow:
-    payload = _read_json(path, label=f"eval artifact for step {step}")
+def _read_eval_row(*, path: Path, opponent_policy: str) -> EvalRow:
+    payload = _read_json(path, label=f"eval artifact {path.name}")
     results = payload.get("results")
     if not isinstance(results, dict):
         raise SystemExit(f"Eval artifact is missing results payload: {path}")
+    return _row_from_results(path=path, opponent_policy=opponent_policy, results=results)
+
+
+def _row_from_results(*, path: Path, opponent_policy: str, results: Dict[str, Any]) -> EvalRow:
     return EvalRow(
-        step=step,
         artifact=path,
+        opponent_policy=opponent_policy,
         candidate_win_rate=float(results["candidateWinRate"]),
         ci_low=float(results["candidateWinRateCi95"]["low"]),
         ci_high=float(results["candidateWinRateCi95"]["high"]),
@@ -1111,12 +975,59 @@ def _read_eval_row(path: Path, step: int) -> EvalRow:
     )
 
 
+def _evaluate_certify_result(*, row: EvalRow, args: argparse.Namespace) -> CertifyComparison:
+    checks = {
+        "minWinRate": row.candidate_win_rate >= args.certify_min_win_rate,
+        "maxSideGap": row.side_gap <= args.certify_max_side_gap,
+        "minCiLow": row.ci_low >= args.certify_min_ci_low,
+    }
+    return CertifyComparison(
+        row=row,
+        checks=checks,
+        passed=all(checks.values()),
+    )
+
+
+def _promotion_decision(
+    *,
+    gate_decision: str,
+    gate_reason: str,
+    certify: Dict[str, Any],
+) -> Dict[str, Any]:
+    if gate_decision != "accepted":
+        return {
+            "promoted": False,
+            "reason": f"gate_{gate_decision}:{gate_reason}",
+        }
+    if not bool(certify.get("ran")):
+        return {
+            "promoted": False,
+            "reason": "gate_accepted_but_certify_not_run",
+        }
+    if not bool(certify.get("overallPassed")):
+        failed = [
+            row["opponentPolicy"]
+            for row in certify.get("comparisons", [])
+            if not bool(row.get("passed"))
+        ]
+        return {
+            "promoted": False,
+            "reason": "certify_failed",
+            "failedOpponents": failed,
+        }
+    return {
+        "promoted": True,
+        "reason": "gate_and_certify_passed",
+    }
+
+
 def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "pythonBin": str(args.python_bin),
         "cloud": bool(args.cloud),
+        "chunksPerGate": args.chunks_per_gate,
         "collect": {
-            "games": args.collect_games,
+            "gamesPerChunk": args.collect_games,
             "workers": args.collect_workers,
             "seedPrefix": args.collect_seed_prefix,
             "playerAPolicy": args.collect_player_a_policy,
@@ -1131,7 +1042,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "progressEveryGames": args.collect_progress_every_games,
         },
         "train": {
-            "steps": args.train_steps,
+            "stepsPerChunk": args.train_steps,
             "valueBatchSize": args.train_value_batch_size,
             "opponentBatchSize": args.train_opponent_batch_size,
             "seed": args.train_seed,
@@ -1153,13 +1064,6 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "eval": {
             "candidatePolicy": args.eval_candidate_policy,
-            "opponentPolicy": args.eval_opponent_policy,
-            "gamesPerSide": args.eval_games_per_side,
-            "workers": args.eval_workers,
-            "seedPrefix": args.eval_seed_prefix,
-            "seedStartIndex": args.eval_seed_start_index,
-            "allCheckpoints": bool(args.eval_all_checkpoints),
-            "firstLastCheckpoints": bool(args.eval_first_last_checkpoints),
             "search": {
                 "worlds": args.eval_search_worlds,
                 "rollouts": args.eval_search_rollouts,
@@ -1170,23 +1074,28 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "tdWorlds": args.eval_td_worlds,
             "tdSearchOpponentTemperature": args.eval_td_search_opponent_temperature,
             "tdSearchSampleOpponentActions": bool(args.eval_td_search_sample_opponent_actions),
-            "benchmark": {
-                "opponents": list(args.eval_benchmark_opponents or []),
-                "gamesPerSide": (
-                    args.eval_benchmark_games_per_side
-                    if args.eval_benchmark_games_per_side is not None
-                    else args.eval_games_per_side
-                ),
-                "workers": (
-                    args.eval_benchmark_workers
-                    if args.eval_benchmark_workers is not None
-                    else args.eval_workers
-                ),
-                "minDeltaWinRate": args.eval_benchmark_min_delta_win_rate,
-                "minEndWinRate": args.eval_benchmark_min_end_win_rate,
-                "maxEndSideGap": args.eval_benchmark_max_end_side_gap,
-                "requireCiSeparation": bool(args.eval_benchmark_require_ci_separation),
-            },
+        },
+        "gate": {
+            "workers": args.gate_workers,
+            "seedPrefix": args.gate_seed_prefix,
+            "seedStartIndex": args.gate_seed_start_index,
+            "h0WinRate": args.gate_h0_win_rate,
+            "h1WinRate": args.gate_h1_win_rate,
+            "alpha": args.gate_alpha,
+            "beta": args.gate_beta,
+            "batchGamesPerSide": args.gate_batch_games_per_side,
+            "maxGamesPerSide": args.gate_max_games_per_side,
+            "maxSideGap": args.gate_max_side_gap,
+        },
+        "certify": {
+            "workers": args.certify_workers,
+            "gamesPerSide": args.certify_games_per_side,
+            "opponents": list(args.certify_opponents),
+            "seedPrefix": args.certify_seed_prefix,
+            "seedStartIndex": args.certify_seed_start_index,
+            "minWinRate": args.certify_min_win_rate,
+            "maxSideGap": args.certify_max_side_gap,
+            "minCiLow": args.certify_min_ci_low,
         },
     }
 
@@ -1201,6 +1110,8 @@ def _require_supported_runtime(python_bin: Path) -> None:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
+    if args.chunks_per_gate <= 0:
+        raise SystemExit("--chunks-per-gate must be > 0.")
     if args.collect_games <= 0:
         raise SystemExit("--collect-games must be > 0.")
     if args.collect_workers <= 0:
@@ -1209,25 +1120,44 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--train-steps must be > 0.")
     if args.train_td_lambda < 0.0 or args.train_td_lambda > 1.0:
         raise SystemExit("--train-td-lambda must be in [0, 1].")
-    if args.eval_games_per_side <= 0:
-        raise SystemExit("--eval-games-per-side must be > 0.")
-    if args.eval_workers <= 0:
-        raise SystemExit("--eval-workers must be > 0.")
-    if args.eval_seed_start_index < 0:
-        raise SystemExit("--eval-seed-start-index must be >= 0.")
-    if args.eval_benchmark_games_per_side is not None and args.eval_benchmark_games_per_side <= 0:
-        raise SystemExit("--eval-benchmark-games-per-side must be > 0.")
-    if args.eval_benchmark_workers is not None and args.eval_benchmark_workers <= 0:
-        raise SystemExit("--eval-benchmark-workers must be > 0.")
-    if args.eval_benchmark_min_delta_win_rate < -1.0 or args.eval_benchmark_min_delta_win_rate > 1.0:
-        raise SystemExit("--eval-benchmark-min-delta-win-rate must be in [-1, 1].")
-    if args.eval_benchmark_min_end_win_rate < 0.0 or args.eval_benchmark_min_end_win_rate > 1.0:
-        raise SystemExit("--eval-benchmark-min-end-win-rate must be in [0, 1].")
-    if args.eval_benchmark_max_end_side_gap < 0.0 or args.eval_benchmark_max_end_side_gap > 1.0:
-        raise SystemExit("--eval-benchmark-max-end-side-gap must be in [0, 1].")
-    if args.eval_benchmark_opponents:
-        if len(set(args.eval_benchmark_opponents)) != len(args.eval_benchmark_opponents):
-            raise SystemExit("--eval-benchmark-opponents must not contain duplicates.")
+    if args.gate_workers <= 0:
+        raise SystemExit("--gate-workers must be > 0.")
+    if args.gate_seed_start_index < 0:
+        raise SystemExit("--gate-seed-start-index must be >= 0.")
+    if args.gate_h0_win_rate < 0.0 or args.gate_h0_win_rate > 1.0:
+        raise SystemExit("--gate-h0-win-rate must be in [0, 1].")
+    if args.gate_h1_win_rate < 0.0 or args.gate_h1_win_rate > 1.0:
+        raise SystemExit("--gate-h1-win-rate must be in [0, 1].")
+    if args.gate_h0_win_rate >= args.gate_h1_win_rate:
+        raise SystemExit("--gate-h0-win-rate must be strictly less than --gate-h1-win-rate.")
+    if args.gate_alpha <= 0.0 or args.gate_alpha >= 1.0:
+        raise SystemExit("--gate-alpha must be in (0, 1).")
+    if args.gate_beta <= 0.0 or args.gate_beta >= 1.0:
+        raise SystemExit("--gate-beta must be in (0, 1).")
+    if args.gate_batch_games_per_side <= 0:
+        raise SystemExit("--gate-batch-games-per-side must be > 0.")
+    if args.gate_max_games_per_side <= 0:
+        raise SystemExit("--gate-max-games-per-side must be > 0.")
+    if args.gate_batch_games_per_side > args.gate_max_games_per_side:
+        raise SystemExit("--gate-batch-games-per-side must be <= --gate-max-games-per-side.")
+    if args.gate_max_side_gap < 0.0 or args.gate_max_side_gap > 1.0:
+        raise SystemExit("--gate-max-side-gap must be in [0, 1].")
+
+    if args.certify_workers <= 0:
+        raise SystemExit("--certify-workers must be > 0.")
+    if args.certify_games_per_side <= 0:
+        raise SystemExit("--certify-games-per-side must be > 0.")
+    if args.certify_seed_start_index < 0:
+        raise SystemExit("--certify-seed-start-index must be >= 0.")
+    if args.certify_min_win_rate < 0.0 or args.certify_min_win_rate > 1.0:
+        raise SystemExit("--certify-min-win-rate must be in [0, 1].")
+    if args.certify_max_side_gap < 0.0 or args.certify_max_side_gap > 1.0:
+        raise SystemExit("--certify-max-side-gap must be in [0, 1].")
+    if args.certify_min_ci_low < 0.0 or args.certify_min_ci_low > 1.0:
+        raise SystemExit("--certify-min-ci-low must be in [0, 1].")
+    if len(set(args.certify_opponents)) != len(args.certify_opponents):
+        raise SystemExit("--certify-opponents must not contain duplicates.")
+
     if args.train_disable_value and args.train_disable_opponent:
         raise SystemExit("At least one of value/opponent training must be enabled.")
 

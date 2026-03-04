@@ -26,10 +26,10 @@
   - `./.venv/Scripts/Activate.ps1`
 - Active Python entrypoints:
   - `python -m scripts.eval`
-  - `python -m scripts.eval_suite` (`--workers` for deterministic parallel sharding)
+  - `python -m scripts.eval_suite` (required `--mode gate|certify`; `--workers` for deterministic parallel sharding)
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
-  - `python -m scripts.run_td_loop` (collect -> train -> eval orchestration; `--collect-workers` shards replay collection across CPUs; `--cloud` applies fixed 8 vCPU worker profile; `--eval-first-last-checkpoints` emits begin/end improvement summary; `--train-value-target-mode td-lambda` enables TD(lambda) path; `--eval-benchmark-opponents` adds thresholded benchmark gating)
+  - `python -m scripts.run_td_loop` (chunked collect/train -> gate -> optional certify orchestration; `--chunks-per-gate`, `--collect-workers`, `--gate-workers`, `--certify-workers`; `--cloud` applies fixed 8 vCPU worker profile; `--train-value-target-mode td-lambda` enables TD(lambda) path)
   - `python -m scripts.smoke_trainer`
 
 ## Constraints
@@ -46,4 +46,4 @@
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser deployment path for learned TD models is not implemented yet.
 
-_Updated: 2026-03-02._
+_Updated: 2026-03-03._
