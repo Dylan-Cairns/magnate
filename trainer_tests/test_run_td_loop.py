@@ -6,6 +6,7 @@ import unittest
 
 from scripts.run_td_loop import (
     EvalRow,
+    _recommended_cloud_worker_count,
     _evaluate_certify_result,
     _promotion_decision,
 )
@@ -94,6 +95,11 @@ class RunTdLoopPromotionTests(unittest.TestCase):
         )
         self.assertTrue(result["promoted"])
         self.assertEqual(result["reason"], "gate_and_certify_passed")
+
+    def test_recommended_cloud_worker_count_scales_by_profile(self) -> None:
+        self.assertEqual(_recommended_cloud_worker_count(8), 6)
+        self.assertEqual(_recommended_cloud_worker_count(16), 12)
+        self.assertEqual(_recommended_cloud_worker_count(32), 24)
 
 
 if __name__ == "__main__":

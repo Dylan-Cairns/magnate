@@ -28,7 +28,8 @@
   - `scripts/train_td.py` (value/opponent training from replay + checkpoint cadence)
   - `scripts/run_td_loop.py` (single-command chunked collect/train -> gate -> optional certify orchestration)
     - includes collect-stage sharding via `--collect-workers` and merged replay summaries
-    - includes `--cloud` fixed 8 vCPU profile (`collect-workers=6`, `gate-workers=6`, `certify-workers=6`)
+    - includes `--cloud` preset profile via `--cloud-vcpus` (8/16/32) for worker scaling
+    - train stage now supports explicit torch CPU threading controls (`--train-num-threads`, `--train-num-interop-threads`)
     - sharded replay merge appends + deletes shard JSONL files to avoid large temporary disk spikes
     - promotion decision is explicit in `loop.summary.json` (`promoted`, `reason`)
   - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
