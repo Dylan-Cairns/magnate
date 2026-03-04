@@ -1,0 +1,29 @@
+set -e
+
+GIT_EMAIL="${RUNPOD_SECRET_dylan_email:-}"
+
+mkdir -p /workspace/.ssh
+chmod 700 /workspace/.ssh
+
+mkdir -p /root
+ln -sfn /workspace/.ssh /root/.ssh
+chmod 700 /root/.ssh
+
+if [ -f /workspace/.ssh/id_ed25519_github ]; then
+  chmod 600 /workspace/.ssh/id_ed25519_github
+fi
+
+touch /root/.ssh/known_hosts
+ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null || true
+
+cat > /root/.ssh/config <<'EOF'
+Host github.com
+  IdentityFile /root/.ssh/id_ed25519_github
+  IdentitiesOnly yes
+EOF
+chmod 600 /root/.ssh/config
+
+git config --file /workspace/.gitconfig user.name "Dylan"
+git config --file /workspace/.gitconfig user.email "${GIT_EMAIL}"
+git config --file /workspace/.gitconfig init.defaultBranch main
+ln -sfn /workspace/.gitconfig /root/.gitconfig
