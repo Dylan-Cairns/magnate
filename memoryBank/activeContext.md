@@ -16,6 +16,7 @@
 ## Implemented Snapshot
 
 - Browser app is playable; default bot is rollout-search.
+- Browser app now includes a selectable `td-value` profile that loads exported model packs from static `public/model-packs/` artifacts.
 - Bridge runtime commands are stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.
@@ -25,18 +26,19 @@
   - loop orchestration: `scripts.run_td_loop`
 - `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), and explicit promotion thresholds.
 - Overnight runner auto-resolves warm start from latest promoted loop summary (`scripts/run_overnight_td_loop_r2.sh`).
+- Browser model-pack export pipeline is available via `python -m scripts.export_browser_model_pack` (value checkpoint -> `index.json` + `manifest.json` + `weights.json`).
 
 ## Remaining
 
 - Keep calibrating loop cadence/thresholds from repeated overnight results.
 - Improve `td-search` strength and throughput.
 - Wire an online replay refresh loop (beyond chunk-local offline replay files).
-- Define browser deployment path for learned TD checkpoints.
+- Add browser `td-search` profile support (opponent model + rollout integration) and validate runtime performance.
 
 ## Immediate Next Steps
 
 1. Continue overnight loop iterations with promoted warm starts.
 2. Track promotion outcomes and side-gap stability across runs.
-3. Rank promoted checkpoints against search baseline with certify evals.
+3. Export promoted value checkpoints to `public/model-packs/` and validate browser strength/perf before enabling default model-backed play.
 
 _Updated: 2026-03-05._
