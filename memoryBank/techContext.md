@@ -26,10 +26,10 @@
   - `./.venv/Scripts/Activate.ps1`
 - Active Python entrypoints:
   - `python -m scripts.eval`
-  - `python -m scripts.eval_suite` (required `--mode gate|certify`; `--workers` for deterministic parallel sharding)
+  - `python -m scripts.eval_suite` (loop default is fixed-size certify flow; `--workers` for deterministic parallel sharding; per-worker thread caps via `--worker-torch-threads`, `--worker-torch-interop-threads`, `--worker-blas-threads`)
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`)
   - `python -m scripts.generate_teacher_data`
-  - `python -m scripts.run_td_loop` (chunked collect/train -> gate -> optional certify orchestration; `--chunks-per-gate`, `--collect-workers`, `--gate-workers`, `--certify-workers`; `--cloud --cloud-vcpus 8|16|32` applies preset worker/thread profile; `--train-value-target-mode td-lambda` enables TD(lambda) path)
+  - `python -m scripts.run_td_loop` (chunked collect/train -> single promotion eval orchestration; `--chunks-per-loop`, `--collect-workers`, `--eval-workers`; `--cloud --cloud-vcpus 8|16|32` applies preset worker/thread profile; `--progress-heartbeat-minutes` uses minute-based stage heartbeats; `--train-value-target-mode td-lambda` enables TD(lambda) path)
   - `python -m scripts.smoke_trainer`
 
 ## Constraints
@@ -46,4 +46,4 @@
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser deployment path for learned TD models is not implemented yet.
 
-_Updated: 2026-03-03._
+_Updated: 2026-03-05._

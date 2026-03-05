@@ -7,7 +7,6 @@ import unittest
 from scripts.run_td_loop import (
     EvalRow,
     _recommended_cloud_worker_count,
-    _evaluate_certify_result,
     _promotion_decision,
 )
 
@@ -15,14 +14,14 @@ from scripts.run_td_loop import (
 class RunTdLoopPromotionTests(unittest.TestCase):
     def _args(self) -> Namespace:
         return Namespace(
-            certify_min_win_rate=0.55,
-            certify_max_side_gap=0.08,
-            certify_min_ci_low=0.50,
+            promotion_min_win_rate=0.55,
+            promotion_max_side_gap=0.08,
+            promotion_min_ci_low=0.50,
         )
 
-    def test_certify_result_passes_when_all_thresholds_pass(self) -> None:
+    def test_promotion_passes_when_all_thresholds_pass(self) -> None:
         row = EvalRow(
-            artifact=Path("certify-search.json"),
+            artifact=Path("promotion_eval.json"),
             opponent_policy="search",
             candidate_win_rate=0.60,
             ci_low=0.52,
@@ -33,13 +32,13 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             draws=0,
             total_games=800,
         )
-        comparison = _evaluate_certify_result(row=row, args=self._args())
-        self.assertTrue(comparison.passed)
-        self.assertTrue(all(comparison.checks.values()))
+        result = _promotion_decision(eval_row=row, args=self._args())
+        self.assertTrue(result["promoted"])
+        self.assertTrue(all(result["checks"].values()))
 
-    def test_certify_result_fails_when_side_gap_too_high(self) -> None:
+    def test_promotion_fails_when_side_gap_too_high(self) -> None:
         row = EvalRow(
-            artifact=Path("certify-search.json"),
+            artifact=Path("promotion_eval.json"),
             opponent_policy="search",
             candidate_win_rate=0.60,
             ci_low=0.52,
@@ -50,56 +49,47 @@ class RunTdLoopPromotionTests(unittest.TestCase):
             draws=0,
             total_games=800,
         )
-        comparison = _evaluate_certify_result(row=row, args=self._args())
-        self.assertFalse(comparison.passed)
-        self.assertFalse(comparison.checks["maxSideGap"])
-
-    def test_promotion_requires_gate_accept(self) -> None:
-        result = _promotion_decision(
-            gate_decision="rejected",
-            gate_reason="sprt_reject",
-            certify={"ran": False, "overallPassed": False, "comparisons": []},
-        )
+        result = _promotion_decision(eval_row=row, args=self._args())
         self.assertFalse(result["promoted"])
-        self.assertIn("gate_rejected", str(result["reason"]))
+        self.assertFalse(result["checks"]["maxSideGap"])
 
-    def test_promotion_requires_certify_pass(self) -> None:
-        result = _promotion_decision(
-            gate_decision="accepted",
-            gate_reason="sprt_accept",
-            certify={
-                "ran": True,
-                "overallPassed": False,
-                "comparisons": [
-                    {"opponentPolicy": "search", "passed": False},
-                    {"opponentPolicy": "heuristic", "passed": True},
-                ],
-            },
+    def test_promotion_fails_when_ci_low_too_small(self) -> None:
+        row = EvalRow(
+            artifact=Path("promotion_eval.json"),
+            opponent_policy="search",
+            candidate_win_rate=0.58,
+            ci_low=0.40,
+            ci_high=0.67,
+            side_gap=0.04,
+            candidate_wins=464,
+            opponent_wins=336,
+            draws=0,
+            total_games=800,
         )
+        result = _promotion_decision(eval_row=row, args=self._args())
         self.assertFalse(result["promoted"])
-        self.assertEqual(result["reason"], "certify_failed")
-        self.assertEqual(result["failedOpponents"], ["search"])
+        self.assertFalse(result["checks"]["minCiLow"])
 
-    def test_promotion_passes_when_gate_and_certify_pass(self) -> None:
-        result = _promotion_decision(
-            gate_decision="accepted",
-            gate_reason="sprt_accept",
-            certify={
-                "ran": True,
-                "overallPassed": True,
-                "comparisons": [
-                    {"opponentPolicy": "search", "passed": True},
-                    {"opponentPolicy": "heuristic", "passed": True},
-                ],
-            },
+    def test_promotion_reason_reflects_single_eval_flow(self) -> None:
+        row = EvalRow(
+            artifact=Path("promotion_eval.json"),
+            opponent_policy="search",
+            candidate_win_rate=0.50,
+            ci_low=0.46,
+            ci_high=0.54,
+            side_gap=0.03,
+            candidate_wins=400,
+            opponent_wins=400,
+            draws=0,
+            total_games=800,
         )
-        self.assertTrue(result["promoted"])
-        self.assertEqual(result["reason"], "gate_and_certify_passed")
+        result = _promotion_decision(eval_row=row, args=self._args())
+        self.assertEqual(result["reason"], "single_eval_failed")
 
     def test_recommended_cloud_worker_count_scales_by_profile(self) -> None:
-        self.assertEqual(_recommended_cloud_worker_count(8), 6)
-        self.assertEqual(_recommended_cloud_worker_count(16), 12)
-        self.assertEqual(_recommended_cloud_worker_count(32), 24)
+        self.assertEqual(_recommended_cloud_worker_count(8), 4)
+        self.assertEqual(_recommended_cloud_worker_count(16), 8)
+        self.assertEqual(_recommended_cloud_worker_count(32), 16)
 
 
 if __name__ == "__main__":

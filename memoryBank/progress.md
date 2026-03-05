@@ -6,10 +6,11 @@
 - Browser app is playable with policy-agnostic bot selection.
 - Default web bot is rollout-eval search.
 - Canonical side-swapped eval suite is implemented (`scripts/eval_suite.py`).
-- Eval suite now has explicit mode contract:
-  - `scripts.eval_suite --mode gate` (sequential SPRT with batch decisions)
-  - `scripts.eval_suite --mode certify` (fixed-size confidence eval)
-  - gate artifacts are incremental/resumable with running -> terminal status transitions
+- Eval suite now supports fixed-size promotion eval as canonical loop usage:
+  - `scripts.eval_suite --mode certify --games-per-side 200` (400 total games)
+  - explicit per-worker thread caps (`--worker-torch-threads`, `--worker-torch-interop-threads`, `--worker-blas-threads`)
+  - minute-based progress cadence (`--progress-log-minutes`)
+  - in-run progress artifact output (`eval.progress.json` default sibling to `--out`)
 - Search root logic parity was implemented between Python and browser TS policy.
 - Search sweep runner is eval-suite based (`scripts/search_teacher_sweep.py`).
 - Eval throughput controls are in place:
@@ -26,12 +27,17 @@
 - TD Phase 2 orchestration is implemented:
   - `scripts/collect_td_self_play.py` (bridge-driven replay generation)
   - `scripts/train_td.py` (value/opponent training from replay + checkpoint cadence)
-  - `scripts/run_td_loop.py` (single-command chunked collect/train -> gate -> optional certify orchestration)
+  - `scripts/run_td_loop.py` (single-command chunked collect/train -> single promotion eval orchestration)
     - includes collect-stage sharding via `--collect-workers` and merged replay summaries
     - includes `--cloud` preset profile via `--cloud-vcpus` (8/16/32) for worker scaling
     - train stage now supports explicit torch CPU threading controls (`--train-num-threads`, `--train-num-interop-threads`)
     - sharded replay merge appends + deletes shard JSONL files to avoid large temporary disk spikes
     - promotion decision is explicit in `loop.summary.json` (`promoted`, `reason`)
+    - parent stage heartbeat and progress artifact use minutes (`--progress-heartbeat-minutes`, default `30`)
+  - overnight defaults rebalanced toward training:
+    - collect per chunk reduced (`1500 -> 800`)
+    - train steps per chunk increased (`15000 -> 30000`)
+    - promotion eval fixed to `200` games/side (`400` total)
   - `td-value` policy path in eval scripts (`scripts/eval.py`, `scripts/eval_suite.py`)
   - TD replay JSONL I/O helpers in `trainer/td/io.py`
 - TD Phase 3 initial integration is implemented:
@@ -59,12 +65,10 @@
   - value replay rows now carry `episodeId` + `timestep`
   - `scripts.train_td` supports `--value-target-mode td-lambda --td-lambda <0..1>`
   - TD(lambda) training uses contiguous per-episode/per-player sequence indexing with fail-fast invariants
-- Confidence protocol automation landed:
-  - gate-first decision flow in `scripts.run_td_loop`:
-    - latest checkpoint only
-    - SPRT gate vs search
-    - certify panel only on gate accept
-  - certify checks are thresholded per opponent and aggregated into overall pass/fail
+- Single-eval promotion protocol landed:
+  - latest checkpoint only in `scripts.run_td_loop`
+  - one fixed-size side-swapped eval for promotion decision
+  - threshold checks (`minWinRate`, `maxSideGap`, `minCiLow`) are applied directly on the single eval artifact
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout
@@ -98,7 +102,7 @@
 ## Remaining
 
 - Add online/self-play replay refresh loop (not only offline replay files).
-- Continue tuning gate/certify thresholds and chunk cadence based on observed variance/runtime.
+- Continue tuning fixed-eval promotion thresholds and chunk cadence based on observed variance/runtime.
 - Improve `td-search` quality (deeper integration than current rollout-guided form, plus caching/throughput improvements).
 - Define browser deployment path for learned TD checkpoint inference.
 
@@ -108,4 +112,4 @@
 - Side-gap instability can hide seat bias; treat as a hard promotion risk.
 - Warm-start data can encode heuristic biases; TD training must move beyond it.
 
-_Updated: 2026-03-03._
+_Updated: 2026-03-05._

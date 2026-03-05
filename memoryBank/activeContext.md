@@ -4,10 +4,8 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Keep rollout search as the temporary warm-start baseline.
-- Use `scripts.eval_suite` with explicit modes:
-  - `--mode gate` for sequential SPRT gating vs search
-  - `--mode certify` for fixed-size side-swapped confidence evals
-- Execute and iterate gate-first TD loops (`collect/train` chunks -> gate -> optional certify).
+- Use a single fixed-size promotion eval (`400` total games / `200` per side) as the default loop decision step.
+- Execute and iterate TD loops as `collect/train` chunks -> one promotion eval.
 
 ## Locked Decisions
 
@@ -39,6 +37,12 @@
   - `trainer/eval_suite.py`
   - deterministic game sharding via `--workers`
   - shard/summary leg reporting is seat-keyed (`winsBySeat` + `policyBySeat`) to prevent same-policy-name collisions
+  - eval worker threading controls are explicit:
+    - `--worker-torch-threads`
+    - `--worker-torch-interop-threads`
+    - `--worker-blas-threads`
+  - eval progress heartbeat/log cadence is minute-based (`--progress-log-minutes`)
+  - eval progress artifact is written during runs (`eval.progress.json` by default)
 - Search internals remain modularized:
   - `trainer/search/belief_sampler.py`
   - `trainer/search/forward_model.py`
@@ -63,14 +67,14 @@
     - `<stamp>-<label>.opponent.jsonl`
   - `scripts.train_td` trains value/opponent models from replay with checkpoint cadence.
   - `scripts.run_td_loop` orchestrates:
-    - multiple collect/train chunks (`--chunks-per-gate`)
-    - gate decision on latest checkpoint only (`eval_suite --mode gate`)
-    - certify panel only on gate pass (`eval_suite --mode certify`)
+    - multiple collect/train chunks (`--chunks-per-loop`)
+    - single fixed-size promotion eval on latest checkpoint (`eval_suite --mode certify`)
     - explicit promotion decision in `loop.summary.json`
     - collect-stage sharding via `--collect-workers` to use multiple CPU cores during replay generation
     - `--cloud` applies a preset profile sized by `--cloud-vcpus` (8/16/32) for hosted runs
     - train-stage torch CPU threads are configurable via `--train-num-threads` and `--train-num-interop-threads`
     - shard merge deletes shard JSONL files after append to reduce peak disk usage on small-volume hosts
+    - parent heartbeat cadence is minute-based (`--progress-heartbeat-minutes`, default `30`)
   - `td-value` policy is available through `scripts.eval` and `scripts.eval_suite` via:
     - `--candidate-policy td-value` / `--opponent-policy td-value`
     - `--td-value-checkpoint`
@@ -102,10 +106,10 @@
 
 ## Immediate Next Steps
 
-1. Confirm promoted search baseline with sweep gates (`120 -> 400 -> 2000` total games per preset).
+1. Validate eval throughput after worker thread caps on next overnight run.
 2. Generate warm-start teacher data from promoted search baseline.
 3. Run repeated TD cycles and track promotion decisions:
-   - run `scripts.run_td_loop` for standardized chunked collect/train + gate/certify cycles,
+   - run `scripts.run_td_loop` for standardized chunked collect/train + single-eval cycles,
    - rank promoted checkpoints against search baselines.
 
-_Updated: 2026-03-03._
+_Updated: 2026-03-05._
