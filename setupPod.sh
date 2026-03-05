@@ -1,4 +1,20 @@
-set -e
+set -euo pipefail
+
+apt-get update
+apt-get install -y curl ca-certificates gnupg
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get update
+apt-get install -y nodejs python3.11 python3.11-venv
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm not found after nodejs install; ensure NodeSource setup succeeded." >&2
+  exit 1
+fi
+if ! node -v | grep -q '^v20\.'; then
+  echo "Expected Node.js 20.x but found: $(node -v)" >&2
+  exit 1
+fi
+npm install -g yarn
+npm install -g npm@11.11.0
 
 GIT_EMAIL="${RUNPOD_SECRET_dylan_email:-}"
 
