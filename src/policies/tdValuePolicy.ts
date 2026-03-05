@@ -8,15 +8,14 @@ import type { GameAction, GameState, PlayerId, PlayerView } from '../engine/type
 import type { ActionPolicy } from './types';
 import { encodeObservation } from './trainingEncoding';
 import {
-  loadTdValueModelFromIndexUrl,
-  resolvePublicAssetUrl,
-  type TdValueScorer,
-} from './tdValueModelPack';
+  DEFAULT_TD_VALUE_MODEL_INDEX_PATH,
+  preloadTdValueBrowserModel,
+} from './modelRuntimeCache';
+import { type TdValueScorer } from './tdValueModelPack';
 
 const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
 
 const DEFAULT_TD_VALUE_WORLDS = 8;
-export const DEFAULT_TD_VALUE_MODEL_INDEX_PATH = 'model-packs/index.json';
 
 export interface TdValuePolicyOptions {
   worlds?: number;
@@ -28,13 +27,10 @@ export function createTdValuePolicy(options: TdValuePolicyOptions = {}): ActionP
   const worlds = integerWithFloor(options.worlds ?? DEFAULT_TD_VALUE_WORLDS, 1);
   const configuredLoader =
     options.loadModel ??
-    (async (): Promise<TdValueScorer> => {
-      const indexPath =
-        options.modelIndexPath ?? DEFAULT_TD_VALUE_MODEL_INDEX_PATH;
-      const indexUrl = resolvePublicAssetUrl(indexPath);
-      const loaded = await loadTdValueModelFromIndexUrl(indexUrl);
-      return loaded.scorer;
-    });
+    (() =>
+      preloadTdValueBrowserModel(
+        options.modelIndexPath ?? DEFAULT_TD_VALUE_MODEL_INDEX_PATH
+      ));
 
   let modelPromise: Promise<TdValueScorer> | null = null;
   function getModel(): Promise<TdValueScorer> {
