@@ -2033,23 +2033,26 @@ export function App() {
       ) : null}
 
       {!startupPreloadReady ? (
-        <div className="startup-preload-overlay" role="presentation">
+        <div
+          className="app-bootstrap-shell startup-preload-overlay"
+          role="presentation"
+        >
           <section
-            className="panel startup-preload-modal"
+            className="app-bootstrap-card startup-preload-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="startup-preload-title"
           >
-            <h2 id="startup-preload-title">
+            <h2 id="startup-preload-title" className="app-bootstrap-title">
               {startupPreloadError ? 'Loading Failed' : 'Preparing Game Assets'}
             </h2>
-            <p className="startup-preload-message">
+            <p className="app-bootstrap-copy startup-preload-message">
               {startupPreloadError
                 ? `Could not preload assets: ${startupPreloadError}`
                 : startupPreloadProgress.message}
             </p>
             <div
-              className="startup-preload-progress"
+              className="app-bootstrap-bar startup-preload-progress"
               role="progressbar"
               aria-label="Startup asset preload progress"
               aria-valuemin={0}

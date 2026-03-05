@@ -18,6 +18,7 @@
 - Browser app is playable; default bot is now browser `td-search`.
 - Browser app loads exported model packs from static `public/model-packs/` artifacts; UI currently exposes `td-search`, rollout-search, and random profiles.
 - Browser startup now preloads card images and TD model packs behind a centered modal with blurred backdrop; bot turns are blocked until preload completes.
+- Browser bootstrap now renders an immediate loading shell from `index.html` and lazy-loads the React `App` module, so first paint is no longer gated on eager engine/policy module evaluation.
 - Bridge runtime commands are stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.
