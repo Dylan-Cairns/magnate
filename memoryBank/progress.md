@@ -69,6 +69,21 @@
   - latest checkpoint only in `scripts.run_td_loop`
   - one fixed-size side-swapped eval for promotion decision
   - threshold checks (`minWinRate`, `maxSideGap`, `minCiLow`) are applied directly on the single eval artifact
+- Promotion/eval reliability fixes landed:
+  - `scripts.eval_suite --mode gate` no longer crashes due to pre-init `history` usage
+  - gate smoke coverage added (`trainer_tests/test_eval_suite_gate.py`) to catch regressions
+- CLI/docs parity hardening landed:
+  - `README.md` and `docs/TRAINING_COMMANDS.md` examples aligned to current `scripts.run_td_loop` flags (`--chunks-per-loop`, `--eval-*`)
+  - arg-surface smoke coverage added for canonical loop commands (`trainer_tests/test_run_td_loop_args.py`)
+- Teacher label-generation guardrail landed:
+  - `scripts.generate_teacher_data` rejects teacher policies that do not emit root action probabilities at validation time
+  - validation coverage added (`trainer_tests/test_generate_teacher_data_script.py`)
+- Runtime/platform guardrails improved:
+  - `scripts.search_teacher_sweep` now resolves default `--python-bin` cross-platform (`sys.executable`, then Unix/Windows `.venv` paths)
+  - `scripts.train_td` now fail-fast enforces Python 3.11+ and active `.venv`
+- Promotion evidence defaults tightened:
+  - `scripts.run_td_loop` default `--promotion-min-ci-low` raised from `0.0` to `0.5`
+  - loop summary now records explicit replay regime metadata (`chunk-local`)
 - Fail-fast cleanup pass implemented across Python training/eval:
   - no silent fallback action when determinization sampling fails
   - no heuristic fallback inside `td-search` opponent rollout

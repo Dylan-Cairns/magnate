@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+REPLAY_REGIME = "chunk-local"
+
 
 @dataclass(frozen=True)
 class LoopCheckpoint:
@@ -186,7 +188,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--promotion-min-win-rate", type=float, default=0.55)
     parser.add_argument("--promotion-max-side-gap", type=float, default=0.08)
-    parser.add_argument("--promotion-min-ci-low", type=float, default=0.0)
+    parser.add_argument("--promotion-min-ci-low", type=float, default=0.5)
 
     parser.add_argument(
         "--progress-heartbeat-minutes",
@@ -291,6 +293,7 @@ def main() -> int:
         chunk_rows.append(
             {
                 "chunk": chunk_label,
+                "replayRegime": REPLAY_REGIME,
                 "collectSummary": str(collect_summary_path),
                 "trainSummary": str(train_summary_path),
                 "latestCheckpoint": {
@@ -940,6 +943,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
         "cloud": bool(args.cloud),
         "cloudVcpus": args.cloud_vcpus,
         "chunksPerLoop": args.chunks_per_loop,
+        "replayRegime": REPLAY_REGIME,
         "progressHeartbeatMinutes": args.progress_heartbeat_minutes,
         "collect": {
             "gamesPerChunk": args.collect_games,

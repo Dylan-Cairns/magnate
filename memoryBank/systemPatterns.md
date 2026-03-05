@@ -78,7 +78,8 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-  - Current active loop is chunked offline replay generation + checkpointed training, followed by gate/certify evaluation.
+  - Current active loop is chunked offline replay generation + checkpointed training, followed by one fixed-size certify evaluation.
+  - Replay regime in loop orchestration is currently explicit `chunk-local`.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
   - loop default: `--mode certify` for fixed-size side-swapped promotion evals
   - `--mode gate` remains optional/manual, not part of default loop orchestration
@@ -90,6 +91,7 @@ Design expectations:
   - `td-search` (checkpoint-backed TD-guided search policy)
 - Training code uses fail-fast semantics:
   - no silent fallback to heuristic labels/actions when required TD/search signals are missing
+  - teacher label generation requires policies that emit root action probabilities
   - malformed bridge payloads and invalid distributions raise immediately with context
   - script entrypoints require explicit policy args and active virtualenv runtime
 

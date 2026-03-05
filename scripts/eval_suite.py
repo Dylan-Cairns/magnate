@@ -326,6 +326,10 @@ def _run_gate_mode(
         progress = payload.get("progress")
         if not isinstance(progress, dict):
             raise SystemExit("Gate artifact progress payload is invalid.")
+        history = payload.get("history")
+        if not isinstance(history, list):
+            raise SystemExit("Gate artifact history payload is invalid.")
+        batch_index = len(history) + 1
         completed_games_per_side = int(progress.get("gamesPerSideCompleted", 0))
         if completed_games_per_side < 0:
             raise SystemExit("Gate artifact has negative gamesPerSideCompleted.")
@@ -345,7 +349,7 @@ def _run_gate_mode(
             seed_prefix=args.seed_prefix,
             workers=args.workers,
             progress_path=progress_path,
-            progress_label=f"gate-batch-{len(history) + 1}",
+            progress_label=f"gate-batch-{batch_index}",
         )
 
         existing_results = payload.get("results")
@@ -386,12 +390,9 @@ def _run_gate_mode(
                 decision_state = "completed"
                 decision_reason = "max_games_reached_inconclusive"
 
-        history = payload.get("history")
-        if not isinstance(history, list):
-            raise SystemExit("Gate artifact history payload is invalid.")
         history.append(
             {
-                "batchIndex": len(history) + 1,
+                "batchIndex": batch_index,
                 "seedStartIndex": batch_seed_start_index,
                 "gamesPerSideBatch": batch_games_per_side,
                 "gamesPerSideCompleted": next_completed_games_per_side,

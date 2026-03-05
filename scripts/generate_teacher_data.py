@@ -21,6 +21,8 @@ from trainer.teacher_data import collect_teacher_samples
 from trainer.training import write_samples_jsonl
 from trainer.types import PlayerId
 
+ROOT_PROB_POLICY_NAMES = frozenset(("search", "td-value", "td-search"))
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -40,7 +42,10 @@ def parse_args() -> argparse.Namespace:
         "--teacher-policy",
         type=str,
         required=True,
-        help="Teacher policy (random|heuristic|search|td-value|td-search).",
+        help=(
+            "Teacher policy. Must expose root action probabilities for labels "
+            "(search|td-value|td-search)."
+        ),
     )
     parser.add_argument(
         "--opponent-policy",
@@ -360,7 +365,15 @@ def _require_supported_runtime() -> None:
 
 def _validate_policy_args(args: argparse.Namespace) -> None:
     teacher_players = _parse_teacher_players(args.teacher_players)
-    policies = {args.teacher_policy.strip().lower()}
+    teacher_policy = args.teacher_policy.strip().lower()
+    if teacher_policy not in ROOT_PROB_POLICY_NAMES:
+        supported = ", ".join(sorted(ROOT_PROB_POLICY_NAMES))
+        raise SystemExit(
+            "--teacher-policy must support root action probabilities for label generation. "
+            f"Supported: {supported}. Received: {args.teacher_policy!r}."
+        )
+
+    policies = {teacher_policy}
     if teacher_players != {"PlayerA", "PlayerB"}:
         if not isinstance(args.opponent_policy, str) or not args.opponent_policy.strip():
             raise SystemExit(

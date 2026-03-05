@@ -71,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--python-bin",
         type=Path,
-        default=Path(".venv/Scripts/python.exe"),
+        default=_default_python_bin(),
         help="Python executable used for subprocess eval_suite commands.",
     )
     parser.add_argument(
@@ -147,6 +147,18 @@ def parse_args() -> argparse.Namespace:
         help="Print planned commands without running evaluations.",
     )
     return parser.parse_args()
+
+
+def _default_python_bin() -> Path:
+    candidates = [
+        Path(sys.executable),
+        Path(".venv/bin/python"),
+        Path(".venv/Scripts/python.exe"),
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
 
 
 def main() -> int:
