@@ -63,8 +63,8 @@ python -m scripts.run_td_loop \
   --cloud --cloud-vcpus 16 \
   --run-label td-loop-r2-overnight \
   --chunks-per-loop 3 \
-  --collect-games 800 \
-  --train-steps 30000 \
+  --collect-games 1200 \
+  --train-steps 20000 \
   "${warm_start_args[@]}" \
   --eval-games-per-side 200 \
   --eval-opponent-policy search \

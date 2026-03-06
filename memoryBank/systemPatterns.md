@@ -78,7 +78,7 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-  - Current active loop is chunked offline replay generation + checkpointed training, followed by one fixed-size certify evaluation.
+  - Current active loop is chunked offline replay generation + checkpointed training, followed by two fixed-size certify windows with pooled promotion checks.
   - Replay regime in loop orchestration is currently explicit `chunk-local`.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
   - loop default: `--mode certify` for fixed-size side-swapped promotion evals
@@ -103,7 +103,7 @@ Design expectations:
 - Contract tests to protect TS/Python integration behavior.
 - Python bridge-client/encoding/eval scaffolding has focused tests in `trainer_tests/`.
 - Search policies have focused tests for deterministic action choice and legal-action guarantees.
-- Side-swapped promotion evals run through a single canonical pipeline:
+- Side-swapped promotion evals run through a canonical pooled-window pipeline:
   - paired seeds with swapped policy seats
   - Wilson confidence interval reporting
   - explicit side-gap reporting
