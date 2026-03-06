@@ -26,6 +26,7 @@ import {
 import type {
   FinalScore,
   GameAction,
+  GameLogEntry,
   GameState,
   PlayerId,
   Suit,
@@ -67,6 +68,7 @@ import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
 import { TokenChip, tokenEntries } from './ui/components/TokenComponents';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
+import { transitionLogEntries } from './ui/logTimeline';
 import {
   SUIT_TEXT_TOKEN,
   SUIT_TOKEN_REGEX,
@@ -397,6 +399,25 @@ function isLaneCardPlayAction(
 }
 
 function stackStepForLane(laneElement: HTMLElement, isBotLane: boolean, cardHeightPx: number): number {
+  const stackStepValue = window.getComputedStyle(laneElement).getPropertyValue('--card-stack-step').trim();
+  if (stackStepValue.length > 0) {
+    const probe = document.createElement('div');
+    probe.style.position = 'absolute';
+    probe.style.visibility = 'hidden';
+    probe.style.pointerEvents = 'none';
+    probe.style.width = '0';
+    probe.style.height = stackStepValue;
+    probe.style.padding = '0';
+    probe.style.margin = '0';
+    probe.style.border = '0';
+    laneElement.appendChild(probe);
+    const resolvedStepPx = probe.getBoundingClientRect().height;
+    probe.remove();
+    if (resolvedStepPx > 0) {
+      return resolvedStepPx;
+    }
+  }
+
   const topStackCard = laneElement.querySelector<HTMLElement>('.lane-stack-card:last-child');
   if (!topStackCard) {
     return cardHeightPx * 0.24;
@@ -684,6 +705,9 @@ export function App() {
   const [state, setState] = useState<GameState>(() =>
     createInitialState(seedInput)
   );
+  const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
+    () => [...state.log]
+  );
   const [error, setError] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState<boolean>(false);
   const [actionPicker, setActionPicker] = useState<ActionPickerState | null>(
@@ -704,6 +728,8 @@ export function App() {
     useState<StartupPreloadProgress>(STARTUP_PRELOAD_INITIAL_PROGRESS);
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
+  const [turnResetTimelineAnchor, setTurnResetTimelineAnchor] =
+    useState<ReadonlyArray<GameLogEntry> | null>(null);
 
   const stateRef = useRef(state);
   const actionCommitTimerRef = useRef<number | null>(null);
@@ -738,6 +764,20 @@ export function App() {
     setCardFlights([]);
     setPendingDiscardHoldback(0);
   }, []);
+  const commitImmediateTransition = useCallback(
+    (
+      previousState: GameState,
+      nextState: GameState,
+      action?: GameAction
+    ) => {
+      setTimelineLog((existing) => [
+        ...existing,
+        ...transitionLogEntries(previousState, nextState, action),
+      ]);
+      setState(nextState);
+    },
+    []
+  );
   const commitStateAfterAnimations = useCallback(
     (
       nextState: GameState,
@@ -746,6 +786,8 @@ export function App() {
       options?: {
         commitBeforeSettle?: boolean;
         hideDiscardCountUntilSettle?: number;
+        previousState?: GameState;
+        action?: GameAction;
       }
     ) => {
       const settleMs = Math.max(
@@ -754,7 +796,15 @@ export function App() {
       );
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
-        setState(nextState);
+        if (options?.previousState) {
+          commitImmediateTransition(
+            options.previousState,
+            nextState,
+            options.action
+          );
+        } else {
+          setState(nextState);
+        }
         return;
       }
 
@@ -769,14 +819,30 @@ export function App() {
       );
       setActionCommitPending(true);
       if (options?.commitBeforeSettle) {
-        setState(nextState);
+        if (options?.previousState) {
+          commitImmediateTransition(
+            options.previousState,
+            nextState,
+            options.action
+          );
+        } else {
+          setState(nextState);
+        }
       }
       if (actionCommitTimerRef.current !== null) {
         window.clearTimeout(actionCommitTimerRef.current);
       }
       actionCommitTimerRef.current = window.setTimeout(() => {
         if (!options?.commitBeforeSettle) {
-        setState(nextState);
+          if (options?.previousState) {
+            commitImmediateTransition(
+              options.previousState,
+              nextState,
+              options.action
+            );
+          } else {
+            setState(nextState);
+          }
         }
         setResourceFlights([]);
         setCardFlights([]);
@@ -785,7 +851,7 @@ export function App() {
         actionCommitTimerRef.current = null;
       }, settleMs);
     },
-    []
+    [commitImmediateTransition]
   );
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
@@ -945,7 +1011,8 @@ export function App() {
       playerId: HUMAN_PLAYER,
       state,
     });
-  }, [activePlayerId, state, turnResetAnchor]);
+    setTurnResetTimelineAnchor(timelineLog);
+  }, [activePlayerId, state, timelineLog, turnResetAnchor]);
 
   useEffect(() => {
     if (
@@ -1005,7 +1072,7 @@ export function App() {
           const next = stepToDecision(current, choice);
           if (!animationsEnabled) {
             clearAllFlights();
-            setState(next);
+            commitImmediateTransition(current, next, choice);
             setError(null);
             return;
           }
@@ -1019,6 +1086,8 @@ export function App() {
           commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
             commitBeforeSettle: choice.type === 'sell-card',
             hideDiscardCountUntilSettle: choice.type === 'sell-card' ? 1 : 0,
+            previousState: current,
+            action: choice,
           });
           setError(null);
         } catch (err) {
@@ -1038,6 +1107,7 @@ export function App() {
     activePlayerId,
     animationsEnabled,
     clearAllFlights,
+    commitImmediateTransition,
     commitStateAfterAnimations,
     makeCardFlightId,
     makeResourceFlightId,
@@ -1139,7 +1209,7 @@ export function App() {
       const next = stepToDecision(state, action);
       if (!animationsEnabled) {
         clearAllFlights();
-        setState(next);
+        commitImmediateTransition(state, next, action);
         setError(null);
         return;
       }
@@ -1159,6 +1229,8 @@ export function App() {
       commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
         commitBeforeSettle: action.type === 'sell-card',
         hideDiscardCountUntilSettle: action.type === 'sell-card' ? 1 : 0,
+        previousState: state,
+        action,
       });
       setError(null);
     } catch (err) {
@@ -1172,12 +1244,15 @@ export function App() {
     closeActionPicker();
     closeOptionsMenu();
     setTurnResetAnchor(null);
+    setTurnResetTimelineAnchor(null);
     clearPendingActionCommit();
     clearAllFlights();
     clearAllDeedTokenLayouts();
 
     try {
-      setState(createInitialState(seed));
+      const initialState = createInitialState(seed);
+      setState(initialState);
+      setTimelineLog([...initialState.log]);
       setError(null);
       setBotThinking(false);
     } catch (err) {
@@ -1203,6 +1278,9 @@ export function App() {
     closeActionPicker();
     clearPendingActionCommit();
     setState(turnResetAnchor.state);
+    setTimelineLog(
+      turnResetTimelineAnchor ? [...turnResetTimelineAnchor] : [...turnResetAnchor.state.log]
+    );
     setError(null);
     setBotThinking(false);
     clearAllFlights();
@@ -1321,7 +1399,8 @@ export function App() {
     );
   }
 
-  const recentLog = [...humanView.log].reverse();
+  const recentLog = [...timelineLog].reverse();
+  const recentLogGroups = groupLogEntriesByTurn(recentLog);
   const deckStackCount = Math.min(3, humanView.deck.drawCount);
   const deckOverlayShiftClass =
     deckStackCount >= 3
@@ -1925,13 +2004,28 @@ export function App() {
               <p className="empty-note">No actions yet.</p>
             ) : (
               <ol className="log-list">
-                {recentLog.map((entry, index) => (
-                  <li
-                    key={`${entry.turn}-${entry.phase}-${entry.summary}-${index}`}
-                  >
-                    <span className="log-turn">T{entry.turn}</span>
-                    <span>{entry.player}</span>
-                    <span>{entry.summary}</span>
+                {recentLogGroups.map((group, groupIndex) => (
+                  <li key={`${group.turn}-${groupIndex}`} className="log-turn-group">
+                    <div className="log-turn-head">
+                      <span className="log-turn">T{group.turn}</span>
+                      <span className="log-player">
+                        {group.player} ({group.player === HUMAN_PLAYER ? 'You' : 'Bot'})
+                      </span>
+                    </div>
+                    <ol className="log-turn-entries">
+                      {group.entries.map((entry, entryIndex) => (
+                        <li
+                          key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
+                          className="log-turn-entry"
+                        >
+                          <span className="log-summary">
+                            {entry.player !== group.player
+                              ? sentenceCaseSummary(`[${entry.player}] ${entry.summary}`)
+                              : sentenceCaseSummary(entry.summary)}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
                   </li>
                 ))}
               </ol>
@@ -2523,6 +2617,48 @@ function renderSuitText(text: string): ReactNode {
   }
 
   return nodes.length > 0 ? <>{nodes}</> : text;
+}
+
+function groupLogEntriesByTurn(
+  entries: ReadonlyArray<GameLogEntry>
+): ReadonlyArray<{
+  turn: number;
+  player: PlayerId;
+  entries: ReadonlyArray<GameLogEntry>;
+}> {
+  const groups: Array<{
+    turn: number;
+    player: PlayerId;
+    entries: GameLogEntry[];
+  }> = [];
+
+  for (const entry of entries) {
+    const current = groups[groups.length - 1];
+    if (!current || current.turn !== entry.turn) {
+      groups.push({
+        turn: entry.turn,
+        player: entry.player,
+        entries: [entry],
+      });
+      continue;
+    }
+    current.entries.push(entry);
+  }
+
+  return groups;
+}
+
+function sentenceCaseSummary(summary: string): string {
+  if (!summary) {
+    return summary;
+  }
+  const prefixMatch = summary.match(/^(\[[^\]]+\]\s*)/);
+  const prefix = prefixMatch?.[1] ?? '';
+  const rest = summary.slice(prefix.length);
+  if (rest.length === 0) {
+    return summary;
+  }
+  return `${prefix}${rest.slice(0, 1).toUpperCase()}${rest.slice(1)}`;
 }
 
 function toPickerQuery(
