@@ -89,6 +89,30 @@ def parse_args() -> argparse.Namespace:
         help="Sample opponent rollout actions from opponent model distribution in td-search.",
     )
     parser.add_argument(
+        "--player-a-td-search-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search value checkpoint override for PlayerA.",
+    )
+    parser.add_argument(
+        "--player-a-td-search-opponent-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search opponent checkpoint override for PlayerA.",
+    )
+    parser.add_argument(
+        "--player-b-td-search-value-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search value checkpoint override for PlayerB.",
+    )
+    parser.add_argument(
+        "--player-b-td-search-opponent-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional td-search opponent checkpoint override for PlayerB.",
+    )
+    parser.add_argument(
         "--out-dir",
         type=Path,
         default=Path("artifacts/td_replay"),
@@ -158,10 +182,23 @@ def main() -> int:
         if args.td_value_checkpoint is not None
         else None
     )
-    td_search_config = (
+    player_a_td_search_value_checkpoint = _effective_player_td_search_value_checkpoint(
+        args=args, player="a"
+    )
+    player_a_td_search_opponent_checkpoint = _effective_player_td_search_opponent_checkpoint(
+        args=args, player="a"
+    )
+    player_b_td_search_value_checkpoint = _effective_player_td_search_value_checkpoint(
+        args=args, player="b"
+    )
+    player_b_td_search_opponent_checkpoint = _effective_player_td_search_opponent_checkpoint(
+        args=args, player="b"
+    )
+
+    td_search_config_a = (
         TDSearchPolicyConfig(
-            value_checkpoint_path=args.td_search_value_checkpoint,
-            opponent_checkpoint_path=args.td_search_opponent_checkpoint,
+            value_checkpoint_path=player_a_td_search_value_checkpoint,
+            opponent_checkpoint_path=player_a_td_search_opponent_checkpoint,
             worlds=args.search_worlds,
             rollouts=args.search_rollouts,
             depth=args.search_depth,
@@ -170,7 +207,22 @@ def main() -> int:
             opponent_temperature=args.td_search_opponent_temperature,
             sample_opponent_actions=args.td_search_sample_opponent_actions,
         )
-        if "td-search" in policies
+        if args.player_a_policy.strip().lower() == "td-search"
+        else None
+    )
+    td_search_config_b = (
+        TDSearchPolicyConfig(
+            value_checkpoint_path=player_b_td_search_value_checkpoint,
+            opponent_checkpoint_path=player_b_td_search_opponent_checkpoint,
+            worlds=args.search_worlds,
+            rollouts=args.search_rollouts,
+            depth=args.search_depth,
+            max_root_actions=args.search_max_root_actions,
+            rollout_epsilon=args.search_rollout_epsilon,
+            opponent_temperature=args.td_search_opponent_temperature,
+            sample_opponent_actions=args.td_search_sample_opponent_actions,
+        )
+        if args.player_b_policy.strip().lower() == "td-search"
         else None
     )
 
@@ -178,13 +230,13 @@ def main() -> int:
         args.player_a_policy,
         search_config=search_config,
         td_value_config=td_value_config,
-        td_search_config=td_search_config,
+        td_search_config=td_search_config_a,
     )
     policy_b = policy_from_name(
         args.player_b_policy,
         search_config=search_config,
         td_value_config=td_value_config,
-        td_search_config=td_search_config,
+        td_search_config=td_search_config_b,
     )
 
     try:
@@ -258,6 +310,26 @@ def main() -> int:
                     if args.td_search_opponent_checkpoint
                     else None
                 ),
+                "playerAValueCheckpoint": (
+                    str(player_a_td_search_value_checkpoint)
+                    if player_a_td_search_value_checkpoint is not None
+                    else None
+                ),
+                "playerAOpponentCheckpoint": (
+                    str(player_a_td_search_opponent_checkpoint)
+                    if player_a_td_search_opponent_checkpoint is not None
+                    else None
+                ),
+                "playerBValueCheckpoint": (
+                    str(player_b_td_search_value_checkpoint)
+                    if player_b_td_search_value_checkpoint is not None
+                    else None
+                ),
+                "playerBOpponentCheckpoint": (
+                    str(player_b_td_search_opponent_checkpoint)
+                    if player_b_td_search_opponent_checkpoint is not None
+                    else None
+                ),
                 "opponentTemperature": args.td_search_opponent_temperature,
                 "sampleOpponentActions": args.td_search_sample_opponent_actions,
             },
@@ -321,14 +393,53 @@ def _require_supported_runtime() -> None:
 
 
 def _validate_policy_args(args: argparse.Namespace) -> None:
-    policies = {args.player_a_policy.strip().lower(), args.player_b_policy.strip().lower()}
+    player_a_policy = args.player_a_policy.strip().lower()
+    player_b_policy = args.player_b_policy.strip().lower()
+    policies = {player_a_policy, player_b_policy}
     if "td-value" in policies and args.td_value_checkpoint is None:
         raise SystemExit("--td-value-checkpoint is required when using td-value policy.")
-    if "td-search" in policies:
-        if args.td_search_value_checkpoint is None:
-            raise SystemExit("--td-search-value-checkpoint is required when using td-search policy.")
-        if args.td_search_opponent_checkpoint is None:
-            raise SystemExit("--td-search-opponent-checkpoint is required when using td-search policy.")
+    if player_a_policy == "td-search":
+        if _effective_player_td_search_value_checkpoint(args=args, player="a") is None:
+            raise SystemExit(
+                "PlayerA td-search requires --player-a-td-search-value-checkpoint "
+                "or --td-search-value-checkpoint."
+            )
+        if _effective_player_td_search_opponent_checkpoint(args=args, player="a") is None:
+            raise SystemExit(
+                "PlayerA td-search requires --player-a-td-search-opponent-checkpoint "
+                "or --td-search-opponent-checkpoint."
+            )
+    if player_b_policy == "td-search":
+        if _effective_player_td_search_value_checkpoint(args=args, player="b") is None:
+            raise SystemExit(
+                "PlayerB td-search requires --player-b-td-search-value-checkpoint "
+                "or --td-search-value-checkpoint."
+            )
+        if _effective_player_td_search_opponent_checkpoint(args=args, player="b") is None:
+            raise SystemExit(
+                "PlayerB td-search requires --player-b-td-search-opponent-checkpoint "
+                "or --td-search-opponent-checkpoint."
+            )
+
+
+def _effective_player_td_search_value_checkpoint(
+    *, args: argparse.Namespace, player: str
+) -> Path | None:
+    if player == "a":
+        return args.player_a_td_search_value_checkpoint or args.td_search_value_checkpoint
+    if player == "b":
+        return args.player_b_td_search_value_checkpoint or args.td_search_value_checkpoint
+    raise SystemExit(f"Unknown player key: {player!r}")
+
+
+def _effective_player_td_search_opponent_checkpoint(
+    *, args: argparse.Namespace, player: str
+) -> Path | None:
+    if player == "a":
+        return args.player_a_td_search_opponent_checkpoint or args.td_search_opponent_checkpoint
+    if player == "b":
+        return args.player_b_td_search_opponent_checkpoint or args.td_search_opponent_checkpoint
+    raise SystemExit(f"Unknown player key: {player!r}")
 
 
 if __name__ == "__main__":

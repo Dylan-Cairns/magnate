@@ -3,24 +3,28 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shlex
-import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from math import sqrt
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from scripts.td_loop_common import (
+    LoopCheckpoint,
+    build_train_command as build_train_command_common,
+    checkpoints_from_train_summary as checkpoints_from_train_summary_common,
+    concat_jsonl_files as concat_jsonl_files_common,
+    join_command as join_command_common,
+    read_json as read_json_common,
+    run_step as run_step_common,
+    select_latest_checkpoint as select_latest_checkpoint_common,
+    write_progress as write_progress_common,
+)
+
 REPLAY_REGIME = "chunk-local"
-
-
-@dataclass(frozen=True)
-class LoopCheckpoint:
-    step: int
-    value_path: Path | None
-    opponent_path: Path | None
 
 
 @dataclass(frozen=True)
@@ -35,13 +39,15 @@ class EvalRow:
     opponent_wins: int
     draws: int
     total_games: int
+    candidate_win_rate_as_player_a: float
+    candidate_win_rate_as_player_b: float
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run TD loop with chunked collect/train, followed by one fixed-size "
-            "promotion eval (no gate/certify split)."
+            "Run TD loop with chunked collect/train, followed by fixed-size "
+            "promotion eval windows and pooled promotion checks."
         )
     )
     parser.add_argument(
@@ -88,7 +94,7 @@ def parse_args() -> argparse.Namespace:
         help=argparse.SUPPRESS,
     )
 
-    parser.add_argument("--collect-games", type=int, default=800)
+    parser.add_argument("--collect-games", type=int, default=1200)
     parser.add_argument(
         "--collect-workers",
         type=int,
@@ -111,7 +117,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--collect-td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--collect-td-search-sample-opponent-actions", action="store_true")
 
-    parser.add_argument("--train-steps", type=int, default=30000)
+    parser.add_argument("--train-steps", type=int, default=20000)
     parser.add_argument("--train-value-batch-size", type=int, default=128)
     parser.add_argument("--train-opponent-batch-size", type=int, default=64)
     parser.add_argument("--train-seed", type=int, default=0)
@@ -171,7 +177,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-games-per-side", type=int, default=200)
     parser.add_argument("--eval-workers", type=int, default=1)
     parser.add_argument("--eval-seed-prefix", type=str, default="td-loop-eval")
-    parser.add_argument("--eval-seed-start-index", type=int, default=0)
+    parser.add_argument("--eval-seed-start-index", type=int, default=None, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--eval-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[0, 10000],
+        help="Seed index windows for promotion evals; results are pooled for promotion.",
+    )
     parser.add_argument("--eval-progress-every-games", type=int, default=10)
     parser.add_argument("--eval-progress-log-minutes", type=float, default=30.0)
     parser.add_argument("--eval-worker-torch-threads", type=int, default=1)
@@ -189,6 +202,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--promotion-min-win-rate", type=float, default=0.55)
     parser.add_argument("--promotion-max-side-gap", type=float, default=0.08)
     parser.add_argument("--promotion-min-ci-low", type=float, default=0.5)
+    parser.add_argument(
+        "--promotion-max-window-side-gap",
+        type=float,
+        default=0.10,
+        help="Each eval window must stay at or below this side gap.",
+    )
 
     parser.add_argument(
         "--progress-heartbeat-minutes",
@@ -204,6 +223,8 @@ def main() -> int:
     args = parse_args()
     if args.chunks_per_gate is not None:
         args.chunks_per_loop = args.chunks_per_gate
+    if args.eval_seed_start_index is not None:
+        args.eval_seed_start_indices = [args.eval_seed_start_index]
     if args.cloud:
         _apply_cloud_profile(args)
 
@@ -311,28 +332,35 @@ def main() -> int:
     if latest_checkpoint is None:
         raise SystemExit("No latest checkpoint available after chunk training.")
 
-    eval_artifact = eval_dir / "promotion_eval.json"
-    eval_command = _build_eval_command(
-        python_bin=args.python_bin,
-        args=args,
-        checkpoint=latest_checkpoint,
-        opponent_policy=args.eval_opponent_policy,
-        seed_prefix=args.eval_seed_prefix,
-        seed_start_index=args.eval_seed_start_index,
-        workers=args.eval_workers,
-        games_per_side=args.eval_games_per_side,
-        out_path=eval_artifact,
-    )
-    commands["promotionEval"] = eval_command
-    _run_step(
-        name="promotion-eval",
-        command=eval_command,
-        heartbeat_minutes=args.progress_heartbeat_minutes,
-        progress_path=progress_path,
-    )
+    eval_rows: List[EvalRow] = []
+    promotion_eval_commands: List[List[str]] = []
+    promotion_eval_artifacts: List[str] = []
+    for index, seed_start_index in enumerate(args.eval_seed_start_indices, start=1):
+        eval_artifact = eval_dir / f"promotion_eval.seed-{seed_start_index:06d}.json"
+        eval_command = _build_eval_command(
+            python_bin=args.python_bin,
+            args=args,
+            checkpoint=latest_checkpoint,
+            opponent_policy=args.eval_opponent_policy,
+            seed_prefix=args.eval_seed_prefix,
+            seed_start_index=seed_start_index,
+            workers=args.eval_workers,
+            games_per_side=args.eval_games_per_side,
+            out_path=eval_artifact,
+        )
+        promotion_eval_commands.append(eval_command)
+        promotion_eval_artifacts.append(str(eval_artifact))
+        _run_step(
+            name=f"promotion-eval[{index}/{len(args.eval_seed_start_indices)} seed={seed_start_index}]",
+            command=eval_command,
+            heartbeat_minutes=args.progress_heartbeat_minutes,
+            progress_path=progress_path,
+        )
+        eval_rows.append(_read_eval_row(path=eval_artifact, opponent_policy=args.eval_opponent_policy))
+    commands["promotionEvals"] = promotion_eval_commands
 
-    eval_row = _read_eval_row(path=eval_artifact, opponent_policy=args.eval_opponent_policy)
-    promotion = _promotion_decision(eval_row=eval_row, args=args)
+    pooled_eval_row = _pool_eval_rows(eval_rows=eval_rows, opponent_policy=args.eval_opponent_policy)
+    promotion = _promotion_decision(eval_row=pooled_eval_row, eval_windows=eval_rows, args=args)
 
     loop_elapsed_minutes = (time.perf_counter() - loop_started) / 60.0
     payload: Dict[str, Any] = {
@@ -347,19 +375,39 @@ def main() -> int:
             "progress": str(progress_path),
             "chunksDir": str(chunks_dir),
             "evalDir": str(eval_dir),
-            "promotionEvalArtifact": str(eval_artifact),
+            "promotionEvalArtifact": promotion_eval_artifacts[0],
+            "promotionEvalArtifacts": promotion_eval_artifacts,
         },
         "chunks": chunk_rows,
         "evaluation": {
             "opponentPolicy": args.eval_opponent_policy,
-            "artifact": str(eval_artifact),
-            "candidateWinRate": eval_row.candidate_win_rate,
-            "candidateWinRateCi95": {"low": eval_row.ci_low, "high": eval_row.ci_high},
-            "sideGap": eval_row.side_gap,
-            "candidateWins": eval_row.candidate_wins,
-            "opponentWins": eval_row.opponent_wins,
-            "draws": eval_row.draws,
-            "totalGames": eval_row.total_games,
+            "windows": [
+                {
+                    "seedStartIndex": seed_start_index,
+                    "artifact": str(row.artifact),
+                    "candidateWinRate": row.candidate_win_rate,
+                    "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
+                    "candidateWinRateAsPlayerA": row.candidate_win_rate_as_player_a,
+                    "candidateWinRateAsPlayerB": row.candidate_win_rate_as_player_b,
+                    "sideGap": row.side_gap,
+                    "candidateWins": row.candidate_wins,
+                    "opponentWins": row.opponent_wins,
+                    "draws": row.draws,
+                    "totalGames": row.total_games,
+                }
+                for seed_start_index, row in zip(args.eval_seed_start_indices, eval_rows)
+            ],
+            "pooled": {
+                "candidateWinRate": pooled_eval_row.candidate_win_rate,
+                "candidateWinRateCi95": {"low": pooled_eval_row.ci_low, "high": pooled_eval_row.ci_high},
+                "candidateWinRateAsPlayerA": pooled_eval_row.candidate_win_rate_as_player_a,
+                "candidateWinRateAsPlayerB": pooled_eval_row.candidate_win_rate_as_player_b,
+                "sideGap": pooled_eval_row.side_gap,
+                "candidateWins": pooled_eval_row.candidate_wins,
+                "opponentWins": pooled_eval_row.opponent_wins,
+                "draws": pooled_eval_row.draws,
+                "totalGames": pooled_eval_row.total_games,
+            },
         },
         "promotion": promotion,
     }
@@ -372,9 +420,10 @@ def main() -> int:
                 "runDir": str(run_dir),
                 "loopSummary": str(loop_summary_path),
                 "promotionOpponent": args.eval_opponent_policy,
-                "candidateWinRate": eval_row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": eval_row.ci_low, "high": eval_row.ci_high},
-                "sideGap": eval_row.side_gap,
+                "evalWindows": len(eval_rows),
+                "candidateWinRate": pooled_eval_row.candidate_win_rate,
+                "candidateWinRateCi95": {"low": pooled_eval_row.ci_low, "high": pooled_eval_row.ci_high},
+                "sideGap": pooled_eval_row.side_gap,
                 "promoted": bool(promotion["promoted"]),
                 "promotionReason": promotion["reason"],
             },
@@ -570,34 +619,11 @@ def _concat_jsonl_files(
     output: Path,
     delete_inputs_after_merge: bool = False,
 ) -> None:
-    if not inputs:
-        raise SystemExit("No JSONL shard inputs were provided for merge.")
-    for path in inputs:
-        if not path.exists():
-            raise SystemExit(f"Missing collect shard artifact: {path}")
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    if not delete_inputs_after_merge:
-        with output.open("w", encoding="utf-8") as target:
-            for path in inputs:
-                with path.open("r", encoding="utf-8") as source:
-                    for line in source:
-                        target.write(line)
-        return
-
-    first = inputs[0]
-    if first.resolve() != output.resolve():
-        if output.exists():
-            output.unlink()
-        first.replace(output)
-    remaining = inputs[1:]
-    with output.open("a", encoding="utf-8") as target:
-        for path in remaining:
-            with path.open("r", encoding="utf-8") as source:
-                for line in source:
-                    target.write(line)
-            path.unlink()
+    concat_jsonl_files_common(
+        inputs=inputs,
+        output=output,
+        delete_inputs_after_merge=delete_inputs_after_merge,
+    )
 
 
 def _write_merged_collect_summary(
@@ -708,68 +734,17 @@ def _build_train_command(
     warm_start_value: Path | None,
     warm_start_opponent: Path | None,
 ) -> List[str]:
-    command = [
-        str(python_bin),
-        "-m",
-        "scripts.train_td",
-        "--value-replay",
-        str(value_replay),
-        "--opponent-replay",
-        str(opponent_replay),
-        "--steps",
-        str(args.train_steps),
-        "--value-batch-size",
-        str(args.train_value_batch_size),
-        "--opponent-batch-size",
-        str(args.train_opponent_batch_size),
-        "--seed",
-        str(args.train_seed),
-        "--hidden-dim",
-        str(args.train_hidden_dim),
-        "--gamma",
-        str(args.train_gamma),
-        "--value-learning-rate",
-        str(args.train_value_learning_rate),
-        "--value-weight-decay",
-        str(args.train_value_weight_decay),
-        "--opponent-learning-rate",
-        str(args.train_opponent_learning_rate),
-        "--opponent-weight-decay",
-        str(args.train_opponent_weight_decay),
-        "--max-grad-norm",
-        str(args.train_max_grad_norm),
-        "--target-sync-interval",
-        str(args.train_target_sync_interval),
-        "--value-target-mode",
-        args.train_value_target_mode,
-        "--td-lambda",
-        str(args.train_td_lambda),
-        "--save-every-steps",
-        str(args.train_save_every_steps),
-        "--progress-every-steps",
-        str(args.train_progress_every_steps),
-        "--out-dir",
-        str(train_checkpoint_root),
-        "--run-label",
-        run_id,
-        "--summary-out",
-        str(train_summary_path),
-    ]
-    if args.train_num_threads is not None:
-        command.extend(["--num-threads", str(args.train_num_threads)])
-    if args.train_num_interop_threads is not None:
-        command.extend(["--num-interop-threads", str(args.train_num_interop_threads)])
-    if args.train_use_mse_loss:
-        command.append("--use-mse-loss")
-    if args.train_disable_value:
-        command.append("--disable-value")
-    if args.train_disable_opponent:
-        command.append("--disable-opponent")
-    if warm_start_value is not None:
-        command.extend(["--warm-start-value-checkpoint", str(warm_start_value)])
-    if warm_start_opponent is not None:
-        command.extend(["--warm-start-opponent-checkpoint", str(warm_start_opponent)])
-    return command
+    return build_train_command_common(
+        python_bin=python_bin,
+        args=args,
+        value_replay=value_replay,
+        opponent_replay=opponent_replay,
+        train_summary_path=train_summary_path,
+        train_checkpoint_root=train_checkpoint_root,
+        run_id=run_id,
+        warm_start_value=warm_start_value,
+        warm_start_opponent=warm_start_opponent,
+    )
 
 
 def _build_eval_command(
@@ -850,34 +825,7 @@ def _build_eval_command(
 
 
 def _checkpoints_from_train_summary(payload: Dict[str, Any]) -> List[LoopCheckpoint]:
-    results = payload.get("results")
-    if not isinstance(results, dict):
-        raise SystemExit("Train summary is missing results payload.")
-    checkpoints = results.get("checkpoints")
-    if not isinstance(checkpoints, list):
-        raise SystemExit("Train summary is missing results.checkpoints list.")
-
-    out: List[LoopCheckpoint] = []
-    for entry in checkpoints:
-        if not isinstance(entry, dict):
-            raise SystemExit("Train summary checkpoint entry must be an object.")
-        step = entry.get("step")
-        if isinstance(step, bool) or not isinstance(step, int):
-            raise SystemExit(f"Train summary checkpoint has invalid step: {step!r}")
-        value_raw = entry.get("value")
-        opponent_raw = entry.get("opponent")
-        value_path = Path(str(value_raw)) if isinstance(value_raw, str) else None
-        opponent_path = Path(str(opponent_raw)) if isinstance(opponent_raw, str) else None
-        out.append(
-            LoopCheckpoint(
-                step=step,
-                value_path=value_path,
-                opponent_path=opponent_path,
-            )
-        )
-    if not out:
-        raise SystemExit("No checkpoints were emitted by training.")
-    return sorted(out, key=lambda checkpoint: checkpoint.step)
+    return checkpoints_from_train_summary_common(payload)
 
 
 def _select_latest_checkpoint(
@@ -885,20 +833,10 @@ def _select_latest_checkpoint(
     checkpoints: Sequence[LoopCheckpoint],
     candidate_policy: str,
 ) -> LoopCheckpoint:
-    if candidate_policy == "td-search":
-        eligible = [
-            checkpoint
-            for checkpoint in checkpoints
-            if checkpoint.value_path is not None and checkpoint.opponent_path is not None
-        ]
-    elif candidate_policy == "td-value":
-        eligible = [checkpoint for checkpoint in checkpoints if checkpoint.value_path is not None]
-    else:
-        raise SystemExit(f"Unsupported eval candidate policy: {candidate_policy!r}")
-
-    if not eligible:
-        raise SystemExit(f"No eligible checkpoints for candidate policy {candidate_policy}.")
-    return eligible[-1]
+    return select_latest_checkpoint_common(
+        checkpoints=checkpoints,
+        candidate_policy=candidate_policy,
+    )
 
 
 def _read_eval_row(*, path: Path, opponent_policy: str) -> EvalRow:
@@ -917,22 +855,73 @@ def _read_eval_row(*, path: Path, opponent_policy: str) -> EvalRow:
         opponent_wins=int(results["opponentWins"]),
         draws=int(results["draws"]),
         total_games=int(results["totalGames"]),
+        candidate_win_rate_as_player_a=float(results["candidateWinRateAsPlayerA"]),
+        candidate_win_rate_as_player_b=float(results["candidateWinRateAsPlayerB"]),
     )
 
 
-def _promotion_decision(*, eval_row: EvalRow, args: argparse.Namespace) -> Dict[str, Any]:
+def _pool_eval_rows(*, eval_rows: Sequence[EvalRow], opponent_policy: str) -> EvalRow:
+    if not eval_rows:
+        raise SystemExit("No eval rows to pool for promotion decision.")
+    total_games = sum(row.total_games for row in eval_rows)
+    if total_games <= 0:
+        raise SystemExit("Pooled eval total games must be > 0.")
+
+    candidate_wins = sum(row.candidate_wins for row in eval_rows)
+    opponent_wins = sum(row.opponent_wins for row in eval_rows)
+    draws = sum(row.draws for row in eval_rows)
+    candidate_win_rate = float(candidate_wins) / float(total_games)
+    ci_low, ci_high = _wilson_interval_95(successes=candidate_wins, trials=total_games)
+
+    weighted_rate_a = (
+        sum(row.candidate_win_rate_as_player_a * row.total_games for row in eval_rows)
+        / float(total_games)
+    )
+    weighted_rate_b = (
+        sum(row.candidate_win_rate_as_player_b * row.total_games for row in eval_rows)
+        / float(total_games)
+    )
+
+    return EvalRow(
+        artifact=Path("pooled"),
+        opponent_policy=opponent_policy,
+        candidate_win_rate=candidate_win_rate,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        side_gap=abs(weighted_rate_a - weighted_rate_b),
+        candidate_wins=candidate_wins,
+        opponent_wins=opponent_wins,
+        draws=draws,
+        total_games=total_games,
+        candidate_win_rate_as_player_a=weighted_rate_a,
+        candidate_win_rate_as_player_b=weighted_rate_b,
+    )
+
+
+def _promotion_decision(*, eval_row: EvalRow, eval_windows: Sequence[EvalRow], args: argparse.Namespace) -> Dict[str, Any]:
+    window_checks = [
+        {
+            "artifact": str(row.artifact),
+            "sideGap": row.side_gap,
+            "maxWindowSideGap": row.side_gap <= args.promotion_max_window_side_gap,
+        }
+        for row in eval_windows
+    ]
     checks = {
         "minWinRate": eval_row.candidate_win_rate >= args.promotion_min_win_rate,
         "maxSideGap": eval_row.side_gap <= args.promotion_max_side_gap,
         "minCiLow": eval_row.ci_low >= args.promotion_min_ci_low,
+        "maxWindowSideGap": all(window_check["maxWindowSideGap"] for window_check in window_checks),
     }
+    promoted = bool(all(checks.values()))
     return {
-        "promoted": bool(all(checks.values())),
+        "promoted": promoted,
         "checks": checks,
+        "windowChecks": window_checks,
         "reason": (
-            "single_eval_passed"
-            if all(checks.values())
-            else "single_eval_failed"
+            "pooled_eval_passed"
+            if promoted
+            else "pooled_eval_failed"
         ),
     }
 
@@ -989,7 +978,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "gamesPerSide": args.eval_games_per_side,
             "workers": args.eval_workers,
             "seedPrefix": args.eval_seed_prefix,
-            "seedStartIndex": args.eval_seed_start_index,
+            "seedStartIndices": list(args.eval_seed_start_indices),
             "progressEveryGames": args.eval_progress_every_games,
             "progressLogMinutes": args.eval_progress_log_minutes,
             "workerTorchThreads": args.eval_worker_torch_threads,
@@ -1010,6 +999,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
             "minWinRate": args.promotion_min_win_rate,
             "maxSideGap": args.promotion_max_side_gap,
             "minCiLow": args.promotion_min_ci_low,
+            "maxWindowSideGap": args.promotion_max_window_side_gap,
         },
     }
 
@@ -1043,8 +1033,10 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--eval-games-per-side must be > 0.")
     if args.eval_workers <= 0:
         raise SystemExit("--eval-workers must be > 0.")
-    if args.eval_seed_start_index < 0:
-        raise SystemExit("--eval-seed-start-index must be >= 0.")
+    if not args.eval_seed_start_indices:
+        raise SystemExit("--eval-seed-start-indices must contain at least one value.")
+    if any(seed < 0 for seed in args.eval_seed_start_indices):
+        raise SystemExit("--eval-seed-start-indices must be >= 0.")
     if args.eval_progress_every_games < 0:
         raise SystemExit("--eval-progress-every-games must be >= 0.")
     if args.eval_progress_log_minutes < 0.0:
@@ -1062,6 +1054,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--promotion-max-side-gap must be in [0, 1].")
     if args.promotion_min_ci_low < 0.0 or args.promotion_min_ci_low > 1.0:
         raise SystemExit("--promotion-min-ci-low must be in [0, 1].")
+    if args.promotion_max_window_side_gap < 0.0 or args.promotion_max_window_side_gap > 1.0:
+        raise SystemExit("--promotion-max-window-side-gap must be in [0, 1].")
 
     if args.progress_heartbeat_minutes < 0.0:
         raise SystemExit("--progress-heartbeat-minutes must be >= 0.")
@@ -1077,94 +1071,21 @@ def _run_step(
     heartbeat_minutes: float = 0.0,
     progress_path: Path | None = None,
 ) -> None:
-    print(f"[td-loop] step {name}: {_join_command(command)}")
-    started = time.perf_counter()
-    process = subprocess.Popen(command)
-
-    heartbeat_seconds = max(0.0, heartbeat_minutes * 60.0)
-    next_heartbeat = started + heartbeat_seconds if heartbeat_seconds > 0 else float("inf")
-
-    if progress_path is not None:
-        _write_progress(
-            progress_path,
-            {
-                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
-                "step": name,
-                "status": "running",
-                "elapsedMinutes": 0.0,
-            },
-        )
-
-    while True:
-        return_code = process.poll()
-        if return_code is not None:
-            break
-
-        now = time.perf_counter()
-        if now >= next_heartbeat:
-            elapsed_minutes = (now - started) / 60.0
-            print(f"[td-loop] heartbeat step={name} elapsedMin={elapsed_minutes:.1f}")
-            if progress_path is not None:
-                _write_progress(
-                    progress_path,
-                    {
-                        "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
-                        "step": name,
-                        "status": "running",
-                        "elapsedMinutes": round(elapsed_minutes, 3),
-                    },
-                )
-            next_heartbeat = now + heartbeat_seconds
-        time.sleep(2.0)
-
-    elapsed_minutes = (time.perf_counter() - started) / 60.0
-    if return_code != 0:
-        if progress_path is not None:
-            _write_progress(
-                progress_path,
-                {
-                    "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
-                    "step": name,
-                    "status": "failed",
-                    "elapsedMinutes": round(elapsed_minutes, 3),
-                    "returnCode": int(return_code),
-                },
-            )
-        raise SystemExit(
-            f"[td-loop] failed step={name} returnCode={return_code} elapsedMin={elapsed_minutes:.1f}"
-        )
-
-    if progress_path is not None:
-        _write_progress(
-            progress_path,
-            {
-                "updatedAtUtc": datetime.now(timezone.utc).isoformat(),
-                "step": name,
-                "status": "completed",
-                "elapsedMinutes": round(elapsed_minutes, 3),
-                "returnCode": int(return_code),
-            },
-        )
-    print(f"[td-loop] completed step={name} elapsedMin={elapsed_minutes:.1f}")
+    run_step_common(
+        name=name,
+        command=command,
+        heartbeat_minutes=heartbeat_minutes,
+        progress_path=progress_path,
+        log_prefix="[td-loop]",
+    )
 
 
 def _write_progress(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_name(f".{path.name}.tmp")
-    tmp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    tmp_path.replace(path)
+    write_progress_common(path, payload)
 
 
 def _read_json(path: Path, *, label: str) -> Dict[str, Any]:
-    if not path.exists():
-        raise SystemExit(f"Missing {label}: {path}")
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as error:
-        raise SystemExit(f"Invalid JSON in {label}: {path}") from error
-    if not isinstance(payload, dict):
-        raise SystemExit(f"{label} must be a JSON object: {path}")
-    return payload
+    return read_json_common(path, label=label)
 
 
 def _slug(value: str) -> str:
@@ -1173,12 +1094,30 @@ def _slug(value: str) -> str:
 
 
 def _join_command(parts: Sequence[str]) -> str:
-    return " ".join(shlex.quote(part) for part in parts)
+    return join_command_common(parts)
 
 
 def _recommended_cloud_worker_count(vcpus: int) -> int:
     # Keep workers moderate for eval inference to reduce oversubscription.
     return max(1, vcpus // 2)
+
+
+def _wilson_interval_95(*, successes: int, trials: int) -> tuple[float, float]:
+    if trials <= 0:
+        raise SystemExit("Wilson interval requires trials > 0.")
+    p_hat = float(successes) / float(trials)
+    z = 1.959963984540054
+    z2_over_n = (z * z) / float(trials)
+    denom = 1.0 + z2_over_n
+    center = (p_hat + (z * z) / (2.0 * float(trials))) / denom
+    margin = (
+        z
+        * sqrt((p_hat * (1.0 - p_hat) / float(trials)) + ((z * z) / (4.0 * float(trials) * float(trials))))
+        / denom
+    )
+    low = max(0.0, center - margin)
+    high = min(1.0, center + margin)
+    return low, high
 
 
 def _apply_cloud_profile(args: argparse.Namespace) -> None:
