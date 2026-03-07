@@ -1146,20 +1146,31 @@ function buildResourcePreviewByPlayer(
   return preview;
 }
 
-function buildTaxLossPreviewByPlayer(
-  state: GameState,
-  taxSuit: Suit,
-  lossesByPlayer: ReadonlyArray<{ playerId: PlayerId; count: number }>
-): Partial<Record<PlayerId, ResourcePool>> {
-  const preview = buildResourcePreviewByPlayer(state);
-  for (const loss of lossesByPlayer) {
-    const resources = preview[loss.playerId];
-    if (!resources || loss.count <= 0) {
-      continue;
-    }
-    resources[taxSuit] = Math.max(0, resources[taxSuit] - loss.count);
+function applySingleTaxLossToPreview(
+  preview: Partial<Record<PlayerId, ResourcePool>> | null,
+  token: { playerId: PlayerId; suit: Suit }
+): Partial<Record<PlayerId, ResourcePool>> | null {
+  if (!preview) {
+    return preview;
   }
-  return preview;
+
+  const resources = preview[token.playerId];
+  if (!resources) {
+    return preview;
+  }
+
+  const count = resources[token.suit];
+  if (count <= 0) {
+    return preview;
+  }
+
+  return {
+    ...preview,
+    [token.playerId]: {
+      ...resources,
+      [token.suit]: Math.max(0, count - 1),
+    },
+  };
 }
 
 function cardFlightSettleMs(flights: readonly CardFlight[]): number {
@@ -1751,17 +1762,38 @@ export function App() {
             setIncomeResourcePreviewByPlayer(buildResourcePreviewByPlayer(current));
             const visualPlan = turnCyclePlan.visualPlan;
             if (
+              visualPlan.taxFlightLaunchAtMs !== null
+              && visualPlan.taxFlightTokens.length > 0
+            ) {
+              for (const [index, token] of visualPlan.taxFlightTokens.entries()) {
+                const taxStepAtMs =
+                  visualPlan.taxFlightLaunchAtMs
+                  + index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS;
+                const taxTimerId = window.setTimeout(() => {
+                  setIncomeResourcePreviewByPlayer((existing) =>
+                    applySingleTaxLossToPreview(existing, token)
+                  );
+                }, Math.max(0, taxStepAtMs));
+                turnCycleVisualTimerRefs.current.push(taxTimerId);
+              }
+            } else if (
               visualPlan.taxResourcesApplyAtMs !== null
               && visualPlan.taxSuit
               && visualPlan.taxLossesByPlayer.length > 0
             ) {
-              const taxPreviewResources = buildTaxLossPreviewByPlayer(
-                current,
-                visualPlan.taxSuit,
-                visualPlan.taxLossesByPlayer
-              );
               const taxTimerId = window.setTimeout(() => {
-                setIncomeResourcePreviewByPlayer(taxPreviewResources);
+                setIncomeResourcePreviewByPlayer((existing) => {
+                  let preview = existing;
+                  for (const loss of visualPlan.taxLossesByPlayer) {
+                    for (let count = 0; count < loss.count; count += 1) {
+                      preview = applySingleTaxLossToPreview(preview, {
+                        playerId: loss.playerId,
+                        suit: visualPlan.taxSuit!,
+                      });
+                    }
+                  }
+                  return preview;
+                });
               }, Math.max(0, visualPlan.taxResourcesApplyAtMs));
               turnCycleVisualTimerRefs.current.push(taxTimerId);
             }
@@ -1942,17 +1974,38 @@ export function App() {
         setIncomeResourcePreviewByPlayer(buildResourcePreviewByPlayer(state));
         const visualPlan = turnCyclePlan.visualPlan;
         if (
+          visualPlan.taxFlightLaunchAtMs !== null
+          && visualPlan.taxFlightTokens.length > 0
+        ) {
+          for (const [index, token] of visualPlan.taxFlightTokens.entries()) {
+            const taxStepAtMs =
+              visualPlan.taxFlightLaunchAtMs
+              + index * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS;
+            const taxTimerId = window.setTimeout(() => {
+              setIncomeResourcePreviewByPlayer((existing) =>
+                applySingleTaxLossToPreview(existing, token)
+              );
+            }, Math.max(0, taxStepAtMs));
+            turnCycleVisualTimerRefs.current.push(taxTimerId);
+          }
+        } else if (
           visualPlan.taxResourcesApplyAtMs !== null
           && visualPlan.taxSuit
           && visualPlan.taxLossesByPlayer.length > 0
         ) {
-          const taxPreviewResources = buildTaxLossPreviewByPlayer(
-            state,
-            visualPlan.taxSuit,
-            visualPlan.taxLossesByPlayer
-          );
           const taxTimerId = window.setTimeout(() => {
-            setIncomeResourcePreviewByPlayer(taxPreviewResources);
+            setIncomeResourcePreviewByPlayer((existing) => {
+              let preview = existing;
+              for (const loss of visualPlan.taxLossesByPlayer) {
+                for (let count = 0; count < loss.count; count += 1) {
+                  preview = applySingleTaxLossToPreview(preview, {
+                    playerId: loss.playerId,
+                    suit: visualPlan.taxSuit!,
+                  });
+                }
+              }
+              return preview;
+            });
           }, Math.max(0, visualPlan.taxResourcesApplyAtMs));
           turnCycleVisualTimerRefs.current.push(taxTimerId);
         }
