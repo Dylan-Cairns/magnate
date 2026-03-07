@@ -546,6 +546,19 @@
   box-shadow: none;
 }
 
+.turn-cycle-inline-die {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.turn-cycle-inline-dice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.14em;
+}
+
 .turn-cycle-income-rank {
   color: var(--ink);
   font-size: 2rem;

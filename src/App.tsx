@@ -57,6 +57,8 @@ import {
   preloadStartupAssets,
   type StartupPreloadProgress,
 } from './ui/startupPreload';
+import cubeDieIcon from './assets/icons/cube.png';
+import dodecahedronDieIcon from './assets/icons/dodecahedron.png';
 import { CardTile, type CardPerspective } from './ui/components/CardTile';
 import {
   clearAllDeedTokenLayouts,
@@ -3041,6 +3043,12 @@ export function App() {
           <section className="turn-cycle-banner">
             {turnCycleOverlay.kind === 'tax' ? (
               <>
+                <img
+                  src={cubeDieIcon}
+                  alt=""
+                  aria-hidden="true"
+                  className="turn-cycle-inline-die"
+                />
                 <span className="turn-cycle-label">Taxes:</span>
                 <TokenChip
                   suit={turnCycleOverlay.suit}
@@ -3051,6 +3059,18 @@ export function App() {
               </>
             ) : (
               <>
+                <span className="turn-cycle-inline-dice" aria-hidden="true">
+                  <img
+                    src={dodecahedronDieIcon}
+                    alt=""
+                    className="turn-cycle-inline-die"
+                  />
+                  <img
+                    src={dodecahedronDieIcon}
+                    alt=""
+                    className="turn-cycle-inline-die"
+                  />
+                </span>
                 <span className="turn-cycle-label">Income:</span>
                 <strong className="turn-cycle-income-rank">
                   {turnCycleOverlay.rank}
