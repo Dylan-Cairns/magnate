@@ -85,7 +85,7 @@ import {
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
-const BOT_DELAY_MS = 450;
+const DEFAULT_BOT_DELAY_MS = 450;
 const PLAYER_HAND_SLOT_COUNT = 3;
 const TRADE_POPOVER_WIDTH_PX = 220;
 const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
@@ -1542,6 +1542,8 @@ export function App() {
 
     let cancelled = false;
     setBotThinking(true);
+    const botTurnDelayMs =
+      resolvedBotProfile.selected.turnDelayMs ?? DEFAULT_BOT_DELAY_MS;
     const timerId = window.setTimeout(() => {
       void (async () => {
         const current = stateRef.current;
@@ -1630,7 +1632,7 @@ export function App() {
           setBotThinking(false);
         }
       })();
-    }, BOT_DELAY_MS);
+    }, botTurnDelayMs);
 
     return () => {
       cancelled = true;
