@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from math import sqrt
@@ -72,6 +73,12 @@ def parse_args() -> argparse.Namespace:
     # Shorter cadence than bootstrap loop.
     parser.add_argument("--chunks-per-loop", type=int, default=6)
     parser.add_argument("--collect-games", type=int, default=600)
+    parser.add_argument(
+        "--collect-workers",
+        type=int,
+        default=1,
+        help="Parallel collection shards per profile. 1 disables sharding.",
+    )
     parser.add_argument("--collect-seed-prefix", type=str, default="td-loop-collect-selfplay")
     parser.add_argument("--collect-progress-every-games", type=int, default=50)
     parser.add_argument("--collect-search-worlds", type=int, default=6)
@@ -559,45 +566,19 @@ def _run_collect_profiles(
     rows: List[Dict[str, Any]] = []
 
     for profile in profiles:
-        profile_id = profile.label
-        value_out = shards_dir / f"{profile_id}.value.jsonl"
-        opponent_out = shards_dir / f"{profile_id}.opponent.jsonl"
-        summary_out = shards_dir / f"{profile_id}.summary.json"
-
-        command = _build_collect_command(
+        row = _run_collect_profile(
             python_bin=python_bin,
             args=args,
             profile=profile,
-            seed_prefix=_collect_profile_seed_prefix(
-                collect_seed_prefix=args.collect_seed_prefix,
-                run_id=run_id,
-                profile_label=profile_id,
-            ),
-            run_label=f"{run_id}-{profile_id}",
-            value_out=value_out,
-            opponent_out=opponent_out,
-            summary_out=summary_out,
-        )
-        run_step(
-            name=f"collect[{run_id} {profile_id}]",
-            command=command,
+            run_id=run_id,
+            out_dir=shards_dir,
             heartbeat_minutes=heartbeat_minutes,
             progress_path=progress_path,
-            log_prefix="[td-loop-selfplay]",
         )
-        value_paths.append(value_out)
-        opponent_paths.append(opponent_out)
-        summary_paths.append(summary_out)
-        rows.append(
-            {
-                "profile": profile.label,
-                "games": profile.games,
-                "command": command,
-                "value": str(value_out),
-                "opponent": str(opponent_out),
-                "summary": str(summary_out),
-            }
-        )
+        value_paths.append(Path(row["value"]))
+        opponent_paths.append(Path(row["opponent"]))
+        summary_paths.append(Path(row["summary"]))
+        rows.append(row)
 
     concat_jsonl_files(
         inputs=value_paths,
@@ -620,11 +601,155 @@ def _run_collect_profiles(
     return rows
 
 
+def _run_collect_profile(
+    *,
+    python_bin: Path,
+    args: argparse.Namespace,
+    profile: CollectProfile,
+    run_id: str,
+    out_dir: Path,
+    heartbeat_minutes: float,
+    progress_path: Path,
+) -> Dict[str, Any]:
+    profile_id = profile.label
+    seed_prefix = _collect_profile_seed_prefix(
+        collect_seed_prefix=args.collect_seed_prefix,
+        run_id=run_id,
+        profile_label=profile_id,
+    )
+    run_label = f"{run_id}-{profile_id}"
+    value_out = out_dir / f"{profile_id}.value.jsonl"
+    opponent_out = out_dir / f"{profile_id}.opponent.jsonl"
+    summary_out = out_dir / f"{profile_id}.summary.json"
+
+    worker_count = min(args.collect_workers, profile.games)
+    if worker_count <= 1:
+        command = _build_collect_command(
+            python_bin=python_bin,
+            args=args,
+            profile=profile,
+            seed_prefix=seed_prefix,
+            run_label=run_label,
+            value_out=value_out,
+            opponent_out=opponent_out,
+            summary_out=summary_out,
+        )
+        run_step(
+            name=f"collect[{run_id} {profile_id}]",
+            command=command,
+            heartbeat_minutes=heartbeat_minutes,
+            progress_path=progress_path,
+            log_prefix="[td-loop-selfplay]",
+        )
+        return {
+            "profile": profile.label,
+            "games": profile.games,
+            "mode": "single",
+            "command": command,
+            "value": str(value_out),
+            "opponent": str(opponent_out),
+            "summary": str(summary_out),
+        }
+
+    shard_sizes = _split_count(profile.games, worker_count)
+    shard_dir = out_dir / f"{profile_id}.shards"
+    shard_dir.mkdir(parents=True, exist_ok=True)
+    shard_value_paths: List[Path] = []
+    shard_opponent_paths: List[Path] = []
+    shard_summary_paths: List[Path] = []
+    shard_commands: List[List[str]] = []
+    shard_rows: List[Dict[str, Any]] = []
+    for shard_index, shard_games in enumerate(shard_sizes):
+        shard_id = f"s{shard_index + 1:02d}"
+        shard_value = shard_dir / f"{shard_id}.value.jsonl"
+        shard_opponent = shard_dir / f"{shard_id}.opponent.jsonl"
+        shard_summary = shard_dir / f"{shard_id}.summary.json"
+        shard_command = _build_collect_command(
+            python_bin=python_bin,
+            args=args,
+            profile=profile,
+            games=shard_games,
+            seed_prefix=f"{seed_prefix}-{shard_id}",
+            run_label=f"{run_label}-{shard_id}",
+            value_out=shard_value,
+            opponent_out=shard_opponent,
+            summary_out=shard_summary,
+        )
+        shard_commands.append(shard_command)
+        shard_value_paths.append(shard_value)
+        shard_opponent_paths.append(shard_opponent)
+        shard_summary_paths.append(shard_summary)
+        shard_rows.append(
+            {
+                "games": shard_games,
+                "value": str(shard_value),
+                "opponent": str(shard_opponent),
+                "summary": str(shard_summary),
+            }
+        )
+
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        futures = {
+            executor.submit(
+                run_step,
+                name=f"collect[{run_id} {profile_id} {index + 1}/{worker_count}]",
+                command=command,
+                heartbeat_minutes=heartbeat_minutes,
+                progress_path=None,
+                log_prefix="[td-loop-selfplay]",
+            ): index
+            for index, command in enumerate(shard_commands)
+        }
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as exc:
+                for pending in futures:
+                    if pending is not future:
+                        pending.cancel()
+                raise SystemExit(
+                    f"[td-loop-selfplay] failed collect profile shard: "
+                    f"profile={profile_id} shard={futures[future] + 1} error={exc}"
+                ) from exc
+
+    concat_jsonl_files(
+        inputs=shard_value_paths,
+        output=value_out,
+        delete_inputs_after_merge=True,
+    )
+    concat_jsonl_files(
+        inputs=shard_opponent_paths,
+        output=opponent_out,
+        delete_inputs_after_merge=True,
+    )
+    _write_merged_collect_summary(
+        summary_paths=shard_summary_paths,
+        out_path=summary_out,
+        value_path=value_out,
+        opponent_path=opponent_out,
+        total_expected_games=profile.games,
+        profiles=[profile],
+    )
+
+    return {
+        "profile": profile.label,
+        "games": profile.games,
+        "mode": "sharded",
+        "workers": worker_count,
+        "commands": shard_commands,
+        "value": str(value_out),
+        "opponent": str(opponent_out),
+        "summary": str(summary_out),
+        "shards": shard_rows,
+    }
+
+
 def _build_collect_command(
     *,
     python_bin: Path,
     args: argparse.Namespace,
     profile: CollectProfile,
+    games: int,
     seed_prefix: str,
     run_label: str,
     value_out: Path,
@@ -636,7 +761,7 @@ def _build_collect_command(
         "-m",
         "scripts.collect_td_self_play",
         "--games",
-        str(profile.games),
+        str(games),
         "--seed-prefix",
         seed_prefix,
         "--player-a-policy",
@@ -695,6 +820,12 @@ def _collect_profile_seed_prefix(
     *, collect_seed_prefix: str, run_id: str, profile_label: str
 ) -> str:
     return f"{collect_seed_prefix}-{run_id}-{profile_label}"
+
+
+def _split_count(total: int, workers: int) -> List[int]:
+    base = total // workers
+    remainder = total % workers
+    return [base + (1 if index < remainder else 0) for index in range(workers)]
 
 
 def _write_merged_collect_summary(
@@ -1161,6 +1292,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
         "progressHeartbeatMinutes": args.progress_heartbeat_minutes,
         "collect": {
             "gamesPerChunk": args.collect_games,
+            "workers": args.collect_workers,
             "seedPrefix": args.collect_seed_prefix,
             "selfplayShare": args.collect_selfplay_share,
             "poolShare": args.collect_pool_share,
@@ -1237,6 +1369,7 @@ def _recommended_cloud_worker_count(vcpus: int) -> int:
 
 def _apply_cloud_profile(args: argparse.Namespace) -> None:
     workers = _recommended_cloud_worker_count(args.cloud_vcpus)
+    args.collect_workers = workers
     args.eval_workers = workers
     if args.incumbent_eval_workers is None:
         args.incumbent_eval_workers = workers
@@ -1260,6 +1393,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--chunks-per-loop must be > 0.")
     if args.collect_games <= 0:
         raise SystemExit("--collect-games must be > 0.")
+    if args.collect_workers <= 0:
+        raise SystemExit("--collect-workers must be > 0.")
     if args.train_steps <= 0:
         raise SystemExit("--train-steps must be > 0.")
     if args.train_num_threads is not None and args.train_num_threads <= 0:
