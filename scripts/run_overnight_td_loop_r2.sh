@@ -1,10 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+log_dir="artifacts/logs"
+mkdir -p "$log_dir"
+run_stamp="$(date -u +%Y%m%d-%H%M%SZ)"
+log_path="$log_dir/${run_stamp}-run_overnight_td_loop_r2.log"
+status_path="${log_path%.log}.status"
+
+exec > >(tee -a "$log_path") 2>&1
+
 cleanup() {
-  runpodctl remove pod "$RUNPOD_POD_ID"
+  local exit_code=$?
+  local ended_at
+  ended_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  {
+    echo "endedAtUtc=${ended_at}"
+    echo "exitCode=${exit_code}"
+    echo "logPath=${log_path}"
+  } >"$status_path"
+
+  echo "[overnight] endedAtUtc=${ended_at} exitCode=${exit_code}"
+  echo "[overnight] statusPath=${status_path}"
+  echo "[overnight] disk snapshot:"
+  df -h /workspace || true
+
+  if [[ -n "${RUNPOD_POD_ID:-}" ]]; then
+    echo "[overnight] removing pod ${RUNPOD_POD_ID}"
+    runpodctl remove pod "$RUNPOD_POD_ID" || true
+  else
+    echo "[overnight] RUNPOD_POD_ID is not set; skipping pod removal."
+  fi
 }
 trap cleanup EXIT
+
+echo "[overnight] startedAtUtc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "[overnight] logPath=${log_path}"
+echo "[overnight] statusPath=${status_path}"
 
 latest_promoted_paths="$(
 python - <<'PY'

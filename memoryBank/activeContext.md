@@ -24,7 +24,10 @@
   - training: `scripts.train_td`
   - loop orchestration: `scripts.run_td_loop`
 - `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), explicit promotion thresholds, and pooled multi-window promotion evals (`--eval-seed-start-indices`).
+- Added `scripts.run_td_loop_selfplay` as a separate post-bootstrap loop: shorter collect/train cadence, td-search-heavy mixed collection, promoted opponent-pool sampling, and dual promotion gates (baseline vs `search` plus candidate vs incumbent `td-search`).
 - Overnight runner auto-resolves warm start from latest promoted loop summary (`scripts/run_overnight_td_loop_r2.sh`).
+- Overnight runner now persists full console logs and exit status under `artifacts/logs/` before pod teardown.
+- Added one-off interrupted-run recovery helper: `scripts/resume_td_loop_run.py` (resume from chunk-003 train, then promotion eval + loop summary); now supports cloud/thread scaling overrides (`--cloud --cloud-vcpus 8|16|32`, `--train-num-threads`, `--train-num-interop-threads`).
 
 ## Remaining
 
