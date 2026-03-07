@@ -78,9 +78,9 @@ Design expectations:
   - Phase 1 landed shared primitives (`trainer/td`).
   - Phase 2 landed orchestrated self-play/replay/train/eval loops.
   - Phase 3 landed initial `td-search` policy path (search + TD leaf + optional opponent rollout model).
-- Current active loop is chunked offline replay generation + checkpointed training, followed by two fixed-size certify windows with pooled promotion checks.
-- Replay regime in loop orchestration is currently explicit `chunk-local`.
-- Added a separate self-play loop path (`scripts.run_td_loop_selfplay`) that keeps strict certify gating while shifting collection to td-search-heavy mixed opponents and incumbent head-to-head promotion checks.
+- Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation + checkpointed training, followed by two fixed-size certify windows with pooled promotion checks.
+- Current forward loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection to td-search-heavy mixed opponents and incumbent head-to-head promotion checks.
+- Replay regime in loop orchestration is explicit `chunk-local` (bootstrap) and `chunk-local-selfplay-mixed` (self-play loop).
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
   - loop default: `--mode certify` for fixed-size side-swapped promotion evals
   - `--mode gate` remains optional/manual, not part of default loop orchestration
