@@ -3402,6 +3402,10 @@ function groupLogEntriesByTurn(
       continue;
     }
     current.entries.push(entry);
+    // `entries` are already reverse-chronological; keep header player aligned
+    // to the oldest entry in the turn (turn-owner context) instead of the
+    // newest cross-player income-choice action.
+    current.player = entry.player;
   }
 
   return groups;
