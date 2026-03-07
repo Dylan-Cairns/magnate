@@ -1086,18 +1086,13 @@ function resourceFlightSettleMs(flights: readonly ResourceFlight[]): number {
   return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
 }
 
-function hasPendingIncomeChoices(state: GameState): boolean {
-  return (state.pendingIncomeChoices?.length ?? 0) > 0;
-}
-
 function shouldCommitBeforeAnimationSettle(
-  action: GameAction,
-  nextState: GameState
+  action: GameAction
 ): boolean {
   return (
     action.type === 'sell-card'
+    || action.type === 'end-turn'
     || action.type === 'choose-income-suit'
-    || (action.type === 'end-turn' && hasPendingIncomeChoices(nextState))
   );
 }
 
@@ -1696,18 +1691,12 @@ export function App() {
             cardFlightSettleMs(queuedCardFlights)
           );
           const queuedResourceFlights = [...queuedActionResourceFlights];
-          const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(
-            choice,
-            next
-          );
+          const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(choice);
           const allowHumanActionsDuringSettle =
             shouldAllowHumanActionsDuringAnimationSettle(choice);
           scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
-          if (
-            choice.type === 'end-turn'
-            && !shouldCommitBeforeSettle
-            && turnCyclePlan
-          ) {
+          if (choice.type === 'end-turn' && turnCyclePlan) {
+            setIncomeResourcePreviewByPlayer(buildResourcePreviewByPlayer(current));
             const visualPlan = turnCyclePlan.visualPlan;
             if (
               visualPlan.taxResourcesApplyAtMs !== null
@@ -1893,18 +1882,12 @@ export function App() {
         cardFlightSettleMs(queuedCardFlights)
       );
       const queuedResourceFlights = [...queuedActionResourceFlights];
-      const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(
-        action,
-        next
-      );
+      const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(action);
       const allowHumanActionsDuringSettle =
         shouldAllowHumanActionsDuringAnimationSettle(action);
       scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
-      if (
-        action.type === 'end-turn'
-        && !shouldCommitBeforeSettle
-        && turnCyclePlan
-      ) {
+      if (action.type === 'end-turn' && turnCyclePlan) {
+        setIncomeResourcePreviewByPlayer(buildResourcePreviewByPlayer(state));
         const visualPlan = turnCyclePlan.visualPlan;
         if (
           visualPlan.taxResourcesApplyAtMs !== null
