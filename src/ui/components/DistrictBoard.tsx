@@ -45,11 +45,13 @@ function DistrictLane({
   stack,
   botPlayerId,
   animateDeedProgress = true,
+  highlightedIncomeCardIds,
 }: {
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
+  highlightedIncomeCardIds?: ReadonlySet<CardId>;
 }) {
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
@@ -61,9 +63,11 @@ function DistrictLane({
     deedProgress?: number;
     deedTarget?: number;
     inDevelopment?: boolean;
+    incomeHighlighted?: boolean;
   }> = stack.developed.map((cardId, index) => ({
     key: `developed-${cardId}-${index}`,
     cardId,
+    incomeHighlighted: highlightedIncomeCardIds?.has(cardId) ?? false,
   }));
 
   if (stack.deed) {
@@ -74,6 +78,7 @@ function DistrictLane({
       deedProgress: stack.deed.progress,
       deedTarget,
       inDevelopment: true,
+      incomeHighlighted: highlightedIncomeCardIds?.has(stack.deed.cardId) ?? false,
     });
   }
 
@@ -108,6 +113,7 @@ function DistrictLane({
                   inDevelopment={laneCard.inDevelopment}
                   perspective={perspective}
                   animateDeedProgress={animateDeedProgress}
+                  incomeHighlighted={laneCard.incomeHighlighted}
                 />
               </div>
             ))}
@@ -123,11 +129,13 @@ export function DistrictColumn({
   humanPlayerId,
   botPlayerId,
   animateDeedProgress = true,
+  highlightedIncomeCardIds,
 }: {
   district: DistrictState;
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
+  highlightedIncomeCardIds?: ReadonlySet<CardId>;
 }) {
   const markerName = districtMarkerName(district.markerSuitMask);
   const botDistrictScore = districtScore(district.stacks[botPlayerId]);
@@ -142,6 +150,7 @@ export function DistrictColumn({
         stack={district.stacks[botPlayerId]}
         botPlayerId={botPlayerId}
         animateDeedProgress={animateDeedProgress}
+        highlightedIncomeCardIds={highlightedIncomeCardIds}
       />
 
       <div className="district-header-wrap">
@@ -175,6 +184,7 @@ export function DistrictColumn({
         stack={district.stacks[humanPlayerId]}
         botPlayerId={botPlayerId}
         animateDeedProgress={animateDeedProgress}
+        highlightedIncomeCardIds={highlightedIncomeCardIds}
       />
     </article>
   );

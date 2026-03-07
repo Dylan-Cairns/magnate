@@ -74,6 +74,10 @@ import {
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
 import { transitionLogEntries } from './ui/logTimeline';
 import {
+  deriveTurnCycleEvents,
+  type TurnCycleIncomeToken,
+} from './ui/turnCycleEvents';
+import {
   SUIT_TEXT_TOKEN,
   SUIT_TOKEN_REGEX,
   SUIT_TOKEN_TO_SUIT,
@@ -94,6 +98,14 @@ const CARD_DRAW_FLIGHT_DELAY_MS = CARD_FLIGHT_DURATION_MS;
 const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
 const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
+const TURN_CYCLE_TEXT_ONLY_MS = 2000;
+const TURN_CYCLE_INCOME_PRE_FLIGHT_MS = 3000;
+const TURN_CYCLE_STAGE_GAP_MS = 220;
+const TURN_CYCLE_TAX_PULSE_MS = 700;
+const TURN_CYCLE_TAX_FLIGHT_DURATION_MS = 900;
+const TURN_CYCLE_INCOME_FLIGHT_DURATION_MS = 560;
+const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
+const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 const SUIT_LOG_CODE: Record<Suit, string> = {
   Moons: 'mo',
@@ -143,6 +155,8 @@ type ResourceFlight = {
   endX: number;
   endY: number;
   delayMs: number;
+  durationMs?: number;
+  variant?: 'transfer' | 'tax-loss';
 };
 
 type PendingResourceFlight = {
@@ -153,10 +167,45 @@ type PendingResourceFlight = {
   endX: number;
   endY: number;
   delayMs: number;
+  durationMs?: number;
+  variant?: 'transfer' | 'tax-loss';
+};
+
+type TurnCycleOverlayState =
+  | {
+      kind: 'tax';
+      suit: Suit;
+    }
+  | {
+      kind: 'income';
+      rank: number;
+    };
+
+type TurnCycleVisualPlan = {
+  taxLabelAtMs: number | null;
+  taxLabelHideAtMs: number | null;
+  taxPulseStartAtMs: number | null;
+  taxPulseEndAtMs: number | null;
+  taxFlightLaunchAtMs: number | null;
+  taxPulseTargets: ReadonlyArray<{
+    playerId: PlayerId;
+    suit: Suit;
+  }>;
+  incomeLabelAtMs: number;
+  incomeLabelHideAtMs: number;
+  incomeFlightLaunchAtMs: number;
+  incomeFlightTokens: ReadonlyArray<TurnCycleIncomeToken>;
+  incomeHighlightStartAtMs: number;
+  incomeHighlightEndAtMs: number;
+  hideAllAtMs: number;
+  taxSuit: Suit | null;
+  incomeRank: number;
+  highlightCardIds: ReadonlyArray<CardId>;
 };
 
 type CardFlight = {
   id: string;
+  variant: 'play' | 'draw';
   visual: 'face' | 'back';
   cardId?: CardId;
   isDeed: boolean;
@@ -258,6 +307,10 @@ function elementCenter(element: Element): { x: number; y: number } {
   };
 }
 
+function tokenVisualCenter(element: HTMLElement): { x: number; y: number } {
+  return elementCenter(element);
+}
+
 function parsePixelValue(value: string, fallback: number): number {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -281,6 +334,225 @@ function deedTokenCenterInRail(
     x: railCenter.x,
     y: railCenter.y + firstTokenCenterOffset + index * (tokenSizePx + gapPx),
   };
+}
+
+function tokenElementInRail(
+  playerId: PlayerId,
+  rowClassName: 'rail-resources-row' | 'crowns-rail-row',
+  suit: Suit
+): HTMLElement | null {
+  const escapedPlayerId = cssEscapeValue(playerId);
+  const escapedSuit = cssEscapeValue(suit);
+  return document.querySelector<HTMLElement>(
+    `[data-token-rail-player-id="${escapedPlayerId}"] .${rowClassName} .token-chip[data-token-suit="${escapedSuit}"]`
+  );
+}
+
+function resourceTokenElementForPlayer(
+  playerId: PlayerId,
+  suit: Suit
+): HTMLElement | null {
+  return tokenElementInRail(playerId, 'rail-resources-row', suit);
+}
+
+function crownTokenElementForPlayer(
+  playerId: PlayerId,
+  suit: Suit
+): HTMLElement | null {
+  return tokenElementInRail(playerId, 'crowns-rail-row', suit);
+}
+
+function districtCardElementForPlayer(
+  playerId: PlayerId,
+  districtId: string,
+  cardId: CardId
+): HTMLElement | null {
+  const escapedPlayerId = cssEscapeValue(playerId);
+  const escapedDistrictId = cssEscapeValue(districtId);
+  const escapedCardId = cssEscapeValue(cardId);
+  return document.querySelector<HTMLElement>(
+    `.district-column[data-district-id="${escapedDistrictId}"] .district-lane[data-lane-player-id="${escapedPlayerId}"] .card-tile[data-card-id="${escapedCardId}"]`
+  );
+}
+
+function collectTurnCycleAnimationPlan(
+  previousState: GameState,
+  nextState: GameState,
+  action: GameAction,
+  baseDelayMs: number
+): {
+  visualPlan: TurnCycleVisualPlan;
+  totalDurationMs: number;
+} | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const cycle = deriveTurnCycleEvents(previousState, nextState, action);
+  if (!cycle) {
+    return null;
+  }
+
+  let cursorMs = baseDelayMs;
+
+  let taxLabelAtMs: number | null = null;
+  let taxLabelHideAtMs: number | null = null;
+  let taxPulseStartAtMs: number | null = null;
+  let taxPulseEndAtMs: number | null = null;
+  let taxFlightLaunchAtMs: number | null = null;
+  const taxPulseTargets: Array<{ playerId: PlayerId; suit: Suit }> = [];
+  let taxSuit: Suit | null = null;
+  if (cycle.tax) {
+    taxLabelAtMs = cursorMs;
+    taxLabelHideAtMs = cursorMs + TURN_CYCLE_TEXT_ONLY_MS;
+    taxSuit = cycle.tax.suit;
+    const taxedPlayers = cycle.tax.lossesByPlayer.filter((entry) => entry.count > 0);
+    if (taxedPlayers.length > 0) {
+      taxPulseStartAtMs = taxLabelHideAtMs;
+      taxPulseEndAtMs = taxPulseStartAtMs + TURN_CYCLE_TAX_PULSE_MS;
+      taxPulseTargets.push(
+        ...taxedPlayers.map((entry) => ({
+          playerId: entry.playerId,
+          suit: cycle.tax!.suit,
+        }))
+      );
+    }
+    const taxAnimationStartMs =
+      (taxPulseEndAtMs !== null ? taxPulseEndAtMs + 120 : taxLabelHideAtMs);
+    taxFlightLaunchAtMs = taxedPlayers.length > 0 ? taxAnimationStartMs : null;
+    const taxAnimationEndMs =
+      taxedPlayers.length > 0
+        ? taxAnimationStartMs
+          + ((taxedPlayers.length - 1) * RESOURCE_FLIGHT_STAGGER_MS)
+          + TURN_CYCLE_TAX_FLIGHT_DURATION_MS
+        : taxAnimationStartMs;
+    cursorMs = taxAnimationEndMs + TURN_CYCLE_STAGE_GAP_MS;
+  }
+
+  const incomeLabelAtMs = cursorMs;
+  const incomeLabelHideAtMs = incomeLabelAtMs + TURN_CYCLE_INCOME_PRE_FLIGHT_MS;
+  const incomeAnimationStartMs = incomeLabelHideAtMs;
+  const incomeAnimationEndMs =
+    cycle.incomeTokens.length > 0
+      ? incomeAnimationStartMs
+        + ((cycle.incomeTokens.length - 1) * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS)
+        + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
+      : incomeAnimationStartMs;
+
+  const highlightCardIds = [...new Set(cycle.incomeHighlights.map((entry) => entry.cardId))];
+  const incomeHighlightStartAtMs = incomeLabelAtMs;
+  const minimumHighlightDurationMs =
+    highlightCardIds.length > 0
+      ? TURN_CYCLE_INCOME_PRE_FLIGHT_MS + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS
+      : 0;
+  const incomeHighlightEndAtMs = Math.max(
+    incomeHighlightStartAtMs + minimumHighlightDurationMs,
+    incomeAnimationEndMs
+  );
+
+  const hideAllAtMs =
+    Math.max(incomeHighlightEndAtMs, incomeAnimationEndMs) + TURN_CYCLE_POST_INCOME_HOLD_MS;
+
+  return {
+    visualPlan: {
+      taxLabelAtMs,
+      taxLabelHideAtMs,
+      taxPulseStartAtMs,
+      taxPulseEndAtMs,
+      taxFlightLaunchAtMs,
+      taxPulseTargets,
+      incomeLabelAtMs,
+      incomeLabelHideAtMs,
+      incomeFlightLaunchAtMs: incomeAnimationStartMs,
+      incomeFlightTokens: cycle.incomeTokens,
+      incomeHighlightStartAtMs,
+      incomeHighlightEndAtMs,
+      hideAllAtMs,
+      taxSuit,
+      incomeRank: cycle.incomeRank,
+      highlightCardIds,
+    },
+    totalDurationMs: hideAllAtMs + ACTION_FLIGHT_COMMIT_BUFFER_MS,
+  };
+}
+
+function buildTaxLossFlightsFromDom(
+  targets: ReadonlyArray<{
+    playerId: PlayerId;
+    suit: Suit;
+  }>,
+  makeFlightId: () => string
+): ResourceFlight[] {
+  if (typeof document === 'undefined' || targets.length === 0) {
+    return [];
+  }
+
+  const viewportCenterY = window.innerHeight / 2;
+  const flights: ResourceFlight[] = [];
+  for (const [index, target] of targets.entries()) {
+    const sourceElement = resourceTokenElementForPlayer(target.playerId, target.suit);
+    if (!sourceElement) {
+      continue;
+    }
+    const source = tokenVisualCenter(sourceElement);
+    flights.push({
+      id: makeFlightId(),
+      suit: target.suit,
+      startX: source.x,
+      startY: source.y,
+      endX: source.x,
+      endY: viewportCenterY,
+      delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
+      durationMs: TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
+      variant: 'tax-loss',
+    });
+  }
+
+  return flights;
+}
+
+function buildIncomeFlightsFromDom(
+  tokens: ReadonlyArray<TurnCycleIncomeToken>,
+  makeFlightId: () => string
+): ResourceFlight[] {
+  if (typeof document === 'undefined' || tokens.length === 0) {
+    return [];
+  }
+
+  const flights: ResourceFlight[] = [];
+  for (const [index, token] of tokens.entries()) {
+    const sourceElement =
+      token.source.kind === 'district-card'
+        ? districtCardElementForPlayer(
+            token.playerId,
+            token.source.districtId,
+            token.source.cardId
+          )
+        : crownTokenElementForPlayer(token.playerId, token.suit);
+    const targetElement = resourceTokenElementForPlayer(token.playerId, token.suit);
+    if (!sourceElement || !targetElement) {
+      continue;
+    }
+
+    const source =
+      token.source.kind === 'district-card'
+        ? elementCenter(sourceElement)
+        : tokenVisualCenter(sourceElement);
+    const target = tokenVisualCenter(targetElement);
+    flights.push({
+      id: makeFlightId(),
+      suit: token.suit,
+      startX: source.x,
+      startY: source.y,
+      endX: target.x,
+      endY: target.y,
+      delayMs: index * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
+      durationMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
+      variant: 'transfer',
+    });
+  }
+
+  return flights;
 }
 
 function collectDeedResourceFlights(
@@ -366,7 +638,7 @@ function collectDeedResourceFlights(
     if (!sourceElement) {
       continue;
     }
-    sourceBySuit.set(suit, elementCenter(sourceElement));
+    sourceBySuit.set(suit, tokenVisualCenter(sourceElement));
     tokenSizeBySuit.set(
       suit,
       sourceElement.getBoundingClientRect().width || DEFAULT_TOKEN_CHIP_SIZE_PX
@@ -423,10 +695,49 @@ function collectDeedResourceFlights(
       endX: targetPoint.x,
       endY: targetPoint.y,
       delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
+      variant: 'transfer',
     });
   }
 
   return flights;
+}
+
+function collectIncomeChoiceResourceFlights(
+  action: GameAction,
+  makeFlightId: () => string
+): PendingResourceFlight[] {
+  if (action.type !== 'choose-income-suit') {
+    return [];
+  }
+  if (typeof document === 'undefined') {
+    return [];
+  }
+
+  const sourceElement = districtCardElementForPlayer(
+    action.playerId,
+    action.districtId,
+    action.cardId
+  );
+  const targetElement = resourceTokenElementForPlayer(action.playerId, action.suit);
+  if (!sourceElement || !targetElement) {
+    return [];
+  }
+
+  const source = elementCenter(sourceElement);
+  const target = tokenVisualCenter(targetElement);
+  return [
+    {
+      id: makeFlightId(),
+      suit: action.suit,
+      startX: source.x,
+      startY: source.y,
+      endX: target.x,
+      endY: target.y,
+      delayMs: 0,
+      durationMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
+      variant: 'transfer',
+    },
+  ];
 }
 
 function isLaneCardPlayAction(
@@ -560,6 +871,7 @@ function createCardFlight(
     isDeed?: boolean;
     perspective?: CardPerspective;
     delayMs?: number;
+    variant?: 'play' | 'draw';
   }
 ): CardFlight {
   const sourceRect = sourceElement.getBoundingClientRect();
@@ -568,6 +880,7 @@ function createCardFlight(
   const targetCenter = elementCenter(targetElement);
   return {
     id: makeFlightId(),
+    variant: options?.variant ?? 'play',
     visual,
     cardId: options?.cardId,
     isDeed: options?.isDeed ?? false,
@@ -596,12 +909,14 @@ function createCardFlightToPoint(
     delayMs?: number;
     endWidth?: number;
     endHeight?: number;
+    variant?: 'play' | 'draw';
   }
 ): CardFlight {
   const sourceRect = sourceElement.getBoundingClientRect();
   const sourceCenter = elementCenter(sourceElement);
   return {
     id: makeFlightId(),
+    variant: options?.variant ?? 'play',
     visual,
     cardId: options?.cardId,
     isDeed: options?.isDeed ?? false,
@@ -709,6 +1024,7 @@ function collectCardPlayFlights(
           createCardFlight(makeFlightId, sourceElement, targetElement, 'back', {
             delayMs:
               flights.length > 0 ? CARD_DRAW_FLIGHT_DELAY_MS : 0,
+            variant: 'draw',
           })
         );
       }
@@ -722,8 +1038,12 @@ function resourceFlightSettleMs(flights: readonly ResourceFlight[]): number {
   if (flights.length === 0) {
     return 0;
   }
-  const maxDelayMs = Math.max(...flights.map((flight) => flight.delayMs));
-  return maxDelayMs + RESOURCE_FLIGHT_DURATION_MS + ACTION_FLIGHT_COMMIT_BUFFER_MS;
+  const latestEndMs = Math.max(
+    ...flights.map(
+      (flight) => flight.delayMs + (flight.durationMs ?? RESOURCE_FLIGHT_DURATION_MS)
+    )
+  );
+  return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
 }
 
 function cardFlightSettleMs(flights: readonly CardFlight[]): number {
@@ -756,8 +1076,14 @@ export function App() {
   );
   const [resourceFlights, setResourceFlights] = useState<ReadonlyArray<ResourceFlight>>([]);
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
+  const [turnCycleOverlay, setTurnCycleOverlay] =
+    useState<TurnCycleOverlayState | null>(null);
+  const [incomeHighlightCardIds, setIncomeHighlightCardIds] =
+    useState<ReadonlyArray<CardId>>([]);
   const [pendingDiscardHoldback, setPendingDiscardHoldback] = useState<number>(0);
   const [actionCommitPending, setActionCommitPending] = useState<boolean>(false);
+  const [allowHumanActionsWhileCommitPending, setAllowHumanActionsWhileCommitPending] =
+    useState<boolean>(false);
   const [startupPreloadReady, setStartupPreloadReady] = useState<boolean>(false);
   const [startupPreloadError, setStartupPreloadError] = useState<string | null>(null);
   const [startupPreloadAttempt, setStartupPreloadAttempt] = useState<number>(0);
@@ -770,6 +1096,8 @@ export function App() {
 
   const stateRef = useRef(state);
   const actionCommitTimerRef = useRef<number | null>(null);
+  const turnCycleVisualTimerRefs = useRef<number[]>([]);
+  const taxPulseElementsRef = useRef<HTMLElement[]>([]);
   const nextResourceFlightId = useRef(0);
   const nextCardFlightId = useRef(0);
   const actionPopoverRef = useRef<HTMLElement | null>(null);
@@ -787,6 +1115,7 @@ export function App() {
       actionCommitTimerRef.current = null;
     }
     setActionCommitPending(false);
+    setAllowHumanActionsWhileCommitPending(false);
   }, []);
   const makeResourceFlightId = useCallback(() => {
     nextResourceFlightId.current += 1;
@@ -796,11 +1125,131 @@ export function App() {
     nextCardFlightId.current += 1;
     return `card-flight-${nextCardFlightId.current}`;
   }, []);
+  const clearTaxPulseElements = useCallback(() => {
+    for (const element of taxPulseElementsRef.current) {
+      element.classList.remove('is-tax-pulsing');
+    }
+    taxPulseElementsRef.current = [];
+  }, []);
+  const applyTaxPulseTargets = useCallback(
+    (
+      targets: ReadonlyArray<{
+        playerId: PlayerId;
+        suit: Suit;
+      }>
+    ) => {
+      clearTaxPulseElements();
+      const pulsingElements: HTMLElement[] = [];
+      for (const target of targets) {
+        const element = resourceTokenElementForPlayer(target.playerId, target.suit);
+        if (!element) {
+          continue;
+        }
+        element.classList.add('is-tax-pulsing');
+        pulsingElements.push(element);
+      }
+      taxPulseElementsRef.current = pulsingElements;
+    },
+    [clearTaxPulseElements]
+  );
+  const clearTurnCycleVisuals = useCallback(() => {
+    for (const timerId of turnCycleVisualTimerRefs.current) {
+      window.clearTimeout(timerId);
+    }
+    turnCycleVisualTimerRefs.current = [];
+    clearTaxPulseElements();
+    setTurnCycleOverlay(null);
+    setIncomeHighlightCardIds([]);
+  }, [clearTaxPulseElements]);
+  const scheduleTurnCycleVisuals = useCallback(
+    (plan: TurnCycleVisualPlan | null) => {
+      clearTurnCycleVisuals();
+      if (!plan) {
+        return;
+      }
+
+      const queue = (delayMs: number, run: () => void) => {
+        const timerId = window.setTimeout(run, Math.max(0, delayMs));
+        turnCycleVisualTimerRefs.current.push(timerId);
+      };
+
+      if (plan.taxLabelAtMs !== null && plan.taxSuit) {
+        const taxSuit = plan.taxSuit;
+        queue(plan.taxLabelAtMs, () => {
+          setTurnCycleOverlay({ kind: 'tax', suit: taxSuit });
+        });
+        if (plan.taxLabelHideAtMs !== null) {
+          queue(plan.taxLabelHideAtMs, () => {
+            setTurnCycleOverlay(null);
+          });
+        }
+        if (plan.taxPulseStartAtMs !== null && plan.taxPulseTargets.length > 0) {
+          queue(plan.taxPulseStartAtMs, () => {
+            applyTaxPulseTargets(plan.taxPulseTargets);
+          });
+        }
+        if (plan.taxPulseEndAtMs !== null) {
+          queue(plan.taxPulseEndAtMs, () => {
+            clearTaxPulseElements();
+          });
+        }
+        if (plan.taxFlightLaunchAtMs !== null && plan.taxPulseTargets.length > 0) {
+          queue(plan.taxFlightLaunchAtMs, () => {
+            const taxFlights = buildTaxLossFlightsFromDom(
+              plan.taxPulseTargets,
+              makeResourceFlightId
+            );
+            if (taxFlights.length === 0) {
+              return;
+            }
+            setResourceFlights((existing) => [...existing, ...taxFlights]);
+          });
+        }
+      }
+
+      queue(plan.incomeLabelAtMs, () => {
+        setTurnCycleOverlay({ kind: 'income', rank: plan.incomeRank });
+      });
+      queue(plan.incomeLabelHideAtMs, () => {
+        setTurnCycleOverlay(null);
+      });
+      queue(plan.incomeFlightLaunchAtMs, () => {
+        const incomeFlights = buildIncomeFlightsFromDom(
+          plan.incomeFlightTokens,
+          makeResourceFlightId
+        );
+        if (incomeFlights.length === 0) {
+          return;
+        }
+        setResourceFlights((existing) => [...existing, ...incomeFlights]);
+      });
+
+      queue(plan.incomeHighlightStartAtMs, () => {
+        setIncomeHighlightCardIds(plan.highlightCardIds);
+      });
+      queue(plan.incomeHighlightEndAtMs, () => {
+        setIncomeHighlightCardIds([]);
+      });
+      queue(plan.hideAllAtMs, () => {
+        clearTaxPulseElements();
+        setTurnCycleOverlay(null);
+        setIncomeHighlightCardIds([]);
+      });
+    },
+    [
+      applyTaxPulseTargets,
+      clearTaxPulseElements,
+      clearTurnCycleVisuals,
+      makeResourceFlightId,
+    ]
+  );
   const clearAllFlights = useCallback(() => {
     setResourceFlights([]);
     setCardFlights([]);
     setPendingDiscardHoldback(0);
-  }, []);
+    setAllowHumanActionsWhileCommitPending(false);
+    clearTurnCycleVisuals();
+  }, [clearTurnCycleVisuals]);
   const commitImmediateTransition = useCallback(
     (
       previousState: GameState,
@@ -825,14 +1274,18 @@ export function App() {
         hideDiscardCountUntilSettle?: number;
         previousState?: GameState;
         action?: GameAction;
+        extraSettleMs?: number;
+        allowHumanActionsWhileCommitPending?: boolean;
       }
     ) => {
       const settleMs = Math.max(
         resourceFlightSettleMs(queuedResourceFlights),
-        cardFlightSettleMs(queuedCardFlights)
+        cardFlightSettleMs(queuedCardFlights),
+        options?.extraSettleMs ?? 0
       );
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
+        setAllowHumanActionsWhileCommitPending(false);
         if (options?.previousState) {
           commitImmediateTransition(
             options.previousState,
@@ -853,6 +1306,9 @@ export function App() {
       }
       setPendingDiscardHoldback(
         Math.max(0, options?.hideDiscardCountUntilSettle ?? 0)
+      );
+      setAllowHumanActionsWhileCommitPending(
+        options?.allowHumanActionsWhileCommitPending ?? false
       );
       setActionCommitPending(true);
       if (options?.commitBeforeSettle) {
@@ -884,11 +1340,13 @@ export function App() {
         setResourceFlights([]);
         setCardFlights([]);
         setPendingDiscardHoldback(0);
+        setAllowHumanActionsWhileCommitPending(false);
+        clearTurnCycleVisuals();
         setActionCommitPending(false);
         actionCommitTimerRef.current = null;
       }, settleMs);
     },
-    [commitImmediateTransition]
+    [clearTurnCycleVisuals, commitImmediateTransition]
   );
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
@@ -909,8 +1367,9 @@ export function App() {
         window.clearTimeout(actionCommitTimerRef.current);
         actionCommitTimerRef.current = null;
       }
+      clearTurnCycleVisuals();
     };
-  }, []);
+  }, [clearTurnCycleVisuals]);
 
   useEffect(() => {
     let cancelled = false;
@@ -966,6 +1425,14 @@ export function App() {
   );
   const botPlayer = humanView.players.find(
     (player) => player.id === BOT_PLAYER
+  );
+  const pendingIncomeChoiceCardIds = useMemo(
+    () => (state.pendingIncomeChoices ?? []).map((choice) => choice.cardId),
+    [state.pendingIncomeChoices]
+  );
+  const incomeHighlightCardIdSet = useMemo(
+    () => new Set([...incomeHighlightCardIds, ...pendingIncomeChoiceCardIds]),
+    [incomeHighlightCardIds, pendingIncomeChoiceCardIds]
   );
 
   const humanActions = useMemo(() => {
@@ -1100,12 +1567,15 @@ export function App() {
 
           const actingPlayerId =
             current.players[current.activePlayerIndex]?.id ?? BOT_PLAYER;
-          const queuedResourceFlights = collectDeedResourceFlights(
-            current,
-            choice,
-            actingPlayerId,
-            makeResourceFlightId
-          );
+          const queuedActionResourceFlights = [
+            ...collectDeedResourceFlights(
+              current,
+              choice,
+              actingPlayerId,
+              makeResourceFlightId
+            ),
+            ...collectIncomeChoiceResourceFlights(choice, makeResourceFlightId),
+          ];
           const next = stepToDecision(current, choice);
           if (!animationsEnabled) {
             clearAllFlights();
@@ -1120,9 +1590,25 @@ export function App() {
             actingPlayerId,
             makeCardFlightId
           );
+          const turnCyclePlan = collectTurnCycleAnimationPlan(
+            current,
+            next,
+            choice,
+            cardFlightSettleMs(queuedCardFlights)
+          );
+          const queuedResourceFlights = [...queuedActionResourceFlights];
+          const shouldCommitBeforeSettle =
+            choice.type === 'sell-card'
+            || choice.type === 'end-turn'
+            || choice.type === 'choose-income-suit';
+          const allowHumanActionsDuringSettle =
+            choice.type === 'end-turn' || choice.type === 'choose-income-suit';
+          scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
           commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
-            commitBeforeSettle: choice.type === 'sell-card',
+            commitBeforeSettle: shouldCommitBeforeSettle,
             hideDiscardCountUntilSettle: choice.type === 'sell-card' ? 1 : 0,
+            allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
+            extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
             previousState: current,
             action: choice,
           });
@@ -1149,6 +1635,7 @@ export function App() {
     makeCardFlightId,
     makeResourceFlightId,
     resolvedBotProfile,
+    scheduleTurnCycleVisuals,
     state,
     startupPreloadReady,
     terminal,
@@ -1238,7 +1725,14 @@ export function App() {
   });
 
   const handleHumanAction = (action: GameAction) => {
-    if (terminal || activePlayerId !== HUMAN_PLAYER || actionCommitPending) {
+    if (terminal || activePlayerId !== HUMAN_PLAYER) {
+      return;
+    }
+    if (
+      actionCommitPending
+      && !allowHumanActionsWhileCommitPending
+      && action.type !== 'choose-income-suit'
+    ) {
       return;
     }
 
@@ -1250,12 +1744,15 @@ export function App() {
         setError(null);
         return;
       }
-      const queuedResourceFlights = collectDeedResourceFlights(
-        state,
-        action,
-        activePlayerId,
-        makeResourceFlightId
-      );
+      const queuedActionResourceFlights = [
+        ...collectDeedResourceFlights(
+          state,
+          action,
+          activePlayerId,
+          makeResourceFlightId
+        ),
+        ...collectIncomeChoiceResourceFlights(action, makeResourceFlightId),
+      ];
       const queuedCardFlights = collectCardPlayFlights(
         state,
         next,
@@ -1263,9 +1760,25 @@ export function App() {
         activePlayerId,
         makeCardFlightId
       );
+      const turnCyclePlan = collectTurnCycleAnimationPlan(
+        state,
+        next,
+        action,
+        cardFlightSettleMs(queuedCardFlights)
+      );
+      const queuedResourceFlights = [...queuedActionResourceFlights];
+      const shouldCommitBeforeSettle =
+        action.type === 'sell-card'
+        || action.type === 'end-turn'
+        || action.type === 'choose-income-suit';
+      const allowHumanActionsDuringSettle =
+        action.type === 'end-turn' || action.type === 'choose-income-suit';
+      scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
       commitStateAfterAnimations(next, queuedResourceFlights, queuedCardFlights, {
-        commitBeforeSettle: action.type === 'sell-card',
+        commitBeforeSettle: shouldCommitBeforeSettle,
         hideDiscardCountUntilSettle: action.type === 'sell-card' ? 1 : 0,
+        allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
+        extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
         previousState: state,
         action,
       });
@@ -1911,6 +2424,7 @@ export function App() {
                 humanPlayerId={HUMAN_PLAYER}
                 botPlayerId={BOT_PLAYER}
                 animateDeedProgress={animationsEnabled}
+                highlightedIncomeCardIds={incomeHighlightCardIdSet}
               />
             ))}
           </div>
@@ -2228,6 +2742,31 @@ export function App() {
         </div>
       ) : null}
 
+      {turnCycleOverlay ? (
+        <div className="turn-cycle-overlay" aria-live="polite">
+          <section className="turn-cycle-banner">
+            {turnCycleOverlay.kind === 'tax' ? (
+              <>
+                <span className="turn-cycle-label">Taxes:</span>
+                <TokenChip
+                  suit={turnCycleOverlay.suit}
+                  count={1}
+                  compact
+                  className="turn-cycle-banner-chip"
+                />
+              </>
+            ) : (
+              <>
+                <span className="turn-cycle-label">Income:</span>
+                <strong className="turn-cycle-income-rank">
+                  {turnCycleOverlay.rank}
+                </strong>
+              </>
+            )}
+          </section>
+        </div>
+      ) : null}
+
       {resourceFlights.length > 0 ? (
         <div className="resource-flight-layer" aria-hidden="true">
           {resourceFlights.map((flight) => {
@@ -2236,7 +2775,7 @@ export function App() {
             return (
               <div
                 key={flight.id}
-                className="resource-flight"
+                className={`resource-flight${flight.variant === 'tax-loss' ? ' is-tax-loss' : ' is-transfer'}`}
                 style={
                   {
                     '--resource-flight-start-x': `${flight.startX}px`,
@@ -2244,7 +2783,7 @@ export function App() {
                     '--resource-flight-dx': `${dx}px`,
                     '--resource-flight-dy': `${dy}px`,
                     '--resource-flight-delay-ms': `${flight.delayMs}ms`,
-                    '--resource-flight-duration-ms': `${RESOURCE_FLIGHT_DURATION_MS}ms`,
+                    '--resource-flight-duration-ms': `${flight.durationMs ?? RESOURCE_FLIGHT_DURATION_MS}ms`,
                   } as CSSProperties
                 }
               >
@@ -2276,7 +2815,7 @@ export function App() {
             return (
               <div
                 key={flight.id}
-                className="card-flight"
+                className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}`}
                 style={
                   {
                     '--card-flight-start-x': `${flight.startX}px`,
