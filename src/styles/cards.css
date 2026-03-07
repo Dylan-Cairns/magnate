@@ -249,7 +249,7 @@
       (var(--card-image-area-height) / 2)
   );
   transform: translate(-50%, -50%);
-  z-index: 5;
+  z-index: 10;
   width: var(--token-rail-chip-size);
   height: var(--token-rail-chip-size);
   display: grid;
@@ -327,7 +327,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0.16rem;
-  z-index: 3;
+  z-index: 10;
   pointer-events: none;
 }
 
