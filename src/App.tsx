@@ -343,9 +343,20 @@ function tokenElementInRail(
 ): HTMLElement | null {
   const escapedPlayerId = cssEscapeValue(playerId);
   const escapedSuit = cssEscapeValue(suit);
-  return document.querySelector<HTMLElement>(
-    `[data-token-rail-player-id="${escapedPlayerId}"] .${rowClassName} .token-chip[data-token-suit="${escapedSuit}"]`
-  );
+  const selector =
+    `[data-token-rail-player-id="${escapedPlayerId}"] ` +
+    `.${rowClassName} .token-chip[data-token-suit="${escapedSuit}"]`;
+  const searchRoot =
+    document.querySelector<HTMLElement>('.board-pane') ?? document;
+  const matches = [...searchRoot.querySelectorAll<HTMLElement>(selector)];
+  if (matches.length === 0) {
+    return null;
+  }
+  const visibleMatch = matches.find((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
+  return visibleMatch ?? matches[0];
 }
 
 function resourceTokenElementForPlayer(
