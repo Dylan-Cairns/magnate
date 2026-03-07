@@ -109,6 +109,8 @@ const TURN_CYCLE_TAX_FLIGHT_STAGGER_MS = 500;
 const TURN_CYCLE_INCOME_FLIGHT_DURATION_MS = 560;
 const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
 const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
+const TERMINAL_CLEANUP_FLIGHT_DURATION_MS = 900;
+const TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX = 220;
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 const SUIT_LOG_CODE: Record<Suit, string> = {
   Moons: 'mo',
@@ -159,7 +161,7 @@ type ResourceFlight = {
   endY: number;
   delayMs: number;
   durationMs?: number;
-  variant?: 'transfer' | 'tax-loss';
+  variant?: 'transfer' | 'tax-loss' | 'terminal-clear';
 };
 
 type PendingResourceFlight = {
@@ -171,7 +173,7 @@ type PendingResourceFlight = {
   endY: number;
   delayMs: number;
   durationMs?: number;
-  variant?: 'transfer' | 'tax-loss';
+  variant?: 'transfer' | 'tax-loss' | 'terminal-clear';
 };
 
 type TurnCycleOverlayState =
@@ -221,7 +223,7 @@ type TurnCycleVisualPlan = {
 
 type CardFlight = {
   id: string;
-  variant: 'play' | 'draw';
+  variant: 'play' | 'draw' | 'terminal-clear';
   visual: 'face' | 'back';
   cardId?: CardId;
   isDeed: boolean;
@@ -235,6 +237,7 @@ type CardFlight = {
   endWidth: number;
   endHeight: number;
   delayMs: number;
+  durationMs?: number;
 };
 
 function makeSeed(): string {
@@ -400,6 +403,111 @@ function districtCardElementForPlayer(
   return document.querySelector<HTMLElement>(
     `.district-column[data-district-id="${escapedDistrictId}"] .district-lane[data-lane-player-id="${escapedPlayerId}"] .card-tile[data-card-id="${escapedCardId}"]`
   );
+}
+
+function deedTokenElementInCard(
+  cardElement: HTMLElement,
+  suit: Suit
+): HTMLElement | null {
+  const escapedSuit = cssEscapeValue(suit);
+  return cardElement.querySelector<HTMLElement>(
+    `.card-side-token-rail .token-chip[data-token-suit="${escapedSuit}"]`
+  );
+}
+
+function terminalCleanupTargetY(startY: number): number {
+  const viewportCenterY = window.innerHeight / 2;
+  const direction = startY < viewportCenterY ? -1 : 1;
+  return startY + direction * TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX;
+}
+
+function collectTerminalCleanupFlights(
+  previousState: GameState,
+  nextState: GameState,
+  makeResourceFlightId: () => string,
+  makeCardFlightId: () => string
+): {
+  resourceFlights: ReadonlyArray<ResourceFlight>;
+  cardFlights: ReadonlyArray<CardFlight>;
+} | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  if (isTerminal(previousState) || !isTerminal(nextState)) {
+    return null;
+  }
+
+  const resourceFlights: ResourceFlight[] = [];
+  const cardFlights: CardFlight[] = [];
+
+  for (const district of previousState.districts) {
+    for (const player of previousState.players) {
+      const deed = district.stacks[player.id].deed;
+      if (!deed) {
+        continue;
+      }
+
+      const cardElement =
+        districtCardElementForPlayer(player.id, district.id, deed.cardId)
+        ?? document.querySelector<HTMLElement>(
+          `.district-strip .card-tile[data-card-id="${cssEscapeValue(deed.cardId)}"][data-in-development="true"]`
+        );
+      if (!cardElement) {
+        continue;
+      }
+
+      const cardRect = cardElement.getBoundingClientRect();
+      const cardCenter = elementCenter(cardElement);
+      cardFlights.push({
+        id: makeCardFlightId(),
+        variant: 'terminal-clear',
+        visual: 'face',
+        cardId: deed.cardId,
+        isDeed: true,
+        perspective: player.id === BOT_PLAYER ? 'bot' : 'human',
+        startX: cardCenter.x,
+        startY: cardCenter.y,
+        endX: cardCenter.x,
+        endY: terminalCleanupTargetY(cardCenter.y),
+        startWidth: cardRect.width,
+        startHeight: cardRect.height,
+        endWidth: cardRect.width,
+        endHeight: cardRect.height,
+        delayMs: 0,
+        durationMs: TERMINAL_CLEANUP_FLIGHT_DURATION_MS,
+      });
+
+      for (const entry of tokenEntries(deed.tokens)) {
+        const tokenElement = deedTokenElementInCard(cardElement, entry.suit);
+        if (!tokenElement) {
+          continue;
+        }
+        const tokenCenter = tokenVisualCenter(tokenElement);
+        for (let index = 0; index < entry.count; index += 1) {
+          resourceFlights.push({
+            id: makeResourceFlightId(),
+            suit: entry.suit,
+            startX: tokenCenter.x,
+            startY: tokenCenter.y,
+            endX: tokenCenter.x,
+            endY: terminalCleanupTargetY(tokenCenter.y),
+            delayMs: 0,
+            durationMs: TERMINAL_CLEANUP_FLIGHT_DURATION_MS,
+            variant: 'terminal-clear',
+          });
+        }
+      }
+    }
+  }
+
+  if (resourceFlights.length === 0 && cardFlights.length === 0) {
+    return null;
+  }
+
+  return {
+    resourceFlights,
+    cardFlights,
+  };
 }
 
 function collectTurnCycleAnimationPlan(
@@ -938,7 +1046,8 @@ function createCardFlight(
     isDeed?: boolean;
     perspective?: CardPerspective;
     delayMs?: number;
-    variant?: 'play' | 'draw';
+    durationMs?: number;
+    variant?: 'play' | 'draw' | 'terminal-clear';
   }
 ): CardFlight {
   const sourceRect = sourceElement.getBoundingClientRect();
@@ -961,6 +1070,7 @@ function createCardFlight(
     endWidth: targetRect.width || sourceRect.width,
     endHeight: targetRect.height || sourceRect.height,
     delayMs: options?.delayMs ?? 0,
+    durationMs: options?.durationMs,
   };
 }
 
@@ -974,9 +1084,10 @@ function createCardFlightToPoint(
     isDeed?: boolean;
     perspective?: CardPerspective;
     delayMs?: number;
+    durationMs?: number;
     endWidth?: number;
     endHeight?: number;
-    variant?: 'play' | 'draw';
+    variant?: 'play' | 'draw' | 'terminal-clear';
   }
 ): CardFlight {
   const sourceRect = sourceElement.getBoundingClientRect();
@@ -997,6 +1108,7 @@ function createCardFlightToPoint(
     endWidth: options?.endWidth ?? sourceRect.width,
     endHeight: options?.endHeight ?? sourceRect.height,
     delayMs: options?.delayMs ?? 0,
+    durationMs: options?.durationMs,
   };
 }
 
@@ -1179,8 +1291,12 @@ function cardFlightSettleMs(flights: readonly CardFlight[]): number {
   if (flights.length === 0) {
     return 0;
   }
-  const maxDelayMs = Math.max(...flights.map((flight) => flight.delayMs));
-  return maxDelayMs + CARD_FLIGHT_DURATION_MS + ACTION_FLIGHT_COMMIT_BUFFER_MS;
+  const latestEndMs = Math.max(
+    ...flights.map(
+      (flight) => flight.delayMs + (flight.durationMs ?? CARD_FLIGHT_DURATION_MS)
+    )
+  );
+  return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
 }
 
 export function App() {
@@ -1222,6 +1338,8 @@ export function App() {
   const [startupPreloadAttempt, setStartupPreloadAttempt] = useState<number>(0);
   const [startupPreloadProgress, setStartupPreloadProgress] =
     useState<StartupPreloadProgress>(STARTUP_PRELOAD_INITIAL_PROGRESS);
+  const [terminalWinnerOverlayWinner, setTerminalWinnerOverlayWinner] =
+    useState<FinalScore['winner'] | null>(null);
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
   const [turnResetTimelineAnchor, setTurnResetTimelineAnchor] =
@@ -1229,6 +1347,7 @@ export function App() {
 
   const stateRef = useRef(state);
   const actionCommitTimerRef = useRef<number | null>(null);
+  const terminalWinnerTimerRef = useRef<number | null>(null);
   const turnCycleVisualTimerRefs = useRef<number[]>([]);
   const taxPulseElementsRef = useRef<HTMLElement[]>([]);
   const nextResourceFlightId = useRef(0);
@@ -1249,6 +1368,13 @@ export function App() {
     }
     setActionCommitPending(false);
     setAllowHumanActionsWhileCommitPending(false);
+  }, []);
+  const clearTerminalWinnerOverlay = useCallback(() => {
+    if (terminalWinnerTimerRef.current !== null) {
+      window.clearTimeout(terminalWinnerTimerRef.current);
+      terminalWinnerTimerRef.current = null;
+    }
+    setTerminalWinnerOverlayWinner(null);
   }, []);
   const makeResourceFlightId = useCallback(() => {
     nextResourceFlightId.current += 1;
@@ -1387,7 +1513,8 @@ export function App() {
     setPendingDiscardHoldback(0);
     setAllowHumanActionsWhileCommitPending(false);
     clearTurnCycleVisuals();
-  }, [clearTurnCycleVisuals]);
+    clearTerminalWinnerOverlay();
+  }, [clearTerminalWinnerOverlay, clearTurnCycleVisuals]);
   const commitImmediateTransition = useCallback(
     (
       previousState: GameState,
@@ -1414,6 +1541,7 @@ export function App() {
         action?: GameAction;
         extraSettleMs?: number;
         allowHumanActionsWhileCommitPending?: boolean;
+        onSettle?: () => void;
       }
     ) => {
       const settleMs = Math.max(
@@ -1433,6 +1561,7 @@ export function App() {
         } else {
           setState(nextState);
         }
+        options?.onSettle?.();
         return;
       }
 
@@ -1480,6 +1609,7 @@ export function App() {
         setPendingDiscardHoldback(0);
         setAllowHumanActionsWhileCommitPending(false);
         clearTurnCycleVisuals();
+        options?.onSettle?.();
         setActionCommitPending(false);
         actionCommitTimerRef.current = null;
       }, settleMs);
@@ -1504,6 +1634,10 @@ export function App() {
       if (actionCommitTimerRef.current !== null) {
         window.clearTimeout(actionCommitTimerRef.current);
         actionCommitTimerRef.current = null;
+      }
+      if (terminalWinnerTimerRef.current !== null) {
+        window.clearTimeout(terminalWinnerTimerRef.current);
+        terminalWinnerTimerRef.current = null;
       }
       clearTurnCycleVisuals();
     };
@@ -1675,6 +1809,12 @@ export function App() {
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
 
   useEffect(() => {
+    if (!terminal) {
+      clearTerminalWinnerOverlay();
+    }
+  }, [clearTerminalWinnerOverlay, terminal]);
+
+  useEffect(() => {
     if (
       !shouldCaptureTurnResetAnchor(
         state,
@@ -1761,13 +1901,20 @@ export function App() {
             setError(null);
             return;
           }
-          const queuedCardFlights = collectCardPlayFlights(
+          let queuedCardFlights = collectCardPlayFlights(
             current,
             next,
             choice,
             actingPlayerId,
             makeCardFlightId
           );
+          const terminalCleanupPlan = collectTerminalCleanupFlights(
+            current,
+            next,
+            makeResourceFlightId,
+            makeCardFlightId
+          );
+          const enteredTerminal = isTerminal(next);
           const turnCyclePlan = collectTurnCycleAnimationPlan(
             current,
             next,
@@ -1775,6 +1922,10 @@ export function App() {
             cardFlightSettleMs(queuedCardFlights)
           );
           const queuedResourceFlights = [...queuedActionResourceFlights];
+          if (terminalCleanupPlan) {
+            queuedResourceFlights.push(...terminalCleanupPlan.resourceFlights);
+            queuedCardFlights = [...queuedCardFlights, ...terminalCleanupPlan.cardFlights];
+          }
           const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(choice);
           const allowHumanActionsDuringSettle =
             shouldAllowHumanActionsDuringAnimationSettle(choice);
@@ -1829,6 +1980,14 @@ export function App() {
             hideDiscardCountUntilSettle: choice.type === 'sell-card' ? 1 : 0,
             allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
             extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
+            onSettle:
+              enteredTerminal
+                ? () => {
+                    setTerminalWinnerOverlayWinner(
+                      (next.finalScore ?? scoreLive(next)).winner
+                    );
+                  }
+                : undefined,
             previousState: current,
             action: choice,
           });
@@ -1978,13 +2137,20 @@ export function App() {
         ),
         ...collectIncomeChoiceResourceFlights(action, makeResourceFlightId),
       ];
-      const queuedCardFlights = collectCardPlayFlights(
+      let queuedCardFlights = collectCardPlayFlights(
         state,
         next,
         action,
         activePlayerId,
         makeCardFlightId
       );
+      const terminalCleanupPlan = collectTerminalCleanupFlights(
+        state,
+        next,
+        makeResourceFlightId,
+        makeCardFlightId
+      );
+      const enteredTerminal = isTerminal(next);
       const turnCyclePlan = collectTurnCycleAnimationPlan(
         state,
         next,
@@ -1992,6 +2158,10 @@ export function App() {
         cardFlightSettleMs(queuedCardFlights)
       );
       const queuedResourceFlights = [...queuedActionResourceFlights];
+      if (terminalCleanupPlan) {
+        queuedResourceFlights.push(...terminalCleanupPlan.resourceFlights);
+        queuedCardFlights = [...queuedCardFlights, ...terminalCleanupPlan.cardFlights];
+      }
       const shouldCommitBeforeSettle = shouldCommitBeforeAnimationSettle(action);
       const allowHumanActionsDuringSettle =
         shouldAllowHumanActionsDuringAnimationSettle(action);
@@ -2046,6 +2216,14 @@ export function App() {
         hideDiscardCountUntilSettle: action.type === 'sell-card' ? 1 : 0,
         allowHumanActionsWhileCommitPending: allowHumanActionsDuringSettle,
         extraSettleMs: turnCyclePlan?.totalDurationMs ?? 0,
+        onSettle:
+          enteredTerminal
+            ? () => {
+                setTerminalWinnerOverlayWinner(
+                  (next.finalScore ?? scoreLive(next)).winner
+                );
+              }
+            : undefined,
         previousState: state,
         action,
       });
@@ -3038,10 +3216,17 @@ export function App() {
         </div>
       ) : null}
 
-      {turnCycleOverlay ? (
+      {turnCycleOverlay || terminalWinnerOverlayWinner ? (
         <div className="turn-cycle-overlay" aria-live="polite">
           <section className="turn-cycle-banner">
-            {turnCycleOverlay.kind === 'tax' ? (
+            {terminalWinnerOverlayWinner ? (
+              <>
+                <span className="turn-cycle-label">Winner:</span>
+                <strong className="turn-cycle-income-rank turn-cycle-winner-name">
+                  {winnerLabel(terminalWinnerOverlayWinner)}
+                </strong>
+              </>
+            ) : turnCycleOverlay?.kind === 'tax' ? (
               <>
                 <img
                   src={cubeDieIcon}
@@ -3073,7 +3258,7 @@ export function App() {
                 </span>
                 <span className="turn-cycle-label">Income:</span>
                 <strong className="turn-cycle-income-rank">
-                  {turnCycleOverlay.rank}
+                  {turnCycleOverlay?.rank}
                 </strong>
               </>
             )}
@@ -3086,10 +3271,16 @@ export function App() {
           {resourceFlights.map((flight) => {
             const dx = flight.endX - flight.startX;
             const dy = flight.endY - flight.startY;
+            const variantClass =
+              flight.variant === 'tax-loss'
+                ? ' is-tax-loss'
+                : flight.variant === 'terminal-clear'
+                  ? ' is-terminal-clear'
+                  : ' is-transfer';
             return (
               <div
                 key={flight.id}
-                className={`resource-flight${flight.variant === 'tax-loss' ? ' is-tax-loss' : ' is-transfer'}`}
+                className={`resource-flight${variantClass}`}
                 style={
                   {
                     '--resource-flight-start-x': `${flight.startX}px`,
@@ -3129,7 +3320,7 @@ export function App() {
             return (
               <div
                 key={flight.id}
-                className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}`}
+                className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${flight.variant === 'terminal-clear' ? ' is-terminal-clear' : ''}`}
                 style={
                   {
                     '--card-flight-start-x': `${flight.startX}px`,
@@ -3137,7 +3328,7 @@ export function App() {
                     '--card-flight-dx': `${dx}px`,
                     '--card-flight-dy': `${dy}px`,
                     '--card-flight-delay-ms': `${flight.delayMs}ms`,
-                    '--card-flight-duration-ms': `${CARD_FLIGHT_DURATION_MS}ms`,
+                    '--card-flight-duration-ms': `${flight.durationMs ?? CARD_FLIGHT_DURATION_MS}ms`,
                     '--card-flight-scale-x': `${Number.isFinite(scaleX) ? scaleX : 1}`,
                     '--card-flight-scale-y': `${Number.isFinite(scaleY) ? scaleY : 1}`,
                     width: `${flight.startWidth}px`,
