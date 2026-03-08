@@ -55,8 +55,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   {
     id: 'td-search-fast',
     label: 'TD Search Fast',
-    description:
-      'Default bot. Faster model-guided td-search settings for snappier turns: worlds=3, depth=9, rootActions=4, rollouts=1.',
+    description: '',
     kind: 'td-search',
     available: true,
     turnDelayMs: 175,
@@ -64,9 +63,8 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   },
   {
     id: 'td-search-browser',
-    label: 'TD Search (Browser)',
-    description:
-      'Model-guided td-search with stronger but slower browser settings: worlds=6, depth=14, rootActions=6, rollouts=1.',
+    label: 'TD Search',
+    description: '',
     kind: 'td-search',
     available: true,
     turnDelayMs: 450,
@@ -74,9 +72,8 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   },
   {
     id: 'rollout-eval-search',
-    label: 'Rollout Eval Search',
-    description:
-      'Determinized search: worlds=64, depth=28, rootActions=12, rolloutEpsilon=0.0, rollouts=8. No fallback on failure.',
+    label: 'Rollout Search',
+    description: '',
     kind: 'search',
     available: true,
     turnDelayMs: 450,
@@ -85,7 +82,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   {
     id: 'random-legal',
     label: 'Random legal',
-    description: 'Uniform random choice among legal actions.',
+    description: 'Random choice among legal actions.',
     kind: 'random',
     available: true,
     turnDelayMs: 250,

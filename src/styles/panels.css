@@ -507,6 +507,36 @@
   justify-self: end;
 }
 
+.resolution-warning-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  backdrop-filter: blur(4px);
+  background: rgba(4, 7, 12, 0.52);
+}
+
+.resolution-warning-modal {
+  width: min(32rem, calc(100vw - 1rem));
+  display: grid;
+  gap: 0.72rem;
+}
+
+.resolution-warning-modal h2 {
+  margin: 0;
+}
+
+.resolution-warning-message {
+  line-height: 1.4;
+}
+
+.resolution-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .turn-cycle-overlay {
   position: fixed;
   inset: 0;
