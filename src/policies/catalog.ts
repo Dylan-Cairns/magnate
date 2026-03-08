@@ -4,6 +4,7 @@ import { createTdSearchPolicy } from './tdSearchPolicy';
 import type { ActionPolicy } from './types';
 
 export type BotProfileId =
+  | 'td-search-fast'
   | 'rollout-eval-search'
   | 'td-search-browser'
   | 'random-legal';
@@ -14,6 +15,7 @@ export interface BotProfile {
   description: string;
   kind: 'random' | 'search' | 'td-search';
   available: boolean;
+  turnDelayMs: number;
   policy: ActionPolicy;
 }
 
@@ -30,6 +32,15 @@ const rolloutEvalSearchPolicy = createSearchPolicy({
   maxRootActions: 12,
   rolloutEpsilon: 0.0,
 });
+const tdSearchFastPolicy = createTdSearchPolicy({
+  worlds: 1,
+  rollouts: 1,
+  depth: 6,
+  maxRootActions: 4,
+  rolloutEpsilon: 0.01,
+  opponentTemperature: 1.0,
+  sampleOpponentActions: false,
+});
 const tdSearchBrowserPolicy = createTdSearchPolicy({
   worlds: 6,
   rollouts: 1,
@@ -42,34 +53,44 @@ const tdSearchBrowserPolicy = createTdSearchPolicy({
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   {
-    id: 'td-search-browser',
-    label: 'TD Search (Browser)',
-    description:
-      'Default bot. Loads exported TD search model pack (value + opponent) from public/model-packs and uses model-guided rollouts.',
+    id: 'td-search-fast',
+    label: 'TD Search Fast',
+    description: '',
     kind: 'td-search',
     available: true,
+    turnDelayMs: 175,
+    policy: tdSearchFastPolicy,
+  },
+  {
+    id: 'td-search-browser',
+    label: 'TD Search',
+    description: '',
+    kind: 'td-search',
+    available: true,
+    turnDelayMs: 450,
     policy: tdSearchBrowserPolicy,
   },
   {
     id: 'rollout-eval-search',
-    label: 'Rollout Eval Search',
-    description:
-      'Determinized search: worlds=96, depth=32, rootActions=14, rolloutEpsilon=0.0, rollouts=12. No fallback on failure.',
+    label: 'Rollout Search',
+    description: '',
     kind: 'search',
     available: true,
+    turnDelayMs: 450,
     policy: rolloutEvalSearchPolicy,
   },
   {
     id: 'random-legal',
     label: 'Random legal',
-    description: 'Uniform random choice among legal actions.',
+    description: 'Random choice among legal actions.',
     kind: 'random',
     available: true,
+    turnDelayMs: 250,
     policy: randomPolicy,
   },
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-browser';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-fast';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);

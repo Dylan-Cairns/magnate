@@ -36,6 +36,7 @@ export function CardTile({
   handCardId,
   handSlotKind,
   animateDeedProgress = true,
+  incomeHighlighted = false,
 }: {
   cardId?: CardId;
   hidden?: boolean;
@@ -49,6 +50,7 @@ export function CardTile({
   handCardId?: CardId;
   handSlotKind?: 'occupied' | 'hidden' | 'empty';
   animateDeedProgress?: boolean;
+  incomeHighlighted?: boolean;
 }) {
   if (placeholder) {
     return (
@@ -282,7 +284,7 @@ export function CardTile({
 
   return (
     <div
-      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}`}
+      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}`}
       title={card.name}
       data-card-id={cardId}
       data-in-development={inDevelopment ? 'true' : undefined}

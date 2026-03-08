@@ -92,6 +92,32 @@ describe('DistrictColumn', () => {
     expect(html).toContain('data-token-suit="Waves"');
   });
 
+  it('applies income highlight class to developed cards', () => {
+    const district: DistrictState = {
+      id: 'D3',
+      markerSuitMask: ['Waves'],
+      stacks: {
+        PlayerA: {
+          developed: ['29'],
+        },
+        PlayerB: {
+          developed: [],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+        highlightedIncomeCardIds={new Set(['29'])}
+      />
+    );
+
+    expect(html).toContain('card-tile perspective-bot is-income-highlighted');
+  });
+
   it('adds player-id data anchor on token rail for animation targeting', () => {
     const player: ObservedPlayerState = {
       id: 'PlayerA',

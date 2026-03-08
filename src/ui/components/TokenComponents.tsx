@@ -4,7 +4,7 @@ import { SUITS } from '../../engine/stateHelpers';
 import type { ResourcePool, Suit } from '../../engine/types';
 import { SuitIcon } from '../suitIcons';
 
-const SUIT_TOKEN_BG: Record<Suit, string> = {
+export const SUIT_TOKEN_BG: Record<Suit, string> = {
   Moons: '#e4e7eb',
   Suns: '#f7cc95',
   Waves: '#cfe3f5',
@@ -25,12 +25,14 @@ export function TokenRow({
   emptyLabel,
   fixedSuitSlots,
   className,
+  highlightedSuits,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
   compact?: boolean;
   emptyLabel?: string;
   fixedSuitSlots?: boolean;
   className?: string;
+  highlightedSuits?: ReadonlySet<Suit>;
 }) {
   const entries = fixedSuitSlots
     ? SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 }))
@@ -47,7 +49,13 @@ export function TokenRow({
       }`}
     >
       {entries.map(({ suit, count }) => (
-        <TokenChip key={suit} suit={suit} count={count} compact={compact} />
+        <TokenChip
+          key={suit}
+          suit={suit}
+          count={count}
+          compact={compact}
+          className={highlightedSuits?.has(suit) ? 'is-income-highlighted' : undefined}
+        />
       ))}
     </div>
   );
