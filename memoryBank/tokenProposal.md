@@ -26,9 +26,10 @@ Each suit has a current value for each player. That value is not fixed across th
 
 A suit becomes more valuable when:
 
-- important unplayed cards use that suit
-- those cards have strong future earning potential
-- those cards could make meaningful district-scoring gains
+- important visible or information-safe future cards use that suit
+- current incomplete deeds need that suit for completion
+- those demand sources have strong future earning potential
+- those demand sources could make meaningful district-scoring gains
 - the player has weak access to that suit through crowns or board income
 
 A suit becomes less valuable when:
@@ -51,7 +52,9 @@ The earning side asks:
 What future income infrastructure can this suit still help buy or build?
 ```
 
-For each suit, look at unplayed cards that include that suit. Each card contributes based on its income potential, mostly from its rank and expected roll frequency. High-rank cards usually contribute more because they generate on more likely income rolls and can become stronger income infrastructure.
+For each suit, look at information-safe demand sources that include that suit. Current incomplete deeds and cards in the player's hand should be weighted most heavily because they are actionable. Publicly known remaining opportunities and unknown-pool expectations can contribute at a lower weight because they are potentialities, not current plans. The model must not inspect hidden opponent hand cards or exact hidden draw order at the root.
+
+Each card contributes based on its income potential, mostly from its rank and expected roll frequency. High-rank cards usually contribute more because they generate on more likely income rolls and can become stronger income infrastructure.
 
 This earning value should decline as the game progresses. A high-rank card still has static income quality, but it has fewer future turns to produce resources. Late in the game, that same card may remain valuable for scoring, while its earning component should fade.
 
@@ -72,7 +75,7 @@ The scoring side asks:
 What district-scoring opportunities can cards of this suit still support?
 ```
 
-For each unplayed card that uses a suit, estimate how much scoring value that card could create in the current board position. A card has higher scoring demand if it could flip, protect, or materially improve a district. It has lower scoring demand if it would only add redundant points to a district that is already secure or irrelevant.
+For each information-safe demand source that uses a suit, estimate how much scoring value it could create in the current board position. Current incomplete deeds should count strongly because loose tokens can convert them into completed properties. Cards in hand should count next because they can be bought, sold, or developed now. Publicly known remaining opportunities and unknown-pool expectations should count more weakly. A card has higher scoring demand if it could flip, protect, or materially improve a district. It has lower scoring demand if it would only add redundant points to a district that is already secure or irrelevant.
 
 This makes token value board-sensitive. A rank 4 card can be low value in one game state and high value in another, depending on district margins and legal placement paths.
 
