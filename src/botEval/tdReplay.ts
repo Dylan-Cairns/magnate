@@ -53,6 +53,15 @@ export interface TdReplayDependencies {
   onProgress?: (progress: TdReplayProgress) => void;
 }
 
+export interface TdReplayGamesResult {
+  config: TdReplayConfig;
+  elapsedMs: number;
+}
+
+export type TdReplayGameHandler = (
+  game: CollectedTdReplayGame
+) => Promise<void> | void;
+
 interface CollectTdReplayGameOptions {
   gameId: string;
   seed: string;
@@ -73,6 +82,29 @@ export async function collectTdReplay(
   config: TdReplayConfig,
   dependencies: TdReplayDependencies = {}
 ): Promise<TdReplayRun> {
+  const games: CollectedTdReplayGame[] = [];
+  const valueTransitions: TdReplayValueTransitionPayload[] = [];
+  const opponentSamples: TdReplayOpponentSamplePayload[] = [];
+  const result = await collectTdReplayGames(config, dependencies, (game) => {
+    games.push(game);
+    valueTransitions.push(...game.valueTransitions);
+    opponentSamples.push(...game.opponentSamples);
+  });
+
+  return {
+    config: structuredClone(config),
+    games,
+    valueTransitions,
+    opponentSamples,
+    elapsedMs: result.elapsedMs,
+  };
+}
+
+export async function collectTdReplayGames(
+  config: TdReplayConfig,
+  dependencies: TdReplayDependencies = {},
+  onGame: TdReplayGameHandler
+): Promise<TdReplayGamesResult> {
   validateTdReplayConfig(config);
 
   const createPolicy = dependencies.createPolicy ?? createPolicyFromBotSpec;
@@ -87,9 +119,6 @@ export async function collectTdReplay(
     PlayerA: createRuntimeBot(config.playerA, createPolicy),
     PlayerB: createRuntimeBot(config.playerB, createPolicy),
   };
-  const games: CollectedTdReplayGame[] = [];
-  const valueTransitions: TdReplayValueTransitionPayload[] = [];
-  const opponentSamples: TdReplayOpponentSamplePayload[] = [];
 
   for (let gameIndex = 0; gameIndex < config.games; gameIndex += 1) {
     const gameNumber = gameIndex + 1;
@@ -113,13 +142,11 @@ export async function collectTdReplay(
         });
       },
     });
-    games.push(game);
-    valueTransitions.push(...game.valueTransitions);
-    opponentSamples.push(...game.opponentSamples);
+    await onGame(game);
 
     const elapsedMs = now() - startedAt;
     const gamesPerMinute =
-      elapsedMs > 0 ? (games.length * 60_000) / elapsedMs : 0;
+      elapsedMs > 0 ? (gameNumber * 60_000) / elapsedMs : 0;
     dependencies.onProgress?.({
       type: 'game-completed',
       gameNumber,
@@ -132,9 +159,6 @@ export async function collectTdReplay(
 
   return {
     config: structuredClone(config),
-    games,
-    valueTransitions,
-    opponentSamples,
     elapsedMs: now() - startedAt,
   };
 }

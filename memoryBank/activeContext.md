@@ -50,11 +50,12 @@
     opponent with shared paired seeds and write aggregate JSON, CSV, and
     Markdown plus replayable child matchups;
   - `collect-td-replay` runs direct Node-compatible `ActionPolicy` self-play
-    for `random`, `heuristic`, and rollout `search` BotSpecs, writing
-    Python-compatible TD replay JSONL plus summary artifacts with TS
-    `trainingEncoding` dimensions, per-player contiguous `episodeId` /
-    `timestep` value sequences, and selected action indexes aligned to the
-    canonical stable-key legal-action order used for encoded action candidates;
+    for `random`, `heuristic`, and rollout `search` BotSpecs, streaming
+    Python-compatible TD replay JSONL to temporary artifacts before publishing
+    final value/opponent/summary files with TS `trainingEncoding` dimensions,
+    per-player contiguous `episodeId` / `timestep` value sequences, and
+    selected action indexes aligned to the canonical stable-key legal-action
+    order used for encoded action candidates;
   - multiple TS TD replay exports can be passed together to `scripts.train_td`,
     but td-lambda value training requires globally unique export seed prefixes
     to avoid duplicate `(episodeId, playerId, timestep)` sequences;
