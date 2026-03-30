@@ -145,19 +145,69 @@ describe('heuristic scorer v2', () => {
     );
   });
 
-  it('does not bury trades behind a large heuristic penalty', () => {
+  it('prefers developing a deed from surplus tokens over spending a scarce last token', () => {
+    const scarce = heuristicV2FixtureState({
+      resources: fixtureResources({ Wyrms: 1 }),
+      hand: [],
+      districts: [
+        fixtureDistrict({
+          id: 'D0',
+          playerADeed: { cardId: '24', progress: 0, tokens: {} },
+        }),
+        fixtureDistrict({ id: 'D1' }),
+        fixtureDistrict({ id: 'D2' }),
+        fixtureDistrict({ id: 'D3' }),
+        fixtureDistrict({ id: 'D4' }),
+      ],
+    });
+    const surplus = heuristicV2FixtureState({
+      resources: fixtureResources({ Wyrms: 4 }),
+      hand: [],
+      districts: [...scarce.districts],
+    });
+    const developWyrms: GameAction = {
+      type: 'develop-deed',
+      cardId: '24',
+      districtId: 'D0',
+      tokens: { Wyrms: 1 },
+    };
+
+    expect(scoreHeuristicV2Action(developWyrms, { state: surplus })).toBeGreaterThan(
+      scoreHeuristicV2Action(developWyrms, { state: scarce })
+    );
+  });
+
+  it('prefers selling for suits that match stronger remaining demand', () => {
+    const state = heuristicV2FixtureState({
+      resources: fixtureResources({}),
+      hand: ['12', '13', '24'],
+    });
+    const sellWyrmsKnots: GameAction = { type: 'sell-card', cardId: '12' };
+    const sellMoonsSuns: GameAction = { type: 'sell-card', cardId: '13' };
+
+    expect(scoreHeuristicV2Action(sellWyrmsKnots, { state })).toBeGreaterThan(
+      scoreHeuristicV2Action(sellMoonsSuns, { state })
+    );
+  });
+
+  it('prefers trade liquidity into a missing high-demand suit', () => {
     const state = heuristicV2FixtureState({
       resources: fixtureResources({ Moons: 3 }),
+      hand: ['24'],
     });
-    const trade: GameAction = {
+    const tradeForDemand: GameAction = {
+      type: 'trade',
+      give: 'Moons',
+      receive: 'Wyrms',
+    };
+    const tradeForLowDemand: GameAction = {
       type: 'trade',
       give: 'Moons',
       receive: 'Suns',
     };
-    const endTurn: GameAction = { type: 'end-turn' };
 
-    expect(scoreHeuristicV2Action(trade, { state })).toBeGreaterThan(
-      scoreHeuristicV2Action(endTurn, { state })
+    expect(scoreHeuristicV2Action(tradeForDemand, { state })).toBeGreaterThan(
+      scoreHeuristicV2Action(tradeForLowDemand, { state })
     );
   });
 });

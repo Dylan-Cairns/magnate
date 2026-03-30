@@ -14,6 +14,7 @@ import type {
   ResourcePool,
   Suit,
 } from '../engine/types';
+import { resourceBankValueV2 } from './tokenValueV2';
 
 const LATE_GAME_DRAW_COUNT = 6;
 const TERMINAL_OUTCOME_BASE_VALUE = 0.72;
@@ -24,17 +25,12 @@ export function evaluateSearchLeafState(
   rootPlayer: PlayerId
 ): number {
   const opponent = otherPlayerId(rootPlayer);
-  const root = requiredPlayerState(state, rootPlayer);
-  const opponentState = requiredPlayerState(state, opponent);
   const lateGame = isLateGame(state);
 
   const districtTerm = districtControlTerm(state, rootPlayer, opponent);
   const rankTerm = developedRankTerm(state, rootPlayer, opponent);
   const deedTerm = deedPotentialTerm(state, rootPlayer, opponent);
-  const resourceTerm = resourceQualityTerm(
-    root.resources,
-    opponentState.resources
-  );
+  const resourceTerm = resourceQualityTerm(state, rootPlayer, opponent);
 
   const score = lateGame
     ? 0.7 * districtTerm +
@@ -244,19 +240,30 @@ function deedAccessMultiplier(
 }
 
 function resourceQualityTerm(
-  root: ResourcePool,
-  opponent: ResourcePool
+  state: GameState,
+  rootPlayer: PlayerId,
+  opponent: PlayerId
 ): number {
+  const root = requiredPlayerState(state, rootPlayer).resources;
+  const opponentResources = requiredPlayerState(state, opponent).resources;
   const coverageDiff =
-    (suitCoverage(root) - suitCoverage(opponent)) / SUITS.length;
+    (suitCoverage(root) - suitCoverage(opponentResources)) / SUITS.length;
   const resourceTotalTerm = Math.tanh(
-    (resourceTotal(root) - resourceTotal(opponent)) / 12
+    (resourceTotal(root) - resourceTotal(opponentResources)) / 12
   );
   const taxExposureTerm = Math.tanh(
-    (taxExposure(opponent) - taxExposure(root)) / 6
+    (taxExposure(opponentResources) - taxExposure(root)) / 6
+  );
+  const contextualBankTerm = Math.tanh(
+    (resourceBankValueV2(state, rootPlayer) -
+      resourceBankValueV2(state, opponent)) /
+      3
   );
   return clamp(
-    0.55 * coverageDiff + 0.25 * resourceTotalTerm + 0.2 * taxExposureTerm,
+    0.35 * coverageDiff +
+      0.18 * resourceTotalTerm +
+      0.17 * taxExposureTerm +
+      0.3 * contextualBankTerm,
     -1,
     1
   );

@@ -37,7 +37,7 @@ Design expectations:
   - current browser profiles prioritize deterministic search-based play
 - Browser heuristic v1 play should use one shared TypeScript scorer for direct heuristic play, rollout-search root ranking, and TD-search heuristic root priors.
 - Rollout-search specs may opt into additive heuristic variants for both root ranking/priors and rollout playout action selection; omitted heuristic config preserves v1 behavior.
-- Browser rollout-search leaf evaluation should stay separate from action scoring and estimate unfinished rollout states from canonical district scoring, deed potential/threat pressure, late-game urgency, and resource quality.
+- Browser rollout-search leaf evaluation should stay separate from action scoring and estimate unfinished rollout states from canonical district scoring, deed potential/threat pressure, late-game urgency, and contextual resource-bank quality.
 - Browser rollout-search parallelism should live below the `ActionPolicy`
   boundary:
   - the UI/controller still awaits one async policy decision;
@@ -56,7 +56,7 @@ Design expectations:
   leaf/terminal evaluator intact while replacing only root action ordering and
   root priors with TD model-pack value/action-logit signals.
 - Heuristic v1 scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
-- Heuristic v2 should remain additive and broad-delta based: score district-local saturated scoring-margin deltas plus future suit-access earning deltas, ignore loose resource hoarding, and avoid v1 tactical patchwork constants.
+- Heuristic v2 should remain additive and broad-delta based: score district-local saturated scoring-margin deltas, future suit-access earning deltas, and contextual token-bank deltas without rewarding generic resource hoarding or v1 tactical patchwork constants.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
 - Browser model-backed policies should load from static model-pack artifacts:

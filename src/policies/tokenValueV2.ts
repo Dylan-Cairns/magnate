@@ -5,8 +5,10 @@ import {
   deedCost,
   developmentCost,
   findProperty,
+  mergeTokens,
   placementAllowed,
   SUITS,
+  sumTokens,
 } from '../engine/stateHelpers';
 import type {
   DistrictState,
@@ -176,10 +178,43 @@ export function tokenDeltaForActionV2(
   const player = requiredPlayer(state, playerId);
   const before = player.resources;
   const after = applyDelta(before, resourceDeltaForActionV2(action));
+  const afterState = projectStateForTokenValueV2(action, state, playerId);
   return (
-    resourceBankValueV2(state, playerId, after) -
+    resourceBankValueV2(afterState, playerId, after) -
     resourceBankValueV2(state, playerId, before)
   );
+}
+
+export function projectStateForTokenValueV2(
+  action: GameAction,
+  state: GameState,
+  playerId: PlayerId
+): GameState {
+  const player = requiredPlayer(state, playerId);
+  const updatedPlayer = projectPlayerForTokenValue(action, player);
+  const withPlayer = replacePlayer(state, playerId, updatedPlayer);
+  const withDistricts = isDistrictAction(action)
+    ? {
+        ...withPlayer,
+        districts: withPlayer.districts.map((district) =>
+          district.id === action.districtId
+            ? projectDistrictForTokenValue(district, action, playerId)
+            : district
+        ),
+      }
+    : withPlayer;
+
+  if (action.type !== 'sell-card') {
+    return withDistricts;
+  }
+
+  return {
+    ...withDistricts,
+    deck: {
+      ...withDistricts.deck,
+      discard: [action.cardId, ...withDistricts.deck.discard],
+    },
+  };
 }
 
 export function resourceDeltaForActionV2(
@@ -531,6 +566,116 @@ function tradeSourceExpendability(
   }
   const relativeDemand = sourceValue / targetValue;
   return clamp(1.1 - relativeDemand * 0.35, 0.25, 1);
+}
+
+function projectPlayerForTokenValue(
+  action: GameAction,
+  player: PlayerState
+): PlayerState {
+  if (
+    action.type !== 'buy-deed' &&
+    action.type !== 'develop-outright' &&
+    action.type !== 'sell-card'
+  ) {
+    return player;
+  }
+  return {
+    ...player,
+    hand: player.hand.filter((cardId) => cardId !== action.cardId),
+  };
+}
+
+function projectDistrictForTokenValue(
+  district: DistrictState,
+  action: Extract<
+    GameAction,
+    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+  >,
+  playerId: PlayerId
+): DistrictState {
+  const stack = district.stacks[playerId];
+  const projectedStack = projectStackForTokenValue(stack, action);
+  return {
+    ...district,
+    stacks: {
+      ...district.stacks,
+      [playerId]: projectedStack,
+    },
+  };
+}
+
+function projectStackForTokenValue(
+  stack: DistrictState['stacks'][PlayerId],
+  action: Extract<
+    GameAction,
+    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+  >
+): DistrictState['stacks'][PlayerId] {
+  if (action.type === 'buy-deed') {
+    return {
+      ...stack,
+      deed: {
+        cardId: action.cardId,
+        progress: 0,
+        tokens: {},
+      },
+    };
+  }
+  if (action.type === 'develop-outright') {
+    return {
+      ...stack,
+      developed: [...stack.developed, action.cardId],
+    };
+  }
+
+  const deed = stack.deed;
+  if (!deed) {
+    return stack;
+  }
+  const card = findProperty(deed.cardId);
+  const progress = deed.progress + sumTokens(action.tokens);
+  const target = card ? developmentCost(card) : 0;
+  if (target > 0 && progress >= target) {
+    return {
+      ...stack,
+      developed: [...stack.developed, deed.cardId],
+      deed: undefined,
+    };
+  }
+  return {
+    ...stack,
+    deed: {
+      ...deed,
+      progress,
+      tokens: mergeTokens(deed.tokens, action.tokens),
+    },
+  };
+}
+
+function replacePlayer(
+  state: GameState,
+  playerId: PlayerId,
+  updatedPlayer: PlayerState
+): GameState {
+  return {
+    ...state,
+    players: state.players.map((player) =>
+      player.id === playerId ? updatedPlayer : player
+    ),
+  };
+}
+
+function isDistrictAction(
+  action: GameAction
+): action is Extract<
+  GameAction,
+  { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+> {
+  return (
+    action.type === 'buy-deed' ||
+    action.type === 'develop-deed' ||
+    action.type === 'develop-outright'
+  );
 }
 
 function replaceabilityMultiplierForAccess(access: number): number {
