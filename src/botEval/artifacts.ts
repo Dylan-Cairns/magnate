@@ -141,12 +141,12 @@ export function renderHeadToHeadSummary(artifact: HeadToHeadArtifact): string {
     '',
     '## Rollout Search Work',
     '',
-    '| bot | searched decisions | root visits | proxy cost | actual steps | max steps | utilization | mean steps | terminal rollouts |',
-    '|:---|---:|---:|---:|---:|---:|---:|---:|---:|'
+    '| bot | searched decisions | root visits | proxy cost | actual steps | max steps | utilization | mean steps | terminal rollouts | terminal rate | selected value | selected visits | selected terminal rate |',
+    '|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'
   );
   for (const [botId, work] of Object.entries(summary.searchWorkByBotId)) {
     lines.push(
-      `| ${botId} | ${work.searchedDecisions} | ${work.rootVisits} | ${work.configProxyCost} | ${work.simulatedActionSteps} | ${work.maxSimulatedActionSteps} | ${format(work.stepUtilization)} | ${format(work.meanSimulatedActionSteps)} | ${work.terminalRollouts} |`
+      `| ${botId} | ${work.searchedDecisions} | ${work.rootVisits} | ${work.configProxyCost} | ${work.simulatedActionSteps} | ${work.maxSimulatedActionSteps} | ${format(work.stepUtilization)} | ${format(work.meanSimulatedActionSteps)} | ${work.terminalRollouts} | ${format(work.terminalRate)} | ${format(work.meanSelectedActionValue)} | ${format(work.meanSelectedActionVisits)} | ${format(work.meanSelectedActionTerminalRate)} |`
     );
   }
   for (const [botId, buckets] of Object.entries(

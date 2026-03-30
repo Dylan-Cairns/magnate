@@ -54,6 +54,11 @@ describe('rollout search core', () => {
 
     expect(actionStableKey(parallel!)).toBe(actionStableKey(serial!));
     expect(parallelDiagnostics).toEqual(serialDiagnostics);
+    expect(serialDiagnostics).toHaveLength(1);
+    expect(serialDiagnostics[0].selectedActionKey).toBe(
+      actionStableKey(serial!)
+    );
+    expectRootActionDiagnosticsAreConsistent(serialDiagnostics[0]);
   });
 
   it('merges parallel batch results independently of response ordering', async () => {
@@ -109,6 +114,46 @@ describe('rollout search core', () => {
     ).rejects.toThrow('not-the-scheduled-action');
   });
 });
+
+function expectRootActionDiagnosticsAreConsistent(
+  diagnostics: SearchDecisionDiagnostics
+): void {
+  expect(diagnostics.rootActions).toHaveLength(
+    diagnostics.expandedRootActions
+  );
+  expect(
+    diagnostics.rootActions.reduce((total, entry) => total + entry.visits, 0)
+  ).toBe(diagnostics.rootVisitBudget);
+  expect(
+    diagnostics.rootActions.reduce(
+      (total, entry) => total + entry.terminalRollouts,
+      0
+    )
+  ).toBe(diagnostics.terminalRollouts);
+  expect(diagnostics.terminalRate).toBe(
+    diagnostics.terminalRollouts / diagnostics.rootVisitBudget
+  );
+
+  const selected = diagnostics.rootActions.find(
+    (entry) => entry.actionKey === diagnostics.selectedActionKey
+  );
+  expect(selected).toBeDefined();
+  expect(diagnostics.selectedActionVisits).toBe(selected!.visits);
+  expect(diagnostics.selectedActionMeanValue).toBe(selected!.meanValue);
+  expect(diagnostics.selectedActionTerminalRollouts).toBe(
+    selected!.terminalRollouts
+  );
+  expect(diagnostics.selectedActionTerminalRate).toBe(selected!.terminalRate);
+
+  for (const rootAction of diagnostics.rootActions) {
+    expect(Number.isFinite(rootAction.meanValue)).toBe(true);
+    expect(rootAction.terminalRate).toBe(
+      rootAction.visits === 0
+        ? 0
+        : rootAction.terminalRollouts / rootAction.visits
+    );
+  }
+}
 
 async function runTasks(
   tasks: readonly RolloutSearchWorkerTask[]

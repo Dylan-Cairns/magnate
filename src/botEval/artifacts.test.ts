@@ -44,6 +44,8 @@ describe('TypeScript bot evaluation artifacts', () => {
     expect(markdown).toContain(
       'Execution: workers=1 requestedWorkers=1 parallelUnit=paired-seed latencyMode=isolated'
     );
+    expect(markdown).toContain('selected value');
+    expect(markdown).toContain('terminal rate');
     expect(markdown).toContain('heuristic-candidate');
   });
 

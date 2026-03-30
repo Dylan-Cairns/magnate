@@ -139,6 +139,12 @@ describe('search policy', () => {
     expect(first[0].simulatedActionSteps).toBeLessThanOrEqual(
       first[0].maxSimulatedActionSteps
     );
+    expect(first[0].rootActions).toHaveLength(first[0].expandedRootActions);
+    expect(first[0].selectedActionKey).toEqual(expect.any(String));
+    expect(first[0].selectedActionMeanValue).toEqual(expect.any(Number));
+    expect(first[0].terminalRate).toBe(
+      first[0].terminalRollouts / first[0].rootVisitBudget
+    );
     expect(progressChecks).toBe(first[0].rootVisitBudget);
   });
 

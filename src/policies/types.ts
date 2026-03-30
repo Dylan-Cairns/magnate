@@ -1,5 +1,14 @@
 import type { GameAction, GameState, PlayerView } from '../engine/types';
 
+export interface SearchRootActionDiagnostics {
+  actionKey: string;
+  visits: number;
+  meanValue: number;
+  terminalRollouts: number;
+  terminalRate: number;
+  prior: number;
+}
+
 export interface SearchDecisionDiagnostics {
   kind: 'search';
   legalRootActions: number;
@@ -9,6 +18,13 @@ export interface SearchDecisionDiagnostics {
   maxSimulatedActionSteps: number;
   simulatedActionSteps: number;
   terminalRollouts: number;
+  terminalRate: number;
+  selectedActionKey: string;
+  selectedActionVisits: number;
+  selectedActionMeanValue: number;
+  selectedActionTerminalRollouts: number;
+  selectedActionTerminalRate: number;
+  rootActions: readonly SearchRootActionDiagnostics[];
   parallelWorkers?: number;
   parallelBatches?: number;
   parallelBatchSize?: number;

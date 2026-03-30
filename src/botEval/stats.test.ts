@@ -46,6 +46,30 @@ describe('bot evaluation stats', () => {
           maxSimulatedActionSteps: 40,
           simulatedActionSteps: 25,
           terminalRollouts: 2,
+          terminalRate: 0.2,
+          selectedActionKey: 'action-b',
+          selectedActionVisits: 7,
+          selectedActionMeanValue: 0.4,
+          selectedActionTerminalRollouts: 2,
+          selectedActionTerminalRate: 2 / 7,
+          rootActions: [
+            {
+              actionKey: 'action-a',
+              visits: 3,
+              meanValue: -0.2,
+              terminalRollouts: 0,
+              terminalRate: 0,
+              prior: 0.25,
+            },
+            {
+              actionKey: 'action-b',
+              visits: 7,
+              meanValue: 0.4,
+              terminalRollouts: 2,
+              terminalRate: 2 / 7,
+              prior: 0.75,
+            },
+          ],
         },
       ])
     ).toEqual({
@@ -57,6 +81,10 @@ describe('bot evaluation stats', () => {
       stepUtilization: 0.625,
       meanSimulatedActionSteps: 25,
       terminalRollouts: 2,
+      terminalRate: 0.2,
+      meanSelectedActionValue: 0.4,
+      meanSelectedActionVisits: 7,
+      meanSelectedActionTerminalRate: 2 / 7,
     });
   });
 });

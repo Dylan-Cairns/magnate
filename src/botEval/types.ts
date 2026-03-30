@@ -93,6 +93,10 @@ export interface SearchWorkSummary {
   stepUtilization: number;
   meanSimulatedActionSteps: number;
   terminalRollouts: number;
+  terminalRate: number;
+  meanSelectedActionValue: number;
+  meanSelectedActionVisits: number;
+  meanSelectedActionTerminalRate: number;
 }
 
 export interface HeadToHeadSummary {

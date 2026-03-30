@@ -15,6 +15,7 @@ import type { SearchPolicyConfig } from './searchConfig';
 import {
   createSearchDecisionDiagnostics,
   progressiveTargetActionCount,
+  safeDiv,
   selectBestRootActionKey,
   selectRootUcbAction,
 } from './searchRoot';
@@ -22,7 +23,10 @@ import {
   evaluateSearchLeafState,
   evaluateSearchTerminalState,
 } from './searchStateEvaluator';
-import type { SearchDecisionDiagnostics } from './types';
+import type {
+  SearchDecisionDiagnostics,
+  SearchRootActionDiagnostics,
+} from './types';
 
 export interface RolloutSearchSelectionInput {
   state: GameState;
@@ -260,6 +264,7 @@ class RolloutSearchSession {
   private readonly rootBudget: number;
   private readonly rootVisits = new Map<string, number>();
   private readonly rootValueSum = new Map<string, number>();
+  private readonly rootTerminalRollouts = new Map<string, number>();
   private readonly pendingVisits = new Map<string, number>();
   private readonly scheduledVisits = new Map<number, ScheduledVisit>();
   private readonly mergedVisits = new Set<number>();
@@ -301,6 +306,7 @@ class RolloutSearchSession {
     for (const candidate of rankedRootActions) {
       this.rootVisits.set(candidate.actionKey, 0);
       this.rootValueSum.set(candidate.actionKey, 0);
+      this.rootTerminalRollouts.set(candidate.actionKey, 0);
       this.pendingVisits.set(candidate.actionKey, 0);
     }
 
@@ -418,7 +424,13 @@ class RolloutSearchSession {
       (this.rootValueSum.get(result.actionKey) ?? 0) + result.score
     );
     this.simulatedActionSteps += result.simulatedActionSteps;
-    this.terminalRollouts += result.terminatedBeforeDepthLimit ? 1 : 0;
+    if (result.terminatedBeforeDepthLimit) {
+      this.rootTerminalRollouts.set(
+        result.actionKey,
+        (this.rootTerminalRollouts.get(result.actionKey) ?? 0) + 1
+      );
+      this.terminalRollouts += 1;
+    }
   }
 
   finish({
@@ -460,11 +472,28 @@ class RolloutSearchSession {
         rootVisitBudget: this.rootBudget,
         simulatedActionSteps: this.simulatedActionSteps,
         terminalRollouts: this.terminalRollouts,
+        selectedActionKey: actionKey,
+        rootActions: this.rootActionDiagnostics(),
         parallelWorkers,
         parallelBatches,
         parallelBatchSize,
       }),
     };
+  }
+
+  private rootActionDiagnostics(): SearchRootActionDiagnostics[] {
+    return this.expandedKeys.map((actionKey) => {
+      const visits = this.rootVisits.get(actionKey) ?? 0;
+      const terminalRollouts = this.rootTerminalRollouts.get(actionKey) ?? 0;
+      return {
+        actionKey,
+        visits,
+        meanValue: safeDiv(this.rootValueSum.get(actionKey) ?? 0, visits),
+        terminalRollouts,
+        terminalRate: safeDiv(terminalRollouts, visits),
+        prior: this.rootPriorByKey.get(actionKey) ?? 0,
+      };
+    });
   }
 }
 

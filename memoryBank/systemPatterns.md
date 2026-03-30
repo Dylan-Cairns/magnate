@@ -78,7 +78,9 @@ Design expectations:
   completed candidate; active-candidate resume is not required.
 - Rollout-search evaluation diagnostics should remain optional at the policy
   boundary so browser behavior is unchanged while direct evaluation can record
-  legal-root-action counts and actual simulated engine steps.
+  legal-root-action counts, actual simulated engine steps, terminal rollout
+  rates, per-root-action visits/mean values/terminal rates, and selected-action
+  value details.
 - Additive policy implementations should not replace existing training/eval paths:
   - policy kinds are wired through one factory (`policy_from_name(...)`)
   - policies that spawn external resources (for example bridge subprocesses for simulation) expose `close()`

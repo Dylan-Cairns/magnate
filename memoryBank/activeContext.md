@@ -29,7 +29,8 @@
 - Browser rollout-search internals now share a deterministic root-search core:
   seeded world sampling, per-visit rollout RNG seeds, progressive root expansion,
   UCB scheduling with pending virtual visits for batched workers, ordered result
-  merging, and optional parallel diagnostics. The same core is intended as the
+  merging, and optional parallel diagnostics with per-root-action visits, mean
+  values, terminal rates, priors, and selected-action value. The same core is intended as the
   extension point for future search variants such as TD-guided search and IFMCTS.
 - Direct TypeScript browser-bot evaluation now lives under `src/botEval/`:
   - browser catalog presets carry serializable `BotSpec` definitions and use
