@@ -632,11 +632,44 @@ function toAbsoluteUrl(url: string): string {
   if (/^[a-zA-Z]+:\/\//.test(url)) {
     return url;
   }
-  const runtimeBase =
-    typeof window !== 'undefined' && typeof window.location?.href === 'string'
-      ? window.location.href
-      : 'http://localhost/';
+  const runtimeBase = runtimeBaseHrefForUrl(url) ?? 'http://localhost/';
   return new URL(url, runtimeBase).toString();
+}
+
+function runtimeBaseHrefForUrl(url: string): string | undefined {
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.location?.href === 'string'
+  ) {
+    return window.location.href;
+  }
+  const location = (globalThis as { location?: { href?: unknown } }).location;
+  if (typeof location?.href !== 'string') {
+    return undefined;
+  }
+  if (url.startsWith('/')) {
+    return location.href;
+  }
+  return appBaseHrefFromWorkerLocation(location.href);
+}
+
+function appBaseHrefFromWorkerLocation(href: string): string {
+  const parsed = new URL(href);
+  const assetsIndex = parsed.pathname.lastIndexOf('/assets/');
+  if (assetsIndex >= 0) {
+    parsed.pathname = parsed.pathname.slice(0, assetsIndex + 1);
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  }
+  const sourceIndex = parsed.pathname.indexOf('/src/');
+  if (sourceIndex >= 0) {
+    parsed.pathname = '/';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  }
+  return href;
 }
 
 async function fetchJson(url: string): Promise<unknown> {

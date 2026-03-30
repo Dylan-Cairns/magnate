@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ACTION_FEATURE_DIM,
@@ -7,6 +7,7 @@ import {
 } from './trainingEncoding';
 import {
   TdSearchOpponentNetwork,
+  loadTdSearchModelFromIndexUrl,
   parseTdSearchModelPackManifest,
 } from './tdSearchModelPack';
 
@@ -63,6 +64,31 @@ function makeManifest(hiddenDim: number) {
 }
 
 describe('td search model pack', () => {
+  it('resolves relative index fetches from a built worker to the app root', async () => {
+    await withGlobalLocation(
+      'https://example.github.io/magnate/assets/botWorker-test.js',
+      async () => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              schemaVersion: 1,
+              generatedAtUtc: '2026-06-05T00:00:00Z',
+              defaultPackId: null,
+              packs: [],
+            })
+          )
+        );
+
+        await expect(
+          loadTdSearchModelFromIndexUrl('./model-packs/index.json')
+        ).rejects.toThrow('td-search-v1');
+        expect(fetchMock).toHaveBeenCalledWith(
+          'https://example.github.io/magnate/model-packs/index.json'
+        );
+      }
+    );
+  });
+
   it('parses manifest with expected schema and dimensions', () => {
     const manifest = parseTdSearchModelPackManifest(makeManifest(2));
     expect(manifest.model.modelType).toBe('td-search-v1');
@@ -115,3 +141,27 @@ describe('td search model pack', () => {
     expect(logits[1]).toBeCloseTo(expectedB, 6);
   });
 });
+
+async function withGlobalLocation(
+  href: string,
+  callback: () => Promise<void>
+): Promise<void> {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'location'
+  );
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true,
+    value: { href },
+  });
+  try {
+    await callback();
+  } finally {
+    vi.restoreAllMocks();
+    if (originalDescriptor) {
+      Object.defineProperty(globalThis, 'location', originalDescriptor);
+    } else {
+      delete (globalThis as { location?: unknown }).location;
+    }
+  }
+}
