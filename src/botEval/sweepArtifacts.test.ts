@@ -49,12 +49,15 @@ describe('rollout-search sweep artifacts', () => {
     expect(loaded).toEqual(written.artifact);
     expect(csv).toContain('"search,candidate"');
     expect(csv).toContain('workers,latencyMode');
+    expect(csv).toContain('terminalRolloutRate');
+    expect(csv).toContain('meanSelectedActionValue');
     expect(markdown).toContain(
       '# TypeScript Rollout Search Sweep: artifact-test'
     );
     expect(markdown).toContain(
       'Execution: workers=1 requestedWorkers=1 parallelUnit=paired-seed latencyMode=isolated'
     );
+    expect(markdown).toContain('selected value');
     expect(markdown).toContain('## Root-Action Latency: search,candidate');
     expect(child.execution?.latencyMode).toBe('isolated');
     expect(child.config.candidate.id).toBe('search,candidate');

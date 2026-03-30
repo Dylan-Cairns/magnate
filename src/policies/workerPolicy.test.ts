@@ -40,6 +40,8 @@ describe('worker-backed policy', () => {
     const workers: FakeWorker[] = [];
     const spec = searchSpec();
     const { context, state, actions } = selectionFixture();
+    const selectedAction = actions[1];
+    const selectedActionKey = actionStableKey(selectedAction);
     const diagnostics = {
       kind: 'search' as const,
       legalRootActions: actions.length,
@@ -49,6 +51,30 @@ describe('worker-backed policy', () => {
       maxSimulatedActionSteps: 20,
       simulatedActionSteps: 18,
       terminalRollouts: 1,
+      terminalRate: 0.25,
+      selectedActionKey,
+      selectedActionVisits: 3,
+      selectedActionMeanValue: 0.25,
+      selectedActionTerminalRollouts: 1,
+      selectedActionTerminalRate: 1 / 3,
+      rootActions: [
+        {
+          actionKey: actionStableKey(actions[0]),
+          visits: 1,
+          meanValue: -0.1,
+          terminalRollouts: 0,
+          terminalRate: 0,
+          prior: 0.2,
+        },
+        {
+          actionKey: selectedActionKey,
+          visits: 3,
+          meanValue: 0.25,
+          terminalRollouts: 1,
+          terminalRate: 1 / 3,
+          prior: 0.8,
+        },
+      ],
     };
     const emittedDiagnostics: unknown[] = [];
     const policy = createWorkerBackedPolicy(spec, {
@@ -73,11 +99,10 @@ describe('worker-backed policy', () => {
       randomSeed: policyRandomSeedForState(state, spec.id),
     });
 
-    const selectedAction = actions[1];
     workers[0].emit({
       type: 'selected-action',
       requestId: request.requestId,
-      actionKey: actionStableKey(selectedAction),
+      actionKey: selectedActionKey,
       diagnostics,
     });
 
