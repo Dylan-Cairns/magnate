@@ -14,11 +14,11 @@ describe('bot policy catalog', () => {
     );
   });
 
-  it('uses rollout search as default and resolves an available policy', () => {
+  it('uses TD-root rollout search as default and resolves an available policy', () => {
     const resolved = resolveBotProfile(DEFAULT_BOT_PROFILE_ID);
     expect(resolved.selected.available).toBe(true);
-    expect(resolved.selected.id).toBe('rollout-eval-search');
-    expect(resolved.selected.kind).toBe('search');
+    expect(resolved.selected.id).toBe('td-root-rollout-search');
+    expect(resolved.selected.kind).toBe('td-root-search');
   });
 
   it('keeps all configured profiles available', () => {
@@ -63,5 +63,13 @@ describe('bot policy catalog', () => {
     expect(
       BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')
     ).toBe(true);
+  });
+
+  it('includes a TD-root rollout-search profile as the default', () => {
+    const profile = getBotProfile('td-root-rollout-search');
+
+    expect(profile.kind).toBe('td-root-search');
+    expect(profile.available).toBe(true);
+    expect(DEFAULT_BOT_PROFILE_ID).toBe('td-root-rollout-search');
   });
 });

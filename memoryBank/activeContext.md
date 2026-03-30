@@ -21,11 +21,12 @@
 
 ## Current State
 
-- Browser app is playable; default bot is `Rollout Search`; `TD Search`, `TD Search Fast`, and `Heuristic` remain available as alternate profiles.
+- Browser app is playable; default bot is `TD Root Rollout Search`; `Rollout Search`, `TD Search`, `TD Search Fast`, and `Heuristic` remain available as alternate profiles.
 - Browser `Heuristic`, rollout-search priors, and TD-search heuristic root priors share the TS heuristic scorer; current scorer intent is resource sheltering without losing suit coverage, three-district control, district flips/defense, close deed completion, avoiding non-completing deed progress that spends a last suit token, projected control from newly bought deeds, progress-aware opponent deed threats, rank-2 deed rejection, high-rank deed caution late or without suit access, and trade penalties unless a trade immediately unlocks a high-value move.
 - Browser rollout-search evaluation now uses a dedicated TS state evaluator: unfinished leaves weight canonical district control with Ace bonuses, final-score tiebreak pressure, progress-aware deed potential/threats, late-game urgency, and resource quality without using hand-size as a value signal; terminal rollouts use margin-aware final scoring over win/loss/draw, district points, Ace-aware district-score margins, rank totals, and resources.
 - Current worktree browser `Rollout Search` profile uses `worlds=50`, `rollouts=1`, `depth=160`, `maxRootActions=8`, and `rolloutEpsilon=0`; prior high-cost sweep artifacts still cover wider `10w/4r/12d` style candidates.
 - Browser `Rollout Search` is now selected through a lazy dedicated Web Worker wrapper that coordinates deterministic rollout-search batches across a nested browser search-worker pool when worker count resolves above one, returns stable action keys, and fails fast on unexpected pool or worker errors. Worker count `1` remains the explicit serial path.
+- Browser `TD Root Rollout Search` reuses the current rollout-search session/worker core and the default `td-search-v1` browser model pack, replacing only legal root-action ordering and root priors with TD value/action-logit signals while keeping sampled hidden worlds, root UCB scheduling, heuristic continuation rollouts, and search leaf/terminal evaluation aligned with `Rollout Search`.
 - Browser rollout-search internals now share a deterministic root-search core:
   seeded world sampling, per-visit rollout RNG seeds, progressive root expansion,
   UCB scheduling with pending virtual visits for batched workers, ordered result
@@ -129,4 +130,4 @@
    for direct TypeScript rollout-search teacher replay exports before feeding
    the generated JSONL into `scripts.train_td`.
 
-_Updated: 2026-06-04._
+_Updated: 2026-06-05._

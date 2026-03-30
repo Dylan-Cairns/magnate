@@ -35,6 +35,7 @@ export interface RolloutSearchSelectionInput {
   config: SearchPolicyConfig;
   random: RandomFn;
   randomSeed?: string;
+  createRootGuide?: RolloutSearchRootGuideFactory;
   onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
   onProgress?: () => void;
 }
@@ -66,10 +67,27 @@ export interface RolloutSearchVisitResult {
   terminatedBeforeDepthLimit: boolean;
 }
 
-interface RankedRootAction {
+export interface RolloutSearchRankedRootAction {
   action: GameAction;
   actionKey: string;
 }
+
+export interface RolloutSearchRootGuide {
+  rankedRootActions: readonly RolloutSearchRankedRootAction[];
+  rootPriorByKey: ReadonlyMap<string, number>;
+}
+
+export interface RolloutSearchRootGuideInput {
+  state: GameState;
+  view: PlayerView;
+  candidateActions: readonly GameAction[];
+  worldStates: readonly GameState[];
+  rootPlayer: PlayerId;
+}
+
+export type RolloutSearchRootGuideFactory = (
+  input: RolloutSearchRootGuideInput
+) => RolloutSearchRootGuide;
 
 interface ScheduledVisit {
   actionKey: string;
@@ -225,13 +243,9 @@ function createRolloutSearchSession({
   candidateActions,
   config,
   random,
+  createRootGuide,
 }: RolloutSearchSelectionInput): RolloutSearchSession | null {
   const rootPlayer = view.activePlayerId;
-  const heuristicContext = { state, view };
-  const rankedRootActions = rankHeuristicActions(
-    candidateActions,
-    heuristicContext
-  );
   const worldStates = sampleHiddenWorldStates({
     state,
     view,
@@ -243,20 +257,44 @@ function createRolloutSearchSession({
   if (worldStates.length === 0) {
     return null;
   }
+  const rootGuide =
+    createRootGuide?.({
+      state,
+      view,
+      candidateActions,
+      worldStates,
+      rootPlayer,
+    }) ??
+    createHeuristicRolloutSearchRootGuide({ state, view, candidateActions });
 
   return new RolloutSearchSession({
     candidateActions,
-    rankedRootActions,
-    rootPriorByKey: heuristicPriorsByKey(candidateActions, heuristicContext),
+    rankedRootActions: rootGuide.rankedRootActions,
+    rootPriorByKey: rootGuide.rootPriorByKey,
     worldStates,
     rootPlayer,
     config,
   });
 }
 
+export function createHeuristicRolloutSearchRootGuide({
+  state,
+  view,
+  candidateActions,
+}: Pick<
+  RolloutSearchSelectionInput,
+  'state' | 'view' | 'candidateActions'
+>): RolloutSearchRootGuide {
+  const heuristicContext = { state, view };
+  return {
+    rankedRootActions: rankHeuristicActions(candidateActions, heuristicContext),
+    rootPriorByKey: heuristicPriorsByKey(candidateActions, heuristicContext),
+  };
+}
+
 class RolloutSearchSession {
   private readonly actionByKey: ReadonlyMap<string, GameAction>;
-  private readonly rankedRootActions: readonly RankedRootAction[];
+  private readonly rankedRootActions: readonly RolloutSearchRankedRootAction[];
   private readonly rootPriorByKey: ReadonlyMap<string, number>;
   private readonly worldStates: readonly GameState[];
   private readonly rootPlayer: PlayerId;
@@ -284,7 +322,7 @@ class RolloutSearchSession {
     config,
   }: {
     candidateActions: readonly GameAction[];
-    rankedRootActions: readonly RankedRootAction[];
+    rankedRootActions: readonly RolloutSearchRankedRootAction[];
     rootPriorByKey: ReadonlyMap<string, number>;
     worldStates: readonly GameState[];
     rootPlayer: PlayerId;

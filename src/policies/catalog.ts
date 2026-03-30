@@ -6,6 +6,7 @@ export type BotProfileId =
   | 'heuristic'
   | 'td-search-fast'
   | 'rollout-eval-search'
+  | 'td-root-rollout-search'
   | 'td-search-browser'
   | 'random-legal';
 
@@ -98,6 +99,25 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     createPolicy: createWorkerBackedPolicy,
   }),
   createBotProfile({
+    id: 'td-root-rollout-search',
+    label: 'TD Root Rollout Search',
+    description: '',
+    available: true,
+    turnDelayMs: 0,
+    spec: {
+      id: 'td-root-rollout-search',
+      kind: 'td-root-search',
+      config: {
+        worlds: 50,
+        rollouts: 1,
+        depth: 160,
+        maxRootActions: 8,
+        rolloutEpsilon: 0.0,
+      },
+    },
+    createPolicy: createWorkerBackedPolicy,
+  }),
+  createBotProfile({
     id: 'random-legal',
     label: 'Random legal',
     description: 'Random choice among legal actions.',
@@ -110,7 +130,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   }),
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-eval-search';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-root-rollout-search';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);
