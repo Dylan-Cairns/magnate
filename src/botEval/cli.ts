@@ -24,10 +24,10 @@ import {
   runRolloutSearchSweep,
   type RolloutSearchSweepProgress,
 } from './sweep';
-import { collectTdReplay, type TdReplayProgress } from './tdReplay';
+import type { TdReplayProgress } from './tdReplay';
 import {
+  collectAndWriteTdReplayArtifacts,
   defaultTdReplayOutputDirectory,
-  writeTdReplayArtifacts,
 } from './tdReplayArtifacts';
 import type { RolloutSearchSweepRun } from './types';
 
@@ -162,22 +162,28 @@ async function runRolloutSearchSweepCommand(
   );
 }
 
-async function runCollectTdReplayCommand(args: readonly string[]): Promise<void> {
+async function runCollectTdReplayCommand(
+  args: readonly string[]
+): Promise<void> {
   const flags = parseFlags(args);
   const configPath = requiredFlag(flags, '--config');
   const config = parseTdReplayConfig(
     JSON.parse(await readFile(configPath, 'utf8'))
   );
-  const outputDirectory = flags.get('--out-dir') ?? defaultTdReplayOutputDirectory();
+  const outputDirectory =
+    flags.get('--out-dir') ?? defaultTdReplayOutputDirectory();
   const progressIntervalMs = parseProgressIntervalMs(flags);
   process.stderr.write(
     `[td-replay] started playerA=${config.playerA.id} playerB=${config.playerB.id} games=${String(config.games)}\n`
   );
-  const run = await collectTdReplay(config, {
-    progressIntervalMs,
-    onProgress: logTdReplayProgress,
-  });
-  const written = await writeTdReplayArtifacts(run, outputDirectory);
+  const written = await collectAndWriteTdReplayArtifacts(
+    config,
+    outputDirectory,
+    {
+      progressIntervalMs,
+      onProgress: logTdReplayProgress,
+    }
+  );
   process.stderr.write(
     `[td-replay] artifacts completed value=${path.resolve(written.valuePath)} opponent=${path.resolve(written.opponentPath)} summary=${path.resolve(written.summaryPath)}\n`
   );
