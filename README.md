@@ -4,16 +4,12 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## At A Glance
 
-- Browser game is playable; default bot is `Rollout Search`.
-- Browser bot profiles currently include `TD Search`, `TD Search Fast`, `Heuristic`, `Rollout Search`, and `Random legal`.
+- Browser game is playable with selectable bot profiles.
 - TypeScript engine is the canonical rules implementation.
 - Python training and evaluation call the engine through the Node bridge.
 - Training progression is bootstrap or recalibration with `scripts.run_td_loop`, then self-play-focused iteration with `scripts.run_td_loop_selfplay`.
 - TD promoted checkpoints use `models/td_checkpoints/manifest.json` as the checked-in warm-start and opponent-pool registry.
-- Self-play chooses among saved training checkpoints with a cheap incumbent eval before each chunk contributes a learner candidate; the final training step is not assumed best.
-- Self-play generator updates are gated at configurable block boundaries (`--generator-update-chunks`); the best candidate from the block must pass a resumable sequential incumbent test before it can drive future collection.
-- Windows self-play wrapper defaults use recent replay history and 3-chunk generator blocks.
-- Self-play training uses a small replay window by default (`--train-replay-window-chunks 3`), tracked as referenced chunk replays rather than duplicated merged window files. The window source can be `accepted` for gate-passing chunks or `recent` for cumulative learner training across failed generator gates.
+- Self-play training uses checkpoint selection, generator gating, and small replay windows.
 - TD value training defaults to sequence-aware `td-lambda` targets (`--train-value-target-mode td-lambda`).
 
 ## Quickstart
@@ -24,7 +20,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 4. `yarn test`
 5. Set up Python with `.\scripts\setup_python_env.ps1` on Windows, or create `.venv` manually on macOS or Linux.
 
-Use [memoryBank/techContext.md](memoryBank/techContext.md) for the full setup, training, evaluation, wrapper, and recovery runbooks.
+Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context and links to runbooks.
 
 ## Common Commands
 
@@ -35,8 +31,7 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for the full setup, t
 - Format: `yarn format`
 - TypeScript browser-bot head-to-head eval: `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep: `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
-- Parallel TypeScript bot eval on this laptop: append `--workers 4` (the default
-  is `1`; multi-worker latency is recorded as loaded latency).
+- TypeScript rollout-search TD replay export: `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
 - Override bot-eval heartbeat cadence: append `--progress-interval-seconds 10` (`0` disables heartbeats).
 - Replay one recorded TypeScript bot game: `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Python test: `.\.venv\Scripts\python -m pytest`
@@ -45,7 +40,8 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for the full setup, t
 
 ## Source-of-Truth Docs
 
-- Operational runbook: [memoryBank/techContext.md](memoryBank/techContext.md)
+- Tooling context: [memoryBank/techContext.md](memoryBank/techContext.md)
 - Current project context: [memoryBank/activeContext.md](memoryBank/activeContext.md)
 - Rules reference: [memoryBank/magnateRules.md](memoryBank/magnateRules.md)
 - Bridge contract: [memoryBank/bridgeInterfaceContract.md](memoryBank/bridgeInterfaceContract.md)
+- Runbooks: [docs/runbooks/](docs/runbooks/)

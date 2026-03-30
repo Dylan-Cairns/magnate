@@ -3,51 +3,41 @@
 ## Stack
 
 - Node.js 22.12.0+
-- TypeScript (strict)
+- TypeScript strict
 - React + Vite
 - Vitest
+- Python 3.12+ through the project `.venv`
 - Pytest
-- ESLint + Prettier
 - Ruff
 - Pyright
-- Python 3.12+ (`.venv`)
 - PyTorch + NumPy
+- ESLint + Prettier
 
 ## Layout
 
 - Engine + browser app: `src/`
+- Browser policies: `src/policies/`
+- TypeScript bot evaluation: `src/botEval/`
 - Bridge runtime: `src/bridge/`
 - Python trainer/tooling: `trainer/`, `scripts/`
+- Trainer tests: `trainer_tests/`
 - Bridge contract: `contracts/`
+- Operational runbooks: `docs/runbooks/`
 
 ## Tooling Notes
 
-- Package manager: Yarn
-- JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`
-- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` runs on pushes to `main` (and manual dispatch), then gates deployment on `yarn test` + `yarn lint` before `yarn build` using Node `22.12.0`.
+- Package manager: Yarn classic.
+- JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
+- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` gates deployment on `yarn test`, `yarn lint`, then `yarn build` with Node `22.12.0`.
 - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`.
-- Checked-in static analysis runs from the repo venv: `.\.venv\Scripts\python -m pyright -p .`.
-- Checked-in pyright scope currently covers `trainer/` plus trainer-side tests in `trainer_tests/`; `scripts/` and `trainer_tests/test_eval_suite*.py` remain excluded.
-- TypeScript bridge output remains canonical. Python models only the consumed subset in `trainer/bridge_payloads.py`; `BridgeClient` validates the NDJSON envelope and top-level result shape, then passes typed payloads through the trainer stack without recursive runtime parsing.
+- Checked-in pyright scope covers `trainer/` plus trainer-side tests in `trainer_tests/`; some `scripts/` orchestration remains outside checked-in pyright scope.
+- TypeScript bridge output is canonical. Python models the consumed subset in `trainer/bridge_payloads.py`.
 
-## Local Commands
+## Core Commands
 
 - Install JS deps: `yarn install`
 - Dev server: `yarn dev`
 - Bridge runtime: `yarn bridge`
-- TypeScript browser-bot head-to-head eval:
-  `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
-- TypeScript rollout-search sweep:
-  `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
-- TypeScript rollout-search TD replay export:
-  `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
-- Parallel TypeScript bot eval:
-  append `--workers 4` for throughput on the current 4-core / 8-thread laptop.
-  The default is `1`; use `--workers 1` for browser-relevant latency.
-- Override bot-eval heartbeat cadence:
-  append `--progress-interval-seconds 10` (`0` disables timed heartbeats).
-- Replay one recorded TypeScript bot game:
-  `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
@@ -61,237 +51,36 @@
 ## Python Workflow
 
 - Use the project `.venv` for any Python command in this repo.
-- Python unit tests use pytest; run `.\.venv\Scripts\python -m pytest` for the full Python suite, or target specific `trainer_tests/` files while iterating.
-- When changing Python code, run targeted pytest tests for the touched behavior plus the Python Ruff and Pyright commands listed in `Local Commands`.
-- If the change touches Python code outside the checked-in pyright scope, note that explicitly in handoff.
+- When changing Python code, run targeted pytest tests for touched behavior plus Ruff and Pyright before handoff.
+- If the change touches Python code outside checked-in pyright scope, note that explicitly in handoff.
 
 ## Checkpoint Manifest
 
 - `models/td_checkpoints/manifest.json` is the canonical checked-in registry for TD checkpoint warm starts and opponent-pool entries.
-- Manifest schema v2 uses:
-  - `defaultWarmStart`: key for the checkpoint pair used by wrappers, exports, benchmarks, and loop warm-start discovery.
-  - `opponentPool`: ordered promoted checkpoint keys used by self-play pool sampling.
-  - `checkpoints.<key>.value` and `.opponent`: repo-relative paths to checkpoint files that should be committed when the manifest changes.
-- Ignored `artifacts/td_loops/*/loop.summary.json` files remain a fallback for historical local runs, but they are not the portable source of truth.
-- Successful promotions in `scripts.run_td_loop`, `scripts.run_td_loop_selfplay`, and their resume helpers copy the accepted value/opponent pair into `models/td_checkpoints/<key>/` and update the manifest unless `--disable-manifest-promotion` is set.
-- Manual registration path:
-  `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --key <key> --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --source-run-id <run-id> --source-chunk <chunk> --step <step> --set-default --add-to-opponent-pool`
+- Manifest schema v2 uses `defaultWarmStart`, `opponentPool`, and `checkpoints.<key>.value` / `.opponent`.
+- Referenced checkpoint files under `models/td_checkpoints/<key>/` should be committed when the manifest changes.
+- Successful promotions in TD loop scripts copy accepted checkpoint pairs into `models/td_checkpoints/<key>/` and update the manifest unless `--disable-manifest-promotion` is set.
 
-## Windows Local Setup
+## Runbooks
 
-From repo root:
-
-1. Install or use Node `22.12.0` with `nvm`:
-   `nvm install 22.12.0`
-   `nvm use 22.12.0`
-2. Install Yarn classic if needed:
-   `npm install -g yarn`
-3. Install JS deps:
-   `yarn install`
-4. Install Python deps:
-   `.\scripts\setup_python_env.ps1`
-5. Activate the venv when you want an interactive Python shell:
-   `.\.venv\Scripts\Activate.ps1`
-
-`setup_python_env.ps1` is the recommended Windows path for local training. It installs `requirements-dev.txt` including Ruff and Pyright, installs CPU-only PyTorch from the official CPU wheel index, and routes temp and cache files into repo-local `.tmp/`, `.pip-cache/`, `.npm-cache/`, and `.yarn-cache/` folders.
-
-## macOS/Linux Python Setup
-
-Manual equivalent:
-
-1. `python3 -m venv .venv`
-2. `source .venv/bin/activate`
-3. `python -m pip install --upgrade pip`
-4. `python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r requirements-dev.txt`
-
-## Windows Laptop Training Runbook
-
-Use the PowerShell wrappers so laptop-safe worker and thread settings stay separate from the Linux and RunPod flows.
-
-- Bootstrap or recalibration loop: `.\scripts\run_td_loop_bootstrap_laptop.ps1`
-- Self-play loop: `.\scripts\run_td_loop_selfplay_laptop.ps1`
-- Self-play resume: `.\scripts\resume_td_loop_selfplay_laptop.ps1 -RunId <interrupted-selfplay-run-id>`
-
-Wrapper behavior:
-
-- requires Node `22.12.0+`, `yarn install`, and a populated `.venv`
-- sets repo-local temp and cache dirs plus BLAS and OpenMP thread caps
-- auto-sizes the CPU budget from logical core count
-- defaults to `-CpuTargetPercent 60 -ReserveLogicalCores 2`
-- maps that budget into `collect-workers`, `eval-workers`, `incumbent-eval-workers`, `train-num-threads`, and `train-num-interop-threads`
-- keeps search-cost tuning explicit through loop args such as `--collect-search-worlds` and `--collect-search-depth`
-- self-play laptop runs default to `--train-replay-window-source recent` and `--generator-update-chunks 3`
-- streams child collect, train, and eval output into parent logs under `artifacts/logs/`
-- resolves warm-start checkpoints from `models/td_checkpoints/manifest.json` before falling back to local promoted artifact summaries
-
-Useful wrapper invocations:
-
-- Inspect the resolved self-play command without running it:
-  `.\scripts\run_td_loop_selfplay_laptop.ps1 -DryRun`
-- Increase CPU budget while keeping headroom:
-  `.\scripts\run_td_loop_selfplay_laptop.ps1 -CpuTargetPercent 70 -DryRun`
-- Override loop args:
-  `.\scripts\run_td_loop_selfplay_laptop.ps1 -LoopArgs @('--run-label', 'td-loop-selfplay-laptop-test', '--collect-games', '300')`
-
-## RunPod/Linux CPU Setup
-
-Use this flow for Linux CPU pods with a persistent `/workspace` volume.
-
-One-time setup on the persistent volume:
-
-```bash
-cd /workspace
-git clone <your-repo-url> magnate
-cd /workspace/magnate
-
-apt-get update
-apt-get install -y curl ca-certificates gnupg
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs python3.12 python3.12-venv
-npm install -g yarn
-npm install -g npm@11.11.0
-
-yarn install
-
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-
-export TMPDIR=/workspace/tmp
-mkdir -p /workspace/tmp
-
-python -m pip install --no-cache-dir \
-  --index-url https://download.pytorch.org/whl/cpu \
-  --extra-index-url https://pypi.org/simple \
-  -r requirements.txt
-```
-
-Each new pod session on the same persistent volume:
-
-```bash
-cd /workspace/magnate
-git pull --ff-only
-source .venv/bin/activate
-export TMPDIR=/workspace/tmp
-npm install -g yarn
-yarn install
-```
-
-For long runs, prefer `tmux`.
-
-## Python Entry Points
-
-With `.venv` active:
-
-- `python -m scripts.smoke_trainer`
-  Quick trainer smoke test.
-- `python -m scripts.eval`
-  Simple evaluation entrypoint.
-- `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
-  Canonical side-swapped evaluation. Supports `--mode gate|certify`, deterministic worker sharding, worker thread caps, and separate td-search checkpoints per side.
-- `python -m scripts.search_teacher_sweep --pack coarse-v1 --games-per-side 60 --jobs 1 --workers 1 --opponent-policy heuristic --run-label search-coarse`
-  Search profile sweep for teacher-data and search tuning work.
-- `python -m scripts.generate_teacher_data --games 200 --teacher-policy search --teacher-players both --out artifacts/teacher_data/teacher_search.jsonl`
-  Teacher-label generation; teacher policy must emit root action probabilities.
-- `python -m scripts.collect_td_self_play --games 200 --player-a-policy search --player-b-policy search --out-dir artifacts/td_replay --run-label td-replay-search`
-  Replay generation for TD training primitives.
-- `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
-  TD training primitive over replay files.
-- `python -m scripts.run_td_loop --run-label td-loop-r1 --chunks-per-loop 3 --collect-games 1200 --train-steps 20000 --eval-games-per-side 200 --eval-opponent-policy search --promotion-min-ci-low 0.5`
-  Bootstrap or recalibration loop. Supports `--collect-workers`, `--eval-workers`, `--eval-seed-start-indices`, explicit `--train-value-target-mode td0|td-lambda`, and cloud presets via `--cloud --cloud-vcpus 8|16|32`.
-- `python -m scripts.run_td_loop_selfplay --cloud --cloud-vcpus 16 --run-label td-loop-selfplay-r1 --chunks-per-loop 12 --collect-games 600 --train-steps 10000 --eval-games-per-side 200 --incumbent-eval-games-per-side 200 --progress-heartbeat-minutes 30 --eval-progress-log-minutes 30`
-  Primary post-bootstrap self-play loop. Uses mixed td-search-heavy collection, promoted opponent-pool sampling, block-boundary accepted-generator gates, and final dual promotion gates versus fixed `search` plus incumbent `td-search`.
-  After training, saved checkpoints are cheaply evaluated against the current accepted generator (`--checkpoint-selection-games-per-side 4` by default); the selected chunk checkpoint advances the learner instead of blindly using the final training step.
-  Generator update cadence is controlled by `--generator-update-chunks` (`1` preserves per-chunk cadence). For larger values, non-boundary chunks continue learner training without changing the data generator; each full block and the final partial block selects the best chunk candidate with `--block-selection-games-per-side`, `--block-selection-seed-prefix`, and `--block-selection-seed-start-indices`.
-  The block winner then runs through `scripts.eval_suite --mode gate`: default SPRT settings are `--chunk-gate-h0-win-rate 0.50`, `--chunk-gate-h1-win-rate 0.52`, `--chunk-gate-batch-games-per-side 25`, and `--chunk-gate-games-per-side 200` as the cap. Existing pooled post-checks (`--chunk-gate-min-win-rate`, side-gap, CI) still apply after the sequential gate. Passing block candidates become the generator for subsequent chunks; rejected or inconclusive candidates remain as artifacts but do not generate more self-play.
-  Training defaults to `--train-value-target-mode td-lambda --train-td-lambda 0.7` and `--train-replay-window-chunks 3`, recording ordered replay sources under `train/replay_window/window.summary.json` before each train step instead of writing duplicated merged window JSONL files. `--train-replay-window-source accepted` preserves the gate-passing replay window; `--train-replay-window-source recent` trains from recent chunks even when generator gates fail. Set `--train-replay-window-chunks 5` for a wider window. `--train-replay-window-max-value-lines` is rejected under `td-lambda` because raw line caps can split full player trajectories; `--train-replay-window-max-opponent-lines` can still cap opponent samples during multi-file replay loading.
-- `python -m scripts.resume_td_loop_selfplay --run-id <interrupted-selfplay-run-id>`
-  Resume an interrupted self-play loop from the latest fully completed chunk, preserving separate learner/generator checkpoints, accepted and recent replay histories, and any open block candidates. It reruns the next partial chunk from scratch, gates only at the recovered block boundary cadence, then finishes the remaining chunks plus dual promotion evals. Resume is fail-fast for current self-play artifacts: completed chunks require `chunk.summary.json` with checkpoint-selection, gate, checkpoint, replay-window, and replay-training fields; legacy summaries are not inferred.
-- `python -m scripts.resume_td_loop_run`
-  Legacy bootstrap recovery helper for the interrupted chunk-003 training and promotion path.
-- `python -m scripts.promote_td_checkpoint --key <key> --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --source-run-id <run-id> --set-default --add-to-opponent-pool`
-  Copy a promoted value/opponent checkpoint pair into `models/td_checkpoints/<key>/` and register it in the checkpoint manifest.
-- `python -m scripts.benchmark_collect_search_profiles --workers 4 --games 8`
-  Benchmark laptop-friendly td-search collect throughput across a small `search-worlds` and `search-depth` matrix.
-- `python -m scripts.benchmark_selfplay_collect_setup`
-  Compare single-process versus sharded self-play collection and recommend a `--collect-workers` setting for the current machine.
-
-Use `--help` on each script for the full option surface.
-
-## TypeScript Browser-Bot Evaluation
-
-- `src/botEval/` runs the actual browser `ActionPolicy` implementations
-  directly against the canonical TypeScript engine.
-- Head-to-head evals use paired seeds, swap candidate/opponent seats for each
-  seed, alternate the first-player seat, report Wilson confidence intervals and
-  latency summaries, and write:
-  - `artifacts/ts-bot-evals/<run>/matchup.json`
-  - `artifacts/ts-bot-evals/<run>/summary.md`
-- `matchup.json` includes full serializable bot specs, git metadata, runtime
-  metadata, final scores, and stable action-key transcripts for exact replay.
-- Head-to-head artifact schema v3 adds execution metadata on top of v2
-  legal-action counts per decision, multi-choice latency summaries, optional
-  rollout-search work diagnostics, and rollout-search latency buckets by legal
-  root-action count. Schema v1 and v2 artifacts remain replayable.
-- Config inputs can reference catalog presets with `{ "profileId": "heuristic" }`
-  or define arbitrary `random`, `heuristic`, or `search` bot specs directly.
-- `yarn bot:eval collect-td-replay --config <path> [--out-dir <path>]`
-  runs full self-play games through direct Node-compatible
-  `createPolicyFromBotSpec` / `ActionPolicy` policies and writes
-  `<run>.value.jsonl`, `<run>.opponent.jsonl`, and `<run>.summary.json`
-  under `artifacts/td_replay` by default. The CLI streams per-game JSONL rows
-  to temporary artifact files and atomically publishes them at completion, so
-  export memory is bounded by one completed game plus summary metadata. Replay
-  rows use TypeScript `trainingEncoding`, include `episodeId` plus contiguous
-  per-player `timestep` for `td-lambda`, order opponent action candidates by
-  canonical stable action key, and are readable by `scripts.train_td`.
-  Configs support `random`, `heuristic`, and rollout `search` BotSpecs plus
-  profile references resolved to specs; direct `td-search` replay export is
-  rejected until the Node-local model-pack loader gap is closed.
-  When passing multiple exported value replay files into one td-lambda train
-  run, keep each export's `seedPrefix` globally unique because the sequence key
-  is `(episodeId, playerId, timestep)`. For parallel exports, use distinct seed
-  prefixes and distinct output directories or run labels.
-- `yarn bot:eval rollout-search-sweep --config <path> [--workers <count>]`
-  runs explicit rollout `search` candidates sequentially against one fixed
-  opponent with one shared paired-seed prefix. Within each matchup, opt-in
-  workers distribute whole paired seeds across persistent Node children. It
-  writes aggregate `sweep.json`, `sweep.csv`, and `summary.md` files plus
-  replayable child head-to-head artifacts under `matchups/`.
-- `--workers` defaults to `1` and is capped at `gamesPerSide`. Use `--workers 4`
-  for throughput on the current Intel i5-8350U laptop; use `--workers 3` if the
-  machine must stay responsive. Worker counts above `1` record `latencyMode` as
-  `loaded`, so those timings are throughput diagnostics rather than isolated
-  browser latency measurements.
-- Bot-eval progress logs stream to stderr while final JSON stays on stdout.
-  Sweep logs announce candidate boundaries, every completed paired seed, and
-  timed in-game heartbeats (`30` seconds by default). Rollout search checks the
-  heartbeat during root visits so long synchronous search decisions can report
-  progress.
-- Sweep aggregate artifacts are written with `status=running` before compute
-  starts and atomically refreshed after each completed candidate. Each completed
-  candidate's child matchup is durable before the next starts. Automatic sweep
-  resume is not implemented; follow-up runs must be constructed explicitly, and
-  an interrupted active candidate has no partial child artifact.
-- Browser `td-search` specs are serializable through the shared policy factory,
-  but direct Node eval of those specs still needs a local model-pack loader.
+- Windows local setup and laptop wrappers: `docs/runbooks/windows-local.md`
+- RunPod/Linux CPU setup: `docs/runbooks/runpod-linux.md`
+- Python training and evaluation loops: `docs/runbooks/training-loop.md`
+- TypeScript browser-bot evaluation: `docs/runbooks/bot-eval.md`
 
 ## Constraints
 
-- Static deployment target (no gameplay backend).
-- Deterministic gameplay required for replay/eval/training.
+- Static deployment target; no gameplay backend.
+- Deterministic gameplay is required for replay, eval, and training.
 - Rule semantics stay in TS unless explicitly re-approved.
 - Python training scripts are fail-fast and expect the active project virtualenv.
-- `scripts.train_td` fail-fast enforces Python 3.12+ and active `.venv` at startup.
+- `scripts.train_td` enforces Python 3.12+ and active `.venv` at startup.
 
 ## Known Gaps
 
-- TD replay/train/eval orchestration exists, but automated online replay refresh is not wired yet.
-- `td-search` exists, but current form is still rollout-guided and needs stronger search/value coupling and throughput optimization.
+- `td-search` needs stronger search/value coupling and throughput optimization.
 - Search baseline promotion thresholds still need repeated confirmation.
-- Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
-- The direct TypeScript browser-bot harness supports `random`, `heuristic`, and
-  rollout `search` evaluation; local Node model-pack loading for direct
-  `td-search` harness runs remains to be added.
+- Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; runtime performance tuning remains.
+- Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized `td-search` specs.
 
-_Updated: 2026-06-04._
+_Updated: 2026-06-05._

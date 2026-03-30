@@ -133,5 +133,5 @@ District scoring:
 Tiebreakers, in order:
 
 1. If tied in districts: compare the sum of ranks of developed properties across all districts; higher total wins.
-2. If tied in total properties: the player with more remaining resource tokens wins.
+2. If tied in total properties (the all-district rank total above): the player with more remaining resource tokens wins.
 3. If still tied: the game is a draw.
