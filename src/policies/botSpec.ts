@@ -1,6 +1,10 @@
 import { heuristicPolicy } from './heuristicPolicy';
 import { randomPolicy } from './randomPolicy';
-import { createSearchPolicy, type SearchPolicyConfig } from './searchPolicy';
+import {
+  createSearchPolicy,
+  type SearchHeuristicVersion,
+  type SearchPolicyConfig,
+} from './searchPolicy';
 import {
   createTdSearchPolicy,
   type TdSearchPolicyConfig,
@@ -132,7 +136,7 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
 
 function parseSearchConfig(value: unknown, label: string): SearchPolicyConfig {
   const source = requiredRecord(value, label);
-  return {
+  const config: SearchPolicyConfig = {
     worlds: requiredPositiveInteger(source.worlds, `${label}.worlds`),
     rollouts: requiredPositiveInteger(source.rollouts, `${label}.rollouts`),
     depth: requiredPositiveInteger(source.depth, `${label}.depth`),
@@ -145,6 +149,11 @@ function parseSearchConfig(value: unknown, label: string): SearchPolicyConfig {
       `${label}.rolloutEpsilon`
     ),
   };
+  const heuristic = optionalSearchHeuristic(
+    source.heuristic,
+    `${label}.heuristic`
+  );
+  return heuristic ? { ...config, heuristic } : config;
 }
 
 function parseTdSearchConfig(
@@ -220,4 +229,17 @@ function requiredBoolean(value: unknown, label: string): boolean {
     throw new Error(`${label} must be a boolean.`);
   }
   return value;
+}
+
+function optionalSearchHeuristic(
+  value: unknown,
+  label: string
+): SearchHeuristicVersion | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === 'v1' || value === 'v2') {
+    return value;
+  }
+  throw new Error(`${label} must be v1 or v2.`);
 }

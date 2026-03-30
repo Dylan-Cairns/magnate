@@ -72,4 +72,16 @@ describe('bot policy catalog', () => {
     expect(profile.available).toBe(true);
     expect(DEFAULT_BOT_PROFILE_ID).toBe('td-root-rollout-search');
   });
+
+  it('includes a rollout-search v2 profile using the v2 heuristic', () => {
+    const profile = getBotProfile('rollout-search-v2');
+
+    expect(profile.kind).toBe('search');
+    expect(profile.available).toBe(true);
+    expect(profile.spec.kind).toBe('search');
+    if (profile.spec.kind !== 'search') {
+      throw new Error('Expected rollout-search-v2 to use a search spec.');
+    }
+    expect(profile.spec.config.heuristic).toBe('v2');
+  });
 });

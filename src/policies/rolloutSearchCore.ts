@@ -1,5 +1,9 @@
 import { legalActions as legalActionsForState } from '../engine/actionBuilders';
-import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
+import {
+  actionStableKey,
+  toKeyedActions,
+  type KeyedAction,
+} from '../engine/actionSurface';
 import { rngFromSeed, type RandomFn } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
@@ -11,7 +15,14 @@ import type {
 } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
 import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
-import type { SearchPolicyConfig } from './searchConfig';
+import {
+  heuristicV2PriorsByKey,
+  rankHeuristicV2Actions,
+} from './heuristicScorerV2';
+import type {
+  SearchHeuristicVersion,
+  SearchPolicyConfig,
+} from './searchConfig';
 import {
   createSearchDecisionDiagnostics,
   progressiveTargetActionCount,
@@ -265,7 +276,12 @@ function createRolloutSearchSession({
       worldStates,
       rootPlayer,
     }) ??
-    createHeuristicRolloutSearchRootGuide({ state, view, candidateActions });
+    createHeuristicRolloutSearchRootGuide({
+      state,
+      view,
+      candidateActions,
+      heuristic: config.heuristic,
+    });
 
   return new RolloutSearchSession({
     candidateActions,
@@ -281,14 +297,25 @@ export function createHeuristicRolloutSearchRootGuide({
   state,
   view,
   candidateActions,
+  heuristic = 'v1',
 }: Pick<
   RolloutSearchSelectionInput,
   'state' | 'view' | 'candidateActions'
->): RolloutSearchRootGuide {
+> & {
+  heuristic?: SearchHeuristicVersion;
+}): RolloutSearchRootGuide {
   const heuristicContext = { state, view };
   return {
-    rankedRootActions: rankHeuristicActions(candidateActions, heuristicContext),
-    rootPriorByKey: heuristicPriorsByKey(candidateActions, heuristicContext),
+    rankedRootActions: rankActionsByHeuristic(
+      candidateActions,
+      heuristicContext,
+      heuristic
+    ),
+    rootPriorByKey: priorsByHeuristic(
+      candidateActions,
+      heuristicContext,
+      heuristic
+    ),
   };
 }
 
@@ -559,7 +586,7 @@ function runRollout(
       state,
       actions,
       random,
-      config.rolloutEpsilon
+      config
     );
     state = stepByActionKey(state, nextActionKey);
     depth += 1;
@@ -585,13 +612,36 @@ function chooseRolloutActionKey(
   state: GameState,
   actions: readonly GameAction[],
   random: RandomFn,
-  rolloutEpsilon: number
+  config: SearchPolicyConfig
 ): string {
   const keyed = toKeyedActions(actions);
-  if (random() < rolloutEpsilon) {
+  if (random() < config.rolloutEpsilon) {
     return keyed[Math.floor(random() * keyed.length)].actionKey;
   }
-  return rankHeuristicActions(actions, { state })[0].actionKey;
+  return rankActionsByHeuristic(actions, { state }, config.heuristic)[0]
+    .actionKey;
+}
+
+function rankActionsByHeuristic(
+  actions: readonly GameAction[],
+  context: Parameters<typeof rankHeuristicActions>[1],
+  heuristic: SearchHeuristicVersion | undefined
+): KeyedAction[] {
+  if (heuristic === 'v2') {
+    return rankHeuristicV2Actions(actions, context);
+  }
+  return rankHeuristicActions(actions, context);
+}
+
+function priorsByHeuristic(
+  actions: readonly GameAction[],
+  context: Parameters<typeof heuristicPriorsByKey>[1],
+  heuristic: SearchHeuristicVersion | undefined
+): Map<string, number> {
+  if (heuristic === 'v2') {
+    return heuristicV2PriorsByKey(actions, context);
+  }
+  return heuristicPriorsByKey(actions, context);
 }
 
 function stepByActionKey(state: GameState, actionKey: string): GameState {

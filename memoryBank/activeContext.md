@@ -20,6 +20,7 @@
 
 - Browser play is functional with selectable bot profiles behind a shared async policy contract.
 - Browser heuristic, rollout search, TD search, and TD-root search share deterministic policy plumbing where appropriate.
+- Rollout-search includes an additive v2 heuristic profile/config path; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
 - Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and rollout-search TD replay exports.
 - Browser UI code is split across controller hooks, animation helpers, stateless components, and ownership-based style files; `App.tsx` remains the composition layer.

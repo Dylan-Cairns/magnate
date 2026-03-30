@@ -4,12 +4,17 @@ import {
 } from './rolloutSearchCore';
 import {
   resolveSearchConfig,
+  type SearchHeuristicVersion,
   type SearchPolicyConfig,
   type SearchPolicyOptions,
 } from './searchConfig';
 import type { ActionPolicy } from './types';
 
-export type { SearchPolicyConfig, SearchPolicyOptions };
+export type {
+  SearchHeuristicVersion,
+  SearchPolicyConfig,
+  SearchPolicyOptions,
+};
 
 export function createSearchPolicy(
   options: SearchPolicyOptions = {}
