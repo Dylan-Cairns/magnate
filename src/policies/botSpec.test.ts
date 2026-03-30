@@ -29,6 +29,34 @@ describe('bot specs', () => {
     });
   });
 
+  it('parses a complete TD-root rollout-search spec', () => {
+    expect(
+      parseBotSpec({
+        id: 'td-root-search-small',
+        kind: 'td-root-search',
+        modelIndexPath: 'model-packs/index.json',
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+        },
+      })
+    ).toEqual({
+      id: 'td-root-search-small',
+      kind: 'td-root-search',
+      modelIndexPath: 'model-packs/index.json',
+      config: {
+        worlds: 2,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 3,
+        rolloutEpsilon: 0,
+      },
+    });
+  });
+
   it('constructs policies for deterministic bot kinds', () => {
     expect(
       createPolicyFromBotSpec({ id: 'heuristic-test', kind: 'heuristic' })
@@ -37,6 +65,19 @@ describe('bot specs', () => {
     expect(
       createPolicyFromBotSpec({ id: 'random-test', kind: 'random' })
         .selectAction
+    ).toBeTypeOf('function');
+    expect(
+      createPolicyFromBotSpec({
+        id: 'td-root-test',
+        kind: 'td-root-search',
+        config: {
+          worlds: 1,
+          rollouts: 1,
+          depth: 1,
+          maxRootActions: 1,
+          rolloutEpsilon: 0,
+        },
+      }).selectAction
     ).toBeTypeOf('function');
   });
 
