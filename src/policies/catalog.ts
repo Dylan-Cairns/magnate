@@ -88,8 +88,8 @@ export const BOT_PROFILES: readonly BotProfile[] = [
       id: 'rollout-eval-search',
       kind: 'search',
       config: {
-        worlds: 10,
-        rollouts: 4,
+        worlds: 50,
+        rollouts: 1,
         depth: 160,
         maxRootActions: 8,
         rolloutEpsilon: 0.0,
