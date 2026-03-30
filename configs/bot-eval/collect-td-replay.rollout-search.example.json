@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "ts-rollout-search-td-replay",
+  "seedPrefix": "ts-rollout-search-td-replay",
+  "games": 2,
+  "playerA": {
+    "id": "rollout-search-teacher-a",
+    "kind": "search",
+    "config": {
+      "worlds": 50,
+      "rollouts": 1,
+      "depth": 160,
+      "maxRootActions": 8,
+      "rolloutEpsilon": 0
+    }
+  },
+  "playerB": {
+    "id": "rollout-search-teacher-b",
+    "kind": "search",
+    "config": {
+      "worlds": 50,
+      "rollouts": 1,
+      "depth": 160,
+      "maxRootActions": 8,
+      "rolloutEpsilon": 0
+    }
+  }
+}

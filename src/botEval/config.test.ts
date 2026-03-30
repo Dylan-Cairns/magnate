@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseHeadToHeadConfig, parseRolloutSearchSweepConfig } from './config';
+import {
+  parseHeadToHeadConfig,
+  parseRolloutSearchSweepConfig,
+  parseTdReplayConfig,
+} from './config';
 
 describe('head-to-head config parsing', () => {
   it('resolves catalog profile references and arbitrary specs', () => {
@@ -82,6 +86,56 @@ describe('head-to-head config parsing', () => {
         ],
       })
     ).toThrow('distinct');
+  });
+
+  it('parses TD replay configs and resolves profile specs without using profile policies', () => {
+    const config = parseTdReplayConfig({
+      schemaVersion: 1,
+      runLabel: 'td-replay-test',
+      seedPrefix: 'td-replay-test',
+      games: 2,
+      playerA: { profileId: 'rollout-eval-search' },
+      playerB: { id: 'random-b', kind: 'random' },
+    });
+
+    expect(config.playerA).toEqual({
+      id: 'rollout-eval-search',
+      kind: 'search',
+      config: {
+        worlds: 50,
+        rollouts: 1,
+        depth: 160,
+        maxRootActions: 8,
+        rolloutEpsilon: 0,
+      },
+    });
+    expect(config.playerB).toEqual({ id: 'random-b', kind: 'random' });
+  });
+
+  it('rejects TD replay configs with td-search specs', () => {
+    expect(() =>
+      parseTdReplayConfig({
+        schemaVersion: 1,
+        runLabel: 'td-replay-test',
+        seedPrefix: 'td-replay-test',
+        games: 1,
+        playerA: { profileId: 'td-search-fast' },
+        playerB: { id: 'random-b', kind: 'random' },
+      })
+    ).toThrow('td-search is not supported');
+  });
+
+  it('rejects TD replay configs without positive games', () => {
+    expect(() =>
+      parseTdReplayConfig({
+        schemaVersion: 1,
+        runLabel: 'td-replay-test',
+        seedPrefix: 'td-replay-test',
+        games: 0,
+        playerA: { id: 'random-a', kind: 'random' },
+        playerB: { id: 'random-b', kind: 'random' },
+      })
+    ).toThrow('positive integer');
   });
 });
 

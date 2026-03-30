@@ -39,6 +39,8 @@
   `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep:
   `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
+- TypeScript rollout-search TD replay export:
+  `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
 - Parallel TypeScript bot eval:
   append `--workers 4` for throughput on the current 4-core / 8-thread laptop.
   The default is `1`; use `--workers 1` for browser-relevant latency.
@@ -233,6 +235,16 @@ Use `--help` on each script for the full option surface.
   root-action count. Schema v1 and v2 artifacts remain replayable.
 - Config inputs can reference catalog presets with `{ "profileId": "heuristic" }`
   or define arbitrary `random`, `heuristic`, or `search` bot specs directly.
+- `yarn bot:eval collect-td-replay --config <path> [--out-dir <path>]`
+  runs full self-play games through direct Node-compatible
+  `createPolicyFromBotSpec` / `ActionPolicy` policies and writes
+  `<run>.value.jsonl`, `<run>.opponent.jsonl`, and `<run>.summary.json`
+  under `artifacts/td_replay` by default. Replay rows use TypeScript
+  `trainingEncoding`, include `episodeId` plus contiguous per-player
+  `timestep` for `td-lambda`, and are readable by `scripts.train_td`.
+  Configs support `random`, `heuristic`, and rollout `search` BotSpecs plus
+  profile references resolved to specs; direct `td-search` replay export is
+  rejected until the Node-local model-pack loader gap is closed.
 - `yarn bot:eval rollout-search-sweep --config <path> [--workers <count>]`
   runs explicit rollout `search` candidates sequentially against one fixed
   opponent with one shared paired-seed prefix. Within each matchup, opt-in
@@ -275,4 +287,4 @@ Use `--help` on each script for the full option surface.
   rollout `search` evaluation; local Node model-pack loading for direct
   `td-search` harness runs remains to be added.
 
-_Updated: 2026-06-01._
+_Updated: 2026-06-04._

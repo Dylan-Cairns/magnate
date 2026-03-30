@@ -8,7 +8,11 @@ import {
   type HeadToHeadArtifactOptions,
   writeHeadToHeadArtifacts,
 } from './artifacts';
-import { parseHeadToHeadConfig, parseRolloutSearchSweepConfig } from './config';
+import {
+  parseHeadToHeadConfig,
+  parseRolloutSearchSweepConfig,
+  parseTdReplayConfig,
+} from './config';
 import { resolveEvaluationExecution } from './execution';
 import { runHeadToHead, type HeadToHeadProgress } from './matchup';
 import { replayArtifactGame } from './replay';
@@ -20,6 +24,11 @@ import {
   runRolloutSearchSweep,
   type RolloutSearchSweepProgress,
 } from './sweep';
+import { collectTdReplay, type TdReplayProgress } from './tdReplay';
+import {
+  defaultTdReplayOutputDirectory,
+  writeTdReplayArtifacts,
+} from './tdReplayArtifacts';
 import type { RolloutSearchSweepRun } from './types';
 
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
@@ -36,9 +45,12 @@ async function main(): Promise<void> {
     case 'rollout-search-sweep':
       await runRolloutSearchSweepCommand(args);
       return;
+    case 'collect-td-replay':
+      await runCollectTdReplayCommand(args);
+      return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -150,6 +162,40 @@ async function runRolloutSearchSweepCommand(
   );
 }
 
+async function runCollectTdReplayCommand(args: readonly string[]): Promise<void> {
+  const flags = parseFlags(args);
+  const configPath = requiredFlag(flags, '--config');
+  const config = parseTdReplayConfig(
+    JSON.parse(await readFile(configPath, 'utf8'))
+  );
+  const outputDirectory = flags.get('--out-dir') ?? defaultTdReplayOutputDirectory();
+  const progressIntervalMs = parseProgressIntervalMs(flags);
+  process.stderr.write(
+    `[td-replay] started playerA=${config.playerA.id} playerB=${config.playerB.id} games=${String(config.games)}\n`
+  );
+  const run = await collectTdReplay(config, {
+    progressIntervalMs,
+    onProgress: logTdReplayProgress,
+  });
+  const written = await writeTdReplayArtifacts(run, outputDirectory);
+  process.stderr.write(
+    `[td-replay] artifacts completed value=${path.resolve(written.valuePath)} opponent=${path.resolve(written.opponentPath)} summary=${path.resolve(written.summaryPath)}\n`
+  );
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: 'completed',
+        valueTransitionsArtifact: path.resolve(written.valuePath),
+        opponentSamplesArtifact: path.resolve(written.opponentPath),
+        summaryArtifact: path.resolve(written.summaryPath),
+        results: written.summary.results,
+      },
+      null,
+      2
+    )}\n`
+  );
+}
+
 async function runReplayCommand(args: readonly string[]): Promise<void> {
   const flags = parseFlags(args);
   const artifactPath = requiredFlag(flags, '--artifact');
@@ -236,6 +282,21 @@ function logRolloutSearchSweepProgress(
       return;
     default:
       logHeadToHeadProgress(progress);
+  }
+}
+
+function logTdReplayProgress(progress: TdReplayProgress): void {
+  switch (progress.type) {
+    case 'game-heartbeat':
+      process.stderr.write(
+        `[td-replay] heartbeat game=${progress.gameId} ${String(progress.gameNumber)}/${String(progress.totalGames)} turn=${String(progress.turn)} decisions=${String(progress.decisions)} elapsed=${formatDuration(progress.elapsedMs)}\n`
+      );
+      return;
+    case 'game-completed':
+      process.stderr.write(
+        `[td-replay] game completed=${String(progress.gameNumber)}/${String(progress.totalGames)} game=${progress.game.gameId} winner=${progress.game.finalScore.winner} turns=${String(progress.game.turns)} decisions=${String(progress.game.decisions.length)} valueRows=${String(progress.game.valueTransitions.length)} opponentRows=${String(progress.game.opponentSamples.length)} elapsed=${formatDuration(progress.elapsedMs)} rate=${formatDecimal(progress.gamesPerMinute)} games/min\n`
+      );
+      return;
   }
 }
 

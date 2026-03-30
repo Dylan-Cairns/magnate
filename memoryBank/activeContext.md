@@ -24,7 +24,7 @@
 - Browser app is playable; default bot is `Rollout Search`; `TD Search`, `TD Search Fast`, and `Heuristic` remain available as alternate profiles.
 - Browser `Heuristic`, rollout-search priors, and TD-search heuristic root priors share the TS heuristic scorer; current scorer intent is resource sheltering without losing suit coverage, three-district control, district flips/defense, close deed completion, avoiding non-completing deed progress that spends a last suit token, projected control from newly bought deeds, progress-aware opponent deed threats, rank-2 deed rejection, high-rank deed caution late or without suit access, and trade penalties unless a trade immediately unlocks a high-value move.
 - Browser rollout-search evaluation now uses a dedicated TS state evaluator: unfinished leaves weight canonical district control with Ace bonuses, final-score tiebreak pressure, progress-aware deed potential/threats, late-game urgency, and resource quality without using hand-size as a value signal; terminal rollouts use margin-aware final scoring over win/loss/draw, district points, Ace-aware district-score margins, rank totals, and resources.
-- Current worktree browser `Rollout Search` profile uses `worlds=6`, `rollouts=2`, `depth=120`, `maxRootActions=6`, and `rolloutEpsilon=0.04`; prior high-cost sweep artifacts still cover wider `10w/4r/12d` style candidates.
+- Current worktree browser `Rollout Search` profile uses `worlds=50`, `rollouts=1`, `depth=160`, `maxRootActions=8`, and `rolloutEpsilon=0`; prior high-cost sweep artifacts still cover wider `10w/4r/12d` style candidates.
 - Browser `Rollout Search` is now selected through a lazy dedicated Web Worker wrapper that coordinates deterministic rollout-search batches across a nested browser search-worker pool when worker count resolves above one, returns stable action keys, and fails fast on unexpected pool or worker errors. Worker count `1` remains the explicit serial path.
 - Browser rollout-search internals now share a deterministic root-search core:
   seeded world sampling, per-visit rollout RNG seeds, progressive root expansion,
@@ -49,6 +49,14 @@
     sweeps run explicit high-cost candidates sequentially against one fixed
     opponent with shared paired seeds and write aggregate JSON, CSV, and
     Markdown plus replayable child matchups;
+  - `collect-td-replay` runs direct Node-compatible `ActionPolicy` self-play
+    for `random`, `heuristic`, and rollout `search` BotSpecs, writing
+    Python-compatible TD replay JSONL plus summary artifacts with TS
+    `trainingEncoding` dimensions, per-player contiguous `episodeId` /
+    `timestep` value sequences, and selected action indexes aligned to the
+    encoded legal-action order;
+  - direct TypeScript TD replay export rejects `td-search` specs until the
+    Node-local model-pack loader gap is closed;
   - head-to-head and sweep commands accept opt-in `--workers`; paired seeds
     distribute across persistent Node children while candidate configs remain
     sequential. Multi-worker artifacts mark latency as loaded latency;
@@ -57,7 +65,8 @@
     state and refresh atomically after each durable completed candidate;
   - `configs/bot-eval/head-to-head.example.json` and
     `configs/bot-eval/rollout-search-width-sweep.example.json` are runnable
-    examples.
+    examples; `configs/bot-eval/collect-td-replay.rollout-search.example.json`
+    exports TD replay with the current strong rollout-search settings.
 - Browser UI decomposition now includes behavior-preserving extraction of pure animation timing, turn-cycle visual planning, injectable browser DOM animation targets, flight planning helpers, animation lifecycle ownership in `useGameAnimations`, browser session/timeline/reset/bot-scheduling ownership in `useGameController`, shared validated human/bot action-dispatch planning, composite action-picker modeling, log presentation helpers, stateless rendering components for deck piles, logs, options, terminal scoring, overlays, and flight layers, plus controlled `ActionsPanel` and `ActionPicker` components. Styles now follow the same ownership split under `src/styles/`, with card-flight rules isolated from card primitives and responsive overrides imported last. Focused characterization tests protect those surfaces while `App.tsx` remains the UI-local composition layer.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
@@ -96,6 +105,7 @@
 - Improve `td-search` strength and throughput.
 - Tune replay-window size/caps from repeated runs; a broader online reservoir remains a future option.
 - Tune browser rollout-search strength/latency now that `Rollout Search` is the default, while keeping TD-search profiles available for comparison.
+- Investigate rollout-search strength limits from human-play diagnostics before increasing cost further: high root branching, visit-count-selected actions versus sampled mean value, deterministic heuristic continuations, and determinization bias may matter more than additional depth.
 - Add a Node-local browser model-pack loader so the direct TypeScript harness
   can evaluate serialized `td-search` specs without a Vite server.
 - Continue evaluating the remaining `App.tsx` UI-local composition code for smaller rendering-model helpers while preserving the characterization-tested behavior.
@@ -111,5 +121,8 @@
 6. Use the TypeScript rollout-search sweep artifacts to map the high-cost
    strength ceiling. Prefer `--workers 4` for throughput on the current laptop
    and `--workers 1` when measuring browser-relevant latency.
+7. Use `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
+   for direct TypeScript rollout-search teacher replay exports before feeding
+   the generated JSONL into `scripts.train_td`.
 
 _Updated: 2026-06-04._
