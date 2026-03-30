@@ -54,7 +54,10 @@
     Python-compatible TD replay JSONL plus summary artifacts with TS
     `trainingEncoding` dimensions, per-player contiguous `episodeId` /
     `timestep` value sequences, and selected action indexes aligned to the
-    encoded legal-action order;
+    canonical stable-key legal-action order used for encoded action candidates;
+  - multiple TS TD replay exports can be passed together to `scripts.train_td`,
+    but td-lambda value training requires globally unique export seed prefixes
+    to avoid duplicate `(episodeId, playerId, timestep)` sequences;
   - direct TypeScript TD replay export rejects `td-search` specs until the
     Node-local model-pack loader gap is closed;
   - head-to-head and sweep commands accept opt-in `--workers`; paired seeds

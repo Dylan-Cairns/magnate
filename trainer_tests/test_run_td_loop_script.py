@@ -14,6 +14,7 @@ from scripts.run_td_loop import (
     EvalRow,
     PromotionStageResult,
     RunContext,
+    _build_train_command,
     build_td_loop_summary,
     initialize_td_loop_run,
     parse_args,
@@ -168,6 +169,32 @@ class RunTdLoopScriptTests(unittest.TestCase):
         self.assertTrue(
             str(train_kwargs["opponent_replay"]).endswith("chunk-001\\replay\\self_play.opponent.jsonl")
         )
+
+    def test_build_train_command_adapts_bootstrap_replay_paths_to_common_helper(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args = self._base_args(root)
+            value_replay = root / "replay" / "self_play.value.jsonl"
+            opponent_replay = root / "replay" / "self_play.opponent.jsonl"
+
+            command = _build_train_command(
+                python_bin=Path("python"),
+                args=args,
+                value_replay=value_replay,
+                opponent_replay=opponent_replay,
+                train_summary_path=root / "train" / "summary.json",
+                train_checkpoint_root=root / "train" / "checkpoints",
+                run_id="run-123-chunk-001",
+                warm_start_value=None,
+                warm_start_opponent=None,
+            )
+
+        value_flag = command.index("--value-replay")
+        opponent_flag = command.index("--opponent-replay")
+        self.assertEqual(command[value_flag + 1], str(value_replay))
+        self.assertEqual(command[opponent_flag + 1], str(opponent_replay))
+        self.assertNotIn("--value-replay-max-lines", command)
+        self.assertNotIn("--opponent-replay-max-lines", command)
 
     def test_run_promotion_stage_records_eval_commands_and_pooled_result(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

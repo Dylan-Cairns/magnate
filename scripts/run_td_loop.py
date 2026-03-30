@@ -902,8 +902,8 @@ def _build_train_command(
     return build_train_command_common(
         python_bin=python_bin,
         args=args,
-        value_replay=value_replay,
-        opponent_replay=opponent_replay,
+        value_replays=[value_replay],
+        opponent_replays=[opponent_replay],
         train_summary_path=train_summary_path,
         train_checkpoint_root=train_checkpoint_root,
         run_id=run_id,

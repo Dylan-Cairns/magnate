@@ -79,13 +79,15 @@ def build_train_command(
         "--summary-out",
         str(train_summary_path),
     ]
-    if args.train_replay_window_max_value_lines > 0:
+    max_value_lines = int(getattr(args, "train_replay_window_max_value_lines", 0))
+    max_opponent_lines = int(getattr(args, "train_replay_window_max_opponent_lines", 0))
+    if max_value_lines > 0:
         command.extend(
-            ["--value-replay-max-lines", str(args.train_replay_window_max_value_lines)]
+            ["--value-replay-max-lines", str(max_value_lines)]
         )
-    if args.train_replay_window_max_opponent_lines > 0:
+    if max_opponent_lines > 0:
         command.extend(
-            ["--opponent-replay-max-lines", str(args.train_replay_window_max_opponent_lines)]
+            ["--opponent-replay-max-lines", str(max_opponent_lines)]
         )
     if args.train_num_threads is not None:
         command.extend(["--num-threads", str(args.train_num_threads)])
