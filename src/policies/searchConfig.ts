@@ -4,8 +4,10 @@ export interface SearchPolicyConfig {
   depth: number;
   maxRootActions: number;
   rolloutEpsilon: number;
+  heuristic?: SearchHeuristicVersion;
 }
 
+export type SearchHeuristicVersion = 'v1' | 'v2';
 export type SearchPolicyOptions = Partial<SearchPolicyConfig>;
 
 export const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
@@ -14,6 +16,7 @@ export const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   depth: 12,
   maxRootActions: 6,
   rolloutEpsilon: 0.04,
+  heuristic: 'v1',
 };
 
 export function resolveSearchConfig(
@@ -37,6 +40,7 @@ export function resolveSearchConfig(
   );
   const rolloutEpsilon =
     options.rolloutEpsilon ?? DEFAULT_SEARCH_POLICY_CONFIG.rolloutEpsilon;
+  const heuristic = options.heuristic ?? DEFAULT_SEARCH_POLICY_CONFIG.heuristic;
   if (
     !Number.isFinite(rolloutEpsilon) ||
     rolloutEpsilon < 0 ||
@@ -46,12 +50,18 @@ export function resolveSearchConfig(
       `Search policy rolloutEpsilon must be in [0, 1]; received ${String(rolloutEpsilon)}.`
     );
   }
+  if (heuristic !== 'v1' && heuristic !== 'v2') {
+    throw new Error(
+      `Search policy heuristic must be v1 or v2; received ${String(heuristic)}.`
+    );
+  }
   return {
     worlds,
     rollouts,
     depth,
     maxRootActions,
     rolloutEpsilon,
+    heuristic,
   };
 }
 

@@ -55,6 +55,7 @@ function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
     prior: roundDiagnosticNumber(entry.prior),
   }));
   console.info('[Magnate bot search]', {
+    heuristic: diagnostics.heuristic ?? 'v1',
     workers: diagnostics.parallelWorkers ?? 1,
     batches: diagnostics.parallelBatches ?? null,
     batchSize: diagnostics.parallelBatchSize ?? null,
