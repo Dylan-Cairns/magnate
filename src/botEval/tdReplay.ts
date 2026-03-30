@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 
 import { legalActions } from '../engine/actionBuilders';
-import { actionStableKey } from '../engine/actionSurface';
+import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import type { GameState, PlayerId } from '../engine/types';
@@ -220,7 +220,9 @@ async function collectTdReplayGame({
 
     const activePlayerId = activePlayerIdForState(state, gameId);
     const bot = botBySeat[activePlayerId];
-    const actions = [...legalActions(state)];
+    const actions = toKeyedActions(legalActions(state)).map(
+      (entry) => entry.action
+    );
     if (actions.length === 0) {
       throw new Error(
         `Game ${gameId} has no legal actions for ${activePlayerId} during ${state.phase}.`

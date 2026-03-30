@@ -4,10 +4,14 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { legalActions as engineLegalActions } from '../engine/actionBuilders';
+import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
+import { heuristicPolicy } from '../policies/heuristicPolicy';
 import {
   ACTION_FEATURE_DIM,
   OBSERVATION_DIM,
 } from '../policies/trainingEncoding';
+import type { ActionPolicy } from '../policies/types';
 import { collectTdReplay } from './tdReplay';
 import { writeTdReplayArtifacts } from './tdReplayArtifacts';
 import type {
@@ -77,6 +81,40 @@ describe('TypeScript TD replay collection', () => {
           expect(decision.indexedActionKey).toBe(decision.actionKey);
         }
       }
+    },
+    10_000
+  );
+
+  it(
+    'passes bridge-canonical legal-action order to replay policies',
+    async () => {
+      let checkedDecisions = 0;
+      let sawRawOrderDifference = false;
+      await collectTdReplay(tdReplayConfig({ games: 1 }), {
+        createPolicy(): ActionPolicy {
+          return {
+            selectAction(context) {
+              const actualKeys = context.legalActions.map(actionStableKey);
+              const canonicalKeys = toKeyedActions(
+                engineLegalActions(context.state)
+              ).map((entry) => entry.actionKey);
+              const rawKeys = engineLegalActions(context.state).map(
+                actionStableKey
+              );
+
+              expect(actualKeys).toEqual(canonicalKeys);
+              if (actualKeys.join('\0') !== rawKeys.join('\0')) {
+                sawRawOrderDifference = true;
+              }
+              checkedDecisions += 1;
+              return heuristicPolicy.selectAction(context);
+            },
+          };
+        },
+      });
+
+      expect(checkedDecisions).toBeGreaterThan(0);
+      expect(sawRawOrderDifference).toBe(true);
     },
     10_000
   );
