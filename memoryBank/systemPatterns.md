@@ -61,6 +61,10 @@ Design expectations:
   - `public/model-packs/index.json` selects default pack
   - each pack provides `manifest.json` + `weights.json`
   - loader validates schema/checkpoint/encoding/dim compatibility before policy use
+  - URL resolution must work from both the main window and Web Workers under
+    `base: './'`, including GitHub Pages subpath hosting; worker URLs under
+    built `/assets/` should resolve public model-pack paths from the app root,
+    not beside the worker bundle.
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
 - Browser bot evaluation should run the actual TypeScript `ActionPolicy`
   implementations directly through `src/botEval/`, using serializable `BotSpec`
