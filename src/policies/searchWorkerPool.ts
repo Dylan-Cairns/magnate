@@ -1,3 +1,4 @@
+import type { RolloutSearchWorkerContext } from './rolloutSearchCore';
 import type {
   SearchWorkerRequest,
   SearchWorkerResponse,
@@ -14,7 +15,8 @@ export interface SearchWorkerPoolWorker {
 
 export interface SearchWorkerPool {
   runBatch(
-    tasks: readonly SearchWorkerTask[]
+    tasks: readonly SearchWorkerTask[],
+    context: RolloutSearchWorkerContext
   ): Promise<readonly SearchWorkerResult[]>;
   close(): void;
 }
@@ -30,9 +32,18 @@ interface PoolWorker {
 }
 
 interface PendingChunk {
+  kind: 'batch';
   resolve(results: readonly SearchWorkerResult[]): void;
   reject(error: Error): void;
 }
+
+interface PendingInitialize {
+  kind: 'initialize';
+  resolve(): void;
+  reject(error: Error): void;
+}
+
+type PendingRequest = PendingChunk | PendingInitialize;
 
 export function createSearchWorkerPool({
   workerCount,
@@ -43,9 +54,10 @@ export function createSearchWorkerPool({
   }
 
   let closed = false;
-  let activeBatch = false;
+  let activeRequest = false;
   let nextRequestId = 1;
-  const pendingByRequestId = new Map<number, PendingChunk>();
+  let initializedRolloutSearchContextId: string | null = null;
+  const pendingByRequestId = new Map<number, PendingRequest>();
   const workers: PoolWorker[] = Array.from(
     { length: workerCount },
     (_, index) => createPoolWorker(index + 1, createWorker)
@@ -71,12 +83,13 @@ export function createSearchWorkerPool({
   }
 
   async function runBatch(
-    tasks: readonly SearchWorkerTask[]
+    tasks: readonly SearchWorkerTask[],
+    context: RolloutSearchWorkerContext
   ): Promise<readonly SearchWorkerResult[]> {
     if (closed) {
       throw new Error('Search worker pool is closed.');
     }
-    if (activeBatch) {
+    if (activeRequest) {
       throw new Error(
         'Search worker pool does not support concurrent batches.'
       );
@@ -85,16 +98,51 @@ export function createSearchWorkerPool({
       return [];
     }
 
-    activeBatch = true;
+    activeRequest = true;
     try {
+      await ensureRolloutSearchContext(context);
       const chunks = chunkTasks(tasks, workers.length);
       const resultsByChunk = await Promise.all(
         chunks.map((chunk, index) => runChunk(workers[index], chunk))
       );
       return resultsByChunk.flat();
     } finally {
-      activeBatch = false;
+      activeRequest = false;
     }
+  }
+
+  async function ensureRolloutSearchContext(
+    context: RolloutSearchWorkerContext
+  ): Promise<void> {
+    if (initializedRolloutSearchContextId === context.contextId) {
+      return;
+    }
+    await Promise.all(
+      workers.map((poolWorker) => initializeWorker(poolWorker, context))
+    );
+    initializedRolloutSearchContextId = context.contextId;
+  }
+
+  function initializeWorker(
+    poolWorker: PoolWorker,
+    context: RolloutSearchWorkerContext
+  ): Promise<void> {
+    const requestId = nextRequestId;
+    nextRequestId += 1;
+
+    return new Promise((resolve, reject) => {
+      pendingByRequestId.set(requestId, { kind: 'initialize', resolve, reject });
+      try {
+        poolWorker.worker.postMessage({
+          type: 'initialize-rollout-search',
+          requestId,
+          context,
+        });
+      } catch (error) {
+        pendingByRequestId.delete(requestId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   }
 
   function runChunk(
@@ -105,7 +153,7 @@ export function createSearchWorkerPool({
     nextRequestId += 1;
 
     return new Promise((resolve, reject) => {
-      pendingByRequestId.set(requestId, { resolve, reject });
+      pendingByRequestId.set(requestId, { kind: 'batch', resolve, reject });
       try {
         poolWorker.worker.postMessage({
           type: 'run-batch',
@@ -141,6 +189,26 @@ export function createSearchWorkerPool({
       return;
     }
     pendingByRequestId.delete(response.requestId);
+    if (response.type === 'initialized') {
+      if (pending.kind !== 'initialize') {
+        failAll(
+          new Error(
+            `Search worker ${String(poolWorker.id)} returned initialization for a batch request.`
+          )
+        );
+        return;
+      }
+      pending.resolve();
+      return;
+    }
+    if (pending.kind !== 'batch') {
+      failAll(
+        new Error(
+          `Search worker ${String(poolWorker.id)} returned batch results for an initialization request.`
+        )
+      );
+      return;
+    }
     pending.resolve(response.results);
   }
 
