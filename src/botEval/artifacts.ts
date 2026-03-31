@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { POLICY_RANDOM_SCHEME_VERSION } from '../policies/policyRandom';
@@ -7,10 +7,16 @@ import { collectGitMetadata } from './gitMetadata';
 import {
   HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION,
   HEAD_TO_HEAD_ARTIFACT_TYPE,
-  ROOT_ACTION_COUNT_BUCKETS,
   type HeadToHeadArtifact,
   type HeadToHeadRun,
 } from './types';
+import {
+  appendRootActionLatencyTable,
+  defaultBotEvalOutputDirectory,
+  format,
+  requiredRecord,
+  writeAtomic,
+} from './artifactUtils';
 
 export interface HeadToHeadArtifactOptions {
   cwd?: string;
@@ -89,11 +95,7 @@ export function defaultHeadToHeadOutputDirectory(
   runLabel: string,
   generatedAt = new Date()
 ): string {
-  const stamp = generatedAt
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\.\d{3}Z$/, 'Z');
-  return path.join('artifacts', 'ts-bot-evals', `${stamp}-${slug(runLabel)}`);
+  return defaultBotEvalOutputDirectory(runLabel, generatedAt);
 }
 
 export function renderHeadToHeadSummary(artifact: HeadToHeadArtifact): string {
@@ -155,53 +157,12 @@ export function renderHeadToHeadSummary(artifact: HeadToHeadArtifact): string {
     if (summary.searchWorkByBotId[botId]?.searchedDecisions === 0) {
       continue;
     }
-    lines.push(
-      '',
+    appendRootActionLatencyTable(
+      lines,
       `## Rollout Search Latency By Root Actions: ${botId}`,
-      '',
-      '| legal root actions | decisions | mean ms | p50 ms | p95 ms | max ms |',
-      '|:---|---:|---:|---:|---:|---:|'
+      buckets
     );
-    for (const bucket of ROOT_ACTION_COUNT_BUCKETS) {
-      const latency = buckets[bucket];
-      lines.push(
-        `| ${bucket} | ${latency.actions} | ${format(latency.meanMs)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} |`
-      );
-    }
   }
   lines.push('');
   return `${lines.join('\n')}\n`;
-}
-
-async function writeAtomic(
-  targetPath: string,
-  contents: string
-): Promise<void> {
-  const tempPath = `${targetPath}.tmp`;
-  await writeFile(tempPath, contents, 'utf8');
-  await rename(tempPath, targetPath);
-}
-
-function format(value: number): string {
-  return value.toFixed(3);
-}
-
-function slug(value: string): string {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'run'
-  );
-}
-
-function requiredRecord(
-  value: unknown,
-  label: string
-): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${label} must be an object.`);
-  }
-  return value as Record<string, unknown>;
 }

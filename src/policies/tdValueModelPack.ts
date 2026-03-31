@@ -1,4 +1,21 @@
 import { ENCODING_VERSION, OBSERVATION_DIM } from './trainingEncoding';
+import {
+  fetchJson,
+  optionalRecord,
+  optionalStringOrNull,
+  parseTensor,
+  requiredInteger,
+  requiredRecord,
+  requiredString,
+  requiredStringArray,
+  requiredTensorRecord,
+  resolveManifestUrl,
+  selectPack,
+  toAbsoluteUrl,
+  type TensorPayload,
+} from './modelPackUtils';
+
+export { resolvePublicAssetUrl } from './modelPackUtils';
 
 export const TD_VALUE_MODEL_PACK_INDEX_SCHEMA_VERSION = 1;
 export const TD_VALUE_MODEL_PACK_MANIFEST_SCHEMA_VERSION = 1;
@@ -14,8 +31,6 @@ export const TD_VALUE_REQUIRED_TENSOR_KEYS = [
   'encoder.4.weight',
   'encoder.4.bias',
 ] as const;
-
-type TdValueTensorKey = (typeof TD_VALUE_REQUIRED_TENSOR_KEYS)[number];
 
 export interface TdValueModelPackIndexEntry {
   id: string;
@@ -55,10 +70,7 @@ export interface TdValueModelPackManifest {
   };
 }
 
-export interface TdValueTensorPayload {
-  shape: number[];
-  values: number[];
-}
+export type TdValueTensorPayload = TensorPayload;
 
 export interface TdValueWeightsFile {
   schemaVersion: number;
@@ -143,21 +155,6 @@ export class TdValueNetwork implements TdValueScorer {
   }
 }
 
-export function resolvePublicAssetUrl(relativePath: string): string {
-  if (/^[a-zA-Z]+:\/\//.test(relativePath)) {
-    return relativePath;
-  }
-  const normalizedPath = relativePath.replace(/^\/+/, '');
-  const workerBase = runtimeWorkerAppBaseHref();
-  if (workerBase) {
-    return new URL(normalizedPath, workerBase).toString();
-  }
-  const base = import.meta.env.BASE_URL ?? '/';
-  const normalizedBase = base.endsWith('/') ? base : `${base}/`;
-  const rootedPath = `${normalizedBase}${normalizedPath}`;
-  return toAbsoluteUrl(rootedPath);
-}
-
 export async function loadTdValueModelFromIndexUrl(
   indexUrl: string
 ): Promise<LoadedTdValueModel> {
@@ -174,18 +171,7 @@ export async function loadTdValueModelFromIndexUrl(
     );
   }
 
-  let selected = tdValuePacks[0];
-  if (
-    typeof index.defaultPackId === 'string' &&
-    index.defaultPackId.length > 0
-  ) {
-    const match = tdValuePacks.find(
-      (entry) => entry.id === index.defaultPackId
-    );
-    if (match) {
-      selected = match;
-    }
-  }
+  const selected = selectPack(tdValuePacks, index.defaultPackId);
 
   const manifestUrl = resolveManifestUrl(
     absoluteIndexUrl,
@@ -223,15 +209,37 @@ export function createTdValueNetworkFromWeights(
   const observationDim = manifest.model.observationDim;
   const tensors = weightsFile.tensors;
 
-  const w1 = parseTensor(tensors, 'encoder.0.weight', [
-    hiddenDim,
-    observationDim,
-  ]);
-  const b1 = parseTensor(tensors, 'encoder.0.bias', [hiddenDim]);
-  const w2 = parseTensor(tensors, 'encoder.2.weight', [hiddenDim, hiddenDim]);
-  const b2 = parseTensor(tensors, 'encoder.2.bias', [hiddenDim]);
-  const w3 = parseTensor(tensors, 'encoder.4.weight', [1, hiddenDim]);
-  const b3 = parseTensor(tensors, 'encoder.4.bias', [1]);
+  const w1 = parseTensor(
+    tensors,
+    'encoder.0.weight',
+    [hiddenDim, observationDim],
+    'TD value model'
+  );
+  const b1 = parseTensor(
+    tensors,
+    'encoder.0.bias',
+    [hiddenDim],
+    'TD value model'
+  );
+  const w2 = parseTensor(
+    tensors,
+    'encoder.2.weight',
+    [hiddenDim, hiddenDim],
+    'TD value model'
+  );
+  const b2 = parseTensor(
+    tensors,
+    'encoder.2.bias',
+    [hiddenDim],
+    'TD value model'
+  );
+  const w3 = parseTensor(
+    tensors,
+    'encoder.4.weight',
+    [1, hiddenDim],
+    'TD value model'
+  );
+  const b3 = parseTensor(tensors, 'encoder.4.bias', [1], 'TD value model');
 
   return new TdValueNetwork({
     w1,
@@ -415,215 +423,9 @@ export function parseWeightsFile(value: unknown): TdValueWeightsFile {
     );
   }
 
-  const tensorsRaw = requiredRecord(source.tensors, 'weights.tensors');
-  const tensors: Record<string, TdValueTensorPayload> = {};
-  for (const [key, tensorValue] of Object.entries(tensorsRaw)) {
-    const tensor = requiredRecord(tensorValue, `weights.tensors.${key}`);
-    const shape = requiredIntegerArray(
-      tensor.shape,
-      `weights.tensors.${key}.shape`
-    );
-    const values = requiredNumberArray(
-      tensor.values,
-      `weights.tensors.${key}.values`
-    );
-    tensors[key] = { shape, values };
-  }
+  const tensors = requiredTensorRecord(source.tensors, 'weights.tensors');
   return {
     schemaVersion,
     tensors,
   };
-}
-
-function parseTensor(
-  tensors: Record<string, TdValueTensorPayload>,
-  key: TdValueTensorKey,
-  expectedShape: readonly number[]
-): Float32Array {
-  const payload = tensors[key];
-  if (!payload) {
-    throw new Error(`TD value model weights are missing tensor ${key}.`);
-  }
-  if (
-    payload.shape.length !== expectedShape.length ||
-    payload.shape.some((value, index) => value !== expectedShape[index])
-  ) {
-    throw new Error(
-      `Tensor shape mismatch for ${key}. expected=[${expectedShape.join(',')}] actual=[${payload.shape.join(',')}]`
-    );
-  }
-  const expectedLength = expectedShape.reduce(
-    (product, current) => product * current,
-    1
-  );
-  if (payload.values.length !== expectedLength) {
-    throw new Error(
-      `Tensor length mismatch for ${key}. expected=${String(expectedLength)} actual=${String(payload.values.length)}`
-    );
-  }
-  const out = new Float32Array(expectedLength);
-  for (let index = 0; index < payload.values.length; index += 1) {
-    out[index] = payload.values[index];
-  }
-  return out;
-}
-
-function resolveManifestUrl(indexUrl: string, manifestPath: string): string {
-  if (/^[a-zA-Z]+:\/\//.test(manifestPath)) {
-    return manifestPath;
-  }
-  if (manifestPath.startsWith('./') || manifestPath.startsWith('../')) {
-    return new URL(manifestPath, indexUrl).toString();
-  }
-  return resolvePublicAssetUrl(manifestPath);
-}
-
-function toAbsoluteUrl(url: string): string {
-  if (/^[a-zA-Z]+:\/\//.test(url)) {
-    return url;
-  }
-  const runtimeBase = runtimeBaseHrefForUrl(url) ?? 'http://localhost/';
-  return new URL(url, runtimeBase).toString();
-}
-
-function runtimeBaseHrefForUrl(url: string): string | undefined {
-  if (
-    typeof window !== 'undefined' &&
-    typeof window.location?.href === 'string'
-  ) {
-    return window.location.href;
-  }
-  const location = (globalThis as { location?: { href?: unknown } }).location;
-  if (typeof location?.href !== 'string') {
-    return undefined;
-  }
-  if (url.startsWith('/')) {
-    return location.href;
-  }
-  return appBaseHrefFromWorkerLocation(location.href);
-}
-
-function runtimeWorkerAppBaseHref(): string | undefined {
-  if (typeof window !== 'undefined') {
-    return undefined;
-  }
-  const location = (globalThis as { location?: { href?: unknown } }).location;
-  return typeof location?.href === 'string'
-    ? appBaseHrefFromWorkerLocation(location.href)
-    : undefined;
-}
-
-function appBaseHrefFromWorkerLocation(href: string): string {
-  const parsed = new URL(href);
-  const assetsIndex = parsed.pathname.lastIndexOf('/assets/');
-  if (assetsIndex >= 0) {
-    parsed.pathname = parsed.pathname.slice(0, assetsIndex + 1);
-    parsed.search = '';
-    parsed.hash = '';
-    return parsed.toString();
-  }
-  const sourceIndex = parsed.pathname.indexOf('/src/');
-  if (sourceIndex >= 0) {
-    parsed.pathname = '/';
-    parsed.search = '';
-    parsed.hash = '';
-    return parsed.toString();
-  }
-  return href;
-}
-
-async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch JSON from ${url}: status=${String(response.status)} ${response.statusText}`
-    );
-  }
-  return response.json();
-}
-
-function requiredRecord(
-  value: unknown,
-  label: string
-): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(`${label} must be an object.`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function optionalRecord(
-  value: unknown,
-  label: string
-): Record<string, unknown> | undefined {
-  if (value === undefined || value === null) {
-    return undefined;
-  }
-  return requiredRecord(value, label);
-}
-
-function requiredString(value: unknown, label: string): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
-  }
-  return value;
-}
-
-function optionalStringOrNull(value: unknown, label: string): string | null {
-  if (value === undefined || value === null) {
-    return null;
-  }
-  if (typeof value !== 'string') {
-    throw new Error(`${label} must be a string or null.`);
-  }
-  return value;
-}
-
-function requiredInteger(value: unknown, label: string): number {
-  if (!Number.isInteger(value)) {
-    throw new Error(`${label} must be an integer.`);
-  }
-  return value as number;
-}
-
-function requiredStringArray(value: unknown, label: string): string[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array of strings.`);
-  }
-  const out: string[] = [];
-  for (const [index, entry] of value.entries()) {
-    if (typeof entry !== 'string' || entry.length === 0) {
-      throw new Error(`${label}[${String(index)}] must be a non-empty string.`);
-    }
-    out.push(entry);
-  }
-  return out;
-}
-
-function requiredIntegerArray(value: unknown, label: string): number[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array of integers.`);
-  }
-  const out: number[] = [];
-  for (const [index, entry] of value.entries()) {
-    if (!Number.isInteger(entry) || entry <= 0) {
-      throw new Error(`${label}[${String(index)}] must be a positive integer.`);
-    }
-    out.push(entry);
-  }
-  return out;
-}
-
-function requiredNumberArray(value: unknown, label: string): number[] {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be an array of numbers.`);
-  }
-  const out: number[] = [];
-  for (const [index, entry] of value.entries()) {
-    if (typeof entry !== 'number' || !Number.isFinite(entry)) {
-      throw new Error(`${label}[${String(index)}] must be a finite number.`);
-    }
-    out.push(entry);
-  }
-  return out;
 }
