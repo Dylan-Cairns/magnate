@@ -1,15 +1,12 @@
-import { CARD_BY_ID, PROPERTY_CARDS, type CardId } from '../engine/cards';
-import { districtScore } from '../engine/scoring';
+import type { CardId } from '../engine/cards';
 import {
   applyDelta,
   deedCost,
   developmentCost,
   findProperty,
-  placementAllowed,
   SUITS,
 } from '../engine/stateHelpers';
 import type {
-  DistrictState,
   GameAction,
   GameState,
   PlayerId,
@@ -19,14 +16,24 @@ import type {
   Suit,
 } from '../engine/types';
 import {
+  bestCardScoringDemandV2,
+  cardEarningDemandV2,
+  cardScoringDemandInDistrictV2,
+  createHeuristicV2PositionContext,
+  knownPropertyIdsForPlayerV2,
+  placementAllowedCached,
+  propertyCardsUnknownToPlayerV2,
+  suitAccessBySuitForPlayerV2,
+  type HeuristicV2PositionContext,
+  type SuitValueMap,
+} from './heuristicV2PositionContext';
+import {
   clamp,
   isDistrictAction,
-  otherPlayerId,
   projectDistrictAction,
-  smoothstep,
 } from './policyProjection';
 
-export type SuitValueMap<T> = Record<Suit, T>;
+export type { SuitValueMap } from './heuristicV2PositionContext';
 
 export interface SuitTokenValueV2 {
   suit: Suit;
@@ -46,23 +53,32 @@ export interface ResourceBankValueBreakdownV2 {
   tradeLiquidityBySuit: SuitValueMap<number>;
 }
 
+export interface TokenValueContextV2 extends ResourceBankValueBreakdownV2 {
+  state: GameState;
+  playerId: PlayerId;
+  player: PlayerState;
+  resources: ResourcePool;
+  knownPropertyIds: ReadonlySet<CardId>;
+  districtScores: ReadonlyMap<string, Record<PlayerId, number>>;
+  positionContext: HeuristicV2PositionContext;
+}
+
 type DemandBySuit = SuitValueMap<{
   earningDemand: number;
   scoringDemand: number;
 }>;
 
-const EXPECTED_GAME_TURNS = 42;
-const SCORING_SCALE = 5;
+interface TokenDemandContextV2 {
+  playerId: PlayerId;
+  player: PlayerState;
+  positionContext: HeuristicV2PositionContext;
+  knownPropertyIds: ReadonlySet<CardId>;
+}
 
-const CROWN_ACCESS_WEIGHT = 1.0;
-const DEVELOPED_ACCESS_WEIGHT = 1.0;
-const INCOMPLETE_DEED_ACCESS_WEIGHT = 0.8;
 const HAND_DEMAND_WEIGHT = 0.85;
 const INCOMPLETE_DEED_DEMAND_WEIGHT = 1.35;
 const UNKNOWN_POOL_DEMAND_WEIGHT = 0.035;
 
-const EARNING_DEMAND_SCALE = 5.8;
-const SCORING_DEMAND_SCALE = 1.15;
 const DIRECT_VALUE_FLOOR = 0.02;
 const TRADE_SET_WEIGHT = 0.28;
 const TRADE_REMAINDER_TWO_WEIGHT = 0.12;
@@ -72,64 +88,20 @@ export function contextualSuitTokenValuesV2(
   state: GameState,
   playerId: PlayerId
 ): SuitValueMap<SuitTokenValueV2> {
-  const player = requiredPlayer(state, playerId);
-  const access = suitAccessBySuitV2(state, playerId);
-  const demand = demandBySuitForPlayer(state, player);
-  const values = emptySuitValueMap<SuitTokenValueV2>((suit) => {
-    const earningDemand = demand[suit].earningDemand;
-    const scoringDemand = demand[suit].scoringDemand;
-    const rawDemand = earningDemand + scoringDemand;
-    const replaceabilityMultiplier = replaceabilityMultiplierForAccess(
-      access[suit]
-    );
-    return {
-      suit,
-      earningDemand,
-      scoringDemand,
-      rawDemand,
-      access: access[suit],
-      replaceabilityMultiplier,
-      value:
-        rawDemand <= 0
-          ? 0
-          : Math.max(DIRECT_VALUE_FLOOR, rawDemand * replaceabilityMultiplier),
-    };
-  });
-
-  return values;
+  const positionContext = createHeuristicV2PositionContext(state, playerId);
+  return contextualSuitTokenValuesFromContextV2(
+    createTokenDemandContextV2(positionContext, playerId)
+  );
 }
 
 export function suitAccessBySuitV2(
   state: GameState,
   playerId: PlayerId
 ): SuitValueMap<number> {
-  const player = requiredPlayer(state, playerId);
-  const access = emptySuitValueMap(() => 0);
-
-  for (const crownId of player.crowns) {
-    const card = CARD_BY_ID[crownId];
-    if (card?.kind === 'Crown') {
-      access[card.suits[0]] += CROWN_ACCESS_WEIGHT;
-    }
-  }
-
-  for (const district of state.districts) {
-    const stack = district.stacks[playerId];
-    for (const cardId of stack.developed) {
-      const card = findProperty(cardId);
-      if (card) {
-        addCardAccess(access, card, DEVELOPED_ACCESS_WEIGHT);
-      }
-    }
-    if (stack.deed) {
-      const card = findProperty(stack.deed.cardId);
-      if (card) {
-        addCardAccess(access, card, INCOMPLETE_DEED_ACCESS_WEIGHT);
-      }
-    }
-  }
-
-  return access;
+  return suitAccessBySuitForPlayerV2(
+    createHeuristicV2PositionContext(state, playerId),
+    playerId
+  );
 }
 
 export function resourceBankValueV2(
@@ -137,7 +109,7 @@ export function resourceBankValueV2(
   playerId: PlayerId,
   resources = requiredPlayer(state, playerId).resources
 ): number {
-  return resourceBankValueBreakdownV2(state, playerId, resources).totalValue;
+  return createTokenValueContextV2(state, playerId, resources).totalValue;
 }
 
 export function resourceBankValueBreakdownV2(
@@ -145,45 +117,66 @@ export function resourceBankValueBreakdownV2(
   playerId: PlayerId,
   resources = requiredPlayer(state, playerId).resources
 ): ResourceBankValueBreakdownV2 {
-  const suitValues = contextualSuitTokenValuesV2(state, playerId);
-  let directValue = 0;
-
-  for (const suit of SUITS) {
-    directValue += directResourceValueForSuit(
-      Math.max(0, resources[suit]),
-      suitValues[suit].value
-    );
-  }
-
-  const tradeLiquidityBySuit = emptySuitValueMap((suit) =>
-    tradeLiquidityValueForSuitV2(suit, resources, suitValues)
-  );
-  const tradeLiquidityValue = SUITS.reduce(
-    (total, suit) => total + tradeLiquidityBySuit[suit],
-    0
-  );
+  const context = createTokenValueContextV2(state, playerId, resources);
 
   return {
-    directValue,
-    tradeLiquidityValue,
-    totalValue: directValue + tradeLiquidityValue,
+    directValue: context.directValue,
+    tradeLiquidityValue: context.tradeLiquidityValue,
+    totalValue: context.totalValue,
+    suitValues: context.suitValues,
+    tradeLiquidityBySuit: context.tradeLiquidityBySuit,
+  };
+}
+
+export function createTokenValueContextV2(
+  state: GameState,
+  playerId: PlayerId,
+  resources = requiredPlayer(state, playerId).resources,
+  positionContext = createHeuristicV2PositionContext(state, playerId)
+): TokenValueContextV2 {
+  const player = requiredPlayer(state, playerId);
+  const demandContext = createTokenDemandContextV2(
+    positionContext,
+    playerId,
+    player
+  );
+  const suitValues = contextualSuitTokenValuesFromContextV2(demandContext);
+  const bank = resourceBankValueFromSuitValuesV2(resources, suitValues);
+
+  return {
+    state,
+    playerId,
+    player,
+    resources,
+    knownPropertyIds: demandContext.knownPropertyIds,
+    districtScores: positionContext.districtScoresById,
+    positionContext,
+    ...bank,
     suitValues,
-    tradeLiquidityBySuit,
   };
 }
 
 export function tokenDeltaForActionV2(
   action: GameAction,
   state: GameState,
-  playerId: PlayerId
+  playerId: PlayerId,
+  context = createTokenValueContextV2(state, playerId)
 ): number {
-  const player = requiredPlayer(state, playerId);
-  const before = player.resources;
+  if (action.type === 'end-turn') {
+    return 0;
+  }
+  const before = context.resources;
   const after = applyDelta(before, resourceDeltaForActionV2(action));
+  if (action.type === 'trade' || action.type === 'choose-income-suit') {
+    return (
+      resourceBankValueFromSuitValuesV2(after, context.suitValues).totalValue -
+      context.totalValue
+    );
+  }
   const afterState = projectStateForTokenValueV2(action, state, playerId);
   return (
     resourceBankValueV2(afterState, playerId, after) -
-    resourceBankValueV2(state, playerId, before)
+    context.totalValue
   );
 }
 
@@ -289,28 +282,26 @@ export function tradeLiquidityValueForSuitV2(
 }
 
 function demandBySuitForPlayer(
-  state: GameState,
-  player: PlayerState
+  context: TokenDemandContextV2
 ): DemandBySuit {
   const demand = emptySuitValueMap(() => ({
     earningDemand: 0,
     scoringDemand: 0,
   }));
-  const phase = gamePhase(state);
 
-  addIncompleteDeedDemand(demand, state, player.id, phase);
-  addHandDemand(demand, state, player, phase);
-  addUnknownPoolDemand(demand, state, player, phase);
+  addIncompleteDeedDemand(demand, context);
+  addHandDemand(demand, context);
+  addUnknownPoolDemand(demand, context);
 
   return demand;
 }
 
 function addIncompleteDeedDemand(
   demand: DemandBySuit,
-  state: GameState,
-  playerId: PlayerId,
-  phase: number
+  context: TokenDemandContextV2
 ): void {
+  const { positionContext, playerId } = context;
+  const { state } = positionContext;
   for (const district of state.districts) {
     const deed = district.stacks[playerId].deed;
     if (!deed) {
@@ -332,11 +323,16 @@ function addIncompleteDeedDemand(
     addCardDemandToSuits(demand, {
       card,
       earningDemand:
-        cardEarningDemand(card, phase) *
+        cardEarningDemandV2(positionContext, card) *
         INCOMPLETE_DEED_DEMAND_WEIGHT *
         completionPressure,
       scoringDemand:
-        cardScoringDemandInDistrict(state, district, playerId, card) *
+        cardScoringDemandInDistrictV2(
+          positionContext,
+          playerId,
+          district,
+          card
+        ) *
         INCOMPLETE_DEED_DEMAND_WEIGHT *
         completionPressure,
     });
@@ -345,24 +341,25 @@ function addIncompleteDeedDemand(
 
 function addHandDemand(
   demand: DemandBySuit,
-  state: GameState,
-  player: PlayerState,
-  phase: number
+  context: TokenDemandContextV2
 ): void {
+  const { player, playerId, positionContext } = context;
   for (const cardId of player.hand) {
     const card = findProperty(cardId);
     if (!card) {
       continue;
     }
-    const placementWeight = playerHasLegalPlacement(state, player.id, card)
+    const placementWeight = playerHasLegalPlacement(positionContext, playerId, card)
       ? 1
       : 0.25;
     addCardDemandToSuits(demand, {
       card,
       earningDemand:
-        cardEarningDemand(card, phase) * HAND_DEMAND_WEIGHT * placementWeight,
+        cardEarningDemandV2(positionContext, card) *
+        HAND_DEMAND_WEIGHT *
+        placementWeight,
       scoringDemand:
-        bestHandCardScoringDemand(state, player.id, card) *
+        bestCardScoringDemandV2(positionContext, playerId, card) *
         HAND_DEMAND_WEIGHT *
         placementWeight,
     });
@@ -371,21 +368,20 @@ function addHandDemand(
 
 function addUnknownPoolDemand(
   demand: DemandBySuit,
-  state: GameState,
-  player: PlayerState,
-  phase: number
+  context: TokenDemandContextV2
 ): void {
-  const knownCardIds = informationSafeKnownPropertyIds(state, player.id);
-  for (const card of PROPERTY_CARDS) {
-    if (knownCardIds.has(card.id)) {
-      continue;
-    }
+  const { playerId, positionContext } = context;
+  for (const card of propertyCardsUnknownToPlayerV2(
+    positionContext,
+    playerId
+  )) {
     addCardDemandToSuits(demand, {
       card,
       earningDemand:
-        cardEarningDemand(card, phase) * UNKNOWN_POOL_DEMAND_WEIGHT,
+        cardEarningDemandV2(positionContext, card) *
+        UNKNOWN_POOL_DEMAND_WEIGHT,
       scoringDemand:
-        bestHandCardScoringDemand(state, player.id, card) *
+        bestCardScoringDemandV2(positionContext, playerId, card) *
         UNKNOWN_POOL_DEMAND_WEIGHT,
     });
   }
@@ -410,113 +406,89 @@ function addCardDemandToSuits(
   }
 }
 
-function cardEarningDemand(card: PropertyCard, phase: number): number {
-  const rankQuality = card.rank / 9;
-  const phaseMultiplier = 1 - 0.7 * smoothstep(phase);
-  return (
-    incomeProbabilityForRankV2(card.rank) *
-    (0.35 + rankQuality) *
-    EARNING_DEMAND_SCALE *
-    phaseMultiplier
-  );
-}
-
-function bestHandCardScoringDemand(
-  state: GameState,
-  playerId: PlayerId,
-  card: PropertyCard
-): number {
-  let best = 0;
-  for (const district of state.districts) {
-    if (!placementAllowed(card, district, playerId)) {
-      continue;
-    }
-    best = Math.max(
-      best,
-      cardScoringDemandInDistrict(state, district, playerId, card)
-    );
-  }
-  return best;
-}
-
-function cardScoringDemandInDistrict(
-  state: GameState,
-  district: DistrictState,
-  playerId: PlayerId,
-  card: PropertyCard
-): number {
-  const opponentId = otherPlayerId(playerId);
-  const stack = district.stacks[playerId];
-  const currentOwnScore = districtScore(stack);
-  const opponentScore = districtScore(district.stacks[opponentId]);
-  const completedOwnScore = districtScore({
-    developed: [...stack.developed, card.id],
-  });
-  const beforeMargin = currentOwnScore - opponentScore;
-  const afterMargin = completedOwnScore - opponentScore;
-  const saturatedDelta =
-    Math.tanh(afterMargin / SCORING_SCALE) -
-    Math.tanh(beforeMargin / SCORING_SCALE);
-  const controlBonus =
-    beforeMargin <= 0 && afterMargin > 0
-      ? 0.45
-      : beforeMargin < 0 && afterMargin === 0
-        ? 0.2
-        : beforeMargin > 0 && afterMargin > beforeMargin
-          ? 0.08
-          : 0;
-
-  return Math.max(0, saturatedDelta + controlBonus) * SCORING_DEMAND_SCALE;
-}
-
 function playerHasLegalPlacement(
-  state: GameState,
+  positionContext: HeuristicV2PositionContext,
   playerId: PlayerId,
   card: PropertyCard
 ): boolean {
-  return state.districts.some((district) =>
-    placementAllowed(card, district, playerId)
+  return positionContext.state.districts.some((district) =>
+    placementAllowedCached(positionContext, playerId, district, card)
   );
 }
 
-function informationSafeKnownPropertyIds(
-  state: GameState,
-  playerId: PlayerId
-): Set<CardId> {
-  const known = new Set<CardId>();
-  const player = requiredPlayer(state, playerId);
-  for (const cardId of player.hand) {
-    known.add(cardId);
-  }
-  for (const cardId of state.deck.discard) {
-    const card = findProperty(cardId);
-    if (card) {
-      known.add(card.id);
-    }
-  }
-  for (const district of state.districts) {
-    for (const candidatePlayerId of ['PlayerA', 'PlayerB'] as const) {
-      const stack = district.stacks[candidatePlayerId];
-      for (const cardId of stack.developed) {
-        known.add(cardId);
-      }
-      if (stack.deed) {
-        known.add(stack.deed.cardId);
-      }
-    }
-  }
-  return known;
+function createTokenDemandContextV2(
+  positionContext: HeuristicV2PositionContext,
+  playerId: PlayerId,
+  player = requiredPlayer(positionContext.state, playerId)
+): TokenDemandContextV2 {
+  return {
+    playerId,
+    player,
+    positionContext,
+    knownPropertyIds: knownPropertyIdsForPlayerV2(positionContext, playerId),
+  };
 }
 
-function addCardAccess(
-  access: SuitValueMap<number>,
-  card: PropertyCard,
-  sourceWeight: number
-): void {
-  const value = incomeProbabilityForRankV2(card.rank) * sourceWeight;
-  for (const suit of card.suits) {
-    access[suit] += value;
+function contextualSuitTokenValuesFromContextV2(
+  context: TokenDemandContextV2
+): SuitValueMap<SuitTokenValueV2> {
+  const access = suitAccessBySuitForPlayerV2(
+    context.positionContext,
+    context.playerId
+  );
+  const demand = demandBySuitForPlayer(context);
+  return emptySuitValueMap<SuitTokenValueV2>((suit) => {
+    const earningDemand = demand[suit].earningDemand;
+    const scoringDemand = demand[suit].scoringDemand;
+    const rawDemand = earningDemand + scoringDemand;
+    const replaceabilityMultiplier = replaceabilityMultiplierForAccess(
+      access[suit]
+    );
+    return {
+      suit,
+      earningDemand,
+      scoringDemand,
+      rawDemand,
+      access: access[suit],
+      replaceabilityMultiplier,
+      value:
+        rawDemand <= 0
+          ? 0
+          : Math.max(DIRECT_VALUE_FLOOR, rawDemand * replaceabilityMultiplier),
+    };
+  });
+}
+
+function resourceBankValueFromSuitValuesV2(
+  resources: ResourcePool,
+  suitValues: SuitValueMap<SuitTokenValueV2>
+): Pick<
+  ResourceBankValueBreakdownV2,
+  'directValue' | 'tradeLiquidityValue' | 'totalValue' | 'tradeLiquidityBySuit'
+> {
+  let directValue = 0;
+
+  for (const suit of SUITS) {
+    directValue += directResourceValueForSuit(
+      Math.max(0, resources[suit]),
+      suitValues[suit].value
+    );
   }
+
+  const tradeLiquidityBySuit = emptySuitValueMap((suit) =>
+    tradeLiquidityValueForSuitV2(suit, resources, suitValues)
+  );
+  const tradeLiquidityValue = SUITS.reduce(
+    (total, suit) => total + tradeLiquidityBySuit[suit],
+    0
+  );
+
+  return {
+    directValue,
+    tradeLiquidityValue,
+    totalValue: directValue + tradeLiquidityValue,
+    tradeLiquidityBySuit,
+  };
 }
 
 function directValueMultiplierForSurplusToken(index: number): number {
@@ -625,26 +597,12 @@ function negateTokens(
   return out;
 }
 
-export function incomeProbabilityForRankV2(rank: PropertyCard['rank']): number {
-  if (rank === 1) {
-    return 0.01;
-  }
-  return (2 * rank - 1) / 100;
-}
-
 function requiredPlayer(state: GameState, playerId: PlayerId): PlayerState {
   const player = state.players.find((candidate) => candidate.id === playerId);
   if (!player) {
     throw new Error(`Token value v2 missing player ${playerId}.`);
   }
   return player;
-}
-
-function gamePhase(state: GameState): number {
-  if ((state.finalTurnsRemaining ?? 0) > 0) {
-    return 1;
-  }
-  return clamp(state.turn / EXPECTED_GAME_TURNS, 0, 1);
 }
 
 function emptySuitValueMap<T>(create: (suit: Suit) => T): SuitValueMap<T> {

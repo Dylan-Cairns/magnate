@@ -20,7 +20,17 @@ import {
   projectStateDistrictAction,
   smoothstep,
 } from './policyProjection';
-import { suitAccessBySuitV2, tokenDeltaForActionV2 } from './tokenValueV2';
+import {
+  createHeuristicV2PositionContext,
+  suitAccessBySuitForPlayerV2,
+  type HeuristicV2PositionContext,
+  type SuitValueMap,
+} from './heuristicV2PositionContext';
+import {
+  createTokenValueContextV2,
+  tokenDeltaForActionV2,
+  type TokenValueContextV2,
+} from './tokenValueV2';
 
 export interface HeuristicV2SelectionContext {
   state: GameState;
@@ -38,6 +48,19 @@ type HeuristicV2EvaluationContext = Partial<
   Pick<HeuristicV2SelectionContext, 'state' | 'view' | 'legalActions'>
 >;
 
+interface ResolvedHeuristicV2Context {
+  state: GameState;
+  activePlayerId: PlayerId;
+  activePlayer: PlayerState;
+  positionContext: HeuristicV2PositionContext;
+  tokenContext: TokenValueContextV2;
+  earningPotential: number;
+}
+
+interface CachedHeuristicV2Score extends KeyedAction {
+  score: number;
+}
+
 const EXPECTED_GAME_TURNS = 42;
 const SCORING_SCALE = 5;
 const SMALL_ACTION_BASELINE = 0.05;
@@ -54,25 +77,20 @@ export function rankHeuristicV2Actions(
   candidateActions: readonly GameAction[],
   context: HeuristicV2EvaluationContext = {}
 ): KeyedAction[] {
-  const keyed = toKeyedActions(candidateActions);
-  return [...keyed].sort((left, right) =>
-    compareKeyedActionsByHeuristicV2(left, right, context)
-  );
+  return scoreKeyedHeuristicV2Actions(candidateActions, context);
 }
 
 export function scoreHeuristicV2Actions(
   candidateActions: readonly GameAction[],
   context: HeuristicV2EvaluationContext = {}
 ): HeuristicV2ScoredAction[] {
-  const priors = heuristicV2PriorsByKey(candidateActions, context);
-  return rankHeuristicV2Actions(candidateActions, context).map(
-    (candidate, index) => ({
+  const scored = scoreKeyedHeuristicV2Actions(candidateActions, context);
+  const priors = heuristicV2PriorsByScoredActions(scored);
+  return scored.map((candidate, index) => ({
       ...candidate,
-      score: scoreHeuristicV2Action(candidate.action, context),
       prior: priors.get(candidate.actionKey) ?? 0,
       rank: index,
-    })
-  );
+    }));
 }
 
 export function heuristicV2PriorsByKey(
@@ -84,9 +102,26 @@ export function heuristicV2PriorsByKey(
     return new Map<string, number>();
   }
 
+  const resolved = resolveContext(context);
   const scores = keyed.map((candidate) =>
-    scoreHeuristicV2Action(candidate.action, context)
+    scoreHeuristicV2ActionWithContext(candidate.action, resolved)
   );
+  return heuristicV2PriorsByScoredValues(keyed, scores);
+}
+
+function heuristicV2PriorsByScoredActions(
+  scored: readonly CachedHeuristicV2Score[]
+): Map<string, number> {
+  return heuristicV2PriorsByScoredValues(
+    scored,
+    scored.map((candidate) => candidate.score)
+  );
+}
+
+function heuristicV2PriorsByScoredValues(
+  keyed: readonly KeyedAction[],
+  scores: readonly number[]
+): Map<string, number> {
   const maxScore = Math.max(...scores);
   const expScores = scores.map((score) => Math.exp(score - maxScore));
   const normalizer = expScores.reduce((sum, score) => sum + score, 0);
@@ -110,7 +145,13 @@ export function scoreHeuristicV2Action(
   action: GameAction,
   context: HeuristicV2EvaluationContext = {}
 ): number {
-  const resolved = resolveContext(context);
+  return scoreHeuristicV2ActionWithContext(action, resolveContext(context));
+}
+
+function scoreHeuristicV2ActionWithContext(
+  action: GameAction,
+  resolved: ResolvedHeuristicV2Context | undefined
+): number {
   if (!resolved) {
     return actionBaseline(action);
   }
@@ -122,8 +163,9 @@ export function scoreHeuristicV2Action(
 
   return (
     scoringWeight * scoringDeltaForAction(action, state, activePlayerId) +
-    earningWeight * earningDeltaForAction(action, state, activePlayerId) +
-    TOKEN_VALUE_WEIGHT * tokenDeltaForActionV2(action, state, activePlayerId) +
+    earningWeight * earningDeltaForAction(action, resolved) +
+    TOKEN_VALUE_WEIGHT *
+      tokenDeltaForActionV2(action, state, activePlayerId, resolved.tokenContext) +
     actionBaseline(action)
   );
 }
@@ -136,31 +178,54 @@ export function earningPotentialValueForPlayerV2(
   if (!player) {
     return 0;
   }
-  const access = suitAccessBySuitV2(state, playerId);
+  const access = suitAccessBySuitForPlayerV2(
+    createHeuristicV2PositionContext(state, playerId),
+    playerId
+  );
 
+  return SUITS.reduce((total, suit) => total + Math.log1p(access[suit]), 0);
+}
+
+function earningPotentialValueFromAccess(
+  access: SuitValueMap<number>
+): number {
   return SUITS.reduce((total, suit) => total + Math.log1p(access[suit]), 0);
 }
 
 function compareKeyedActionsByHeuristicV2(
   left: KeyedAction,
   right: KeyedAction,
-  context: HeuristicV2EvaluationContext
+  scoreByKey: ReadonlyMap<string, number>
 ): number {
   const scoreDelta =
-    scoreHeuristicV2Action(right.action, context) -
-    scoreHeuristicV2Action(left.action, context);
+    (scoreByKey.get(right.actionKey) ?? 0) -
+    (scoreByKey.get(left.actionKey) ?? 0);
   if (!approximatelyEqual(scoreDelta, 0)) {
     return scoreDelta > 0 ? 1 : -1;
   }
   return left.actionKey.localeCompare(right.actionKey);
 }
 
+function scoreKeyedHeuristicV2Actions(
+  candidateActions: readonly GameAction[],
+  context: HeuristicV2EvaluationContext
+): CachedHeuristicV2Score[] {
+  const keyed = toKeyedActions(candidateActions);
+  const resolved = resolveContext(context);
+  const scored = keyed.map((candidate) => ({
+    ...candidate,
+    score: scoreHeuristicV2ActionWithContext(candidate.action, resolved),
+  }));
+  const scoreByKey = new Map(
+    scored.map((candidate) => [candidate.actionKey, candidate.score])
+  );
+  return [...scored].sort((left, right) =>
+    compareKeyedActionsByHeuristicV2(left, right, scoreByKey)
+  );
+}
+
 function resolveContext(context: HeuristicV2EvaluationContext):
-  | {
-      state: GameState;
-      activePlayerId: PlayerId;
-      activePlayer: PlayerState;
-    }
+  | ResolvedHeuristicV2Context
   | undefined {
   const state = context.state;
   if (!state) {
@@ -177,10 +242,23 @@ function resolveContext(context: HeuristicV2EvaluationContext):
   if (!activePlayer) {
     return undefined;
   }
+  const positionContext = createHeuristicV2PositionContext(
+    state,
+    activePlayerId
+  );
+  const access = suitAccessBySuitForPlayerV2(positionContext, activePlayerId);
   return {
     state,
     activePlayerId,
     activePlayer,
+    positionContext,
+    tokenContext: createTokenValueContextV2(
+      state,
+      activePlayerId,
+      activePlayer.resources,
+      positionContext
+    ),
+    earningPotential: earningPotentialValueFromAccess(access),
   };
 }
 
@@ -214,13 +292,19 @@ function scoringDeltaForAction(
 
 function earningDeltaForAction(
   action: GameAction,
-  state: GameState,
-  playerId: PlayerId
+  resolved: ResolvedHeuristicV2Context
 ): number {
-  const before = earningPotentialValueForPlayerV2(state, playerId);
+  if (!isDistrictAction(action)) {
+    return 0;
+  }
+  const { state, activePlayerId: playerId, earningPotential } = resolved;
   const afterState = projectStateDistrictAction(action, state, playerId);
-  const after = earningPotentialValueForPlayerV2(afterState, playerId);
-  return after - before;
+  const afterAccess = suitAccessBySuitForPlayerV2(
+    createHeuristicV2PositionContext(afterState, playerId),
+    playerId
+  );
+  const after = earningPotentialValueFromAccess(afterAccess);
+  return after - earningPotential;
 }
 
 function potentialDistrictMargin(
