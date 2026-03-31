@@ -1,7 +1,7 @@
 import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
 import type { CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
-import { developmentCost, findProperty, SUITS, sumTokens } from '../engine/stateHelpers';
+import { developmentCost, findProperty, SUITS } from '../engine/stateHelpers';
 import type {
   DistrictStack,
   DistrictState,
@@ -11,8 +11,15 @@ import type {
   PlayerState,
   PlayerView,
   PropertyCard,
-  Suit,
 } from '../engine/types';
+import {
+  clamp,
+  isDistrictAction,
+  otherPlayerId,
+  projectDistrictAction,
+  projectStateDistrictAction,
+  smoothstep,
+} from './policyProjection';
 import { suitAccessBySuitV2, tokenDeltaForActionV2 } from './tokenValueV2';
 
 export interface HeuristicV2SelectionContext {
@@ -211,7 +218,7 @@ function earningDeltaForAction(
   playerId: PlayerId
 ): number {
   const before = earningPotentialValueForPlayerV2(state, playerId);
-  const afterState = projectStateForAccess(action, state, playerId);
+  const afterState = projectStateDistrictAction(action, state, playerId);
   const after = earningPotentialValueForPlayerV2(afterState, playerId);
   return after - before;
 }
@@ -257,91 +264,6 @@ function incrementalDevelopedScore(
   return Math.max(0, after - before);
 }
 
-function projectStateForAccess(
-  action: GameAction,
-  state: GameState,
-  playerId: PlayerId
-): GameState {
-  if (!isDistrictAction(action)) {
-    return state;
-  }
-  return {
-    ...state,
-    districts: state.districts.map((district) =>
-      district.id === action.districtId
-        ? projectDistrictAction(district, action, playerId)
-        : district
-    ),
-  };
-}
-
-function projectDistrictAction(
-  district: DistrictState,
-  action: Extract<
-    GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
-  >,
-  playerId: PlayerId
-): DistrictState {
-  const currentStack = district.stacks[playerId];
-  const projectedStack = projectStackAction(currentStack, action);
-  return {
-    ...district,
-    stacks: {
-      ...district.stacks,
-      [playerId]: projectedStack,
-    },
-  };
-}
-
-function projectStackAction(
-  stack: DistrictStack,
-  action: Extract<
-    GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
-  >
-): DistrictStack {
-  if (action.type === 'develop-outright') {
-    return {
-      ...stack,
-      developed: [...stack.developed, action.cardId],
-    };
-  }
-  if (action.type === 'buy-deed') {
-    return {
-      ...stack,
-      deed: {
-        cardId: action.cardId,
-        progress: 0,
-        tokens: {},
-      },
-    };
-  }
-
-  const deed = stack.deed;
-  if (!deed) {
-    return stack;
-  }
-  const card = propertyCard(deed.cardId);
-  const progress = deed.progress + sumTokens(action.tokens);
-  const target = card ? developmentCost(card) : 0;
-  if (target > 0 && progress >= target) {
-    return {
-      ...stack,
-      developed: [...stack.developed, deed.cardId],
-      deed: undefined,
-    };
-  }
-  return {
-    ...stack,
-    deed: {
-      ...deed,
-      progress,
-      tokens: mergeTokens(deed.tokens, action.tokens),
-    },
-  };
-}
-
 function scoringWeightForPhase(phase: number): number {
   const t = smoothstep(phase);
   return 7 + 17 * t;
@@ -360,48 +282,8 @@ function actionBaseline(action: GameAction): number {
   return action.type === 'end-turn' ? 0 : SMALL_ACTION_BASELINE;
 }
 
-function mergeTokens(
-  existing: Partial<Record<Suit, number>>,
-  added: Partial<Record<Suit, number>>
-): Partial<Record<Suit, number>> {
-  const out: Partial<Record<Suit, number>> = { ...existing };
-  for (const suit of SUITS) {
-    const count = added[suit] ?? 0;
-    if (count > 0) {
-      out[suit] = (out[suit] ?? 0) + count;
-    }
-  }
-  return out;
-}
-
 function propertyCard(cardId: string): PropertyCard | undefined {
   return findProperty(cardId as CardId);
-}
-
-function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
-}
-
-function isDistrictAction(
-  action: GameAction
-): action is Extract<
-  GameAction,
-  { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
-> {
-  return (
-    action.type === 'buy-deed' ||
-    action.type === 'develop-deed' ||
-    action.type === 'develop-outright'
-  );
-}
-
-function smoothstep(value: number): number {
-  const x = clamp(value, 0, 1);
-  return x * x * (3 - 2 * x);
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.max(minimum, Math.min(maximum, value));
 }
 
 function approximatelyEqual(left: number, right: number): boolean {
