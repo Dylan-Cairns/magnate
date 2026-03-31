@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { legalActions } from '../engine/actionBuilders';
 import type { CardId } from '../engine/cards';
 import type {
   DeedState,
@@ -9,8 +10,10 @@ import type {
   ResourcePool,
   Suit,
 } from '../engine/types';
+import { toPlayerView } from '../engine/view';
 import {
   earningPotentialValueForPlayerV2,
+  rankHeuristicV2Actions,
   scoreHeuristicV2Action,
 } from './heuristicScorerV2';
 
@@ -210,6 +213,21 @@ describe('heuristic scorer v2', () => {
       scoreHeuristicV2Action(tradeForLowDemand, { state })
     );
   });
+
+  it('keeps root ranking invariant to true opponent hand and draw order', () => {
+    const firstHiddenAssignment = hiddenAssignmentFixtureState({
+      opponentHand: ['0', '1'],
+      drawPrefix: ['2', '3', '4'],
+    });
+    const secondHiddenAssignment = hiddenAssignmentFixtureState({
+      opponentHand: ['2', '3'],
+      drawPrefix: ['0', '1', '4'],
+    });
+
+    expect(
+      actionKeysForHeuristicV2RootRanking(secondHiddenAssignment)
+    ).toEqual(actionKeysForHeuristicV2RootRanking(firstHiddenAssignment));
+  });
 });
 
 function heuristicV2FixtureState({
@@ -310,4 +328,60 @@ function fixtureResources(
     Wyrms: overrides.Wyrms ?? 0,
     Knots: overrides.Knots ?? 0,
   };
+}
+
+function hiddenAssignmentFixtureState({
+  opponentHand,
+  drawPrefix,
+}: {
+  opponentHand: CardId[];
+  drawPrefix: CardId[];
+}): GameState {
+  const rootHand: CardId[] = ['24', '25', '26'];
+  const rootKnown = new Set(rootHand);
+  const hiddenPrefix = new Set([...opponentHand, ...drawPrefix]);
+  const draw = [
+    ...drawPrefix,
+    ...Array.from({ length: 30 }, (_, index) => String(index) as CardId).filter(
+      (cardId) => !rootKnown.has(cardId) && !hiddenPrefix.has(cardId)
+    ),
+  ];
+
+  const state = heuristicV2FixtureState({
+    hand: rootHand,
+    resources: fixtureResources({
+      Moons: 5,
+      Suns: 5,
+      Waves: 5,
+      Leaves: 5,
+      Wyrms: 5,
+      Knots: 5,
+    }),
+    turn: 12,
+    districts: [
+      fixtureDistrict({ id: 'D0' }),
+      fixtureDistrict({ id: 'D1' }),
+      fixtureDistrict({ id: 'D2' }),
+      fixtureDistrict({ id: 'D3' }),
+      fixtureDistrict({ id: 'D4' }),
+    ],
+  });
+
+  return {
+    ...state,
+    deck: {
+      ...state.deck,
+      draw,
+    },
+    players: state.players.map((player) =>
+      player.id === 'PlayerB' ? { ...player, hand: opponentHand } : player
+    ),
+  };
+}
+
+function actionKeysForHeuristicV2RootRanking(state: GameState): string[] {
+  return rankHeuristicV2Actions(legalActions(state), {
+    state,
+    view: toPlayerView(state, 'PlayerA'),
+  }).map((candidate) => candidate.actionKey);
 }
