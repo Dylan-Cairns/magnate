@@ -196,13 +196,14 @@ describe('rollout search core', () => {
 
   it('runs rollout tasks with heuristic v2 playout selection configured', () => {
     const fixture = selectionFixture('rollout-core-heuristic-v2-task');
-    const rootActionKey = toKeyedActions(fixture.candidateActions)[0].actionKey;
+    const rootAction = toKeyedActions(fixture.candidateActions)[0];
     const result = runRolloutSearchTask({
       kind: 'rollout-search',
       visitIndex: 0,
       world: fixture.state,
       rootPlayer: fixture.view.activePlayerId,
-      rootActionKey,
+      rootAction: rootAction.action,
+      rootActionKey: rootAction.actionKey,
       config: {
         worlds: 1,
         rollouts: 1,
@@ -214,7 +215,7 @@ describe('rollout search core', () => {
       randomSeed: 'rollout-core-heuristic-v2-task-rng',
     });
 
-    expect(result.actionKey).toBe(rootActionKey);
+    expect(result.actionKey).toBe(rootAction.actionKey);
     expect(result.simulatedActionSteps).toBeGreaterThan(0);
   });
 });
