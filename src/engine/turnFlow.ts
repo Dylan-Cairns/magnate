@@ -27,11 +27,18 @@ const TAX_SUIT_BY_D6: readonly [Suit, Suit, Suit, Suit, Suit, Suit] = [
   'Knots',
 ];
 
-export function advanceToDecision(state: GameState): GameState {
+export interface AdvanceToDecisionOptions {
+  assumeActionWindowDecision?: boolean;
+}
+
+export function advanceToDecision(
+  state: GameState,
+  options: AdvanceToDecisionOptions = {}
+): GameState {
   let current = state;
 
   for (let i = 0; i < MAX_ADVANCE_STEPS; i += 1) {
-    if (isDecisionPhase(current)) {
+    if (isDecisionPhase(current, options)) {
       return current;
     }
 
@@ -43,8 +50,14 @@ export function advanceToDecision(state: GameState): GameState {
   );
 }
 
-function isDecisionPhase(state: GameState): boolean {
+function isDecisionPhase(
+  state: GameState,
+  options: AdvanceToDecisionOptions
+): boolean {
   if (state.phase === 'ActionWindow') {
+    if (options.assumeActionWindowDecision) {
+      return true;
+    }
     return legalActions(state).length > 0;
   }
   if (BASE_DECISION_PHASES.has(state.phase)) {

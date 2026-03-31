@@ -1,12 +1,8 @@
 import { legalActions as legalActionsForState } from '../engine/actionBuilders';
-import {
-  actionStableKey,
-  toKeyedActions,
-  type KeyedAction,
-} from '../engine/actionSurface';
+import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
 import { rngFromSeed, type RandomFn } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
-import { stepToDecision } from '../engine/session';
+import { stepKnownLegalActionToDecision } from '../engine/session';
 import type {
   GameAction,
   GameState,
@@ -64,6 +60,7 @@ export interface RolloutSearchWorkerTask {
   visitIndex: number;
   world: GameState;
   rootPlayer: PlayerId;
+  rootAction: GameAction;
   rootActionKey: string;
   config: SearchPolicyConfig;
   randomSeed?: string;
@@ -226,7 +223,7 @@ export function runRolloutSearchTask(
   const rollout = runRollout(
     task.world,
     task.rootPlayer,
-    task.rootActionKey,
+    task.rootAction,
     task.config,
     random
   );
@@ -441,12 +438,19 @@ class RolloutSearchSession {
       actionKey,
       (this.pendingVisits.get(actionKey) ?? 0) + 1
     );
+    const rootAction = this.actionByKey.get(actionKey);
+    if (!rootAction) {
+      throw new Error(
+        `Rollout search scheduled unknown root action key ${actionKey}.`
+      );
+    }
 
     return {
       kind: 'rollout-search',
       visitIndex,
       world: this.worldStates[worldIndex],
       rootPlayer: this.rootPlayer,
+      rootAction,
       rootActionKey: actionKey,
       config: this.config,
       ...(randomSeed ? { randomSeed } : {}),
@@ -565,7 +569,7 @@ class RolloutSearchSession {
 function runRollout(
   initialState: GameState,
   rootPlayer: PlayerId,
-  rootActionKey: string,
+  rootAction: GameAction,
   config: SearchPolicyConfig,
   random: RandomFn
 ): {
@@ -573,7 +577,7 @@ function runRollout(
   simulatedActionSteps: number;
   terminatedBeforeDepthLimit: boolean;
 } {
-  let state = stepByActionKey(initialState, rootActionKey);
+  let state = stepKnownLegalActionToDecision(initialState, rootAction);
   let depth = 0;
   let simulatedActionSteps = 1;
 
@@ -582,13 +586,13 @@ function runRollout(
     if (actions.length === 0) {
       break;
     }
-    const nextActionKey = chooseRolloutActionKey(
+    const nextAction = chooseRolloutAction(
       state,
       actions,
       random,
       config
     );
-    state = stepByActionKey(state, nextActionKey);
+    state = stepKnownLegalActionToDecision(state, nextAction);
     depth += 1;
     simulatedActionSteps += 1;
   }
@@ -608,18 +612,17 @@ function runRollout(
   };
 }
 
-function chooseRolloutActionKey(
+function chooseRolloutAction(
   state: GameState,
   actions: readonly GameAction[],
   random: RandomFn,
   config: SearchPolicyConfig
-): string {
-  const keyed = toKeyedActions(actions);
+): GameAction {
   if (random() < config.rolloutEpsilon) {
-    return keyed[Math.floor(random() * keyed.length)].actionKey;
+    const keyed = toKeyedActions(actions);
+    return keyed[Math.floor(random() * keyed.length)].action;
   }
-  return rankActionsByHeuristic(actions, { state }, config.heuristic)[0]
-    .actionKey;
+  return rankActionsByHeuristic(actions, { state }, config.heuristic)[0].action;
 }
 
 function rankActionsByHeuristic(
@@ -642,19 +645,6 @@ function priorsByHeuristic(
     return heuristicV2PriorsByKey(actions, context);
   }
   return heuristicPriorsByKey(actions, context);
-}
-
-function stepByActionKey(state: GameState, actionKey: string): GameState {
-  const actions = legalActionsForState(state);
-  const action = actions.find(
-    (candidate) => actionStableKey(candidate) === actionKey
-  );
-  if (!action) {
-    throw new Error(
-      `Search policy rollout could not find legal action for key ${actionKey}.`
-    );
-  }
-  return stepToDecision(state, action);
 }
 
 function randomSeedForVisit(

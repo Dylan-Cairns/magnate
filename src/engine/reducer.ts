@@ -27,6 +27,13 @@ import type {
 export function applyAction(state: GameState, action: GameAction): GameState {
   assertActionIsLegal(state, action);
 
+  return applyKnownLegalAction(state, action);
+}
+
+export function applyKnownLegalAction(
+  state: GameState,
+  action: GameAction
+): GameState {
   switch (action.type) {
     case 'choose-income-suit':
       return chooseIncomeSuit(state, action);

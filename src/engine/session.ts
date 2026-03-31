@@ -1,5 +1,5 @@
 import { newGame } from './game';
-import { applyAction } from './reducer';
+import { applyAction, applyKnownLegalAction } from './reducer';
 import { advanceToDecision } from './turnFlow';
 import type { GameAction, GameState, PlayerId } from './types';
 
@@ -12,4 +12,13 @@ export function stepToDecision(
   action: GameAction
 ): GameState {
   return advanceToDecision(applyAction(state, action));
+}
+
+export function stepKnownLegalActionToDecision(
+  state: GameState,
+  action: GameAction
+): GameState {
+  return advanceToDecision(applyKnownLegalAction(state, action), {
+    assumeActionWindowDecision: true,
+  });
 }

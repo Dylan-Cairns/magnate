@@ -121,6 +121,7 @@ function task(visitIndex: number): SearchWorkerTask {
     visitIndex,
     world: createSession(`search-worker-pool-${String(visitIndex)}`, 'PlayerA'),
     rootPlayer: 'PlayerA',
+    rootAction: { type: 'end-turn' },
     rootActionKey: `action-${String(visitIndex)}`,
     config: {
       worlds: 1,
