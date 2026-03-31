@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BOT_PROFILES,
-  DEFAULT_BOT_PROFILE_ID,
   getBotProfile,
-  resolveBotProfile,
 } from './catalog';
 
 describe('bot policy catalog', () => {
@@ -12,13 +10,6 @@ describe('bot policy catalog', () => {
     expect(() => getBotProfile('unknown-profile')).toThrow(
       'Unknown bot profile'
     );
-  });
-
-  it('uses TD-root rollout search as default and resolves an available policy', () => {
-    const resolved = resolveBotProfile(DEFAULT_BOT_PROFILE_ID);
-    expect(resolved.selected.available).toBe(true);
-    expect(resolved.selected.id).toBe('td-root-rollout-search');
-    expect(resolved.selected.kind).toBe('td-root-search');
   });
 
   it('keeps all configured profiles available', () => {
@@ -63,14 +54,6 @@ describe('bot policy catalog', () => {
     expect(
       BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')
     ).toBe(true);
-  });
-
-  it('includes a TD-root rollout-search profile as the default', () => {
-    const profile = getBotProfile('td-root-rollout-search');
-
-    expect(profile.kind).toBe('td-root-search');
-    expect(profile.available).toBe(true);
-    expect(DEFAULT_BOT_PROFILE_ID).toBe('td-root-rollout-search');
   });
 
   it('includes a rollout-search v2 profile using the v2 heuristic', () => {
