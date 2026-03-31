@@ -17,7 +17,6 @@ import {
   isDistrictAction,
   otherPlayerId,
   projectDistrictAction,
-  projectStateDistrictAction,
   smoothstep,
 } from './policyProjection';
 import {
@@ -28,7 +27,9 @@ import {
 } from './heuristicV2PositionContext';
 import {
   createTokenValueContextV2,
+  projectTokenValueContextForActionV2,
   tokenDeltaForActionV2,
+  type ProjectedTokenValueContextV2,
   type TokenValueContextV2,
 } from './tokenValueV2';
 
@@ -150,7 +151,8 @@ export function scoreHeuristicV2Action(
 
 function scoreHeuristicV2ActionWithContext(
   action: GameAction,
-  resolved: ResolvedHeuristicV2Context | undefined
+  resolved: ResolvedHeuristicV2Context | undefined,
+  projected = projectedContextForAction(action, resolved)
 ): number {
   if (!resolved) {
     return actionBaseline(action);
@@ -163,9 +165,15 @@ function scoreHeuristicV2ActionWithContext(
 
   return (
     scoringWeight * scoringDeltaForAction(action, state, activePlayerId) +
-    earningWeight * earningDeltaForAction(action, resolved) +
+    earningWeight * earningDeltaForAction(action, resolved, projected) +
     TOKEN_VALUE_WEIGHT *
-      tokenDeltaForActionV2(action, state, activePlayerId, resolved.tokenContext) +
+      tokenDeltaForActionV2(
+        action,
+        state,
+        activePlayerId,
+        resolved.tokenContext,
+        projected
+      ) +
     actionBaseline(action)
   );
 }
@@ -212,9 +220,14 @@ function scoreKeyedHeuristicV2Actions(
 ): CachedHeuristicV2Score[] {
   const keyed = toKeyedActions(candidateActions);
   const resolved = resolveContext(context);
+  const projectionByKey = new Map<string, ProjectedTokenValueContextV2>();
   const scored = keyed.map((candidate) => ({
     ...candidate,
-    score: scoreHeuristicV2ActionWithContext(candidate.action, resolved),
+    score: scoreHeuristicV2ActionWithContext(
+      candidate.action,
+      resolved,
+      projectedContextForKey(candidate, resolved, projectionByKey)
+    ),
   }));
   const scoreByKey = new Map(
     scored.map((candidate) => [candidate.actionKey, candidate.score])
@@ -292,19 +305,72 @@ function scoringDeltaForAction(
 
 function earningDeltaForAction(
   action: GameAction,
-  resolved: ResolvedHeuristicV2Context
+  resolved: ResolvedHeuristicV2Context,
+  projected: ProjectedTokenValueContextV2 | undefined
 ): number {
   if (!isDistrictAction(action)) {
     return 0;
   }
-  const { state, activePlayerId: playerId, earningPotential } = resolved;
-  const afterState = projectStateDistrictAction(action, state, playerId);
+  const { activePlayerId: playerId, earningPotential } = resolved;
+  const afterPositionContext =
+    projected?.context.positionContext ??
+    projectTokenValueContextForActionV2(
+      action,
+      resolved.state,
+      playerId,
+      resolved.tokenContext
+    ).context.positionContext;
   const afterAccess = suitAccessBySuitForPlayerV2(
-    createHeuristicV2PositionContext(afterState, playerId),
+    afterPositionContext,
     playerId
   );
   const after = earningPotentialValueFromAccess(afterAccess);
   return after - earningPotential;
+}
+
+function projectedContextForKey(
+  candidate: KeyedAction,
+  resolved: ResolvedHeuristicV2Context | undefined,
+  projectionByKey: Map<string, ProjectedTokenValueContextV2>
+): ProjectedTokenValueContextV2 | undefined {
+  if (!requiresProjectedTokenContext(candidate.action) || !resolved) {
+    return undefined;
+  }
+  const cached = projectionByKey.get(candidate.actionKey);
+  if (cached) {
+    return cached;
+  }
+  const projected = projectTokenValueContextForActionV2(
+    candidate.action,
+    resolved.state,
+    resolved.activePlayerId,
+    resolved.tokenContext
+  );
+  projectionByKey.set(candidate.actionKey, projected);
+  return projected;
+}
+
+function projectedContextForAction(
+  action: GameAction,
+  resolved: ResolvedHeuristicV2Context | undefined
+): ProjectedTokenValueContextV2 | undefined {
+  if (!requiresProjectedTokenContext(action) || !resolved) {
+    return undefined;
+  }
+  return projectTokenValueContextForActionV2(
+    action,
+    resolved.state,
+    resolved.activePlayerId,
+    resolved.tokenContext
+  );
+}
+
+function requiresProjectedTokenContext(action: GameAction): boolean {
+  return (
+    action.type !== 'end-turn' &&
+    action.type !== 'trade' &&
+    action.type !== 'choose-income-suit'
+  );
 }
 
 function potentialDistrictMargin(

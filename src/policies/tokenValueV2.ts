@@ -63,6 +63,11 @@ export interface TokenValueContextV2 extends ResourceBankValueBreakdownV2 {
   positionContext: HeuristicV2PositionContext;
 }
 
+export interface ProjectedTokenValueContextV2 {
+  state: GameState;
+  context: TokenValueContextV2;
+}
+
 type DemandBySuit = SuitValueMap<{
   earningDemand: number;
   scoringDemand: number;
@@ -160,24 +165,47 @@ export function tokenDeltaForActionV2(
   action: GameAction,
   state: GameState,
   playerId: PlayerId,
-  context = createTokenValueContextV2(state, playerId)
+  context = createTokenValueContextV2(state, playerId),
+  projected?: ProjectedTokenValueContextV2
 ): number {
   if (action.type === 'end-turn') {
     return 0;
   }
-  const before = context.resources;
-  const after = applyDelta(before, resourceDeltaForActionV2(action));
   if (action.type === 'trade' || action.type === 'choose-income-suit') {
+    const after = applyDelta(context.resources, resourceDeltaForActionV2(action));
     return (
       resourceBankValueFromSuitValuesV2(after, context.suitValues).totalValue -
       context.totalValue
     );
   }
+  const afterContext =
+    projected?.context ??
+    projectTokenValueContextForActionV2(action, state, playerId, context)
+      .context;
+  return afterContext.totalValue - context.totalValue;
+}
+
+export function projectTokenValueContextForActionV2(
+  action: GameAction,
+  state: GameState,
+  playerId: PlayerId,
+  context = createTokenValueContextV2(state, playerId)
+): ProjectedTokenValueContextV2 {
+  const after = applyDelta(context.resources, resourceDeltaForActionV2(action));
   const afterState = projectStateForTokenValueV2(action, state, playerId);
-  return (
-    resourceBankValueV2(afterState, playerId, after) -
-    context.totalValue
+  const positionContext = createHeuristicV2PositionContext(
+    afterState,
+    playerId
   );
+  return {
+    state: afterState,
+    context: createTokenValueContextV2(
+      afterState,
+      playerId,
+      after,
+      positionContext
+    ),
+  };
 }
 
 export function projectStateForTokenValueV2(
