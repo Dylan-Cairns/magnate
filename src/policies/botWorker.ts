@@ -141,8 +141,8 @@ async function selectSearchAction(
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
         onSearchDiagnostics,
-        runBatch(tasks) {
-          return pool.runBatch(tasks);
+        runBatch(tasks, context) {
+          return pool.runBatch(tasks, context);
         },
       });
     } catch (error) {

@@ -12,6 +12,11 @@ import type {
   SearchWorkerTask,
 } from './searchWorkerProtocol';
 
+const TEST_CONTEXT = {
+  contextId: 'search-worker-pool-test-context',
+  worldStates: [createSession('search-worker-pool-context', 'PlayerA')],
+};
+
 describe('search worker pool', () => {
   it('distributes a batch across workers and resolves returned results', async () => {
     const workers: FakeSearchWorker[] = [];
@@ -20,28 +25,44 @@ describe('search worker pool', () => {
       createWorker: () => pushWorker(workers),
     });
 
-    const run = pool.runBatch([task(0), task(1), task(2)]);
+    const run = pool.runBatch([task(0), task(1), task(2)], TEST_CONTEXT);
 
     expect(workers).toHaveLength(2);
+    expect(initRequest(workers[0].messages[0]).context.contextId).toBe(
+      TEST_CONTEXT.contextId
+    );
+    expect(initRequest(workers[1].messages[0]).context.contextId).toBe(
+      TEST_CONTEXT.contextId
+    );
+    workers[0].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[0].messages[0]).requestId,
+    });
+    workers[1].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[1].messages[0]).requestId,
+    });
+    await flushAsyncWork();
+
     expect(
-      runBatchRequest(workers[0].messages[0]).tasks.map(
+      runBatchRequest(workers[0].messages[1]).tasks.map(
         (item) => item.visitIndex
       )
     ).toEqual([0, 2]);
     expect(
-      runBatchRequest(workers[1].messages[0]).tasks.map(
+      runBatchRequest(workers[1].messages[1]).tasks.map(
         (item) => item.visitIndex
       )
     ).toEqual([1]);
 
     workers[1].emit({
       type: 'batch-result',
-      requestId: runBatchRequest(workers[1].messages[0]).requestId,
+      requestId: runBatchRequest(workers[1].messages[1]).requestId,
       results: [result(1)],
     });
     workers[0].emit({
       type: 'batch-result',
-      requestId: runBatchRequest(workers[0].messages[0]).requestId,
+      requestId: runBatchRequest(workers[0].messages[1]).requestId,
       results: [result(0), result(2)],
     });
 
@@ -55,7 +76,7 @@ describe('search worker pool', () => {
       createWorker: () => pushWorker(workers),
     });
 
-    const run = pool.runBatch([task(0)]);
+    const run = pool.runBatch([task(0)], TEST_CONTEXT);
     workers[0].fail('worker exploded');
 
     await expect(run).rejects.toThrow('worker exploded');
@@ -72,7 +93,9 @@ describe('search worker pool', () => {
     pool.close();
 
     expect(workers.every((worker) => worker.terminated)).toBe(true);
-    await expect(pool.runBatch([task(0)])).rejects.toThrow('closed');
+    await expect(pool.runBatch([task(0)], TEST_CONTEXT)).rejects.toThrow(
+      'closed'
+    );
   });
 });
 
@@ -115,11 +138,19 @@ function runBatchRequest(request: SearchWorkerRequest) {
   return request;
 }
 
+function initRequest(request: SearchWorkerRequest) {
+  if (request.type !== 'initialize-rollout-search') {
+    throw new Error('Expected an initialize-rollout-search request.');
+  }
+  return request;
+}
+
 function task(visitIndex: number): SearchWorkerTask {
   return {
     kind: 'rollout-search',
+    contextId: TEST_CONTEXT.contextId,
     visitIndex,
-    world: createSession(`search-worker-pool-${String(visitIndex)}`, 'PlayerA'),
+    worldIndex: 0,
     rootPlayer: 'PlayerA',
     rootAction: { type: 'end-turn' },
     rootActionKey: `action-${String(visitIndex)}`,
@@ -143,4 +174,8 @@ function result(visitIndex: number): SearchWorkerResult {
     simulatedActionSteps: 1,
     terminatedBeforeDepthLimit: false,
   };
+}
+
+function flushAsyncWork(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }

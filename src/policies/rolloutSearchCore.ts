@@ -51,14 +51,21 @@ export interface RolloutSearchParallelSelectionInput extends RolloutSearchSelect
   batchSize: number;
   parallelWorkers: number;
   runBatch: (
-    tasks: readonly RolloutSearchWorkerTask[]
+    tasks: readonly RolloutSearchWorkerTask[],
+    context: RolloutSearchWorkerContext
   ) => Promise<readonly RolloutSearchVisitResult[]>;
+}
+
+export interface RolloutSearchWorkerContext {
+  contextId: string;
+  worldStates: readonly GameState[];
 }
 
 export interface RolloutSearchWorkerTask {
   kind: 'rollout-search';
+  contextId: string;
   visitIndex: number;
-  world: GameState;
+  worldIndex: number;
   rootPlayer: PlayerId;
   rootAction: GameAction;
   rootActionKey: string;
@@ -125,14 +132,21 @@ export function selectRolloutSearchActionSync(
     })[0].action;
   }
 
+  const workerContext = session.workerContext(
+    input.randomSeed
+      ? rolloutSearchWorkerContextId(input.randomSeed)
+      : 'rollout-search-sync'
+  );
   while (session.hasUnscheduledVisits()) {
     input.onProgress?.();
     const visitIndex = session.nextVisitIndex();
     const task = session.nextTask(
+      workerContext.contextId,
       randomSeedForVisit(input.randomSeed, visitIndex)
     );
     const result = runRolloutSearchTask(
       task,
+      workerContext.worldStates,
       task.randomSeed ? undefined : input.random
     );
     session.mergeResult(result);
@@ -176,6 +190,9 @@ export async function selectRolloutSearchActionParallel(
     })[0].action;
   }
 
+  const workerContext = session.workerContext(
+    rolloutSearchWorkerContextId(input.randomSeed)
+  );
   let batches = 0;
   while (session.hasUnscheduledVisits()) {
     const tasks: RolloutSearchWorkerTask[] = [];
@@ -183,11 +200,14 @@ export async function selectRolloutSearchActionParallel(
       input.onProgress?.();
       const visitIndex = session.nextVisitIndex();
       tasks.push(
-        session.nextTask(randomSeedForVisit(input.randomSeed, visitIndex))
+        session.nextTask(
+          workerContext.contextId,
+          randomSeedForVisit(input.randomSeed, visitIndex)
+        )
       );
     }
     batches += 1;
-    const results = await input.runBatch(tasks);
+    const results = await input.runBatch(tasks, workerContext);
     if (results.length !== tasks.length) {
       throw new Error(
         `Parallel rollout search expected ${String(tasks.length)} results but received ${String(results.length)}.`
@@ -211,6 +231,7 @@ export async function selectRolloutSearchActionParallel(
 
 export function runRolloutSearchTask(
   task: RolloutSearchWorkerTask,
+  worldStates: readonly GameState[],
   fallbackRandom?: RandomFn
 ): RolloutSearchVisitResult {
   const random = task.randomSeed
@@ -219,9 +240,15 @@ export function runRolloutSearchTask(
   if (!random) {
     throw new Error('Rollout search task requires randomSeed or fallback RNG.');
   }
+  const world = worldStates[task.worldIndex];
+  if (!world) {
+    throw new Error(
+      `Rollout search task references unknown world index ${String(task.worldIndex)}.`
+    );
+  }
 
   const rollout = runRollout(
-    task.world,
+    world,
     task.rootPlayer,
     task.rootAction,
     task.config,
@@ -400,7 +427,14 @@ class RolloutSearchSession {
     return this.mergedVisitTotal;
   }
 
-  nextTask(randomSeed?: string): RolloutSearchWorkerTask {
+  workerContext(contextId: string): RolloutSearchWorkerContext {
+    return {
+      contextId,
+      worldStates: this.worldStates,
+    };
+  }
+
+  nextTask(contextId: string, randomSeed?: string): RolloutSearchWorkerTask {
     if (!this.hasUnscheduledVisits()) {
       throw new Error('Rollout search has no unscheduled visits.');
     }
@@ -447,8 +481,9 @@ class RolloutSearchSession {
 
     return {
       kind: 'rollout-search',
+      contextId,
       visitIndex,
-      world: this.worldStates[worldIndex],
+      worldIndex,
       rootPlayer: this.rootPlayer,
       rootAction,
       rootActionKey: actionKey,
@@ -654,4 +689,8 @@ function randomSeedForVisit(
   return randomSeed === undefined
     ? undefined
     : `${randomSeed}:rollout-visit:${String(visitIndex)}`;
+}
+
+function rolloutSearchWorkerContextId(randomSeed: string): string {
+  return `${randomSeed}:rollout-search-worlds`;
 }

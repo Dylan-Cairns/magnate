@@ -11,6 +11,7 @@ import {
   selectRolloutSearchActionParallel,
   selectRolloutSearchActionSync,
   type RolloutSearchVisitResult,
+  type RolloutSearchWorkerContext,
   type RolloutSearchWorkerTask,
 } from './rolloutSearchCore';
 import type { SearchPolicyConfig } from './searchConfig';
@@ -82,8 +83,8 @@ describe('rollout search core', () => {
       randomSeed,
       batchSize: 4,
       parallelWorkers: 2,
-      async runBatch(tasks) {
-        return (await runTasks(tasks)).slice().reverse();
+      async runBatch(tasks, context) {
+        return (await runTasks(tasks, context)).slice().reverse();
       },
     });
 
@@ -101,8 +102,8 @@ describe('rollout search core', () => {
         randomSeed: 'rollout-core-bad-result-rng',
         batchSize: 2,
         parallelWorkers: 2,
-        async runBatch(tasks) {
-          const results = await runTasks(tasks);
+        async runBatch(tasks, context) {
+          const results = await runTasks(tasks, context);
           return [
             {
               ...results[0],
@@ -197,10 +198,15 @@ describe('rollout search core', () => {
   it('runs rollout tasks with heuristic v2 playout selection configured', () => {
     const fixture = selectionFixture('rollout-core-heuristic-v2-task');
     const rootAction = toKeyedActions(fixture.candidateActions)[0];
+    const context: RolloutSearchWorkerContext = {
+      contextId: 'rollout-core-heuristic-v2-task-context',
+      worldStates: [fixture.state],
+    };
     const result = runRolloutSearchTask({
       kind: 'rollout-search',
+      contextId: context.contextId,
       visitIndex: 0,
-      world: fixture.state,
+      worldIndex: 0,
       rootPlayer: fixture.view.activePlayerId,
       rootAction: rootAction.action,
       rootActionKey: rootAction.actionKey,
@@ -213,7 +219,7 @@ describe('rollout search core', () => {
         heuristic: 'v2',
       },
       randomSeed: 'rollout-core-heuristic-v2-task-rng',
-    });
+    }, context.worldStates);
 
     expect(result.actionKey).toBe(rootAction.actionKey);
     expect(result.simulatedActionSteps).toBeGreaterThan(0);
@@ -259,9 +265,10 @@ function expectRootActionDiagnosticsAreConsistent(
 }
 
 async function runTasks(
-  tasks: readonly RolloutSearchWorkerTask[]
+  tasks: readonly RolloutSearchWorkerTask[],
+  context: RolloutSearchWorkerContext
 ): Promise<readonly RolloutSearchVisitResult[]> {
-  return tasks.map((task) => runRolloutSearchTask(task));
+  return tasks.map((task) => runRolloutSearchTask(task, context.worldStates));
 }
 
 function selectionFixture(seed: string) {
