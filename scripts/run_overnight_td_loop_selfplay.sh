@@ -103,7 +103,7 @@ python -m scripts.run_td_loop_selfplay \
   --cloud --cloud-vcpus 8 \
   --collect-workers 2 \
   --run-label td-loop-selfplay-r1-overnight \
-  --chunks-per-loop 6 \
+  --chunks-per-loop 18 \
   --collect-games 600 \
   --collect-progress-every-games 10 \
   --train-steps 10000 \

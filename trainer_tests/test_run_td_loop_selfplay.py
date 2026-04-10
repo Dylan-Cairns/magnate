@@ -39,6 +39,10 @@ class RunTdLoopSelfplayTests(unittest.TestCase):
             promotion_incumbent_max_window_side_gap=0.10,
         )
 
+    def test_parse_args_defaults_to_18_chunks_per_loop(self) -> None:
+        args = self._parse()
+        self.assertEqual(args.chunks_per_loop, 18)
+
     def test_build_collect_profiles_includes_selfplay_pool_and_search_anchor(self) -> None:
         args = self._args()
         with tempfile.TemporaryDirectory() as tmp:
