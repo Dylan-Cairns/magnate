@@ -132,6 +132,54 @@ function Assert-MagnateNode22Runtime {
   }
 }
 
+function Get-MagnateLaptopRuntimeProfile {
+  param(
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(25.0, 100.0)]
+    [double]$CpuTargetPercent = 50.0,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateRange(0, 64)]
+    [int]$ReserveLogicalCores = 2
+  )
+
+  $logicalProcessors = [Math]::Max(1, [Environment]::ProcessorCount)
+  $physicalCores = $null
+  try {
+    $coreSum = (Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum
+    if ($null -ne $coreSum) {
+      $physicalCores = [int]$coreSum
+    }
+  } catch {
+    $physicalCores = $null
+  }
+
+  $maxReservable = [Math]::Max(0, $logicalProcessors - 1)
+  $reservedCores = [Math]::Min($ReserveLogicalCores, $maxReservable)
+  $availableBudget = [Math]::Max(1, $logicalProcessors - $reservedCores)
+  $targetSlots = [Math]::Max(
+    1,
+    [int][Math]::Round(
+      ($logicalProcessors * $CpuTargetPercent) / 100.0,
+      [System.MidpointRounding]::AwayFromZero
+    )
+  )
+  $stageSlots = [Math]::Min($availableBudget, $targetSlots)
+
+  return [pscustomobject]@{
+    LogicalProcessors = $logicalProcessors
+    PhysicalCores = $physicalCores
+    CpuTargetPercent = [Math]::Round($CpuTargetPercent, 1)
+    ReserveLogicalCores = $reservedCores
+    StageSlots = $stageSlots
+    CollectWorkers = $stageSlots
+    EvalWorkers = $stageSlots
+    IncumbentEvalWorkers = $stageSlots
+    TrainThreads = $stageSlots
+    TrainInteropThreads = 1
+  }
+}
+
 function Get-MagnateWarmStartPair {
   param(
     [Parameter(Mandatory = $true)]
