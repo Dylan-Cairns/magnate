@@ -43,7 +43,7 @@ $command = @(
   "--run-label",
   "td-loop-selfplay-r1-laptop",
   "--chunks-per-loop",
-  "18",
+  "12",
   "--collect-games",
   "600",
   "--collect-workers",

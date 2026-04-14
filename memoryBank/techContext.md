@@ -32,7 +32,7 @@
   - `python -m scripts.search_teacher_sweep` (`--jobs` preset parallelism, forwards `--workers`; default `--python-bin` resolves cross-platform via `sys.executable` then `.venv` paths)
   - `python -m scripts.generate_teacher_data` (teacher policy must support root action probabilities for label generation)
   - `python -m scripts.run_td_loop` (bootstrap/recalibration loop: chunked collect/train -> multi-window promotion eval orchestration with pooled promotion checks; `--chunks-per-loop`, `--collect-workers`, `--eval-workers`, `--eval-seed-start-indices`; `--cloud --cloud-vcpus 8|16|32` applies preset worker/thread profile; `--progress-heartbeat-minutes` uses minute-based stage heartbeats; `--train-value-target-mode td-lambda` enables TD(lambda) path; default `--promotion-min-ci-low` is `0.5`; replay regime `chunk-local`)
-  - `python -m scripts.run_td_loop_selfplay` (primary post-bootstrap loop: mixed td-search-heavy collection, promoted opponent pool usage, and dual promotion gates vs fixed `search` baseline plus incumbent `td-search`; defaults to `18` chunks before promotion eval; replay regime `chunk-local-selfplay-mixed`)
+  - `python -m scripts.run_td_loop_selfplay` (primary post-bootstrap loop: mixed td-search-heavy collection, promoted opponent pool usage, and dual promotion gates vs fixed `search` baseline plus incumbent `td-search`; defaults to `12` chunks before promotion eval; replay regime `chunk-local-selfplay-mixed`)
   - `.\scripts\run_td_loop_bootstrap_laptop.ps1` (Windows laptop wrapper: temp/cache env setup, manifest-backed warm-start fallback, auto-sized CPU budget from logical cores; defaults `-CpuTargetPercent 60 -ReserveLogicalCores 2`)
   - `.\scripts\run_td_loop_selfplay_laptop.ps1` (Windows laptop wrapper: temp/cache env setup, manifest-backed warm start, auto-sized CPU budget from logical cores; defaults `-CpuTargetPercent 60 -ReserveLogicalCores 2`)
   - `python -m scripts.resume_td_loop_run` (resume from interrupted chunk-003 training + promotion eval; supports cloud/thread scaling overrides via `--cloud --cloud-vcpus 8|16|32`, `--train-num-threads`, `--train-num-interop-threads`, and `--eval-workers`)
@@ -53,4 +53,4 @@
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
 
-_Updated: 2026-04-13._
+_Updated: 2026-04-14._
