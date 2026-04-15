@@ -70,6 +70,7 @@ Design expectations:
 - Stable items: request/response envelope, commands, action IDs, observation layout metadata.
 - Runtime transport is NDJSON over stdin/stdout via `src/bridge/cli.ts`.
 - Command handling lives in `src/bridge/runtime.ts` and returns strict success/error envelopes.
+- Python bridge clients must continuously drain bridge stderr to avoid long-run pipe stalls on Windows.
 - Canonical bridge action surface comes from `src/engine/actionSurface.ts`:
   - stable action keys
   - canonical legal-action ordering by lexicographic action key
