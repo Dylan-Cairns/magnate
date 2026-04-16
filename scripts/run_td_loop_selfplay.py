@@ -628,6 +628,7 @@ def _run_collect_profile(
             python_bin=python_bin,
             args=args,
             profile=profile,
+            games=profile.games,
             seed_prefix=seed_prefix,
             run_label=run_label,
             value_out=value_out,

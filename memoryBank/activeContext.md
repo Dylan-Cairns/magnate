@@ -37,6 +37,7 @@
 - Added `scripts.benchmark_selfplay_collect_setup` to benchmark single-vs-sharded self-play collect throughput on the current machine and recommend a safe `--collect-workers` setting.
 - Added `scripts.benchmark_collect_search_profiles` to benchmark laptop-friendly td-search collect throughput across a small `search-worlds` / `search-depth` profile matrix.
 - Added Windows laptop entrypoints (`scripts/run_td_loop_bootstrap_laptop.ps1`, `scripts/run_td_loop_selfplay_laptop.ps1`) so local Dell runs can use repo-local temp/cache dirs, manifest-backed warm-start fallback, and an auto-sized CPU budget (`-CpuTargetPercent`, `-ReserveLogicalCores`) without changing the RunPod bash launchers.
+- TD loop stage runner now captures child stdout/stderr directly, so Windows wrapper logs include shard-level collect/train/eval progress instead of only parent heartbeats.
 - Overnight runner auto-resolves warm start from latest promoted loop summary (`scripts/run_overnight_td_loop_r2.sh`).
 - Overnight runner now persists full console logs and exit status under `artifacts/logs/` before pod teardown.
 - Added one-off interrupted-run recovery helper: `scripts/resume_td_loop_run.py` (resume from chunk-003 train, then promotion eval + loop summary); now supports cloud/thread scaling overrides (`--cloud --cloud-vcpus 8|16|32`, `--train-num-threads`, `--train-num-interop-threads`).
@@ -50,8 +51,8 @@
 
 ## Immediate Next Steps
 
-1. Use the new Windows laptop wrappers for local bootstrap/self-play runs while preserving the existing RunPod bash launchers for cloud re-entry.
+1. Use the Windows laptop wrappers for local runs while preserving the existing RunPod bash launchers for cloud re-entry.
 2. Continue overnight self-play loop iterations with promoted warm starts and the `12`-chunk cadence.
 3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
 
-_Updated: 2026-04-14._
+_Updated: 2026-04-15._

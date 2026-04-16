@@ -53,4 +53,4 @@
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
 
-_Updated: 2026-04-14._
+_Updated: 2026-04-15._

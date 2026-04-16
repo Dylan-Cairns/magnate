@@ -65,7 +65,7 @@ Both wrappers:
 
 - require Node `22.12.0+`, `yarn install`, and a populated `.venv`
 - set repo-local temp/cache dirs plus BLAS/OpenMP thread caps
-- log full output under `artifacts/logs/`
+- stream child collect/train/eval output into the parent log under `artifacts/logs/`, so progress no longer collapses to heartbeat-only lines
 - auto-size the laptop runtime profile from logical CPU count
 - default to `-CpuTargetPercent 60` with `-ReserveLogicalCores 2`
 - scale these loop args from that budget:
