@@ -12,7 +12,6 @@ describe('BugReportModal', () => {
         open
         issueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
         onDownload={noop}
-        onClose={noop}
       />
     );
 
@@ -32,7 +31,6 @@ describe('BugReportModal', () => {
           open={false}
           issueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
           onDownload={noop}
-          onClose={noop}
         />
       )
     ).toBe('');

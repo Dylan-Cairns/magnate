@@ -10,7 +10,7 @@ function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
     <p className="score-line">
       <span>{label}</span>
       <strong>
-        A {a} - B {b}
+        P {a} - B {b}
       </strong>
     </p>
   );
@@ -43,6 +43,12 @@ export function PlayerPanel({
     player.id === botPlayerId ? 'bot' : 'human';
   const districtScore = score.districtPoints[player.id];
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
+  const winnerLabel =
+    score.winner === 'Draw'
+      ? 'Draw'
+      : score.winner === botPlayerId
+        ? 'Bot'
+        : 'You';
 
   return (
     <section
@@ -50,40 +56,37 @@ export function PlayerPanel({
       data-player-id={player.id}
     >
       <header className="player-header">
-        <div className="player-title-line">
-          <h2>{title}</h2>
-          <div className="player-score-wrap">
-            <span className="player-score-badge" tabIndex={0}>
-              {districtScore} VP
-            </span>
-            <section
-              className="player-score-popover"
-              role="tooltip"
-              aria-label="Score details"
-            >
-              <p className="score-result">
-                {scoreHeadline}: <strong>{score.winner}</strong> (
-                {score.decidedBy})
-              </p>
-              <ScoreLine
-                label="Districts"
-                a={score.districtPoints.PlayerA}
-                b={score.districtPoints.PlayerB}
-              />
-              <ScoreLine
-                label="Rank Total"
-                a={score.rankTotals.PlayerA}
-                b={score.rankTotals.PlayerB}
-              />
-              <ScoreLine
-                label="Resources"
-                a={score.resourceTotals.PlayerA}
-                b={score.resourceTotals.PlayerB}
-              />
-            </section>
-          </div>
+        <h2>{title}</h2>
+        <div className="player-score-wrap">
+          <span className="player-score-badge" tabIndex={0}>
+            {districtScore} VP
+          </span>
+          <section
+            className="player-score-popover"
+            role="tooltip"
+            aria-label="Score details"
+          >
+            <p className="score-result">
+              {scoreHeadline}: <strong>{winnerLabel}</strong> (
+              {score.decidedBy})
+            </p>
+            <ScoreLine
+              label="Districts"
+              a={score.districtPoints.PlayerA}
+              b={score.districtPoints.PlayerB}
+            />
+            <ScoreLine
+              label="Rank Total"
+              a={score.rankTotals.PlayerA}
+              b={score.rankTotals.PlayerB}
+            />
+            <ScoreLine
+              label="Resources"
+              a={score.resourceTotals.PlayerA}
+              b={score.resourceTotals.PlayerB}
+            />
+          </section>
         </div>
-        <span className="player-meta">{player.id}</span>
       </header>
 
       <div className="player-row">

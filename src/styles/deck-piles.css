@@ -199,7 +199,28 @@
     var(--card-bg-start) 0%,
     var(--card-bg-end) 100%
   );
-  padding: 0.16rem;
+  padding: var(--deck-pile-card-padding);
+  display: grid;
+  grid-template-rows: var(--deck-pile-card-meta-height) minmax(0, 1fr);
+  gap: var(--deck-pile-card-meta-gap);
+}
+
+.deck-pile-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.deck-pile-card-meta .card-rank {
+  font-size: 0.82rem;
+  min-height: unset;
+}
+
+.deck-pile-card-suits {
+  display: flex;
+  align-items: center;
+  gap: 0.12rem;
 }
 
 .deck-pile-card-empty {

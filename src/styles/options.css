@@ -43,6 +43,7 @@
 }
 
 .hamburger-button {
+  position: relative;
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 8px;
@@ -68,6 +69,7 @@
 }
 
 .bug-report-button {
+  position: relative;
   width: 2.1rem;
   height: 2.1rem;
   border-radius: 8px;
@@ -99,30 +101,60 @@
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: opacity 140ms ease;
 }
 
-.hamburger-button span {
+.bug-report-button.is-open .bug-report-button-icon {
+  opacity: 0;
+}
+
+.close-x {
+  position: absolute;
+  width: 0.72rem;
+  height: 0.72rem;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.close-x span {
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  top: 50%;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+
+.close-x span:nth-child(1) {
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.close-x span:nth-child(2) {
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.bug-report-button.is-open .close-x,
+.hamburger-button.is-open .close-x {
+  opacity: 1;
+}
+
+.hamburger-button > span:not(.close-x) {
   display: block;
   width: 0.92rem;
   height: 2px;
   border-radius: 999px;
   background: var(--accent-soft);
-  transition:
-    transform 140ms ease,
-    opacity 140ms ease;
+  transition: opacity 140ms ease;
 }
 
-.hamburger-button.is-open span:nth-child(1) {
-  transform: translateY(0.34rem) rotate(45deg);
-}
-
-.hamburger-button.is-open span:nth-child(2) {
+.hamburger-button.is-open > span:not(.close-x) {
   opacity: 0;
 }
 
-.hamburger-button.is-open span:nth-child(3) {
-  transform: translateY(-0.34rem) rotate(-45deg);
-}
 
 .brand-options-menu {
   position: absolute;
@@ -161,6 +193,11 @@
   gap: 0.45rem;
   justify-content: flex-end;
   z-index: 148;
+  pointer-events: none;
+}
+
+.corner-options-anchor > * {
+  pointer-events: auto;
 }
 
 .corner-options-anchor .brand-options-menu {

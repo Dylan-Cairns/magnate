@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 
 import { BOT_PROFILES, type BotProfileId } from '../../policies/catalog';
+import { BugReportModal } from './BugReportModal';
 
 export function OptionsMenu({
   open,
@@ -15,6 +16,9 @@ export function OptionsMenu({
   onReset,
   onBotProfileChange,
   onAnimationsEnabledChange,
+  bugReportOpen,
+  bugReportIssueUrl,
+  onBugReportDownload,
 }: {
   open: boolean;
   botProfileId: BotProfileId;
@@ -28,16 +32,25 @@ export function OptionsMenu({
   onReset: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
   onAnimationsEnabledChange: (enabled: boolean) => void;
+  bugReportOpen: boolean;
+  bugReportIssueUrl: string;
+  onBugReportDownload: () => void;
 }) {
   return (
     <div className="corner-options-anchor">
+      <BugReportModal
+        open={bugReportOpen}
+        issueUrl={bugReportIssueUrl}
+        onDownload={onBugReportDownload}
+      />
       <button
         type="button"
-        className="bug-report-button"
-        aria-label="Report a bug"
+        className={`bug-report-button${bugReportOpen ? ' is-open' : ''}`}
+        aria-label={bugReportOpen ? 'Close bug report' : 'Report a bug'}
         onClick={onBugReport}
       >
         <BugIcon />
+        <span className="close-x" aria-hidden="true"><span /><span /></span>
       </button>
       <button
         ref={buttonRef}
@@ -51,6 +64,7 @@ export function OptionsMenu({
         <span />
         <span />
         <span />
+        <span className="close-x" aria-hidden="true"><span /><span /></span>
       </button>
 
       {open ? (

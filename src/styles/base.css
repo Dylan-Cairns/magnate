@@ -135,9 +135,14 @@
   --side-column-panel-width-factor: 0.8;
   --token-rail-chip-size: 3rem;
   --deck-pile-card-width: 5.5rem;
+  --deck-pile-card-padding: 0.26rem;
+  --deck-pile-card-meta-height: 1rem;
+  --deck-pile-card-meta-gap: 0.16rem;
   --deck-pile-card-height: calc(
-    var(--deck-pile-card-width) * var(--card-image-source-height) /
-      var(--card-image-source-width)
+    (var(--deck-pile-card-padding) * 2) + var(--deck-pile-card-meta-height) +
+      var(--deck-pile-card-meta-gap) +
+      (var(--deck-pile-card-width) - var(--deck-pile-card-padding) * 2) *
+      var(--card-image-source-height) / var(--card-image-source-width)
   );
   --deck-pile-stack-step: 0.24rem;
   --deck-pile-fan-shift: 0.18rem;
