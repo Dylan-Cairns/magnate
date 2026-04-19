@@ -82,7 +82,7 @@
 .player-score-popover {
   position: absolute;
   top: calc(100% + 0.36rem);
-  left: 0;
+  right: 0;
   min-width: 12.8rem;
   border: 1px solid var(--panel-border);
   border-radius: 9px;
