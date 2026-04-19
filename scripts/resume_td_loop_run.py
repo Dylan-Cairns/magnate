@@ -8,9 +8,17 @@ import sys
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from math import sqrt
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
+
+from scripts.td_loop_eval_common import (
+    EvalRow,
+    PromotionThresholds,
+    build_eval_payload,
+    evaluate_promotion_gate,
+    pool_eval_rows,
+    read_eval_row,
+)
 
 
 @dataclass(frozen=True)
@@ -18,21 +26,6 @@ class LoopCheckpoint:
     step: int
     value_path: Path
     opponent_path: Path
-
-
-@dataclass(frozen=True)
-class EvalRow:
-    artifact: Path
-    candidate_win_rate: float
-    ci_low: float
-    ci_high: float
-    side_gap: float
-    candidate_wins: int
-    opponent_wins: int
-    draws: int
-    total_games: int
-    candidate_win_rate_as_player_a: float
-    candidate_win_rate_as_player_b: float
 
 
 def parse_args() -> argparse.Namespace:
@@ -267,9 +260,12 @@ def main() -> int:
             )
         else:
             print(f"[td-loop-resume] existing eval artifact found, skipping: {eval_artifact}")
-        eval_rows.append(_read_eval_row(eval_artifact))
+        eval_rows.append(read_eval_row(eval_artifact, opponent_policy=args.eval_opponent_policy))
 
-    pooled = _pool_eval_rows(eval_rows)
+    pooled = pool_eval_rows(
+        eval_rows=eval_rows,
+        opponent_policy=args.eval_opponent_policy,
+    )
     promotion = _promotion_decision(eval_row=pooled, eval_windows=eval_rows, args=args)
 
     loop_elapsed_minutes = (time.perf_counter() - started) / 60.0
@@ -317,33 +313,7 @@ def main() -> int:
         ],
         "evaluation": {
             "opponentPolicy": args.eval_opponent_policy,
-            "windows": [
-                {
-                    "seedStartIndex": seed_start_index,
-                    "artifact": str(row.artifact),
-                    "candidateWinRate": row.candidate_win_rate,
-                    "candidateWinRateCi95": {"low": row.ci_low, "high": row.ci_high},
-                    "candidateWinRateAsPlayerA": row.candidate_win_rate_as_player_a,
-                    "candidateWinRateAsPlayerB": row.candidate_win_rate_as_player_b,
-                    "sideGap": row.side_gap,
-                    "candidateWins": row.candidate_wins,
-                    "opponentWins": row.opponent_wins,
-                    "draws": row.draws,
-                    "totalGames": row.total_games,
-                }
-                for seed_start_index, row in zip(args.eval_seed_start_indices, eval_rows)
-            ],
-            "pooled": {
-                "candidateWinRate": pooled.candidate_win_rate,
-                "candidateWinRateCi95": {"low": pooled.ci_low, "high": pooled.ci_high},
-                "candidateWinRateAsPlayerA": pooled.candidate_win_rate_as_player_a,
-                "candidateWinRateAsPlayerB": pooled.candidate_win_rate_as_player_b,
-                "sideGap": pooled.side_gap,
-                "candidateWins": pooled.candidate_wins,
-                "opponentWins": pooled.opponent_wins,
-                "draws": pooled.draws,
-                "totalGames": pooled.total_games,
-            },
+            **build_eval_payload(args.eval_seed_start_indices, eval_rows, pooled),
         },
         "promotion": promotion,
     }
@@ -519,84 +489,27 @@ def _build_eval_command(
     return command
 
 
-def _read_eval_row(path: Path) -> EvalRow:
-    payload = _read_json(path, label=f"eval artifact {path.name}")
-    results = payload.get("results")
-    if not isinstance(results, dict):
-        raise SystemExit(f"Eval artifact is missing results payload: {path}")
-    return EvalRow(
-        artifact=path,
-        candidate_win_rate=float(results["candidateWinRate"]),
-        ci_low=float(results["candidateWinRateCi95"]["low"]),
-        ci_high=float(results["candidateWinRateCi95"]["high"]),
-        side_gap=float(results["sideGap"]),
-        candidate_wins=int(results["candidateWins"]),
-        opponent_wins=int(results["opponentWins"]),
-        draws=int(results["draws"]),
-        total_games=int(results["totalGames"]),
-        candidate_win_rate_as_player_a=float(results["candidateWinRateAsPlayerA"]),
-        candidate_win_rate_as_player_b=float(results["candidateWinRateAsPlayerB"]),
-    )
-
-
-def _pool_eval_rows(eval_rows: Sequence[EvalRow]) -> EvalRow:
-    total_games = sum(row.total_games for row in eval_rows)
-    if total_games <= 0:
-        raise SystemExit("Pooled eval total games must be > 0.")
-
-    candidate_wins = sum(row.candidate_wins for row in eval_rows)
-    opponent_wins = sum(row.opponent_wins for row in eval_rows)
-    draws = sum(row.draws for row in eval_rows)
-    candidate_win_rate = float(candidate_wins) / float(total_games)
-    ci_low, ci_high = _wilson_interval_95(successes=candidate_wins, trials=total_games)
-    weighted_rate_a = (
-        sum(row.candidate_win_rate_as_player_a * row.total_games for row in eval_rows)
-        / float(total_games)
-    )
-    weighted_rate_b = (
-        sum(row.candidate_win_rate_as_player_b * row.total_games for row in eval_rows)
-        / float(total_games)
-    )
-    return EvalRow(
-        artifact=Path("pooled"),
-        candidate_win_rate=candidate_win_rate,
-        ci_low=ci_low,
-        ci_high=ci_high,
-        side_gap=abs(weighted_rate_a - weighted_rate_b),
-        candidate_wins=candidate_wins,
-        opponent_wins=opponent_wins,
-        draws=draws,
-        total_games=total_games,
-        candidate_win_rate_as_player_a=weighted_rate_a,
-        candidate_win_rate_as_player_b=weighted_rate_b,
-    )
-
-
 def _promotion_decision(
     *,
     eval_row: EvalRow,
     eval_windows: Sequence[EvalRow],
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
-    window_checks = [
-        {
-            "artifact": str(row.artifact),
-            "sideGap": row.side_gap,
-            "maxWindowSideGap": row.side_gap <= args.promotion_max_window_side_gap,
-        }
-        for row in eval_windows
-    ]
-    checks = {
-        "minWinRate": eval_row.candidate_win_rate >= args.promotion_min_win_rate,
-        "maxSideGap": eval_row.side_gap <= args.promotion_max_side_gap,
-        "minCiLow": eval_row.ci_low >= args.promotion_min_ci_low,
-        "maxWindowSideGap": all(window_check["maxWindowSideGap"] for window_check in window_checks),
-    }
-    promoted = bool(all(checks.values()))
+    gate = evaluate_promotion_gate(
+        eval_row=eval_row,
+        eval_windows=eval_windows,
+        thresholds=PromotionThresholds(
+            min_win_rate=args.promotion_min_win_rate,
+            max_side_gap=args.promotion_max_side_gap,
+            min_ci_low=args.promotion_min_ci_low,
+            max_window_side_gap=args.promotion_max_window_side_gap,
+        ),
+    )
+    promoted = bool(gate["passed"])
     return {
         "promoted": promoted,
-        "checks": checks,
-        "windowChecks": window_checks,
+        "checks": gate["checks"],
+        "windowChecks": gate["windowChecks"],
         "reason": "pooled_eval_passed" if promoted else "pooled_eval_failed",
     }
 
@@ -796,26 +709,8 @@ def _apply_cloud_profile(args: argparse.Namespace) -> None:
         args.train_num_interop_threads = 1
 
 
-def _wilson_interval_95(*, successes: int, trials: int) -> tuple[float, float]:
-    if trials <= 0:
-        raise SystemExit("Wilson interval requires trials > 0.")
-    p_hat = float(successes) / float(trials)
-    z = 1.959963984540054
-    z2_over_n = (z * z) / float(trials)
-    denom = 1.0 + z2_over_n
-    center = (p_hat + (z * z) / (2.0 * float(trials))) / denom
-    margin = (
-        z
-        * sqrt((p_hat * (1.0 - p_hat) / float(trials)) + ((z * z) / (4.0 * float(trials) * float(trials))))
-        / denom
-    )
-    low = max(0.0, center - margin)
-    high = min(1.0, center + margin)
-    return low, high
-
-
 def _require_supported_runtime(python_bin: Path) -> None:
-    if sys.version_info < (3, 11):
+    if sys.version_info < (3, 12):
         raise SystemExit("Python 3.12+ is required.")
     if sys.prefix == sys.base_prefix:
         raise SystemExit("Run this script from the project virtual environment (.venv).")
