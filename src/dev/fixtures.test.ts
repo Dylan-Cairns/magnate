@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
+import { isTerminal, scoreLive } from '../engine/scoring';
+import type { GameState, PlayerId } from '../engine/types';
 import {
   humanActionsAcceptingInputForState,
   incomeChoiceActionsForPlayer,
@@ -63,11 +65,36 @@ describe('dev fixtures', () => {
     ]);
   });
 
+  it('rolls out a legal late-game board state close to game end', () => {
+    const state = createDevFixtureSession('late-game', 'PlayerA');
+    const developedCounts = developedCountsByPlayer(state);
+
+    expect(state.phase).toBe('ActionWindow');
+    expect(state.finalTurnsRemaining).toBe(2);
+    expect(state.deck.reshuffles).toBe(2);
+    expect(isTerminal(state)).toBe(false);
+    expect(legalActions(state).length).toBeGreaterThan(0);
+    expect(developedCounts.PlayerA).toBeGreaterThanOrEqual(6);
+    expect(developedCounts.PlayerB).toBeGreaterThanOrEqual(6);
+    expect(scoreLive(state).winner).toMatch(/PlayerA|PlayerB|Draw/);
+  });
+
   it('parses only known dev fixture query values', () => {
     expect(devFixtureIdFromSearch('?fixture=multi-income')).toBe(
       'multi-income'
     );
+    expect(devFixtureIdFromSearch('?fixture=late-game')).toBe('late-game');
     expect(devFixtureIdFromSearch('?fixture=unknown')).toBeNull();
     expect(devFixtureIdFromSearch('')).toBeNull();
   });
 });
+
+function developedCountsByPlayer(state: GameState): Record<PlayerId, number> {
+  return state.districts.reduce<Record<PlayerId, number>>(
+    (counts, district) => ({
+      PlayerA: counts.PlayerA + district.stacks.PlayerA.developed.length,
+      PlayerB: counts.PlayerB + district.stacks.PlayerB.developed.length,
+    }),
+    { PlayerA: 0, PlayerB: 0 }
+  );
+}

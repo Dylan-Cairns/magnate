@@ -33,7 +33,8 @@ Design expectations:
   - example: human-only turn reset that restores a previously captured engine snapshot.
 - Browser-only dev fixtures may be URL-gated under Vite dev mode for UI testing
   hard-to-reach states; fixtures should still derive legality and decisions
-  through canonical engine APIs after constructing the starting state.
+  through canonical engine APIs after constructing the starting state or by
+  rolling forward with a deterministic policy.
 - Bot/human action selection should sit behind a shared policy contract so swapping random -> trained does not change controller flow.
 - Policy contract should allow async selection so browser model inference can plug in without changing controller flow.
 - Bot profile selection should resolve through a small catalog:
