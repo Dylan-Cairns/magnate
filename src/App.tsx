@@ -16,7 +16,7 @@ import {
 } from './ui/actionPickerModel';
 import { errorMessage } from './ui/gameControllerModel';
 import {
-  BUG_REPORT_ISSUE_URL,
+  getBugReportIssueUrl,
   buildBugReport,
   downloadBugReport,
 } from './ui/bugReport';
@@ -659,7 +659,7 @@ export function App() {
 
       <BugReportModal
         open={bugReportOpen}
-        issueUrl={BUG_REPORT_ISSUE_URL}
+        issueUrl={getBugReportIssueUrl()}
         onDownload={handleDownloadBugReport}
         onClose={closeBugReport}
       />
