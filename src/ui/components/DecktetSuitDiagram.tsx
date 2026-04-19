@@ -118,7 +118,11 @@ export function DecktetSuitDiagram() {
                 } as React.CSSProperties
               }
             >
-              {label}
+              {label.split(' ').map((part, j) => (
+                <tspan key={j} dx={j === 0 ? 0 : 7}>
+                  {part}
+                </tspan>
+              ))}
             </text>
           );
         })}
