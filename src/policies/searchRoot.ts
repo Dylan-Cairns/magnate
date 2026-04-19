@@ -133,6 +133,7 @@ export function createSearchDecisionDiagnostics({
   return {
     kind: 'search',
     heuristic: config.heuristic ?? 'v1',
+    stochasticSimulation: 'common-random-scenarios-v1',
     legalRootActions,
     expandedRootActions,
     rootVisitBudget,
