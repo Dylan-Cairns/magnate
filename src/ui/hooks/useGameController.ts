@@ -55,6 +55,7 @@ function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
   }));
   console.info('[Magnate bot search]', {
     heuristic: diagnostics.heuristic ?? 'v1',
+    stochasticSimulation: diagnostics.stochasticSimulation ?? null,
     workers: diagnostics.parallelWorkers ?? 1,
     batches: diagnostics.parallelBatches ?? null,
     batchSize: diagnostics.parallelBatchSize ?? null,

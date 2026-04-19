@@ -13,6 +13,7 @@ export interface SearchRootActionDiagnostics {
 export interface SearchDecisionDiagnostics {
   kind: 'search';
   heuristic?: SearchHeuristicVersion;
+  stochasticSimulation?: 'common-random-scenarios-v1';
   legalRootActions: number;
   expandedRootActions: number;
   rootVisitBudget: number;

@@ -70,7 +70,10 @@ export interface RolloutSearchWorkerTask {
   kind: 'rollout-search';
   contextId: string;
   visitIndex: number;
+  actionVisitIndex: number;
+  scenarioIndex: number;
   worldIndex: number;
+  engineSeed: string;
   rootPlayer: PlayerId;
   rootAction: GameAction;
   rootActionKey: string;
@@ -144,16 +147,8 @@ export function selectRolloutSearchActionSync(
   );
   while (session.hasUnscheduledVisits()) {
     input.onProgress?.();
-    const visitIndex = session.nextVisitIndex();
-    const task = session.nextTask(
-      workerContext.contextId,
-      randomSeedForVisit(input.randomSeed, visitIndex)
-    );
-    const result = runRolloutSearchTask(
-      task,
-      workerContext.worldStates,
-      task.randomSeed ? undefined : input.random
-    );
+    const task = session.nextTask(workerContext.contextId);
+    const result = runRolloutSearchTask(task, workerContext.worldStates);
     session.mergeResult(result);
   }
 
@@ -203,13 +198,7 @@ export async function selectRolloutSearchActionParallel(
     const tasks: RolloutSearchWorkerTask[] = [];
     while (tasks.length < input.batchSize && session.hasUnscheduledVisits()) {
       input.onProgress?.();
-      const visitIndex = session.nextVisitIndex();
-      tasks.push(
-        session.nextTask(
-          workerContext.contextId,
-          randomSeedForVisit(input.randomSeed, visitIndex)
-        )
-      );
+      tasks.push(session.nextTask(workerContext.contextId));
     }
     batches += 1;
     const results = await input.runBatch(tasks, workerContext);
@@ -251,9 +240,14 @@ export function runRolloutSearchTask(
       `Rollout search task references unknown world index ${String(task.worldIndex)}.`
     );
   }
+  const rolloutWorld: GameState = {
+    ...(structuredClone(world) as GameState),
+    seed: task.engineSeed,
+    rngCursor: 0,
+  };
 
   const rollout = runRollout(
-    world,
+    rolloutWorld,
     task.rootPlayer,
     task.rootAction,
     task.config,
@@ -283,6 +277,7 @@ function createRolloutSearchSession({
   candidateActions,
   config,
   random,
+  randomSeed,
   createRootGuide,
 }: RolloutSearchSelectionInput): RolloutSearchSession | null {
   const rootPlayer = view.activePlayerId;
@@ -319,6 +314,7 @@ function createRolloutSearchSession({
     worldStates,
     rootPlayer,
     config,
+    rootRandomSeed: randomSeedForSession({ random, randomSeed }),
   });
 }
 
@@ -355,6 +351,7 @@ class RolloutSearchSession {
   private readonly worldStates: readonly GameState[];
   private readonly rootPlayer: PlayerId;
   private readonly config: SearchPolicyConfig;
+  private readonly rootRandomSeed: string;
   private readonly rootBudget: number;
   private readonly rootVisits = new Map<string, number>();
   private readonly rootValueSum = new Map<string, number>();
@@ -376,6 +373,7 @@ class RolloutSearchSession {
     worldStates,
     rootPlayer,
     config,
+    rootRandomSeed,
   }: {
     candidateActions: readonly GameAction[];
     rankedRootActions: readonly RolloutSearchRankedRootAction[];
@@ -383,6 +381,7 @@ class RolloutSearchSession {
     worldStates: readonly GameState[];
     rootPlayer: PlayerId;
     config: SearchPolicyConfig;
+    rootRandomSeed: string;
   }) {
     this.actionByKey = new Map(
       rankedRootActions.map((candidate) => [
@@ -395,6 +394,7 @@ class RolloutSearchSession {
     this.worldStates = worldStates;
     this.rootPlayer = rootPlayer;
     this.config = config;
+    this.rootRandomSeed = rootRandomSeed;
     this.rootBudget = rolloutSearchRootBudget(config, worldStates.length);
 
     for (const candidate of rankedRootActions) {
@@ -439,7 +439,7 @@ class RolloutSearchSession {
     };
   }
 
-  nextTask(contextId: string, randomSeed?: string): RolloutSearchWorkerTask {
+  nextTask(contextId: string): RolloutSearchWorkerTask {
     if (!this.hasUnscheduledVisits()) {
       throw new Error('Rollout search has no unscheduled visits.');
     }
@@ -469,7 +469,19 @@ class RolloutSearchSession {
             1,
             this.pendingVisits
           );
-    const worldIndex = visitIndex % this.worldStates.length;
+    const actionVisitIndex =
+      (this.rootVisits.get(actionKey) ?? 0) +
+      (this.pendingVisits.get(actionKey) ?? 0);
+    const scenarioIndex = actionVisitIndex;
+    const worldIndex = scenarioIndex % this.worldStates.length;
+    const engineSeed = engineSeedForScenario(
+      this.rootRandomSeed,
+      scenarioIndex
+    );
+    const rolloutRandomSeed = rolloutRandomSeedForScenario(
+      this.rootRandomSeed,
+      scenarioIndex
+    );
 
     this.scheduledVisitCount += 1;
     this.scheduledVisits.set(visitIndex, { actionKey });
@@ -488,12 +500,15 @@ class RolloutSearchSession {
       kind: 'rollout-search',
       contextId,
       visitIndex,
+      actionVisitIndex,
+      scenarioIndex,
       worldIndex,
+      engineSeed,
       rootPlayer: this.rootPlayer,
       rootAction,
       rootActionKey: actionKey,
       config: this.config,
-      ...(randomSeed ? { randomSeed } : {}),
+      randomSeed: rolloutRandomSeed,
     };
   }
 
@@ -702,13 +717,33 @@ function priorsByHeuristic(
   return heuristicPriorsByKey(actions, context);
 }
 
-function randomSeedForVisit(
-  randomSeed: string | undefined,
-  visitIndex: number
-): string | undefined {
-  return randomSeed === undefined
-    ? undefined
-    : `${randomSeed}:rollout-visit:${String(visitIndex)}`;
+function randomSeedForSession({
+  random,
+  randomSeed,
+}: {
+  random: RandomFn;
+  randomSeed?: string;
+}): string {
+  if (randomSeed !== undefined) {
+    return randomSeed;
+  }
+  const first = Math.floor(random() * 0x100000000).toString(16);
+  const second = Math.floor(random() * 0x100000000).toString(16);
+  return `rollout-search-session:${first}:${second}`;
+}
+
+function engineSeedForScenario(
+  rootRandomSeed: string,
+  scenarioIndex: number
+): string {
+  return `${rootRandomSeed}:engine-scenario:${String(scenarioIndex)}`;
+}
+
+function rolloutRandomSeedForScenario(
+  rootRandomSeed: string,
+  scenarioIndex: number
+): string {
+  return `${rootRandomSeed}:rollout-scenario:${String(scenarioIndex)}`;
 }
 
 function rolloutSearchWorkerContextId(randomSeed: string): string {
