@@ -68,7 +68,7 @@ const suitIndex = new Map<Suit, number>(SUITS.map((s, i) => [s, i]));
 export function DecktetSuitDiagram() {
   return (
     <section className="panel suit-diagram-panel">
-      <h2>Suit Distribution</h2>
+      <h2>Deck Map</h2>
       <svg
         viewBox="0 0 340 310"
         className="suit-diagram"
@@ -126,10 +126,10 @@ export function DecktetSuitDiagram() {
               />
               <image
                 href={SUIT_ICON_BY_SUIT[suit]}
-                x={x - NODE_R + 3}
-                y={y - NODE_R + 3}
-                width={NODE_R * 2 - 6}
-                height={NODE_R * 2 - 6}
+                x={x - NODE_R + 2}
+                y={y - NODE_R + 2}
+                width={NODE_R * 2 - 4}
+                height={NODE_R * 2 - 4}
               />
             </g>
           );
