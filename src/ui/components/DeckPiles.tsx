@@ -1,6 +1,7 @@
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
+import type { Suit } from '../../engine/types';
 import { getCardImage } from '../cardImages';
-import { SUIT_TEXT_TOKEN } from '../suitIcons';
+import { SuitIcon, SUIT_TEXT_TOKEN } from '../suitIcons';
 import { SuitText } from './SuitText';
 
 export function DeckPiles({
@@ -79,24 +80,58 @@ export function DeckPiles({
         <div className="deck-pile">
           <div className="player-score-wrap discard-pile-wrap">
             <div
-              className={`deck-pile-stack is-discard${discardStackCardIds.length > 1 ? ' is-fanned' : ''}`}
+              className={`deck-pile-stack is-discard${discardStackCardIds.length > 0 ? ' is-fanned' : ''}`}
               title="Discard pile"
               aria-label="Discard pile"
               tabIndex={0}
             >
               {discardStackCardIds.length > 0 ? (
-                discardStackCardIds.map((cardId, index) => (
-                  <div
-                    key={`discard-${cardId}-${index}`}
-                    className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
-                  >
-                    <img
-                      className="deck-pile-image"
-                      src={getCardImage(cardId)}
-                      alt=""
-                    />
-                  </div>
-                ))
+                discardStackCardIds.map((cardId, index) => {
+                  const isTopCard = index === discardStackCardIds.length - 1;
+                  let topMeta: { rank: string; suits: Suit[] } | null = null;
+                  if (isTopCard) {
+                    const card = CARD_BY_ID[cardId];
+                    topMeta = {
+                      rank:
+                        card.kind === 'Property' || card.kind === 'Crown'
+                          ? String(card.rank)
+                          : card.kind === 'Pawn'
+                            ? 'P'
+                            : 'X',
+                      suits: card.kind === 'Excuse' ? [] : [...card.suits],
+                    };
+                  }
+                  return (
+                    <div
+                      key={`discard-${cardId}-${index}`}
+                      className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
+                    >
+                      <div className="deck-pile-card-meta">
+                        {topMeta !== null && (
+                          <>
+                            <span className="card-rank">{topMeta.rank}</span>
+                            {topMeta.suits.length > 0 && (
+                              <div className="deck-pile-card-suits">
+                                {topMeta.suits.map((suit) => (
+                                  <SuitIcon
+                                    key={suit}
+                                    suit={suit}
+                                    className="card-suit-icon"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <img
+                        className="deck-pile-image"
+                        src={getCardImage(cardId)}
+                        alt=""
+                      />
+                    </div>
+                  );
+                })
               ) : (
                 <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
               )}

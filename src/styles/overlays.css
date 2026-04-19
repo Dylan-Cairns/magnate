@@ -95,52 +95,17 @@
   justify-content: flex-end;
 }
 
-.bug-report-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 180;
-  display: grid;
-  place-items: center;
-  padding: 1.5rem;
-  backdrop-filter: blur(4px);
-  background: rgba(4, 7, 12, 0.52);
-}
-
 .bug-report-modal {
-  width: min(31rem, calc(100vw - 1rem));
+  position: absolute;
+  bottom: calc(100% + 0.36rem);
+  right: 0;
+  width: min(26rem, calc(100vw - 2.5rem));
+  padding: 0.62rem;
   display: grid;
   gap: 0.72rem;
+  z-index: 149;
 }
 
-.bug-report-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.bug-report-header h2 {
-  margin: 0;
-}
-
-.bug-report-close-button {
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 8px;
-  border: 1px solid var(--action-border);
-  background: var(--action-bg);
-  color: var(--accent-soft);
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: var(--button-shadow);
-}
-
-.bug-report-close-button:hover {
-  background: var(--action-bg-hover);
-  border-color: #60789a;
-}
 
 .bug-report-body {
   color: var(--ink);

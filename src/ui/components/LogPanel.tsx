@@ -33,8 +33,7 @@ export function LogPanel({
               <div className="log-turn-head">
                 <span className="log-turn">T{group.turn}</span>
                 <span className="log-player">
-                  {group.player} (
-                  {group.player === humanPlayerId ? 'You' : 'Bot'})
+                  {group.player === humanPlayerId ? 'You' : 'Bot'}
                 </span>
               </div>
               <ol className="log-turn-entries">
@@ -62,7 +61,7 @@ export function LogPanel({
                         <LogSummary
                           summary={
                             entry.player !== group.player
-                              ? `[${entry.player}] ${entry.summary}`
+                              ? `[${entry.player === humanPlayerId ? 'You' : 'Bot'}] ${entry.summary}`
                               : entry.summary
                           }
                         />

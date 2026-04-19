@@ -423,7 +423,7 @@
   height: 1.02rem;
   flex: 0 0 1.02rem;
   margin: 0 0.15em;
-  vertical-align: -0.35em;
+  vertical-align: middle;
 }
 
 .token-chip.empty {
