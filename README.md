@@ -14,7 +14,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## Quickstart
 
-1. Install Node `22.12.0` and Yarn classic.
+1. Install Node `20.19.0` or newer Node 20.x and Yarn classic.
 2. `yarn install`
 3. `yarn dev`
 4. `yarn test`

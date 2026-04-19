@@ -2,7 +2,7 @@
 
 ## Stack
 
-- Node.js 22.12.0+
+- Node.js 20.19.0+
 - TypeScript strict
 - React + Vite
 - Vitest
@@ -28,7 +28,7 @@
 
 - Package manager: Yarn classic.
 - JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
-- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` gates deployment on `yarn test`, `yarn lint`, then `yarn build` with Node `22.12.0`.
+- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` gates deployment on `yarn test`, `yarn lint`, then `yarn build` with Node `20.19.0`.
 - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`.
 - Checked-in pyright scope covers `trainer/` plus trainer-side tests in `trainer_tests/`; some `scripts/` orchestration remains outside checked-in pyright scope.
 - TypeScript bridge output is canonical. Python models the consumed subset in `trainer/bridge_payloads.py`.
@@ -83,4 +83,4 @@
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; runtime performance tuning remains.
 - Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized `td-search` specs.
 
-_Updated: 2026-06-05._
+_Updated: 2026-06-09._
