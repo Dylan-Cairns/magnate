@@ -1,11 +1,14 @@
 import { performance } from 'node:perf_hooks';
 
-import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import type { GameState, PlayerId } from '../engine/types';
-import { toPlayerView } from '../engine/view';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import {
   policyRandomForState,
@@ -244,7 +247,9 @@ async function collectTdReplayGame({
 
     const activePlayerId = activePlayerIdForState(state, gameId);
     const bot = botBySeat[activePlayerId];
-    const actions = toKeyedActions(legalActions(state)).map(
+    const actions = toKeyedActions(
+      legalActionsForDecisionPlayer(state, activePlayerId)
+    ).map(
       (entry) => entry.action
     );
     if (actions.length === 0) {
@@ -253,7 +258,7 @@ async function collectTdReplayGame({
       );
     }
 
-    const view = toPlayerView(state, activePlayerId);
+    const view = toDecisionPlayerView(state, activePlayerId);
     const observation = encodeObservation(view);
     const priorObservation = pendingObservationByPlayer[activePlayerId];
     const priorTimestep = pendingTimestepByPlayer[activePlayerId];
@@ -370,7 +375,7 @@ async function collectTdReplayGame({
 }
 
 function activePlayerIdForState(state: GameState, gameId: string): PlayerId {
-  const activePlayerId = state.players[state.activePlayerIndex]?.id;
+  const activePlayerId = decisionPlayerIdForState(state);
   if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
     throw new Error(`Game ${gameId} could not resolve its active player.`);
   }

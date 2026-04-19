@@ -77,26 +77,28 @@ Error response:
     - `firstPlayer?`: `PlayerA | PlayerB`
     - `serializedState?`: canonical state snapshot to load
     - `skipAdvanceToDecision?`: boolean (only used with `serializedState`)
-  - returns state snapshot + active actor view + terminal flag
+  - returns state snapshot + bridge decision-actor view + terminal flag
 - `legalActions`
   - payload: optional object
   - returns canonical legal actions for current state, each with:
     - `actionId`
     - `actionKey`
     - `action` payload
+  - `activePlayerId` is the bridge decision actor, not necessarily the raw engine turn owner
   - canonical order is lexicographic by `actionKey`
 - `observation`
   - payload:
-    - `viewerId?`: `PlayerA | PlayerB` (default active player)
+    - `viewerId?`: `PlayerA | PlayerB` (default bridge decision actor)
     - `includeLegalActionMask?`: boolean
   - returns `toPlayerView` payload (+ optional legal-action-key mask)
+  - decision-actor observations set `view.activePlayerId` to the bridge decision actor for policy encoding
 - `step`
   - payload:
     - `action?`: full action payload
     - `actionKey?`: stable action key from `legalActions`
   - requires either `action` or `actionKey`
   - if both are provided, they must refer to the same action
-  - applies action, advances to decision, returns state snapshot + active actor view + terminal flag
+  - applies action, advances to decision, returns state snapshot + bridge decision-actor view + terminal flag
 - `serialize`
   - payload: optional object
   - returns canonical state snapshot with `schemaVersion`
@@ -113,6 +115,8 @@ Error response:
   - `trade`
 - Stable action keys are canonicalized by `src/engine/actionSurface.ts`.
 - `legalActions` canonical order is deterministic: ascending lexicographic `actionKey`.
+- During simultaneous `CollectIncome`, the bridge exposes one unsubmitted income-choice owner at a time in `pendingIncomeChoices` order. Raw engine legality may include every unsubmitted income action for browser simultaneity, but bridge `legalActions`, masks, and `step` validation are filtered to the current bridge decision actor.
+- Collect-income state/view payloads may include additive `pendingIncomeChoices`, `submittedIncomeChoices`, and `incomeChoiceReturnPlayerId` fields.
 
 ## Error Codes
 

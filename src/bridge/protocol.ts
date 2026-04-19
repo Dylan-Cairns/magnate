@@ -69,7 +69,7 @@ export interface BridgeMetadataResult {
   };
   observationSpec: {
     name: 'player_view_v1';
-    defaultViewer: 'active-player';
+    defaultViewer: 'decision-player';
     optionalMask: 'legal action keys';
   };
   modelIO: {

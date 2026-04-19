@@ -1,7 +1,10 @@
 import { toKeyedActions } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
-import { toPlayerView } from '../engine/view';
 import type { GameAction, GameState, PlayerId } from '../engine/types';
 import {
   DEFAULT_TD_SEARCH_MODEL_INDEX_PATH,
@@ -171,11 +174,11 @@ function scoreRootActionInWorld({
     return evaluateSearchTerminalState(next, rootPlayer);
   }
 
-  const activePlayer = next.players[next.activePlayerIndex]?.id;
+  const activePlayer = decisionPlayerIdForState(next);
   if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
     throw new Error('TD root search could not resolve active player.');
   }
-  const nextView = toPlayerView(next, activePlayer);
+  const nextView = toDecisionPlayerView(next, activePlayer);
   const activeValue = model.valueScorer.predict(encodeObservation(nextView));
   if (!Number.isFinite(activeValue)) {
     throw new Error(
