@@ -13,14 +13,14 @@ const SUIT_TO_FACE: Record<Suit, number> = {
   Moons: 1, Suns: 2, Waves: 3, Leaves: 4, Wyrms: 5, Knots: 6,
 };
 
-// rotateX/Y in degrees to bring each face to face the camera
+// rotateX/Y to bring each face toward the camera, offset slightly so the die never looks flat
 const FACE_OFFSET: Record<number, { x: number; y: number }> = {
-  1: { x: 0, y: 0 },
-  2: { x: 0, y: 180 },
-  3: { x: 0, y: -90 },
-  4: { x: 0, y: 90 },
-  5: { x: -90, y: 0 },
-  6: { x: 90, y: 0 },
+  1: { x: -10, y: 15 },
+  2: { x: -10, y: 195 },
+  3: { x: -10, y: -75 },
+  4: { x: -10, y: 105 },
+  5: { x: -100, y: 15 },
+  6: { x: 80, y: 15 },
 };
 
 // Show three faces at rest so the die reads as 3D before any roll
