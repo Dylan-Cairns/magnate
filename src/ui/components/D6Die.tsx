@@ -26,7 +26,7 @@ const FACE_OFFSET: Record<number, { x: number; y: number }> = {
 // Show three faces at rest so the die reads as 3D before any roll
 const INITIAL_ROT = { x: -15, y: 20 };
 
-export function D6Die({ suit }: { suit: Suit | undefined }) {
+export function D6Die({ suit, pulsing }: { suit: Suit | undefined; pulsing?: boolean }) {
   const prevSuitRef = useRef<Suit | undefined>(undefined);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
@@ -54,7 +54,7 @@ export function D6Die({ suit }: { suit: Suit | undefined }) {
 
   return (
     <div
-      className="die-scene-d6"
+      className={`die-scene-d6${pulsing ? ' is-pulsing' : ''}`}
       aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
     >
       <div
