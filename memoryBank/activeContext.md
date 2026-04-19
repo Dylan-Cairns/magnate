@@ -40,7 +40,10 @@
 - TD loop stage runner now captures child stdout/stderr directly, so Windows wrapper logs include shard-level collect/train/eval progress instead of only parent heartbeats.
 - Overnight runner auto-resolves warm start from latest promoted loop summary (`scripts/run_overnight_td_loop_r2.sh`).
 - Overnight runner now persists full console logs and exit status under `artifacts/logs/` before pod teardown.
-- Added one-off interrupted-run recovery helper: `scripts/resume_td_loop_run.py` (resume from chunk-003 train, then promotion eval + loop summary); now supports cloud/thread scaling overrides (`--cloud --cloud-vcpus 8|16|32`, `--train-num-threads`, `--train-num-interop-threads`).
+- Added interrupted-run recovery helpers:
+  - `scripts/resume_td_loop_run.py` for the older bootstrap chunk-003 recovery path
+  - `scripts/resume_td_loop_selfplay.py` for interrupted self-play loops; it resumes from the latest fully completed chunk, reruns the next partial chunk from scratch, preserves the original incumbent checkpoint, and then completes the remaining chunks plus dual promotion evals
+  - `scripts/resume_td_loop_selfplay_laptop.ps1` so the same recovery path is available through the Windows laptop runtime wrapper
 
 ## Remaining
 
