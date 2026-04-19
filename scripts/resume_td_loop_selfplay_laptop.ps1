@@ -22,7 +22,7 @@ Set-StrictMode -Version Latest
 $repoRoot = Get-MagnateRepoRoot -ScriptRoot $PSScriptRoot
 $cacheInfo = Initialize-MagnateLocalCaches -RepoRoot $repoRoot
 $python = Get-MagnateVenvPython -RepoRoot $repoRoot
-$runtime = Assert-MagnateNode22Runtime -RepoRoot $repoRoot
+$runtime = Assert-MagnateNode20Runtime -RepoRoot $repoRoot
 $cpuProfile = Get-MagnateLaptopRuntimeProfile `
   -CpuTargetPercent $CpuTargetPercent `
   -ReserveLogicalCores $ReserveLogicalCores
