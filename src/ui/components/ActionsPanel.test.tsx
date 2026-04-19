@@ -57,6 +57,7 @@ function renderPanel(
       onOpenDevelopOutrightCombinedPicker={noop}
       onOpenDevelopOutrightDistrictOnlyPicker={noop}
       onOpenDeedPaymentPicker={noop}
+      onOpenIncomeChoicePicker={noop}
       {...overrides}
     />
   );
@@ -129,6 +130,43 @@ describe('ActionsPanel', () => {
     });
 
     expect(html).toContain('Choose Income');
+    expect(html).not.toContain('Waiting for bot...');
+  });
+
+  it('renders grouped income choices as card-summary submenu buttons', () => {
+    const html = renderPanel({
+      activePlayerId: 'PlayerB',
+      isIncomeChoicePhase: true,
+      visibleActionItems: [
+        {
+          kind: 'income-choice-group',
+          playerId: 'PlayerA',
+          districtId: 'D1',
+          cardId: '6',
+          options: [
+            {
+              type: 'choose-income-suit',
+              playerId: 'PlayerA',
+              districtId: 'D1',
+              cardId: '6',
+              suit: 'Moons',
+            },
+            {
+              type: 'choose-income-suit',
+              playerId: 'PlayerA',
+              districtId: 'D1',
+              cardId: '6',
+              suit: 'Knots',
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain('action-button has-submenu');
+    expect(html).toContain('Choose income 2');
+    expect(html).toContain('data-token-suit="Moons"');
+    expect(html).toContain('data-token-suit="Knots"');
     expect(html).not.toContain('Waiting for bot...');
   });
 

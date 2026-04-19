@@ -206,6 +206,79 @@ describe('buildHumanActionList', () => {
     expect(outrightGroups[0].options).toHaveLength(actions.length);
   });
 
+  it('keeps income choices flat when only one income card is pending', () => {
+    const actions: GameAction[] = [
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Moons',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Knots',
+      },
+    ];
+
+    const grouped = buildHumanActionList(actions);
+
+    expect(grouped).toEqual([
+      { kind: 'action', action: actions[0] },
+      { kind: 'action', action: actions[1] },
+    ]);
+  });
+
+  it('groups income choices by card when multiple income cards are pending', () => {
+    const actions: GameAction[] = [
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Moons',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Knots',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D2',
+        cardId: '7',
+        suit: 'Suns',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D2',
+        cardId: '7',
+        suit: 'Wyrms',
+      },
+    ];
+
+    const grouped = buildHumanActionList(actions);
+    const incomeGroups = grouped.filter(
+      (
+        item
+      ): item is Extract<
+        (typeof grouped)[number],
+        { kind: 'income-choice-group' }
+      > => item.kind === 'income-choice-group'
+    );
+
+    expect(incomeGroups).toHaveLength(2);
+    expect(incomeGroups.map((group) => group.cardId)).toEqual(['6', '7']);
+    expect(incomeGroups.map((group) => group.options.length)).toEqual([2, 2]);
+  });
+
   it('orders post-card action categories by fixed precedence subset', () => {
     let state = makeGameState({
       phase: 'ActionWindow',
@@ -358,6 +431,54 @@ describe('picker helpers', () => {
       /^Develop .* in D1 with$/
     );
   });
+
+  it('builds income-choice picker options by card', () => {
+    const actions: GameAction[] = [
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Moons',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Knots',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D2',
+        cardId: '7',
+        suit: 'Suns',
+      },
+    ];
+    const picker: ActionPickerQuery = {
+      kind: 'income-choice',
+      playerId: PLAYER_A,
+      cardId: '6',
+      districtId: 'D1',
+    };
+
+    const options = buildPickerOptions(picker, actions, SUIT_TEXT_TOKEN);
+
+    expect(options.map((option) => option.label)).toEqual([
+      '{Moons} x1',
+      '{Knots} x1',
+    ]);
+    expect(options.map((option) => option.action)).toEqual([
+      actions[0],
+      actions[1],
+    ]);
+    expect(pickerStillLegal(picker, actions)).toBe(true);
+    expect(pickerStillLegal(picker, [actions[2]])).toBe(false);
+    expect(pickerTitle(picker, SUIT_TEXT_TOKEN)).toBe(
+      'Choose income 2{Moons}{Knots} in D1'
+    );
+  });
 });
 
 describe('actionStableKey', () => {
@@ -394,7 +515,9 @@ function actionCategorySequence(
             ? 'buy-deed'
             : item.kind === 'develop-deed-group'
               ? 'develop-deed'
-              : 'develop-outright';
+              : item.kind === 'develop-outright-group'
+                ? 'develop-outright'
+                : 'choose-income-suit';
 
     if (sequence.at(-1) !== category) {
       sequence.push(category);

@@ -1,4 +1,8 @@
 import { legalActions } from '../engine/actionBuilders';
+import {
+  createDevFixtureSession,
+  type DevFixtureId,
+} from '../dev/fixtures';
 import { createSession } from '../engine/session';
 import { isTerminal } from '../engine/scoring';
 import type {
@@ -18,8 +22,12 @@ export function makeBrowserSessionSeed(now = Date.now()): string {
 
 export function createBrowserSession(
   seed: string,
-  humanPlayerId: PlayerId
+  humanPlayerId: PlayerId,
+  devFixtureId: DevFixtureId | null = null
 ): GameState {
+  if (devFixtureId && import.meta.env.DEV) {
+    return createDevFixtureSession(devFixtureId, humanPlayerId);
+  }
   return createSession(seed, humanPlayerId);
 }
 

@@ -16,6 +16,8 @@ export function actionCategoryForItem(item: HumanActionListItem): string {
       return 'develop-deed';
     case 'develop-outright-group':
       return 'develop-outright';
+    case 'income-choice-group':
+      return 'choose-income-suit';
     case 'action':
       return item.action.type;
   }

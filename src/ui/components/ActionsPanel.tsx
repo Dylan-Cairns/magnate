@@ -34,6 +34,12 @@ export type DeedPaymentPickerConfig = {
   districtId: string;
 };
 
+export type IncomeChoicePickerConfig = {
+  playerId: PlayerId;
+  cardId: CardId;
+  districtId: string;
+};
+
 export function ActionsPanel({
   terminal,
   isLastTurn,
@@ -61,6 +67,7 @@ export function ActionsPanel({
   onOpenDevelopOutrightCombinedPicker,
   onOpenDevelopOutrightDistrictOnlyPicker,
   onOpenDeedPaymentPicker,
+  onOpenIncomeChoicePicker,
 }: {
   terminal: boolean;
   isLastTurn: boolean;
@@ -108,9 +115,17 @@ export function ActionsPanel({
     trigger: HTMLButtonElement,
     optionCount: number
   ) => void;
+  onOpenIncomeChoicePicker: (
+    config: IncomeChoicePickerConfig,
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => void;
 }) {
   const hasVisibleIncomeChoiceActions = visibleActionItems.some(
-    (item) => item.kind === 'action' && item.action.type === 'choose-income-suit'
+    (item) =>
+      (item.kind === 'action' &&
+        item.action.type === 'choose-income-suit') ||
+      item.kind === 'income-choice-group'
   );
 
   return (
@@ -368,6 +383,42 @@ export function ActionsPanel({
                                   ? `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(presentation.firstPayment, SUIT_TEXT_TOKEN)})`
                                   : `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
                               }
+                            />
+                          </span>
+                        </button>
+                      );
+                    }
+
+                    if (item.kind === 'income-choice-group') {
+                      return renderCategorizedAction(
+                        `income-choice-group-${item.playerId}-${item.districtId}-${item.cardId}`,
+                        <button
+                          type="button"
+                          className="action-button has-submenu"
+                          onClick={(event) => {
+                            if (
+                              actionPicker?.kind === 'income-choice' &&
+                              actionPicker.playerId === item.playerId &&
+                              actionPicker.cardId === item.cardId &&
+                              actionPicker.districtId === item.districtId
+                            ) {
+                              onClosePicker();
+                              return;
+                            }
+                            onOpenIncomeChoicePicker(
+                              {
+                                playerId: item.playerId,
+                                cardId: item.cardId,
+                                districtId: item.districtId,
+                              },
+                              event.currentTarget,
+                              item.options.length
+                            );
+                          }}
+                        >
+                          <span className="action-text">
+                            <SuitText
+                              text={`Choose income ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`}
                             />
                           </span>
                         </button>
