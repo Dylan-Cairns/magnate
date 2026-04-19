@@ -441,6 +441,68 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertEqual(printed["runId"], "run-123")
         self.assertTrue(printed["promoted"])
 
+    def test_run_selfplay_loop_raises_without_writing_summary_when_promotion_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            value_path, opponent_path = self._make_checkpoints(root)
+            next_value, next_opponent = self._make_checkpoints(root / "next")
+            args = self._base_args(root, value_path=value_path, opponent_path=opponent_path)
+            run_dir = root / "artifacts" / "run-123"
+            chunks_dir = run_dir / "chunks"
+            eval_dir = run_dir / "evals"
+            for path in (run_dir, chunks_dir, eval_dir):
+                path.mkdir(parents=True, exist_ok=True)
+            context = RunContext(
+                run_id="run-123",
+                run_dir=run_dir,
+                chunks_dir=chunks_dir,
+                eval_dir=eval_dir,
+                loop_summary_path=run_dir / "loop.summary.json",
+                progress_path=run_dir / "progress.json",
+                incumbent_checkpoint=PoolCheckpoint(
+                    run_id="incumbent",
+                    generated_at_utc="2026-01-01T00:00:00+00:00",
+                    value_path=value_path,
+                    opponent_path=opponent_path,
+                ),
+                latest_checkpoint=LoopCheckpoint(
+                    step=0,
+                    value_path=value_path,
+                    opponent_path=opponent_path,
+                ),
+                loop_started=time.perf_counter(),
+            )
+            chunk_result = ChunkExecutionResult(
+                chunk_label="chunk-001",
+                latest_checkpoint=LoopCheckpoint(
+                    step=1000,
+                    value_path=next_value,
+                    opponent_path=next_opponent,
+                ),
+                command_row={
+                    "chunk": "chunk-001",
+                    "collectProfiles": [{"profile": "selfplay"}],
+                    "train": ["python", "-m", "scripts.train_td"],
+                },
+                chunk_row={"chunk": "chunk-001"},
+            )
+
+            with patch(
+                "scripts.run_td_loop_selfplay.initialize_selfplay_run",
+                return_value=context,
+            ), patch(
+                "scripts.run_td_loop_selfplay.run_selfplay_chunk",
+                return_value=chunk_result,
+            ), patch(
+                "scripts.run_td_loop_selfplay.run_promotion_stage",
+                side_effect=SystemExit("promotion failed"),
+            ), patch("builtins.print") as mocked_print:
+                with self.assertRaises(SystemExit):
+                    run_selfplay_loop(args)
+
+        self.assertFalse(context.loop_summary_path.exists())
+        mocked_print.assert_not_called()
+
 
 class RunTdLoopSelfplaySmokeTests(unittest.TestCase):
     def test_script_smoke_runs_small_selfplay_loop(self) -> None:
