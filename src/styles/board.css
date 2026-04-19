@@ -162,6 +162,30 @@
 
 .token-rail-bot {
   justify-content: flex-end;
+  flex: 1;
+}
+
+.dice-float {
+  pointer-events: none;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.dice-float .roll-die-shell {
+  width: auto;
+  height: calc(var(--token-rail-chip-size) + 1.3rem);
+  aspect-ratio: 1;
+}
+
+.dice-float .roll-die-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.board-top-row {
+  display: flex;
+  align-items: center;
 }
 
 .token-rail-group {
