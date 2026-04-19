@@ -83,6 +83,8 @@ export function prepareActionDispatch({
       makeResourceFlightId
     ),
     ...dependencies.collectIncomeChoiceResourceFlights(
+      previousState,
+      nextState,
       action,
       makeResourceFlightId
     ),

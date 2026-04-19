@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { makeGameState, PLAYER_A } from '../engine/__tests__/fixtures';
+import { makeGameState, PLAYER_A, PLAYER_B } from '../engine/__tests__/fixtures';
 import type { GameLogEntry } from '../engine/types';
 import {
   botRandomForState,
@@ -81,6 +81,44 @@ describe('gameControllerModel', () => {
     ).toEqual(['choose-income-suit', 'choose-income-suit']);
   });
 
+  it('exposes human income choices even when the bot owns the main turn', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      activePlayerIndex: 1,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suits: ['Moons', 'Suns'],
+        },
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+    });
+
+    expect(actionsFor(state)).toEqual([
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Moons',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Suns',
+      },
+    ]);
+  });
+
   it('schedules bot work only for a ready, unlocked bot turn', () => {
     const schedulingAllowed = (
       overrides: Partial<Parameters<typeof shouldScheduleBotAction>[0]> = {}
@@ -90,6 +128,8 @@ describe('gameControllerModel', () => {
         activePlayerId: 'PlayerB',
         botPlayerId: 'PlayerB',
         actionCommitPending: false,
+        allowIncomeChoiceWhileCommitPending: false,
+        botIncomeActionCount: 0,
         startupPreloadReady: true,
         ...overrides,
       });
@@ -99,6 +139,19 @@ describe('gameControllerModel', () => {
     expect(schedulingAllowed({ activePlayerId: 'PlayerA' })).toBe(false);
     expect(schedulingAllowed({ actionCommitPending: true })).toBe(false);
     expect(schedulingAllowed({ startupPreloadReady: false })).toBe(false);
+    expect(
+      schedulingAllowed({
+        activePlayerId: 'PlayerA',
+        botIncomeActionCount: 2,
+      })
+    ).toBe(true);
+    expect(
+      schedulingAllowed({
+        actionCommitPending: true,
+        allowIncomeChoiceWhileCommitPending: true,
+        botIncomeActionCount: 2,
+      })
+    ).toBe(true);
   });
 
   it('formats Error instances and unknown thrown values', () => {

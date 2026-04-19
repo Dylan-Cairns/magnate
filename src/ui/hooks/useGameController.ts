@@ -24,6 +24,7 @@ import {
   createBrowserSession,
   errorMessage,
   humanActionsAcceptingInputForState,
+  incomeChoiceActionsForPlayer,
   makeBrowserSessionSeed,
   shouldScheduleBotAction,
   withSeedLogPrefix,
@@ -202,6 +203,10 @@ export function useGameController({
       state,
     ]
   );
+  const botIncomeActions = useMemo(
+    () => incomeChoiceActionsForPlayer(legalActions(state), botPlayerId),
+    [botPlayerId, state]
+  );
   const canResetTurn = useMemo(
     () =>
       canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor),
@@ -239,6 +244,9 @@ export function useGameController({
         activePlayerId,
         botPlayerId,
         actionCommitPending,
+        allowIncomeChoiceWhileCommitPending:
+          allowHumanActionsWhileCommitPending,
+        botIncomeActionCount: botIncomeActions.length,
         startupPreloadReady,
       })
     ) {
@@ -254,12 +262,24 @@ export function useGameController({
       void (async () => {
         const current = stateRef.current;
         const currentActive = current.players[current.activePlayerIndex]?.id;
-        if (cancelled || isTerminal(current) || currentActive !== botPlayerId) {
+        const currentLegalActions = legalActions(current);
+        const currentBotIncomeActions = incomeChoiceActionsForPlayer(
+          currentLegalActions,
+          botPlayerId
+        );
+        if (
+          cancelled ||
+          isTerminal(current) ||
+          (currentActive !== botPlayerId && currentBotIncomeActions.length === 0)
+        ) {
           setBotThinking(false);
           return;
         }
 
-        const actions = legalActions(current);
+        const actions =
+          currentBotIncomeActions.length > 0
+            ? currentBotIncomeActions
+            : currentLegalActions;
         if (actions.length === 0) {
           setError('Bot has no legal actions.');
           setBotThinking(false);
@@ -288,7 +308,13 @@ export function useGameController({
             return;
           }
 
-          dispatchAction(current, choice, currentActive);
+          dispatchAction(
+            current,
+            choice,
+            choice.type === 'choose-income-suit'
+              ? choice.playerId
+              : (currentActive ?? botPlayerId)
+          );
         } catch (err) {
           if (!cancelled) {
             setError(`Bot action failed: ${errorMessage(err)}`);
@@ -309,7 +335,9 @@ export function useGameController({
     actionCommitPending,
     activePlayerId,
     botPlayerId,
+    botIncomeActions.length,
     dispatchAction,
+    allowHumanActionsWhileCommitPending,
     resolvedBotProfile,
     state,
     startupPreloadReady,
@@ -318,7 +346,13 @@ export function useGameController({
 
   const performHumanAction = useCallback(
     (action: GameAction) => {
-      if (terminal || activePlayerId !== humanPlayerId) {
+      const isHumanIncomeChoice =
+        action.type === 'choose-income-suit' &&
+        action.playerId === humanPlayerId;
+      if (
+        terminal ||
+        (activePlayerId !== humanPlayerId && !isHumanIncomeChoice)
+      ) {
         return;
       }
       if (actionCommitPending) {
@@ -331,7 +365,11 @@ export function useGameController({
       }
 
       try {
-        dispatchAction(state, action, activePlayerId);
+        dispatchAction(
+          state,
+          action,
+          action.type === 'choose-income-suit' ? action.playerId : activePlayerId
+        );
       } catch (err) {
         setError(errorMessage(err));
       }

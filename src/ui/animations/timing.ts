@@ -56,8 +56,7 @@ export function cardFlightSettleMs(flights: readonly CardFlight[]): number {
 export function shouldCommitBeforeAnimationSettle(action: GameAction): boolean {
   return (
     action.type === 'sell-card' ||
-    action.type === 'end-turn' ||
-    action.type === 'choose-income-suit'
+    action.type === 'end-turn'
   );
 }
 

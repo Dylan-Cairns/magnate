@@ -20,6 +20,7 @@
 
 - Browser play is functional with selectable bot profiles behind a shared async policy contract.
 - TypeScript engine partial deed income is submitted simultaneously: pending obligations remain intact, submitted suit choices do not pay resources until all required choices are submitted, then selected resources resolve in deterministic pending-choice order.
+- Browser controller/UI partial deed income follows the simultaneous engine phase: human and bot can submit owned income choices from the shared pending state, and resource flights occur on final reveal.
 - Browser heuristic, rollout search, TD search, and TD-root search share deterministic policy plumbing where appropriate.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
@@ -34,7 +35,7 @@
 ## Remaining Work
 
 - Improve `td-search` strength and throughput.
-- Finish browser controller/UI, bridge/training, replay, and policy alignment for simultaneous partial deed income submissions.
+- Finish bridge/training, replay, and policy alignment for simultaneous partial deed income submissions.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
 - Add Node-local model-pack loading for direct TypeScript evaluation of serialized `td-search` specs.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
