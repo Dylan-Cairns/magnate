@@ -57,9 +57,17 @@
   },
   "observation": {
     "name": "player_view_v1",
-    "default_viewer": "active-player",
-    "payload": "toPlayerView(state, viewerId)",
-    "optional_legal_action_mask": "list of legal action keys for current state/viewer"
+    "default_viewer": "decision-player",
+    "payload": "toPlayerView(state, viewerId), with activePlayerId set to the decision player for bridge actor observations",
+    "optional_legal_action_mask": "list of legal action keys for current state/viewer",
+    "collect_income_decision_order": "one unsubmitted income-choice owner at a time, in pendingIncomeChoices order"
+  },
+  "state_payload": {
+    "collect_income_fields": [
+      "pendingIncomeChoices",
+      "submittedIncomeChoices",
+      "incomeChoiceReturnPlayerId"
+    ]
   },
   "model_io": {
     "inputs": {

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { KeyedAction } from '../engine/actionSurface';
 import {
+  makeGameState,
+  PLAYER_A,
+  PLAYER_B,
+} from '../engine/__tests__/fixtures';
+import {
   BRIDGE_CONTRACT_NAME,
   BRIDGE_CONTRACT_VERSION,
   BRIDGE_COMMANDS,
@@ -156,6 +161,87 @@ describe('MagnateBridgeRuntime', () => {
     expect(observation.legalActionMask).toEqual([]);
   });
 
+  it('exposes one income decision actor at a time during simultaneous income choice', () => {
+    const runtime = runtimeWithSimultaneousIncomeChoices();
+
+    const legal = expectOk<BridgeLegalActionsResult>(
+      request(runtime, { requestId: 'req-income-1', command: 'legalActions' })
+    );
+
+    expect(legal.activePlayerId).toBe(PLAYER_A);
+    expect(
+      legal.actions.map((entry) =>
+        entry.action.type === 'choose-income-suit'
+          ? entry.action.playerId
+          : 'unexpected'
+      )
+    ).toEqual([PLAYER_A, PLAYER_A]);
+
+    const observation = expectOk<BridgeObservationResult>(
+      request(runtime, {
+        requestId: 'req-income-2',
+        command: 'observation',
+        payload: { includeLegalActionMask: true },
+      })
+    );
+
+    expect(observation.view.viewerId).toBe(PLAYER_A);
+    expect(observation.view.activePlayerId).toBe(PLAYER_A);
+    expect(observation.legalActionMask).toEqual(
+      legal.actions.map((entry) => entry.actionKey)
+    );
+  });
+
+  it('rejects action keys for later income actors until earlier choices submit', () => {
+    const runtime = runtimeWithSimultaneousIncomeChoices();
+
+    const error = expectErr(
+      request(runtime, {
+        requestId: 'req-income-early',
+        command: 'step',
+        payload: { actionKey: 'choose-income-suit:PlayerB:D2:21:Waves' },
+      })
+    );
+
+    expect(error.code).toBe('ILLEGAL_ACTION');
+  });
+
+  it('advances the bridge income decision actor after a partial income submission', () => {
+    const runtime = runtimeWithSimultaneousIncomeChoices();
+
+    const stepped = expectOk<BridgeStateResult>(
+      request(runtime, {
+        requestId: 'req-income-step',
+        command: 'step',
+        payload: { actionKey: 'choose-income-suit:PlayerA:D1:20:Moons' },
+      })
+    );
+
+    expect(stepped.state.phase).toBe('CollectIncome');
+    expect(stepped.state.submittedIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '20',
+        suit: 'Moons',
+      },
+    ]);
+    expect(stepped.view.viewerId).toBe(PLAYER_B);
+    expect(stepped.view.activePlayerId).toBe(PLAYER_B);
+
+    const legal = expectOk<BridgeLegalActionsResult>(
+      request(runtime, {
+        requestId: 'req-income-next',
+        command: 'legalActions',
+      })
+    );
+    expect(legal.activePlayerId).toBe(PLAYER_B);
+    expect(legal.actions.map((entry) => entry.actionKey)).toEqual([
+      'choose-income-suit:PlayerB:D2:21:Waves',
+      'choose-income-suit:PlayerB:D2:21:Wyrms',
+    ]);
+  });
+
   it('serialize returns canonical state with schemaVersion', () => {
     const runtime = new MagnateBridgeRuntime();
     const result = expectOk<{ state: { schemaVersion: number; seed: string } }>(
@@ -211,3 +297,39 @@ describe('MagnateBridgeRuntime', () => {
     expect(error.code).toBe('STATE_DESERIALIZATION_FAILED');
   });
 });
+
+function runtimeWithSimultaneousIncomeChoices(): MagnateBridgeRuntime {
+  const runtime = new MagnateBridgeRuntime();
+  const state = makeGameState({
+    phase: 'CollectIncome',
+    activePlayerIndex: 0,
+    pendingIncomeChoices: [
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '20',
+        suits: ['Moons', 'Suns'],
+      },
+      {
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '21',
+        suits: ['Waves', 'Wyrms'],
+      },
+    ],
+    incomeChoiceReturnPlayerId: PLAYER_A,
+    lastIncomeRoll: { die1: 2, die2: 3 },
+  });
+
+  expectOk<BridgeStateResult>(
+    request(runtime, {
+      requestId: 'req-income-reset',
+      command: 'reset',
+      payload: {
+        serializedState: state,
+        skipAdvanceToDecision: true,
+      },
+    })
+  );
+  return runtime;
+}

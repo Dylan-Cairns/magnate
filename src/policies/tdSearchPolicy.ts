@@ -1,12 +1,15 @@
-import { legalActions } from '../engine/actionBuilders';
 import {
   actionStableKey,
   toKeyedActions,
   type KeyedAction,
 } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
-import { toPlayerView } from '../engine/view';
 import type { GameAction, GameState, PlayerId } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
 import {
@@ -249,13 +252,13 @@ function runRollout({
   let depth = 0;
 
   while (!isTerminal(state) && depth < config.depth) {
-    const actions = legalActions(state);
-    if (actions.length === 0) {
-      break;
-    }
-    const activePlayer = state.players[state.activePlayerIndex]?.id;
+    const activePlayer = decisionPlayerIdForState(state);
     if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
       throw new Error('TD search rollout could not resolve active player.');
+    }
+    const actions = legalActionsForDecisionPlayer(state, activePlayer);
+    if (actions.length === 0) {
+      break;
     }
 
     const nextActionKey =
@@ -263,6 +266,7 @@ function runRollout({
         ? chooseRootRolloutActionKey(
             state,
             actions,
+            activePlayer,
             random,
             config.rolloutEpsilon
           )
@@ -287,6 +291,7 @@ function runRollout({
 function chooseRootRolloutActionKey(
   state: GameState,
   actions: readonly GameAction[],
+  activePlayer: PlayerId,
   random: () => number,
   rolloutEpsilon: number
 ): string {
@@ -294,7 +299,10 @@ function chooseRootRolloutActionKey(
   if (random() < rolloutEpsilon) {
     return keyed[Math.floor(random() * keyed.length)].actionKey;
   }
-  return rankHeuristicActions(actions, { state })[0].actionKey;
+  return rankHeuristicActions(actions, {
+    state,
+    view: toDecisionPlayerView(state, activePlayer),
+  })[0].actionKey;
 }
 
 function chooseOpponentRolloutActionKey({
@@ -318,7 +326,7 @@ function chooseOpponentRolloutActionKey({
   }
 
   const keyed = toKeyedActions(actions);
-  const view = toPlayerView(state, activePlayer);
+  const view = toDecisionPlayerView(state, activePlayer);
   const observation = encodeObservation(view);
   const actionFeatures = encodeActionCandidates(actions);
   const logits = model.opponentScorer.logits(observation, actionFeatures);
@@ -344,11 +352,11 @@ function tdLeafValue(
   rootPlayer: PlayerId,
   model: LoadedTdSearchModel
 ): number {
-  const activePlayer = state.players[state.activePlayerIndex]?.id;
+  const activePlayer = decisionPlayerIdForState(state);
   if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
     throw new Error('TD search leaf value could not resolve active player.');
   }
-  const view = toPlayerView(state, activePlayer);
+  const view = toDecisionPlayerView(state, activePlayer);
   const observation = encodeObservation(view);
   const activeValue = model.valueScorer.predict(observation);
   const rootValue = activePlayer === rootPlayer ? activeValue : -activeValue;
@@ -407,7 +415,11 @@ function sampleLogitsIndex(
 }
 
 function stepByActionKey(state: GameState, actionKey: string): GameState {
-  const actions = legalActions(state);
+  const activePlayer = decisionPlayerIdForState(state);
+  if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
+    throw new Error('TD search rollout could not resolve active player.');
+  }
+  const actions = legalActionsForDecisionPlayer(state, activePlayer);
   const action = actions.find(
     (candidate) => actionStableKey(candidate) === actionKey
   );

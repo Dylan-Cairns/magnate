@@ -1,7 +1,10 @@
 import { actionStableKey } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
-import { toPlayerView } from '../engine/view';
 import type { GameAction, GameState, PlayerId } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
 import type { ActionPolicy } from './types';
@@ -109,13 +112,13 @@ function scoreActionInWorld({
     return terminalValue(next, rootPlayer);
   }
 
-  const activePlayer = next.players[next.activePlayerIndex]?.id;
+  const activePlayer = decisionPlayerIdForState(next);
   if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
     throw new Error(
       'TD value policy could not resolve active player from next state.'
     );
   }
-  const nextView = toPlayerView(next, activePlayer);
+  const nextView = toDecisionPlayerView(next, activePlayer);
   const observation = encodeObservation(nextView);
   const activeValue = scorer.predict(observation);
   const rootValue = activePlayer === rootPlayer ? activeValue : -activeValue;
