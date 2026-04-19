@@ -585,6 +585,7 @@ export function App() {
               <RollResult
                 roll={humanView.lastIncomeRoll}
                 taxSuit={humanView.lastTaxSuit}
+                gameKey={state.seed}
               />
             </div>
             <PlayerTokenRail
