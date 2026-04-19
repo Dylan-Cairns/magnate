@@ -1,4 +1,8 @@
-import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
+import {
+  actionStableKey,
+  toKeyedActions,
+  type KeyedAction,
+} from '../engine/actionSurface';
 import { CARD_BY_ID, type CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
 import {
@@ -76,8 +80,35 @@ const SAFE_CONTROL_MARGIN_WHILE_EXPANDING = 4;
 export function selectHeuristicAction(
   context: HeuristicSelectionContext
 ): GameAction | undefined {
-  const ranked = rankHeuristicActions(context.legalActions, context);
-  return ranked[0]?.action;
+  return bestHeuristicAction(context.legalActions, context)?.action;
+}
+
+export function bestHeuristicAction(
+  candidateActions: readonly GameAction[],
+  context: HeuristicEvaluationContext = {}
+): KeyedAction | undefined {
+  let best: KeyedAction | undefined;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const action of candidateActions) {
+    const actionKey = actionStableKey(action);
+    const score = scoreHeuristicAction(action, context);
+    if (
+      !best ||
+      (!approximatelyEqual(score, bestScore) && score > bestScore) ||
+      (approximatelyEqual(score, bestScore) &&
+        actionKey.localeCompare(best.actionKey) < 0)
+    ) {
+      best = {
+        actionId: action.type,
+        actionKey,
+        action,
+      };
+      bestScore = score;
+    }
+  }
+
+  return best;
 }
 
 export function rankHeuristicActions(

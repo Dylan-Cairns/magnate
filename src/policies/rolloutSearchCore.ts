@@ -10,8 +10,13 @@ import type {
   PlayerView,
 } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
-import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
 import {
+  bestHeuristicAction,
+  heuristicPriorsByKey,
+  rankHeuristicActions,
+} from './heuristicScorer';
+import {
+  bestHeuristicV2Action,
   heuristicV2PriorsByKey,
   rankHeuristicV2Actions,
 } from './heuristicScorerV2';
@@ -657,7 +662,22 @@ function chooseRolloutAction(
     const keyed = toKeyedActions(actions);
     return keyed[Math.floor(random() * keyed.length)].action;
   }
-  return rankActionsByHeuristic(actions, { state }, config.heuristic)[0].action;
+  const best = bestActionByHeuristic(actions, { state }, config.heuristic);
+  if (!best) {
+    throw new Error('Rollout search could not select from legal actions.');
+  }
+  return best.action;
+}
+
+function bestActionByHeuristic(
+  actions: readonly GameAction[],
+  context: Parameters<typeof bestHeuristicAction>[1],
+  heuristic: SearchHeuristicVersion | undefined
+): KeyedAction | undefined {
+  if (heuristic === 'v2') {
+    return bestHeuristicV2Action(actions, context);
+  }
+  return bestHeuristicAction(actions, context);
 }
 
 function rankActionsByHeuristic(
