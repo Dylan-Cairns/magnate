@@ -22,6 +22,7 @@ import type {
   Suit,
   PlayerId,
   PropertyCard,
+  SubmittedIncomeChoice,
 } from './types';
 
 export function applyAction(state: GameState, action: GameAction): GameState {
@@ -134,60 +135,120 @@ function chooseIncomeSuit(
   state: GameState,
   action: Extract<GameAction, { type: 'choose-income-suit' }>
 ): GameState {
-  const activePlayer = state.players[state.activePlayerIndex];
-  if (!activePlayer || activePlayer.id !== action.playerId) {
-    throw new Error(
-      `Income choice must be made by active player ${activePlayer?.id ?? 'unknown'}.`
-    );
-  }
-
-  const [nextChoice, ...restChoices] = state.pendingIncomeChoices ?? [];
-  if (!nextChoice) {
+  const pendingChoices = state.pendingIncomeChoices ?? [];
+  if (pendingChoices.length === 0) {
     throw new Error('No pending income choices available.');
   }
-  if (
-    action.playerId !== nextChoice.playerId ||
-    action.districtId !== nextChoice.districtId ||
-    action.cardId !== nextChoice.cardId
-  ) {
-    throw new Error(
-      'Income choice does not match the next pending income choice.'
-    );
+
+  const pendingChoice = pendingChoices.find((choice) =>
+    incomeChoiceMatches(choice, action)
+  );
+  if (!pendingChoice) {
+    throw new Error('Income choice does not match a pending income choice.');
   }
-  if (!nextChoice.suits.includes(action.suit)) {
+  if (isIncomeChoiceSubmitted(state, action)) {
+    throw new Error('Income choice has already been submitted.');
+  }
+  if (!pendingChoice.suits.includes(action.suit)) {
     throw new Error(`Suit ${action.suit} is not valid for this income choice.`);
   }
 
-  const player = findPlayerById(state, action.playerId);
-  const updatedPlayer: PlayerState = {
-    ...player,
-    resources: applyDelta(player.resources, { [action.suit]: 1 }),
-  };
-
-  const pendingIncomeChoices = restChoices.length > 0 ? restChoices : undefined;
-  const phase = pendingIncomeChoices ? 'CollectIncome' : 'ActionWindow';
-  const returnPlayerId = state.incomeChoiceReturnPlayerId;
-  if (!returnPlayerId) {
-    throw new Error('Missing return player while resolving income choice.');
-  }
-  const nextActivePlayerIndex = pendingIncomeChoices
-    ? findPlayerIndexById(state, pendingIncomeChoices[0].playerId)
-    : findPlayerIndexById(state, returnPlayerId);
-
-  const next = replacePlayerById(state, action.playerId, updatedPlayer);
-  return log(
+  const submittedIncomeChoices: SubmittedIncomeChoice[] = [
+    ...(state.submittedIncomeChoices ?? []),
     {
-      ...next,
-      activePlayerIndex: nextActivePlayerIndex,
-      phase,
-      pendingIncomeChoices,
-      incomeChoiceReturnPlayerId: pendingIncomeChoices
-        ? state.incomeChoiceReturnPlayerId
-        : undefined,
+      playerId: action.playerId,
+      districtId: action.districtId,
+      cardId: action.cardId,
+      suit: action.suit,
+    },
+  ];
+
+  const submitted = log(
+    {
+      ...state,
+      phase: 'CollectIncome',
+      submittedIncomeChoices,
     },
     `income choice ${action.cardId}:${action.suit}`,
     action.playerId
   );
+
+  if (submittedIncomeChoices.length < pendingChoices.length) {
+    return submitted;
+  }
+
+  const returnPlayerId = state.incomeChoiceReturnPlayerId;
+  if (!returnPlayerId) {
+    throw new Error('Missing return player while resolving income choices.');
+  }
+
+  return {
+    ...resolveSubmittedIncomeChoices(submitted, submittedIncomeChoices),
+    activePlayerIndex: findPlayerIndexById(state, returnPlayerId),
+    phase: 'ActionWindow',
+    cardPlayedThisTurn: false,
+    pendingIncomeChoices: undefined,
+    submittedIncomeChoices: undefined,
+    incomeChoiceReturnPlayerId: undefined,
+  };
+}
+
+function incomeChoiceMatches(
+  choice: {
+    playerId: PlayerId;
+    districtId: string;
+    cardId: CardId;
+  },
+  action: {
+    playerId: PlayerId;
+    districtId: string;
+    cardId: CardId;
+  }
+): boolean {
+  return (
+    action.playerId === choice.playerId &&
+    action.districtId === choice.districtId &&
+    action.cardId === choice.cardId
+  );
+}
+
+function isIncomeChoiceSubmitted(
+  state: GameState,
+  action: Extract<GameAction, { type: 'choose-income-suit' }>
+): boolean {
+  return (state.submittedIncomeChoices ?? []).some((choice) =>
+    incomeChoiceMatches(choice, action)
+  );
+}
+
+function resolveSubmittedIncomeChoices(
+  state: GameState,
+  submissions: ReadonlyArray<SubmittedIncomeChoice>
+): GameState {
+  const pendingChoices = state.pendingIncomeChoices ?? [];
+  let next = state;
+
+  pendingChoices.forEach((choice) => {
+    const submission = submissions.find((entry) =>
+      incomeChoiceMatches(choice, entry)
+    );
+    if (!submission) {
+      throw new Error('Cannot resolve income choices before all are submitted.');
+    }
+    if (!choice.suits.includes(submission.suit)) {
+      throw new Error(
+        `Suit ${submission.suit} is not valid for submitted income choice.`
+      );
+    }
+
+    const player = findPlayerById(next, choice.playerId);
+    next = replacePlayerById(next, choice.playerId, {
+      ...player,
+      resources: applyDelta(player.resources, { [submission.suit]: 1 }),
+    });
+  });
+
+  return next;
 }
 
 function trade(

@@ -61,6 +61,7 @@ Results:
 - 2–9: For each property (per player) with rank equal to the result:
   - If fully developed, gain 1 resource per suit on that property.
   - If only deeded (not complete), gain 1 resource matching one of that property’s suits (player’s choice).
+  - If multiple incomplete deeds require player choices from the same roll, all partial-income choices are submitted before any selected partial-income resources are awarded. No player begins their main action window until every required choice is submitted.
   - If no matching-rank properties or deeds, gain nothing from this step.
 - 1: If both d10 show 1, each player gains 1 matching resource for each Ace property they have in play.
 

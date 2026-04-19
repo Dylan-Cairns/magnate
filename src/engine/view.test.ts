@@ -82,6 +82,14 @@ describe('toPlayerView', () => {
           suits: ['Suns', 'Wyrms'],
         },
       ],
+      submittedIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suit: 'Moons',
+        },
+      ],
       incomeChoiceReturnPlayerId: PLAYER_A,
     });
 
@@ -99,6 +107,14 @@ describe('toPlayerView', () => {
         districtId: 'D2',
         cardId: '7',
         suits: ['Suns', 'Wyrms'],
+      },
+    ]);
+    expect(view.submittedIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Moons',
       },
     ]);
     expect(view.incomeChoiceReturnPlayerId).toBe(PLAYER_A);
@@ -124,6 +140,14 @@ describe('toPlayerView', () => {
           suits: ['Moons', 'Knots'],
         },
       ],
+      submittedIncomeChoices: [
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suit: 'Leaves',
+        },
+      ],
     });
 
     const view = toPlayerView(state, PLAYER_A);
@@ -142,12 +166,20 @@ describe('toPlayerView', () => {
       };
       mutableChoice.suits.push('Suns');
     }
+    if (view.submittedIncomeChoices) {
+      const choice = view.submittedIncomeChoices[0];
+      const mutableChoice = choice as {
+        suit: string;
+      };
+      mutableChoice.suit = 'Wyrms';
+    }
 
     expect(state.players[0].resources.Moons).toBe(1);
     expect(state.players[0].hand).toEqual(['6']);
     expect(state.deck.discard).toEqual([]);
     expect(state.districts[0].stacks.PlayerA.developed).toEqual([]);
     expect(state.pendingIncomeChoices?.[0].suits).toEqual(['Moons', 'Knots']);
+    expect(state.submittedIncomeChoices?.[0].suit).toBe('Leaves');
   });
 
   it('throws for unknown viewer ids', () => {

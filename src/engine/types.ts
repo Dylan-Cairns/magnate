@@ -91,6 +91,13 @@ export interface IncomeChoice {
   suits: readonly Suit[];
 }
 
+export interface SubmittedIncomeChoice {
+  playerId: PlayerId;
+  districtId: DistrictId;
+  cardId: CardId;
+  suit: Suit;
+}
+
 export interface GameLogEntry {
   turn: number;
   player: PlayerId;
@@ -138,6 +145,7 @@ export interface PlayerView {
   lastIncomeRoll?: IncomeRollResult;
   lastTaxSuit?: Suit;
   pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
+  submittedIncomeChoices?: ReadonlyArray<SubmittedIncomeChoice>;
   incomeChoiceReturnPlayerId?: PlayerId;
   finalScore?: FinalScore;
   log: ReadonlyArray<GameLogEntry>;
@@ -158,6 +166,7 @@ export interface GameState {
   lastIncomeRoll?: IncomeRollResult;
   lastTaxSuit?: Suit;
   pendingIncomeChoices?: ReadonlyArray<IncomeChoice>;
+  submittedIncomeChoices?: ReadonlyArray<SubmittedIncomeChoice>;
   incomeChoiceReturnPlayerId?: PlayerId;
   finalScore?: FinalScore;
   log: ReadonlyArray<GameLogEntry>;

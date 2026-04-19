@@ -12,6 +12,7 @@ import type {
   PlayerId,
   PlayerState,
   ResourcePool,
+  SubmittedIncomeChoice,
   Suit,
 } from '../types';
 import { legalActions } from '../actionBuilders';
@@ -84,6 +85,7 @@ export interface GameStateOverrides {
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
   pendingIncomeChoices?: readonly IncomeChoice[];
+  submittedIncomeChoices?: readonly SubmittedIncomeChoice[];
   incomeChoiceReturnPlayerId?: PlayerId;
 }
 
@@ -113,6 +115,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     finalTurnsRemaining: overrides.finalTurnsRemaining,
     lastIncomeRoll: overrides.lastIncomeRoll,
     pendingIncomeChoices: overrides.pendingIncomeChoices,
+    submittedIncomeChoices: overrides.submittedIncomeChoices,
     incomeChoiceReturnPlayerId: overrides.incomeChoiceReturnPlayerId,
     log: [],
   };

@@ -57,6 +57,7 @@ export function newGame(seed: string, options: NewGameOptions = {}): GameState {
     lastIncomeRoll: undefined,
     lastTaxSuit: undefined,
     pendingIncomeChoices: undefined,
+    submittedIncomeChoices: undefined,
     incomeChoiceReturnPlayerId: undefined,
     finalScore: undefined,
     log: [],
