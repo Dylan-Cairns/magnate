@@ -13,9 +13,14 @@ export const CARD_FLIGHT_DURATION_MS = 280;
 export const CARD_DRAW_FLIGHT_DELAY_MS = CARD_FLIGHT_DURATION_MS;
 export const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
 
-// Turn-cycle popup/glow pre-flight timing knobs.
-export const TURN_CYCLE_TEXT_ONLY_MS = 1000;
-export const TURN_CYCLE_INCOME_PRE_FLIGHT_MS = 1500;
+// Dice animation settle durations — must match the CSS transition durations.
+export const DICE_D10_SETTLE_MS = 1000;
+export const DICE_D6_SETTLE_MS = 1000;
+export const DICE_TAX_SETTLE_MS = DICE_D10_SETTLE_MS + DICE_D6_SETTLE_MS;
+
+// Turn-cycle pre-flight timing knobs.
+export const TURN_CYCLE_TAX_PRE_FLIGHT_MS = 120;
+export const TURN_CYCLE_INCOME_PRE_FLIGHT_MS = 400;
 export const TURN_CYCLE_STAGE_GAP_MS = 220;
 export const TURN_CYCLE_TAX_FLIGHT_DURATION_MS = 900;
 export const TURN_CYCLE_TAX_FLIGHT_STAGGER_MS = 500;

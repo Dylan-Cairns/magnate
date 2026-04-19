@@ -4,6 +4,8 @@ import type { TurnCycleEvents, TurnCycleIncomeToken } from '../turnCycleEvents';
 import { deriveTurnCycleEvents } from '../turnCycleEvents';
 import {
   ACTION_FLIGHT_COMMIT_BUFFER_MS,
+  DICE_D10_SETTLE_MS,
+  DICE_TAX_SETTLE_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_PRE_FLIGHT_MS,
@@ -11,12 +13,10 @@ import {
   TURN_CYCLE_STAGE_GAP_MS,
   TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
   TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
-  TURN_CYCLE_TEXT_ONLY_MS,
+  TURN_CYCLE_TAX_PRE_FLIGHT_MS,
 } from './timing';
 
 export type TurnCycleVisualPlan = {
-  taxLabelAtMs: number | null;
-  taxLabelHideAtMs: number | null;
   taxPulseStartAtMs: number | null;
   taxPulseEndAtMs: number | null;
   taxFlightLaunchAtMs: number | null;
@@ -33,15 +33,12 @@ export type TurnCycleVisualPlan = {
     playerId: PlayerId;
     count: number;
   }>;
-  incomeLabelAtMs: number;
-  incomeLabelHideAtMs: number;
   incomeFlightLaunchAtMs: number;
   incomeFlightTokens: ReadonlyArray<TurnCycleIncomeToken>;
   incomeHighlightStartAtMs: number;
   incomeHighlightEndAtMs: number;
   hideAllAtMs: number;
   taxSuit: Suit | null;
-  incomeRank: number;
   highlightCardIds: ReadonlyArray<CardId>;
   highlightCrowns: ReadonlyArray<{
     playerId: PlayerId;
@@ -57,12 +54,10 @@ export type TurnCycleAnimationPlan = {
 
 export function buildTurnCycleVisualPlan(
   cycle: TurnCycleEvents,
-  baseDelayMs: number
 ): TurnCycleAnimationPlan {
-  let cursorMs = baseDelayMs;
+  const diceSettleMs = cycle.tax ? DICE_TAX_SETTLE_MS : DICE_D10_SETTLE_MS;
+  let cursorMs = diceSettleMs;
 
-  let taxLabelAtMs: number | null = null;
-  let taxLabelHideAtMs: number | null = null;
   let taxPulseStartAtMs: number | null = null;
   let taxPulseEndAtMs: number | null = null;
   let taxFlightLaunchAtMs: number | null = null;
@@ -72,18 +67,13 @@ export function buildTurnCycleVisualPlan(
   const taxLossesByPlayer: Array<{ playerId: PlayerId; count: number }> = [];
   let taxSuit: Suit | null = null;
   if (cycle.tax) {
-    const taxLabelAtTime = cursorMs;
-    const taxLabelHideAtTime = taxLabelAtTime + TURN_CYCLE_TEXT_ONLY_MS;
-    taxLabelAtMs = taxLabelAtTime;
-    taxLabelHideAtMs = taxLabelHideAtTime;
     taxSuit = cycle.tax.suit;
     const taxedPlayers = cycle.tax.lossesByPlayer.filter(
       (entry) => entry.count > 0
     );
     taxLossesByPlayer.push(...taxedPlayers);
     if (taxedPlayers.length > 0) {
-      taxPulseStartAtMs = taxLabelAtTime;
-      taxPulseEndAtMs = taxLabelHideAtTime;
+      taxPulseStartAtMs = cursorMs;
       for (const taxedPlayer of taxedPlayers) {
         taxPulseTargets.push({
           playerId: taxedPlayer.playerId,
@@ -97,23 +87,24 @@ export function buildTurnCycleVisualPlan(
         }
       }
     }
-    const taxAnimationStartMs = taxLabelHideAtTime + 120;
+    const taxFlightStartMs = cursorMs + TURN_CYCLE_TAX_PRE_FLIGHT_MS;
     taxFlightLaunchAtMs =
-      taxFlightTokens.length > 0 ? taxAnimationStartMs : null;
+      taxFlightTokens.length > 0 ? taxFlightStartMs : null;
     const taxAnimationEndMs =
       taxFlightTokens.length > 0
-        ? taxAnimationStartMs +
+        ? taxFlightStartMs +
           (taxFlightTokens.length - 1) * TURN_CYCLE_TAX_FLIGHT_STAGGER_MS +
           TURN_CYCLE_TAX_FLIGHT_DURATION_MS
-        : taxAnimationStartMs;
+        : taxFlightStartMs;
     taxResourcesApplyAtMs =
       taxFlightTokens.length > 0 ? taxAnimationEndMs : null;
+    if (taxedPlayers.length > 0) {
+      taxPulseEndAtMs = taxAnimationEndMs;
+    }
     cursorMs = taxAnimationEndMs + TURN_CYCLE_STAGE_GAP_MS;
   }
 
-  const incomeLabelAtMs = cursorMs;
-  const incomeLabelHideAtMs = incomeLabelAtMs + TURN_CYCLE_INCOME_PRE_FLIGHT_MS;
-  const incomeAnimationStartMs = incomeLabelHideAtMs;
+  const incomeAnimationStartMs = cursorMs + TURN_CYCLE_INCOME_PRE_FLIGHT_MS;
   const incomeAnimationEndMs =
     cycle.incomeTokens.length > 0
       ? incomeAnimationStartMs +
@@ -140,7 +131,7 @@ export function buildTurnCycleVisualPlan(
       suit: token.suit,
     });
   }
-  const incomeHighlightStartAtMs = incomeLabelAtMs;
+  const incomeHighlightStartAtMs = cursorMs;
   const hasIncomeHighlightTargets =
     highlightCardIds.length > 0 || highlightCrowns.length > 0;
   const minimumHighlightDurationMs = hasIncomeHighlightTargets
@@ -157,8 +148,6 @@ export function buildTurnCycleVisualPlan(
 
   return {
     visualPlan: {
-      taxLabelAtMs,
-      taxLabelHideAtMs,
       taxPulseStartAtMs,
       taxPulseEndAtMs,
       taxFlightLaunchAtMs,
@@ -166,15 +155,12 @@ export function buildTurnCycleVisualPlan(
       taxPulseTargets,
       taxFlightTokens,
       taxLossesByPlayer,
-      incomeLabelAtMs,
-      incomeLabelHideAtMs,
       incomeFlightLaunchAtMs: incomeAnimationStartMs,
       incomeFlightTokens: cycle.incomeTokens,
       incomeHighlightStartAtMs,
       incomeHighlightEndAtMs,
       hideAllAtMs,
       taxSuit,
-      incomeRank: cycle.incomeRank,
       highlightCardIds,
       highlightCrowns,
     },
@@ -187,8 +173,7 @@ export function collectTurnCycleAnimationPlan(
   previousState: GameState,
   nextState: GameState,
   action: GameAction,
-  baseDelayMs: number
 ): TurnCycleAnimationPlan | null {
   const cycle = deriveTurnCycleEvents(previousState, nextState, action);
-  return cycle ? buildTurnCycleVisualPlan(cycle, baseDelayMs) : null;
+  return cycle ? buildTurnCycleVisualPlan(cycle) : null;
 }

@@ -1,5 +1,4 @@
 import type { CardId } from '../../engine/cards';
-import type { Suit } from '../../engine/types';
 import type { CardPerspective } from '../components/CardTile';
 
 export type ResourceFlight = {
@@ -15,16 +14,6 @@ export type ResourceFlight = {
 };
 
 export type PendingResourceFlight = ResourceFlight;
-
-export type TurnCycleOverlayState =
-  | {
-      kind: 'tax';
-      suit: Suit;
-    }
-  | {
-      kind: 'income';
-      rank: number;
-    };
 
 export type CardFlight = {
   id: string;

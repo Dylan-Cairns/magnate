@@ -7,7 +7,6 @@ import {
   collectIncomeChoiceResourceFlights,
   collectTerminalCleanupFlights,
 } from './animations/flightPlans';
-import { cardFlightSettleMs } from './animations/timing';
 import {
   collectTurnCycleAnimationPlan,
   type TurnCycleAnimationPlan,
@@ -101,7 +100,6 @@ export function prepareActionDispatch({
     previousState,
     nextState,
     action,
-    cardFlightSettleMs(actionCardFlights)
   );
 
   return {

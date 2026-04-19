@@ -1,8 +1,4 @@
-import cubeDieIcon from '../../assets/icons/cube.png';
-import dodecahedronDieIcon from '../../assets/icons/dodecahedron.png';
 import type { StartupPreloadProgress } from '../startupPreload';
-import type { TurnCycleOverlayState } from '../animations/types';
-import { TokenChip } from './TokenComponents';
 
 export function StartupPreloadOverlay({
   ready,
@@ -99,57 +95,6 @@ export function ResolutionWarningOverlay({
       </section>
     </div>
   ) : null;
-}
-
-export function TurnCycleOverlay({
-  overlay,
-}: {
-  overlay: TurnCycleOverlayState | null;
-}) {
-  if (!overlay) {
-    return null;
-  }
-
-  return (
-    <div className="turn-cycle-overlay" aria-live="polite">
-      <section className="turn-cycle-banner">
-        {overlay.kind === 'tax' ? (
-          <>
-            <img
-              src={cubeDieIcon}
-              alt=""
-              aria-hidden="true"
-              className="turn-cycle-inline-die"
-            />
-            <span className="turn-cycle-label">Taxes:</span>
-            <TokenChip
-              suit={overlay.suit}
-              count={1}
-              compact
-              className="turn-cycle-banner-chip"
-            />
-          </>
-        ) : (
-          <>
-            <span className="turn-cycle-inline-dice" aria-hidden="true">
-              <img
-                src={dodecahedronDieIcon}
-                alt=""
-                className="turn-cycle-inline-die"
-              />
-              <img
-                src={dodecahedronDieIcon}
-                alt=""
-                className="turn-cycle-inline-die"
-              />
-            </span>
-            <span className="turn-cycle-label">Income:</span>
-            <strong className="turn-cycle-income-rank">{overlay.rank}</strong>
-          </>
-        )}
-      </section>
-    </div>
-  );
 }
 
 function clamp(value: number, min: number, max: number): number {
