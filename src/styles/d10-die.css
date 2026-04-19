@@ -1,0 +1,106 @@
+/*
+  Pentagonal dipyramid d10 — geometry scaled from dice3 reference (200px → 100px).
+  upper_height: 50px  |  lower_height: 12px  |  internal_width: 26px
+  translate_z:  17px  |  translate_y:   4px  |  side_angle: 72deg  |  tilt: 45deg
+*/
+
+.die-scene-d10 {
+  width: 100px;
+  height: 100px;
+  perspective: 600px;
+  overflow: visible;
+  flex: 0 0 auto;
+}
+
+.die-d10 {
+  width: 100px;
+  height: 100px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1s ease-in-out;
+  will-change: transform;
+}
+
+/* Base face — border trick creates an upward-pointing triangle (▲) */
+.die-face-d10 {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  margin: 0 -26px;
+  border-left:   26px solid transparent;
+  border-right:  26px solid transparent;
+  border-bottom: 50px solid rgba(248, 251, 255, 0.82);
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* Lower cap — small downward-pointing triangle (▼) at base of each face */
+.die-face-d10::after {
+  content: "";
+  position: absolute;
+  bottom: -62px; /* -(upper_height + lower_height) = -(50 + 12) */
+  left: -26px;
+  border-left:  26px solid transparent;
+  border-right: 26px solid transparent;
+  border-top:   12px solid rgba(200, 215, 232, 0.85);
+  width: 0;
+  height: 0;
+}
+
+/* Number label — positioned in the visual triangle area */
+.die-face-number {
+  position: absolute;
+  top: 18px;
+  left: -26px;
+  width: 52px;
+  text-align: center;
+  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--card-rank, #21150d);
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+/* ── Face positions ──────────────────────────────────────────────────────── */
+/* Even index (i): upper faces — rotateY(-72*i/2) translateZ(17) translateY(4) rotateX(45) */
+/* Odd index  (i): lower faces — top:50px; rotateY(72*(i+1)/2) translateZ(-17) translateY(-4) rotateZ(180) rotateY(180) rotateX(45) */
+
+.die-face-d10-0 {
+  transform: rotateY(0deg)    translateZ(17px) translateY(4px) rotateX(45deg);
+}
+.die-face-d10-1 {
+  top: 50px;
+  transform: rotateY(72deg)   translateZ(-17px) translateY(-4px) rotateZ(180deg) rotateY(180deg) rotateX(45deg);
+}
+.die-face-d10-2 {
+  transform: rotateY(-72deg)  translateZ(17px) translateY(4px) rotateX(45deg);
+}
+.die-face-d10-3 {
+  top: 50px;
+  transform: rotateY(144deg)  translateZ(-17px) translateY(-4px) rotateZ(180deg) rotateY(180deg) rotateX(45deg);
+}
+.die-face-d10-4 {
+  transform: rotateY(-144deg) translateZ(17px) translateY(4px) rotateX(45deg);
+}
+.die-face-d10-5 {
+  top: 50px;
+  transform: rotateY(216deg)  translateZ(-17px) translateY(-4px) rotateZ(180deg) rotateY(180deg) rotateX(45deg);
+}
+.die-face-d10-6 {
+  transform: rotateY(-216deg) translateZ(17px) translateY(4px) rotateX(45deg);
+}
+.die-face-d10-7 {
+  top: 50px;
+  transform: rotateY(288deg)  translateZ(-17px) translateY(-4px) rotateZ(180deg) rotateY(180deg) rotateX(45deg);
+}
+.die-face-d10-8 {
+  transform: rotateY(-288deg) translateZ(17px) translateY(4px) rotateX(45deg);
+}
+.die-face-d10-9 {
+  top: 50px;
+  transform: rotateY(360deg)  translateZ(-17px) translateY(-4px) rotateZ(180deg) rotateY(180deg) rotateX(45deg);
+}
