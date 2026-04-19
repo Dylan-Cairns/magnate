@@ -33,6 +33,7 @@ import {
   StartupPreloadOverlay,
   TurnCycleOverlay,
 } from './ui/components/GameOverlays';
+import { DecktetSuitDiagram } from './ui/components/DecktetSuitDiagram';
 import { LogPanel } from './ui/components/LogPanel';
 import { OptionsBackdrop, OptionsMenu } from './ui/components/OptionsMenu';
 import { ResourceFlightLayer } from './ui/components/ResourceFlightLayer';
@@ -636,6 +637,8 @@ export function App() {
           />
 
           <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />
+
+          <DecktetSuitDiagram />
 
           <OptionsMenu
             open={optionsMenuOpen}
