@@ -95,6 +95,93 @@
   justify-content: flex-end;
 }
 
+.bug-report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  backdrop-filter: blur(4px);
+  background: rgba(4, 7, 12, 0.52);
+}
+
+.bug-report-modal {
+  width: min(31rem, calc(100vw - 1rem));
+  display: grid;
+  gap: 0.72rem;
+}
+
+.bug-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bug-report-header h2 {
+  margin: 0;
+}
+
+.bug-report-close-button {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--action-border);
+  background: var(--action-bg);
+  color: var(--accent-soft);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: var(--button-shadow);
+}
+
+.bug-report-close-button:hover {
+  background: var(--action-bg-hover);
+  border-color: #60789a;
+}
+
+.bug-report-body {
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.42;
+}
+
+.bug-report-body p {
+  margin: 0 0 0.45rem;
+}
+
+.bug-report-body ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.bug-report-body li + li {
+  margin-top: 0.45rem;
+}
+
+.bug-report-body a {
+  color: var(--accent-soft);
+  text-underline-offset: 0.14rem;
+}
+
+.bug-report-download-button {
+  border: 1px solid var(--action-border);
+  border-radius: 7px;
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0.24rem 0.54rem;
+  box-shadow: var(--button-shadow);
+}
+
+.bug-report-download-button:hover {
+  background: var(--button-primary-bg-hover);
+}
+
 .turn-cycle-overlay {
   position: fixed;
   inset: 0;

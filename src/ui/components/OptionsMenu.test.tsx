@@ -17,6 +17,7 @@ describe('OptionsMenu', () => {
         menuRef={createRef<HTMLElement>()}
         buttonRef={createRef<HTMLButtonElement>()}
         seedInputRef={createRef<HTMLInputElement>()}
+        onBugReport={noop}
         onToggle={noop}
         onReset={noop}
         onBotProfileChange={noop}
@@ -25,6 +26,7 @@ describe('OptionsMenu', () => {
     );
 
     expect(html).toContain('id="brand-options-menu"');
+    expect(html).toContain('aria-label="Report a bug"');
     expect(html).toContain('id="seed-input"');
     expect(html).toContain('id="bot-profile-select"');
     expect(html).toContain('value="rollout-eval-search" selected=""');

@@ -16,11 +16,17 @@ import {
 } from './ui/actionPickerModel';
 import { errorMessage } from './ui/gameControllerModel';
 import {
+  BUG_REPORT_ISSUE_URL,
+  buildBugReport,
+  downloadBugReport,
+} from './ui/bugReport';
+import {
   preloadStartupAssets,
   type StartupPreloadProgress,
 } from './ui/startupPreload';
 import { ActionPicker } from './ui/components/ActionPicker';
 import { ActionsPanel } from './ui/components/ActionsPanel';
+import { BugReportModal } from './ui/components/BugReportModal';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
 import { DeckPiles } from './ui/components/DeckPiles';
 import {
@@ -74,6 +80,7 @@ export function App() {
     null
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
+  const [bugReportOpen, setBugReportOpen] = useState<boolean>(false);
   const [startupPreloadReady, setStartupPreloadReady] =
     useState<boolean>(false);
   const [startupPreloadError, setStartupPreloadError] = useState<string | null>(
@@ -89,6 +96,7 @@ export function App() {
     state,
     humanView,
     timelineLog,
+    actionHistory,
     error,
     terminal,
     activePlayerId,
@@ -125,6 +133,7 @@ export function App() {
   const seedInputRef = useRef<HTMLInputElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
+  const closeBugReport = useCallback(() => setBugReportOpen(false), []);
   const retryStartupPreload = useCallback(
     () => setStartupPreloadAttempt((current) => current + 1),
     []
@@ -310,6 +319,27 @@ export function App() {
     closeActionPicker();
     closeOptionsMenu();
     resetSession(specifiedSeed || undefined);
+  };
+
+  const handleOpenBugReport = () => {
+    closeActionPicker();
+    closeOptionsMenu();
+    setBugReportOpen(true);
+  };
+
+  const handleDownloadBugReport = () => {
+    downloadBugReport(
+      buildBugReport({
+        state,
+        timelineLog,
+        actionHistory,
+        humanPlayerId: HUMAN_PLAYER,
+        botPlayerId: BOT_PLAYER,
+        botProfileId,
+        animationsEnabled,
+        error,
+      })
+    );
   };
 
   const handlePickerSelection = (action: GameAction) => {
@@ -616,6 +646,7 @@ export function App() {
             menuRef={optionsMenuRef}
             buttonRef={optionsMenuButtonRef}
             seedInputRef={seedInputRef}
+            onBugReport={handleOpenBugReport}
             onToggle={() => setOptionsMenuOpen((open) => !open)}
             onReset={handleReset}
             onBotProfileChange={setBotProfileId}
@@ -625,6 +656,13 @@ export function App() {
       </main>
 
       <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
+
+      <BugReportModal
+        open={bugReportOpen}
+        issueUrl={BUG_REPORT_ISSUE_URL}
+        onDownload={handleDownloadBugReport}
+        onClose={closeBugReport}
+      />
 
       <StartupPreloadOverlay
         ready={startupPreloadReady}

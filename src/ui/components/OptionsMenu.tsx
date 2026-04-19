@@ -10,6 +10,7 @@ export function OptionsMenu({
   menuRef,
   buttonRef,
   seedInputRef,
+  onBugReport,
   onToggle,
   onReset,
   onBotProfileChange,
@@ -22,6 +23,7 @@ export function OptionsMenu({
   menuRef: RefObject<HTMLElement | null>;
   buttonRef: RefObject<HTMLButtonElement | null>;
   seedInputRef: RefObject<HTMLInputElement | null>;
+  onBugReport: () => void;
   onToggle: () => void;
   onReset: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
@@ -29,6 +31,14 @@ export function OptionsMenu({
 }) {
   return (
     <div className="corner-options-anchor">
+      <button
+        type="button"
+        className="bug-report-button"
+        aria-label="Report a bug"
+        onClick={onBugReport}
+      >
+        <BugIcon />
+      </button>
       <button
         ref={buttonRef}
         type="button"
@@ -98,6 +108,27 @@ export function OptionsMenu({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function BugIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="bug-report-button-icon"
+    >
+      <path d="M8.4 7.5A3.8 3.8 0 0 1 12 5a3.8 3.8 0 0 1 3.6 2.5" />
+      <path d="M9 5 7.5 3.2" />
+      <path d="m15 5 1.5-1.8" />
+      <path d="M7.5 10h9" />
+      <path d="M7.8 14.5h8.4" />
+      <path d="M8 10.2C8 8.4 9.8 7 12 7s4 1.4 4 3.2V15c0 2.2-1.8 4-4 4s-4-1.8-4-4z" />
+      <path d="M6 11H3.8" />
+      <path d="M6.6 15.2 4.4 16.4" />
+      <path d="M18 11h2.2" />
+      <path d="m17.4 15.2 2.2 1.2" />
+    </svg>
   );
 }
 
