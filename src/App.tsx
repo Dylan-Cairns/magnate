@@ -580,13 +580,21 @@ export function App() {
         </aside>
 
         <section className="board-pane">
-          <PlayerTokenRail
-            player={botRailPlayer}
-            side="bot"
-            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
-              BOT_PLAYER
-            )}
-          />
+          <div className="board-top-row">
+            <div className="dice-float">
+              <RollResult
+                roll={humanView.lastIncomeRoll}
+                taxSuit={humanView.lastTaxSuit}
+              />
+            </div>
+            <PlayerTokenRail
+              player={botRailPlayer}
+              side="bot"
+              highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
+                BOT_PLAYER
+              )}
+            />
+          </div>
           <div className="district-strip" aria-label="District board">
             {humanView.districts.map((district) => (
               <DistrictColumn
@@ -619,14 +627,6 @@ export function App() {
             botPlayerId={BOT_PLAYER}
             animateDeedProgress={animationsEnabled}
           />
-
-          <section className="panel">
-            <h2>Roll Result</h2>
-            <RollResult
-              roll={humanView.lastIncomeRoll}
-              taxSuit={humanView.lastTaxSuit}
-            />
-          </section>
 
           <DeckPiles
             drawCount={humanView.deck.drawCount}
