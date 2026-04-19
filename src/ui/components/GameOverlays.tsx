@@ -1,10 +1,8 @@
 import cubeDieIcon from '../../assets/icons/cube.png';
 import dodecahedronDieIcon from '../../assets/icons/dodecahedron.png';
-import type { FinalScore, PlayerId } from '../../engine/types';
 import type { StartupPreloadProgress } from '../startupPreload';
 import type { TurnCycleOverlayState } from '../animations/types';
 import { TokenChip } from './TokenComponents';
-import { winnerLabel } from './TerminalScoreSummary';
 
 export function StartupPreloadOverlay({
   ready,
@@ -105,28 +103,17 @@ export function ResolutionWarningOverlay({
 
 export function TurnCycleOverlay({
   overlay,
-  terminalWinner,
-  humanPlayerId,
 }: {
   overlay: TurnCycleOverlayState | null;
-  terminalWinner: FinalScore['winner'] | null;
-  humanPlayerId: PlayerId;
 }) {
-  if (!overlay && !terminalWinner) {
+  if (!overlay) {
     return null;
   }
 
   return (
     <div className="turn-cycle-overlay" aria-live="polite">
       <section className="turn-cycle-banner">
-        {terminalWinner ? (
-          <>
-            <span className="turn-cycle-label">Winner:</span>
-            <strong className="turn-cycle-income-rank turn-cycle-winner-name">
-              {winnerLabel(terminalWinner, humanPlayerId)}
-            </strong>
-          </>
-        ) : overlay?.kind === 'tax' ? (
+        {overlay.kind === 'tax' ? (
           <>
             <img
               src={cubeDieIcon}
@@ -157,7 +144,7 @@ export function TurnCycleOverlay({
               />
             </span>
             <span className="turn-cycle-label">Income:</span>
-            <strong className="turn-cycle-income-rank">{overlay?.rank}</strong>
+            <strong className="turn-cycle-income-rank">{overlay.rank}</strong>
           </>
         )}
       </section>

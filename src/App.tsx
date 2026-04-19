@@ -101,7 +101,6 @@ export function App() {
     performHumanAction,
     resetSession,
     resetTurn,
-    terminalWinnerOverlayWinner,
     animations: {
       enabled: animationsEnabled,
       setEnabled: setAnimationsEnabled,
@@ -621,8 +620,6 @@ export function App() {
 
       <TurnCycleOverlay
         overlay={turnCycleOverlay}
-        terminalWinner={terminalWinnerOverlayWinner}
-        humanPlayerId={HUMAN_PLAYER}
       />
 
       <ResourceFlightLayer flights={resourceFlights} />

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from '../../engine/actionBuilders';
-import { isTerminal, scoreLive } from '../../engine/scoring';
+import { isTerminal } from '../../engine/scoring';
 import type {
-  FinalScore,
   GameAction,
   GameLogEntry,
   GameState,
@@ -97,17 +96,12 @@ export function useGameController({
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(
     DEFAULT_BOT_PROFILE_ID
   );
-  const [terminalWinnerOverlayWinner, setTerminalWinnerOverlayWinner] =
-    useState<FinalScore['winner'] | null>(null);
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
   const [turnResetTimelineAnchor, setTurnResetTimelineAnchor] =
     useState<ReadonlyArray<GameLogEntry> | null>(null);
   const stateRef = useRef(state);
 
-  const clearTerminalWinnerOverlay = useCallback(() => {
-    setTerminalWinnerOverlayWinner(null);
-  }, []);
   const commitTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
       setTimelineLog((existing) => [
@@ -140,8 +134,7 @@ export function useGameController({
   });
   const clearAllFlights = useCallback(() => {
     clearAnimationFlights();
-    clearTerminalWinnerOverlay();
-  }, [clearAnimationFlights, clearTerminalWinnerOverlay]);
+  }, [clearAnimationFlights]);
   const dispatchAction = useCallback(
     (
       previousState: GameState,
@@ -170,13 +163,6 @@ export function useGameController({
         resourceFlights: plan.resourceFlights,
         cardFlights: plan.cardFlights,
         turnCyclePlan: plan.turnCyclePlan,
-        onSettle: plan.enteredTerminal
-          ? () => {
-              setTerminalWinnerOverlayWinner(
-                (plan.nextState.finalScore ?? scoreLive(plan.nextState)).winner
-              );
-            }
-          : undefined,
       });
       setError(null);
     },
@@ -224,12 +210,6 @@ export function useGameController({
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
-
-  useEffect(() => {
-    if (!terminal) {
-      clearTerminalWinnerOverlay();
-    }
-  }, [clearTerminalWinnerOverlay, terminal]);
 
   useEffect(() => {
     if (
@@ -441,7 +421,6 @@ export function useGameController({
     performHumanAction,
     resetSession,
     resetTurn,
-    terminalWinnerOverlayWinner,
     animations: {
       enabled: animationsEnabled,
       setEnabled: setAnimationsEnabled,

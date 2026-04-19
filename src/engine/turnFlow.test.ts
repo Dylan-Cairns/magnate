@@ -178,8 +178,12 @@ describe('advanceToDecision', () => {
     expect(advanced.finalTurnsRemaining).toBe(0);
     expect(advanced.players[0].hand).toEqual([]);
     expect(advanced.players[1].hand).toEqual([]);
-    expect(advanced.districts[0].stacks[PLAYER_A].deed).toBeUndefined();
-    expect(advanced.deck.discard).toEqual(['6', '7', '8', '9', '29']);
+    expect(advanced.districts[0].stacks[PLAYER_A].deed).toEqual({
+      cardId: '29',
+      progress: 0,
+      tokens: {},
+    });
+    expect(advanced.deck.discard).toEqual(['6', '7', '8', '9']);
     expect(advanced.finalScore).toBeDefined();
   });
 

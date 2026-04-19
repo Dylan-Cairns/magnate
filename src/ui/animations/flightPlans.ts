@@ -1,5 +1,4 @@
 import type { CardId } from '../../engine/cards';
-import { isTerminal } from '../../engine/scoring';
 import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
 import type { CardPerspective } from '../components/CardTile';
 import {
@@ -19,8 +18,6 @@ import {
 import {
   CARD_DRAW_FLIGHT_DELAY_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
-  TERMINAL_CLEANUP_FLIGHT_DURATION_MS,
-  TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
@@ -36,107 +33,12 @@ const BOT_PLAYER: PlayerId = 'PlayerB';
 const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
 
-export function terminalCleanupTargetY(
-  startY: number,
-  viewportCenterY: number
-): number {
-  const direction = startY < viewportCenterY ? -1 : 1;
-  return startY + direction * TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX;
-}
-
-export function collectTerminalCleanupFlights(
-  previousState: GameState,
-  nextState: GameState,
-  makeResourceFlightId: () => string,
-  makeCardFlightId: () => string,
-  domTargets: AnimationDomTargets = browserAnimationDomTargets
-): {
+export function collectTerminalCleanupFlights(): {
   resourceFlights: ReadonlyArray<ResourceFlight>;
   cardFlights: ReadonlyArray<CardFlight>;
 } | null {
-  if (
-    !domTargets.isAvailable() ||
-    isTerminal(previousState) ||
-    !isTerminal(nextState)
-  ) {
-    return null;
-  }
-
-  const resourceFlights: ResourceFlight[] = [];
-  const cardFlights: CardFlight[] = [];
-
-  for (const district of previousState.districts) {
-    for (const player of previousState.players) {
-      const deed = district.stacks[player.id].deed;
-      if (!deed) {
-        continue;
-      }
-
-      const cardElement =
-        domTargets.districtCard(player.id, district.id, deed.cardId) ??
-        domTargets.terminalDevelopingCard(deed.cardId);
-      if (!cardElement) {
-        continue;
-      }
-
-      const cardRect = cardElement.getBoundingClientRect();
-      const cardCenter = domTargets.elementCenter(cardElement);
-      cardFlights.push({
-        id: makeCardFlightId(),
-        variant: 'terminal-clear',
-        visual: 'face',
-        cardId: deed.cardId,
-        isDeed: true,
-        perspective: player.id === BOT_PLAYER ? 'bot' : 'human',
-        startX: cardCenter.x,
-        startY: cardCenter.y,
-        endX: cardCenter.x,
-        endY: terminalCleanupTargetY(
-          cardCenter.y,
-          domTargets.viewportCenterY()
-        ),
-        startWidth: cardRect.width,
-        startHeight: cardRect.height,
-        endWidth: cardRect.width,
-        endHeight: cardRect.height,
-        delayMs: 0,
-        durationMs: TERMINAL_CLEANUP_FLIGHT_DURATION_MS,
-      });
-
-      for (const entry of tokenEntries(deed.tokens)) {
-        const tokenElement = domTargets.deedToken(cardElement, entry.suit);
-        if (!tokenElement) {
-          continue;
-        }
-        const tokenCenter = domTargets.tokenVisualCenter(tokenElement);
-        for (let index = 0; index < entry.count; index += 1) {
-          resourceFlights.push({
-            id: makeResourceFlightId(),
-            suit: entry.suit,
-            startX: tokenCenter.x,
-            startY: tokenCenter.y,
-            endX: tokenCenter.x,
-            endY: terminalCleanupTargetY(
-              tokenCenter.y,
-              domTargets.viewportCenterY()
-            ),
-            delayMs: 0,
-            durationMs: TERMINAL_CLEANUP_FLIGHT_DURATION_MS,
-            variant: 'terminal-clear',
-          });
-        }
-      }
-    }
-  }
-
-  if (resourceFlights.length === 0 && cardFlights.length === 0) {
-    return null;
-  }
-
-  return {
-    resourceFlights,
-    cardFlights,
-  };
+  // Keep terminal board state visible for post-game review.
+  return null;
 }
 
 export function buildTaxLossFlightsFromDom(
