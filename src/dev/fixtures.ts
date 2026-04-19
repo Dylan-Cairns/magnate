@@ -6,7 +6,12 @@ import type { GameState, PlayerId } from '../engine/types';
 export type DevFixtureId = 'multi-income';
 
 const DEV_FIXTURE_PARAM = 'fixture';
-const MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['6', '7', '8'];
+const HUMAN_MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['6', '7'];
+const BOT_MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['8'];
+const MULTI_INCOME_DEED_CARDS: readonly CardId[] = [
+  ...HUMAN_MULTI_INCOME_DEED_CARDS,
+  ...BOT_MULTI_INCOME_DEED_CARDS,
+];
 
 export function devFixtureIdFromBrowserLocation(): DevFixtureId | null {
   if (!import.meta.env.DEV || typeof window === 'undefined') {
@@ -36,6 +41,7 @@ export function createDevFixtureSession(
 
 function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
   const fixtureCardSet = new Set<CardId>(MULTI_INCOME_DEED_CARDS);
+  const botPlayerId = otherPlayerId(humanPlayerId);
   const state = newGame('dev-fixture-multi-income', {
     firstPlayer: humanPlayerId,
   });
@@ -64,23 +70,40 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
     turn: 3,
     phase: 'CollectIncome',
     districts: state.districts.map((district, index) => {
-      const deedCardId = MULTI_INCOME_DEED_CARDS[index];
-      if (!deedCardId) {
-        return district;
-      }
+      const humanDeedCardId = HUMAN_MULTI_INCOME_DEED_CARDS[index];
+      const botDeedCardId =
+        BOT_MULTI_INCOME_DEED_CARDS[
+          index - HUMAN_MULTI_INCOME_DEED_CARDS.length
+        ];
 
       return {
         ...district,
         stacks: {
           ...district.stacks,
-          [humanPlayerId]: {
-            ...district.stacks[humanPlayerId],
-            deed: {
-              cardId: deedCardId,
-              progress: 0,
-              tokens: {},
-            },
-          },
+          ...(humanDeedCardId
+            ? {
+                [humanPlayerId]: {
+                  ...district.stacks[humanPlayerId],
+                  deed: {
+                    cardId: humanDeedCardId,
+                    progress: 0,
+                    tokens: {},
+                  },
+                },
+              }
+            : {}),
+          ...(botDeedCardId
+            ? {
+                [botPlayerId]: {
+                  ...district.stacks[botPlayerId],
+                  deed: {
+                    cardId: botDeedCardId,
+                    progress: 0,
+                    tokens: {},
+                  },
+                },
+              }
+            : {}),
         },
       };
     }),
@@ -99,4 +122,8 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
       },
     ],
   });
+}
+
+function otherPlayerId(playerId: PlayerId): PlayerId {
+  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
 }

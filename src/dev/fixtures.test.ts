@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
-import { humanActionsAcceptingInputForState } from '../ui/gameControllerModel';
+import {
+  humanActionsAcceptingInputForState,
+  incomeChoiceActionsForPlayer,
+} from '../ui/gameControllerModel';
 import { buildHumanActionList } from '../ui/actionPresentation';
 import {
   createDevFixtureSession,
@@ -19,14 +22,15 @@ describe('dev fixtures', () => {
       '7',
       '8',
     ]);
+    expect(state.pendingIncomeChoices?.map((choice) => choice.playerId)).toEqual(
+      ['PlayerA', 'PlayerA', 'PlayerB']
+    );
     expect(
-      state.pendingIncomeChoices?.every(
-        (choice) => choice.playerId === 'PlayerA' && choice.suits.length === 2
-      )
+      state.pendingIncomeChoices?.every((choice) => choice.suits.length === 2)
     ).toBe(true);
   });
 
-  it('presents the multi-income fixture as one grouped action per income card', () => {
+  it('presents the human side as one grouped action per human income card', () => {
     const state = createDevFixtureSession('multi-income', 'PlayerA');
     const actions = humanActionsAcceptingInputForState({
       state,
@@ -37,12 +41,26 @@ describe('dev fixtures', () => {
     const grouped = buildHumanActionList(actions);
 
     expect(legalActions(state)).toHaveLength(6);
-    expect(grouped).toHaveLength(3);
+    expect(grouped).toHaveLength(2);
     expect(
       grouped.map((item) =>
         item.kind === 'income-choice-group' ? item.cardId : null
       )
-    ).toEqual(['6', '7', '8']);
+    ).toEqual(['6', '7']);
+  });
+
+  it('also gives the bot owned partial-income choices', () => {
+    const state = createDevFixtureSession('multi-income', 'PlayerA');
+    const botIncomeActions = incomeChoiceActionsForPlayer(
+      legalActions(state),
+      'PlayerB'
+    );
+
+    expect(botIncomeActions.map((action) => action.cardId)).toEqual(['8', '8']);
+    expect(botIncomeActions.map((action) => action.suit)).toEqual([
+      'Waves',
+      'Leaves',
+    ]);
   });
 
   it('parses only known dev fixture query values', () => {

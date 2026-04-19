@@ -179,4 +179,16 @@ describe('ActionsPanel', () => {
     expect(html).toContain('Resolving income choices...');
     expect(html).not.toContain('No legal actions.');
   });
+
+  it('shows bot thinking after the human has submitted income choices while bot income remains', () => {
+    const html = renderPanel({
+      isIncomeChoicePhase: true,
+      visibleActionItems: [],
+      botThinking: true,
+    });
+
+    expect(html).toContain('Bot is thinking...');
+    expect(html).not.toContain('Resolving income choices...');
+    expect(html).not.toContain('No legal actions.');
+  });
 });

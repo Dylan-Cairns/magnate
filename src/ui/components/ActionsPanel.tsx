@@ -151,7 +151,9 @@ export function ActionsPanel({
                 0 ? (
                 <p className="empty-note">
                   {isIncomeChoicePhase
-                    ? 'Resolving income choices...'
+                    ? botThinking
+                      ? 'Bot is thinking...'
+                      : 'Resolving income choices...'
                     : 'No legal actions.'}
                 </p>
               ) : (
