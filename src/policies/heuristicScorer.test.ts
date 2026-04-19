@@ -80,7 +80,7 @@ describe('heuristic scorer', () => {
 
     expect(best?.actionKey).toBe(ranked[0]?.actionKey);
     expect(best?.actionKey).toBe(
-      'develop-deed:17:D2:Moons:0|Suns:0|Waves:0|Leaves:0|Wyrms:0|Knots:1'
+      'develop-deed:9:D4:Moons:1|Suns:0|Waves:0|Leaves:0|Wyrms:0|Knots:0'
     );
   });
 

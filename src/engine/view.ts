@@ -11,6 +11,7 @@ import type {
   PlayerState,
   PlayerView,
   ResourcePool,
+  SubmittedIncomeChoice,
 } from './types';
 
 export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
@@ -40,6 +41,9 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
     lastIncomeRoll: cloneIncomeRoll(state.lastIncomeRoll),
     lastTaxSuit: state.lastTaxSuit,
     pendingIncomeChoices: cloneIncomeChoices(state.pendingIncomeChoices),
+    submittedIncomeChoices: cloneSubmittedIncomeChoices(
+      state.submittedIncomeChoices
+    ),
     incomeChoiceReturnPlayerId: state.incomeChoiceReturnPlayerId,
     finalScore: cloneFinalScore(state.finalScore),
     log: state.log.map(cloneLogEntry),
@@ -130,6 +134,20 @@ function cloneIncomeChoices(
     districtId: choice.districtId,
     cardId: choice.cardId,
     suits: [...choice.suits],
+  }));
+}
+
+function cloneSubmittedIncomeChoices(
+  choices: ReadonlyArray<SubmittedIncomeChoice> | undefined
+): ReadonlyArray<SubmittedIncomeChoice> | undefined {
+  if (!choices) {
+    return undefined;
+  }
+  return choices.map((choice) => ({
+    playerId: choice.playerId,
+    districtId: choice.districtId,
+    cardId: choice.cardId,
+    suit: choice.suit,
   }));
 }
 

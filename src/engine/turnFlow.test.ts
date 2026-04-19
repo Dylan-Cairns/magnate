@@ -548,7 +548,7 @@ describe('tax and income resolution', () => {
     expect(playerA.resources.Wyrms).toBe(0);
   });
 
-  it('CollectIncome pending income choices switch active actor and then restore turn owner', () => {
+  it('CollectIncome pending income choices keep the turn owner active until all choices resolve', () => {
     const districts = makeDefaultDistricts().map((district) => {
       if (district.id !== 'D1') {
         return district;
@@ -578,7 +578,7 @@ describe('tax and income resolution', () => {
 
     const advanced = advanceToDecision(state);
     expect(advanced.phase).toBe('CollectIncome');
-    expect(advanced.players[advanced.activePlayerIndex].id).toBe(PLAYER_B);
+    expect(advanced.players[advanced.activePlayerIndex].id).toBe(PLAYER_A);
     expect(advanced.incomeChoiceReturnPlayerId).toBe(PLAYER_A);
 
     const choose = legalActions(advanced).find(
@@ -591,10 +591,11 @@ describe('tax and income resolution', () => {
     const resolved = applyAction(advanced, choose);
     expect(resolved.phase).toBe('ActionWindow');
     expect(resolved.players[resolved.activePlayerIndex].id).toBe(PLAYER_A);
+    expect(resolved.submittedIncomeChoices).toBeUndefined();
     expect(resolved.incomeChoiceReturnPlayerId).toBeUndefined();
   });
 
-  it('CollectIncome queues multiple generated suit choices and resolves them in order', () => {
+  it('CollectIncome queues multiple generated suit choices and resolves only after all are submitted', () => {
     const districts = makeDefaultDistricts().map((district) => {
       if (district.id === 'D1') {
         return {
@@ -667,29 +668,67 @@ describe('tax and income resolution', () => {
         suits: ['Waves', 'Leaves'],
       },
     ]);
-    expect(advanced.players[advanced.activePlayerIndex].id).toBe(PLAYER_A);
+    expect(advanced.players[advanced.activePlayerIndex].id).toBe(PLAYER_B);
     expect(advanced.incomeChoiceReturnPlayerId).toBe(PLAYER_B);
 
-    const choice1 = findLegalActionByType(advanced, 'choose-income-suit');
+    const choice1 = legalActions(advanced).find(
+      (action) =>
+        action.type === 'choose-income-suit' &&
+        action.playerId === PLAYER_A &&
+        action.districtId === 'D1' &&
+        action.suit === 'Suns'
+    );
+    if (!choice1 || choice1.type !== 'choose-income-suit') {
+      throw new Error('Missing first expected choose-income-suit action.');
+    }
     const afterChoice1 = applyAction(advanced, choice1);
     expect(afterChoice1.phase).toBe('CollectIncome');
     expect(afterChoice1.players[afterChoice1.activePlayerIndex].id).toBe(
-      PLAYER_A
+      PLAYER_B
     );
-    expect(afterChoice1.pendingIncomeChoices).toHaveLength(2);
+    expect(afterChoice1.pendingIncomeChoices).toHaveLength(3);
+    expect(afterChoice1.submittedIncomeChoices).toHaveLength(1);
 
-    const choice2 = findLegalActionByType(afterChoice1, 'choose-income-suit');
+    const playerAAfterChoice1 = afterChoice1.players.find(
+      (player) => player.id === PLAYER_A
+    );
+    if (!playerAAfterChoice1) {
+      throw new Error('Missing PlayerA.');
+    }
+    expect(playerAAfterChoice1.resources.Suns).toBe(0);
+
+    const choice2 = legalActions(afterChoice1).find(
+      (action) =>
+        action.type === 'choose-income-suit' &&
+        action.playerId === PLAYER_A &&
+        action.districtId === 'D3' &&
+        action.suit === 'Knots'
+    );
+    if (!choice2 || choice2.type !== 'choose-income-suit') {
+      throw new Error('Missing second expected choose-income-suit action.');
+    }
     const afterChoice2 = applyAction(afterChoice1, choice2);
     expect(afterChoice2.players[afterChoice2.activePlayerIndex].id).toBe(
       PLAYER_B
     );
-    expect(afterChoice2.pendingIncomeChoices).toHaveLength(1);
+    expect(afterChoice2.pendingIncomeChoices).toHaveLength(3);
+    expect(afterChoice2.submittedIncomeChoices).toHaveLength(2);
 
-    const choice3 = findLegalActionByType(afterChoice2, 'choose-income-suit');
+    const choice3 = legalActions(afterChoice2).find(
+      (action) =>
+        action.type === 'choose-income-suit' &&
+        action.playerId === PLAYER_B &&
+        action.districtId === 'D2' &&
+        action.suit === 'Leaves'
+    );
+    if (!choice3 || choice3.type !== 'choose-income-suit') {
+      throw new Error('Missing third expected choose-income-suit action.');
+    }
     const resolved = applyAction(afterChoice2, choice3);
     expect(resolved.phase).toBe('ActionWindow');
     expect(resolved.players[resolved.activePlayerIndex].id).toBe(PLAYER_B);
     expect(resolved.pendingIncomeChoices).toBeUndefined();
+    expect(resolved.submittedIncomeChoices).toBeUndefined();
     expect(resolved.incomeChoiceReturnPlayerId).toBeUndefined();
 
     const playerA = resolved.players.find((player) => player.id === PLAYER_A);
@@ -697,12 +736,9 @@ describe('tax and income resolution', () => {
     if (!playerA || !playerB) {
       throw new Error('Missing expected players.');
     }
-    expect(
-      Object.values(playerA.resources).reduce((sum, value) => sum + value, 0)
-    ).toBe(2);
-    expect(
-      Object.values(playerB.resources).reduce((sum, value) => sum + value, 0)
-    ).toBe(1);
+    expect(playerA.resources.Suns).toBe(1);
+    expect(playerA.resources.Knots).toBe(1);
+    expect(playerB.resources.Leaves).toBe(1);
   });
 
   it('CollectIncome on double ones pays ace income for ace properties in play', () => {

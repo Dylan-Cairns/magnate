@@ -142,12 +142,22 @@ describe('income choice reducer semantics', () => {
     expect(next.phase).toBe('ActionWindow');
     expect(next.activePlayerIndex).toBe(0);
     expect(next.pendingIncomeChoices).toBeUndefined();
+    expect(next.submittedIncomeChoices).toBeUndefined();
     expect(next.incomeChoiceReturnPlayerId).toBeUndefined();
   });
 
-  it('choose-income-suit keeps CollectIncome phase when more choices remain', () => {
+  it('choose-income-suit records a submission without applying resources until all choices are submitted', () => {
     const state = makeGameState({
       phase: 'CollectIncome',
+      activePlayerIndex: 0,
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Suns: 0, Wyrms: 0 }),
+        }),
+        makePlayer(PLAYER_B, {
+          resources: makeResources({ Waves: 0, Leaves: 0 }),
+        }),
+      ] as const,
       pendingIncomeChoices: [
         {
           playerId: PLAYER_A,
@@ -167,10 +177,138 @@ describe('income choice reducer semantics', () => {
     const action = findLegalActionByType(state, 'choose-income-suit');
     const next = applyAction(state, action);
 
+    const playerA = next.players.find((player) => player.id === PLAYER_A);
+    if (!playerA) {
+      throw new Error('Missing PlayerA.');
+    }
+
     expect(next.phase).toBe('CollectIncome');
-    expect(next.activePlayerIndex).toBe(1);
-    expect(next.pendingIncomeChoices).toHaveLength(1);
-    expect(next.pendingIncomeChoices?.[0].playerId).toBe(PLAYER_B);
+    expect(next.activePlayerIndex).toBe(0);
+    expect(next.pendingIncomeChoices).toHaveLength(2);
+    expect(next.submittedIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '7',
+        suit: 'Suns',
+      },
+    ]);
+    expect(playerA.resources.Suns).toBe(0);
+    expect(playerA.resources.Wyrms).toBe(0);
+  });
+
+  it('choose-income-suit resolves all submitted choices in pending order on the final submission', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      activePlayerIndex: 0,
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Suns: 0, Wyrms: 0 }),
+        }),
+        makePlayer(PLAYER_B, {
+          resources: makeResources({ Waves: 0, Leaves: 0 }),
+        }),
+      ] as const,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+      submittedIncomeChoices: [
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suit: 'Leaves',
+        },
+      ],
+      incomeChoiceReturnPlayerId: PLAYER_A,
+    });
+
+    const next = applyAction(state, {
+      type: 'choose-income-suit',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '7',
+      suit: 'Wyrms',
+    });
+    const playerA = next.players.find((player) => player.id === PLAYER_A);
+    const playerB = next.players.find((player) => player.id === PLAYER_B);
+    if (!playerA || !playerB) {
+      throw new Error('Missing expected players.');
+    }
+
+    expect(next.phase).toBe('ActionWindow');
+    expect(next.activePlayerIndex).toBe(0);
+    expect(next.pendingIncomeChoices).toBeUndefined();
+    expect(next.submittedIncomeChoices).toBeUndefined();
+    expect(playerA.resources.Wyrms).toBe(1);
+    expect(playerB.resources.Leaves).toBe(1);
+  });
+
+  it('second chooser sees pre-resolution resources after the first chooser submits', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Suns: 2, Wyrms: 3 }),
+        }),
+        makePlayer(PLAYER_B, {
+          resources: makeResources({ Waves: 4, Leaves: 5 }),
+        }),
+      ] as const,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+      incomeChoiceReturnPlayerId: PLAYER_A,
+    });
+
+    const afterPlayerA = applyAction(state, {
+      type: 'choose-income-suit',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '7',
+      suit: 'Wyrms',
+    });
+    const playerA = afterPlayerA.players.find(
+      (player) => player.id === PLAYER_A
+    );
+    const playerB = afterPlayerA.players.find(
+      (player) => player.id === PLAYER_B
+    );
+    if (!playerA || !playerB) {
+      throw new Error('Missing expected players.');
+    }
+
+    expect(playerA.resources).toEqual(makeResources({ Suns: 2, Wyrms: 3 }));
+    expect(playerB.resources).toEqual(makeResources({ Waves: 4, Leaves: 5 }));
+    expect(
+      legalActions(afterPlayerA).filter(
+        (candidate) =>
+          candidate.type === 'choose-income-suit' &&
+          candidate.playerId === PLAYER_B
+      )
+    ).toHaveLength(2);
   });
 
   it('choose-income-suit logs the acting chooser even when turn owner is restored', () => {

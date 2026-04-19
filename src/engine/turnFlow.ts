@@ -63,7 +63,7 @@ function isDecisionPhase(
     return true;
   }
   if (state.phase === 'CollectIncome') {
-    return (state.pendingIncomeChoices?.length ?? 0) > 0;
+    return hasUnsubmittedIncomeChoices(state);
   }
   return false;
 }
@@ -126,20 +126,23 @@ function resolveCollectIncome(state: GameState): GameState {
     );
   }
   if ((state.pendingIncomeChoices?.length ?? 0) > 0) {
-    const [nextChoice] = state.pendingIncomeChoices ?? [];
-    if (!nextChoice) {
+    if (hasUnsubmittedIncomeChoices(state)) {
       return state;
     }
-    const nextActivePlayerIndex = findPlayerIndexById(
-      state,
-      nextChoice.playerId
-    );
-    if (nextActivePlayerIndex === state.activePlayerIndex) {
-      return state;
+
+    const returnPlayerId = state.incomeChoiceReturnPlayerId;
+    if (!returnPlayerId) {
+      throw new Error('Missing return player while resolving income choices.');
     }
+
     return {
-      ...state,
-      activePlayerIndex: nextActivePlayerIndex,
+      ...resolveSubmittedIncomeChoices(state),
+      activePlayerIndex: findPlayerIndexById(state, returnPlayerId),
+      phase: 'ActionWindow',
+      cardPlayedThisTurn: false,
+      pendingIncomeChoices: undefined,
+      submittedIncomeChoices: undefined,
+      incomeChoiceReturnPlayerId: undefined,
     };
   }
   const incomeRoll = state.lastIncomeRoll;
@@ -155,17 +158,12 @@ function resolveCollectIncome(state: GameState): GameState {
   });
 
   if (pendingChoices.length > 0) {
-    const [nextChoice] = pendingChoices;
-    const nextActivePlayerIndex = findPlayerIndexById(
-      state,
-      nextChoice.playerId
-    );
     return {
       ...state,
       players,
-      activePlayerIndex: nextActivePlayerIndex,
       phase: 'CollectIncome',
       pendingIncomeChoices: pendingChoices,
+      submittedIncomeChoices: undefined,
       incomeChoiceReturnPlayerId: state.players[state.activePlayerIndex]?.id,
     };
   }
@@ -176,8 +174,70 @@ function resolveCollectIncome(state: GameState): GameState {
     phase: 'ActionWindow',
     cardPlayedThisTurn: false,
     pendingIncomeChoices: undefined,
+    submittedIncomeChoices: undefined,
     incomeChoiceReturnPlayerId: undefined,
   };
+}
+
+function hasUnsubmittedIncomeChoices(state: GameState): boolean {
+  const submitted = state.submittedIncomeChoices ?? [];
+  return (state.pendingIncomeChoices ?? []).some(
+    (choice) =>
+      !submitted.some((entry) => incomeChoiceMatches(choice, entry))
+  );
+}
+
+function resolveSubmittedIncomeChoices(state: GameState): GameState {
+  const pendingChoices = state.pendingIncomeChoices ?? [];
+  const submissions = state.submittedIncomeChoices ?? [];
+  let next = state;
+
+  pendingChoices.forEach((choice) => {
+    const submission = submissions.find((entry) =>
+      incomeChoiceMatches(choice, entry)
+    );
+    if (!submission) {
+      throw new Error('Cannot resolve income choices before all are submitted.');
+    }
+    if (!choice.suits.includes(submission.suit)) {
+      throw new Error(
+        `Suit ${submission.suit} is not valid for submitted income choice.`
+      );
+    }
+
+    const players = next.players.map((player) =>
+      player.id === choice.playerId
+        ? {
+            ...player,
+            resources: applyDelta(player.resources, {
+              [submission.suit]: 1,
+            }),
+          }
+        : player
+    );
+    next = { ...next, players };
+  });
+
+  return next;
+}
+
+function incomeChoiceMatches(
+  choice: {
+    playerId: PlayerId;
+    districtId: string;
+    cardId: CardId;
+  },
+  submission: {
+    playerId: PlayerId;
+    districtId: string;
+    cardId: CardId;
+  }
+): boolean {
+  return (
+    choice.playerId === submission.playerId &&
+    choice.districtId === submission.districtId &&
+    choice.cardId === submission.cardId
+  );
 }
 
 function applyTaxation(state: GameState, taxSuit: Suit): GameState['players'] {
@@ -430,6 +490,7 @@ function handoffTurnState(
     lastIncomeRoll: undefined,
     lastTaxSuit: undefined,
     pendingIncomeChoices: undefined,
+    submittedIncomeChoices: undefined,
     incomeChoiceReturnPlayerId: undefined,
   };
 }

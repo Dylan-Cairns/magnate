@@ -19,6 +19,7 @@
 ## Current State
 
 - Browser play is functional with selectable bot profiles behind a shared async policy contract.
+- TypeScript engine partial deed income is submitted simultaneously: pending obligations remain intact, submitted suit choices do not pay resources until all required choices are submitted, then selected resources resolve in deterministic pending-choice order.
 - Browser heuristic, rollout search, TD search, and TD-root search share deterministic policy plumbing where appropriate.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
@@ -33,6 +34,7 @@
 ## Remaining Work
 
 - Improve `td-search` strength and throughput.
+- Finish browser controller/UI, bridge/training, replay, and policy alignment for simultaneous partial deed income submissions.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
 - Add Node-local model-pack loading for direct TypeScript evaluation of serialized `td-search` specs.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
@@ -46,4 +48,4 @@
 4. Use `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json` when direct TypeScript rollout-search replay exports are needed for TD training.
 5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-06-05._
+_Updated: 2026-06-09._
