@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from '../../engine/actionBuilders';
+import { devFixtureIdFromBrowserLocation } from '../../dev/fixtures';
 import {
   toDecisionPlayerView,
   turnOwnerIdForState,
@@ -91,8 +92,13 @@ export function useGameController({
   botPlayerId,
   startupPreloadReady,
 }: UseGameControllerOptions) {
+  const devFixtureIdRef = useRef(devFixtureIdFromBrowserLocation());
   const [state, setState] = useState<GameState>(() =>
-    createBrowserSession(makeBrowserSessionSeed(), humanPlayerId)
+    createBrowserSession(
+      makeBrowserSessionSeed(),
+      humanPlayerId,
+      devFixtureIdRef.current
+    )
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
     () => withSeedLogPrefix(state, state.log, humanPlayerId)
@@ -402,7 +408,11 @@ export function useGameController({
       clearAllDeedTokenLayouts();
 
       try {
-        const initialState = createBrowserSession(seed, humanPlayerId);
+        const initialState = createBrowserSession(
+          seed,
+          humanPlayerId,
+          devFixtureIdRef.current
+        );
         setState(initialState);
         setTimelineLog(
           withSeedLogPrefix(initialState, initialState.log, humanPlayerId)

@@ -239,7 +239,7 @@ export function App() {
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
 
   useEffect(() => {
-    if (terminal || activePlayerId !== HUMAN_PLAYER) {
+    if (terminal || (activePlayerId !== HUMAN_PLAYER && !isIncomeChoicePhase)) {
       closeActionPicker();
       return;
     }
@@ -282,6 +282,7 @@ export function App() {
   }, [
     activePlayerId,
     humanActionsAcceptingInput,
+    isIncomeChoicePhase,
     terminal,
     actionPicker,
     closeActionPicker,
@@ -396,6 +397,21 @@ export function App() {
     const position = pickerPosition(trigger, optionCount);
     setActionPicker({
       kind: 'deed-payment',
+      cardId: config.cardId,
+      districtId: config.districtId,
+      ...position,
+    });
+  };
+
+  const openIncomeChoicePicker = (
+    config: { playerId: PlayerId; cardId: CardId; districtId: string },
+    trigger: HTMLButtonElement,
+    optionCount: number
+  ) => {
+    const position = pickerPosition(trigger, optionCount);
+    setActionPicker({
+      kind: 'income-choice',
+      playerId: config.playerId,
       cardId: config.cardId,
       districtId: config.districtId,
       ...position,
@@ -518,6 +534,7 @@ export function App() {
               openDevelopOutrightDistrictOnlyPicker
             }
             onOpenDeedPaymentPicker={openDeedPaymentPicker}
+            onOpenIncomeChoicePicker={openIncomeChoicePicker}
           />
 
           <PlayerPanel

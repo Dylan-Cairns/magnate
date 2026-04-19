@@ -9,13 +9,22 @@ type TradeAction = Extract<GameAction, { type: 'trade' }>;
 type BuyDeedAction = Extract<GameAction, { type: 'buy-deed' }>;
 type DevelopDeedAction = Extract<GameAction, { type: 'develop-deed' }>;
 type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
+type ChooseIncomeSuitAction = Extract<
+  GameAction,
+  { type: 'choose-income-suit' }
+>;
 type NonGroupedAction = Exclude<
   GameAction,
-  TradeAction | BuyDeedAction | DevelopDeedAction | DevelopOutrightAction
+  | TradeAction
+  | BuyDeedAction
+  | DevelopDeedAction
+  | DevelopOutrightAction
+  | ChooseIncomeSuitAction
 >;
+type DirectAction = NonGroupedAction | ChooseIncomeSuitAction;
 
 export type HumanActionListItem =
-  | { kind: 'action'; action: NonGroupedAction }
+  | { kind: 'action'; action: DirectAction }
   | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
   | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
   | {
@@ -28,6 +37,13 @@ export type HumanActionListItem =
       kind: 'develop-outright-group';
       cardId: CardId;
       options: DevelopOutrightAction[];
+    }
+  | {
+      kind: 'income-choice-group';
+      playerId: ChooseIncomeSuitAction['playerId'];
+      districtId: string;
+      cardId: CardId;
+      options: ChooseIncomeSuitAction[];
     };
 
 export type ActionPickerQuery =
@@ -51,6 +67,12 @@ export type ActionPickerQuery =
     }
   | {
       kind: 'deed-payment';
+      cardId: CardId;
+      districtId: string;
+    }
+  | {
+      kind: 'income-choice';
+      playerId: ChooseIncomeSuitAction['playerId'];
       cardId: CardId;
       districtId: string;
     };
@@ -108,6 +130,10 @@ export function buildHumanActionList(
     HumanActionListItem,
     { kind: 'develop-outright-group' }
   >[] = [];
+  const incomeChoiceItems: Extract<
+    HumanActionListItem,
+    { kind: 'income-choice-group' }
+  >[] = [];
   const nonGroupedByType = new Map<
     NonGroupedAction['type'],
     NonGroupedAction[]
@@ -119,8 +145,34 @@ export function buildHumanActionList(
     CardId,
     { options: DevelopOutrightAction[] }
   >();
+  const incomeChoiceGroups = new Map<
+    string,
+    {
+      playerId: ChooseIncomeSuitAction['playerId'];
+      districtId: string;
+      cardId: CardId;
+      options: ChooseIncomeSuitAction[];
+    }
+  >();
 
   for (const action of actions) {
+    if (action.type === 'choose-income-suit') {
+      const groupKey = `${action.playerId}|${action.districtId}|${action.cardId}`;
+      const existing = incomeChoiceGroups.get(groupKey);
+      if (existing) {
+        existing.options.push(action);
+      } else {
+        const options = [action];
+        incomeChoiceGroups.set(groupKey, {
+          playerId: action.playerId,
+          districtId: action.districtId,
+          cardId: action.cardId,
+          options,
+        });
+      }
+      continue;
+    }
+
     if (action.type === 'trade') {
       const existing = tradeGroups.get(action.give);
       if (existing) {
@@ -196,6 +248,22 @@ export function buildHumanActionList(
   const endTurnItems = toActionItems(nonGroupedByType.get('end-turn'));
   const otherActionItems: Extract<HumanActionListItem, { kind: 'action' }>[] =
     [];
+  const incomeGroups = [...incomeChoiceGroups.values()];
+  const incomeActionItems =
+    incomeGroups.length > 1
+      ? []
+      : toActionItems(incomeGroups[0]?.options);
+  if (incomeGroups.length > 1) {
+    incomeChoiceItems.push(
+      ...incomeGroups.map((group) => ({
+        kind: 'income-choice-group' as const,
+        playerId: group.playerId,
+        districtId: group.districtId,
+        cardId: group.cardId,
+        options: group.options,
+      }))
+    );
+  }
 
   for (const [type, grouped] of nonGroupedByType.entries()) {
     if (type === 'sell-card' || type === 'end-turn') {
@@ -210,6 +278,8 @@ export function buildHumanActionList(
     ...sellCardItems,
     ...developDeedItems,
     ...tradeItems,
+    ...incomeChoiceItems,
+    ...incomeActionItems,
     ...otherActionItems,
     ...endTurnItems,
   ];
@@ -234,6 +304,17 @@ export function pickerStillLegal(
         action.districtId === picker.districtId
     );
     return options.length > 1;
+  }
+
+  if (picker.kind === 'income-choice') {
+    const options = actions.filter(
+      (action): action is ChooseIncomeSuitAction =>
+        action.type === 'choose-income-suit' &&
+        action.playerId === picker.playerId &&
+        action.cardId === picker.cardId &&
+        action.districtId === picker.districtId
+    );
+    return options.length > 0;
   }
 
   if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
@@ -304,6 +385,22 @@ export function buildPickerOptions(
       }));
   }
 
+  if (picker.kind === 'income-choice') {
+    return actions
+      .filter(
+        (action): action is ChooseIncomeSuitAction =>
+          action.type === 'choose-income-suit' &&
+          action.playerId === picker.playerId &&
+          action.cardId === picker.cardId &&
+          action.districtId === picker.districtId
+      )
+      .map((action) => ({
+        id: actionStableKey(action),
+        label: `${suitEmoji[action.suit]} x1`,
+        action,
+      }));
+  }
+
   if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
     return actions
       .filter(
@@ -364,6 +461,10 @@ export function pickerTitle(
 
   if (picker.kind === 'deed-payment') {
     return `Develop deed ${cardSummary(picker.cardId, suitEmoji)} in ${picker.districtId} with`;
+  }
+
+  if (picker.kind === 'income-choice') {
+    return `Choose income ${cardSummary(picker.cardId, suitEmoji)} in ${picker.districtId}`;
   }
 
   if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
@@ -455,7 +556,7 @@ function tokenEntries(
 }
 
 function toActionItems(
-  actions: readonly NonGroupedAction[] | undefined
+  actions: readonly DirectAction[] | undefined
 ): Array<Extract<HumanActionListItem, { kind: 'action' }>> {
   if (!actions || actions.length === 0) {
     return [];
