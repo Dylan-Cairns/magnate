@@ -1,4 +1,8 @@
-import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
+import {
+  actionStableKey,
+  toKeyedActions,
+  type KeyedAction,
+} from '../engine/actionSurface';
 import type { CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
 import { developmentCost, findProperty, SUITS } from '../engine/stateHelpers';
@@ -70,8 +74,41 @@ const TOKEN_VALUE_WEIGHT = 0.02;
 export function selectHeuristicV2Action(
   context: HeuristicV2SelectionContext
 ): GameAction | undefined {
-  const ranked = rankHeuristicV2Actions(context.legalActions, context);
-  return ranked[0]?.action;
+  return bestHeuristicV2Action(context.legalActions, context)?.action;
+}
+
+export function bestHeuristicV2Action(
+  candidateActions: readonly GameAction[],
+  context: HeuristicV2EvaluationContext = {}
+): KeyedAction | undefined {
+  const resolved = resolveContext(context);
+  const projectionByKey = new Map<string, ProjectedTokenValueContextV2>();
+  let best: KeyedAction | undefined;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const action of candidateActions) {
+    const candidate: KeyedAction = {
+      actionId: action.type,
+      actionKey: actionStableKey(action),
+      action,
+    };
+    const score = scoreHeuristicV2ActionWithContext(
+      action,
+      resolved,
+      projectedContextForKey(candidate, resolved, projectionByKey)
+    );
+    if (
+      !best ||
+      (!approximatelyEqual(score, bestScore) && score > bestScore) ||
+      (approximatelyEqual(score, bestScore) &&
+        candidate.actionKey.localeCompare(best.actionKey) < 0)
+    ) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+
+  return best;
 }
 
 export function rankHeuristicV2Actions(

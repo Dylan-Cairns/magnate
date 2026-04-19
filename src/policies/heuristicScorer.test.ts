@@ -4,7 +4,8 @@ import type { CardId } from '../engine/cards';
 import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
-import { createSession } from '../engine/session';
+import { isTerminal } from '../engine/scoring';
+import { createSession, stepToDecision } from '../engine/session';
 import type {
   DeedState,
   DistrictState,
@@ -16,6 +17,7 @@ import type {
 import { toPlayerView } from '../engine/view';
 import { heuristicPolicy } from './heuristicPolicy';
 import {
+  bestHeuristicAction,
   heuristicPriorsByKey,
   rankHeuristicActions,
   scoreHeuristicAction,
@@ -56,6 +58,30 @@ describe('heuristic scorer', () => {
       'sell-card:6',
       'sell-card:7',
     ]);
+  });
+
+  it('selects the same best action as full ranking without sorting', () => {
+    const state = createSession('heuristic-best-action-test', 'PlayerA');
+    const actions = legalActions(state);
+    const context = { state, view: toPlayerView(state, 'PlayerA') };
+
+    const best = bestHeuristicAction(actions, context);
+    const ranked = rankHeuristicActions(actions, context);
+
+    expect(best?.actionKey).toBe(ranked[0]?.actionKey);
+  });
+
+  it('uses full-ranking tie-breaks for near-equal best action scores', () => {
+    const state = randomReachableState('typed-regression-v1-37', 141);
+    const actions = legalActions(state);
+
+    const best = bestHeuristicAction(actions, { state });
+    const ranked = rankHeuristicActions(actions, { state });
+
+    expect(best?.actionKey).toBe(ranked[0]?.actionKey);
+    expect(best?.actionKey).toBe(
+      'develop-deed:17:D2:Moons:0|Suns:0|Waves:0|Leaves:0|Wyrms:0|Knots:1'
+    );
   });
 
   it('returns finite normalized priors for legal actions', () => {
@@ -626,6 +652,16 @@ describe('heuristic policy', () => {
     expect(legalKeys.has(actionStableKey(selected!))).toBe(true);
   });
 });
+
+function randomReachableState(seed: string, plies: number): GameState {
+  let state = createSession(seed, 'PlayerA');
+  const rng = rngFromSeed(seed.replace('typed-regression', 'typed-regression-roll'));
+  for (let ply = 0; ply < plies && !isTerminal(state); ply += 1) {
+    const actions = legalActions(state);
+    state = stepToDecision(state, actions[Math.floor(rng() * actions.length)]!);
+  }
+  return state;
+}
 
 function heuristicFixtureState({
   resources = fixtureResources(),
