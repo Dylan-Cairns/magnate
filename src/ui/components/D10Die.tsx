@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import '../../styles/d10-die.css';
 
 const SIDE_ANGLE = 72; // 360 / 5 faces
@@ -19,23 +19,31 @@ function getFaceOffset(result: number): { x: number; y: number } {
 // Initial tilt to show the die as 3D before any roll
 const INITIAL_ROT = { x: -TILT, y: 15 };
 
-export function D10Die({ result }: { result: number | undefined }) {
-  const prevResultRef = useRef<number | undefined>(undefined);
+export function D10Die({
+  result,
+  rollKey,
+}: {
+  result: number | undefined;
+  // Changing rollKey triggers animation even when result is the same number.
+  // Uses rollId from IncomeRollResult — increments with rngCursor on each real roll.
+  rollKey?: number;
+}) {
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
 
   useEffect(() => {
-    if (result === undefined || result === prevResultRef.current) return;
-    prevResultRef.current = result;
-
+    if (result === undefined) return;
     const { x: faceX, y: faceY } = getFaceOffset(result);
     // 360 added to X (one full tilt), 720 to Y (two full spins).
     // Z adds a 720° tumble (always a multiple of 360, so it doesn't affect resting face).
     setRotX(prev => Math.round(prev / 360) * 360 + 360 + faceX);
     setRotY(prev => Math.round(prev / 360) * 360 + 720 + faceY);
     setRotZ(prev => prev - 720);
-  }, [result]);
+  // rollKey is the primary trigger; result provides the face target.
+  // They always update together so including both is safe and lint-clean.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rollKey]);
 
   return (
     <div

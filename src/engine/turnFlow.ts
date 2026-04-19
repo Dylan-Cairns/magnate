@@ -93,6 +93,7 @@ function resolveTaxCheck(state: GameState): GameState {
   const incomeRoll: IncomeRollResult = {
     die1: first.value,
     die2: second.value,
+    rollId: second.rngCursor,
   };
 
   let nextState: GameState = {
