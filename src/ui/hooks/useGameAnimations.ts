@@ -282,7 +282,9 @@ export function useGameAnimations({
       );
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
-        setAllowHumanActionsWhileCommitPending(false);
+        setAllowHumanActionsWhileCommitPending(
+          shouldAllowHumanActionsDuringAnimationSettle(action)
+        );
         onCommitTransition(previousState, nextState, action);
         onSettle?.();
         return;
@@ -299,7 +301,8 @@ export function useGameAnimations({
       }
       setPendingDiscardHoldback(action.type === 'sell-card' ? 1 : 0);
       setAllowHumanActionsWhileCommitPending(
-        shouldAllowHumanActionsDuringAnimationSettle(action)
+        shouldAllowHumanActionsDuringAnimationSettle(action) &&
+          action.type !== 'choose-income-suit'
       );
       setActionCommitPending(true);
       if (shouldCommitBeforeAnimationSettle(action)) {

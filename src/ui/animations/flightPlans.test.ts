@@ -162,7 +162,7 @@ describe('flightPlans', () => {
     expect(collectTerminalCleanupFlights()).toBeNull();
   });
 
-  it('plans income choice, sold-card, lane-play, and draw flights', () => {
+  it('plans income choice reveal, sold-card, lane-play, and draw flights', () => {
     const hand = makeElement({
       left: 10,
       top: 20,
@@ -191,6 +191,18 @@ describe('flightPlans', () => {
 
     expect(
       collectIncomeChoiceResourceFlights(
+        makeGameState({
+          phase: 'CollectIncome',
+          pendingIncomeChoices: [
+            {
+              playerId: PLAYER_A,
+              districtId: 'D1',
+              cardId: '6',
+              suits: ['Moons', 'Knots'],
+            },
+          ],
+        }),
+        makeGameState({ phase: 'ActionWindow' }),
         {
           type: 'choose-income-suit',
           playerId: PLAYER_A,
@@ -202,6 +214,105 @@ describe('flightPlans', () => {
         targets
       )
     ).toMatchObject([{ id: 'choice-1', startX: 50, endX: 245 }]);
+
+    expect(
+      collectIncomeChoiceResourceFlights(
+        makeGameState({
+          phase: 'CollectIncome',
+          pendingIncomeChoices: [
+            {
+              playerId: PLAYER_A,
+              districtId: 'D1',
+              cardId: '6',
+              suits: ['Moons', 'Knots'],
+            },
+            {
+              playerId: 'PlayerB',
+              districtId: 'D2',
+              cardId: '8',
+              suits: ['Waves', 'Leaves'],
+            },
+          ],
+        }),
+        makeGameState({
+          phase: 'CollectIncome',
+          pendingIncomeChoices: [
+            {
+              playerId: PLAYER_A,
+              districtId: 'D1',
+              cardId: '6',
+              suits: ['Moons', 'Knots'],
+            },
+            {
+              playerId: 'PlayerB',
+              districtId: 'D2',
+              cardId: '8',
+              suits: ['Waves', 'Leaves'],
+            },
+          ],
+        }),
+        {
+          type: 'choose-income-suit',
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suit: 'Moons',
+        },
+        makeIds('choice-pending'),
+        targets
+      )
+    ).toEqual([]);
+
+    expect(
+      collectIncomeChoiceResourceFlights(
+        makeGameState({
+          phase: 'CollectIncome',
+          pendingIncomeChoices: [
+            {
+              playerId: PLAYER_A,
+              districtId: 'D1',
+              cardId: '6',
+              suits: ['Moons', 'Knots'],
+            },
+            {
+              playerId: 'PlayerB',
+              districtId: 'D2',
+              cardId: '8',
+              suits: ['Waves', 'Leaves'],
+            },
+          ],
+          submittedIncomeChoices: [
+            {
+              playerId: PLAYER_A,
+              districtId: 'D1',
+              cardId: '6',
+              suit: 'Knots',
+            },
+          ],
+        }),
+        makeGameState({ phase: 'ActionWindow' }),
+        {
+          type: 'choose-income-suit',
+          playerId: 'PlayerB',
+          districtId: 'D2',
+          cardId: '8',
+          suit: 'Leaves',
+        },
+        makeIds('choice-reveal'),
+        targets
+      )
+    ).toMatchObject([
+      {
+        id: 'choice-reveal-1',
+        suit: 'Knots',
+        delayMs: 0,
+      },
+      {
+        id: 'choice-reveal-2',
+        suit: 'Leaves',
+        delayMs: TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
+      },
+    ]);
 
     expect(
       collectCardPlayFlights(

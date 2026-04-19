@@ -206,6 +206,9 @@ export function App() {
     [humanActionsAcceptingInput]
   );
   const hasMultipleTradeSources = tradeSourceGroups.length > 1;
+  const isIncomeChoicePhase =
+    state.phase === 'CollectIncome' &&
+    (state.pendingIncomeChoices?.length ?? 0) > 0;
   const firstTradeGroupIndex = useMemo(
     () => humanActionItems.findIndex((item) => item.kind === 'trade-group'),
     [humanActionItems]
@@ -225,8 +228,7 @@ export function App() {
   const showBotThinkingDuringIncomeChoiceLock =
     isTurnCycleAnimationLock &&
     activePlayerId === BOT_PLAYER &&
-    state.phase === 'CollectIncome' &&
-    (state.pendingIncomeChoices?.length ?? 0) > 0;
+    isIncomeChoicePhase;
   const hideBotWaitMessageDuringTurnCycleLock =
     isTurnCycleAnimationLock && !showBotThinkingDuringIncomeChoiceLock;
   const humanActionUiBlockedByAnimation =
@@ -488,6 +490,7 @@ export function App() {
             humanPlayerId={HUMAN_PLAYER}
             botPlayerId={BOT_PLAYER}
             visibleActionItems={visibleHumanActionItems}
+            isIncomeChoicePhase={isIncomeChoicePhase}
             hasMultipleTradeSources={hasMultipleTradeSources}
             actionPicker={actionPicker}
             canResetTurn={canResetTurn}

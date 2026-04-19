@@ -43,6 +43,7 @@ export function ActionsPanel({
   humanPlayerId,
   botPlayerId,
   visibleActionItems,
+  isIncomeChoicePhase,
   hasMultipleTradeSources,
   actionPicker,
   canResetTurn,
@@ -69,6 +70,7 @@ export function ActionsPanel({
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
   visibleActionItems: readonly HumanActionListItem[];
+  isIncomeChoicePhase: boolean;
   hasMultipleTradeSources: boolean;
   actionPicker: ActionPickerState | null;
   canResetTurn: boolean;
@@ -107,6 +109,10 @@ export function ActionsPanel({
     optionCount: number
   ) => void;
 }) {
+  const hasVisibleIncomeChoiceActions = visibleActionItems.some(
+    (item) => item.kind === 'action' && item.action.type === 'choose-income-suit'
+  );
+
   return (
     <section className="panel actions-panel">
       <div className="actions-heading">
@@ -121,14 +127,18 @@ export function ActionsPanel({
             humanPlayerId={humanPlayerId}
             botPlayerId={botPlayerId}
           />
-        ) : activePlayerId === humanPlayerId ? (
+        ) : activePlayerId === humanPlayerId || hasVisibleIncomeChoiceActions ? (
           <div className="actions-human-layout">
             <div className="actions-human-main">
               {humanActionUiBlockedByTurnCycleAnimation ? (
                 <p className="empty-note">Resolving income and taxation...</p>
               ) : humanActionUiBlockedByAnimation ? null : visibleActionItems.length ===
                 0 ? (
-                <p className="empty-note">No legal actions.</p>
+                <p className="empty-note">
+                  {isIncomeChoicePhase
+                    ? 'Resolving income choices...'
+                    : 'No legal actions.'}
+                </p>
               ) : (
                 <div className="action-list">
                   {visibleActionItems.map((item, index) => {
@@ -391,7 +401,9 @@ export function ActionsPanel({
           </div>
         ) : hideBotWaitMessageDuringTurnCycleLock ? null : (
           <p className="empty-note">
-            {showBotThinkingDuringIncomeChoiceLock || botThinking
+            {isIncomeChoicePhase && !botThinking
+              ? 'Resolving income choices...'
+              : showBotThinkingDuringIncomeChoiceLock || botThinking
               ? 'Bot is thinking...'
               : 'Waiting for bot...'}
           </p>

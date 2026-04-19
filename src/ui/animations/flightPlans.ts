@@ -271,6 +271,8 @@ export function collectDeedResourceFlights(
 }
 
 export function collectIncomeChoiceResourceFlights(
+  state: GameState,
+  nextState: GameState,
   action: GameAction,
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets
@@ -278,32 +280,60 @@ export function collectIncomeChoiceResourceFlights(
   if (action.type !== 'choose-income-suit' || !domTargets.isAvailable()) {
     return [];
   }
-
-  const sourceElement = domTargets.districtCard(
-    action.playerId,
-    action.districtId,
-    action.cardId
-  );
-  const targetElement = domTargets.resourceToken(action.playerId, action.suit);
-  if (!sourceElement || !targetElement) {
+  if ((nextState.pendingIncomeChoices?.length ?? 0) > 0) {
     return [];
   }
 
-  const source = domTargets.elementCenter(sourceElement);
-  const target = domTargets.tokenVisualCenter(targetElement);
-  return [
+  const submissions = [
+    ...(state.submittedIncomeChoices ?? []),
     {
-      id: makeFlightId(),
+      playerId: action.playerId,
+      districtId: action.districtId,
+      cardId: action.cardId,
       suit: action.suit,
+    },
+  ];
+  const flights: PendingResourceFlight[] = [];
+  for (const choice of state.pendingIncomeChoices ?? []) {
+    const submission = submissions.find(
+      (entry) =>
+        entry.playerId === choice.playerId &&
+        entry.districtId === choice.districtId &&
+        entry.cardId === choice.cardId
+    );
+    if (!submission) {
+      continue;
+    }
+
+    const sourceElement = domTargets.districtCard(
+      submission.playerId,
+      submission.districtId,
+      submission.cardId
+    );
+    const targetElement = domTargets.resourceToken(
+      submission.playerId,
+      submission.suit
+    );
+    if (!sourceElement || !targetElement) {
+      continue;
+    }
+
+    const source = domTargets.elementCenter(sourceElement);
+    const target = domTargets.tokenVisualCenter(targetElement);
+    flights.push({
+      id: makeFlightId(),
+      suit: submission.suit,
       startX: source.x,
       startY: source.y,
       endX: target.x,
       endY: target.y,
-      delayMs: 0,
+      delayMs: flights.length * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
       durationMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
       variant: 'transfer',
-    },
-  ];
+    });
+  }
+
+  return flights;
 }
 
 function isLaneCardPlayAction(
