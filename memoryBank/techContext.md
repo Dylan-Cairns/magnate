@@ -7,7 +7,8 @@
 - React + Vite
 - Vitest
 - ESLint + Prettier
-- Python 3.11+ (`.venv`)
+- Ruff
+- Python 3.12+ (`.venv`)
 - PyTorch + NumPy
 
 ## Layout
@@ -23,7 +24,7 @@
 - JS scripts: `dev`, `build`, `bridge`, `test`, `lint`, `typecheck`, `format`
 - GitHub Pages deploy: `.github/workflows/deploy_pages.yml` runs on pushes to `main` (and manual dispatch), then gates deployment on `yarn test` + `yarn lint` before `yarn build` using Node `22.12.0`.
 - Python bootstrap:
-  - `scripts/setup_python_env.ps1` (Windows local path; CPU-only PyTorch install via the official CPU wheel index, repo-local temp/cache dirs)
+  - `scripts/setup_python_env.ps1` (Windows local path; installs `requirements-dev.txt` including Ruff, CPU-only PyTorch via the official CPU wheel index, repo-local temp/cache dirs)
   - `./.venv/Scripts/Activate.ps1`
 - Active Python entrypoints:
   - `python -m scripts.eval`
@@ -46,7 +47,7 @@
 - Deterministic gameplay required for replay/eval/training.
 - Rule semantics stay in TS unless explicitly re-approved.
 - Python training scripts are fail-fast and expect an active project virtualenv.
-- `scripts.train_td` fail-fast enforces Python 3.11+ and active `.venv` at startup.
+- `scripts.train_td` fail-fast enforces Python 3.12+ and active `.venv` at startup.
 
 ## Known Gaps
 
