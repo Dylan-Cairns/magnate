@@ -17,6 +17,7 @@ export function RollResult({
     undefined
   );
   const [isPulsing, setIsPulsing] = useState(false);
+  const [d6Dimmed, setD6Dimmed] = useState(false);
 
   useEffect(() => {
     if (taxSuit === undefined) {
@@ -41,6 +42,18 @@ export function RollResult({
     return () => clearTimeout(timer);
   }, [roll?.rollId, taxSuit]);
 
+  useEffect(() => {
+    if (!roll) return;
+    if (taxSuit !== undefined) {
+      // Tax roll: un-dim d6 immediately so it brightens before rolling
+      setD6Dimmed(false);
+    } else {
+      // Non-tax roll: dim d6 when the d10 animations settle
+      const timer = setTimeout(() => setD6Dimmed(true), D10_TRANSITION_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [roll?.rollId, taxSuit]);
+
   if (!roll) {
     return <p className="roll-value">-</p>;
   }
@@ -50,9 +63,9 @@ export function RollResult({
 
   return (
     <div className="roll-value" aria-label="Roll result">
-      <D10Die result={roll.die1} rollKey={roll.rollId} pulsing={pulseDie1} />
-      <D10Die result={roll.die2} rollKey={roll.rollId} pulsing={pulseDie2} />
-      <D6Die suit={displayedSuit} pulsing={isPulsing && displayedSuit !== undefined} />
+      <D10Die result={roll.die1} rollKey={roll.rollId} pulsing={pulseDie1} dimmed={isPulsing && !pulseDie1} />
+      <D10Die result={roll.die2} rollKey={roll.rollId} pulsing={pulseDie2} dimmed={isPulsing && !pulseDie2} />
+      <D6Die suit={displayedSuit} pulsing={isPulsing && displayedSuit !== undefined} dimmed={d6Dimmed} />
     </div>
   );
 }
