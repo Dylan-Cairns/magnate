@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from argparse import Namespace
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from argparse import Namespace
+from pathlib import Path
 from unittest.mock import patch
 
 from scripts.opponent_pool import PoolCheckpoint
 from scripts.run_td_loop_selfplay import (
     EvalRow,
-    _collect_profile_seed_prefix,
     _build_collect_profiles,
+    _collect_profile_seed_prefix,
     _promotion_decision,
     _validate_args,
     parse_args,

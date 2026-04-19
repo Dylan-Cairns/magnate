@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import unittest
 from argparse import Namespace
 from pathlib import Path
-import unittest
 from unittest.mock import patch
 
-from scripts import collect_td_self_play
-from scripts import eval_suite
+from scripts import collect_td_self_play, eval_suite
 
 
 class CollectEvalOverrideTests(unittest.TestCase):

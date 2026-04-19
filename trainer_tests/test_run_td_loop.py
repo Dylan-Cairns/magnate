@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import unittest
 from argparse import Namespace
 from pathlib import Path
-import unittest
 
 from scripts.run_td_loop import (
     EvalRow,
-    _recommended_cloud_worker_count,
     _promotion_decision,
+    _recommended_cloud_worker_count,
 )
 
 
