@@ -7,8 +7,13 @@ import type {
   PlayerId,
 } from '../engine/types';
 
-export const BUG_REPORT_ISSUE_URL =
-  'https://github.com/Dylan-Cairns/magnate/issues/new?template=bug_report.yml&title=Bug%20report';
+const BUG_REPORT_BASE_URL =
+  'https://github.com/Dylan-Cairns/magnate/issues/new?template=bug_report.yml';
+
+export function getBugReportIssueUrl(): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return `${BUG_REPORT_BASE_URL}&title=${encodeURIComponent(`Automatic bug report ${date}`)}`;
+}
 
 export interface BugReportActionEntry {
   turn: number;
@@ -76,8 +81,9 @@ export function buildBugReport({
   };
 }
 
-export function bugReportFilename(report: BugReport): string {
-  return `magnate-bug-report-turn-${String(report.game.state.turn)}.json`;
+export function bugReportFilename(): string {
+  const dt = new Date().toISOString().replace(/:/g, '-').slice(0, 19);
+  return `magnate-log-${dt}.json`;
 }
 
 export function downloadBugReport(report: BugReport): void {
@@ -87,7 +93,7 @@ export function downloadBugReport(report: BugReport): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = bugReportFilename(report);
+  link.download = bugReportFilename();
   document.body.append(link);
   link.click();
   link.remove();

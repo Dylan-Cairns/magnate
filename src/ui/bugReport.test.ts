@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { makeGameState, PLAYER_A, PLAYER_B } from '../engine/__tests__/fixtures';
 import type { GameLogEntry } from '../engine/types';
 import {
-  BUG_REPORT_ISSUE_URL,
+  getBugReportIssueUrl,
   bugReportFilename,
   buildBugReport,
   type BugReportActionEntry,
@@ -47,7 +47,7 @@ describe('bugReport', () => {
     expect(report.game.botProfileId).toBe('heuristic');
     expect(report.game.animationsEnabled).toBe(true);
     expect(report.error).toBe('engine failed');
-    expect(bugReportFilename(report)).toBe('magnate-bug-report-turn-4.json');
+    expect(bugReportFilename()).toMatch(/^magnate-log-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.json$/);
 
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain('userAgent');
@@ -59,9 +59,9 @@ describe('bugReport', () => {
   });
 
   it('points at the public bug report issue form', () => {
-    expect(BUG_REPORT_ISSUE_URL).toContain(
-      'github.com/Dylan-Cairns/magnate/issues/new'
-    );
-    expect(BUG_REPORT_ISSUE_URL).toContain('template=bug_report.yml');
+    const url = getBugReportIssueUrl();
+    expect(url).toContain('github.com/Dylan-Cairns/magnate/issues/new');
+    expect(url).toContain('template=bug_report.yml');
+    expect(url).toContain('Automatic%20bug%20report%20');
   });
 });
