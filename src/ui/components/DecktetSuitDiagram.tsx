@@ -74,42 +74,51 @@ export function DecktetSuitDiagram() {
         className="suit-diagram"
         aria-label="Decktet suit pair distribution"
       >
+        {/* Lines in a compositing group so overlapping lines don't brighten */}
+        <g opacity={0.08}>
+          {EDGES.map(([suitA, suitB], i) => {
+            const p1 = positions[suitIndex.get(suitA)!];
+            const p2 = positions[suitIndex.get(suitB)!];
+            return (
+              <line
+                key={i}
+                x1={p1[0]}
+                y1={p1[1]}
+                x2={p2[0]}
+                y2={p2[1]}
+                stroke="white"
+                strokeWidth={5}
+              />
+            );
+          })}
+        </g>
         {EDGES.map(([suitA, suitB, label], i) => {
           const p1 = positions[suitIndex.get(suitA)!];
           const p2 = positions[suitIndex.get(suitB)!];
           const [lx, ly] = labelPos(p1, p2);
           const angle = lineAngleDeg(p1, p2);
           return (
-            <g key={i}>
-              <line
-                x1={p1[0]}
-                y1={p1[1]}
-                x2={p2[0]}
-                y2={p2[1]}
-                stroke="rgba(255,255,255,0.08)"
-                strokeWidth={5}
-              />
-              <text
-                x={lx}
-                y={ly}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fontSize={15}
-                fontFamily="inherit"
-                transform={`rotate(${angle}, ${lx}, ${ly})`}
-                style={
-                  {
-                    paintOrder: 'stroke fill',
-                    stroke: '#05080f',
-                    strokeWidth: '4',
-                    strokeLinejoin: 'round',
-                    fill: '#fafcff',
-                  } as React.CSSProperties
-                }
-              >
-                {label}
-              </text>
-            </g>
+            <text
+              key={i}
+              x={lx}
+              y={ly}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontSize={15}
+              fontFamily="inherit"
+              transform={`rotate(${angle}, ${lx}, ${ly})`}
+              style={
+                {
+                  paintOrder: 'stroke fill',
+                  stroke: '#05080f',
+                  strokeWidth: '4',
+                  strokeLinejoin: 'round',
+                  fill: '#fafcff',
+                } as React.CSSProperties
+              }
+            >
+              {label}
+            </text>
           );
         })}
         {SUITS.map((suit, i) => {
