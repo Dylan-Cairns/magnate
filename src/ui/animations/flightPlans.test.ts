@@ -149,41 +149,17 @@ describe('flightPlans', () => {
     ]);
   });
 
-  it('plans terminal card and token cleanup flights together', () => {
+  it('does not plan terminal cleanup flights for retained deeds', () => {
     const previous = withDeed(makeGameState(), 'D1', PLAYER_A, {
       cardId: '6',
       progress: 2,
       tokens: { Moons: 2 },
     });
     const next = { ...previous, phase: 'GameOver' as const };
-    const card = makeElement({ left: 10, top: 100, width: 80, height: 120 });
-    const token = makeElement({ left: 20, top: 120, width: 20, height: 20 });
-    const targets = makeTargets({
-      districtCard: () => card,
-      deedToken: () => token,
-    });
 
-    const flights = collectTerminalCleanupFlights(
-      previous,
-      next,
-      makeIds('resource'),
-      makeIds('card'),
-      targets
-    );
-
-    expect(flights?.cardFlights).toMatchObject([
-      {
-        id: 'card-1',
-        variant: 'terminal-clear',
-        cardId: '6',
-        startX: 50,
-        startY: 160,
-      },
-    ]);
-    expect(flights?.resourceFlights).toMatchObject([
-      { id: 'resource-1', suit: 'Moons', startX: 30, startY: 130 },
-      { id: 'resource-2', suit: 'Moons', startX: 30, startY: 130 },
-    ]);
+    expect(previous.phase).not.toBe('GameOver');
+    expect(next.phase).toBe('GameOver');
+    expect(collectTerminalCleanupFlights()).toBeNull();
   });
 
   it('plans income choice, sold-card, lane-play, and draw flights', () => {

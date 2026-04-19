@@ -120,7 +120,7 @@ Results:
 At game end:
 
 1. Discard the cards remaining in your hand (you should have two left).
-2. Discard incomplete deeds and any tokens on them.
+2. Incomplete deeds and any tokens on them do not count for scoring.
 
 District scoring:
 

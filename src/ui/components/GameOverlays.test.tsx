@@ -48,26 +48,15 @@ describe('ResolutionWarningOverlay', () => {
 });
 
 describe('TurnCycleOverlay', () => {
-  it('renders tax, income, and winner variants', () => {
+  it('renders tax and income variants', () => {
     const tax = renderToStaticMarkup(
       <TurnCycleOverlay
         overlay={{ kind: 'tax', suit: 'Moons' }}
-        terminalWinner={null}
-        humanPlayerId="PlayerA"
       />
     );
     const income = renderToStaticMarkup(
       <TurnCycleOverlay
         overlay={{ kind: 'income', rank: 9 }}
-        terminalWinner={null}
-        humanPlayerId="PlayerA"
-      />
-    );
-    const winner = renderToStaticMarkup(
-      <TurnCycleOverlay
-        overlay={{ kind: 'income', rank: 9 }}
-        terminalWinner="PlayerB"
-        humanPlayerId="PlayerA"
       />
     );
 
@@ -75,7 +64,6 @@ describe('TurnCycleOverlay', () => {
     expect(tax).toContain('data-token-suit="Moons"');
     expect(income).toContain('Income:');
     expect(income).toContain('>9</strong>');
-    expect(winner).toContain('Winner:');
-    expect(winner).toContain('>Bot</strong>');
+    expect(renderToStaticMarkup(<TurnCycleOverlay overlay={null} />)).toBe('');
   });
 });
