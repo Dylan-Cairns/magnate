@@ -36,13 +36,13 @@ export function BugReportModal({
           <p>To report a bug:</p>
           <ol>
             <li>
-              Click this button to download a log file:{' '}
+              Click to{' '}
               <button
                 type="button"
-                className="bug-report-download-button"
+                className="bug-report-download-link"
                 onClick={onDownload}
               >
-                download
+                download a log file
               </button>
             </li>
             <li>
