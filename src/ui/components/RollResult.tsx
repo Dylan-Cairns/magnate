@@ -9,9 +9,11 @@ const D10_TRANSITION_MS = 1000;
 export function RollResult({
   roll,
   taxSuit,
+  gameKey,
 }: {
   roll: IncomeRollResult | undefined;
   taxSuit: Suit | undefined;
+  gameKey?: string;
 }) {
   const [displayedSuit, setDisplayedSuit] = useState<Suit | undefined>(
     undefined
@@ -30,8 +32,8 @@ export function RollResult({
       D10_TRANSITION_MS
     );
     return () => clearTimeout(timer);
-    // roll?.rollId ensures this re-arms on every new roll, not just when suit changes
-  }, [roll?.rollId, taxSuit]);
+    // gameKey+rollId ensures this re-arms on every new roll and every new game
+  }, [gameKey, roll?.rollId, taxSuit]);
 
   useEffect(() => {
     setIsPulsing(false);
@@ -40,7 +42,7 @@ export function RollResult({
     const delay = taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS;
     const timer = setTimeout(() => setIsPulsing(true), delay);
     return () => clearTimeout(timer);
-  }, [roll?.rollId, taxSuit]);
+  }, [gameKey, roll?.rollId, taxSuit]);
 
   useEffect(() => {
     if (!roll) return;
@@ -52,7 +54,7 @@ export function RollResult({
       const timer = setTimeout(() => setD6Dimmed(true), D10_TRANSITION_MS);
       return () => clearTimeout(timer);
     }
-  }, [roll?.rollId, taxSuit]);
+  }, [gameKey, roll?.rollId, taxSuit]);
 
   if (!roll) {
     return <p className="roll-value">-</p>;
@@ -63,8 +65,8 @@ export function RollResult({
 
   return (
     <div className="roll-value" aria-label="Roll result">
-      <D10Die result={roll.die1} rollKey={roll.rollId} pulsing={pulseDie1} dimmed={isPulsing && !pulseDie1} />
-      <D10Die result={roll.die2} rollKey={roll.rollId} pulsing={pulseDie2} dimmed={isPulsing && !pulseDie2} />
+      <D10Die result={roll.die1} rollKey={gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId} pulsing={pulseDie1} dimmed={isPulsing && !pulseDie1} />
+      <D10Die result={roll.die2} rollKey={gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId} pulsing={pulseDie2} dimmed={isPulsing && !pulseDie2} />
       <D6Die suit={displayedSuit} pulsing={isPulsing && displayedSuit !== undefined} dimmed={d6Dimmed} />
     </div>
   );

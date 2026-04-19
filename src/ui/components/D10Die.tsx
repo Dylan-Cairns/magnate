@@ -28,7 +28,7 @@ export function D10Die({
   result: number | undefined;
   // Changing rollKey triggers animation even when result is the same number.
   // Uses rollId from IncomeRollResult — increments with rngCursor on each real roll.
-  rollKey?: number;
+  rollKey?: number | string;
   pulsing?: boolean;
   dimmed?: boolean;
 }) {
