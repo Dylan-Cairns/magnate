@@ -82,6 +82,7 @@ export type GamePhase =
 export interface IncomeRollResult {
   die1: number;
   die2: number;
+  rollId?: number;
 }
 
 export interface IncomeChoice {
