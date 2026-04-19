@@ -13,16 +13,18 @@ from scripts.opponent_pool import PoolCheckpoint
 from scripts.run_td_loop_selfplay import (
     REPLAY_REGIME,
     CollectProfile,
+    _config_payload,
+    _require_supported_runtime,
+    _run_collect_profiles,
+    _validate_args,
+)
+from scripts.td_loop_selfplay_common import (
     _build_eval_command_vs_incumbent,
     _build_eval_command_vs_search,
-    _config_payload,
     _eval_payload,
     _pool_eval_rows,
     _promotion_decision,
     _read_eval_row,
-    _require_supported_runtime,
-    _run_collect_profiles,
-    _validate_args,
 )
 from scripts.td_loop_common import (
     LoopCheckpoint,
