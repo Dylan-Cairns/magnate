@@ -67,7 +67,9 @@ export function D6Die({ suit }: { suit: Suit | undefined }) {
             className={`die-face die-face-d6-${i + 1}`}
             style={{ '--suit-bg': SUIT_TOKEN_BG[faceSuit] } as CSSProperties}
           >
-            <img src={SUIT_ICON_BY_SUIT[faceSuit]} alt="" className="die-suit-icon" />
+            <div className="die-suit-circle">
+              <img src={SUIT_ICON_BY_SUIT[faceSuit]} alt="" className="die-suit-icon" />
+            </div>
           </div>
         ))}
       </div>
