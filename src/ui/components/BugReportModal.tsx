@@ -20,7 +20,7 @@ export function BugReportModal({
     >
       <h2 id="bug-report-title">See a bug?</h2>
       <div className="bug-report-body">
-        <p>To report a bug:</p>
+        <p>A report would be appreciated. To file:</p>
         <ol>
           <li>
             Click to{' '}
