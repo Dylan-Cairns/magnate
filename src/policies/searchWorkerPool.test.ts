@@ -69,6 +69,79 @@ describe('search worker pool', () => {
     await expect(run).resolves.toEqual([result(0), result(2), result(1)]);
   });
 
+  it('reuses initialized rollout search worlds for the same context object', async () => {
+    const workers: FakeSearchWorker[] = [];
+    const pool = createSearchWorkerPool({
+      workerCount: 1,
+      createWorker: () => pushWorker(workers),
+    });
+
+    const first = pool.runBatch([task(0)], TEST_CONTEXT);
+    workers[0].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[0].messages[0]).requestId,
+    });
+    await flushAsyncWork();
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[1]).requestId,
+      results: [result(0)],
+    });
+    await expect(first).resolves.toEqual([result(0)]);
+
+    const second = pool.runBatch([task(1)], TEST_CONTEXT);
+    await flushAsyncWork();
+
+    expect(runBatchRequest(workers[0].messages[2]).tasks).toHaveLength(1);
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[2]).requestId,
+      results: [result(1)],
+    });
+    await expect(second).resolves.toEqual([result(1)]);
+  });
+
+  it('reinitializes rollout search worlds when the same context id carries new worlds', async () => {
+    const workers: FakeSearchWorker[] = [];
+    const pool = createSearchWorkerPool({
+      workerCount: 1,
+      createWorker: () => pushWorker(workers),
+    });
+    const nextContext = {
+      contextId: TEST_CONTEXT.contextId,
+      worldStates: [createSession('search-worker-pool-next-context', 'PlayerA')],
+    };
+
+    const first = pool.runBatch([task(0)], TEST_CONTEXT);
+    workers[0].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[0].messages[0]).requestId,
+    });
+    await flushAsyncWork();
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[1]).requestId,
+      results: [result(0)],
+    });
+    await expect(first).resolves.toEqual([result(0)]);
+
+    const second = pool.runBatch([task(1)], nextContext);
+
+    expect(initRequest(workers[0].messages[2]).context).toBe(nextContext);
+    workers[0].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[0].messages[2]).requestId,
+    });
+    await flushAsyncWork();
+    expect(runBatchRequest(workers[0].messages[3]).tasks).toHaveLength(1);
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[3]).requestId,
+      results: [result(1)],
+    });
+    await expect(second).resolves.toEqual([result(1)]);
+  });
+
   it('rejects active work and closes workers when a worker fails', async () => {
     const workers: FakeSearchWorker[] = [];
     const pool = createSearchWorkerPool({
