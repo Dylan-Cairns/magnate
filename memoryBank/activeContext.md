@@ -33,6 +33,7 @@
   - bootstrap/recalibration orchestration: `scripts.run_td_loop`
   - self-play-forward orchestration: `scripts.run_td_loop_selfplay`
 - `scripts.run_td_loop` supports cloud profile scaling (`--cloud --cloud-vcpus 8|16|32`), collect sharding (`--collect-workers`), explicit promotion thresholds, and pooled multi-window promotion evals (`--eval-seed-start-indices`).
+- `scripts.run_td_loop` orchestration is now split into explicit run-setup, per-chunk execution, promotion-stage, summary, and terminal-report helpers, and targeted bootstrap-loop orchestration tests plus a smoke test pin that structure.
 - Added `scripts.run_td_loop_selfplay` as a separate post-bootstrap loop: chunk-local td-search-heavy mixed collection, promoted opponent-pool sampling, and dual promotion gates (baseline vs `search` plus candidate vs incumbent `td-search`).
 - `scripts.run_td_loop_selfplay` collection now supports shard parallelism via `--collect-workers` (cloud profile sets this automatically) while preserving profile-level mixed-opponent collection semantics.
 - `scripts.run_td_loop_selfplay` now defaults to `12` chunks before promotion eval so each candidate accumulates materially more collect/train work before certify gating.

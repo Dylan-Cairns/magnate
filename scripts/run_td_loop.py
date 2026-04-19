@@ -59,6 +59,36 @@ class EvalRow:
     candidate_win_rate_as_player_b: float
 
 
+@dataclass(frozen=True)
+class RunContext:
+    run_id: str
+    run_dir: Path
+    chunks_dir: Path
+    eval_dir: Path
+    loop_summary_path: Path
+    progress_path: Path
+    loop_started: float
+    warm_value: Path | None
+    warm_opponent: Path | None
+
+
+@dataclass(frozen=True)
+class ChunkExecutionResult:
+    chunk_label: str
+    latest_checkpoint: LoopCheckpoint
+    command_row: Dict[str, Any]
+    chunk_row: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PromotionStageResult:
+    eval_rows: List[EvalRow]
+    promotion_eval_commands: List[List[str]]
+    promotion_eval_artifacts: List[str]
+    pooled_eval_row: EvalRow
+    promotion: Dict[str, Any]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -246,7 +276,62 @@ def main() -> int:
 
     _require_supported_runtime(args.python_bin)
     _validate_args(args)
+    return run_td_loop(args)
 
+
+def run_td_loop(args: argparse.Namespace) -> int:
+    context = initialize_td_loop_run(args)
+    commands: Dict[str, Any] = {"chunks": []}
+    chunk_rows: List[Dict[str, Any]] = []
+
+    latest_checkpoint: LoopCheckpoint | None = None
+    warm_value = context.warm_value
+    warm_opponent = context.warm_opponent
+
+    for chunk_index in range(1, args.chunks_per_loop + 1):
+        chunk_result = run_td_loop_chunk(
+            args=args,
+            run_id=context.run_id,
+            chunk_index=chunk_index,
+            chunks_dir=context.chunks_dir,
+            warm_value=warm_value,
+            warm_opponent=warm_opponent,
+            progress_path=context.progress_path,
+        )
+        latest_checkpoint = chunk_result.latest_checkpoint
+        if latest_checkpoint.value_path is not None:
+            warm_value = latest_checkpoint.value_path
+        if latest_checkpoint.opponent_path is not None:
+            warm_opponent = latest_checkpoint.opponent_path
+        commands["chunks"].append(chunk_result.command_row)
+        chunk_rows.append(chunk_result.chunk_row)
+
+    if latest_checkpoint is None:
+        raise SystemExit("No latest checkpoint available after chunk training.")
+
+    promotion_stage = run_td_loop_promotion_stage(
+        args=args,
+        eval_dir=context.eval_dir,
+        latest_checkpoint=latest_checkpoint,
+        progress_path=context.progress_path,
+    )
+    commands["promotionEvals"] = promotion_stage.promotion_eval_commands
+
+    loop_elapsed_minutes = (time.perf_counter() - context.loop_started) / 60.0
+    payload = build_td_loop_summary(
+        args=args,
+        context=context,
+        commands=commands,
+        chunk_rows=chunk_rows,
+        promotion_stage=promotion_stage,
+        elapsed_minutes=loop_elapsed_minutes,
+    )
+    context.loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(json.dumps(build_td_loop_terminal_report(context=context, promotion_stage=promotion_stage), indent=2))
+    return 0
+
+
+def initialize_td_loop_run(args: argparse.Namespace) -> RunContext:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%SZ")
     run_id = f"{stamp}-{_slug(args.run_label)}"
     run_dir = args.artifact_dir / run_id
@@ -257,97 +342,109 @@ def main() -> int:
     for path in (run_dir, chunks_dir, eval_dir):
         path.mkdir(parents=True, exist_ok=True)
 
-    loop_started = time.perf_counter()
-    commands: Dict[str, Any] = {"chunks": []}
-    chunk_rows: List[Dict[str, Any]] = []
+    return RunContext(
+        run_id=run_id,
+        run_dir=run_dir,
+        chunks_dir=chunks_dir,
+        eval_dir=eval_dir,
+        loop_summary_path=loop_summary_path,
+        progress_path=progress_path,
+        loop_started=time.perf_counter(),
+        warm_value=args.train_warm_start_value_checkpoint,
+        warm_opponent=args.train_warm_start_opponent_checkpoint,
+    )
 
-    latest_checkpoint: LoopCheckpoint | None = None
-    warm_value = args.train_warm_start_value_checkpoint
-    warm_opponent = args.train_warm_start_opponent_checkpoint
 
-    for chunk_index in range(1, args.chunks_per_loop + 1):
-        chunk_label = f"chunk-{chunk_index:03d}"
-        chunk_dir = chunks_dir / chunk_label
-        replay_dir = chunk_dir / "replay"
-        train_dir = chunk_dir / "train"
-        for path in (chunk_dir, replay_dir, train_dir):
-            path.mkdir(parents=True, exist_ok=True)
+def run_td_loop_chunk(
+    *,
+    args: argparse.Namespace,
+    run_id: str,
+    chunk_index: int,
+    chunks_dir: Path,
+    warm_value: Path | None,
+    warm_opponent: Path | None,
+    progress_path: Path,
+) -> ChunkExecutionResult:
+    chunk_label = f"chunk-{chunk_index:03d}"
+    chunk_dir = chunks_dir / chunk_label
+    replay_dir = chunk_dir / "replay"
+    train_dir = chunk_dir / "train"
+    for path in (chunk_dir, replay_dir, train_dir):
+        path.mkdir(parents=True, exist_ok=True)
 
-        collect_value_path = replay_dir / "self_play.value.jsonl"
-        collect_opponent_path = replay_dir / "self_play.opponent.jsonl"
-        collect_summary_path = replay_dir / "self_play.summary.json"
+    collect_value_path = replay_dir / "self_play.value.jsonl"
+    collect_opponent_path = replay_dir / "self_play.opponent.jsonl"
+    collect_summary_path = replay_dir / "self_play.summary.json"
+    train_summary_path = train_dir / "summary.json"
+    train_checkpoint_root = train_dir / "checkpoints"
 
-        collect_stage = _run_collect_stage(
-            python_bin=args.python_bin,
-            args=args,
-            replay_dir=replay_dir,
-            collect_value_path=collect_value_path,
-            collect_opponent_path=collect_opponent_path,
-            collect_summary_path=collect_summary_path,
-            run_id=f"{run_id}-{chunk_label}",
-            seed_prefix=f"{args.collect_seed_prefix}-{chunk_label}",
-            heartbeat_minutes=args.progress_heartbeat_minutes,
-        )
+    collect_stage = _run_collect_stage(
+        python_bin=args.python_bin,
+        args=args,
+        replay_dir=replay_dir,
+        collect_value_path=collect_value_path,
+        collect_opponent_path=collect_opponent_path,
+        collect_summary_path=collect_summary_path,
+        run_id=f"{run_id}-{chunk_label}",
+        seed_prefix=f"{args.collect_seed_prefix}-{chunk_label}",
+        heartbeat_minutes=args.progress_heartbeat_minutes,
+    )
+    train_command = _build_train_command(
+        python_bin=args.python_bin,
+        args=args,
+        value_replay=collect_value_path,
+        opponent_replay=collect_opponent_path,
+        train_summary_path=train_summary_path,
+        train_checkpoint_root=train_checkpoint_root,
+        run_id=f"{run_id}-{chunk_label}",
+        warm_start_value=warm_value,
+        warm_start_opponent=warm_opponent,
+    )
+    _run_step(
+        name=f"train[{chunk_label}]",
+        command=train_command,
+        heartbeat_minutes=args.progress_heartbeat_minutes,
+        progress_path=progress_path,
+    )
+    train_summary = _read_json(train_summary_path, label=f"train summary {chunk_label}")
+    checkpoints = _checkpoints_from_train_summary(train_summary)
+    latest_checkpoint = _select_latest_checkpoint(
+        checkpoints=checkpoints,
+        candidate_policy=args.eval_candidate_policy,
+    )
+    return ChunkExecutionResult(
+        chunk_label=chunk_label,
+        latest_checkpoint=latest_checkpoint,
+        command_row={
+            "chunk": chunk_label,
+            "collect": collect_stage,
+            "train": train_command,
+        },
+        chunk_row={
+            "chunk": chunk_label,
+            "replayRegime": REPLAY_REGIME,
+            "collectSummary": str(collect_summary_path),
+            "trainSummary": str(train_summary_path),
+            "latestCheckpoint": {
+                "step": latest_checkpoint.step,
+                "value": str(latest_checkpoint.value_path)
+                if latest_checkpoint.value_path is not None
+                else None,
+                "opponent": str(latest_checkpoint.opponent_path)
+                if latest_checkpoint.opponent_path is not None
+                else None,
+            },
+        },
+    )
 
-        train_summary_path = train_dir / "summary.json"
-        train_checkpoint_root = train_dir / "checkpoints"
-        train_command = _build_train_command(
-            python_bin=args.python_bin,
-            args=args,
-            value_replay=collect_value_path,
-            opponent_replay=collect_opponent_path,
-            train_summary_path=train_summary_path,
-            train_checkpoint_root=train_checkpoint_root,
-            run_id=f"{run_id}-{chunk_label}",
-            warm_start_value=warm_value,
-            warm_start_opponent=warm_opponent,
-        )
-        _run_step(
-            name=f"train[{chunk_label}]",
-            command=train_command,
-            heartbeat_minutes=args.progress_heartbeat_minutes,
-            progress_path=progress_path,
-        )
 
-        train_summary = _read_json(train_summary_path, label=f"train summary {chunk_label}")
-        checkpoints = _checkpoints_from_train_summary(train_summary)
-        latest_checkpoint = _select_latest_checkpoint(
-            checkpoints=checkpoints,
-            candidate_policy=args.eval_candidate_policy,
-        )
-        if latest_checkpoint.value_path is not None:
-            warm_value = latest_checkpoint.value_path
-        if latest_checkpoint.opponent_path is not None:
-            warm_opponent = latest_checkpoint.opponent_path
-
-        commands["chunks"].append(
-            {
-                "chunk": chunk_label,
-                "collect": collect_stage,
-                "train": train_command,
-            }
-        )
-        chunk_rows.append(
-            {
-                "chunk": chunk_label,
-                "replayRegime": REPLAY_REGIME,
-                "collectSummary": str(collect_summary_path),
-                "trainSummary": str(train_summary_path),
-                "latestCheckpoint": {
-                    "step": latest_checkpoint.step,
-                    "value": str(latest_checkpoint.value_path) if latest_checkpoint.value_path else None,
-                    "opponent": (
-                        str(latest_checkpoint.opponent_path)
-                        if latest_checkpoint.opponent_path
-                        else None
-                    ),
-                },
-            }
-        )
-
-    if latest_checkpoint is None:
-        raise SystemExit("No latest checkpoint available after chunk training.")
-
+def run_td_loop_promotion_stage(
+    *,
+    args: argparse.Namespace,
+    eval_dir: Path,
+    latest_checkpoint: LoopCheckpoint,
+    progress_path: Path,
+) -> PromotionStageResult:
     eval_rows: List[EvalRow] = []
     promotion_eval_commands: List[List[str]] = []
     promotion_eval_artifacts: List[str] = []
@@ -373,28 +470,43 @@ def main() -> int:
             progress_path=progress_path,
         )
         eval_rows.append(_read_eval_row(path=eval_artifact, opponent_policy=args.eval_opponent_policy))
-    commands["promotionEvals"] = promotion_eval_commands
 
     pooled_eval_row = _pool_eval_rows(eval_rows=eval_rows, opponent_policy=args.eval_opponent_policy)
     promotion = _promotion_decision(eval_row=pooled_eval_row, eval_windows=eval_rows, args=args)
+    return PromotionStageResult(
+        eval_rows=eval_rows,
+        promotion_eval_commands=promotion_eval_commands,
+        promotion_eval_artifacts=promotion_eval_artifacts,
+        pooled_eval_row=pooled_eval_row,
+        promotion=promotion,
+    )
 
-    loop_elapsed_minutes = (time.perf_counter() - loop_started) / 60.0
-    payload: Dict[str, Any] = {
+
+def build_td_loop_summary(
+    *,
+    args: argparse.Namespace,
+    context: RunContext,
+    commands: Dict[str, Any],
+    chunk_rows: Sequence[Dict[str, Any]],
+    promotion_stage: PromotionStageResult,
+    elapsed_minutes: float,
+) -> Dict[str, Any]:
+    return {
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "runId": run_id,
-        "elapsedMinutes": round(loop_elapsed_minutes, 3),
+        "runId": context.run_id,
+        "elapsedMinutes": round(elapsed_minutes, 3),
         "config": _config_payload(args),
         "commands": commands,
         "artifacts": {
-            "runDir": str(run_dir),
-            "loopSummary": str(loop_summary_path),
-            "progress": str(progress_path),
-            "chunksDir": str(chunks_dir),
-            "evalDir": str(eval_dir),
-            "promotionEvalArtifact": promotion_eval_artifacts[0],
-            "promotionEvalArtifacts": promotion_eval_artifacts,
+            "runDir": str(context.run_dir),
+            "loopSummary": str(context.loop_summary_path),
+            "progress": str(context.progress_path),
+            "chunksDir": str(context.chunks_dir),
+            "evalDir": str(context.eval_dir),
+            "promotionEvalArtifact": promotion_stage.promotion_eval_artifacts[0],
+            "promotionEvalArtifacts": promotion_stage.promotion_eval_artifacts,
         },
-        "chunks": chunk_rows,
+        "chunks": list(chunk_rows),
         "evaluation": {
             "opponentPolicy": args.eval_opponent_policy,
             "windows": [
@@ -411,42 +523,49 @@ def main() -> int:
                     "draws": row.draws,
                     "totalGames": row.total_games,
                 }
-                for seed_start_index, row in zip(args.eval_seed_start_indices, eval_rows)
+                for seed_start_index, row in zip(
+                    args.eval_seed_start_indices, promotion_stage.eval_rows, strict=False
+                )
             ],
             "pooled": {
-                "candidateWinRate": pooled_eval_row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": pooled_eval_row.ci_low, "high": pooled_eval_row.ci_high},
-                "candidateWinRateAsPlayerA": pooled_eval_row.candidate_win_rate_as_player_a,
-                "candidateWinRateAsPlayerB": pooled_eval_row.candidate_win_rate_as_player_b,
-                "sideGap": pooled_eval_row.side_gap,
-                "candidateWins": pooled_eval_row.candidate_wins,
-                "opponentWins": pooled_eval_row.opponent_wins,
-                "draws": pooled_eval_row.draws,
-                "totalGames": pooled_eval_row.total_games,
+                "candidateWinRate": promotion_stage.pooled_eval_row.candidate_win_rate,
+                "candidateWinRateCi95": {
+                    "low": promotion_stage.pooled_eval_row.ci_low,
+                    "high": promotion_stage.pooled_eval_row.ci_high,
+                },
+                "candidateWinRateAsPlayerA": promotion_stage.pooled_eval_row.candidate_win_rate_as_player_a,
+                "candidateWinRateAsPlayerB": promotion_stage.pooled_eval_row.candidate_win_rate_as_player_b,
+                "sideGap": promotion_stage.pooled_eval_row.side_gap,
+                "candidateWins": promotion_stage.pooled_eval_row.candidate_wins,
+                "opponentWins": promotion_stage.pooled_eval_row.opponent_wins,
+                "draws": promotion_stage.pooled_eval_row.draws,
+                "totalGames": promotion_stage.pooled_eval_row.total_games,
             },
         },
-        "promotion": promotion,
+        "promotion": promotion_stage.promotion,
     }
-    loop_summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    print(
-        json.dumps(
-            {
-                "runId": run_id,
-                "runDir": str(run_dir),
-                "loopSummary": str(loop_summary_path),
-                "promotionOpponent": args.eval_opponent_policy,
-                "evalWindows": len(eval_rows),
-                "candidateWinRate": pooled_eval_row.candidate_win_rate,
-                "candidateWinRateCi95": {"low": pooled_eval_row.ci_low, "high": pooled_eval_row.ci_high},
-                "sideGap": pooled_eval_row.side_gap,
-                "promoted": bool(promotion["promoted"]),
-                "promotionReason": promotion["reason"],
-            },
-            indent=2,
-        )
-    )
-    return 0
+
+def build_td_loop_terminal_report(
+    *,
+    context: RunContext,
+    promotion_stage: PromotionStageResult,
+) -> Dict[str, Any]:
+    return {
+        "runId": context.run_id,
+        "runDir": str(context.run_dir),
+        "loopSummary": str(context.loop_summary_path),
+        "promotionOpponent": promotion_stage.pooled_eval_row.opponent_policy,
+        "evalWindows": len(promotion_stage.eval_rows),
+        "candidateWinRate": promotion_stage.pooled_eval_row.candidate_win_rate,
+        "candidateWinRateCi95": {
+            "low": promotion_stage.pooled_eval_row.ci_low,
+            "high": promotion_stage.pooled_eval_row.ci_high,
+        },
+        "sideGap": promotion_stage.pooled_eval_row.side_gap,
+        "promoted": bool(promotion_stage.promotion["promoted"]),
+        "promotionReason": promotion_stage.promotion["reason"],
+    }
 
 
 def _build_collect_command(
@@ -1021,7 +1140,7 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
 
 
 def _require_supported_runtime(python_bin: Path) -> None:
-    if sys.version_info < (3, 11):
+    if sys.version_info < (3, 12):
         raise SystemExit("Python 3.12+ is required.")
     if sys.prefix == sys.base_prefix:
         raise SystemExit("Run this script from the project virtual environment (.venv).")
