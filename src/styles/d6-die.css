@@ -1,26 +1,27 @@
 .die-scene-d6 {
-  width: 72px;
-  height: 72px;
+  width: 54px;
+  height: 54px;
   perspective: 500px;
   flex: 0 0 auto;
 }
 
 .die-d6 {
-  width: 72px;
-  height: 72px;
+  width: 54px;
+  height: 54px;
   position: relative;
   transform-style: preserve-3d;
   transition: transform 1s ease-in-out;
   will-change: transform;
+  background-color: #dfe6ec;
 }
 
 .die-face {
   position: absolute;
-  width: 72px;
-  height: 72px;
-  background-color: var(--suit-bg, #1e2b40);
-  border: 1.5px solid rgba(120, 95, 75, 0.5);
-  border-radius: 9px;
+  width: 54px;
+  height: 54px;
+  background-color: #dfe6ec;
+  border: none;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -30,16 +31,26 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.14);
 }
 
-.die-suit-icon {
+.die-suit-circle {
   width: 46px;
   height: 46px;
+  border-radius: 50%;
+  background-color: var(--suit-bg, #e4e7eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.die-suit-icon {
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
   object-fit: contain;
 }
 
-/* Face positions — each face extends translateZ(36px) from die centre */
-.die-face-d6-1 { transform: rotateY(0deg)   translateZ(36px); } /* front  */
-.die-face-d6-2 { transform: rotateY(180deg) translateZ(36px); } /* back   */
-.die-face-d6-3 { transform: rotateY(90deg)  translateZ(36px); } /* right  */
-.die-face-d6-4 { transform: rotateY(-90deg) translateZ(36px); } /* left   */
-.die-face-d6-5 { transform: rotateX(90deg)  translateZ(36px); } /* top    */
-.die-face-d6-6 { transform: rotateX(-90deg) translateZ(36px); } /* bottom */
+/* Face positions — each face extends translateZ(27px) from die centre */
+.die-face-d6-1 { transform: rotateY(0deg)   translateZ(27px); } /* front  */
+.die-face-d6-2 { transform: rotateY(180deg) translateZ(27px); } /* back   */
+.die-face-d6-3 { transform: rotateY(90deg)  translateZ(27px); } /* right  */
+.die-face-d6-4 { transform: rotateY(-90deg) translateZ(27px); } /* left   */
+.die-face-d6-5 { transform: rotateX(90deg)  translateZ(27px); } /* top    */
+.die-face-d6-6 { transform: rotateX(-90deg) translateZ(27px); } /* bottom */
