@@ -19,7 +19,7 @@ const EDGES: [Suit, Suit, string][] = [
   ['Waves', 'Wyrms', '7 9'],
   ['Leaves', 'Knots', '6 9'],
   ['Knots', 'Suns', '3 7'],
-  ['Moons', 'Leaves', '5 7'],
+  ['Leaves', 'Moons', '5 7'],
   ['Suns', 'Wyrms', '2 6'],
 ];
 
@@ -45,7 +45,8 @@ function labelPos(
   if (dist < 2) {
     // Both diameter edges share the center as midpoint; place at 1/3 from
     // the first endpoint so the two labels don't overlap.
-    return [(x1 * 2 + x2) / 3, (y1 * 2 + y2) / 3];
+    const t = 0.4;
+    return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
   }
   const push = 0;
   return [mx + (dcx / dist) * push, my + (dcy / dist) * push];
