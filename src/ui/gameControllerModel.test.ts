@@ -127,6 +127,7 @@ describe('gameControllerModel', () => {
         terminal: false,
         activePlayerId: 'PlayerB',
         botPlayerId: 'PlayerB',
+        isIncomeChoicePhase: false,
         actionCommitPending: false,
         allowIncomeChoiceWhileCommitPending: false,
         botIncomeActionCount: 0,
@@ -143,6 +144,7 @@ describe('gameControllerModel', () => {
       schedulingAllowed({
         activePlayerId: 'PlayerA',
         botIncomeActionCount: 2,
+        isIncomeChoicePhase: true,
       })
     ).toBe(true);
     expect(
@@ -150,8 +152,15 @@ describe('gameControllerModel', () => {
         actionCommitPending: true,
         allowIncomeChoiceWhileCommitPending: true,
         botIncomeActionCount: 2,
+        isIncomeChoicePhase: true,
       })
     ).toBe(true);
+    expect(
+      schedulingAllowed({
+        isIncomeChoicePhase: true,
+        botIncomeActionCount: 0,
+      })
+    ).toBe(false);
   });
 
   it('formats Error instances and unknown thrown values', () => {
