@@ -417,10 +417,11 @@
   height: calc(100% - 0.12rem);
 }
 
-.inline-token-chip {
+.token-chip.inline-token-chip {
   display: inline-grid;
   width: 1.02rem;
   height: 1.02rem;
+  flex: 0 0 1.02rem;
   margin: 0 0.15em;
   vertical-align: -0.35em;
 }
