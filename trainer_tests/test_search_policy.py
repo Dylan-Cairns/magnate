@@ -61,6 +61,57 @@ class SearchPolicyTests(unittest.TestCase):
         finally:
             policy.close()
 
+    def test_search_accumulates_cache_hits_when_limits_are_enabled(self) -> None:
+        policy = DeterminizedSearchPolicy(
+            config=SearchConfig(
+                worlds=2,
+                rollouts=1,
+                depth=4,
+                max_root_actions=4,
+                rollout_epsilon=0.0,
+                transition_cache_limit=256,
+                legal_actions_cache_limit=256,
+                observation_cache_limit=256,
+            )
+        )
+        try:
+            step_result = self.env.reset(seed="search-policy-cache-hits", first_player="PlayerA")
+            legal = self.env.legal_actions()
+
+            action_one = policy.choose_action_key(
+                step_result.view,
+                legal.actions,
+                random.Random(777),
+                state=step_result.state,
+            )
+            stats_after_first = policy._forward_model.cache_stats()
+
+            action_two = policy.choose_action_key(
+                step_result.view,
+                legal.actions,
+                random.Random(777),
+                state=step_result.state,
+            )
+            stats_after_second = policy._forward_model.cache_stats()
+
+            legal_keys = {entry.action_key for entry in legal.actions}
+            self.assertIn(action_one, legal_keys)
+            self.assertEqual(action_one, action_two)
+            self.assertGreater(stats_after_first.transition_misses, 0)
+            self.assertGreater(stats_after_first.legal_actions_misses, 0)
+            self.assertGreater(stats_after_first.observation_misses, 0)
+            self.assertGreater(stats_after_second.transition_hits, stats_after_first.transition_hits)
+            self.assertGreater(
+                stats_after_second.legal_actions_hits,
+                stats_after_first.legal_actions_hits,
+            )
+            self.assertGreater(
+                stats_after_second.observation_hits,
+                stats_after_first.observation_hits,
+            )
+        finally:
+            policy.close()
+
     def test_search_requires_state_payload(self) -> None:
         policy = DeterminizedSearchPolicy(
             config=SearchConfig(

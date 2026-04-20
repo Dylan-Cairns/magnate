@@ -35,6 +35,9 @@ class SearchConfig:
     depth: int = 14
     max_root_actions: int = 6
     rollout_epsilon: float = 0.04
+    transition_cache_limit: int = 0
+    legal_actions_cache_limit: int = 0
+    observation_cache_limit: int = 0
 
     def __post_init__(self) -> None:
         if self.worlds <= 0:
@@ -47,6 +50,12 @@ class SearchConfig:
             raise ValueError("SearchConfig.max_root_actions must be > 0.")
         if self.rollout_epsilon < 0.0 or self.rollout_epsilon > 1.0:
             raise ValueError("SearchConfig.rollout_epsilon must be in [0, 1].")
+        if self.transition_cache_limit < 0:
+            raise ValueError("SearchConfig.transition_cache_limit must be >= 0.")
+        if self.legal_actions_cache_limit < 0:
+            raise ValueError("SearchConfig.legal_actions_cache_limit must be >= 0.")
+        if self.observation_cache_limit < 0:
+            raise ValueError("SearchConfig.observation_cache_limit must be >= 0.")
 
 
 @dataclass(frozen=True)
@@ -60,6 +69,9 @@ class TDSearchPolicyConfig:
     rollout_epsilon: float = 0.04
     opponent_temperature: float = 1.0
     sample_opponent_actions: bool = False
+    transition_cache_limit: int = 0
+    legal_actions_cache_limit: int = 0
+    observation_cache_limit: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.opponent_checkpoint_path, Path):
@@ -76,6 +88,12 @@ class TDSearchPolicyConfig:
             raise ValueError("TDSearchPolicyConfig.rollout_epsilon must be in [0, 1].")
         if self.opponent_temperature <= 0.0:
             raise ValueError("TDSearchPolicyConfig.opponent_temperature must be > 0.")
+        if self.transition_cache_limit < 0:
+            raise ValueError("TDSearchPolicyConfig.transition_cache_limit must be >= 0.")
+        if self.legal_actions_cache_limit < 0:
+            raise ValueError("TDSearchPolicyConfig.legal_actions_cache_limit must be >= 0.")
+        if self.observation_cache_limit < 0:
+            raise ValueError("TDSearchPolicyConfig.observation_cache_limit must be >= 0.")
 
 
 @dataclass
@@ -86,7 +104,11 @@ class DeterminizedSearchPolicy(Policy):
     def __post_init__(self) -> None:
         self._heuristic_policy = HeuristicPolicy()
         self._random_policy = RandomLegalPolicy()
-        self._forward_model = BridgeForwardModel(step_cache_limit=0)
+        self._forward_model = BridgeForwardModel(
+            transition_cache_limit=self.config.transition_cache_limit,
+            legal_actions_cache_limit=self.config.legal_actions_cache_limit,
+            observation_cache_limit=self.config.observation_cache_limit,
+        )
         self._last_root_policy: dict[str, float] | None = None
 
     def choose_action_key(
@@ -230,24 +252,28 @@ class DeterminizedSearchPolicy(Policy):
         root_action_key: str,
         rng: random.Random,
     ) -> float:
-        step_result = self._forward_model.reset_state(world_state)
-        step_result = self._forward_model.step(root_action_key)
+        step_result = self._forward_model.transition_cached(world_state, root_action_key)
+        current_state = step_result.state
 
         depth = 0
         while not step_result.terminal and depth < self.config.depth:
-            legal = self._forward_model.legal_actions()
+            legal = self._forward_model.legal_actions_cached(current_state)
             action_key = self._rollout_action_key(
                 view=step_result.view,
                 legal_actions=legal.actions,
                 rng=rng,
             )
-            step_result = self._forward_model.step(action_key)
+            step_result = self._forward_model.transition_cached(current_state, action_key)
+            current_state = step_result.state
             depth += 1
 
         if step_result.terminal:
             return terminal_value(step_result.state, root_player)
 
-        root_view = self._forward_model.observation(viewer_id=root_player).view
+        root_view = self._forward_model.observation_cached(
+            current_state,
+            viewer_id=root_player,
+        ).view
         return value_from_player_view(root_view, root_player)
 
     def _rollout_action_key(
@@ -315,6 +341,9 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
                 depth=config.depth,
                 max_root_actions=config.max_root_actions,
                 rollout_epsilon=config.rollout_epsilon,
+                transition_cache_limit=config.transition_cache_limit,
+                legal_actions_cache_limit=config.legal_actions_cache_limit,
+                observation_cache_limit=config.observation_cache_limit,
             ),
             name="td-search",
         )
