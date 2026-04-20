@@ -272,7 +272,7 @@ export function directResourceValueForSuit(
 ): number {
   let value = 0;
   for (let index = 1; index <= Math.max(0, count); index += 1) {
-    value += contextualSuitValue * marginalTokenMultiplier(index);
+    value += contextualSuitValue * directValueMultiplierForSurplusToken(index);
   }
   return value;
 }
@@ -530,10 +530,6 @@ function directValueMultiplierForSurplusToken(index: number): number {
     return 0.28;
   }
   return 0.12;
-}
-
-function marginalTokenMultiplier(index: number): number {
-  return directValueMultiplierForSurplusToken(index);
 }
 
 function bestTradeTargetValue(
