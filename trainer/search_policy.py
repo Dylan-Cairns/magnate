@@ -35,9 +35,9 @@ class SearchConfig:
     depth: int = 14
     max_root_actions: int = 6
     rollout_epsilon: float = 0.04
-    transition_cache_limit: int = 0
-    legal_actions_cache_limit: int = 0
-    observation_cache_limit: int = 0
+    transition_cache_limit: int = 32
+    legal_actions_cache_limit: int = 32
+    observation_cache_limit: int = 32
 
     def __post_init__(self) -> None:
         if self.worlds <= 0:
@@ -69,9 +69,9 @@ class TDSearchPolicyConfig:
     rollout_epsilon: float = 0.04
     opponent_temperature: float = 1.0
     sample_opponent_actions: bool = False
-    transition_cache_limit: int = 0
-    legal_actions_cache_limit: int = 0
-    observation_cache_limit: int = 0
+    transition_cache_limit: int = 32
+    legal_actions_cache_limit: int = 32
+    observation_cache_limit: int = 32
 
     def __post_init__(self) -> None:
         if not isinstance(self.opponent_checkpoint_path, Path):
