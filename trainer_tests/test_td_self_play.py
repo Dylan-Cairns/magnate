@@ -5,7 +5,13 @@ import unittest
 from typing import cast
 from unittest.mock import patch
 
-from trainer.bridge_payloads import GameActionPayload, PlayerId, PlayerViewPayload, ResourcePoolPayload, SerializedStatePayload
+from trainer.bridge_payloads import (
+    GameActionPayload,
+    PlayerId,
+    PlayerViewPayload,
+    ResourcePoolPayload,
+    SerializedStatePayload,
+)
 from trainer.env import MagnateBridgeEnv
 from trainer.td.self_play import (
     SelfPlayEpisode,

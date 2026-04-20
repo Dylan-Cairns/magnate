@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 
 from .basic_policies import Policy
 from .env import MagnateBridgeEnv

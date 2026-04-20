@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass, replace
 from collections.abc import Callable, Mapping, Sequence, Set
+from dataclasses import dataclass, replace
 
 from .basic_policies import Policy
 from .bridge_payloads import SerializedStatePayload

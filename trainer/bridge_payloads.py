@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, NotRequired, TypedDict, TypeAlias
+from typing import Literal, NotRequired, TypeAlias, TypedDict
 
 Suit = Literal["Moons", "Suns", "Waves", "Leaves", "Wyrms", "Knots"]
 PlayerId = Literal["PlayerA", "PlayerB"]

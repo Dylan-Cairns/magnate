@@ -17,7 +17,12 @@ from .bridge_parsing import (
     parse_serialized_state_payload,
     parse_state_result_payload,
 )
-from .bridge_payloads import BridgeMetadataPayload, GameActionPayload, PlayerId, SerializedStatePayload
+from .bridge_payloads import (
+    BridgeMetadataPayload,
+    GameActionPayload,
+    PlayerId,
+    SerializedStatePayload,
+)
 from .types import LegalActionsResult, ObservationResult, StateResult
 
 

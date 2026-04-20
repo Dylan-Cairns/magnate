@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import math
 import random
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
-from collections.abc import Mapping, Sequence
 from typing import Dict, List
 
 from .basic_policies import Policy
