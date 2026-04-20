@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Mapping, Optional
+from typing import List, Mapping, Optional, TypedDict
 
 from .bridge_payloads import (
     ActionId,
@@ -45,10 +45,10 @@ class ObservationResult:
 class DecisionSample:
     seed: str
     turn: int
-    phase: str
+    phase: GamePhase
     active_player_id: PlayerId
     action_key: str
-    action_id: str
+    action_id: ActionId
     action_index: int
     observation: List[float]
     action_features: List[List[float]]
@@ -56,7 +56,7 @@ class DecisionSample:
     reward: float
     action_probs: Optional[List[float]] = None
 
-    def as_json(self) -> dict[str, Any]:
+    def as_json(self) -> "DecisionSamplePayload":
         return {
             "seed": self.seed,
             "turn": self.turn,
@@ -73,7 +73,22 @@ class DecisionSample:
         }
 
 
-def require_mapping(value: Any, label: str) -> Mapping[str, object]:
+class DecisionSamplePayload(TypedDict):
+    seed: str
+    turn: int
+    phase: GamePhase
+    activePlayerId: PlayerId
+    actionKey: str
+    actionId: ActionId
+    actionIndex: int
+    observation: list[float]
+    actionFeatures: list[list[float]]
+    actionProbs: list[float] | None
+    winner: Winner
+    reward: float
+
+
+def require_mapping(value: object, label: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
         raise TypeError(f"{label} must be an object, got {type(value).__name__}.")
     return value

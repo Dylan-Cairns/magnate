@@ -7,7 +7,7 @@ import threading
 from collections import deque
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Iterable, List, Optional
+from typing import Iterable, List, Optional, TextIO
 from uuid import uuid4
 
 from .bridge_parsing import (
@@ -77,7 +77,7 @@ class BridgeClient:
         thread.start()
         return thread
 
-    def _drain_stderr(self, stream: Any) -> None:
+    def _drain_stderr(self, stream: TextIO) -> None:
         try:
             while True:
                 line = stream.readline()

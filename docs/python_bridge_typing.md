@@ -53,6 +53,30 @@ The current boundary subset is derived from these Python readers:
 - `trainer/bridge_parsing.py` parses raw bridge JSON results once at ingress.
 - `trainer/bridge_client.py`, `trainer/types.py`, and `trainer/env.py` consume
   those parsed payloads.
+- Core trainer logic now consumes the typed bridge models directly:
+  - `trainer/encoding.py`
+  - `trainer/search/leaf_evaluator.py`
+  - `trainer/search/belief_sampler.py`
+  - `trainer/search/forward_model.py`
+  - `trainer/value_policy.py`
+  - `trainer/search_policy.py`
+  - `trainer/teacher_data.py`
+  - `trainer/training.py`
+  - `trainer/td/self_play.py`
+- Trainer-owned file/checkpoint boundaries now use typed payload models too:
+  - `trainer/types.py` (`DecisionSamplePayload`)
+  - `trainer/td/types.py` (`ValueTransitionPayload`, `OpponentSamplePayload`)
+  - `trainer/td/checkpoint.py` (`ValueCheckpointPayload`,
+    `OpponentCheckpointPayload`)
+
+## Pyright Scope
+
+- Checked-in static analysis runs from the repo venv with `pyrightconfig.json`.
+- Current checked-in scope is:
+  - `trainer/`
+  - `trainer_tests/`
+- Script-oriented eval-suite tests are excluded from the checked-in pyright
+  scope for now because the `scripts/` tree is still outside the typed rollout.
 
 The boundary model is intentionally smaller than the full TS engine schema. New
 fields should be added only when Python starts consuming them or when bridge

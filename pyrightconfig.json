@@ -2,7 +2,7 @@
   "pythonVersion": "3.12",
   "venvPath": ".",
   "venv": ".venv",
-  "include": ["trainer"],
+  "include": ["trainer", "trainer_tests"],
   "exclude": [
     "**/__pycache__",
     ".venv",
@@ -13,7 +13,7 @@
     ".npm-cache",
     ".yarn-cache",
     "scripts",
-    "trainer_tests"
+    "trainer_tests/test_eval_suite*.py"
   ],
   "reportPrivateImportUsage": "none",
   "executionEnvironments": [

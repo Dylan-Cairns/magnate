@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, Dict, Protocol
+from typing import Dict, Protocol
 
 from trainer.bridge_payloads import PlayerViewPayload, SerializedStatePayload
 from trainer.encoding import encode_action_candidates, encode_observation
@@ -215,11 +215,3 @@ def _terminal_reward(*, winner: Winner, player_id: PlayerId) -> float:
     if winner == "Draw":
         return 0.0
     return 1.0 if winner == player_id else -1.0
-
-
-def _as_int(value: Any) -> int:
-    if isinstance(value, bool):
-        raise ValueError("Expected integer value, got bool.")
-    if isinstance(value, (int, float)):
-        return int(value)
-    raise ValueError(f"Expected numeric value, got {type(value).__name__}.")

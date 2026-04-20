@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Sequence
+from typing import NotRequired, Sequence, TypedDict
 
 from trainer.types import PlayerId
 
@@ -23,3 +23,20 @@ class OpponentSample:
     action_features: Sequence[Sequence[float]]
     action_index: int
     player_id: PlayerId
+
+
+class ValueTransitionPayload(TypedDict):
+    observation: list[float]
+    reward: float
+    done: bool
+    nextObservation: list[float] | None
+    playerId: PlayerId
+    episodeId: NotRequired[str]
+    timestep: NotRequired[int]
+
+
+class OpponentSamplePayload(TypedDict):
+    observation: list[float]
+    actionFeatures: list[list[float]]
+    actionIndex: int
+    playerId: PlayerId
