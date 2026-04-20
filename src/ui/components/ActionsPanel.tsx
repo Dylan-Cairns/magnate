@@ -181,6 +181,31 @@ export function ActionsPanel({
                       </div>
                     );
 
+                    const renderPickerGroupAction = (
+                      key: string,
+                      label: string,
+                      isOpen: boolean,
+                      onOpen: (trigger: HTMLButtonElement) => void
+                    ) =>
+                      renderCategorizedAction(
+                        key,
+                        <button
+                          type="button"
+                          className="action-button has-submenu"
+                          onClick={(event) => {
+                            if (isOpen) {
+                              onClosePicker();
+                              return;
+                            }
+                            onOpen(event.currentTarget);
+                          }}
+                        >
+                          <span className="action-text">
+                            <SuitText text={label} />
+                          </span>
+                        </button>
+                      );
+
                     if (item.kind === 'trade-group') {
                       if (hasMultipleTradeSources) {
                         return renderCategorizedAction(
@@ -253,36 +278,18 @@ export function ActionsPanel({
                         );
                       }
 
-                      return renderCategorizedAction(
+                      return renderPickerGroupAction(
                         `buy-deed-group-${item.cardId}`,
-                        <button
-                          type="button"
-                          className="action-button has-submenu"
-                          onClick={(event) => {
-                            if (
-                              actionPicker?.kind === 'district' &&
-                              actionPicker.actionType === 'buy-deed' &&
-                              actionPicker.cardId === item.cardId
-                            ) {
-                              onClosePicker();
-                              return;
-                            }
-                            onOpenDistrictPicker(
-                              {
-                                actionType: 'buy-deed',
-                                cardId: item.cardId,
-                              },
-                              event.currentTarget,
-                              item.options.length
-                            );
-                          }}
-                        >
-                          <span className="action-text">
-                            <SuitText
-                              text={`Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`}
-                            />
-                          </span>
-                        </button>
+                        `Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`,
+                        actionPicker?.kind === 'district' &&
+                          actionPicker.actionType === 'buy-deed' &&
+                          actionPicker.cardId === item.cardId,
+                        (trigger) =>
+                          onOpenDistrictPicker(
+                            { actionType: 'buy-deed', cardId: item.cardId },
+                            trigger,
+                            item.options.length
+                          )
                       );
                     }
 
@@ -298,36 +305,18 @@ export function ActionsPanel({
                         );
                       }
 
-                      return renderCategorizedAction(
+                      return renderPickerGroupAction(
                         `develop-deed-group-${item.cardId}-${item.districtId}`,
-                        <button
-                          type="button"
-                          className="action-button has-submenu"
-                          onClick={(event) => {
-                            if (
-                              actionPicker?.kind === 'deed-payment' &&
-                              actionPicker.cardId === item.cardId &&
-                              actionPicker.districtId === item.districtId
-                            ) {
-                              onClosePicker();
-                              return;
-                            }
-                            onOpenDeedPaymentPicker(
-                              {
-                                cardId: item.cardId,
-                                districtId: item.districtId,
-                              },
-                              event.currentTarget,
-                              item.options.length
-                            );
-                          }}
-                        >
-                          <span className="action-text">
-                            <SuitText
-                              text={`Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`}
-                            />
-                          </span>
-                        </button>
+                        `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`,
+                        actionPicker?.kind === 'deed-payment' &&
+                          actionPicker.cardId === item.cardId &&
+                          actionPicker.districtId === item.districtId,
+                        (trigger) =>
+                          onOpenDeedPaymentPicker(
+                            { cardId: item.cardId, districtId: item.districtId },
+                            trigger,
+                            item.options.length
+                          )
                       );
                     }
 
@@ -392,38 +381,23 @@ export function ActionsPanel({
                     }
 
                     if (item.kind === 'income-choice-group') {
-                      return renderCategorizedAction(
+                      return renderPickerGroupAction(
                         `income-choice-group-${item.playerId}-${item.districtId}-${item.cardId}`,
-                        <button
-                          type="button"
-                          className="action-button has-submenu"
-                          onClick={(event) => {
-                            if (
-                              actionPicker?.kind === 'income-choice' &&
-                              actionPicker.playerId === item.playerId &&
-                              actionPicker.cardId === item.cardId &&
-                              actionPicker.districtId === item.districtId
-                            ) {
-                              onClosePicker();
-                              return;
-                            }
-                            onOpenIncomeChoicePicker(
-                              {
-                                playerId: item.playerId,
-                                cardId: item.cardId,
-                                districtId: item.districtId,
-                              },
-                              event.currentTarget,
-                              item.options.length
-                            );
-                          }}
-                        >
-                          <span className="action-text">
-                            <SuitText
-                              text={`Choose income ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`}
-                            />
-                          </span>
-                        </button>
+                        `Choose income ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`,
+                        actionPicker?.kind === 'income-choice' &&
+                          actionPicker.playerId === item.playerId &&
+                          actionPicker.cardId === item.cardId &&
+                          actionPicker.districtId === item.districtId,
+                        (trigger) =>
+                          onOpenIncomeChoicePicker(
+                            {
+                              playerId: item.playerId,
+                              cardId: item.cardId,
+                              districtId: item.districtId,
+                            },
+                            trigger,
+                            item.options.length
+                          )
                       );
                     }
 
