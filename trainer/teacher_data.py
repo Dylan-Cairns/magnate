@@ -3,12 +3,13 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass, replace
-from typing import Callable, Dict, Mapping, Set
+from collections.abc import Callable, Mapping, Sequence, Set
 
 from .basic_policies import Policy
+from .bridge_payloads import SerializedStatePayload
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
-from .types import DecisionSample, PlayerId, Winner
+from .types import DecisionSample, KeyedAction, PlayerId, Winner
 
 ProgressCallback = Callable[
     [int, int, int, Mapping[Winner, int], Mapping[PlayerId, int]], None
@@ -19,12 +20,12 @@ ProgressCallback = Callable[
 class TeacherCollectionSummary:
     games: int
     samples: int
-    winners: Dict[Winner, int]
-    decisions_by_player: Dict[PlayerId, int]
+    winners: dict[Winner, int]
+    decisions_by_player: dict[PlayerId, int]
     average_turn: float
     teacher_players: tuple[PlayerId, ...]
 
-    def as_json(self) -> Dict[str, object]:
+    def as_json(self) -> dict[str, object]:
         return {
             "games": self.games,
             "samples": self.samples,
@@ -55,8 +56,8 @@ def collect_teacher_samples(
             "opponent_policy is required unless teacher_player_ids includes both players."
         )
 
-    winners: Dict[Winner, int] = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
-    decisions_by_player: Dict[PlayerId, int] = {"PlayerA": 0, "PlayerB": 0}
+    winners: dict[Winner, int] = {"PlayerA": 0, "PlayerB": 0, "Draw": 0}
+    decisions_by_player: dict[PlayerId, int] = {"PlayerA": 0, "PlayerB": 0}
     turn_total = 0
     all_samples: list[DecisionSample] = []
     rng = random.Random(rng_seed)
@@ -96,8 +97,8 @@ def collect_teacher_samples(
                 staged.append(
                     DecisionSample(
                         seed=seed,
-                        turn=int(step_result.state.get("turn", 0)),
-                        phase=str(step_result.state.get("phase", "")),
+                        turn=step_result.state["turn"],
+                        phase=step_result.state["phase"],
                         active_player_id=active_player,
                         action_key=action_key,
                         action_id=chosen_action.action_id,
@@ -115,7 +116,7 @@ def collect_teacher_samples(
 
         winner = _winner_from_state(step_result.state)
         winners[winner] += 1
-        turn_total += int(step_result.state.get("turn", 0))
+        turn_total += step_result.state["turn"]
         all_samples.extend(_attach_reward(sample, winner) for sample in staged)
 
         completed_games = index + 1
@@ -152,20 +153,14 @@ def _require_opponent_policy(opponent_policy: Policy | None) -> Policy:
     return opponent_policy
 
 
-def _winner_from_state(state: Mapping[str, object]) -> Winner:
+def _winner_from_state(state: SerializedStatePayload) -> Winner:
     final_score = state.get("finalScore")
-    if not isinstance(final_score, dict):
+    if final_score is None:
         raise ValueError(
             "Terminal state is missing finalScore. "
-            f"turn={state.get('turn')} phase={state.get('phase')!r}"
+            f"turn={state['turn']} phase={state['phase']!r}"
         )
-    winner = final_score.get("winner")
-    if winner in ("PlayerA", "PlayerB", "Draw"):
-        return winner
-    raise ValueError(
-        "Terminal state has invalid finalScore.winner. "
-        f"winner={winner!r} turn={state.get('turn')} phase={state.get('phase')!r}"
-    )
+    return final_score["winner"]
 
 
 def _attach_reward(sample: DecisionSample, winner: Winner) -> DecisionSample:
@@ -178,7 +173,7 @@ def _attach_reward(sample: DecisionSample, winner: Winner) -> DecisionSample:
     return replace(sample, winner=winner, reward=reward)
 
 
-def _find_action_index(actions, action_key: str) -> int:
+def _find_action_index(actions: Sequence[KeyedAction], action_key: str) -> int:
     for index, action in enumerate(actions):
         if action.action_key == action_key:
             return index
@@ -188,7 +183,7 @@ def _find_action_index(actions, action_key: str) -> int:
 def _action_probs_from_policy(
     *,
     policy: Policy,
-    legal_actions,
+    legal_actions: Sequence[KeyedAction],
     chosen_action_index: int,
 ) -> list[float]:
     by_key = policy.root_action_probs()

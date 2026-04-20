@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, Mapping, Sequence
+from typing import Dict, Mapping, Protocol, Sequence
 
 from trainer.types import KeyedAction
+
+
+class SupportsScoreAction(Protocol):
+    def score_action(self, action: KeyedAction) -> float: ...
 
 
 def rank_root_actions(
     *,
     legal_actions: Sequence[KeyedAction],
-    heuristic_policy: object,
+    heuristic_policy: SupportsScoreAction,
 ) -> list[KeyedAction]:
     return sorted(
         legal_actions,
@@ -23,7 +27,7 @@ def rank_root_actions(
 def root_priors_by_key(
     *,
     legal_actions: Sequence[KeyedAction],
-    heuristic_policy: object,
+    heuristic_policy: SupportsScoreAction,
 ) -> Dict[str, float]:
     if not legal_actions:
         return {}

@@ -5,11 +5,20 @@ import os
 import subprocess
 import threading
 from collections import deque
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 from uuid import uuid4
 
-from .types import KeyedAction, LegalActionsResult, ObservationResult, PlayerId, StateResult
+from .bridge_parsing import (
+    parse_bridge_metadata_result,
+    parse_legal_actions_result_payload,
+    parse_observation_result_payload,
+    parse_serialized_state_payload,
+    parse_state_result_payload,
+)
+from .bridge_payloads import BridgeMetadataPayload, GameActionPayload, PlayerId, SerializedStatePayload
+from .types import LegalActionsResult, ObservationResult, StateResult
 
 
 class BridgeError(RuntimeError):
@@ -17,7 +26,7 @@ class BridgeError(RuntimeError):
         self,
         code: str,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: Optional[dict[str, object]] = None,
     ) -> None:
         super().__init__(f"[{code}] {message}")
         self.code = code
@@ -128,7 +137,11 @@ class BridgeClient:
         self._stderr_thread.join(timeout=0.5)
         self._stderr_thread = None
 
-    def _request(self, command: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _request(
+        self,
+        command: str,
+        payload: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
         with self._lock:
             if self._process.poll() is not None:
                 raise RuntimeError("Bridge process is not running.")
@@ -139,7 +152,7 @@ class BridgeClient:
             envelope = {
                 "requestId": request_id,
                 "command": command,
-                "payload": payload if payload is not None else {},
+                "payload": dict(payload) if payload is not None else {},
             }
 
             self._process.stdin.write(json.dumps(envelope) + "\n")
@@ -185,19 +198,20 @@ class BridgeClient:
             result = response.get("result")
             if not isinstance(result, dict):
                 raise RuntimeError(f"Bridge result must be an object, got {type(result).__name__}")
-            return result
+            return dict(result)
 
-    def metadata(self) -> Dict[str, Any]:
-        return self._request("metadata")
+    def metadata(self) -> BridgeMetadataPayload:
+        result = self._request("metadata")
+        return parse_bridge_metadata_result(result)
 
     def reset(
         self,
         seed: Optional[str] = None,
         first_player: Optional[PlayerId] = None,
-        serialized_state: Optional[Dict[str, Any]] = None,
+        serialized_state: Optional[SerializedStatePayload] = None,
         skip_advance_to_decision: bool = False,
     ) -> StateResult:
-        payload: Dict[str, Any] = {}
+        payload: dict[str, object] = {}
         if seed is not None:
             payload["seed"] = seed
         if first_player is not None:
@@ -207,79 +221,41 @@ class BridgeClient:
             payload["skipAdvanceToDecision"] = skip_advance_to_decision
 
         result = self._request("reset", payload)
-        return StateResult(
-            state=result["state"],
-            view=result["view"],
-            terminal=bool(result["terminal"]),
-        )
+        return parse_state_result_payload(result)
 
     def legal_actions(self) -> LegalActionsResult:
         result = self._request("legalActions", {})
-        raw_actions = result.get("actions")
-        if not isinstance(raw_actions, list):
-            raise RuntimeError("Bridge legalActions result is missing 'actions' list.")
-
-        actions: List[KeyedAction] = []
-        for entry in raw_actions:
-            if not isinstance(entry, dict):
-                raise RuntimeError("Each legal action entry must be an object.")
-            actions.append(
-                KeyedAction(
-                    action_id=str(entry["actionId"]),
-                    action_key=str(entry["actionKey"]),
-                    action=dict(entry["action"]),
-                )
-            )
-
-        active_player_id = result.get("activePlayerId")
-        if active_player_id not in ("PlayerA", "PlayerB"):
-            raise RuntimeError(f"Invalid activePlayerId in legalActions response: {active_player_id!r}")
-
-        return LegalActionsResult(
-            actions=actions,
-            active_player_id=active_player_id,
-            phase=str(result.get("phase", "")),
-        )
+        return parse_legal_actions_result_payload(result)
 
     def observation(
         self,
         viewer_id: Optional[PlayerId] = None,
         include_legal_action_mask: bool = False,
     ) -> ObservationResult:
-        payload: Dict[str, Any] = {"includeLegalActionMask": include_legal_action_mask}
+        payload: dict[str, object] = {"includeLegalActionMask": include_legal_action_mask}
         if viewer_id is not None:
             payload["viewerId"] = viewer_id
 
         result = self._request("observation", payload)
-        legal_action_mask = result.get("legalActionMask")
-        if legal_action_mask is not None and not isinstance(legal_action_mask, list):
-            raise RuntimeError("Bridge observation legalActionMask must be a list when present.")
-        return ObservationResult(
-            view=result["view"],
-            legal_action_mask=legal_action_mask,
-        )
+        return parse_observation_result_payload(result)
 
     def step(
         self,
         action_key: Optional[str] = None,
-        action: Optional[Dict[str, Any]] = None,
+        action: Optional[GameActionPayload] = None,
     ) -> StateResult:
-        payload: Dict[str, Any] = {}
+        payload: dict[str, object] = {}
         if action_key is not None:
             payload["actionKey"] = action_key
         if action is not None:
             payload["action"] = action
 
         result = self._request("step", payload)
-        return StateResult(
-            state=result["state"],
-            view=result["view"],
-            terminal=bool(result["terminal"]),
-        )
+        return parse_state_result_payload(result)
 
-    def serialize(self) -> Dict[str, Any]:
+    def serialize(self) -> SerializedStatePayload:
         result = self._request("serialize", {})
-        return dict(result["state"])
+        return parse_serialized_state_payload(result.get("state"), label="serialize.state")
 
 
 def _default_bridge_command(cwd: Path) -> List[str]:

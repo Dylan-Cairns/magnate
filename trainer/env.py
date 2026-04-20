@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Optional
 
+from .bridge_payloads import GameActionPayload, PlayerViewPayload, SerializedStatePayload
 from .bridge_client import BridgeClient
 from .types import LegalActionsResult, ObservationResult, PlayerId, StateResult
 
@@ -12,15 +13,15 @@ class MagnateBridgeEnv:
     """Thin environment wrapper around bridge commands."""
 
     client: BridgeClient
-    current_state: Optional[Dict] = None
-    current_view: Optional[Dict] = None
+    current_state: Optional[SerializedStatePayload] = None
+    current_view: Optional[PlayerViewPayload] = None
     terminal: bool = False
 
     def reset(
         self,
         seed: Optional[str] = None,
         first_player: PlayerId = "PlayerA",
-        serialized_state: Optional[Dict] = None,
+        serialized_state: Optional[SerializedStatePayload] = None,
         skip_advance_to_decision: bool = False,
     ) -> StateResult:
         result = self.client.reset(
@@ -50,7 +51,7 @@ class MagnateBridgeEnv:
     def step(
         self,
         action_key: Optional[str] = None,
-        action: Optional[Dict] = None,
+        action: Optional[GameActionPayload] = None,
     ) -> StateResult:
         result = self.client.step(action_key=action_key, action=action)
         self.current_state = result.state

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Protocol, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Dict, Protocol
 
+from trainer.bridge_payloads import PlayerViewPayload, SerializedStatePayload
 from trainer.encoding import encode_action_candidates, encode_observation
 from trainer.env import MagnateBridgeEnv
 from trainer.types import KeyedAction, PlayerId, Winner
@@ -16,10 +18,10 @@ SelfPlayProgressCallback = Callable[[int, int, Mapping[str, int]], None]
 class PolicyLike(Protocol):
     def choose_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
-        state: Mapping[str, Any] | None = None,
+        state: SerializedStatePayload | None = None,
     ) -> str: ...
 
 
@@ -130,7 +132,7 @@ def collect_self_play_episode(
         seed=seed,
         first_player=first_player,
         winner=winner,
-        turns=_as_int(step_result.state.get("turn")),
+        turns=step_result.state["turn"],
         value_transitions=value_transitions,
         opponent_samples=opponent_samples,
     )
@@ -199,20 +201,14 @@ def _find_action_index(actions: Sequence[KeyedAction], action_key: str) -> int:
     raise ValueError(f"Selected action key was not present in legal actions: {action_key}")
 
 
-def _winner_from_state(state: Mapping[str, Any]) -> Winner:
+def _winner_from_state(state: SerializedStatePayload) -> Winner:
     final_score = state.get("finalScore")
-    if not isinstance(final_score, dict):
+    if final_score is None:
         raise ValueError(
             "Terminal state is missing finalScore. "
-            f"turn={state.get('turn')} phase={state.get('phase')!r}"
+            f"turn={state['turn']} phase={state['phase']!r}"
         )
-    winner = final_score.get("winner")
-    if winner in ("PlayerA", "PlayerB", "Draw"):
-        return winner
-    raise ValueError(
-        "Terminal state has invalid finalScore.winner. "
-        f"winner={winner!r} turn={state.get('turn')} phase={state.get('phase')!r}"
-    )
+    return final_score["winner"]
 
 
 def _terminal_reward(*, winner: Winner, player_id: PlayerId) -> float:

@@ -24,9 +24,12 @@
 - Bridge runtime commands are stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python trainer/eval runtime now standardizes on Python `3.12+`; Windows local setup already provisions `.venv` with `3.12`, and runtime guards/docs now match that floor.
 - Local Python setup now installs `requirements-dev.txt`, and the repo includes a Ruff baseline (`ruff.toml`) targeting Python `3.12` with high-signal lint checks plus import sorting.
+- Repo-local Python typing now standardizes on the project `.venv`: VS Code workspace settings pin `.venv\Scripts\python.exe`, `requirements-dev.txt` includes `pyright`, and `pyrightconfig.json` checks the `trainer/` package against that environment.
 - Python bridge client now drains bridge stderr in a background thread to avoid long-run Windows pipe stalls during self-play collection.
+- Python bridge ingress is now typed and validated once at the boundary: `trainer/bridge_payloads.py` defines the consumed TS bridge payload subset, `trainer/bridge_parsing.py` parses raw bridge JSON into that subset, and `trainer/bridge_client.py`/`trainer/env.py` expose typed state, view, action, and metadata payloads to the trainer stack.
 - Trainer supports policies: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Trainer policy internals are now split across focused modules (`trainer/basic_policies.py`, `trainer/value_policy.py`, `trainer/search_policy.py`, `trainer/policy_factory.py`); `trainer/policies.py` remains the stable public facade for scripts/tests.
+- Core trainer policy/search flow now consumes the typed bridge boundary directly: the policy interface, search determinization helpers, forward model, teacher-data collection, self-play collection, and evaluation/training sampling paths no longer rely on raw `Dict[str, Any]` bridge payloads at their main entry points.
 - Canonical eval pipeline is `scripts.eval_suite` with explicit `--mode gate|certify`.
 - TD pipeline is operational:
   - replay collection: `scripts.collect_td_self_play`
@@ -57,11 +60,13 @@
 - Improve `td-search` strength and throughput.
 - Wire an online replay refresh loop (beyond chunk-local offline replay files).
 - Tune browser `td-search` latency/throughput now that `td-search fast` is the default profile.
+- Continue shrinking untyped/dynamic payload handling outside explicit JSON/file I/O boundaries in the Python trainer stack.
 
 ## Immediate Next Steps
 
 1. Use the Windows laptop wrappers for local runs while preserving the existing RunPod bash launchers for cloud re-entry.
 2. Continue overnight self-play loop iterations with promoted warm starts and the `12`-chunk cadence.
 3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
+4. Extend the typed bridge-boundary approach incrementally into the remaining Python JSON/file I/O helpers as future trainer changes touch them.
 
-_Updated: 2026-04-19._
+_Updated: 2026-04-20._

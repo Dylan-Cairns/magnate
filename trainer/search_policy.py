@@ -4,11 +4,12 @@ import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 import torch
 
 from .basic_policies import HeuristicPolicy, Policy, RandomLegalPolicy
+from .bridge_payloads import PlayerViewPayload, SerializedStatePayload
 from .encoding import encode_action_candidates, encode_observation
 from .search import (
     BridgeForwardModel,
@@ -23,6 +24,7 @@ from .search import (
     value_from_player_view,
 )
 from .td.checkpoint import load_opponent_checkpoint, load_value_checkpoint
+from .td.models import OpponentModel, ValueNet
 from .types import KeyedAction, PlayerId
 
 
@@ -85,14 +87,14 @@ class DeterminizedSearchPolicy(Policy):
         self._heuristic_policy = HeuristicPolicy()
         self._random_policy = RandomLegalPolicy()
         self._forward_model = BridgeForwardModel(step_cache_limit=0)
-        self._last_root_policy: Dict[str, float] | None = None
+        self._last_root_policy: dict[str, float] | None = None
 
     def choose_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
-        state: Mapping[str, Any] | None = None,
+        state: SerializedStatePayload | None = None,
     ) -> str:
         if not legal_actions:
             raise ValueError("Search policy requires at least one legal action.")
@@ -122,8 +124,8 @@ class DeterminizedSearchPolicy(Policy):
         visit_count = len(worlds) * self.config.rollouts
         root_budget = max(1, visit_count * max(1, self.config.max_root_actions))
 
-        root_visits: Dict[str, int] = {action.action_key: 0 for action in ranked_actions}
-        root_value_sum: Dict[str, float] = {action.action_key: 0.0 for action in ranked_actions}
+        root_visits: dict[str, int] = {action.action_key: 0 for action in ranked_actions}
+        root_value_sum: dict[str, float] = {action.action_key: 0.0 for action in ranked_actions}
 
         for visit_index in range(root_budget):
             target_count = progressive_target_action_count(
@@ -223,7 +225,7 @@ class DeterminizedSearchPolicy(Policy):
 
     def _run_rollout(
         self,
-        world_state: Dict[str, Any],
+        world_state: SerializedStatePayload,
         root_player: PlayerId,
         root_action_key: str,
         rng: random.Random,
@@ -250,7 +252,7 @@ class DeterminizedSearchPolicy(Policy):
 
     def _rollout_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
     ) -> str:
@@ -261,7 +263,7 @@ class DeterminizedSearchPolicy(Policy):
     def _root_priors_by_key(
         self,
         legal_actions: Sequence[KeyedAction],
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         return root_priors_by_key(
             legal_actions=legal_actions,
             heuristic_policy=self._heuristic_policy,
@@ -269,11 +271,11 @@ class DeterminizedSearchPolicy(Policy):
 
     def _sample_worlds(
         self,
-        state: Mapping[str, Any],
-        view: Mapping[str, Any],
+        state: SerializedStatePayload,
+        view: PlayerViewPayload,
         root_player: PlayerId,
         rng: random.Random,
-    ) -> list[Dict[str, Any]]:
+    ) -> list[SerializedStatePayload]:
         return sample_determinized_worlds(
             state=state,
             view=view,
@@ -288,7 +290,7 @@ class DeterminizedSearchPolicy(Policy):
         legal_actions: Sequence[KeyedAction],
         root_visits: Mapping[str, int],
         chosen_action_key: str,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         total = sum(root_visits.get(action.action_key, 0) for action in legal_actions)
         if total <= 0:
             return {
@@ -320,13 +322,13 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
     def __post_init__(self) -> None:
         super().__post_init__()
         value_model, _payload = load_value_checkpoint(path=self._td_config.value_checkpoint_path)
-        self._value_model = value_model
+        self._value_model: ValueNet | None = value_model
         self._value_model.eval()
 
         opponent_model, _opponent_payload = load_opponent_checkpoint(
             path=self._td_config.opponent_checkpoint_path
         )
-        self._opponent_model = opponent_model
+        self._opponent_model: OpponentModel | None = opponent_model
         self._opponent_model.eval()
 
     def close(self) -> None:
@@ -336,7 +338,7 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
 
     def _run_rollout(
         self,
-        world_state: Dict[str, Any],
+        world_state: SerializedStatePayload,
         root_player: PlayerId,
         root_action_key: str,
         rng: random.Random,
@@ -370,7 +372,7 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
         active_player = active_player_id(step_result.view)
         observation = torch.tensor(encode_observation(step_result.view), dtype=torch.float32)
         with torch.no_grad():
-            active_value = float(self._value_model(observation).item())
+            active_value = float(self._require_value_model()(observation).item())
         root_value = active_value_to_root_value(
             active_value=active_value,
             active_player=active_player,
@@ -381,7 +383,7 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
     def _opponent_rollout_action_key(
         self,
         *,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
     ) -> str:
@@ -391,7 +393,7 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
         observation = encode_observation(view)
         action_features = encode_action_candidates(legal_actions)
         with torch.no_grad():
-            distribution = self._opponent_model.action_distribution(
+            distribution = self._require_opponent_model().action_distribution(
                 observation=observation,
                 action_features=action_features,
                 temperature=self._td_config.opponent_temperature,
@@ -406,6 +408,16 @@ class TDDeterminizedSearchPolicy(DeterminizedSearchPolicy):
                 f"index={index} legalActions={len(legal_actions)}"
             )
         return legal_actions[index].action_key
+
+    def _require_value_model(self) -> ValueNet:
+        if self._value_model is None:
+            raise RuntimeError("TD value model is unavailable; the policy may already be closed.")
+        return self._value_model
+
+    def _require_opponent_model(self) -> OpponentModel:
+        if self._opponent_model is None:
+            raise RuntimeError("TD opponent model is unavailable; the policy may already be closed.")
+        return self._opponent_model
 
 
 def _safe_div(total: float, count: int) -> float:

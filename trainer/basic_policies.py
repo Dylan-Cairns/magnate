@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
+from .bridge_payloads import PlayerViewPayload, SerializedStatePayload
 from .encoding import _card_rank
 from .types import KeyedAction
 
@@ -13,10 +14,10 @@ class Policy:
 
     def choose_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
-        state: Mapping[str, Any] | None = None,
+        state: SerializedStatePayload | None = None,
     ) -> str:
         raise NotImplementedError
 
@@ -33,10 +34,10 @@ class RandomLegalPolicy(Policy):
 
     def choose_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
-        state: Mapping[str, Any] | None = None,
+        state: SerializedStatePayload | None = None,
     ) -> str:
         del view
         del state
@@ -51,10 +52,10 @@ class HeuristicPolicy(Policy):
 
     def choose_action_key(
         self,
-        view: Dict[str, Any],
+        view: PlayerViewPayload,
         legal_actions: Sequence[KeyedAction],
         rng: random.Random,
-        state: Mapping[str, Any] | None = None,
+        state: SerializedStatePayload | None = None,
     ) -> str:
         del view
         del rng
@@ -84,7 +85,7 @@ class HeuristicPolicy(Policy):
             "end-turn": 0.0,
         }.get(action_id, 0.0)
 
-        card_id = str(payload.get("cardId", ""))
+        card_id = payload["cardId"] if "cardId" in payload else ""
         card_rank = _card_rank(card_id)
 
         if action_id in ("develop-outright", "develop-deed"):
@@ -95,9 +96,9 @@ class HeuristicPolicy(Policy):
                 score -= 1.5
         if action_id == "sell-card":
             score -= card_rank * 0.3
-        if action_id == "trade":
-            give = str(payload.get("give", ""))
-            receive = str(payload.get("receive", ""))
+        if payload["type"] == "trade":
+            give = payload["give"]
+            receive = payload["receive"]
             if give == receive:
                 score -= 10.0
             else:
