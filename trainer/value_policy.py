@@ -138,15 +138,17 @@ class TDValuePolicy(Policy):
         action_key: str,
         root_player: PlayerId,
     ) -> float:
-        step_result = self._forward_model.reset_state(world_state)
-        del step_result
-        step_result = self._forward_model.step(action_key)
+        step_result = self._forward_model.transition_cached(world_state, action_key)
         if step_result.terminal:
             return terminal_value(step_result.state, root_player)
 
         active_player = active_player_id(step_result.view)
+        observation_view = self._forward_model.observation_cached(
+            step_result.state,
+            viewer_id=active_player,
+        ).view
         observation = torch.tensor(
-            encode_observation(step_result.view),
+            encode_observation(observation_view),
             dtype=torch.float32,
         )
         with torch.no_grad():

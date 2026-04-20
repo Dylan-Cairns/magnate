@@ -185,6 +185,46 @@ class _StubForwardModel:
             phase="ActionWindow",
         )
 
+    def transition_cached(self, state: SerializedStatePayload, action_key: str) -> StateResult:
+        if action_key == "root":
+            return StateResult(
+                state=_empty_state(
+                    turn=state["turn"] + 1,
+                    phase="ActionWindow",
+                    active_player=self._post_root_active,
+                ),
+                view=_empty_view(active_player=self._post_root_active, turn=state["turn"] + 1),
+                terminal=False,
+            )
+        return StateResult(
+            state=_empty_state(
+                turn=state["turn"] + 1,
+                phase="ActionWindow",
+                active_player=self._post_rollout_active,
+            ),
+            view=_empty_view(active_player=self._post_rollout_active, turn=state["turn"] + 1),
+            terminal=False,
+        )
+
+    def legal_actions_cached(self, _state: SerializedStatePayload) -> LegalActionsResult:
+        return self.legal_actions()
+
+    def observation_cached(
+        self,
+        state: SerializedStatePayload,
+        viewer_id: PlayerId | None = None,
+    ) -> ObservationResult:
+        active_player = cast(PlayerId, state["players"][state["activePlayerIndex"]]["id"])
+        resolved_viewer = active_player if viewer_id is None else viewer_id
+        return ObservationResult(
+            view=_empty_view(
+                active_player=active_player,
+                turn=state["turn"],
+                viewer_id=resolved_viewer,
+            ),
+            legal_action_mask=None,
+        )
+
     def close(self) -> None:
         return None
 
@@ -533,6 +573,39 @@ class TDLeafPerspectiveTests(unittest.TestCase):
             finally:
                 policy.close()
 
+    @patch("trainer.value_policy.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
+    def test_td_value_rollout_uses_cached_state_queries(self, _mock_encode) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoint_path = Path(tmp_dir) / "value.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=16),
+                output_path=checkpoint_path,
+            )
+            policy = TDValuePolicy(
+                config=TDValuePolicyConfig(
+                    checkpoint_path=checkpoint_path,
+                    worlds=1,
+                )
+            )
+            try:
+                cached_forward_model = _CachedOnlyForwardModel(
+                    post_root_active="PlayerB",
+                    post_rollout_active="PlayerA",
+                )
+                policy._forward_model = cast(BridgeForwardModel, cached_forward_model)
+                policy._model = cast(ValueNet, _ConstantValueModel(0.4))
+                score = policy._score_action_world(
+                    world_state=_empty_state(turn=0, phase="ActionWindow", active_player="PlayerA"),
+                    action_key="root",
+                    root_player="PlayerA",
+                )
+                self.assertAlmostEqual(score, -0.4)
+                self.assertEqual(cached_forward_model.transition_cached_calls, 1)
+                self.assertEqual(cached_forward_model.legal_actions_cached_calls, 0)
+                self.assertEqual(cached_forward_model.observation_cached_calls, 1)
+            finally:
+                policy.close()
+
     @patch("trainer.search_policy.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
     def test_td_search_leaf_converts_active_value_to_root_perspective(self, _mock_encode) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -578,6 +651,55 @@ class TDLeafPerspectiveTests(unittest.TestCase):
                         rng=random.Random(0),
                     )
                 self.assertAlmostEqual(score, -0.6)
+            finally:
+                policy.close()
+
+    @patch("trainer.search_policy.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
+    def test_td_search_rollout_uses_cached_state_queries(self, _mock_encode) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            value_path = Path(tmp_dir) / "value.pt"
+            opponent_path = Path(tmp_dir) / "opponent.pt"
+            save_value_checkpoint(
+                model=ValueNet(observation_dim=OBSERVATION_DIM, hidden_dim=16),
+                output_path=value_path,
+            )
+            save_opponent_checkpoint(
+                model=OpponentModel(
+                    observation_dim=OBSERVATION_DIM,
+                    action_feature_dim=ACTION_FEATURE_DIM,
+                    hidden_dim=16,
+                ),
+                output_path=opponent_path,
+            )
+            policy = TDDeterminizedSearchPolicy(
+                config=TDSearchPolicyConfig(
+                    value_checkpoint_path=value_path,
+                    opponent_checkpoint_path=opponent_path,
+                    worlds=1,
+                    rollouts=1,
+                    depth=1,
+                    max_root_actions=1,
+                    rollout_epsilon=0.0,
+                )
+            )
+            try:
+                cached_forward_model = _CachedOnlyForwardModel(
+                    post_root_active="PlayerB",
+                    post_rollout_active="PlayerB",
+                )
+                policy._forward_model = cast(BridgeForwardModel, cached_forward_model)
+                policy._value_model = cast(ValueNet, _ConstantValueModel(0.6))
+                with patch.object(policy, "_opponent_rollout_action_key", return_value="a0"):
+                    score = policy._run_rollout(
+                        world_state=_empty_state(turn=0, phase="ActionWindow", active_player="PlayerA"),
+                        root_player="PlayerA",
+                        root_action_key="root",
+                        rng=random.Random(0),
+                    )
+                self.assertAlmostEqual(score, -0.6)
+                self.assertEqual(cached_forward_model.transition_cached_calls, 2)
+                self.assertEqual(cached_forward_model.legal_actions_cached_calls, 1)
+                self.assertEqual(cached_forward_model.observation_cached_calls, 0)
             finally:
                 policy.close()
 
