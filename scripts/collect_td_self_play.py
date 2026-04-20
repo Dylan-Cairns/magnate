@@ -5,6 +5,7 @@ import json
 import re
 import sys
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -53,6 +54,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-depth", type=int, default=14)
     parser.add_argument("--search-max-root-actions", type=int, default=6)
     parser.add_argument("--search-rollout-epsilon", type=float, default=0.04)
+    parser.add_argument(
+        "--transition-cache-limit",
+        type=int,
+        default=0,
+        help="Exact-state transition cache size per policy instance (0 disables).",
+    )
+    parser.add_argument(
+        "--legal-actions-cache-limit",
+        type=int,
+        default=0,
+        help="Exact-state legal-actions cache size per policy instance (0 disables).",
+    )
+    parser.add_argument(
+        "--observation-cache-limit",
+        type=int,
+        default=0,
+        help="Exact-state observation cache size per policy instance (0 disables).",
+    )
     parser.add_argument(
         "--td-value-checkpoint",
         type=Path,
@@ -172,11 +191,17 @@ def main() -> int:
         depth=args.search_depth,
         max_root_actions=args.search_max_root_actions,
         rollout_epsilon=args.search_rollout_epsilon,
+        transition_cache_limit=args.transition_cache_limit,
+        legal_actions_cache_limit=args.legal_actions_cache_limit,
+        observation_cache_limit=args.observation_cache_limit,
     )
     td_value_config = (
         TDValuePolicyConfig(
             checkpoint_path=args.td_value_checkpoint,
             worlds=args.td_worlds,
+            transition_cache_limit=args.transition_cache_limit,
+            legal_actions_cache_limit=args.legal_actions_cache_limit,
+            observation_cache_limit=args.observation_cache_limit,
         )
         if args.td_value_checkpoint is not None
         else None
@@ -205,6 +230,9 @@ def main() -> int:
             rollout_epsilon=args.search_rollout_epsilon,
             opponent_temperature=args.td_search_opponent_temperature,
             sample_opponent_actions=args.td_search_sample_opponent_actions,
+            transition_cache_limit=args.transition_cache_limit,
+            legal_actions_cache_limit=args.legal_actions_cache_limit,
+            observation_cache_limit=args.observation_cache_limit,
         )
         if args.player_a_policy.strip().lower() == "td-search"
         else None
@@ -220,6 +248,9 @@ def main() -> int:
             rollout_epsilon=args.search_rollout_epsilon,
             opponent_temperature=args.td_search_opponent_temperature,
             sample_opponent_actions=args.td_search_sample_opponent_actions,
+            transition_cache_limit=args.transition_cache_limit,
+            legal_actions_cache_limit=args.legal_actions_cache_limit,
+            observation_cache_limit=args.observation_cache_limit,
         )
         if args.player_b_policy.strip().lower() == "td-search"
         else None
@@ -266,6 +297,16 @@ def main() -> int:
                 progress_every_games=args.progress_every_games,
                 on_progress=on_progress if args.progress_every_games > 0 else None,
             )
+        cache_stats = {
+            "playerA": _policy_cache_stats_payload(policy_a),
+            "playerB": _policy_cache_stats_payload(policy_b),
+        }
+        cache_stats["combined"] = _merge_cache_stats_payloads(
+            [
+                cache_stats["playerA"],
+                cache_stats["playerB"],
+            ]
+        )
     finally:
         _close_unique(policy_a, policy_b)
 
@@ -293,6 +334,11 @@ def main() -> int:
                 "depth": args.search_depth,
                 "maxRootActions": args.search_max_root_actions,
                 "rolloutEpsilon": args.search_rollout_epsilon,
+            },
+            "cache": {
+                "transitionLimit": args.transition_cache_limit,
+                "legalActionsLimit": args.legal_actions_cache_limit,
+                "observationLimit": args.observation_cache_limit,
             },
             "tdValue": {
                 "checkpoint": str(args.td_value_checkpoint) if args.td_value_checkpoint else None,
@@ -339,6 +385,7 @@ def main() -> int:
             "averageTurn": (turn_total / float(len(episodes))) if episodes else 0.0,
             "valueTransitions": len(value_transitions),
             "opponentSamples": len(opponent_samples),
+            "cacheStats": cache_stats,
         },
         "artifacts": {
             "valueTransitions": str(value_out),
@@ -360,6 +407,7 @@ def main() -> int:
                 "averageTurn": summary_payload["results"]["averageTurn"],
                 "valueTransitions": summary_payload["results"]["valueTransitions"],
                 "opponentSamples": summary_payload["results"]["opponentSamples"],
+                "cacheStats": summary_payload["results"]["cacheStats"],
             },
             indent=2,
         )
@@ -392,6 +440,12 @@ def _require_supported_runtime() -> None:
 
 
 def _validate_policy_args(args: argparse.Namespace) -> None:
+    if getattr(args, "transition_cache_limit", 0) < 0:
+        raise SystemExit("--transition-cache-limit must be >= 0.")
+    if getattr(args, "legal_actions_cache_limit", 0) < 0:
+        raise SystemExit("--legal-actions-cache-limit must be >= 0.")
+    if getattr(args, "observation_cache_limit", 0) < 0:
+        raise SystemExit("--observation-cache-limit must be >= 0.")
     player_a_policy = args.player_a_policy.strip().lower()
     player_b_policy = args.player_b_policy.strip().lower()
     policies = {player_a_policy, player_b_policy}
@@ -439,6 +493,75 @@ def _effective_player_td_search_opponent_checkpoint(
     if player == "b":
         return args.player_b_td_search_opponent_checkpoint or args.td_search_opponent_checkpoint
     raise SystemExit(f"Unknown player key: {player!r}")
+
+
+def _policy_cache_stats_payload(policy: object) -> dict[str, object] | None:
+    forward_model = getattr(policy, "_forward_model", None)
+    if forward_model is None:
+        return None
+    cache_stats = getattr(forward_model, "cache_stats", None)
+    if not callable(cache_stats):
+        return None
+    raw_stats = cache_stats()
+    return {
+        "transition": _cache_metric_payload(
+            hits=int(getattr(raw_stats, "transition_hits")),
+            misses=int(getattr(raw_stats, "transition_misses")),
+            entries=int(getattr(raw_stats, "transition_entries")),
+        ),
+        "legalActions": _cache_metric_payload(
+            hits=int(getattr(raw_stats, "legal_actions_hits")),
+            misses=int(getattr(raw_stats, "legal_actions_misses")),
+            entries=int(getattr(raw_stats, "legal_actions_entries")),
+        ),
+        "observation": _cache_metric_payload(
+            hits=int(getattr(raw_stats, "observation_hits")),
+            misses=int(getattr(raw_stats, "observation_misses")),
+            entries=int(getattr(raw_stats, "observation_entries")),
+        ),
+    }
+
+
+def _merge_cache_stats_payloads(
+    payloads: list[dict[str, object] | None],
+) -> dict[str, object] | None:
+    valid_payloads = [payload for payload in payloads if payload is not None]
+    if not valid_payloads:
+        return None
+    return {
+        "transition": _merge_cache_metric_payloads(valid_payloads, "transition"),
+        "legalActions": _merge_cache_metric_payloads(valid_payloads, "legalActions"),
+        "observation": _merge_cache_metric_payloads(valid_payloads, "observation"),
+    }
+
+
+def _merge_cache_metric_payloads(
+    payloads: list[dict[str, object]],
+    metric_key: str,
+) -> dict[str, object]:
+    hits = 0
+    misses = 0
+    entries = 0
+    for payload in payloads:
+        metric = payload.get(metric_key)
+        if not isinstance(metric, Mapping):
+            continue
+        hits += int(metric["hits"])
+        misses += int(metric["misses"])
+        entries += int(metric["entries"])
+    return _cache_metric_payload(hits=hits, misses=misses, entries=entries)
+
+
+def _cache_metric_payload(*, hits: int, misses: int, entries: int) -> dict[str, object]:
+    requests = hits + misses
+    hit_rate = (hits / float(requests)) if requests > 0 else None
+    return {
+        "hits": hits,
+        "misses": misses,
+        "requests": requests,
+        "hitRate": hit_rate,
+        "entries": entries,
+    }
 
 
 if __name__ == "__main__":

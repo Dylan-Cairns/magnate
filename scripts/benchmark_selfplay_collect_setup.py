@@ -53,6 +53,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--search-depth", type=int, default=14)
     parser.add_argument("--search-max-root-actions", type=int, default=6)
     parser.add_argument("--search-rollout-epsilon", type=float, default=0.04)
+    parser.add_argument("--transition-cache-limit", type=int, default=0)
+    parser.add_argument("--legal-actions-cache-limit", type=int, default=0)
+    parser.add_argument("--observation-cache-limit", type=int, default=0)
     parser.add_argument("--td-worlds", type=int, default=8)
     parser.add_argument("--td-search-opponent-temperature", type=float, default=1.0)
     parser.add_argument("--td-search-sample-opponent-actions", action="store_true")
@@ -132,6 +135,9 @@ def main() -> int:
             "parallelWorkers": args.parallel_workers,
             "parallelGamesTotal": args.single_games,
             "speedupThreshold": args.speedup_threshold,
+            "transitionCacheLimit": args.transition_cache_limit,
+            "legalActionsCacheLimit": args.legal_actions_cache_limit,
+            "observationCacheLimit": args.observation_cache_limit,
         },
         "results": {
             "single": single_report,
@@ -190,6 +196,7 @@ def _run_single_phase(
         "gamesPerMinute": (summary["games"] / elapsed) * 60.0,
         "valueTransitions": summary["valueTransitions"],
         "avgTurn": summary["averageTurn"],
+        "cacheStats": summary["cacheStats"],
         "log": str(log_path),
         "summary": str(phase_out / "summary.json"),
     }
@@ -268,11 +275,18 @@ def _run_parallel_phase(
     total_games = 0
     total_transitions = 0
     weighted_turn_sum = 0.0
+    combined_cache_stats: Dict[str, Any] | None = None
     for _, _, _, shard_summary in procs:
         payload = _read_collect_summary(shard_summary)
         total_games += int(payload["games"])
         total_transitions += int(payload["valueTransitions"])
         weighted_turn_sum += float(payload["averageTurn"]) * int(payload["games"])
+        combined_cache_stats = _merge_cache_payloads(
+            [
+                combined_cache_stats,
+                payload.get("cacheStats"),
+            ]
+        )
 
     return {
         "games": total_games,
@@ -280,6 +294,7 @@ def _run_parallel_phase(
         "gamesPerMinute": (total_games / elapsed) * 60.0,
         "valueTransitions": total_transitions,
         "avgTurn": (weighted_turn_sum / float(total_games)) if total_games > 0 else 0.0,
+        "cacheStats": combined_cache_stats,
         "logs": [str(log_path) for _, _, log_path, _ in procs],
         "summaries": [str(summary_path) for _, _, _, summary_path in procs],
     }
@@ -320,6 +335,12 @@ def _collect_command(
         str(args.search_max_root_actions),
         "--search-rollout-epsilon",
         str(args.search_rollout_epsilon),
+        "--transition-cache-limit",
+        str(args.transition_cache_limit),
+        "--legal-actions-cache-limit",
+        str(args.legal_actions_cache_limit),
+        "--observation-cache-limit",
+        str(args.observation_cache_limit),
         "--td-worlds",
         str(args.td_worlds),
         "--td-search-opponent-temperature",
@@ -378,6 +399,7 @@ def _read_collect_summary(path: Path) -> Dict[str, Any]:
         "games": int(results["games"]),
         "averageTurn": float(results["averageTurn"]),
         "valueTransitions": int(results["valueTransitions"]),
+        "cacheStats": _combined_cache_stats_from_results(results),
     }
 
 
@@ -467,6 +489,59 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--speedup-threshold must be > 0.")
     if args.progress_every_games <= 0:
         raise SystemExit("--progress-every-games must be > 0.")
+    if args.transition_cache_limit < 0:
+        raise SystemExit("--transition-cache-limit must be >= 0.")
+    if args.legal_actions_cache_limit < 0:
+        raise SystemExit("--legal-actions-cache-limit must be >= 0.")
+    if args.observation_cache_limit < 0:
+        raise SystemExit("--observation-cache-limit must be >= 0.")
+
+
+def _combined_cache_stats_from_results(results: Dict[str, Any]) -> Dict[str, Any] | None:
+    cache_stats = results.get("cacheStats")
+    if not isinstance(cache_stats, dict):
+        return None
+    combined = cache_stats.get("combined")
+    if not isinstance(combined, dict):
+        return None
+    return combined
+
+
+def _merge_cache_payloads(
+    payloads: List[Dict[str, Any] | None],
+) -> Dict[str, Any] | None:
+    valid_payloads = [payload for payload in payloads if payload is not None]
+    if not valid_payloads:
+        return None
+    return {
+        "transition": _merge_cache_metric_payloads(valid_payloads, "transition"),
+        "legalActions": _merge_cache_metric_payloads(valid_payloads, "legalActions"),
+        "observation": _merge_cache_metric_payloads(valid_payloads, "observation"),
+    }
+
+
+def _merge_cache_metric_payloads(
+    payloads: List[Dict[str, Any]],
+    metric_key: str,
+) -> Dict[str, Any]:
+    hits = 0
+    misses = 0
+    entries = 0
+    for payload in payloads:
+        metric = payload.get(metric_key)
+        if not isinstance(metric, dict):
+            continue
+        hits += int(metric["hits"])
+        misses += int(metric["misses"])
+        entries += int(metric["entries"])
+    requests = hits + misses
+    return {
+        "hits": hits,
+        "misses": misses,
+        "requests": requests,
+        "hitRate": (hits / float(requests)) if requests > 0 else None,
+        "entries": entries,
+    }
 
 
 if __name__ == "__main__":
