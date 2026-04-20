@@ -7,9 +7,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence
 
+from .basic_policies import Policy
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
-from .policies import Policy
 from .types import DecisionSample, PlayerId, Winner
 
 

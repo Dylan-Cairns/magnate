@@ -5,9 +5,9 @@ import random
 from dataclasses import dataclass, replace
 from typing import Callable, Dict, Mapping, Set
 
+from .basic_policies import Policy
 from .encoding import encode_action_candidates, encode_observation
 from .env import MagnateBridgeEnv
-from .policies import Policy
 from .types import DecisionSample, PlayerId, Winner
 
 ProgressCallback = Callable[

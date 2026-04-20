@@ -196,7 +196,7 @@ class PolicyFactoryTests(unittest.TestCase):
 
 
 class TDLeafPerspectiveTests(unittest.TestCase):
-    @patch("trainer.policies.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
+    @patch("trainer.value_policy.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
     def test_td_value_leaf_converts_active_value_to_root_perspective(self, _mock_encode) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             checkpoint_path = Path(tmp_dir) / "value.pt"
@@ -230,7 +230,7 @@ class TDLeafPerspectiveTests(unittest.TestCase):
             finally:
                 policy.close()
 
-    @patch("trainer.policies.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
+    @patch("trainer.search_policy.encode_observation", return_value=[0.0] * OBSERVATION_DIM)
     def test_td_search_leaf_converts_active_value_to_root_perspective(self, _mock_encode) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             value_path = Path(tmp_dir) / "value.pt"
