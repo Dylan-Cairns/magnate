@@ -6,6 +6,7 @@
 - TypeScript (strict)
 - React + Vite
 - Vitest
+- Pytest
 - ESLint + Prettier
 - Ruff
 - Pyright
@@ -37,6 +38,8 @@
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
+- Python test: `.\.venv\Scripts\python -m pytest`
+- Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
 - Python lint autofix: `python -m ruff check --fix scripts trainer trainer_tests`
 - Python typecheck: `.\.venv\Scripts\python -m pyright -p .`
@@ -44,7 +47,8 @@
 ## Python Workflow
 
 - Use the project `.venv` for any Python command in this repo.
-- When changing Python code, run targeted tests for the touched behavior plus the Python Ruff and Pyright commands listed in `Local Commands`.
+- Python unit tests use pytest; run `.\.venv\Scripts\python -m pytest` for the full Python suite, or target specific `trainer_tests/` files while iterating.
+- When changing Python code, run targeted pytest tests for the touched behavior plus the Python Ruff and Pyright commands listed in `Local Commands`.
 - If the change touches Python code outside the checked-in pyright scope, note that explicitly in handoff.
 
 ## Windows Local Setup
@@ -195,4 +199,4 @@ Use `--help` on each script for the full option surface.
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
 
-_Updated: 2026-04-20._
+_Updated: 2026-04-21._

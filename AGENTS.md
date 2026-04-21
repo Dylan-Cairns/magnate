@@ -25,7 +25,7 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 - Keep rule semantics in TypeScript.
 - Keep bridge contract stable (`memoryBank/bridgeInterfaceContract.md`).
 - Use the project `.venv` for any Python command in this repo.
-- When changing Python code, run targeted tests for touched behavior plus Ruff and Pyright before handoff.
+- When changing Python code, run targeted pytest tests for touched behavior plus Ruff and Pyright before handoff.
 - Keep docs aligned with code changes.
 
 ## Project Context
