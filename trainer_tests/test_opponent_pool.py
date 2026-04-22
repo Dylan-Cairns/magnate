@@ -177,6 +177,91 @@ class OpponentPoolTests(unittest.TestCase):
             rows = load_promoted_checkpoints(artifact_dir=root, max_entries=10, require_paths=True)
             self.assertEqual([row.run_id for row in rows], ["aware", "naive", "missing"])
 
+    def test_load_promoted_checkpoints_prefers_manifest_pool_and_dedupes_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            artifact_root = root / "artifacts" / "td_loops"
+            artifact_root.mkdir(parents=True, exist_ok=True)
+
+            manifest_dir = root / "models" / "td_checkpoints" / "promoted"
+            manifest_dir.mkdir(parents=True, exist_ok=True)
+            manifest_value = manifest_dir / "value.pt"
+            manifest_opponent = manifest_dir / "opponent.pt"
+            manifest_value.write_text("value", encoding="utf-8")
+            manifest_opponent.write_text("opponent", encoding="utf-8")
+            manifest = {
+                "schemaVersion": 2,
+                "defaultWarmStart": "promoted",
+                "opponentPool": ["promoted"],
+                "checkpoints": {
+                    "promoted": {
+                        "status": "promoted",
+                        "sourceRunId": "manifest-run",
+                        "generatedAtUtc": "2026-01-03T00:00:00+00:00",
+                        "value": "models/td_checkpoints/promoted/value.pt",
+                        "opponent": "models/td_checkpoints/promoted/opponent.pt",
+                    }
+                },
+            }
+            (root / "models" / "td_checkpoints" / "manifest.json").write_text(
+                json.dumps(manifest),
+                encoding="utf-8",
+            )
+
+            duplicate = artifact_root / "duplicate-run"
+            duplicate.mkdir()
+            (duplicate / "loop.summary.json").write_text(
+                json.dumps(
+                    {
+                        "generatedAtUtc": "2026-01-04T00:00:00+00:00",
+                        "runId": "duplicate-run",
+                        "promotion": {"promoted": True},
+                        "chunks": [
+                            {
+                                "latestCheckpoint": {
+                                    "value": str(manifest_value),
+                                    "opponent": str(manifest_opponent),
+                                }
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            artifact_only = artifact_root / "artifact-run"
+            artifact_only.mkdir()
+            artifact_value = artifact_only / "value.pt"
+            artifact_opponent = artifact_only / "opponent.pt"
+            artifact_value.write_text("value", encoding="utf-8")
+            artifact_opponent.write_text("opponent", encoding="utf-8")
+            (artifact_only / "loop.summary.json").write_text(
+                json.dumps(
+                    {
+                        "generatedAtUtc": "2026-01-02T00:00:00+00:00",
+                        "runId": "artifact-run",
+                        "promotion": {"promoted": True},
+                        "chunks": [
+                            {
+                                "latestCheckpoint": {
+                                    "value": str(artifact_value),
+                                    "opponent": str(artifact_opponent),
+                                }
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            rows = load_promoted_checkpoints(
+                artifact_dir=artifact_root,
+                max_entries=10,
+                require_paths=True,
+            )
+
+            self.assertEqual([row.run_id for row in rows], ["manifest-run", "artifact-run"])
+
 
 if __name__ == "__main__":
     unittest.main()

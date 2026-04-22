@@ -11,6 +11,11 @@ import torch
 from trainer.encoding import ENCODING_VERSION, OBSERVATION_DIM
 from trainer.td.checkpoint import TD_VALUE_CHECKPOINT_TYPE, load_value_checkpoint
 
+from scripts.checkpoint_manifest import (
+    default_manifest_path_for_artifact_dir,
+    load_default_warm_start,
+)
+
 INDEX_SCHEMA_VERSION = 1
 MANIFEST_SCHEMA_VERSION = 1
 WEIGHTS_SCHEMA_VERSION = 1
@@ -233,6 +238,18 @@ def resolve_checkpoint(
 
 
 def _latest_promoted_value_checkpoint(*, artifact_root: Path) -> Dict[str, Any]:
+    manifest_path = default_manifest_path_for_artifact_dir(artifact_root)
+    if manifest_path is not None:
+        manifest_checkpoint = load_default_warm_start(
+            manifest_path=manifest_path,
+            require_paths=True,
+        )
+        if manifest_checkpoint is not None and manifest_checkpoint.status == "promoted":
+            return {
+                "checkpointPath": manifest_checkpoint.value_path,
+                "sourceRunId": manifest_checkpoint.source_run_id,
+            }
+
     if not artifact_root.exists():
         raise SystemExit(f"Artifact root does not exist: {artifact_root}")
 

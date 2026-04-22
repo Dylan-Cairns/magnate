@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+from scripts.checkpoint_manifest import DEFAULT_MANIFEST_RELATIVE_PATH
+from scripts.promote_td_checkpoint import promote_checkpoint_pair
 from scripts.td_loop_eval_common import (
     EvalRow,
     PromotionThresholds,
@@ -126,6 +128,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--promotion-max-side-gap", type=float, default=0.08)
     parser.add_argument("--promotion-min-ci-low", type=float, default=0.5)
     parser.add_argument("--promotion-max-window-side-gap", type=float, default=0.10)
+    parser.add_argument("--promotion-manifest-path", type=Path, default=DEFAULT_MANIFEST_RELATIVE_PATH)
+    parser.add_argument(
+        "--promotion-checkpoint-root",
+        type=Path,
+        default=Path("models/td_checkpoints"),
+    )
+    parser.add_argument("--promotion-manifest-key", type=str, default=None)
+    parser.add_argument("--disable-manifest-promotion", action="store_true")
     parser.add_argument(
         "--force-train",
         action="store_true",
@@ -267,6 +277,20 @@ def main() -> int:
         opponent_policy=args.eval_opponent_policy,
     )
     promotion = _promotion_decision(eval_row=pooled, eval_windows=eval_rows, args=args)
+    commands: Dict[str, Any] = {
+        "resumeTrain": train_command,
+        "promotionEvals": eval_commands,
+    }
+    manifest_promotion = _register_manifest_promotion_if_passed(
+        args=args,
+        run_id=args.run_id,
+        loop_summary_path=loop_summary_path,
+        latest_checkpoint=chunk3_latest,
+        eval_artifacts=[Path(path) for path in eval_artifacts],
+        promotion=promotion,
+    )
+    if manifest_promotion is not None:
+        commands["manifestPromotion"] = manifest_promotion
 
     loop_elapsed_minutes = (time.perf_counter() - started) / 60.0
     payload: Dict[str, Any] = {
@@ -278,10 +302,7 @@ def main() -> int:
             "resumePoint": "train[chunk-003]",
             "script": "scripts.resume_td_loop_run",
         },
-        "commands": {
-            "resumeTrain": train_command,
-            "promotionEvals": eval_commands,
-        },
+        "commands": commands,
         "artifacts": {
             "runDir": str(run_dir),
             "loopSummary": str(loop_summary_path),
@@ -511,6 +532,52 @@ def _promotion_decision(
         "checks": gate["checks"],
         "windowChecks": gate["windowChecks"],
         "reason": "pooled_eval_passed" if promoted else "pooled_eval_failed",
+    }
+
+
+def _register_manifest_promotion_if_passed(
+    *,
+    args: argparse.Namespace,
+    run_id: str,
+    loop_summary_path: Path,
+    latest_checkpoint: LoopCheckpoint,
+    eval_artifacts: Sequence[Path],
+    promotion: Dict[str, Any],
+) -> Dict[str, Any] | None:
+    if not bool(promotion.get("promoted")):
+        return None
+    if bool(getattr(args, "disable_manifest_promotion", True)):
+        return None
+
+    manifest_path = getattr(args, "promotion_manifest_path", DEFAULT_MANIFEST_RELATIVE_PATH)
+    checkpoint_root = getattr(args, "promotion_checkpoint_root", Path("models/td_checkpoints"))
+    key = getattr(args, "promotion_manifest_key", None) or f"{run_id}-promoted"
+    result = promote_checkpoint_pair(
+        manifest_path=manifest_path,
+        checkpoint_root=checkpoint_root,
+        key=key,
+        value_checkpoint=latest_checkpoint.value_path,
+        opponent_checkpoint=latest_checkpoint.opponent_path,
+        source_run_id=run_id,
+        source_loop_summary=loop_summary_path,
+        source_chunk="chunk-003",
+        source_eval_artifacts=eval_artifacts,
+        step=latest_checkpoint.step,
+        label=f"Promoted resumed TD loop {run_id}",
+        set_default=True,
+        add_to_opponent_pool=True,
+        force=False,
+    )
+    print(
+        "[td-loop-resume] manifest promotion registered "
+        f"key={result['key']} manifest={manifest_path}",
+        flush=True,
+    )
+    return {
+        "key": result["key"],
+        "value": str(result["value"]),
+        "opponent": str(result["opponent"]),
+        "manifest": str(manifest_path),
     }
 
 

@@ -43,6 +43,7 @@
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
 - Python lint autofix: `python -m ruff check --fix scripts trainer trainer_tests`
 - Python typecheck: `.\.venv\Scripts\python -m pyright -p .`
+- Promote/register checkpoint pair: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
 
 ## Python Workflow
 
@@ -50,6 +51,18 @@
 - Python unit tests use pytest; run `.\.venv\Scripts\python -m pytest` for the full Python suite, or target specific `trainer_tests/` files while iterating.
 - When changing Python code, run targeted pytest tests for the touched behavior plus the Python Ruff and Pyright commands listed in `Local Commands`.
 - If the change touches Python code outside the checked-in pyright scope, note that explicitly in handoff.
+
+## Checkpoint Manifest
+
+- `models/td_checkpoints/manifest.json` is the canonical checked-in registry for TD checkpoint warm starts and opponent-pool entries.
+- Manifest schema v2 uses:
+  - `defaultWarmStart`: key for the checkpoint pair used by wrappers, exports, benchmarks, and loop warm-start discovery.
+  - `opponentPool`: ordered promoted checkpoint keys used by self-play pool sampling.
+  - `checkpoints.<key>.value` and `.opponent`: repo-relative paths to checkpoint files that should be committed when the manifest changes.
+- Ignored `artifacts/td_loops/*/loop.summary.json` files remain a fallback for historical local runs, but they are not the portable source of truth.
+- Successful promotions in `scripts.run_td_loop`, `scripts.run_td_loop_selfplay`, and their resume helpers copy the latest value/opponent pair into `models/td_checkpoints/<key>/` and update the manifest unless `--disable-manifest-promotion` is set.
+- Manual registration path:
+  `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --key <key> --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --source-run-id <run-id> --source-chunk <chunk> --step <step> --set-default --add-to-opponent-pool`
 
 ## Windows Local Setup
 
@@ -95,6 +108,7 @@ Wrapper behavior:
 - maps that budget into `collect-workers`, `eval-workers`, `incumbent-eval-workers`, `train-num-threads`, and `train-num-interop-threads`
 - keeps search-cost tuning explicit through loop args such as `--collect-search-worlds` and `--collect-search-depth`
 - streams child collect, train, and eval output into parent logs under `artifacts/logs/`
+- resolves warm-start checkpoints from `models/td_checkpoints/manifest.json` before falling back to local promoted artifact summaries
 
 Useful wrapper invocations:
 
@@ -177,6 +191,8 @@ With `.venv` active:
   Resume an interrupted self-play loop from the latest fully completed chunk, rerun the next partial chunk from scratch, then finish the remaining chunks plus dual promotion evals.
 - `python -m scripts.resume_td_loop_run`
   Legacy bootstrap recovery helper for the interrupted chunk-003 training and promotion path.
+- `python -m scripts.promote_td_checkpoint --key <key> --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --source-run-id <run-id> --set-default --add-to-opponent-pool`
+  Copy a promoted value/opponent checkpoint pair into `models/td_checkpoints/<key>/` and register it in the checkpoint manifest.
 - `python -m scripts.benchmark_collect_search_profiles --workers 4 --games 8`
   Benchmark laptop-friendly td-search collect throughput across a small `search-worlds` and `search-depth` matrix.
 - `python -m scripts.benchmark_selfplay_collect_setup`
@@ -199,4 +215,4 @@ Use `--help` on each script for the full option surface.
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; remaining gap is browser runtime performance tuning for `td-search`.
 
-_Updated: 2026-04-21._
+_Updated: 2026-04-22._

@@ -6,6 +6,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
 
+from scripts.checkpoint_manifest import (
+    ManifestCheckpoint,
+    default_manifest_path_for_artifact_dir,
+    load_manifest_opponent_pool,
+)
+
 
 @dataclass(frozen=True)
 class PoolCheckpoint:
@@ -18,8 +24,36 @@ class PoolCheckpoint:
 def load_promoted_checkpoints(
     *,
     artifact_dir: Path,
+    manifest_path: Path | None = None,
+    include_manifest: bool = True,
     max_entries: int | None = None,
     require_paths: bool = True,
+) -> List[PoolCheckpoint]:
+    rows: List[PoolCheckpoint] = []
+    if include_manifest:
+        resolved_manifest = manifest_path or default_manifest_path_for_artifact_dir(artifact_dir)
+        if resolved_manifest is not None:
+            rows.extend(
+                _manifest_rows_to_pool(
+                    load_manifest_opponent_pool(
+                        manifest_path=resolved_manifest,
+                        max_entries=None,
+                        require_paths=require_paths,
+                    )
+                )
+            )
+
+    rows.extend(_load_promoted_checkpoints_from_artifacts(artifact_dir, require_paths=require_paths))
+    rows = _dedupe_pool_rows(rows)
+    if max_entries is not None:
+        rows = rows[:max_entries]
+    return rows
+
+
+def _load_promoted_checkpoints_from_artifacts(
+    artifact_dir: Path,
+    *,
+    require_paths: bool,
 ) -> List[PoolCheckpoint]:
     if not artifact_dir.exists():
         return []
@@ -68,10 +102,31 @@ def load_promoted_checkpoints(
         )
 
     rows.sort(key=lambda item: item[0], reverse=True)
-    checkpoints = [row[1] for row in rows]
-    if max_entries is not None:
-        checkpoints = checkpoints[:max_entries]
-    return checkpoints
+    return [row[1] for row in rows]
+
+
+def _manifest_rows_to_pool(rows: Sequence[ManifestCheckpoint]) -> List[PoolCheckpoint]:
+    return [
+        PoolCheckpoint(
+            run_id=row.source_run_id or row.key,
+            generated_at_utc=row.generated_at_utc,
+            value_path=row.value_path,
+            opponent_path=row.opponent_path,
+        )
+        for row in rows
+    ]
+
+
+def _dedupe_pool_rows(rows: Sequence[PoolCheckpoint]) -> List[PoolCheckpoint]:
+    out: List[PoolCheckpoint] = []
+    seen: set[tuple[Path, Path]] = set()
+    for row in rows:
+        key = (row.value_path.resolve(), row.opponent_path.resolve())
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(row)
+    return out
 
 
 def filter_pool_excluding_checkpoint(
