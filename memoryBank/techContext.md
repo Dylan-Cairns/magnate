@@ -28,7 +28,7 @@
 - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`.
 - Checked-in static analysis runs from the repo venv: `.\.venv\Scripts\python -m pyright -p .`.
 - Checked-in pyright scope currently covers `trainer/` plus trainer-side tests in `trainer_tests/`; `scripts/` and `trainer_tests/test_eval_suite*.py` remain excluded.
-- TypeScript bridge output remains canonical. Python models only the consumed subset in `trainer/bridge_payloads.py`, validates it once at ingress in `trainer/bridge_parsing.py`, and then passes typed payloads through the trainer stack.
+- TypeScript bridge output remains canonical. Python models only the consumed subset in `trainer/bridge_payloads.py`; `BridgeClient` validates the NDJSON envelope and top-level result shape, then passes typed payloads through the trainer stack without recursive runtime parsing.
 
 ## Local Commands
 
