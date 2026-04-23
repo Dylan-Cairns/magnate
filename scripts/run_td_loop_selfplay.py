@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -24,13 +25,16 @@ from scripts.td_loop_common import (
     build_train_command,
     checkpoints_from_train_summary,
     concat_jsonl_files,
+    eligible_checkpoints_for_policy,
     read_json,
     run_step,
     select_latest_checkpoint,
 )
 from scripts.td_loop_eval_common import (
     EvalRow,
+    PromotionThresholds,
     build_eval_payload,
+    evaluate_promotion_gate,
     pool_eval_rows,
     read_eval_row,
 )
@@ -54,6 +58,27 @@ class CollectProfile:
 
 
 @dataclass(frozen=True)
+class ReplayChunk:
+    label: str
+    value_path: Path
+    opponent_path: Path
+
+
+@dataclass(frozen=True)
+class ReplayWindowResult:
+    source: str
+    chunks: Sequence[ReplayChunk]
+    value_path: Path
+    opponent_path: Path
+    summary_path: Path
+    value_lines: int
+    opponent_lines: int
+    max_value_lines: int
+    max_opponent_lines: int
+    window_size: int
+
+
+@dataclass(frozen=True)
 class RunContext:
     run_id: str
     run_dir: Path
@@ -72,6 +97,39 @@ class ChunkExecutionResult:
     latest_checkpoint: LoopCheckpoint
     command_row: Dict[str, Any]
     chunk_row: Dict[str, Any]
+    trained_latest_checkpoint: LoopCheckpoint | None = None
+    checkpoint_selection: CheckpointSelectionResult | None = None
+    replay_chunk: ReplayChunk | None = None
+    replay_window: ReplayWindowResult | None = None
+
+
+@dataclass(frozen=True)
+class CheckpointSelectionResult:
+    enabled: bool
+    reason: str
+    selected_checkpoint: LoopCheckpoint
+    trained_latest_checkpoint: LoopCheckpoint
+    accepted_before: LoopCheckpoint
+    seed_start_indices: List[int]
+    candidates: List[Dict[str, Any]]
+    commands: List[List[str]]
+    summary_path: Path
+
+
+@dataclass(frozen=True)
+class ChunkGateResult:
+    enabled: bool
+    accepted: bool
+    reason: str
+    candidate_checkpoint: LoopCheckpoint
+    accepted_before: LoopCheckpoint
+    accepted_after: LoopCheckpoint
+    seed_start_indices: List[int]
+    windows: List[Dict[str, Any]]
+    pooled: EvalRow | None
+    checks: Dict[str, Any]
+    window_checks: List[Dict[str, Any]]
+    commands: List[List[str]]
 
 
 @dataclass(frozen=True)
@@ -97,7 +155,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cloud", action="store_true")
     parser.add_argument("--cloud-vcpus", type=int, default=8, choices=(8, 16, 32))
 
-    # Keep chunk-local training/eval, but wait longer before promotion eval.
+    # Keep chunked collection/training, but wait longer before promotion eval.
     parser.add_argument("--chunks-per-loop", type=int, default=12)
     parser.add_argument("--collect-games", type=int, default=600)
     parser.add_argument(
@@ -157,7 +215,7 @@ def parse_args() -> argparse.Namespace:
         "--train-value-target-mode",
         type=str,
         choices=("td0", "td-lambda"),
-        default="td0",
+        default="td-lambda",
     )
     parser.add_argument("--train-td-lambda", type=float, default=0.7)
     parser.add_argument("--train-use-mse-loss", action="store_true")
@@ -169,6 +227,34 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-num-interop-threads", type=int, default=None)
     parser.add_argument("--train-warm-start-value-checkpoint", type=Path, default=None)
     parser.add_argument("--train-warm-start-opponent-checkpoint", type=Path, default=None)
+    parser.add_argument(
+        "--train-replay-window-chunks",
+        type=int,
+        default=3,
+        help=(
+            "Train each chunk from the current chunk plus the last N-1 accepted chunks. "
+            "Default 3 enables a small accepted replay window."
+        ),
+    )
+    parser.add_argument(
+        "--train-replay-window-source",
+        type=str,
+        choices=("accepted",),
+        default="accepted",
+        help="Replay history source for the training window.",
+    )
+    parser.add_argument(
+        "--train-replay-window-max-value-lines",
+        type=int,
+        default=0,
+        help="Optional cap for value replay lines in the merged training window; 0 is uncapped.",
+    )
+    parser.add_argument(
+        "--train-replay-window-max-opponent-lines",
+        type=int,
+        default=0,
+        help="Optional cap for opponent replay lines in the merged training window; 0 is uncapped.",
+    )
 
     parser.add_argument("--eval-games-per-side", type=int, default=200)
     parser.add_argument("--eval-workers", type=int, default=1)
@@ -217,6 +303,61 @@ def parse_args() -> argparse.Namespace:
         default=[20000, 30000],
     )
 
+    parser.add_argument(
+        "--disable-chunk-gate",
+        action="store_true",
+        help="Accept each trained chunk as the next data generator without a small incumbent eval.",
+    )
+    parser.add_argument(
+        "--chunk-gate-games-per-side",
+        type=int,
+        default=20,
+        help="Small candidate-vs-current-generator eval before a chunk can generate future data.",
+    )
+    parser.add_argument(
+        "--chunk-gate-workers",
+        type=int,
+        default=None,
+        help="Workers for per-chunk generator gates (default: --eval-workers).",
+    )
+    parser.add_argument("--chunk-gate-seed-prefix", type=str, default="td-loop-chunk-gate")
+    parser.add_argument(
+        "--chunk-gate-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[40000],
+    )
+    parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-max-side-gap", type=float, default=0.15)
+    parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
+    parser.add_argument("--chunk-gate-max-window-side-gap", type=float, default=0.20)
+    parser.add_argument(
+        "--checkpoint-selection-games-per-side",
+        type=int,
+        default=4,
+        help=(
+            "Cheap candidate-vs-current-generator eval games per side for each saved "
+            "training checkpoint before the chunk gate."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-selection-workers",
+        type=int,
+        default=None,
+        help="Workers for checkpoint selection evals (default: chunk-gate workers, then eval workers).",
+    )
+    parser.add_argument(
+        "--checkpoint-selection-seed-prefix",
+        type=str,
+        default="td-loop-checkpoint-selection",
+    )
+    parser.add_argument(
+        "--checkpoint-selection-seed-start-indices",
+        type=int,
+        nargs="+",
+        default=[45000],
+    )
+
     # Baseline-vs-search gate.
     parser.add_argument("--promotion-min-win-rate", type=float, default=0.55)
     parser.add_argument("--promotion-max-side-gap", type=float, default=0.08)
@@ -263,7 +404,9 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
     context = initialize_selfplay_run(args)
     commands: Dict[str, Any] = {"chunks": []}
     chunk_rows: List[Dict[str, Any]] = []
-    latest_checkpoint = context.latest_checkpoint
+    accepted_checkpoint = context.latest_checkpoint
+    accepted_chunk_label: str | None = None
+    accepted_replay_chunks: List[ReplayChunk] = []
 
     for chunk_index in range(1, args.chunks_per_loop + 1):
         chunk_result = run_selfplay_chunk(
@@ -271,17 +414,48 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
             run_id=context.run_id,
             chunk_index=chunk_index,
             chunks_dir=context.chunks_dir,
-            latest_checkpoint=latest_checkpoint,
+            latest_checkpoint=accepted_checkpoint,
+            accepted_replay_chunks=accepted_replay_chunks,
             progress_path=context.progress_path,
         )
-        latest_checkpoint = chunk_result.latest_checkpoint
-        commands["chunks"].append(chunk_result.command_row)
-        chunk_rows.append(chunk_result.chunk_row)
+        gate_result = run_chunk_gate(
+            args=args,
+            python_bin=args.python_bin,
+            chunk_label=chunk_result.chunk_label,
+            eval_dir=context.chunks_dir / chunk_result.chunk_label / "eval",
+            candidate_checkpoint=chunk_result.latest_checkpoint,
+            accepted_checkpoint=accepted_checkpoint,
+            progress_path=context.progress_path,
+            log_prefix="[td-loop-selfplay]",
+        )
+        accepted_checkpoint = gate_result.accepted_after
+        if gate_result.accepted:
+            accepted_chunk_label = chunk_result.chunk_label
+            if chunk_result.replay_chunk is not None:
+                accepted_replay_chunks.append(chunk_result.replay_chunk)
+        command_row = {
+            **chunk_result.command_row,
+            "generatorGate": gate_result.commands,
+        }
+        chunk_row = build_gated_chunk_row(
+            chunk_row=chunk_result.chunk_row,
+            gate_result=gate_result,
+            replay_chunk=chunk_result.replay_chunk,
+        )
+        chunk_summary_path = write_selfplay_chunk_summary(
+            run_id=context.run_id,
+            chunk_dir=context.chunks_dir / chunk_result.chunk_label,
+            command_row=command_row,
+            chunk_row=chunk_row,
+        )
+        chunk_row["chunkSummary"] = str(chunk_summary_path)
+        commands["chunks"].append(command_row)
+        chunk_rows.append(chunk_row)
 
     promotion_stage = run_promotion_stage(
         args=args,
         eval_dir=context.eval_dir,
-        latest_checkpoint=latest_checkpoint,
+        latest_checkpoint=accepted_checkpoint,
         incumbent_checkpoint=context.incumbent_checkpoint,
         progress_path=context.progress_path,
     )
@@ -289,8 +463,8 @@ def run_selfplay_loop(args: argparse.Namespace) -> int:
     manifest_promotion = _register_manifest_promotion_if_passed(
         args=args,
         context=context,
-        latest_checkpoint=latest_checkpoint,
-        latest_chunk_label=str(chunk_rows[-1]["chunk"]) if chunk_rows else None,
+        latest_checkpoint=accepted_checkpoint,
+        latest_chunk_label=accepted_chunk_label,
         promotion_stage=promotion_stage,
     )
     if manifest_promotion is not None:
@@ -358,6 +532,7 @@ def run_selfplay_chunk(
     chunk_index: int,
     chunks_dir: Path,
     latest_checkpoint: LoopCheckpoint,
+    accepted_replay_chunks: Sequence[ReplayChunk],
     progress_path: Path,
 ) -> ChunkExecutionResult:
     chunk_label = f"chunk-{chunk_index:03d}"
@@ -400,11 +575,23 @@ def run_selfplay_chunk(
         heartbeat_minutes=args.progress_heartbeat_minutes,
         progress_path=progress_path,
     )
+    current_replay = ReplayChunk(
+        label=chunk_label,
+        value_path=collect_value_path,
+        opponent_path=collect_opponent_path,
+    )
+    replay_window = build_replay_window(
+        args=args,
+        chunk_label=chunk_label,
+        train_dir=train_dir,
+        accepted_replay_chunks=accepted_replay_chunks,
+        current_replay=current_replay,
+    )
     train_command = build_train_command(
         python_bin=args.python_bin,
         args=args,
-        value_replay=collect_value_path,
-        opponent_replay=collect_opponent_path,
+        value_replay=replay_window.value_path,
+        opponent_replay=replay_window.opponent_path,
         train_summary_path=train_summary_path,
         train_checkpoint_root=train_checkpoint_root,
         run_id=f"{run_id}-{chunk_label}",
@@ -421,30 +608,509 @@ def run_selfplay_chunk(
 
     train_summary = read_json(train_summary_path, label=f"train summary {chunk_label}")
     checkpoints = checkpoints_from_train_summary(train_summary)
-    next_checkpoint = select_latest_checkpoint(
+    trained_latest_checkpoint = select_latest_checkpoint(
         checkpoints=checkpoints,
         candidate_policy="td-search",
     )
+    checkpoint_selection = run_checkpoint_selection(
+        args=args,
+        python_bin=args.python_bin,
+        chunk_label=chunk_label,
+        eval_dir=chunk_dir / "eval" / "checkpoint_selection",
+        checkpoints=checkpoints,
+        accepted_checkpoint=latest_checkpoint,
+        progress_path=progress_path,
+        log_prefix="[td-loop-selfplay]",
+    )
+    next_checkpoint = checkpoint_selection.selected_checkpoint
     return ChunkExecutionResult(
         chunk_label=chunk_label,
         latest_checkpoint=next_checkpoint,
         command_row={
             "chunk": chunk_label,
             "collectProfiles": collect_commands,
+            "replayWindow": replay_window_payload(replay_window),
             "train": train_command,
+            "checkpointSelection": checkpoint_selection.commands,
         },
         chunk_row={
             "chunk": chunk_label,
             "replayRegime": REPLAY_REGIME,
             "collectSummary": str(collect_summary_path),
+            "collectReplay": {
+                "value": str(collect_value_path),
+                "opponent": str(collect_opponent_path),
+            },
+            "replayWindow": replay_window_payload(replay_window),
             "trainSummary": str(train_summary_path),
+            "trainedLatestCheckpoint": {
+                "step": trained_latest_checkpoint.step,
+                "value": str(trained_latest_checkpoint.value_path),
+                "opponent": str(trained_latest_checkpoint.opponent_path),
+            },
+            "checkpointSelection": checkpoint_selection_payload(checkpoint_selection),
             "latestCheckpoint": {
                 "step": next_checkpoint.step,
                 "value": str(next_checkpoint.value_path),
                 "opponent": str(next_checkpoint.opponent_path),
             },
         },
+        trained_latest_checkpoint=trained_latest_checkpoint,
+        checkpoint_selection=checkpoint_selection,
+        replay_chunk=current_replay,
+        replay_window=replay_window,
     )
+
+
+def build_replay_window(
+    *,
+    args: argparse.Namespace,
+    chunk_label: str,
+    train_dir: Path,
+    accepted_replay_chunks: Sequence[ReplayChunk],
+    current_replay: ReplayChunk,
+) -> ReplayWindowResult:
+    source = str(args.train_replay_window_source)
+    if source != "accepted":
+        raise SystemExit(f"Unsupported replay window source: {source!r}")
+    window_size = int(args.train_replay_window_chunks)
+    prior_limit = max(0, window_size - 1)
+    prior_chunks = list(accepted_replay_chunks[-prior_limit:]) if prior_limit > 0 else []
+    window_chunks = [*prior_chunks, current_replay]
+    for replay_chunk in window_chunks:
+        _require_replay_chunk_paths(replay_chunk)
+
+    replay_window_dir = train_dir / "replay_window"
+    value_path = replay_window_dir / "window.value.jsonl"
+    opponent_path = replay_window_dir / "window.opponent.jsonl"
+    summary_path = replay_window_dir / "window.summary.json"
+    value_lines = _write_replay_window_jsonl(
+        inputs=[chunk.value_path for chunk in window_chunks],
+        output=value_path,
+        max_lines=int(args.train_replay_window_max_value_lines),
+    )
+    opponent_lines = _write_replay_window_jsonl(
+        inputs=[chunk.opponent_path for chunk in window_chunks],
+        output=opponent_path,
+        max_lines=int(args.train_replay_window_max_opponent_lines),
+    )
+    result = ReplayWindowResult(
+        source=source,
+        chunks=window_chunks,
+        value_path=value_path,
+        opponent_path=opponent_path,
+        summary_path=summary_path,
+        value_lines=value_lines,
+        opponent_lines=opponent_lines,
+        max_value_lines=int(args.train_replay_window_max_value_lines),
+        max_opponent_lines=int(args.train_replay_window_max_opponent_lines),
+        window_size=window_size,
+    )
+    payload = {
+        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "chunk": chunk_label,
+        **replay_window_payload(result),
+    }
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return result
+
+
+def replay_window_payload(result: ReplayWindowResult) -> Dict[str, Any]:
+    return {
+        "source": result.source,
+        "windowSize": result.window_size,
+        "chunks": [
+            {
+                "chunk": chunk.label,
+                "valueReplay": str(chunk.value_path),
+                "opponentReplay": str(chunk.opponent_path),
+            }
+            for chunk in result.chunks
+        ],
+        "valueReplay": str(result.value_path),
+        "opponentReplay": str(result.opponent_path),
+        "summary": str(result.summary_path),
+        "valueLines": result.value_lines,
+        "opponentLines": result.opponent_lines,
+        "maxValueLines": result.max_value_lines,
+        "maxOpponentLines": result.max_opponent_lines,
+    }
+
+
+def replay_training_payload(
+    *, replay_chunk: ReplayChunk, gate_result: ChunkGateResult
+) -> Dict[str, Any]:
+    return {
+        "eligible": gate_result.accepted,
+        "reason": gate_result.reason,
+        "chunk": replay_chunk.label,
+        "valueReplay": str(replay_chunk.value_path),
+        "opponentReplay": str(replay_chunk.opponent_path),
+    }
+
+
+def _require_replay_chunk_paths(replay_chunk: ReplayChunk) -> None:
+    if not replay_chunk.value_path.exists():
+        raise SystemExit(
+            f"Replay window is missing value replay for {replay_chunk.label}: "
+            f"{replay_chunk.value_path}"
+        )
+    if not replay_chunk.opponent_path.exists():
+        raise SystemExit(
+            f"Replay window is missing opponent replay for {replay_chunk.label}: "
+            f"{replay_chunk.opponent_path}"
+        )
+
+
+def _write_replay_window_jsonl(
+    *, inputs: Sequence[Path], output: Path, max_lines: int
+) -> int:
+    if max_lines < 0:
+        raise SystemExit("Replay window line caps must be >= 0.")
+    if max_lines == 0:
+        concat_jsonl_files(
+            inputs=inputs,
+            output=output,
+            delete_inputs_after_merge=False,
+        )
+        return _count_lines(output)
+
+    for path in inputs:
+        if not path.exists():
+            raise SystemExit(f"Missing replay window input: {path}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    lines: deque[str] = deque(maxlen=max_lines)
+    for path in inputs:
+        with path.open("r", encoding="utf-8") as source:
+            for line in source:
+                lines.append(line)
+    with output.open("w", encoding="utf-8") as target:
+        for line in lines:
+            target.write(line)
+    return len(lines)
+
+
+def _count_lines(path: Path) -> int:
+    with path.open("r", encoding="utf-8") as source:
+        return sum(1 for _ in source)
+
+
+def run_checkpoint_selection(
+    *,
+    args: argparse.Namespace,
+    python_bin: Path,
+    chunk_label: str,
+    eval_dir: Path,
+    checkpoints: Sequence[LoopCheckpoint],
+    accepted_checkpoint: LoopCheckpoint,
+    progress_path: Path,
+    log_prefix: str,
+    force_eval: bool = False,
+) -> CheckpointSelectionResult:
+    eligible = eligible_checkpoints_for_policy(
+        checkpoints=checkpoints,
+        candidate_policy="td-search",
+    )
+    if not eligible:
+        raise SystemExit("No eligible td-search checkpoints for checkpoint selection.")
+
+    trained_latest_checkpoint = eligible[-1]
+    _require_td_search_checkpoint(accepted_checkpoint, label="checkpoint selection accepted checkpoint")
+    for checkpoint in eligible:
+        _require_td_search_checkpoint(checkpoint, label="checkpoint selection candidate")
+
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    summary_path = eval_dir / "summary.json"
+
+    if len(eligible) == 1:
+        selected_checkpoint = eligible[0]
+        result = CheckpointSelectionResult(
+            enabled=True,
+            reason="single_candidate",
+            selected_checkpoint=selected_checkpoint,
+            trained_latest_checkpoint=trained_latest_checkpoint,
+            accepted_before=accepted_checkpoint,
+            seed_start_indices=[],
+            candidates=[
+                {
+                    "checkpoint": _checkpoint_payload(selected_checkpoint),
+                    "selected": True,
+                    "evaluation": None,
+                    "score": None,
+                    "commands": [],
+                }
+            ],
+            commands=[],
+            summary_path=summary_path,
+        )
+        _write_checkpoint_selection_summary(chunk_label=chunk_label, result=result)
+        print(
+            f"{log_prefix} checkpoint-selection chunk={chunk_label} "
+            f"reason=single_candidate step={selected_checkpoint.step}",
+            flush=True,
+        )
+        return result
+
+    workers = (
+        args.checkpoint_selection_workers
+        or args.chunk_gate_workers
+        or args.eval_workers
+    )
+    accepted_pool = PoolCheckpoint(
+        run_id=f"{chunk_label}-accepted-before-selection",
+        generated_at_utc=datetime.now(timezone.utc).isoformat(),
+        value_path=accepted_checkpoint.value_path,
+        opponent_path=accepted_checkpoint.opponent_path,
+    )
+    candidate_rows: List[Dict[str, Any]] = []
+    all_commands: List[List[str]] = []
+    ranked: List[tuple[tuple[float, float, float, int], int, LoopCheckpoint]] = []
+
+    for candidate_index, checkpoint in enumerate(eligible, start=1):
+        windows: List[Dict[str, Any]] = []
+        candidate_commands: List[List[str]] = []
+        for seed_start_index in args.checkpoint_selection_seed_start_indices:
+            out_path = eval_dir / (
+                f"candidate-{candidate_index:02d}.step-{checkpoint.step:07d}."
+                f"seed-{seed_start_index:06d}.json"
+            )
+            command = _build_eval_command_vs_incumbent(
+                python_bin=python_bin,
+                args=args,
+                checkpoint=checkpoint,
+                incumbent=accepted_pool,
+                out_path=out_path,
+                seed_prefix=args.checkpoint_selection_seed_prefix,
+                seed_start_index=seed_start_index,
+                workers=workers,
+                games_per_side=args.checkpoint_selection_games_per_side,
+            )
+            candidate_commands.append(command)
+            all_commands.append(command)
+            if force_eval or not out_path.exists():
+                run_step(
+                    name=(
+                        f"checkpoint-selection[{chunk_label} "
+                        f"step={checkpoint.step} seed={seed_start_index}]"
+                    ),
+                    command=command,
+                    heartbeat_minutes=args.progress_heartbeat_minutes,
+                    progress_path=progress_path,
+                    log_prefix=log_prefix,
+                )
+            else:
+                print(
+                    f"{log_prefix} existing checkpoint selection artifact found, "
+                    f"skipping: {out_path}"
+                )
+            windows.append(
+                {
+                    "command": command,
+                    "row": read_eval_row(out_path, opponent_policy="td-search"),
+                }
+            )
+
+        rows = [window["row"] for window in windows]
+        pooled = pool_eval_rows(eval_rows=rows, opponent_policy="td-search")
+        candidate_payload = {
+            "checkpoint": _checkpoint_payload(checkpoint),
+            "selected": False,
+            "score": {
+                "candidateWinRate": pooled.candidate_win_rate,
+                "candidateWinRateCi95": {"low": pooled.ci_low, "high": pooled.ci_high},
+                "sideGap": pooled.side_gap,
+                "totalGames": pooled.total_games,
+            },
+            "evaluation": build_eval_payload(
+                args.checkpoint_selection_seed_start_indices,
+                rows,
+                pooled,
+            ),
+            "commands": candidate_commands,
+        }
+        candidate_rows.append(candidate_payload)
+        ranked.append(
+            (
+                (
+                    pooled.candidate_win_rate,
+                    pooled.ci_low,
+                    -pooled.side_gap,
+                    checkpoint.step,
+                ),
+                candidate_index - 1,
+                checkpoint,
+            )
+        )
+
+    _, selected_index, selected_checkpoint = max(ranked, key=lambda row: row[0])
+    candidate_rows[selected_index]["selected"] = True
+    result = CheckpointSelectionResult(
+        enabled=True,
+        reason="best_eval_score",
+        selected_checkpoint=selected_checkpoint,
+        trained_latest_checkpoint=trained_latest_checkpoint,
+        accepted_before=accepted_checkpoint,
+        seed_start_indices=list(args.checkpoint_selection_seed_start_indices),
+        candidates=candidate_rows,
+        commands=all_commands,
+        summary_path=summary_path,
+    )
+    _write_checkpoint_selection_summary(chunk_label=chunk_label, result=result)
+    selected_score = candidate_rows[selected_index]["score"]
+    assert isinstance(selected_score, dict)
+    print(
+        f"{log_prefix} checkpoint-selection chunk={chunk_label} "
+        f"selectedStep={selected_checkpoint.step} "
+        f"trainedLatestStep={trained_latest_checkpoint.step} "
+        f"winRate={float(selected_score['candidateWinRate']):.3f} "
+        f"ciLow={float(selected_score['candidateWinRateCi95']['low']):.3f} "
+        f"sideGap={float(selected_score['sideGap']):.3f}",
+        flush=True,
+    )
+    return result
+
+
+def run_chunk_gate(
+    *,
+    args: argparse.Namespace,
+    python_bin: Path,
+    chunk_label: str,
+    eval_dir: Path,
+    candidate_checkpoint: LoopCheckpoint,
+    accepted_checkpoint: LoopCheckpoint,
+    progress_path: Path,
+    log_prefix: str,
+    force_eval: bool = False,
+) -> ChunkGateResult:
+    if bool(getattr(args, "disable_chunk_gate", False)):
+        return ChunkGateResult(
+            enabled=False,
+            accepted=True,
+            reason="chunk_gate_disabled",
+            candidate_checkpoint=candidate_checkpoint,
+            accepted_before=accepted_checkpoint,
+            accepted_after=candidate_checkpoint,
+            seed_start_indices=[],
+            windows=[],
+            pooled=None,
+            checks={},
+            window_checks=[],
+            commands=[],
+        )
+    _require_td_search_checkpoint(candidate_checkpoint, label="chunk gate candidate")
+    _require_td_search_checkpoint(accepted_checkpoint, label="chunk gate accepted checkpoint")
+
+    eval_dir.mkdir(parents=True, exist_ok=True)
+    workers = args.chunk_gate_workers or args.eval_workers
+    accepted_pool = PoolCheckpoint(
+        run_id=f"{chunk_label}-accepted-before",
+        generated_at_utc=datetime.now(timezone.utc).isoformat(),
+        value_path=accepted_checkpoint.value_path,
+        opponent_path=accepted_checkpoint.opponent_path,
+    )
+    windows: List[Dict[str, Any]] = []
+    commands: List[List[str]] = []
+    for seed_start_index in args.chunk_gate_seed_start_indices:
+        out_path = eval_dir / f"generator_gate.seed-{seed_start_index:06d}.json"
+        command = _build_eval_command_vs_incumbent(
+            python_bin=python_bin,
+            args=args,
+            checkpoint=candidate_checkpoint,
+            incumbent=accepted_pool,
+            out_path=out_path,
+            seed_prefix=args.chunk_gate_seed_prefix,
+            seed_start_index=seed_start_index,
+            workers=workers,
+            games_per_side=args.chunk_gate_games_per_side,
+        )
+        commands.append(command)
+        if force_eval or not out_path.exists():
+            run_step(
+                name=f"chunk-gate[{chunk_label} seed={seed_start_index}]",
+                command=command,
+                heartbeat_minutes=args.progress_heartbeat_minutes,
+                progress_path=progress_path,
+                log_prefix=log_prefix,
+            )
+        else:
+            print(f"{log_prefix} existing chunk gate artifact found, skipping: {out_path}")
+        windows.append({"command": command, "row": read_eval_row(out_path, opponent_policy="td-search")})
+
+    rows = [window["row"] for window in windows]
+    pooled = pool_eval_rows(eval_rows=rows, opponent_policy="td-search")
+    gate = evaluate_promotion_gate(
+        eval_row=pooled,
+        eval_windows=rows,
+        thresholds=PromotionThresholds(
+            min_win_rate=args.chunk_gate_min_win_rate,
+            max_side_gap=args.chunk_gate_max_side_gap,
+            min_ci_low=args.chunk_gate_min_ci_low,
+            max_window_side_gap=args.chunk_gate_max_window_side_gap,
+        ),
+    )
+    accepted = bool(gate["passed"])
+    accepted_after = candidate_checkpoint if accepted else accepted_checkpoint
+    reason = "chunk_gate_passed" if accepted else "chunk_gate_failed"
+    print(
+        f"{log_prefix} {reason} chunk={chunk_label} "
+        f"winRate={pooled.candidate_win_rate:.3f} ciLow={pooled.ci_low:.3f} "
+        f"sideGap={pooled.side_gap:.3f}",
+        flush=True,
+    )
+    return ChunkGateResult(
+        enabled=True,
+        accepted=accepted,
+        reason=reason,
+        candidate_checkpoint=candidate_checkpoint,
+        accepted_before=accepted_checkpoint,
+        accepted_after=accepted_after,
+        seed_start_indices=list(args.chunk_gate_seed_start_indices),
+        windows=windows,
+        pooled=pooled,
+        checks=dict(gate["checks"]),
+        window_checks=list(gate["windowChecks"]),
+        commands=commands,
+    )
+
+
+def build_gated_chunk_row(
+    *,
+    chunk_row: Dict[str, Any],
+    gate_result: ChunkGateResult,
+    replay_chunk: ReplayChunk | None = None,
+) -> Dict[str, Any]:
+    out = dict(chunk_row)
+    out["candidateCheckpoint"] = _checkpoint_payload(gate_result.candidate_checkpoint)
+    out["acceptedCheckpoint"] = _checkpoint_payload(gate_result.accepted_after)
+    out["latestCheckpoint"] = _checkpoint_payload(gate_result.accepted_after)
+    out["generatorGate"] = _chunk_gate_payload(gate_result)
+    if replay_chunk is not None:
+        out["replayForTraining"] = replay_training_payload(
+            replay_chunk=replay_chunk,
+            gate_result=gate_result,
+        )
+    return out
+
+
+def write_selfplay_chunk_summary(
+    *,
+    run_id: str,
+    chunk_dir: Path,
+    command_row: Dict[str, Any],
+    chunk_row: Dict[str, Any],
+) -> Path:
+    summary_path = chunk_dir / "chunk.summary.json"
+    payload = {
+        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "runId": run_id,
+        "chunkLabel": chunk_row["chunk"],
+        "commands": command_row,
+        "chunk": chunk_row,
+    }
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return summary_path
 
 
 def run_promotion_stage(
@@ -1198,6 +1864,70 @@ def _run_eval_windows_vs_incumbent(
     return rows
 
 
+def _checkpoint_payload(checkpoint: LoopCheckpoint) -> Dict[str, Any]:
+    return {
+        "step": checkpoint.step,
+        "value": str(checkpoint.value_path),
+        "opponent": str(checkpoint.opponent_path),
+    }
+
+
+def checkpoint_selection_payload(result: CheckpointSelectionResult) -> Dict[str, Any]:
+    return {
+        "enabled": result.enabled,
+        "reason": result.reason,
+        "summary": str(result.summary_path),
+        "selectedCheckpoint": _checkpoint_payload(result.selected_checkpoint),
+        "trainedLatestCheckpoint": _checkpoint_payload(result.trained_latest_checkpoint),
+        "acceptedBefore": _checkpoint_payload(result.accepted_before),
+        "seedStartIndices": list(result.seed_start_indices),
+        "candidates": result.candidates,
+    }
+
+
+def _write_checkpoint_selection_summary(
+    *,
+    chunk_label: str,
+    result: CheckpointSelectionResult,
+) -> None:
+    payload = {
+        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "chunkLabel": chunk_label,
+        "checkpointSelection": checkpoint_selection_payload(result),
+    }
+    result.summary_path.parent.mkdir(parents=True, exist_ok=True)
+    result.summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _chunk_gate_payload(gate_result: ChunkGateResult) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "enabled": gate_result.enabled,
+        "accepted": gate_result.accepted,
+        "reason": gate_result.reason,
+        "candidateCheckpoint": _checkpoint_payload(gate_result.candidate_checkpoint),
+        "acceptedBefore": _checkpoint_payload(gate_result.accepted_before),
+        "acceptedAfter": _checkpoint_payload(gate_result.accepted_after),
+    }
+    if gate_result.enabled and gate_result.pooled is not None:
+        rows = [window["row"] for window in gate_result.windows]
+        payload["evaluation"] = build_eval_payload(
+            gate_result.seed_start_indices,
+            rows,
+            gate_result.pooled,
+        )
+        payload["checks"] = gate_result.checks
+        payload["windowChecks"] = gate_result.window_checks
+    return payload
+
+
+def _require_td_search_checkpoint(checkpoint: LoopCheckpoint, *, label: str) -> None:
+    if checkpoint.value_path is None or checkpoint.opponent_path is None:
+        raise SystemExit(
+            f"{label} requires value+opponent checkpoints: "
+            f"value={checkpoint.value_path} opponent={checkpoint.opponent_path}"
+        )
+
+
 def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
     return {
         "pythonBin": str(args.python_bin),
@@ -1227,6 +1957,12 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "train": {
             "stepsPerChunk": args.train_steps,
+            "replayWindow": {
+                "source": args.train_replay_window_source,
+                "chunks": args.train_replay_window_chunks,
+                "maxValueLines": args.train_replay_window_max_value_lines,
+                "maxOpponentLines": args.train_replay_window_max_opponent_lines,
+            },
             "valueBatchSize": args.train_value_batch_size,
             "opponentBatchSize": args.train_opponent_batch_size,
             "seed": args.train_seed,
@@ -1261,8 +1997,32 @@ def _config_payload(args: argparse.Namespace) -> Dict[str, Any]:
                 "seedPrefix": args.incumbent_eval_seed_prefix,
                 "seedStartIndices": list(args.incumbent_eval_seed_start_indices),
             },
+            "chunkGate": {
+                "enabled": not bool(args.disable_chunk_gate),
+                "gamesPerSide": args.chunk_gate_games_per_side,
+                "workers": args.chunk_gate_workers or args.eval_workers,
+                "seedPrefix": args.chunk_gate_seed_prefix,
+                "seedStartIndices": list(args.chunk_gate_seed_start_indices),
+            },
+            "checkpointSelection": {
+                "enabled": True,
+                "gamesPerSide": args.checkpoint_selection_games_per_side,
+                "workers": (
+                    args.checkpoint_selection_workers
+                    or args.chunk_gate_workers
+                    or args.eval_workers
+                ),
+                "seedPrefix": args.checkpoint_selection_seed_prefix,
+                "seedStartIndices": list(args.checkpoint_selection_seed_start_indices),
+            },
         },
         "promotion": {
+            "chunkGate": {
+                "minWinRate": args.chunk_gate_min_win_rate,
+                "maxSideGap": args.chunk_gate_max_side_gap,
+                "minCiLow": args.chunk_gate_min_ci_low,
+                "maxWindowSideGap": args.chunk_gate_max_window_side_gap,
+            },
             "baselineVsSearch": {
                 "minWinRate": args.promotion_min_win_rate,
                 "maxSideGap": args.promotion_max_side_gap,
@@ -1327,6 +2087,23 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--train-num-threads must be > 0 when provided.")
     if args.train_num_interop_threads is not None and args.train_num_interop_threads <= 0:
         raise SystemExit("--train-num-interop-threads must be > 0 when provided.")
+    if args.train_replay_window_chunks <= 0:
+        raise SystemExit("--train-replay-window-chunks must be > 0.")
+    if args.train_replay_window_source != "accepted":
+        raise SystemExit("--train-replay-window-source must be 'accepted'.")
+    if args.train_replay_window_max_value_lines < 0:
+        raise SystemExit("--train-replay-window-max-value-lines must be >= 0.")
+    if args.train_replay_window_max_opponent_lines < 0:
+        raise SystemExit("--train-replay-window-max-opponent-lines must be >= 0.")
+    if (
+        args.train_value_target_mode == "td-lambda"
+        and args.train_replay_window_max_value_lines > 0
+    ):
+        raise SystemExit(
+            "--train-replay-window-max-value-lines is not supported with "
+            "--train-value-target-mode td-lambda because raw line caps can split "
+            "episode trajectories."
+        )
     if args.train_td_lambda < 0.0 or args.train_td_lambda > 1.0:
         raise SystemExit("--train-td-lambda must be in [0, 1].")
     if args.train_disable_value:
@@ -1358,6 +2135,23 @@ def _validate_args(args: argparse.Namespace) -> None:
     if any(seed < 0 for seed in args.incumbent_eval_seed_start_indices):
         raise SystemExit("--incumbent-eval-seed-start-indices must be >= 0.")
 
+    if args.chunk_gate_games_per_side <= 0:
+        raise SystemExit("--chunk-gate-games-per-side must be > 0.")
+    if args.chunk_gate_workers is not None and args.chunk_gate_workers <= 0:
+        raise SystemExit("--chunk-gate-workers must be > 0 when provided.")
+    if not args.chunk_gate_seed_start_indices:
+        raise SystemExit("--chunk-gate-seed-start-indices must contain at least one value.")
+    if any(seed < 0 for seed in args.chunk_gate_seed_start_indices):
+        raise SystemExit("--chunk-gate-seed-start-indices must be >= 0.")
+    if args.checkpoint_selection_games_per_side <= 0:
+        raise SystemExit("--checkpoint-selection-games-per-side must be > 0.")
+    if args.checkpoint_selection_workers is not None and args.checkpoint_selection_workers <= 0:
+        raise SystemExit("--checkpoint-selection-workers must be > 0 when provided.")
+    if not args.checkpoint_selection_seed_start_indices:
+        raise SystemExit("--checkpoint-selection-seed-start-indices must contain at least one value.")
+    if any(seed < 0 for seed in args.checkpoint_selection_seed_start_indices):
+        raise SystemExit("--checkpoint-selection-seed-start-indices must be >= 0.")
+
     if args.eval_progress_every_games < 0:
         raise SystemExit("--eval-progress-every-games must be >= 0.")
     if args.eval_progress_log_minutes < 0.0:
@@ -1386,6 +2180,10 @@ def _validate_args(args: argparse.Namespace) -> None:
         "promotion_max_side_gap",
         "promotion_min_ci_low",
         "promotion_max_window_side_gap",
+        "chunk_gate_min_win_rate",
+        "chunk_gate_max_side_gap",
+        "chunk_gate_min_ci_low",
+        "chunk_gate_max_window_side_gap",
         "promotion_incumbent_min_win_rate",
         "promotion_incumbent_max_side_gap",
         "promotion_incumbent_min_ci_low",

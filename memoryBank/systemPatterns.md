@@ -82,11 +82,24 @@ Design expectations:
 - TD training architecture is staged around shared primitives in `trainer/td`, replay collection, checkpointed training, and promotion-gated evaluation.
 - Bootstrap/recalibration loop (`scripts.run_td_loop`) uses chunked offline replay generation, checkpointed training, and pooled side-swapped certify windows before promotion.
 - Forward self-play loop (`scripts.run_td_loop_selfplay`) keeps strict certify gating while shifting collection toward mixed td-search-heavy opponents and incumbent head-to-head checks.
+- Self-play generation is accepted-checkpoint gated:
+  - after each chunk trains, saved checkpoints are first compared against the current accepted generator with a cheap td-search eval;
+  - the selected checkpoint, not automatically the final training step, runs the small td-search vs current accepted-generator gate;
+  - only passing selected candidates become the generator for subsequent collect/train chunks;
+  - rejected candidates stay in artifacts as trained candidates but are not used for future self-play data;
+  - final promotion eval still runs separately against the fixed search baseline and manifest incumbent.
+- Self-play training uses an accepted replay-window artifact:
+  - each chunk merges the current collect replay plus up to `N-1` prior accepted chunks into `train/replay_window/window.value.jsonl` and `window.opponent.jsonl`;
+  - default `N=3` enables a small accepted replay window for normal self-play runs;
+  - value training defaults to sequence-aware `td-lambda` targets with `lambda=0.7`;
+  - replay-window value line caps are fail-fast under `td-lambda` because raw line caps can split complete trajectories;
+  - rejected chunks can train their own candidate, but are not eligible for future replay windows.
+- Per-chunk durability lives in `chunks/chunk-XXX/chunk.summary.json`; resume requires the current chunk-summary schema, including checkpoint-selection metadata, for completed chunks and only treats the final collect+train chunk without that summary as a pending generator gate.
 - Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
 - TD checkpoint registry is source-controlled:
   - `models/td_checkpoints/manifest.json` schema v2 is the canonical source for `defaultWarmStart` and `opponentPool`.
   - referenced promoted checkpoint files live under `models/td_checkpoints/<key>/` so they move with the repo; ignored `artifacts/td_loops/*/loop.summary.json` files are fallback/history only.
-  - successful loop promotions copy the latest value/opponent pair into the checkpoint registry and update the manifest unless `--disable-manifest-promotion` is set.
+  - successful loop promotions copy the latest accepted value/opponent pair into the checkpoint registry and update the manifest unless `--disable-manifest-promotion` is set.
   - self-play opponent-pool loading reads manifest pool entries first, then promoted artifact summaries, and de-duplicates by checkpoint pair.
 - Platform-specific runtime tuning lives in thin wrapper scripts, not the canonical Python loop defaults:
   - RunPod/Linux uses bash launchers with cloud presets.
@@ -102,6 +115,7 @@ Design expectations:
   - `td-search` (checkpoint-backed TD-guided search policy)
 - Training code uses fail-fast semantics:
   - no silent fallback to heuristic labels/actions when required TD/search signals are missing
+  - `td-lambda` value training requires sequence-aware replay rows with full contiguous player trajectories
   - teacher label generation requires policies that emit root action probabilities
   - malformed bridge payloads and invalid distributions raise immediately with context
   - script entrypoints require explicit policy args and active virtualenv runtime

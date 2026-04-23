@@ -43,6 +43,7 @@ class RunTdLoopArgSurfaceTests(unittest.TestCase):
         self.assertEqual(parsed.chunks_per_loop, 3)
         self.assertEqual(parsed.collect_games, 800)
         self.assertEqual(parsed.train_steps, 30000)
+        self.assertEqual(parsed.train_value_target_mode, "td-lambda")
         self.assertEqual(parsed.eval_games_per_side, 200)
         self.assertEqual(parsed.eval_opponent_policy, "search")
         self.assertAlmostEqual(parsed.promotion_min_ci_low, 0.5)
@@ -90,6 +91,7 @@ class RunTdLoopArgSurfaceTests(unittest.TestCase):
         self.assertEqual(parsed.run_label, "td-loop-smoke")
         self.assertEqual(parsed.chunks_per_loop, 1)
         self.assertEqual(parsed.collect_games, 12)
+        self.assertEqual(parsed.train_value_target_mode, "td-lambda")
         self.assertEqual(parsed.eval_games_per_side, 10)
         self.assertEqual(parsed.eval_opponent_policy, "search")
 

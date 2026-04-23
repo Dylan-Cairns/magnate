@@ -127,22 +127,31 @@ def checkpoints_from_train_summary(payload: Dict[str, Any]) -> List[LoopCheckpoi
     return sorted(out, key=lambda checkpoint: checkpoint.step)
 
 
+def eligible_checkpoints_for_policy(
+    *,
+    checkpoints: Sequence[LoopCheckpoint],
+    candidate_policy: str,
+) -> List[LoopCheckpoint]:
+    if candidate_policy == "td-search":
+        return [
+            checkpoint
+            for checkpoint in checkpoints
+            if checkpoint.value_path is not None and checkpoint.opponent_path is not None
+        ]
+    if candidate_policy == "td-value":
+        return [checkpoint for checkpoint in checkpoints if checkpoint.value_path is not None]
+    raise SystemExit(f"Unsupported eval candidate policy: {candidate_policy!r}")
+
+
 def select_latest_checkpoint(
     *,
     checkpoints: Sequence[LoopCheckpoint],
     candidate_policy: str,
 ) -> LoopCheckpoint:
-    if candidate_policy == "td-search":
-        eligible = [
-            checkpoint
-            for checkpoint in checkpoints
-            if checkpoint.value_path is not None and checkpoint.opponent_path is not None
-        ]
-    elif candidate_policy == "td-value":
-        eligible = [checkpoint for checkpoint in checkpoints if checkpoint.value_path is not None]
-    else:
-        raise SystemExit(f"Unsupported eval candidate policy: {candidate_policy!r}")
-
+    eligible = eligible_checkpoints_for_policy(
+        checkpoints=checkpoints,
+        candidate_policy=candidate_policy,
+    )
     if not eligible:
         raise SystemExit(f"No eligible checkpoints for candidate policy {candidate_policy}.")
     return eligible[-1]

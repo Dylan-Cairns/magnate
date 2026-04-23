@@ -7,6 +7,10 @@
 - Use `scripts.run_td_loop` for bootstrap/recalibration passes, then advance primarily with `scripts.run_td_loop_selfplay`.
 - Improve model quality against search baseline and incumbent td-search while keeping runtime practical.
 - Keep `models/td_checkpoints/manifest.json` as the canonical checked-in registry for promoted warm starts and opponent-pool entries.
+- Gate each self-play chunk before it becomes the next data generator.
+- Train self-play chunks from a small accepted replay window instead of requiring strictly chunk-local replay.
+- Select the best cheap-eval saved checkpoint from each training chunk before running the generator gate.
+- Use sequence-aware `td-lambda` as the default value target for TD training.
 
 ## Locked Decisions
 
@@ -28,22 +32,36 @@
   - `opponentPool` selects promoted checkpoints for pool sampling.
   - checkpoint payloads under `models/td_checkpoints/` are intended to travel with source control, while ignored `artifacts/` summaries are fallback/history.
 - Loop promotion flows copy passed checkpoints into `models/td_checkpoints/<manifest-key>/` and update the manifest unless `--disable-manifest-promotion` is set.
+- `scripts.run_td_loop_selfplay` now distinguishes trained candidate checkpoints from accepted generator checkpoints:
+  - every chunk writes `chunk.summary.json`;
+  - `trainedLatestCheckpoint` is the final checkpoint emitted by training;
+  - `checkpointSelection` records the cheap eval used to choose among saved training checkpoints;
+  - `candidateCheckpoint` is the selected checkpoint sent to the generator gate;
+  - `latestCheckpoint` / `acceptedCheckpoint` is the checkpoint allowed to generate the next chunk;
+  - a small td-search vs td-search chunk gate accepts or rejects each candidate before the next collect stage.
+- Self-play resume is strict for the current artifact schema; completed chunks missing `chunk.summary.json`, `checkpointSelection`, `replayWindow`, or `replayForTraining` fail instead of being inferred from legacy artifacts.
+- Self-play training writes `train/replay_window/window.*` artifacts per chunk:
+  - default window size is `3`, enabling a small accepted replay window without wrapper overrides;
+  - `--train-replay-window-chunks N` trains on the current chunk plus the last `N-1` accepted chunks;
+  - value target mode defaults to `td-lambda` with `--train-td-lambda 0.7`;
+  - value replay line caps are rejected under `td-lambda` because raw line caps can split full episode trajectories;
+  - rejected chunks are not added to future replay history unless the gate is disabled.
 - Typed bridge payloads cover the main `trainer/` package, while `scripts/` still contains some dynamic orchestration surfaces outside checked-in pyright scope.
 
 ## Remaining
 
 - Keep calibrating loop cadence/thresholds from repeated overnight results.
 - Improve `td-search` strength and throughput.
-- Wire an online replay refresh loop (beyond chunk-local offline replay files).
+- Tune replay-window size/caps from repeated runs; a broader online reservoir remains a future option.
 - Tune browser `td-search` latency/throughput now that `TD Search Fast` is the default profile.
 - Continue shrinking untyped/dynamic payload handling in the remaining Python script/orchestration layer outside the typed `trainer/` package.
 
 ## Immediate Next Steps
 
 1. Before the next long self-play run, confirm `models/td_checkpoints/manifest.json` and the referenced checkpoint files are present and committed on the machine that will run training.
-2. Continue self-play loop iterations with promoted manifest warm starts and the current promotion cadence.
-3. Track dual-gate outcomes (baseline vs search and candidate vs incumbent td-search) plus side-gap stability.
+2. Continue self-play loop iterations with promoted manifest warm starts, td-lambda value targets, checkpoint selection, per-chunk generator gates, accepted replay windows, and the current final promotion cadence.
+3. Track checkpoint-selection winners, chunk-gate accept/reject rates, final dual-gate outcomes, and side-gap stability.
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
-_Updated: 2026-04-22._
+_Updated: 2026-04-23._
