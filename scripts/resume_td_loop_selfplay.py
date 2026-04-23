@@ -217,7 +217,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument("--disable-chunk-gate", action="store_true")
-    parser.add_argument("--chunk-gate-games-per-side", type=int, default=20)
+    parser.add_argument(
+        "--chunk-gate-games-per-side",
+        "--chunk-gate-max-games-per-side",
+        type=int,
+        default=200,
+    )
     parser.add_argument("--chunk-gate-workers", type=int, default=None)
     parser.add_argument("--chunk-gate-seed-prefix", type=str, default="td-loop-chunk-gate")
     parser.add_argument(
@@ -226,6 +231,11 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=[40000],
     )
+    parser.add_argument("--chunk-gate-h0-win-rate", type=float, default=0.50)
+    parser.add_argument("--chunk-gate-h1-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-alpha", type=float, default=0.05)
+    parser.add_argument("--chunk-gate-beta", type=float, default=0.10)
+    parser.add_argument("--chunk-gate-batch-games-per-side", type=int, default=25)
     parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.52)
     parser.add_argument("--chunk-gate-max-side-gap", type=float, default=0.15)
     parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
@@ -993,6 +1003,11 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         chunk_gate_workers=args.chunk_gate_workers or eval_workers,
         chunk_gate_seed_prefix=args.chunk_gate_seed_prefix,
         chunk_gate_seed_start_indices=list(args.chunk_gate_seed_start_indices),
+        chunk_gate_h0_win_rate=args.chunk_gate_h0_win_rate,
+        chunk_gate_h1_win_rate=args.chunk_gate_h1_win_rate,
+        chunk_gate_alpha=args.chunk_gate_alpha,
+        chunk_gate_beta=args.chunk_gate_beta,
+        chunk_gate_batch_games_per_side=args.chunk_gate_batch_games_per_side,
         chunk_gate_min_win_rate=args.chunk_gate_min_win_rate,
         chunk_gate_max_side_gap=args.chunk_gate_max_side_gap,
         chunk_gate_min_ci_low=args.chunk_gate_min_ci_low,

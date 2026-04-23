@@ -104,6 +104,61 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
             candidate_win_rate_as_player_b=win_rate,
         )
 
+    def _write_gate_artifact(
+        self,
+        path: Path,
+        *,
+        status: str,
+        decision_state: str,
+        decision_reason: str,
+        win_rate: float,
+        ci_low: float,
+        ci_high: float,
+        side_gap: float,
+        candidate_wins: int,
+        opponent_wins: int,
+        total_games: int,
+        games_per_side_completed: int,
+        batches_completed: int,
+    ) -> None:
+        payload = {
+            "status": status,
+            "mode": "gate",
+            "decision": {
+                "state": decision_state,
+                "reason": decision_reason,
+                "maxSideGap": 0.15,
+            },
+            "progress": {
+                "gamesPerSideCompleted": games_per_side_completed,
+                "gamesPerSideRemaining": 0,
+                "batchesCompleted": batches_completed,
+                "nextSeedStartIndex": 40000 + games_per_side_completed,
+            },
+            "sprt": {
+                "h0WinRate": 0.50,
+                "h1WinRate": 0.52,
+                "alpha": 0.05,
+                "beta": 0.10,
+                "acceptBoundary": 2.0,
+                "rejectBoundary": -2.0,
+                "logLikelihoodRatio": 2.5 if decision_state == "accepted" else 0.1,
+            },
+            "results": {
+                "candidateWinRate": win_rate,
+                "candidateWinRateCi95": {"low": ci_low, "high": ci_high},
+                "sideGap": side_gap,
+                "candidateWins": candidate_wins,
+                "opponentWins": opponent_wins,
+                "draws": total_games - candidate_wins - opponent_wins,
+                "totalGames": total_games,
+                "candidateWinRateAsPlayerA": win_rate,
+                "candidateWinRateAsPlayerB": win_rate,
+            },
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
     def _write_mock_collect_outputs(self, **kwargs):
         Path(kwargs["collect_value_path"]).write_text('{"v": 1}\n', encoding="utf-8")
         Path(kwargs["collect_opponent_path"]).write_text('{"o": 1}\n', encoding="utf-8")
@@ -322,14 +377,16 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertAlmostEqual(result.pooled_incumbent.candidate_win_rate, 0.60)
         self.assertTrue(result.promotion["promoted"])
 
-    def test_run_chunk_gate_accepts_candidate_when_small_eval_passes(self) -> None:
+    def test_run_chunk_gate_accepts_candidate_when_sequential_gate_accepts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             candidate_value, candidate_opponent = self._make_checkpoints(root / "candidate")
             accepted_value, accepted_opponent = self._make_checkpoints(root / "accepted")
             args = self._parse(
                 "--chunk-gate-games-per-side",
-                "5",
+                "50",
+                "--chunk-gate-batch-games-per-side",
+                "25",
                 "--chunk-gate-seed-start-indices",
                 "40000",
             )
@@ -343,22 +400,29 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
                 value_path=accepted_value,
                 opponent_path=accepted_opponent,
             )
-            row = self._eval_row(
-                artifact_name="gate.json",
-                opponent_policy="td-search",
-                win_rate=0.60,
-                ci_low=0.10,
-                ci_high=0.90,
-                side_gap=0.02,
-                candidate_wins=6,
-                opponent_wins=4,
-                total_games=10,
-            )
+            artifact_path = root / "eval" / "generator_gate.seed-040000.json"
 
-            with patch("scripts.run_td_loop_selfplay.run_step") as mocked_run_step, patch(
-                "scripts.run_td_loop_selfplay.read_eval_row",
-                return_value=row,
-            ):
+            def _mock_run_step(**_: object) -> None:
+                self._write_gate_artifact(
+                    artifact_path,
+                    status="accepted",
+                    decision_state="accepted",
+                    decision_reason="sprt_accept",
+                    win_rate=0.60,
+                    ci_low=0.50,
+                    ci_high=0.69,
+                    side_gap=0.02,
+                    candidate_wins=60,
+                    opponent_wins=40,
+                    total_games=100,
+                    games_per_side_completed=50,
+                    batches_completed=2,
+                )
+
+            with patch(
+                "scripts.run_td_loop_selfplay.run_step",
+                side_effect=_mock_run_step,
+            ) as mocked_run_step:
                 result = run_chunk_gate(
                     args=args,
                     python_bin=Path(sys.executable),
@@ -374,6 +438,73 @@ class RunTdLoopSelfplayScriptTests(unittest.TestCase):
         self.assertTrue(result.accepted)
         self.assertEqual(result.accepted_after, candidate)
         self.assertEqual(len(result.commands), 1)
+        self.assertTrue(result.checks["allWindowsAccepted"])
+        self.assertEqual(result.window_checks[0]["decision"], "accepted")
+        mocked_run_step.assert_called_once()
+
+    def test_run_chunk_gate_rejects_inconclusive_sequential_gate_even_when_post_checks_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidate_value, candidate_opponent = self._make_checkpoints(root / "candidate")
+            accepted_value, accepted_opponent = self._make_checkpoints(root / "accepted")
+            args = self._parse(
+                "--chunk-gate-games-per-side",
+                "50",
+                "--chunk-gate-batch-games-per-side",
+                "25",
+                "--chunk-gate-seed-start-indices",
+                "40000",
+            )
+            candidate = LoopCheckpoint(
+                step=1000,
+                value_path=candidate_value,
+                opponent_path=candidate_opponent,
+            )
+            accepted = LoopCheckpoint(
+                step=0,
+                value_path=accepted_value,
+                opponent_path=accepted_opponent,
+            )
+            artifact_path = root / "eval" / "generator_gate.seed-040000.json"
+
+            def _mock_run_step(**_: object) -> None:
+                self._write_gate_artifact(
+                    artifact_path,
+                    status="completed",
+                    decision_state="completed",
+                    decision_reason="max_games_reached_inconclusive",
+                    win_rate=0.60,
+                    ci_low=0.50,
+                    ci_high=0.69,
+                    side_gap=0.02,
+                    candidate_wins=60,
+                    opponent_wins=40,
+                    total_games=100,
+                    games_per_side_completed=50,
+                    batches_completed=2,
+                )
+
+            with patch(
+                "scripts.run_td_loop_selfplay.run_step",
+                side_effect=_mock_run_step,
+            ) as mocked_run_step:
+                result = run_chunk_gate(
+                    args=args,
+                    python_bin=Path(sys.executable),
+                    chunk_label="chunk-001",
+                    eval_dir=root / "eval",
+                    candidate_checkpoint=candidate,
+                    accepted_checkpoint=accepted,
+                    progress_path=root / "progress.json",
+                    log_prefix="[test]",
+                )
+
+        self.assertTrue(result.enabled)
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.accepted_after, accepted)
+        self.assertFalse(result.checks["allWindowsAccepted"])
+        self.assertTrue(result.checks["minWinRate"])
+        self.assertEqual(result.window_checks[0]["decision"], "completed")
         mocked_run_step.assert_called_once()
 
     def test_run_checkpoint_selection_selects_best_eval_checkpoint(self) -> None:
