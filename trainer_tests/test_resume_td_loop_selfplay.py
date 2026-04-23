@@ -474,8 +474,6 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
         (train_dir / "summary.json").write_text(json.dumps(train_summary), encoding="utf-8")
         replay_window_dir = train_dir / "replay_window"
         replay_window_dir.mkdir(parents=True, exist_ok=True)
-        (replay_window_dir / "window.value.jsonl").write_text('{"v": 1}\n', encoding="utf-8")
-        (replay_window_dir / "window.opponent.jsonl").write_text('{"o": 1}\n', encoding="utf-8")
         replay_window_payload = {
             "source": "accepted",
             "windowSize": 3,
@@ -484,10 +482,12 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
                     "chunk": f"chunk-{chunk_index:03d}",
                     "valueReplay": str(replay_dir / "self_play.value.jsonl"),
                     "opponentReplay": str(replay_dir / "self_play.opponent.jsonl"),
+                    "valueLines": 1,
+                    "opponentLines": 1,
                 }
             ],
-            "valueReplay": str(replay_window_dir / "window.value.jsonl"),
-            "opponentReplay": str(replay_window_dir / "window.opponent.jsonl"),
+            "valueReplayFiles": [str(replay_dir / "self_play.value.jsonl")],
+            "opponentReplayFiles": [str(replay_dir / "self_play.opponent.jsonl")],
             "summary": str(replay_window_dir / "window.summary.json"),
             "valueLines": 1,
             "opponentLines": 1,
@@ -582,6 +582,8 @@ class ResumeTdLoopSelfplayTests(unittest.TestCase):
                     "chunk": chunk_label,
                     "valueReplay": str(chunk_dir / "replay" / "self_play.value.jsonl"),
                     "opponentReplay": str(chunk_dir / "replay" / "self_play.opponent.jsonl"),
+                    "valueLines": 1,
+                    "opponentLines": 1,
                 },
             }
         }

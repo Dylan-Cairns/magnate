@@ -7,7 +7,9 @@ from pathlib import Path
 
 from trainer.td.io import (
     read_opponent_samples_jsonl,
+    read_opponent_samples_jsonl_many,
     read_value_transitions_jsonl,
+    read_value_transitions_jsonl_many,
     write_opponent_samples_jsonl,
     write_value_transitions_jsonl,
 )
@@ -56,6 +58,73 @@ class TDIOTests(unittest.TestCase):
             write_opponent_samples_jsonl(samples, path)
             loaded = read_opponent_samples_jsonl(path)
         self.assertEqual(loaded, samples)
+
+    def test_read_value_transitions_jsonl_many_preserves_file_order(self) -> None:
+        first = [
+            ValueTransition(
+                observation=[0.1, 0.2],
+                reward=0.0,
+                done=False,
+                next_observation=[0.3, 0.4],
+                player_id="PlayerA",
+                episode_id="ep-1",
+                timestep=0,
+            )
+        ]
+        second = [
+            ValueTransition(
+                observation=[0.5, 0.6],
+                reward=1.0,
+                done=True,
+                next_observation=None,
+                player_id="PlayerB",
+                episode_id="ep-2",
+                timestep=0,
+            )
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            first_path = root / "first.value.jsonl"
+            second_path = root / "second.value.jsonl"
+            write_value_transitions_jsonl(first, first_path)
+            write_value_transitions_jsonl(second, second_path)
+            loaded = read_value_transitions_jsonl_many([first_path, second_path])
+        self.assertEqual(loaded, [*first, *second])
+
+    def test_read_opponent_samples_jsonl_many_applies_tail_cap(self) -> None:
+        first = [
+            OpponentSample(
+                observation=[0.1, 0.2],
+                action_features=[[0.0, 1.0]],
+                action_index=0,
+                player_id="PlayerA",
+            )
+        ]
+        second = [
+            OpponentSample(
+                observation=[0.3, 0.4],
+                action_features=[[1.0, 0.0]],
+                action_index=0,
+                player_id="PlayerB",
+            ),
+            OpponentSample(
+                observation=[0.5, 0.6],
+                action_features=[[0.5, 0.5]],
+                action_index=0,
+                player_id="PlayerA",
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            first_path = root / "first.opponent.jsonl"
+            second_path = root / "second.opponent.jsonl"
+            write_opponent_samples_jsonl(first, first_path)
+            write_opponent_samples_jsonl(second, second_path)
+            loaded = read_opponent_samples_jsonl_many(
+                [first_path, second_path],
+                max_samples=2,
+            )
+        self.assertEqual(loaded, second)
 
     def test_read_value_transition_rejects_done_with_next_observation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
