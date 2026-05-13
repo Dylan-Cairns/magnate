@@ -100,7 +100,7 @@ Design expectations:
   - value training defaults to sequence-aware `td-lambda` targets with `lambda=0.7`;
   - replay-window value line caps are fail-fast under `td-lambda` because raw line caps can split complete trajectories;
   - rejected chunks are not eligible for accepted-source replay windows, but can be included by the recent-source learner window.
-- Per-chunk durability lives in `chunks/chunk-XXX/chunk.summary.json`; block generator decisions live in `blocks/block-XXX/block.summary.json`. Resume requires the current chunk-summary schema, including checkpoint-selection metadata, for completed chunks and only treats the final collect+train chunk without that summary as a pending generator gate.
+- Per-chunk durability lives in `chunks/chunk-XXX/chunk.summary.json`; block generator decisions live in `blocks/block-XXX/block.summary.json`. Resume requires the current chunk-summary schema, including checkpoint-selection metadata, reconstructs learner/generator checkpoints separately, restores accepted and recent replay histories, and carries any trailing non-boundary chunk candidates into the next block gate.
 - Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
 - TD checkpoint registry is source-controlled:
   - `models/td_checkpoints/manifest.json` schema v2 is the canonical source for `defaultWarmStart` and `opponentPool`.
