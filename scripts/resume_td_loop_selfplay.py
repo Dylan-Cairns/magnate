@@ -926,6 +926,11 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         if args.train_replay_window_source is not None
         else str(replay_window_config["source"])
     )
+    if train_replay_window_source == "recent":
+        raise SystemExit(
+            "Resuming --train-replay-window-source recent runs requires the "
+            "two-timescale resume implementation."
+        )
     train_replay_window_max_value_lines = (
         args.train_replay_window_max_value_lines
         if args.train_replay_window_max_value_lines is not None
@@ -987,6 +992,10 @@ def _resolve_resume_args(*, args: argparse.Namespace, state: ResumeState) -> arg
         train_replay_window_source=train_replay_window_source,
         train_replay_window_max_value_lines=train_replay_window_max_value_lines,
         train_replay_window_max_opponent_lines=train_replay_window_max_opponent_lines,
+        generator_update_chunks=1,
+        block_selection_games_per_side=20,
+        block_selection_seed_prefix="td-loop-block-selection",
+        block_selection_seed_start_indices=[50000],
         eval_games_per_side=args.eval_games_per_side,
         eval_workers=eval_workers,
         eval_seed_prefix=args.eval_seed_prefix,
