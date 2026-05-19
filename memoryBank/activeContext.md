@@ -21,7 +21,7 @@
 
 ## Current State
 
-- Browser app is playable; default bot is `TD Search Fast`.
+- Browser app is playable; default bot is `TD Search` using the promoted TD-search browser model pack; `TD Search Fast` remains available as the lower-latency option.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - The failed 2026-04-21 cache rollout was reverted with git revert commits; td-search rollouts are back on the stateful bridge simulation path.
@@ -58,7 +58,7 @@
 - Keep calibrating loop cadence/thresholds from repeated overnight results.
 - Improve `td-search` strength and throughput.
 - Tune replay-window size/caps from repeated runs; a broader online reservoir remains a future option.
-- Tune browser `td-search` latency/throughput now that `TD Search Fast` is the default profile.
+- Tune browser `td-search` latency/throughput now that the stronger `TD Search` profile is the default.
 - Continue shrinking untyped/dynamic payload handling in the remaining Python script/orchestration layer outside the typed `trainer/` package.
 
 ## Immediate Next Steps
@@ -69,4 +69,4 @@
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
-_Updated: 2026-05-13._
+_Updated: 2026-05-18._

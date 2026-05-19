@@ -12,10 +12,10 @@ describe('bot policy catalog', () => {
     expect(() => getBotProfile('unknown-profile')).toThrow('Unknown bot profile');
   });
 
-  it('uses td-search fast as default and resolves an available policy', () => {
+  it('uses browser td-search as default and resolves an available policy', () => {
     const resolved = resolveBotProfile(DEFAULT_BOT_PROFILE_ID);
     expect(resolved.selected.available).toBe(true);
-    expect(resolved.selected.id).toBe('td-search-fast');
+    expect(resolved.selected.id).toBe('td-search-browser');
     expect(resolved.selected.kind).toBe('td-search');
   });
 

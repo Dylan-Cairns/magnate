@@ -1,8 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAtUtc": "2026-03-05T18:08:41.764888+00:00",
-  "defaultPackId": "td-value-20260305-024747z-step-30000",
+  "generatedAtUtc": "2026-05-18T23:58:20.970575+00:00",
+  "defaultPackId": "td-search-promoted-20260306-061428z-step-20000",
   "packs": [
+    {
+      "id": "td-search-promoted-20260306-061428z-step-20000",
+      "label": "TD Search Promoted 20260306-061428Z step 20000",
+      "modelType": "td-search-v1",
+      "manifestPath": "model-packs/td-search-promoted-20260306-061428z-step-20000/manifest.json",
+      "createdAtUtc": "2026-05-18T23:58:20.970575+00:00",
+      "sourceRunId": "20260306-061428Z-td-loop-r2-overnight",
+      "sourceValueCheckpoint": "models/td_checkpoints/promoted/value-step-0020000.pt",
+      "sourceOpponentCheckpoint": "models/td_checkpoints/promoted/opponent-step-0020000.pt"
+    },
     {
       "id": "td-search-20260305-024747z-step-30000",
       "label": "TD Search 20260305-024747Z step 30000",

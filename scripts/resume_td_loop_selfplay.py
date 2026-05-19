@@ -259,11 +259,11 @@ def parse_args() -> argparse.Namespace:
         default=[40000],
     )
     parser.add_argument("--chunk-gate-h0-win-rate", type=float, default=0.50)
-    parser.add_argument("--chunk-gate-h1-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-h1-win-rate", type=float, default=0.55)
     parser.add_argument("--chunk-gate-alpha", type=float, default=0.05)
     parser.add_argument("--chunk-gate-beta", type=float, default=0.10)
     parser.add_argument("--chunk-gate-batch-games-per-side", type=int, default=25)
-    parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.52)
+    parser.add_argument("--chunk-gate-min-win-rate", type=float, default=0.55)
     parser.add_argument("--chunk-gate-max-side-gap", type=float, default=0.15)
     parser.add_argument("--chunk-gate-min-ci-low", type=float, default=0.0)
     parser.add_argument("--chunk-gate-max-window-side-gap", type=float, default=0.20)
@@ -977,10 +977,10 @@ def _discover_resume_state(*, run_id: str, artifact_dir: Path) -> ResumeState:
                     chunk_row["checkpointSelection"],
                     chunk_label=chunk_dir.name,
                 )
-                if not _same_loop_checkpoint(selection_checkpoint, summary_candidate_checkpoint):
+                if not _same_loop_checkpoint(selection_checkpoint, learner_checkpoint):
                     raise SystemExit(
                         "Chunk summary checkpointSelection.selectedCheckpoint does not match "
-                        "chunk summary candidateCheckpoint: "
+                        "chunk summary learnerCheckpointAfter: "
                         f"{chunk_dir.name}"
                     )
                 block_payload = chunk_row.get("block")
