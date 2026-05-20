@@ -71,6 +71,7 @@ const LATE_GAME_DRAW_COUNT = 6;
 const HIGH_RANK_DEED_THRESHOLD = 7;
 const HIGH_RANK_ACCESS_THRESHOLD = 8;
 const OVERKILL_MARGIN = 7;
+const SAFE_CONTROL_MARGIN_WHILE_EXPANDING = 4;
 
 export function selectHeuristicAction(
   context: HeuristicSelectionContext
@@ -655,6 +656,13 @@ function districtInvestmentScore({
     return 0;
   }
 
+  const deedCompletion =
+    action.type === 'develop-deed'
+      ? projectedDevelopDeedCompletion(action, district, activePlayerId)
+      : undefined;
+  const completesDeed = deedCompletion?.completes ?? false;
+  const actionChangesControlPotential =
+    action.type !== 'develop-deed' || completesDeed;
   const current = districtStatus(district, activePlayerId, opponentId);
   const projected = projectedDistrictStatus({
     action,
@@ -666,9 +674,15 @@ function districtInvestmentScore({
   const flipsDistrict =
     current.winner !== activePlayerId && projected.winner === activePlayerId;
   const contestsDistrict =
-    current.winner !== activePlayerId &&
+    current.winner === opponentId &&
     projected.winner === 'Tie' &&
     projected.margin >= 0;
+  const projectedPotentialMargin = projectedEventualDistrictMargin({
+    action,
+    district,
+    activePlayerId,
+    opponentId,
+  });
   const opponentControlledCount = controlledDistrictCount(
     state,
     opponentId,
@@ -691,11 +705,27 @@ function districtInvestmentScore({
       score += 5.0;
     }
   }
+  if (
+    plan.controlledCount < TARGET_CONTROLLED_DISTRICTS &&
+    current.winner !== activePlayerId &&
+    !flipsDistrict &&
+    !contestsDistrict &&
+    actionChangesControlPotential
+  ) {
+    if (projectedPotentialMargin > 0) {
+      score += 14.0 + Math.min(8.0, projectedPotentialMargin);
+    } else if (projectedPotentialMargin >= -2) {
+      score += 5.0;
+    }
+  }
 
   if (current.winner === activePlayerId) {
     score += mainDistrict ? 4.0 : 1.0;
-    const opponentCanThreaten =
-      opponentEventualMargin(district, activePlayerId, opponentId) >= 0;
+    const opponentCanThreaten = opponentThreatMargin(
+      district,
+      activePlayerId,
+      opponentId
+    ) >= 0;
     if (current.margin <= 2 || opponentCanThreaten) {
       score += mainDistrict ? 6.0 : 3.5;
     }
@@ -710,13 +740,15 @@ function districtInvestmentScore({
     score += 3.0;
   }
 
-  const eventualMargin = eventualDistrictMargin(district, activePlayerId, opponentId);
-  const canEventuallyControl = eventualMargin > 0 || flipsDistrict || contestsDistrict;
+  const canEventuallyControl =
+    (actionChangesControlPotential && projectedPotentialMargin > 0) ||
+    flipsDistrict ||
+    contestsDistrict;
   if (!mainDistrict && !flipsDistrict) {
     score -= 5.0 + card.rank * 0.6;
   }
   if (!canEventuallyControl && current.winner !== activePlayerId) {
-    score -= 8.0 + Math.min(8, Math.max(0, -eventualMargin));
+    score -= 8.0 + Math.min(8, Math.max(0, -projectedPotentialMargin));
   }
   if (
     current.winner === activePlayerId &&
@@ -725,6 +757,15 @@ function districtInvestmentScore({
     !isLateGame(state)
   ) {
     score -= Math.min(8.0, (current.margin - OVERKILL_MARGIN + 1) * 1.2);
+  }
+  if (
+    plan.controlledCount < TARGET_CONTROLLED_DISTRICTS &&
+    current.winner === activePlayerId &&
+    projected.winner === activePlayerId &&
+    current.margin >= SAFE_CONTROL_MARGIN_WHILE_EXPANDING &&
+    opponentThreatMargin(district, activePlayerId, opponentId) < 0
+  ) {
+    score -= 20.0 + Math.min(12.0, current.margin);
   }
   if (
     plan.controlledCount >= TARGET_CONTROLLED_DISTRICTS &&
@@ -736,7 +777,10 @@ function districtInvestmentScore({
   }
 
   if (action.type === 'develop-deed') {
-    const completion = projectedDevelopDeedCompletion(action, district, activePlayerId);
+    const completion = deedCompletion;
+    if (!completion) {
+      return score;
+    }
     const remainingAfter = Math.max(0, completion.target - completion.progress);
     if (completion.completes) {
       score += 8.0;
@@ -754,6 +798,13 @@ function districtInvestmentScore({
         mainDistrict ||
         current.winner === activePlayerId;
       score += shelteredSurplus * (productiveShelter ? 1.8 : -0.7);
+    }
+    const lastSuitTokensSpent = lastTokenSpendCount(
+      action.tokens,
+      activePlayer.resources
+    );
+    if (!completion.completes && lastSuitTokensSpent > 0) {
+      score -= lastSuitTokensSpent * 24.0;
     }
   }
 
@@ -811,6 +862,30 @@ function projectedDistrictStatus({
   });
 }
 
+function projectedEventualDistrictMargin({
+  action,
+  district,
+  activePlayerId,
+  opponentId,
+}: {
+  action: Extract<
+    GameAction,
+    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+  >;
+  district: DistrictState;
+  activePlayerId: PlayerId;
+  opponentId: PlayerId;
+}): number {
+  const activePotential = projectedActivePotentialCardIds(
+    action,
+    district.stacks[activePlayerId]
+  );
+  return (
+    scoreStackDeveloped(activePotential) -
+    districtScore(district.stacks[opponentId])
+  );
+}
+
 function projectedActiveStack(
   action: Extract<
     GameAction,
@@ -836,6 +911,24 @@ function projectedActiveStack(
     };
   }
   return stack;
+}
+
+function projectedActivePotentialCardIds(
+  action: Extract<
+    GameAction,
+    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+  >,
+  stack: DistrictStack
+): CardId[] {
+  const potential = [...stack.developed];
+  if (action.type === 'develop-outright' || action.type === 'buy-deed') {
+    potential.push(action.cardId);
+    return potential;
+  }
+  if (stack.deed) {
+    potential.push(stack.deed.cardId);
+  }
+  return potential;
 }
 
 function projectedDevelopDeedCompletion(
@@ -894,11 +987,20 @@ function districtPlan(state: GameState, activePlayerId: PlayerId): DistrictPlan 
     }
     return left.districtId.localeCompare(right.districtId);
   });
+  const controlledRows = rows.filter((row) => row.winner === activePlayerId);
+  const controlledCount = controlledRows.length;
+  const mainRows =
+    controlledCount < TARGET_CONTROLLED_DISTRICTS
+      ? [
+          ...controlledRows,
+          ...rows
+            .filter((row) => row.winner !== activePlayerId)
+            .slice(0, TARGET_CONTROLLED_DISTRICTS - controlledCount),
+        ]
+      : rows.slice(0, TARGET_CONTROLLED_DISTRICTS);
   return {
-    mainDistrictIds: new Set(
-      rows.slice(0, TARGET_CONTROLLED_DISTRICTS).map((row) => row.districtId)
-    ),
-    controlledCount: rows.filter((row) => row.winner === activePlayerId).length,
+    mainDistrictIds: new Set(mainRows.map((row) => row.districtId)),
+    controlledCount,
   };
 }
 
@@ -971,18 +1073,41 @@ function eventualDistrictMargin(
   return scoreStackDeveloped(activeDeveloped) - opponentScore;
 }
 
-function opponentEventualMargin(
+function opponentThreatMargin(
   district: DistrictState,
   activePlayerId: PlayerId,
   opponentId: PlayerId
 ): number {
   const activeScore = districtScore(district.stacks[activePlayerId]);
   const opponentStack = district.stacks[opponentId];
-  const opponentDeveloped = [...opponentStack.developed];
-  if (opponentStack.deed) {
-    opponentDeveloped.push(opponentStack.deed.cardId);
+  const opponentDevelopedScore = scoreStackDeveloped(opponentStack.developed);
+  return opponentDevelopedScore + deedThreatValue(opponentStack.deed) - activeScore;
+}
+
+function deedThreatValue(deed: DistrictStack['deed']): number {
+  if (!deed) {
+    return 0;
   }
-  return scoreStackDeveloped(opponentDeveloped) - activeScore;
+  const card = propertyCard(deed.cardId);
+  if (!card) {
+    return 0;
+  }
+  const target = developmentCost(card);
+  if (target <= 0) {
+    return 0;
+  }
+  const remaining = Math.max(0, target - deed.progress);
+  if (remaining === 0) {
+    return card.rank;
+  }
+  if (remaining <= 2) {
+    return card.rank * 0.85;
+  }
+  const progressRatio = deed.progress / target;
+  if (progressRatio < 0.5) {
+    return 0;
+  }
+  return card.rank * progressRatio * 0.55;
 }
 
 function districtControlValue(
@@ -1159,6 +1284,19 @@ function surplusTokenCount(
     (total, suit) => total + Math.min(tokens[suit] ?? 0, Math.max(0, resources[suit] - 1)),
     0
   );
+}
+
+function lastTokenSpendCount(
+  tokens: Partial<Record<Suit, number>>,
+  resources: ResourcePool
+): number {
+  return SUITS.reduce((total, suit) => {
+    const spent = tokens[suit] ?? 0;
+    if (spent <= 0) {
+      return total;
+    }
+    return resources[suit] > 0 && resources[suit] <= spent ? total + 1 : total;
+  }, 0);
 }
 
 function crownSuitCounts(player: PlayerState): Partial<Record<Suit, number>> {
