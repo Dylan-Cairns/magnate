@@ -21,7 +21,8 @@
 
 ## Current State
 
-- Browser app is playable; default bot is `TD Search` using the promoted TD-search browser model pack; `TD Search Fast` remains available as the lower-latency option.
+- Browser app is playable; default bot is `TD Search` using the promoted TD-search browser model pack; `TD Search Fast` and `Heuristic` remain available as lower-latency options.
+- Browser `Heuristic`, rollout-search priors, and TD-search heuristic root priors share the TS heuristic scorer; current scorer intent is resource sheltering without losing suit coverage, three-district control, district flips/defense, close deed completion, rank-2 deed rejection, high-rank deed caution late or without suit access, and trade penalties unless a trade immediately unlocks a high-value move.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - The failed 2026-04-21 cache rollout was reverted with git revert commits; td-search rollouts are back on the stateful bridge simulation path.
@@ -69,4 +70,4 @@
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
 
-_Updated: 2026-05-18._
+_Updated: 2026-05-20._

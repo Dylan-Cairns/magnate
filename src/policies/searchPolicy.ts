@@ -2,7 +2,6 @@ import { legalActions } from '../engine/actionBuilders';
 import {
   actionStableKey,
   toKeyedActions,
-  type KeyedAction,
 } from '../engine/actionSurface';
 import { CARD_BY_ID, PROPERTY_CARDS } from '../engine/cards';
 import { shuffleInPlace } from '../engine/rng';
@@ -17,6 +16,10 @@ import type {
   PlayerState,
   PlayerView,
 } from '../engine/types';
+import {
+  heuristicPriorsByKey,
+  rankHeuristicActions,
+} from './heuristicScorer';
 import type { ActionPolicy } from './types';
 
 const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
@@ -53,7 +56,11 @@ export function createSearchPolicy(
       }
 
       const rootPlayer = view.activePlayerId;
-      const rankedRootActions = rankRootActions(candidateActions);
+      const heuristicContext = { state, view };
+      const rankedRootActions = rankHeuristicActions(
+        candidateActions,
+        heuristicContext
+      );
       const worldStates = sampleWorldStates(
         state,
         view,
@@ -68,7 +75,10 @@ export function createSearchPolicy(
       const actionByKey = new Map(
         rankedRootActions.map((candidate) => [candidate.actionKey, candidate.action])
       );
-      const rootPriorByKey = rootPriorsByKey(candidateActions);
+      const rootPriorByKey = heuristicPriorsByKey(
+        candidateActions,
+        heuristicContext
+      );
       const expandedCount = Math.min(
         rankedRootActions.length,
         config.maxRootActions
@@ -214,44 +224,6 @@ function integerWithFloor(value: number, floor: number): number {
   return rounded;
 }
 
-function rankRootActions(candidateActions: readonly GameAction[]): KeyedAction[] {
-  const keyed = toKeyedActions(candidateActions);
-  const ranked = [...keyed].sort((left, right) => {
-    const scoreDelta = actionScore(right.action) - actionScore(left.action);
-    if (!approximatelyEqual(scoreDelta, 0)) {
-      return scoreDelta > 0 ? 1 : -1;
-    }
-    return left.actionKey.localeCompare(right.actionKey);
-  });
-  return ranked;
-}
-
-function rootPriorsByKey(candidateActions: readonly GameAction[]): Map<string, number> {
-  const keyed = toKeyedActions(candidateActions);
-  if (keyed.length === 0) {
-    return new Map<string, number>();
-  }
-  const scores = keyed.map((candidate) => actionScore(candidate.action));
-  let maxScore = Number.NEGATIVE_INFINITY;
-  for (const score of scores) {
-    maxScore = Math.max(maxScore, score);
-  }
-  const expScores = scores.map((score) => Math.exp(score - maxScore));
-  const normalizer = expScores.reduce((sum, score) => sum + score, 0);
-  const priors = new Map<string, number>();
-  if (!Number.isFinite(normalizer) || normalizer <= 0) {
-    const uniform = 1 / keyed.length;
-    for (const candidate of keyed) {
-      priors.set(candidate.actionKey, uniform);
-    }
-    return priors;
-  }
-  keyed.forEach((candidate, index) => {
-    priors.set(candidate.actionKey, expScores[index] / normalizer);
-  });
-  return priors;
-}
-
 function progressiveTargetActionCount(
   totalActions: number,
   initialActions: number,
@@ -317,6 +289,7 @@ function runRollout(
       break;
     }
     const nextActionKey = chooseRolloutActionKey(
+      state,
       actions,
       random,
       config.rolloutEpsilon
@@ -332,6 +305,7 @@ function runRollout(
 }
 
 function chooseRolloutActionKey(
+  state: GameState,
   actions: readonly GameAction[],
   random: () => number,
   rolloutEpsilon: number
@@ -340,7 +314,7 @@ function chooseRolloutActionKey(
   if (random() < rolloutEpsilon) {
     return keyed[Math.floor(random() * keyed.length)].actionKey;
   }
-  return rankRootActions(actions)[0].actionKey;
+  return rankHeuristicActions(actions, { state })[0].actionKey;
 }
 
 function stepByActionKey(state: GameState, actionKey: string): GameState {
@@ -443,41 +417,6 @@ function districtPropertyCards(view: PlayerView): Set<string> {
     }
   }
   return cards;
-}
-
-function actionScore(action: GameAction): number {
-  let score = {
-    'develop-outright': 8,
-    'develop-deed': 6,
-    'buy-deed': 5,
-    'choose-income-suit': 4,
-    trade: 2,
-    'sell-card': 1,
-    'end-turn': 0,
-  }[action.type];
-
-  const cardRank = 'cardId' in action ? propertyRank(action.cardId) : 0;
-
-  if (action.type === 'develop-outright' || action.type === 'develop-deed') {
-    score += cardRank * 0.4;
-  }
-  if (action.type === 'buy-deed') {
-    score += cardRank * 0.25;
-    if (cardRank <= 2) {
-      score -= 1.5;
-    }
-  }
-  if (action.type === 'sell-card') {
-    score -= cardRank * 0.3;
-  }
-  if (action.type === 'trade') {
-    if (action.give === action.receive) {
-      score -= 10;
-    } else {
-      score += 0.2;
-    }
-  }
-  return score;
 }
 
 function propertyRank(cardId: string): number {
