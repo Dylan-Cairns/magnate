@@ -470,6 +470,23 @@ export function App() {
     return { left, top };
   };
 
+  if (!startupPreloadReady) {
+    return (
+      <div className="app-shell">
+        <StartupPreloadOverlay
+          ready={false}
+          error={startupPreloadError}
+          progress={startupPreloadProgress}
+          onRetry={retryStartupPreload}
+        />
+        <ResolutionWarningOverlay
+          open={resolutionWarningOpen}
+          onDismiss={() => setResolutionWarningOpen(false)}
+        />
+      </div>
+    );
+  }
+
   if (!humanPlayer || !botPlayer) {
     return (
       <div className="app-shell">
@@ -664,13 +681,6 @@ export function App() {
 
       <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
       <OptionsBackdrop open={bugReportOpen} onClose={closeBugReport} />
-
-      <StartupPreloadOverlay
-        ready={startupPreloadReady}
-        error={startupPreloadError}
-        progress={startupPreloadProgress}
-        onRetry={retryStartupPreload}
-      />
 
       <ResolutionWarningOverlay
         open={resolutionWarningOpen}
