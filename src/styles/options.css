@@ -186,16 +186,18 @@
   opacity: 1;
 }
 
-.hamburger-button > span:not(.close-x) {
-  display: block;
-  width: 0.92rem;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--accent-soft);
+.hamburger-button-icon {
+  width: 1.18rem;
+  height: 1.18rem;
+  fill: none;
+  stroke: var(--accent-soft);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   transition: opacity 140ms ease;
 }
 
-.hamburger-button.is-open > span:not(.close-x) {
+.hamburger-button.is-open .hamburger-button-icon {
   opacity: 0;
 }
 
