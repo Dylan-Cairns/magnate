@@ -21,7 +21,7 @@
   height: 54px;
   background-color: #dfe6ec;
   border: none;
-  border-radius: 3px;
+  border-radius: 1px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,9 +48,21 @@
 }
 
 /* Face positions — each face extends translateZ(27px) from die centre */
-.die-face-d6-1 { transform: rotateY(0deg)   translateZ(27px); } /* front  */
-.die-face-d6-2 { transform: rotateY(180deg) translateZ(27px); } /* back   */
-.die-face-d6-3 { transform: rotateY(90deg)  translateZ(27px); } /* right  */
-.die-face-d6-4 { transform: rotateY(-90deg) translateZ(27px); } /* left   */
-.die-face-d6-5 { transform: rotateX(90deg)  translateZ(27px); } /* top    */
-.die-face-d6-6 { transform: rotateX(-90deg) translateZ(27px); } /* bottom */
+.die-face-d6-1 {
+  transform: rotateY(0deg) translateZ(27px);
+} /* front  */
+.die-face-d6-2 {
+  transform: rotateY(180deg) translateZ(27px);
+} /* back   */
+.die-face-d6-3 {
+  transform: rotateY(90deg) translateZ(27px);
+} /* right  */
+.die-face-d6-4 {
+  transform: rotateY(-90deg) translateZ(27px);
+} /* left   */
+.die-face-d6-5 {
+  transform: rotateX(90deg) translateZ(27px);
+} /* top    */
+.die-face-d6-6 {
+  transform: rotateX(-90deg) translateZ(27px);
+} /* bottom */
