@@ -8,10 +8,15 @@ import { newGame } from '../engine/game';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import { advanceToDecision } from '../engine/turnFlow';
-import type { GameState, PlayerId } from '../engine/types';
+import type { GameState, PlayerId, Suit } from '../engine/types';
 import { selectHeuristicAction } from '../policies/heuristicScorer';
 
-export type DevFixtureId = 'multi-income' | 'late-game';
+export type DevFixtureId =
+  | 'multi-income'
+  | 'late-game'
+  | 'd6-moons'
+  | 'd6-wyrms'
+  | 'd6-knots';
 
 const DEV_FIXTURE_PARAM = 'fixture';
 const LATE_GAME_FIXTURE_SEED = 'dev-late-6';
@@ -36,7 +41,13 @@ export function devFixtureIdFromSearch(search: string): DevFixtureId | null {
   }
 
   const fixtureId = new URLSearchParams(search).get(DEV_FIXTURE_PARAM);
-  if (fixtureId === 'multi-income' || fixtureId === 'late-game') {
+  if (
+    fixtureId === 'multi-income' ||
+    fixtureId === 'late-game' ||
+    fixtureId === 'd6-moons' ||
+    fixtureId === 'd6-wyrms' ||
+    fixtureId === 'd6-knots'
+  ) {
     return fixtureId;
   }
   return null;
@@ -51,6 +62,12 @@ export function createDevFixtureSession(
       return createMultiIncomeFixture(humanPlayerId);
     case 'late-game':
       return createLateGameFixture(humanPlayerId);
+    case 'd6-moons':
+      return createD6TaxFixture(humanPlayerId, 'Moons');
+    case 'd6-wyrms':
+      return createD6TaxFixture(humanPlayerId, 'Wyrms');
+    case 'd6-knots':
+      return createD6TaxFixture(humanPlayerId, 'Knots');
   }
 }
 
@@ -136,6 +153,16 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
         summary: 'Dev fixture: multiple partial-income choices',
       },
     ],
+  });
+}
+
+function createD6TaxFixture(humanPlayerId: PlayerId, taxSuit: Suit): GameState {
+  const state = newGame('dev-fixture-d6', { firstPlayer: humanPlayerId });
+  return advanceToDecision({
+    ...state,
+    phase: 'CollectIncome',
+    lastIncomeRoll: { die1: 1, die2: 5, rollId: 1 },
+    lastTaxSuit: taxSuit,
   });
 }
 

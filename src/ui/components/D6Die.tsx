@@ -25,16 +25,16 @@ const SUIT_TO_FACE: Record<Suit, number> = {
 
 // rotateX/Y to bring each face toward the camera with a slight Y offset so it never looks flat.
 // Side faces (1-4) keep x:0 so the die stays upright. Top/bottom (5-6) need a modest X tilt.
-const FACE_OFFSET: Record<number, { x: number; y: number }> = {
-  1: { x: 0, y: 15 },
-  2: { x: 0, y: 195 },
-  3: { x: 0, y: -75 },
-  4: { x: 0, y: 105 },
-  5: { x: -90, y: 15 },
-  6: { x: 90, y: 15 },
+const FACE_OFFSET: Record<number, { x: number; y: number; z: number }> = {
+  1: { x: 0, y: 15, z: 0 },
+  2: { x: 0, y: 195, z: 0 },
+  3: { x: 0, y: -75, z: 0 },
+  4: { x: 0, y: 105, z: 0 },
+  5: { x: -90, y: 0, z: 15 },
+  6: { x: 90, y: 0, z: -15 },
 };
 
-const INITIAL_ROT = { x: 0, y: 15 };
+const INITIAL_ROT = FACE_OFFSET[1];
 
 export function D6Die({
   suit,
@@ -54,10 +54,13 @@ export function D6Die({
     setPrevSuit(suit);
     if (suit !== undefined) {
       const face = SUIT_TO_FACE[suit];
-      const { x, y } = FACE_OFFSET[face];
+      const { x, y, z } = FACE_OFFSET[face];
       setRotX(x);
       setRotY(y);
-      setRotZ((prev) => prev - 720);
+      setRotZ((prev) => {
+        if (suit === 'Knots' || suit === 'Wyrms') return z - 720;
+        return prev - 720;
+      });
     }
   }
 

@@ -17,7 +17,7 @@ function getFaceOffset(result: number): { x: number; y: number } {
 }
 
 // Initial tilt to show the die as 3D before any roll
-const INITIAL_ROT = { x: -TILT, y: 15 };
+const INITIAL_ROT = { x: -TILT, y: 0 };
 
 export function D10Die({
   result,
