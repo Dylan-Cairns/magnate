@@ -15,7 +15,7 @@ describe('buildTurnCycleVisualPlan', () => {
       taxFlightLaunchAtMs: null,
       // cursor starts at DICE_D10_SETTLE_MS (1000); income flights launch 400ms later
       incomeFlightLaunchAtMs: 1400,
-      incomeHighlightStartAtMs: 1000,
+      incomeHighlightStartAtMs: 1400,
       incomeHighlightEndAtMs: 1400,
       hideAllAtMs: 1620,
       taxSuit: null,
@@ -109,14 +109,15 @@ describe('buildTurnCycleVisualPlan', () => {
       ],
       // income cursor = 4020 + 220 = 4240; flights at 4240 + 400 = 4640
       incomeFlightLaunchAtMs: 4640,
-      incomeHighlightStartAtMs: 4240,
-      // 2 tokens, stagger 95, duration 560: 4640 + 95 + 560 = 5295
-      incomeHighlightEndAtMs: 5295,
-      hideAllAtMs: 5515,
+      incomeHighlightStartAtMs: 4640,
+      // 2 tokens, stagger 95, duration 560: 4640 + 95 + 560 = 5295;
+      // highlighted income sources stay visible for at least 400 + 560ms
+      incomeHighlightEndAtMs: 5600,
+      hideAllAtMs: 5820,
       highlightCardIds: ['29', '27'],
     });
     expect(plan.incomeAnimationEndMs).toBe(5295);
-    expect(plan.totalDurationMs).toBe(5535);
+    expect(plan.totalDurationMs).toBe(5840);
   });
 
   it('deduplicates crown highlights by player and suit', () => {
@@ -148,9 +149,9 @@ describe('buildTurnCycleVisualPlan', () => {
       { playerId: 'PlayerB', suit: 'Suns' },
     ]);
     expect(plan.visualPlan.highlightCardIds).toEqual([]);
-    expect(plan.visualPlan.incomeHighlightEndAtMs).toBe(
-      plan.incomeAnimationEndMs
-    );
+    expect(plan.incomeAnimationEndMs).toBe(2150);
+    expect(plan.visualPlan.incomeHighlightStartAtMs).toBe(1400);
+    expect(plan.visualPlan.incomeHighlightEndAtMs).toBe(2360);
   });
 });
 

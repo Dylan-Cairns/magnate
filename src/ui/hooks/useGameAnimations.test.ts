@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { makeGameState, makePlayer } from '../../engine/__tests__/fixtures';
 import type { CardFlight } from '../animations/types';
-import { activeHighlightOverrideForTransition } from './useGameAnimations';
+import {
+  activeHighlightOverrideForTransition,
+  turnCycleStartDelayForTransition,
+} from './useGameAnimations';
 
 const DRAW_FLIGHT: CardFlight = {
   id: 'draw-1',
@@ -58,5 +61,20 @@ describe('activeHighlightOverrideForTransition', () => {
         [DRAW_FLIGHT]
       )
     ).toBeNull();
+  });
+
+  it('delays turn-cycle visuals until end-turn draw flights settle', () => {
+    expect(
+      turnCycleStartDelayForTransition({ type: 'end-turn' }, [DRAW_FLIGHT])
+    ).toBe(300);
+    expect(
+      turnCycleStartDelayForTransition({ type: 'end-turn' }, [])
+    ).toBe(0);
+    expect(
+      turnCycleStartDelayForTransition(
+        { type: 'sell-card', cardId: '6' },
+        [DRAW_FLIGHT]
+      )
+    ).toBe(0);
   });
 });

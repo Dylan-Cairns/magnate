@@ -282,10 +282,10 @@ export function useGameAnimations({
       const drawFlightsForTimer = queuedCardFlights.filter(
         (f) => f.variant === 'draw' && f.cardId != null
       );
-      const turnCycleStartDelayMs =
-        action.type === 'end-turn' && drawFlightsForTimer.length > 0
-          ? cardFlightSettleMs(drawFlightsForTimer)
-          : 0;
+      const turnCycleStartDelayMs = turnCycleStartDelayForTransition(
+        action,
+        drawFlightsForTimer
+      );
       scheduleTurnCycleVisuals(
         turnCyclePlan?.visualPlan ?? null,
         turnCycleStartDelayMs
@@ -423,6 +423,16 @@ export function activeHighlightOverrideForTransition(
     return null;
   }
   return previousState.players[previousState.activePlayerIndex]?.id ?? null;
+}
+
+export function turnCycleStartDelayForTransition(
+  action: GameAction,
+  drawFlights: readonly CardFlight[]
+): number {
+  if (action.type !== 'end-turn' || drawFlights.length === 0) {
+    return 0;
+  }
+  return cardFlightSettleMs(drawFlights);
 }
 
 function readAnimationsEnabledPreference(): boolean {
