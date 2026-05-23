@@ -1,7 +1,8 @@
 import type { RefObject } from 'react';
 
-import { BOT_PROFILES, type BotProfileId } from '../../policies/catalog';
+import type { BotProfileId } from '../../policies/catalog';
 import { BugReportModal } from './BugReportModal';
+import { NewGameButton } from './NewGameButton';
 
 export function OptionsMenu({
   open,
@@ -11,9 +12,12 @@ export function OptionsMenu({
   menuRef,
   buttonRef,
   seedInputRef,
+  newGameExpanded,
+  newGamePanelRef,
+  newGameButtonRef,
   onBugReport,
   onToggle,
-  onReset,
+  onNewGameToggle,
   onBotProfileChange,
   onAnimationsEnabledChange,
   bugReportOpen,
@@ -33,9 +37,12 @@ export function OptionsMenu({
   menuRef: RefObject<HTMLElement | null>;
   buttonRef: RefObject<HTMLButtonElement | null>;
   seedInputRef: RefObject<HTMLInputElement | null>;
+  newGameExpanded: boolean;
+  newGamePanelRef: RefObject<HTMLElement | null>;
+  newGameButtonRef: RefObject<HTMLButtonElement | null>;
   onBugReport: () => void;
   onToggle: () => void;
-  onReset: () => void;
+  onNewGameToggle: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
   onAnimationsEnabledChange: (enabled: boolean) => void;
   bugReportOpen: boolean;
@@ -86,7 +93,7 @@ export function OptionsMenu({
         ref={buttonRef}
         type="button"
         className={`hamburger-button${open ? ' is-open' : ''}`}
-        aria-label="Game options"
+        aria-label="Settings"
         aria-controls="brand-options-menu"
         aria-expanded={open}
         onClick={onToggle}
@@ -96,46 +103,24 @@ export function OptionsMenu({
         <span />
         <span className="close-x" aria-hidden="true"><span /><span /></span>
       </button>
+      <NewGameButton
+        expanded={newGameExpanded}
+        panelRef={newGamePanelRef}
+        buttonRef={newGameButtonRef}
+        seedInputRef={seedInputRef}
+        botProfileId={botProfileId}
+        botStatusText={botStatusText}
+        onToggle={onNewGameToggle}
+        onBotProfileChange={onBotProfileChange}
+      />
 
       {open ? (
         <section
           id="brand-options-menu"
           ref={menuRef}
           className="brand-options-menu"
-          aria-label="Game options"
+          aria-label="Settings"
         >
-          <div className="brand-controls">
-            <input
-              id="seed-input"
-              aria-label="Seed"
-              className="seed-input"
-              ref={seedInputRef}
-              autoComplete="off"
-              defaultValue=""
-              placeholder="seed (blank=random)"
-            />
-            <button className="reset-button" type="button" onClick={onReset}>
-              New Game
-            </button>
-          </div>
-          <div className="bot-profile-controls">
-            <label htmlFor="bot-profile-select">Bot Profile</label>
-            <select
-              id="bot-profile-select"
-              className="bot-profile-select"
-              value={botProfileId}
-              onChange={(event) =>
-                onBotProfileChange(event.target.value as BotProfileId)
-              }
-            >
-              {BOT_PROFILES.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.label}
-                </option>
-              ))}
-            </select>
-            <p className="bot-profile-note">{botStatusText}</p>
-          </div>
           <div className="bot-profile-controls animation-controls">
             <label className="animation-toggle-row" htmlFor="animations-toggle">
               <span>Animations</span>

@@ -17,9 +17,12 @@ describe('OptionsMenu', () => {
         menuRef={createRef<HTMLElement>()}
         buttonRef={createRef<HTMLButtonElement>()}
         seedInputRef={createRef<HTMLInputElement>()}
+        newGameExpanded
+        newGamePanelRef={createRef<HTMLElement>()}
+        newGameButtonRef={createRef<HTMLButtonElement>()}
         onBugReport={noop}
         onToggle={noop}
-        onReset={noop}
+        onNewGameToggle={noop}
         onBotProfileChange={noop}
         onAnimationsEnabledChange={noop}
         bugReportOpen={false}
