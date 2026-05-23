@@ -36,7 +36,7 @@ describe('transitionLogEntries', () => {
       payment: { Moons: 1, Knots: 1, Suns: 1, Waves: 1, Leaves: 1, Wyrms: 1 },
     };
 
-    expect(transitionLogEntries(previous, next, action)).toEqual(next.log);
+    expect(transitionLogEntries(previous, next, action, PLAYER_A)).toEqual(next.log);
   });
 
   it('adds roll, tax, and income summaries after end-turn transitions', () => {
@@ -89,13 +89,13 @@ describe('transitionLogEntries', () => {
       ]
     );
 
-    const entries = transitionLogEntries(previous, next, { type: 'end-turn' });
+    const entries = transitionLogEntries(previous, next, { type: 'end-turn' }, PLAYER_A);
 
     expect(entries.map((entry) => entry.summary)).toEqual([
       'end turn',
       'Roll d10 7/4 (income 7)',
-      'Income PlayerA +1 Moons',
-      'Income PlayerB +1 Suns',
+      'Income You +1 Moons',
+      'Income Bot +1 Suns',
     ]);
     expect(entries[1]?.player).toBe(PLAYER_B);
   });
@@ -151,13 +151,13 @@ describe('transitionLogEntries', () => {
       ]
     );
 
-    const entries = transitionLogEntries(previous, next, { type: 'end-turn' });
+    const entries = transitionLogEntries(previous, next, { type: 'end-turn' }, PLAYER_A);
     expect(entries.map((entry) => entry.summary)).toEqual([
       'end turn',
       'Roll d10 1/8 (income 8)',
-      'Tax Moons (PlayerA -2, PlayerB -1)',
-      'Income PlayerA +1 Suns',
-      'Income PlayerB none',
+      'Tax Moons (You -2, Bot -1)',
+      'Income You +1 Suns',
+      'Income Bot none',
       'Income pending choices 1',
     ]);
     expect(entries[2]?.player).toBe(PLAYER_B);

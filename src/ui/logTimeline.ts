@@ -10,6 +10,7 @@ import {
   deriveTurnCycleEvents,
   type TurnCycleTaxSummary,
 } from './turnCycleEvents';
+import { playerDisplayName } from './playerDisplay';
 
 const SUIT_ORDER: readonly Suit[] = [
   'Moons',
@@ -23,7 +24,8 @@ const SUIT_ORDER: readonly Suit[] = [
 export function transitionLogEntries(
   previousState: GameState,
   nextState: GameState,
-  action?: GameAction
+  action: GameAction | undefined,
+  humanPlayerId: PlayerId
 ): GameLogEntry[] {
   const startIndex =
     nextState.log.length >= previousState.log.length
@@ -37,14 +39,15 @@ export function transitionLogEntries(
 
   return [
     ...engineEntries,
-    ...resolveTurnCycleEntries(previousState, nextState, action),
+    ...resolveTurnCycleEntries(previousState, nextState, action, humanPlayerId),
   ];
 }
 
 function resolveTurnCycleEntries(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'end-turn' }>
+  action: Extract<GameAction, { type: 'end-turn' }>,
+  humanPlayerId: PlayerId
 ): GameLogEntry[] {
   const cycle = deriveTurnCycleEvents(previousState, nextState, action);
   if (!cycle) {
@@ -52,11 +55,12 @@ function resolveTurnCycleEntries(
   }
 
   const postTaxResources = postTaxResourcesByPlayer(previousState, cycle.tax);
-  const taxSummary = summarizeTax(cycle.tax);
+  const taxSummary = summarizeTax(cycle.tax, humanPlayerId);
   const incomeSummaries = summarizeIncome(
     nextState,
     postTaxResources,
-    cycle.pendingChoices.length
+    cycle.pendingChoices.length,
+    humanPlayerId
   );
 
   const taxEntries: GameLogEntry[] = [];
@@ -104,7 +108,10 @@ function postTaxResourcesByPlayer(
   return resources;
 }
 
-function summarizeTax(tax: TurnCycleTaxSummary | null): string | null {
+function summarizeTax(
+  tax: TurnCycleTaxSummary | null,
+  humanPlayerId: PlayerId
+): string | null {
   if (!tax) {
     return null;
   }
@@ -119,7 +126,10 @@ function summarizeTax(tax: TurnCycleTaxSummary | null): string | null {
 
   const details = tax.lossesByPlayer
     .filter((entry) => entry.count > 0)
-    .map((entry) => `${entry.playerId} -${entry.count}`)
+    .map(
+      (entry) =>
+        `${playerDisplayName(entry.playerId, humanPlayerId)} -${entry.count}`
+    )
     .join(', ');
   return `Tax ${tax.suit} (${details})`;
 }
@@ -127,12 +137,13 @@ function summarizeTax(tax: TurnCycleTaxSummary | null): string | null {
 function summarizeIncome(
   nextState: GameState,
   postTaxResources: Map<PlayerId, ResourcePool>,
-  pendingChoiceCount: number
+  pendingChoiceCount: number,
+  humanPlayerId: PlayerId
 ): string[] {
   const byPlayer = nextState.players.map((player) => {
     const baseline = postTaxResources.get(player.id) ?? player.resources;
     const delta = resourceDelta(baseline, player.resources);
-    return `Income ${player.id} ${formatDelta(delta)}`;
+    return `Income ${playerDisplayName(player.id, humanPlayerId)} ${formatDelta(delta)}`;
   });
 
   if (pendingChoiceCount > 0) {

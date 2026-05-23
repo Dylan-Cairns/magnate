@@ -564,12 +564,12 @@ export function App() {
           />
 
           <PlayerPanel
-            title="You"
             player={humanPanelPlayer}
             isActive={!terminal && humanView.activePlayerId === HUMAN_PLAYER}
             score={score}
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
+            humanPlayerId={HUMAN_PLAYER}
             botPlayerId={BOT_PLAYER}
             animateDeedProgress={animationsEnabled}
           />
@@ -615,12 +615,12 @@ export function App() {
 
         <aside className="info-pane">
           <PlayerPanel
-            title="Bot"
             player={botPanelPlayer}
             isActive={!terminal && humanView.activePlayerId === BOT_PLAYER}
             score={score}
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
+            humanPlayerId={HUMAN_PLAYER}
             botPlayerId={BOT_PLAYER}
             animateDeedProgress={animationsEnabled}
           />

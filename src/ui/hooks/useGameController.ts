@@ -123,11 +123,11 @@ export function useGameController({
     (previousState: GameState, nextState: GameState, action: GameAction) => {
       setTimelineLog((existing) => [
         ...existing,
-        ...transitionLogEntries(previousState, nextState, action),
+        ...transitionLogEntries(previousState, nextState, action, humanPlayerId),
       ]);
       setState(nextState);
     },
-    []
+    [humanPlayerId]
   );
   const {
     enabled: animationsEnabled,

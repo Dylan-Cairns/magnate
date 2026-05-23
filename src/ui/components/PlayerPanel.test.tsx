@@ -32,12 +32,12 @@ describe('PlayerPanel hand anchors', () => {
 
     const html = renderToStaticMarkup(
       <PlayerPanel
-        title="You"
         player={player}
         isActive
         score={SCORE}
         terminal={false}
         handSlotCount={3}
+        humanPlayerId="PlayerA"
         botPlayerId="PlayerB"
       />
     );
@@ -69,12 +69,12 @@ describe('PlayerPanel hand anchors', () => {
 
     const html = renderToStaticMarkup(
       <PlayerPanel
-        title="Bot"
         player={player}
         isActive={false}
         score={SCORE}
         terminal={false}
         handSlotCount={3}
+        humanPlayerId="PlayerA"
         botPlayerId="PlayerB"
       />
     );

@@ -1,4 +1,5 @@
 import type { FinalScore, PlayerId } from '../../engine/types';
+import { playerDisplayName, winnerDisplayName } from '../playerDisplay';
 
 export function TerminalScoreSummary({
   score,
@@ -17,7 +18,7 @@ export function TerminalScoreSummary({
       aria-label="Final score breakdown"
     >
       <p className="score-result terminal-score-winner">
-        Winner: <strong>{winnerLabel(score.winner, humanPlayerId)}</strong>
+        Winner: <strong>{winnerDisplayName(score.winner, humanPlayerId)}</strong>
       </p>
       <p className="score-line terminal-score-decider">
         <span>Decided By</span>
@@ -30,7 +31,7 @@ export function TerminalScoreSummary({
             key={`terminal-score-${playerId}`}
             className="terminal-score-player"
           >
-            <h3>{playerId === humanPlayerId ? 'You' : 'Bot'}</h3>
+            <h3>{playerDisplayName(playerId, humanPlayerId)}</h3>
             <p className="score-line">
               <span>Districts Won</span>
               <strong>
@@ -50,16 +51,6 @@ export function TerminalScoreSummary({
       </div>
     </section>
   );
-}
-
-export function winnerLabel(
-  winner: FinalScore['winner'],
-  humanPlayerId: PlayerId
-): string {
-  if (winner === 'Draw') {
-    return 'Tie';
-  }
-  return winner === humanPlayerId ? 'You' : 'Bot';
 }
 
 function deciderLabel(decidedBy: FinalScore['decidedBy']): string {
