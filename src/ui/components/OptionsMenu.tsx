@@ -19,6 +19,8 @@ export function OptionsMenu({
   bugReportOpen,
   bugReportIssueUrl,
   onBugReportDownload,
+  logVisible,
+  onToggleLog,
 }: {
   open: boolean;
   botProfileId: BotProfileId;
@@ -35,6 +37,8 @@ export function OptionsMenu({
   bugReportOpen: boolean;
   bugReportIssueUrl: string;
   onBugReportDownload: () => void;
+  logVisible: boolean;
+  onToggleLog: () => void;
 }) {
   return (
     <div className="corner-options-anchor">
@@ -43,6 +47,15 @@ export function OptionsMenu({
         issueUrl={bugReportIssueUrl}
         onDownload={onBugReportDownload}
       />
+      <button
+        type="button"
+        className={`log-toggle-button${!logVisible ? ' is-inactive' : ''}`}
+        aria-label={logVisible ? 'Hide game log' : 'Show game log'}
+        aria-pressed={logVisible}
+        onClick={onToggleLog}
+      >
+        <LogIcon />
+      </button>
       <button
         type="button"
         className={`bug-report-button${bugReportOpen ? ' is-open' : ''}`}
@@ -122,6 +135,21 @@ export function OptionsMenu({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function LogIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="log-toggle-button-icon"
+    >
+      <path d="M4 6h16" />
+      <path d="M4 10h16" />
+      <path d="M4 14h10" />
+      <path d="M4 18h7" />
+    </svg>
   );
 }
 

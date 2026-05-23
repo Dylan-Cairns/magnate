@@ -25,6 +25,8 @@ describe('OptionsMenu', () => {
         bugReportOpen={false}
         bugReportIssueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
         onBugReportDownload={noop}
+        logVisible
+        onToggleLog={noop}
       />
     );
 
