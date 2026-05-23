@@ -109,6 +109,7 @@ export function RollResult({
     roll !== undefined && isPulsing && visibleRoll.die1 >= visibleRoll.die2;
   const pulseDie2 =
     roll !== undefined && isPulsing && visibleRoll.die2 > visibleRoll.die1;
+  const d6ShouldBeDimmed = (roll !== undefined || holdPrevious) && d6Dimmed;
 
   return (
     <div className="roll-value" aria-label="Roll result">
@@ -128,7 +129,7 @@ export function RollResult({
         suit={roll === undefined ? visibleTaxSuit : displayedSuit}
         rollKey={displayedSuitRollKey}
         pulsing={roll !== undefined && isPulsing && displayedSuit !== undefined}
-        dimmed={roll !== undefined && d6Dimmed}
+        dimmed={d6ShouldBeDimmed}
       />
     </div>
   );
