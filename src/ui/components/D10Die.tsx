@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import '../../styles/d10-die.css';
 
 const SIDE_ANGLE = 72; // 360 / 5 faces
@@ -32,20 +32,22 @@ export function D10Die({
   pulsing?: boolean;
   dimmed?: boolean;
 }) {
+  const [prevRollKey, setPrevRollKey] = useState(rollKey);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
 
-  useEffect(() => {
-    if (result === undefined) return;
-    const { x: faceX, y: faceY } = getFaceOffset(result);
-    // 360 added to X (one full tilt), 720 to Y (two full spins).
-    // Z adds a 720° tumble (always a multiple of 360, so it doesn't affect resting face).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRotX((prev) => Math.round(prev / 360) * 360 + 360 + faceX);
-    setRotY((prev) => Math.round(prev / 360) * 360 + 720 + faceY);
-    setRotZ((prev) => prev - 720);
-  }, [rollKey, result]);
+  if (rollKey !== prevRollKey) {
+    setPrevRollKey(rollKey);
+    if (result !== undefined) {
+      const { x: faceX, y: faceY } = getFaceOffset(result);
+      // 360 added to X (one full tilt), 720 to Y (two full spins).
+      // Z adds a 720° tumble (always a multiple of 360, so it doesn't affect resting face).
+      setRotX((prev) => Math.round(prev / 360) * 360 + 360 + faceX);
+      setRotY((prev) => Math.round(prev / 360) * 360 + 720 + faceY);
+      setRotZ((prev) => prev - 720);
+    }
+  }
 
   return (
     <div
