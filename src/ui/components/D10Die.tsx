@@ -24,6 +24,7 @@ export function D10Die({
   rollKey,
   pulsing,
   dimmed,
+  animationsEnabled = true,
 }: {
   result: number | undefined;
   // Changing rollKey triggers animation even when result is the same number.
@@ -31,6 +32,7 @@ export function D10Die({
   rollKey?: number | string;
   pulsing?: boolean;
   dimmed?: boolean;
+  animationsEnabled?: boolean;
 }) {
   const rollTrigger = rollKey ?? result;
   const lastRolledTriggerRef = useRef<number | string | undefined>(undefined);
@@ -58,7 +60,7 @@ export function D10Die({
   }, [result, rollTrigger]);
 
   const bounceClass =
-    result === undefined || bounceNonce === 0
+    !animationsEnabled || result === undefined || bounceNonce === 0
       ? ''
       : bounceNonce % 2 === 0
         ? ' is-rolling-a'
@@ -75,6 +77,7 @@ export function D10Die({
             className="die-d10"
             style={{
               transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+              transition: animationsEnabled ? undefined : 'none',
             }}
           >
             {Array.from({ length: 10 }, (_, i) => (

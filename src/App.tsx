@@ -594,6 +594,7 @@ export function App() {
                 }
                 gameKey={state.seed}
                 holdPrevious={turnCyclePreludeActive}
+                animationsEnabled={animationsEnabled}
               />
             </div>
             <PlayerTokenRail

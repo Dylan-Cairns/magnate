@@ -11,11 +11,13 @@ export function RollResult({
   taxSuit,
   gameKey,
   holdPrevious = false,
+  animationsEnabled = true,
 }: {
   roll: IncomeRollResult | undefined;
   taxSuit: Suit | undefined;
   gameKey?: string;
   holdPrevious?: boolean;
+  animationsEnabled?: boolean;
 }) {
   const [heldRoll, setHeldRoll] = useState<IncomeRollResult | undefined>(roll);
   const [heldTaxSuit, setHeldTaxSuit] = useState<Suit | undefined>(taxSuit);
@@ -78,37 +80,41 @@ export function RollResult({
   useEffect(() => {
     if (taxSuit === undefined) return;
     // Chain: wait for d10 animations to finish before spinning the tax die
+    const delay = animationsEnabled ? D10_TRANSITION_MS : 0;
     const timer = setTimeout(() => {
       setDisplayedSuit(taxSuit);
       setDisplayedSuitRollKey(visibleRollKey);
-    }, D10_TRANSITION_MS);
+    }, delay);
     return () => clearTimeout(timer);
-  }, [gameKey, roll?.rollId, taxSuit, visibleRollKey]);
+  }, [animationsEnabled, gameKey, roll?.rollId, taxSuit, visibleRollKey]);
 
   useEffect(() => {
     if (roll?.rollId === undefined) return;
     // When tax die is shown, wait for it to finish animating before pulsing anything
-    const delay =
-      taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS;
+    const delay = animationsEnabled
+      ? taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS
+      : 0;
     const timer = setTimeout(() => setIsPulsing(true), delay);
     return () => clearTimeout(timer);
-  }, [gameKey, roll?.rollId, taxSuit]);
+  }, [animationsEnabled, gameKey, roll?.rollId, taxSuit]);
 
   useEffect(() => {
     if (roll?.rollId === undefined || taxSuit !== undefined) return;
     // Non-tax roll: dim d6 when the d10 animations settle
-    const timer = setTimeout(() => setD6Dimmed(true), D10_TRANSITION_MS);
+    const delay = animationsEnabled ? D10_TRANSITION_MS : 0;
+    const timer = setTimeout(() => setD6Dimmed(true), delay);
     return () => clearTimeout(timer);
-  }, [gameKey, roll?.rollId, taxSuit]);
+  }, [animationsEnabled, gameKey, roll?.rollId, taxSuit]);
 
   if (!visibleRoll) {
     return <p className="roll-value">-</p>;
   }
 
-  const pulseDie1 =
-    roll !== undefined && isPulsing && visibleRoll.die1 >= visibleRoll.die2;
-  const pulseDie2 =
-    roll !== undefined && isPulsing && visibleRoll.die2 > visibleRoll.die1;
+  const die1Wins = visibleRoll.die1 >= visibleRoll.die2;
+  const die2Wins = visibleRoll.die2 > visibleRoll.die1;
+  const isSettled = animationsEnabled ? isPulsing : roll !== undefined;
+  const pulseDie1 = animationsEnabled && roll !== undefined && isPulsing && die1Wins;
+  const pulseDie2 = animationsEnabled && roll !== undefined && isPulsing && die2Wins;
   const d6ShouldBeDimmed = (roll !== undefined || holdPrevious) && d6Dimmed;
 
   return (
@@ -117,19 +123,22 @@ export function RollResult({
         result={visibleRoll.die1}
         rollKey={visibleRollKey}
         pulsing={pulseDie1}
-        dimmed={roll !== undefined && isPulsing && !pulseDie1}
+        dimmed={roll !== undefined && isSettled && !die1Wins}
+        animationsEnabled={animationsEnabled}
       />
       <D10Die
         result={visibleRoll.die2}
         rollKey={visibleRollKey}
         pulsing={pulseDie2}
-        dimmed={roll !== undefined && isPulsing && !pulseDie2}
+        dimmed={roll !== undefined && isSettled && !die2Wins}
+        animationsEnabled={animationsEnabled}
       />
       <D6Die
         suit={roll === undefined ? visibleTaxSuit : displayedSuit}
         rollKey={displayedSuitRollKey}
-        pulsing={roll !== undefined && isPulsing && displayedSuit !== undefined}
+        pulsing={animationsEnabled && roll !== undefined && isPulsing && displayedSuit !== undefined}
         dimmed={d6ShouldBeDimmed}
+        animationsEnabled={animationsEnabled}
       />
     </div>
   );
