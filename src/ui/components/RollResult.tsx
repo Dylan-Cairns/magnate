@@ -22,6 +22,9 @@ export function RollResult({
   const [displayedSuit, setDisplayedSuit] = useState<Suit | undefined>(
     undefined
   );
+  const [displayedSuitRollKey, setDisplayedSuitRollKey] = useState<
+    number | string | undefined
+  >(undefined);
   const [isPulsing, setIsPulsing] = useState(false);
   const [d6Dimmed, setD6Dimmed] = useState(false);
 
@@ -29,11 +32,17 @@ export function RollResult({
   const [prevRollId, setPrevRollId] = useState(roll?.rollId);
   const [prevTaxSuit, setPrevTaxSuit] = useState(taxSuit);
   const visibleRoll = roll ?? (holdPrevious ? heldRoll : undefined);
-  const visibleTaxSuit = roll ? taxSuit : holdPrevious ? heldTaxSuit : undefined;
+  const visibleTaxSuit = roll
+    ? taxSuit
+    : holdPrevious
+      ? heldTaxSuit
+      : undefined;
+  const rollIdentity =
+    visibleRoll === undefined
+      ? undefined
+      : (visibleRoll.rollId ?? `${visibleRoll.die1}-${visibleRoll.die2}`);
   const visibleRollKey =
-    gameKey !== undefined
-      ? `${gameKey}:${visibleRoll?.rollId}`
-      : visibleRoll?.rollId;
+    gameKey !== undefined ? `${gameKey}:${rollIdentity}` : rollIdentity;
 
   if (roll) {
     if (heldRoll !== roll) {
@@ -59,6 +68,7 @@ export function RollResult({
     }
     if (taxSuit === undefined) {
       setDisplayedSuit(undefined);
+      setDisplayedSuitRollKey(undefined);
     }
     if (roll && taxSuit !== undefined) {
       setD6Dimmed(false);
@@ -68,12 +78,12 @@ export function RollResult({
   useEffect(() => {
     if (taxSuit === undefined) return;
     // Chain: wait for d10 animations to finish before spinning the tax die
-    const timer = setTimeout(
-      () => setDisplayedSuit(taxSuit),
-      D10_TRANSITION_MS
-    );
+    const timer = setTimeout(() => {
+      setDisplayedSuit(taxSuit);
+      setDisplayedSuitRollKey(visibleRollKey);
+    }, D10_TRANSITION_MS);
     return () => clearTimeout(timer);
-  }, [gameKey, roll?.rollId, taxSuit]);
+  }, [gameKey, roll?.rollId, taxSuit, visibleRollKey]);
 
   useEffect(() => {
     if (roll?.rollId === undefined) return;
@@ -116,9 +126,8 @@ export function RollResult({
       />
       <D6Die
         suit={roll === undefined ? visibleTaxSuit : displayedSuit}
-        pulsing={
-          roll !== undefined && isPulsing && displayedSuit !== undefined
-        }
+        rollKey={displayedSuitRollKey}
+        pulsing={roll !== undefined && isPulsing && displayedSuit !== undefined}
         dimmed={roll !== undefined && d6Dimmed}
       />
     </div>

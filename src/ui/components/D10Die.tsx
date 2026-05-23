@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import '../../styles/d10-die.css';
 
 const SIDE_ANGLE = 72; // 360 / 5 faces
@@ -32,40 +32,57 @@ export function D10Die({
   pulsing?: boolean;
   dimmed?: boolean;
 }) {
-  const [prevRollKey, setPrevRollKey] = useState(rollKey);
+  const rollTrigger = rollKey ?? result;
+  const lastRolledTriggerRef = useRef<number | string | undefined>(undefined);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
+  const [bounceNonce, setBounceNonce] = useState(0);
 
-  if (rollKey !== prevRollKey) {
-    setPrevRollKey(rollKey);
-    if (result !== undefined) {
-      const { x: faceX, y: faceY } = getFaceOffset(result);
-      // 360 added to X (one full tilt), 720 to Y (two full spins).
-      // Z adds a 720° tumble (always a multiple of 360, so it doesn't affect resting face).
-      setRotX((prev) => Math.round(prev / 360) * 360 + 360 + faceX);
-      setRotY((prev) => Math.round(prev / 360) * 360 + 720 + faceY);
-      setRotZ((prev) => prev - 720);
+  useEffect(() => {
+    if (result === undefined || rollTrigger === undefined) {
+      return;
     }
-  }
+    if (lastRolledTriggerRef.current === rollTrigger) {
+      return;
+    }
+
+    lastRolledTriggerRef.current = rollTrigger;
+    const { x: faceX, y: faceY } = getFaceOffset(result);
+    // 360 added to X (one full tilt), 720 to Y (two full spins).
+    // Z adds a 720deg tumble (always a multiple of 360, so it doesn't affect resting face).
+    setRotX((prev) => Math.round(prev / 360) * 360 + 360 + faceX);
+    setRotY((prev) => Math.round(prev / 360) * 360 + 720 + faceY);
+    setRotZ((prev) => prev - 720);
+    setBounceNonce((prev) => prev + 1);
+  }, [result, rollTrigger]);
+
+  const bounceClass =
+    result === undefined || bounceNonce === 0
+      ? ''
+      : bounceNonce % 2 === 0
+        ? ' is-rolling-a'
+        : ' is-rolling-b';
 
   return (
     <div
       className={`die-scene-d10${pulsing ? ' is-pulsing' : ''}${dimmed ? ' is-dimmed' : ''}`}
       aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
     >
-      <div className="die-d10-viewport">
-        <div
-          className="die-d10"
-          style={{
-            transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
-          }}
-        >
-          {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className={`die-face-d10 die-face-d10-${i}`}>
-              <span className="die-face-number">{i + 1}</span>
-            </div>
-          ))}
+      <div className={`die-roll-bounce-wrap${bounceClass}`}>
+        <div className="die-d10-viewport">
+          <div
+            className="die-d10"
+            style={{
+              transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+            }}
+          >
+            {Array.from({ length: 10 }, (_, i) => (
+              <div key={i} className={`die-face-d10 die-face-d10-${i}`}>
+                <span className="die-face-number">{i + 1}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

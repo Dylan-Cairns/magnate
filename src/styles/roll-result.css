@@ -12,8 +12,12 @@
 }
 
 @keyframes die-dim {
-  from { filter: brightness(1); }
-  to   { filter: brightness(0.6); }
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(0.6);
+  }
 }
 
 .die-scene-d10.is-dimmed {
@@ -28,14 +32,73 @@
   opacity: 0.65;
 }
 
+@keyframes die-roll-bounce-a {
+  0%,
+  100% {
+    top: 0;
+  }
+  20% {
+    top: -18px;
+  }
+  42% {
+    top: 0;
+  }
+  62% {
+    top: -9px;
+  }
+  82% {
+    top: 0;
+  }
+}
+
+@keyframes die-roll-bounce-b {
+  0%,
+  100% {
+    top: 0;
+  }
+  20% {
+    top: -18px;
+  }
+  42% {
+    top: 0;
+  }
+  62% {
+    top: -9px;
+  }
+  82% {
+    top: 0;
+  }
+}
+
+.die-roll-bounce-wrap {
+  position: relative;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.die-roll-bounce-wrap.is-rolling-a {
+  animation: die-roll-bounce-a 1000ms ease-out 1;
+  will-change: top;
+}
+
+.die-roll-bounce-wrap.is-rolling-b {
+  animation: die-roll-bounce-b 1000ms ease-out 1;
+  will-change: top;
+}
+
 @keyframes die-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
-    filter: drop-shadow(0 0 3px var(--active-ring)) drop-shadow(0 0 7px var(--active-glow-outer));
+    filter: drop-shadow(0 0 3px var(--active-ring))
+      drop-shadow(0 0 7px var(--active-glow-outer));
   }
   50% {
     transform: scale(1.04);
-    filter: drop-shadow(0 0 5px var(--active-ring)) drop-shadow(0 0 14px var(--active-glow-outer));
+    filter: drop-shadow(0 0 5px var(--active-ring))
+      drop-shadow(0 0 14px var(--active-glow-outer));
   }
 }
 
