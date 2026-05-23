@@ -23,6 +23,7 @@ export function RollResult({
 
   useEffect(() => {
     if (taxSuit === undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayedSuit(undefined);
       return;
     }
@@ -32,28 +33,33 @@ export function RollResult({
       D10_TRANSITION_MS
     );
     return () => clearTimeout(timer);
-    // gameKey+rollId ensures this re-arms on every new roll and every new game
   }, [gameKey, roll?.rollId, taxSuit]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsPulsing(false);
     if (!roll) return;
     // When tax die is shown, wait for it to finish animating before pulsing anything
     const delay = taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS;
     const timer = setTimeout(() => setIsPulsing(true), delay);
     return () => clearTimeout(timer);
+    // roll?.rollId (not roll) as dep: avoids restarting the timer on reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameKey, roll?.rollId, taxSuit]);
 
   useEffect(() => {
     if (!roll) return;
     if (taxSuit !== undefined) {
       // Tax roll: un-dim d6 immediately so it brightens before rolling
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setD6Dimmed(false);
     } else {
       // Non-tax roll: dim d6 when the d10 animations settle
       const timer = setTimeout(() => setD6Dimmed(true), D10_TRANSITION_MS);
       return () => clearTimeout(timer);
     }
+    // roll?.rollId (not roll) as dep: avoids restarting the timer on reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameKey, roll?.rollId, taxSuit]);
 
   if (!roll) {
