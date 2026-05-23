@@ -249,34 +249,39 @@ export function useGameController({
     stateRef.current = state;
   }, [state]);
 
-  useEffect(() => {
-    if (
-      !shouldCaptureTurnResetAnchor(
-        state,
-        activePlayerId,
-        humanPlayerId,
-        turnResetAnchor
-      )
-    ) {
-      return;
-    }
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTurnResetAnchor({
-      turn: state.turn,
-      playerId: humanPlayerId,
-      state,
-    });
-    setTurnResetTimelineAnchor(timelineLog);
-    setTurnResetActionHistoryAnchor(actionHistory);
-  }, [
-    actionHistory,
+  const shouldCapture = shouldCaptureTurnResetAnchor(
+    state,
     activePlayerId,
     humanPlayerId,
-    state,
-    timelineLog,
-    turnResetAnchor,
-  ]);
+    turnResetAnchor
+  );
+  const [prevShouldCapture, setPrevShouldCapture] = useState(false);
+
+  if (shouldCapture !== prevShouldCapture) {
+    setPrevShouldCapture(shouldCapture);
+    if (shouldCapture) {
+      setTurnResetAnchor({ turn: state.turn, playerId: humanPlayerId, state });
+      setTurnResetTimelineAnchor(timelineLog);
+      setTurnResetActionHistoryAnchor(actionHistory);
+    }
+  }
+
+  const shouldRunBot = shouldScheduleBotAction({
+    terminal,
+    activePlayerId,
+    botPlayerId,
+    isIncomeChoicePhase: state.phase === 'CollectIncome',
+    actionCommitPending,
+    allowIncomeChoiceWhileCommitPending: allowHumanActionsWhileCommitPending,
+    botIncomeActionCount: botIncomeActions.length,
+    startupPreloadReady,
+  });
+  const [prevShouldRunBot, setPrevShouldRunBot] = useState(false);
+
+  if (shouldRunBot !== prevShouldRunBot) {
+    setPrevShouldRunBot(shouldRunBot);
+    setBotThinking(shouldRunBot);
+  }
 
   useEffect(() => {
     if (
@@ -292,13 +297,10 @@ export function useGameController({
         startupPreloadReady,
       })
     ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBotThinking(false);
       return;
     }
 
     let cancelled = false;
-    setBotThinking(true);
     const botTurnDelayMs =
       resolvedBotProfile.selected.turnDelayMs ?? DEFAULT_BOT_DELAY_MS;
     const timerId = window.setTimeout(() => {
