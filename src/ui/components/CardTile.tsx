@@ -80,6 +80,48 @@ export function CardTile({
     return null;
   }
 
+  return (
+    <CardTileCard
+      cardId={cardId}
+      deedTokens={deedTokens}
+      deedProgress={deedProgress}
+      deedTarget={deedTarget}
+      inDevelopment={inDevelopment}
+      perspective={perspective}
+      handOwnerId={handOwnerId}
+      handCardId={handCardId}
+      handSlotKind={handSlotKind}
+      animateDeedProgress={animateDeedProgress}
+      incomeHighlighted={incomeHighlighted}
+    />
+  );
+}
+
+function CardTileCard({
+  cardId,
+  deedTokens,
+  deedProgress,
+  deedTarget,
+  inDevelopment,
+  perspective = 'human',
+  handOwnerId,
+  handCardId,
+  handSlotKind,
+  animateDeedProgress = true,
+  incomeHighlighted = false,
+}: {
+  cardId: CardId;
+  deedTokens?: Partial<Record<Suit, number>>;
+  deedProgress?: number;
+  deedTarget?: number;
+  inDevelopment?: boolean;
+  perspective?: CardPerspective;
+  handOwnerId?: PlayerId;
+  handCardId?: CardId;
+  handSlotKind?: 'occupied' | 'hidden' | 'empty';
+  animateDeedProgress?: boolean;
+  incomeHighlighted?: boolean;
+}) {
   const card = CARD_BY_ID[cardId];
   const cardImage = getCardImage(cardId);
   const suits = card.kind === 'Excuse' ? [] : [...card.suits];
@@ -120,6 +162,7 @@ export function CardTile({
   useEffect(() => {
     let cancelled = false;
     if (isCardImageUrlReady(cardImage)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCardImageReady(true);
       return () => {
         cancelled = true;
@@ -165,6 +208,7 @@ export function CardTile({
       if (rememberedRatio !== undefined) {
         currentRatio = rememberedRatio;
         animatedRatioRef.current = rememberedRatio;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnimatedDeedProgressRatio(rememberedRatio);
       }
     }

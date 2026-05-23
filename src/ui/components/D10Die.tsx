@@ -41,12 +41,11 @@ export function D10Die({
     const { x: faceX, y: faceY } = getFaceOffset(result);
     // 360 added to X (one full tilt), 720 to Y (two full spins).
     // Z adds a 720° tumble (always a multiple of 360, so it doesn't affect resting face).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRotX((prev) => Math.round(prev / 360) * 360 + 360 + faceX);
     setRotY((prev) => Math.round(prev / 360) * 360 + 720 + faceY);
     setRotZ((prev) => prev - 720);
-    // rollKey is the primary trigger; result provides the face target.
-    // They always update together so including both is safe and lint-clean.
-  }, [rollKey]);
+  }, [rollKey, result]);
 
   return (
     <div
