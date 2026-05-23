@@ -169,6 +169,25 @@
   transform: translateX(var(--deck-pile-fan-shift)) rotate(-1.5deg);
 }
 
+.deck-pile-animation-anchor,
+.discard-pile-animation-anchor {
+  position: absolute;
+  width: var(--deck-pile-card-width);
+  height: var(--deck-pile-card-height);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.deck-pile-animation-anchor {
+  top: calc(var(--deck-pile-stack-step) * 2);
+  left: calc(var(--deck-pile-stack-step) * 2);
+}
+
+.discard-pile-animation-anchor {
+  top: 0;
+  left: 0;
+}
+
 .deck-pile-card {
   width: var(--deck-pile-card-width);
   height: var(--deck-pile-card-height);
