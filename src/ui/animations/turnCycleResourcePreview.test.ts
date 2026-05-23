@@ -37,12 +37,12 @@ describe('buildTurnCycleResourcePreviewPlan', () => {
     expect(plan.events).toMatchObject([
       {
         kind: 'tax-loss',
-        atMs: 1400,
+        atMs: 1630,
         token: { playerId: PLAYER_A, suit: 'Moons' },
       },
       {
         kind: 'tax-loss',
-        atMs: 1900,
+        atMs: 2130,
         token: { playerId: PLAYER_A, suit: 'Moons' },
       },
       {
@@ -95,8 +95,8 @@ function makeTurnCyclePlan(): TurnCycleAnimationPlan {
     visualPlan: {
       taxPulseStartAtMs: 0,
       taxPulseEndAtMs: 1000,
-      taxFlightLaunchAtMs: 1400,
-      taxResourcesApplyAtMs: 2800,
+      taxFlightLaunchAtMs: 1630,
+      taxResourcesApplyAtMs: 3030,
       taxPulseTargets: [{ playerId: PLAYER_A, suit: 'Moons' }],
       taxFlightTokens: [
         { playerId: PLAYER_A, suit: 'Moons' },
