@@ -82,6 +82,7 @@ export function App() {
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
   const [bugReportOpen, setBugReportOpen] = useState<boolean>(false);
   const [logVisible, setLogVisible] = useState<boolean>(true);
+  const [mapVisible, setMapVisible] = useState<boolean>(true);
   const [startupPreloadReady, setStartupPreloadReady] =
     useState<boolean>(false);
   const [startupPreloadError, setStartupPreloadError] = useState<string | null>(
@@ -646,7 +647,7 @@ export function App() {
 
           {logVisible && <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />}
 
-          <DecktetSuitDiagram />
+          {mapVisible && <DecktetSuitDiagram />}
 
           <OptionsMenu
             open={optionsMenuOpen}
@@ -669,6 +670,8 @@ export function App() {
             onBugReportDownload={handleDownloadBugReport}
             logVisible={logVisible}
             onToggleLog={() => setLogVisible((v) => !v)}
+            mapVisible={mapVisible}
+            onToggleMap={() => setMapVisible((v) => !v)}
           />
         </aside>
       </main>

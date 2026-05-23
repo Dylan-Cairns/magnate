@@ -21,6 +21,8 @@ export function OptionsMenu({
   onBugReportDownload,
   logVisible,
   onToggleLog,
+  mapVisible,
+  onToggleMap,
 }: {
   open: boolean;
   botProfileId: BotProfileId;
@@ -39,6 +41,8 @@ export function OptionsMenu({
   onBugReportDownload: () => void;
   logVisible: boolean;
   onToggleLog: () => void;
+  mapVisible: boolean;
+  onToggleMap: () => void;
 }) {
   return (
     <div className="corner-options-anchor">
@@ -47,6 +51,15 @@ export function OptionsMenu({
         issueUrl={bugReportIssueUrl}
         onDownload={onBugReportDownload}
       />
+      <button
+        type="button"
+        className={`log-toggle-button${!mapVisible ? ' is-inactive' : ''}`}
+        aria-label={mapVisible ? 'Hide deck map' : 'Show deck map'}
+        aria-pressed={mapVisible}
+        onClick={onToggleMap}
+      >
+        <MapIcon />
+      </button>
       <button
         type="button"
         className={`log-toggle-button${!logVisible ? ' is-inactive' : ''}`}
@@ -135,6 +148,20 @@ export function OptionsMenu({
         </section>
       ) : null}
     </div>
+  );
+}
+
+function MapIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="log-toggle-button-icon"
+    >
+      <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z" />
+      <path d="M9 3v15" />
+      <path d="M15 6v15" />
+    </svg>
   );
 }
 
