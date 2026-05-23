@@ -146,10 +146,31 @@ function CardTileCard({
     progressTarget
   );
   const [animatedDeedProgressRatio, setAnimatedDeedProgressRatio] =
-    useState<number>(deedProgressRatio);
+    useState<number>(
+      () => LAST_DEED_PROGRESS_RATIO_BY_CARD.get(cardId) ?? deedProgressRatio
+    );
   const animatedRatioRef = useRef(animatedDeedProgressRatio);
-  const initializedRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
+
+  const [prevDeedProgressRatio, setPrevDeedProgressRatio] =
+    useState(deedProgressRatio);
+  const [prevAnimateDeedProgress, setPrevAnimateDeedProgress] =
+    useState(animateDeedProgress);
+
+  if (
+    deedProgressRatio !== prevDeedProgressRatio ||
+    animateDeedProgress !== prevAnimateDeedProgress
+  ) {
+    setPrevDeedProgressRatio(deedProgressRatio);
+    setPrevAnimateDeedProgress(animateDeedProgress);
+    if (
+      !animateDeedProgress ||
+      !shouldAnimateDeedProgress(animatedDeedProgressRatio, deedProgressRatio)
+    ) {
+      setAnimatedDeedProgressRatio(deedProgressRatio);
+      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, deedProgressRatio);
+    }
+  }
 
   useEffect(() => {
     animatedRatioRef.current = animatedDeedProgressRatio;
@@ -161,32 +182,15 @@ function CardTileCard({
       animationFrameRef.current = null;
     }
 
-    const targetRatio = deedProgressRatio;
-    let currentRatio = animatedRatioRef.current;
-
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      const rememberedRatio = LAST_DEED_PROGRESS_RATIO_BY_CARD.get(cardId);
-      if (rememberedRatio !== undefined) {
-        currentRatio = rememberedRatio;
-        animatedRatioRef.current = rememberedRatio;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setAnimatedDeedProgressRatio(rememberedRatio);
-      }
-    }
-
     if (
       !animateDeedProgress ||
-      !shouldAnimateDeedProgress(currentRatio, targetRatio)
+      !shouldAnimateDeedProgress(animatedRatioRef.current, deedProgressRatio)
     ) {
-      animatedRatioRef.current = targetRatio;
-      setAnimatedDeedProgressRatio(targetRatio);
-      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, targetRatio);
       return;
     }
 
     let startTime: number | null = null;
-    const fromRatio = currentRatio;
+    const fromRatio = animatedRatioRef.current;
 
     const tick = (timestamp: number) => {
       if (startTime === null) {
@@ -195,7 +199,7 @@ function CardTileCard({
       const elapsed = timestamp - startTime;
       const nextRatio = tweenAnimatedDeedProgressRatio(
         fromRatio,
-        targetRatio,
+        deedProgressRatio,
         elapsed,
         DEED_PROGRESS_ANIMATION_DURATION_MS
       );
@@ -208,9 +212,9 @@ function CardTileCard({
         return;
       }
 
-      animatedRatioRef.current = targetRatio;
-      setAnimatedDeedProgressRatio(targetRatio);
-      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, targetRatio);
+      animatedRatioRef.current = deedProgressRatio;
+      setAnimatedDeedProgressRatio(deedProgressRatio);
+      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, deedProgressRatio);
       animationFrameRef.current = null;
     };
 
