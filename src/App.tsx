@@ -27,6 +27,7 @@ import {
 import { ActionPicker } from './ui/components/ActionPicker';
 import { ActionsPanel } from './ui/components/ActionsPanel';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
+import { BotHandPanel } from './ui/components/BotHandPanel';
 import { DeckPiles } from './ui/components/DeckPiles';
 import {
   ResolutionWarningOverlay,
@@ -614,24 +615,24 @@ export function App() {
         </section>
 
         <aside className="info-pane">
-          <PlayerPanel
-            player={botPanelPlayer}
-            isActive={!terminal && humanView.activePlayerId === BOT_PLAYER}
-            score={score}
-            terminal={terminal}
-            handSlotCount={PLAYER_HAND_SLOT_COUNT}
-            humanPlayerId={HUMAN_PLAYER}
-            botPlayerId={BOT_PLAYER}
-            animateDeedProgress={animationsEnabled}
-          />
+          <div className="bot-info-row">
+            <BotHandPanel
+              player={botPanelPlayer}
+              isActive={!terminal && humanView.activePlayerId === BOT_PLAYER}
+              score={score}
+              terminal={terminal}
+              humanPlayerId={HUMAN_PLAYER}
+              botPlayerId={BOT_PLAYER}
+            />
 
-          <DeckPiles
-            drawCount={humanView.deck.drawCount}
-            reshuffles={humanView.deck.reshuffles}
-            discard={humanView.deck.discard}
-            pendingDiscardHoldback={pendingDiscardHoldback}
-            terminal={terminal}
-          />
+            <DeckPiles
+              drawCount={humanView.deck.drawCount}
+              reshuffles={humanView.deck.reshuffles}
+              discard={humanView.deck.discard}
+              pendingDiscardHoldback={pendingDiscardHoldback}
+              terminal={terminal}
+            />
+          </div>
 
           <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />
 
