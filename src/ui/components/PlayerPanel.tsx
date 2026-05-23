@@ -3,6 +3,7 @@ import type {
   ObservedPlayerState,
   PlayerId,
 } from '../../engine/types';
+import { playerDisplayName, winnerDisplayName } from '../playerDisplay';
 import { CardTile, type CardPerspective } from './CardTile';
 
 function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
@@ -17,21 +18,21 @@ function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
 }
 
 export function PlayerPanel({
-  title,
   player,
   isActive,
   score,
   terminal,
   handSlotCount,
+  humanPlayerId,
   botPlayerId,
   animateDeedProgress = true,
 }: {
-  title: string;
   player: ObservedPlayerState;
   isActive: boolean;
   score: FinalScore;
   terminal: boolean;
   handSlotCount: number;
+  humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
 }) {
@@ -43,12 +44,8 @@ export function PlayerPanel({
     player.id === botPlayerId ? 'bot' : 'human';
   const districtScore = score.districtPoints[player.id];
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
-  const winnerLabel =
-    score.winner === 'Draw'
-      ? 'Draw'
-      : score.winner === botPlayerId
-        ? 'Bot'
-        : 'You';
+  const title = playerDisplayName(player.id, humanPlayerId);
+  const winnerLabel = winnerDisplayName(score.winner, humanPlayerId);
 
   return (
     <section

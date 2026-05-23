@@ -32,8 +32,8 @@ describe('LogPanel', () => {
     );
 
     expect(html.indexOf('T1')).toBeLessThan(html.indexOf('Seed'));
-    expect(html).toContain('PlayerA (You)');
-    expect(html).toContain('[PlayerB] Income choice 2 ');
+    expect(html).toContain('>You<');
+    expect(html).toContain('[Bot] Income choice');
     expect(html).toContain('class="log-suit-code"');
     expect(html).toContain('>wa<');
     expect(html).toContain('fixed-seed');
