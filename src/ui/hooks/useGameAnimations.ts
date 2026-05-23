@@ -71,6 +71,9 @@ export function useGameAnimations({
     useState<ResourcePreviewByPlayer>(null);
   const [pendingDiscardHoldback, setPendingDiscardHoldback] =
     useState<number>(0);
+  const [pendingDrawCardIds, setPendingDrawCardIds] = useState<
+    ReadonlyArray<CardId>
+  >([]);
   const [actionCommitPending, setActionCommitPending] =
     useState<boolean>(false);
   const [
@@ -233,6 +236,7 @@ export function useGameAnimations({
     setResourceFlights([]);
     setCardFlights([]);
     setPendingDiscardHoldback(0);
+    setPendingDrawCardIds([]);
     setAllowHumanActionsWhileCommitPending(false);
     clearTurnCycleVisuals();
   }, [clearTurnCycleVisuals]);
@@ -278,6 +282,12 @@ export function useGameAnimations({
       }
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
+        const drawnIds = queuedCardFlights
+          .filter((f) => f.variant === 'draw' && f.cardId != null)
+          .map((f) => f.cardId as CardId);
+        if (drawnIds.length > 0) {
+          setPendingDrawCardIds((existing) => [...existing, ...drawnIds]);
+        }
       }
       setPendingDiscardHoldback(action.type === 'sell-card' ? 1 : 0);
       setAllowHumanActionsWhileCommitPending(
@@ -296,6 +306,7 @@ export function useGameAnimations({
         setResourceFlights([]);
         setCardFlights([]);
         setPendingDiscardHoldback(0);
+        setPendingDrawCardIds([]);
         setAllowHumanActionsWhileCommitPending(false);
         clearTurnCycleVisuals();
         onSettle?.();
@@ -332,6 +343,7 @@ export function useGameAnimations({
     incomeHighlightCrowns,
     incomeResourcePreviewByPlayer,
     pendingDiscardHoldback,
+    pendingDrawCardIds,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
     makeResourceFlightId,
