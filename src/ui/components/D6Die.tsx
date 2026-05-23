@@ -58,8 +58,8 @@ export function D6Die({
       setRotX(x);
       setRotY(y);
       setRotZ((prev) => {
-        if (suit === 'Knots' || suit === 'Wyrms') return z - 720;
-        return prev - 720;
+        if ([0, -15, 15].includes(prev)) return z - 720;
+        return z;
       });
     }
   }
