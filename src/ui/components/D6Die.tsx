@@ -41,11 +41,13 @@ export function D6Die({
   rollKey,
   pulsing,
   dimmed,
+  animationsEnabled = true,
 }: {
   suit: Suit | undefined;
   rollKey?: number | string;
   pulsing?: boolean;
   dimmed?: boolean;
+  animationsEnabled?: boolean;
 }) {
   const rollTrigger = suit === undefined ? undefined : rollKey;
   const lastRolledTriggerRef = useRef<number | string | undefined>(undefined);
@@ -72,7 +74,7 @@ export function D6Die({
   }, [rollTrigger, suit]);
 
   const bounceClass =
-    suit === undefined || bounceNonce === 0
+    !animationsEnabled || suit === undefined || bounceNonce === 0
       ? ''
       : bounceNonce % 2 === 0
         ? ' is-rolling-a'
@@ -88,6 +90,7 @@ export function D6Die({
           className="die-d6"
           style={{
             transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+            transition: animationsEnabled ? undefined : 'none',
           }}
         >
           {SUITS_BY_FACE.map((faceSuit, i) => (
