@@ -740,9 +740,10 @@ export function App() {
             />
           </div>
 
-          {logVisible && <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />}
-
-          {mapVisible && <DecktetSuitDiagram dimmedCardIds={dimmedCardIds} dimmedSuits={dimmedSuits} />}
+          <div className="log-map-stack">
+            {logVisible && <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />}
+            {mapVisible && <DecktetSuitDiagram dimmedCardIds={dimmedCardIds} dimmedSuits={dimmedSuits} />}
+          </div>
 
           <OptionsMenu
             open={optionsMenuOpen}
