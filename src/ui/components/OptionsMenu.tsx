@@ -23,6 +23,8 @@ export function OptionsMenu({
   onToggleLog,
   mapVisible,
   onToggleMap,
+  deckMapInteractive,
+  onDeckMapInteractiveChange,
 }: {
   open: boolean;
   botProfileId: BotProfileId;
@@ -43,6 +45,8 @@ export function OptionsMenu({
   onToggleLog: () => void;
   mapVisible: boolean;
   onToggleMap: () => void;
+  deckMapInteractive: boolean;
+  onDeckMapInteractiveChange: (enabled: boolean) => void;
 }) {
   return (
     <div className="corner-options-anchor">
@@ -141,6 +145,17 @@ export function OptionsMenu({
                 checked={animationsEnabled}
                 onChange={(event) =>
                   onAnimationsEnabledChange(event.target.checked)
+                }
+              />
+            </label>
+            <label className="animation-toggle-row" htmlFor="deck-map-interactive-toggle">
+              <span>Interactive deck map</span>
+              <input
+                id="deck-map-interactive-toggle"
+                type="checkbox"
+                checked={deckMapInteractive}
+                onChange={(event) =>
+                  onDeckMapInteractiveChange(event.target.checked)
                 }
               />
             </label>

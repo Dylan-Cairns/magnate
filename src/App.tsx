@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { CardId } from './engine/cards';
+import { PROPERTY_CARDS } from './engine/cards';
 import { districtWinnersByPlayer, scoreLive } from './engine/scoring';
 import type { GameAction, PlayerId, Suit } from './engine/types';
 import {
@@ -62,6 +63,7 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
+const DECK_MAP_INTERACTIVE_KEY = 'magnate:deckMapInteractive';
 
 function readBooleanPreference(key: string, defaultValue: boolean): boolean {
   if (typeof window === 'undefined') return defaultValue;
@@ -110,6 +112,9 @@ export function App() {
   const [mapVisible, setMapVisible] = useState<boolean>(() =>
     readBooleanPreference(MAP_VISIBLE_KEY, true)
   );
+  const [deckMapInteractive, setDeckMapInteractive] = useState<boolean>(() =>
+    readBooleanPreference(DECK_MAP_INTERACTIVE_KEY, true)
+  );
   const [startupPreloadReady, setStartupPreloadReady] =
     useState<boolean>(false);
   const [startupPreloadError, setStartupPreloadError] = useState<string | null>(
@@ -124,6 +129,7 @@ export function App() {
   const {
     state,
     humanView,
+    pendingNextDistricts,
     timelineLog,
     actionHistory,
     error,
@@ -214,12 +220,43 @@ export function App() {
     persistBooleanPreference(MAP_VISIBLE_KEY, mapVisible);
   }, [mapVisible]);
 
+  useEffect(() => {
+    persistBooleanPreference(DECK_MAP_INTERACTIVE_KEY, deckMapInteractive);
+  }, [deckMapInteractive]);
+
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
   const wonDistrictsByPlayer = useMemo(
     () => districtWinnersByPlayer(state),
     [state]
   );
+  const dimmedCardIds = useMemo<ReadonlySet<CardId>>(() => {
+    if (!deckMapInteractive) return new Set();
+    // Cards still available: draw pile, player hands, and discard (only while < 2nd shuffle)
+    const inCirculation = new Set<CardId>([
+      ...state.deck.draw,
+      ...state.players.flatMap((p) => p.hand),
+      ...(state.deck.reshuffles === 0 ? state.deck.discard : []),
+    ]);
+    // Numeral property cards (2 suits) not in circulation are on the board → dim them
+    const ids = new Set<CardId>();
+    for (const card of PROPERTY_CARDS) {
+      if (card.suits.length === 2 && !inCirculation.has(card.id)) {
+        ids.add(card.id);
+      }
+    }
+    // During animation, pendingNextDistricts holds the about-to-commit state —
+    // add any cards there too so dimming is immediate when a card is played
+    if (pendingNextDistricts) {
+      for (const district of pendingNextDistricts) {
+        for (const stack of Object.values(district.stacks)) {
+          for (const cardId of stack.developed) ids.add(cardId);
+          if (stack.deed) ids.add(stack.deed.cardId);
+        }
+      }
+    }
+    return ids;
+  }, [deckMapInteractive, state, pendingNextDistricts]);
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
   );
@@ -683,7 +720,7 @@ export function App() {
 
           {logVisible && <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />}
 
-          {mapVisible && <DecktetSuitDiagram />}
+          {mapVisible && <DecktetSuitDiagram dimmedCardIds={dimmedCardIds} />}
 
           <OptionsMenu
             open={optionsMenuOpen}
@@ -708,6 +745,8 @@ export function App() {
             onToggleLog={() => setLogVisible((v) => !v)}
             mapVisible={mapVisible}
             onToggleMap={() => setMapVisible((v) => !v)}
+            deckMapInteractive={deckMapInteractive}
+            onDeckMapInteractiveChange={setDeckMapInteractive}
           />
         </aside>
       </main>
