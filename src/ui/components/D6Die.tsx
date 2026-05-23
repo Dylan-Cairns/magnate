@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { Suit } from '../../engine/types';
 import '../../styles/d6-die.css';
 import { SUIT_TOKEN_BG } from './TokenComponents';
@@ -45,26 +45,21 @@ export function D6Die({
   pulsing?: boolean;
   dimmed?: boolean;
 }) {
-  const prevSuitRef = useRef<Suit | undefined>(undefined);
+  const [prevSuit, setPrevSuit] = useState(suit);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
 
-  useEffect(() => {
-    if (suit === prevSuitRef.current) return;
-    prevSuitRef.current = suit;
-
-    if (suit === undefined) {
-      return; // stay at current position; parent handles dimming
+  if (suit !== prevSuit) {
+    setPrevSuit(suit);
+    if (suit !== undefined) {
+      const face = SUIT_TO_FACE[suit];
+      const { x, y } = FACE_OFFSET[face];
+      setRotX(x);
+      setRotY(y);
+      setRotZ((prev) => prev - 720);
     }
-
-    const face = SUIT_TO_FACE[suit];
-    const { x, y } = FACE_OFFSET[face];
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRotX(x);
-    setRotY(y);
-    setRotZ((prev) => prev - 720);
-  }, [suit]);
+  }
 
   return (
     <div
