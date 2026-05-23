@@ -93,6 +93,24 @@
   font-size: 0.84rem;
 }
 
+.bot-thinking-text {
+  white-space: nowrap;
+}
+
+.bot-thinking-dots {
+  display: inline-block;
+  width: 1.15em;
+  text-align: left;
+}
+
+.bot-thinking-dot {
+  opacity: 0;
+}
+
+.bot-thinking-dot.is-visible {
+  opacity: 1;
+}
+
 .trade-popover {
   position: fixed;
   width: min(13.75rem, calc(100vw - 1.25rem));

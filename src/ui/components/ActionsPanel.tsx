@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import type { CardId } from '../../engine/cards';
 import type {
@@ -54,7 +54,6 @@ export function ActionsPanel({
   actionPicker,
   canResetTurn,
   botThinking,
-  showBotThinkingDuringIncomeChoiceLock,
   hideBotWaitMessageDuringTurnCycleLock,
   humanActionUiBlockedByAnimation,
   humanActionUiBlockedByTurnCycleAnimation,
@@ -82,7 +81,6 @@ export function ActionsPanel({
   actionPicker: ActionPickerState | null;
   canResetTurn: boolean;
   botThinking: boolean;
-  showBotThinkingDuringIncomeChoiceLock: boolean;
   hideBotWaitMessageDuringTurnCycleLock: boolean;
   humanActionUiBlockedByAnimation: boolean;
   humanActionUiBlockedByTurnCycleAnimation: boolean;
@@ -123,8 +121,7 @@ export function ActionsPanel({
 }) {
   const hasVisibleIncomeChoiceActions = visibleActionItems.some(
     (item) =>
-      (item.kind === 'action' &&
-        item.action.type === 'choose-income-suit') ||
+      (item.kind === 'action' && item.action.type === 'choose-income-suit') ||
       item.kind === 'income-choice-group'
   );
 
@@ -142,7 +139,8 @@ export function ActionsPanel({
             humanPlayerId={humanPlayerId}
             botPlayerId={botPlayerId}
           />
-        ) : activePlayerId === humanPlayerId || hasVisibleIncomeChoiceActions ? (
+        ) : activePlayerId === humanPlayerId ||
+          hasVisibleIncomeChoiceActions ? (
           <div className="actions-human-layout">
             <div className="actions-human-main">
               {humanActionUiBlockedByTurnCycleAnimation ? (
@@ -150,11 +148,15 @@ export function ActionsPanel({
               ) : humanActionUiBlockedByAnimation ? null : visibleActionItems.length ===
                 0 ? (
                 <p className="empty-note">
-                  {isIncomeChoicePhase
-                    ? botThinking
-                      ? 'Bot is thinking...'
-                      : 'Resolving income choices...'
-                    : 'No legal actions.'}
+                  {isIncomeChoicePhase ? (
+                    botThinking ? (
+                      <BotThinkingText />
+                    ) : (
+                      'Resolving income choices...'
+                    )
+                  ) : (
+                    'No legal actions.'
+                  )}
                 </p>
               ) : (
                 <div className="action-list">
@@ -206,7 +208,10 @@ export function ActionsPanel({
                         </button>
                       );
 
-                    const renderDirectAction = (key: string, action: GameAction) =>
+                    const renderDirectAction = (
+                      key: string,
+                      action: GameAction
+                    ) =>
                       renderCategorizedAction(
                         key,
                         <ActionButton
@@ -316,7 +321,10 @@ export function ActionsPanel({
                           actionPicker.districtId === item.districtId,
                         (trigger) =>
                           onOpenDeedPaymentPicker(
-                            { cardId: item.cardId, districtId: item.districtId },
+                            {
+                              cardId: item.cardId,
+                              districtId: item.districtId,
+                            },
                             trigger,
                             item.options.length
                           )
@@ -431,15 +439,51 @@ export function ActionsPanel({
           </div>
         ) : hideBotWaitMessageDuringTurnCycleLock ? null : (
           <p className="empty-note">
-            {isIncomeChoicePhase && !botThinking
-              ? 'Resolving income choices...'
-              : showBotThinkingDuringIncomeChoiceLock || botThinking
-              ? 'Bot is thinking...'
-              : 'Waiting for bot...'}
+            {isIncomeChoicePhase && !botThinking ? (
+              'Resolving income choices...'
+            ) : (
+              <BotThinkingText />
+            )}
           </p>
         )}
       </div>
     </section>
+  );
+}
+
+const BOT_THINKING_DOT_INTERVAL_MS = 700;
+
+function BotThinkingText() {
+  const [dotCount, setDotCount] = useState<number>(1);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setDotCount((current) => (current === 3 ? 1 : current + 1));
+    }, BOT_THINKING_DOT_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <span className="bot-thinking-text" aria-label="Bot is thinking...">
+      <span aria-hidden="true">
+        Bot is thinking
+        <span className="bot-thinking-dots">
+          {Array.from({ length: 3 }, (_, index) => (
+            <span
+              key={index}
+              className={
+                index < dotCount
+                  ? 'bot-thinking-dot is-visible'
+                  : 'bot-thinking-dot'
+              }
+            >
+              .
+            </span>
+          ))}
+        </span>
+      </span>
+    </span>
   );
 }
 

@@ -545,9 +545,6 @@ export function App() {
             actionPicker={actionPicker}
             canResetTurn={canResetTurn}
             botThinking={botThinking}
-            showBotThinkingDuringIncomeChoiceLock={
-              showBotThinkingDuringIncomeChoiceLock
-            }
             hideBotWaitMessageDuringTurnCycleLock={
               hideBotWaitMessageDuringTurnCycleLock
             }
