@@ -18,6 +18,10 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
+.suit-diagram-panel {
+  grid-row: 3;
+}
+
 .suit-diagram {
   width: 100%;
   display: block;
