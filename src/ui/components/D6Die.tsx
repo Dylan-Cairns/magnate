@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Suit } from '../../engine/types';
 import '../../styles/d6-die.css';
 import { SUIT_TOKEN_BG } from './TokenComponents';
@@ -38,55 +38,74 @@ const INITIAL_ROT = FACE_OFFSET[1];
 
 export function D6Die({
   suit,
+  rollKey,
   pulsing,
   dimmed,
 }: {
   suit: Suit | undefined;
+  rollKey?: number | string;
   pulsing?: boolean;
   dimmed?: boolean;
 }) {
-  const [prevSuit, setPrevSuit] = useState(suit);
+  const rollTrigger = suit === undefined ? undefined : rollKey;
+  const lastRolledTriggerRef = useRef<number | string | undefined>(undefined);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
+  const [bounceNonce, setBounceNonce] = useState(0);
 
-  if (suit !== prevSuit) {
-    setPrevSuit(suit);
-    if (suit !== undefined) {
-      const face = SUIT_TO_FACE[suit];
-      const { x, y, z } = FACE_OFFSET[face];
-      setRotX(x);
-      setRotY((prev) => (prev === y ? y - 720 : y));
-      setRotZ((prev) => ([0, -10, 10].includes(prev) ? z - 720 : z));
+  useEffect(() => {
+    if (suit === undefined || rollTrigger === undefined) {
+      return;
     }
-  }
+    if (lastRolledTriggerRef.current === rollTrigger) {
+      return;
+    }
+
+    lastRolledTriggerRef.current = rollTrigger;
+    const face = SUIT_TO_FACE[suit];
+    const { x, y, z } = FACE_OFFSET[face];
+    setRotX(x);
+    setRotY((prev) => (prev === y ? y - 720 : y));
+    setRotZ((prev) => ([0, -10, 10].includes(prev) ? z - 720 : z));
+    setBounceNonce((prev) => prev + 1);
+  }, [rollTrigger, suit]);
+
+  const bounceClass =
+    suit === undefined || bounceNonce === 0
+      ? ''
+      : bounceNonce % 2 === 0
+        ? ' is-rolling-a'
+        : ' is-rolling-b';
 
   return (
     <div
       className={`die-scene-d6${pulsing ? ' is-pulsing' : ''}${dimmed ? ' is-dimmed' : ''}`}
       aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
     >
-      <div
-        className="die-d6"
-        style={{
-          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
-        }}
-      >
-        {SUITS_BY_FACE.map((faceSuit, i) => (
-          <div
-            key={faceSuit}
-            className={`die-face die-face-d6-${i + 1}`}
-            style={{ '--suit-bg': SUIT_TOKEN_BG[faceSuit] } as CSSProperties}
-          >
-            <div className="die-suit-circle">
-              <img
-                src={SUIT_ICON_BY_SUIT[faceSuit]}
-                alt=""
-                className="die-suit-icon"
-              />
+      <div className={`die-roll-bounce-wrap${bounceClass}`}>
+        <div
+          className="die-d6"
+          style={{
+            transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+          }}
+        >
+          {SUITS_BY_FACE.map((faceSuit, i) => (
+            <div
+              key={faceSuit}
+              className={`die-face die-face-d6-${i + 1}`}
+              style={{ '--suit-bg': SUIT_TOKEN_BG[faceSuit] } as CSSProperties}
+            >
+              <div className="die-suit-circle">
+                <img
+                  src={SUIT_ICON_BY_SUIT[faceSuit]}
+                  alt=""
+                  className="die-suit-icon"
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
