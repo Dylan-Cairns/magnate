@@ -10,11 +10,15 @@ export function RollResult({
   roll,
   taxSuit,
   gameKey,
+  holdPrevious = false,
 }: {
   roll: IncomeRollResult | undefined;
   taxSuit: Suit | undefined;
   gameKey?: string;
+  holdPrevious?: boolean;
 }) {
+  const [heldRoll, setHeldRoll] = useState<IncomeRollResult | undefined>(roll);
+  const [heldTaxSuit, setHeldTaxSuit] = useState<Suit | undefined>(taxSuit);
   const [displayedSuit, setDisplayedSuit] = useState<Suit | undefined>(
     undefined
   );
@@ -24,6 +28,21 @@ export function RollResult({
   const [prevGameKey, setPrevGameKey] = useState(gameKey);
   const [prevRollId, setPrevRollId] = useState(roll?.rollId);
   const [prevTaxSuit, setPrevTaxSuit] = useState(taxSuit);
+  const visibleRoll = roll ?? (holdPrevious ? heldRoll : undefined);
+  const visibleTaxSuit = roll ? taxSuit : holdPrevious ? heldTaxSuit : undefined;
+  const visibleRollKey =
+    gameKey !== undefined
+      ? `${gameKey}:${visibleRoll?.rollId}`
+      : visibleRoll?.rollId;
+
+  if (roll) {
+    if (heldRoll !== roll) {
+      setHeldRoll(roll);
+    }
+    if (heldTaxSuit !== taxSuit) {
+      setHeldTaxSuit(taxSuit);
+    }
+  }
 
   if (
     gameKey !== prevGameKey ||
@@ -34,6 +53,10 @@ export function RollResult({
     setPrevRollId(roll?.rollId);
     setPrevTaxSuit(taxSuit);
     setIsPulsing(false);
+    if (gameKey !== prevGameKey && !roll) {
+      setHeldRoll(undefined);
+      setHeldTaxSuit(undefined);
+    }
     if (taxSuit === undefined) {
       setDisplayedSuit(undefined);
     }
@@ -68,35 +91,35 @@ export function RollResult({
     return () => clearTimeout(timer);
   }, [gameKey, roll?.rollId, taxSuit]);
 
-  if (!roll) {
+  if (!visibleRoll) {
     return <p className="roll-value">-</p>;
   }
 
-  const pulseDie1 = isPulsing && roll.die1 >= roll.die2;
-  const pulseDie2 = isPulsing && roll.die2 > roll.die1;
+  const pulseDie1 =
+    roll !== undefined && isPulsing && visibleRoll.die1 >= visibleRoll.die2;
+  const pulseDie2 =
+    roll !== undefined && isPulsing && visibleRoll.die2 > visibleRoll.die1;
 
   return (
     <div className="roll-value" aria-label="Roll result">
       <D10Die
-        result={roll.die1}
-        rollKey={
-          gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId
-        }
+        result={visibleRoll.die1}
+        rollKey={visibleRollKey}
         pulsing={pulseDie1}
-        dimmed={isPulsing && !pulseDie1}
+        dimmed={roll !== undefined && isPulsing && !pulseDie1}
       />
       <D10Die
-        result={roll.die2}
-        rollKey={
-          gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId
-        }
+        result={visibleRoll.die2}
+        rollKey={visibleRollKey}
         pulsing={pulseDie2}
-        dimmed={isPulsing && !pulseDie2}
+        dimmed={roll !== undefined && isPulsing && !pulseDie2}
       />
       <D6Die
-        suit={displayedSuit}
-        pulsing={isPulsing && displayedSuit !== undefined}
-        dimmed={d6Dimmed}
+        suit={roll === undefined ? visibleTaxSuit : displayedSuit}
+        pulsing={
+          roll !== undefined && isPulsing && displayedSuit !== undefined
+        }
+        dimmed={roll !== undefined && d6Dimmed}
       />
     </div>
   );

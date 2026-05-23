@@ -594,6 +594,7 @@ export function App() {
                   turnCyclePreludeActive ? undefined : humanView.lastTaxSuit
                 }
                 gameKey={state.seed}
+                holdPrevious={turnCyclePreludeActive}
               />
             </div>
             <PlayerTokenRail
