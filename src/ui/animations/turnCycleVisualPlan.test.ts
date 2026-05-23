@@ -44,10 +44,10 @@ describe('buildTurnCycleVisualPlan', () => {
       taxResourcesApplyAtMs: null,
       taxPulseTargets: [],
       taxFlightTokens: [],
-      // cursor starts at DICE_TAX_SETTLE_MS (2000); income flights at 2340 + 400 = 2740
-      hideAllAtMs: 2960,
+      // cursor starts at DICE_TAX_SETTLE_MS (2000); income flights at 2570 + 400 = 2970
+      hideAllAtMs: 3190,
     });
-    expect(plan.totalDurationMs).toBe(2980);
+    expect(plan.totalDurationMs).toBe(3210);
   });
 
   it('orders tax losses before income flights and preserves visual targets', () => {
@@ -89,11 +89,11 @@ describe('buildTurnCycleVisualPlan', () => {
     expect(plan.visualPlan).toMatchObject({
       // cursor = DICE_TAX_SETTLE_MS (2000); pulse starts there
       taxPulseStartAtMs: 2000,
-      // flights start at 2000 + 120 = 2120
-      taxFlightLaunchAtMs: 2120,
-      // 3 tokens, stagger 500, duration 900: 2120 + 2*500 + 900 = 4020
-      taxResourcesApplyAtMs: 4020,
-      taxPulseEndAtMs: 4020,
+      // flights start at 2000 + 350 = 2350
+      taxFlightLaunchAtMs: 2350,
+      // 3 tokens, stagger 500, duration 900: 2350 + 2*500 + 900 = 4250
+      taxResourcesApplyAtMs: 4250,
+      taxPulseEndAtMs: 4250,
       taxPulseTargets: [
         { playerId: 'PlayerA', suit: 'Moons' },
         { playerId: 'PlayerB', suit: 'Moons' },
@@ -107,17 +107,17 @@ describe('buildTurnCycleVisualPlan', () => {
         { playerId: 'PlayerA', count: 2 },
         { playerId: 'PlayerB', count: 1 },
       ],
-      // income cursor = 4020 + 220 = 4240; flights at 4240 + 400 = 4640
-      incomeFlightLaunchAtMs: 4640,
-      incomeHighlightStartAtMs: 4640,
-      // 2 tokens, stagger 95, duration 560: 4640 + 95 + 560 = 5295;
+      // income cursor = 4250 + 220 = 4470; flights at 4470 + 400 = 4870
+      incomeFlightLaunchAtMs: 4870,
+      incomeHighlightStartAtMs: 4870,
+      // 2 tokens, stagger 95, duration 560: 4870 + 95 + 560 = 5525;
       // highlighted income sources stay visible for at least 400 + 560ms
-      incomeHighlightEndAtMs: 5600,
-      hideAllAtMs: 5820,
+      incomeHighlightEndAtMs: 5830,
+      hideAllAtMs: 6050,
       highlightCardIds: ['29', '27'],
     });
-    expect(plan.incomeAnimationEndMs).toBe(5295);
-    expect(plan.totalDurationMs).toBe(5840);
+    expect(plan.incomeAnimationEndMs).toBe(5525);
+    expect(plan.totalDurationMs).toBe(6070);
   });
 
   it('deduplicates crown highlights by player and suit', () => {

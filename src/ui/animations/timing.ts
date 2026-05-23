@@ -19,7 +19,7 @@ export const DICE_D6_SETTLE_MS = 1000;
 export const DICE_TAX_SETTLE_MS = DICE_D10_SETTLE_MS + DICE_D6_SETTLE_MS;
 
 // Turn-cycle pre-flight timing knobs.
-export const TURN_CYCLE_TAX_PRE_FLIGHT_MS = 120;
+export const TURN_CYCLE_TAX_PRE_FLIGHT_MS = 550;
 export const TURN_CYCLE_INCOME_PRE_FLIGHT_MS = 400;
 export const TURN_CYCLE_STAGE_GAP_MS = 220;
 export const TURN_CYCLE_TAX_FLIGHT_DURATION_MS = 900;
@@ -59,10 +59,7 @@ export function cardFlightSettleMs(flights: readonly CardFlight[]): number {
 }
 
 export function shouldCommitBeforeAnimationSettle(action: GameAction): boolean {
-  return (
-    action.type === 'sell-card' ||
-    action.type === 'end-turn'
-  );
+  return action.type === 'sell-card' || action.type === 'end-turn';
 }
 
 export function shouldAllowHumanActionsDuringAnimationSettle(
