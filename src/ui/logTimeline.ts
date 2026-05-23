@@ -21,26 +21,88 @@ const SUIT_ORDER: readonly Suit[] = [
   'Knots',
 ];
 
+export interface DeferredIncomeLogContext {
+  turn: number;
+  player: PlayerId;
+  postTaxResourcesByPlayer: ReadonlyArray<{
+    playerId: PlayerId;
+    resources: ResourcePool;
+  }>;
+}
+
+export interface TimelineLogUpdate {
+  entries: GameLogEntry[];
+  deferredIncomeLogContext: DeferredIncomeLogContext | null;
+}
+
 export function transitionLogEntries(
   previousState: GameState,
   nextState: GameState,
   action: GameAction | undefined,
   humanPlayerId: PlayerId
 ): GameLogEntry[] {
+  return transitionLogUpdate(
+    previousState,
+    nextState,
+    action,
+    humanPlayerId,
+    null
+  ).entries;
+}
+
+export function transitionLogUpdate(
+  previousState: GameState,
+  nextState: GameState,
+  action: GameAction | undefined,
+  humanPlayerId: PlayerId,
+  deferredIncomeLogContext: DeferredIncomeLogContext | null
+): TimelineLogUpdate {
   const startIndex =
     nextState.log.length >= previousState.log.length
       ? previousState.log.length
       : 0;
   const engineEntries = nextState.log.slice(startIndex);
 
-  if (!action || action.type !== 'end-turn') {
-    return engineEntries;
+  if (!action) {
+    return {
+      entries: engineEntries,
+      deferredIncomeLogContext: null,
+    };
   }
 
-  return [
-    ...engineEntries,
-    ...resolveTurnCycleEntries(previousState, nextState, action, humanPlayerId),
-  ];
+  if (action.type === 'end-turn') {
+    const resolved = resolveTurnCycleEntries(
+      previousState,
+      nextState,
+      action,
+      humanPlayerId
+    );
+    return {
+      entries: [...engineEntries, ...resolved.entries],
+      deferredIncomeLogContext: resolved.deferredIncomeLogContext,
+    };
+  }
+
+  if (action.type === 'choose-income-suit') {
+    const resolved = resolveDeferredIncomeEntries(
+      nextState,
+      deferredIncomeLogContext,
+      humanPlayerId
+    );
+    return {
+      entries: [...engineEntries, ...resolved.entries],
+      deferredIncomeLogContext: resolved.deferredIncomeLogContext,
+    };
+  }
+
+  return {
+    entries: engineEntries,
+    deferredIncomeLogContext:
+      nextState.phase === 'CollectIncome' &&
+      (nextState.pendingIncomeChoices?.length ?? 0) > 0
+        ? deferredIncomeLogContext
+        : null,
+  };
 }
 
 function resolveTurnCycleEntries(
@@ -48,19 +110,17 @@ function resolveTurnCycleEntries(
   nextState: GameState,
   action: Extract<GameAction, { type: 'end-turn' }>,
   humanPlayerId: PlayerId
-): GameLogEntry[] {
+): TimelineLogUpdate {
   const cycle = deriveTurnCycleEvents(previousState, nextState, action);
   if (!cycle) {
-    return [];
+    return {
+      entries: [],
+      deferredIncomeLogContext: null,
+    };
   }
 
   const postTaxResources = postTaxResourcesByPlayer(previousState, cycle.tax);
   const taxSummary = summarizeTax(cycle.tax, humanPlayerId);
-  const incomeSummaries = summarizeIncome(
-    nextState,
-    postTaxResources,
-    humanPlayerId
-  );
 
   const taxEntries: GameLogEntry[] = [];
   if (taxSummary) {
@@ -72,7 +132,7 @@ function resolveTurnCycleEntries(
     });
   }
 
-  return [
+  const rollAndTaxEntries: GameLogEntry[] = [
     {
       turn: nextState.turn,
       player: cycle.cycleOwner,
@@ -80,13 +140,31 @@ function resolveTurnCycleEntries(
       summary: `Roll d10 ${cycle.roll.die1}/${cycle.roll.die2} (income ${cycle.incomeRank})`,
     },
     ...taxEntries,
-    ...incomeSummaries.map((summary) => ({
-      turn: nextState.turn,
-      player: cycle.cycleOwner,
-      phase: 'CollectIncome' as const,
-      summary,
-    })),
   ];
+
+  if (cycle.pendingChoices.length > 0) {
+    return {
+      entries: rollAndTaxEntries,
+      deferredIncomeLogContext: {
+        turn: nextState.turn,
+        player: cycle.cycleOwner,
+        postTaxResourcesByPlayer: resourceMapToEntries(postTaxResources),
+      },
+    };
+  }
+
+  return {
+    entries: [
+      ...rollAndTaxEntries,
+      ...incomeEntries(
+        nextState,
+        cycle.cycleOwner,
+        postTaxResources,
+        humanPlayerId
+      ),
+    ],
+    deferredIncomeLogContext: null,
+  };
 }
 
 function postTaxResourcesByPlayer(
@@ -143,6 +221,79 @@ function summarizeIncome(
     const delta = resourceDelta(baseline, player.resources);
     return `Income ${playerDisplayName(player.id, humanPlayerId)} ${formatDelta(delta)}`;
   });
+}
+
+function resolveDeferredIncomeEntries(
+  nextState: GameState,
+  context: DeferredIncomeLogContext | null,
+  humanPlayerId: PlayerId
+): TimelineLogUpdate {
+  if (!context) {
+    return {
+      entries: [],
+      deferredIncomeLogContext: null,
+    };
+  }
+
+  if (
+    nextState.phase === 'CollectIncome' &&
+    (nextState.pendingIncomeChoices?.length ?? 0) > 0
+  ) {
+    return {
+      entries: [],
+      deferredIncomeLogContext: context,
+    };
+  }
+
+  if (nextState.turn !== context.turn) {
+    return {
+      entries: [],
+      deferredIncomeLogContext: null,
+    };
+  }
+
+  return {
+    entries: incomeEntries(
+      nextState,
+      context.player,
+      resourceEntriesToMap(context.postTaxResourcesByPlayer),
+      humanPlayerId
+    ),
+    deferredIncomeLogContext: null,
+  };
+}
+
+function incomeEntries(
+  nextState: GameState,
+  player: PlayerId,
+  postTaxResources: Map<PlayerId, ResourcePool>,
+  humanPlayerId: PlayerId
+): GameLogEntry[] {
+  return summarizeIncome(nextState, postTaxResources, humanPlayerId).map(
+    (summary) => ({
+      turn: nextState.turn,
+      player,
+      phase: 'CollectIncome' as const,
+      summary,
+    })
+  );
+}
+
+function resourceMapToEntries(
+  resources: Map<PlayerId, ResourcePool>
+): DeferredIncomeLogContext['postTaxResourcesByPlayer'] {
+  return [...resources.entries()].map(([playerId, pool]) => ({
+    playerId,
+    resources: { ...pool },
+  }));
+}
+
+function resourceEntriesToMap(
+  entries: DeferredIncomeLogContext['postTaxResourcesByPlayer']
+): Map<PlayerId, ResourcePool> {
+  return new Map(
+    entries.map((entry) => [entry.playerId, { ...entry.resources }])
+  );
 }
 
 function resourceDelta(
