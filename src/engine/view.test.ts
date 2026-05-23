@@ -121,6 +121,8 @@ describe('toPlayerView', () => {
   });
 
   it('returns cloned data so mutating view does not mutate state', () => {
+    // Both players have pending choices; PlayerA has already submitted.
+    // PlayerA can see their own submission, so we can verify mutation isolation.
     const state = makeGameState({
       players: [
         makePlayer(PLAYER_A, {
@@ -139,13 +141,19 @@ describe('toPlayerView', () => {
           cardId: '6',
           suits: ['Moons', 'Knots'],
         },
-      ],
-      submittedIncomeChoices: [
         {
           playerId: PLAYER_B,
           districtId: 'D2',
-          cardId: '8',
-          suit: 'Leaves',
+          cardId: '7',
+          suits: ['Suns', 'Wyrms'],
+        },
+      ],
+      submittedIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suit: 'Moons',
         },
       ],
     });
@@ -179,7 +187,135 @@ describe('toPlayerView', () => {
     expect(state.deck.discard).toEqual([]);
     expect(state.districts[0].stacks.PlayerA.developed).toEqual([]);
     expect(state.pendingIncomeChoices?.[0].suits).toEqual(['Moons', 'Knots']);
-    expect(state.submittedIncomeChoices?.[0].suit).toBe('Leaves');
+    expect(state.submittedIncomeChoices?.[0].suit).toBe('Moons');
+  });
+
+  it('hides opponent submitted income choice and log entry until all choices are submitted', () => {
+    // PlayerB submitted first; PlayerA has not yet submitted.
+    // PlayerA's view must not reveal PlayerB's suit choice.
+    const state = {
+      ...makeGameState({
+        phase: 'CollectIncome',
+        players: [
+          makePlayer(PLAYER_A, { hand: ['6'] }),
+          makePlayer(PLAYER_B, { hand: ['7'] }),
+        ] as const,
+        pendingIncomeChoices: [
+          {
+            playerId: PLAYER_A,
+            districtId: 'D1',
+            cardId: '6',
+            suits: ['Moons', 'Knots'],
+          },
+          {
+            playerId: PLAYER_B,
+            districtId: 'D2',
+            cardId: '7',
+            suits: ['Suns', 'Wyrms'],
+          },
+        ],
+        submittedIncomeChoices: [
+          {
+            playerId: PLAYER_B,
+            districtId: 'D2',
+            cardId: '7',
+            suit: 'Suns',
+          },
+        ],
+        incomeChoiceReturnPlayerId: PLAYER_A,
+      }),
+      log: [
+        {
+          turn: 1,
+          player: PLAYER_B,
+          phase: 'CollectIncome' as const,
+          summary: 'income choice 7:Suns',
+        },
+      ],
+    };
+
+    const viewAsA = toPlayerView(state, PLAYER_A);
+    // PlayerA's submitted choices should be absent (they haven't submitted yet)
+    expect(viewAsA.submittedIncomeChoices).toBeUndefined();
+    // The bot's income choice log entry must not appear in PlayerA's log
+    expect(
+      viewAsA.log.some((e) => e.summary.startsWith('income choice '))
+    ).toBe(false);
+
+    // PlayerB's own view should still see their own submission
+    const viewAsB = toPlayerView(state, PLAYER_B);
+    expect(viewAsB.submittedIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '7',
+        suit: 'Suns',
+      },
+    ]);
+    // And PlayerB's own log entry is visible to them
+    expect(viewAsB.log.some((e) => e.summary === 'income choice 7:Suns')).toBe(
+      true
+    );
+  });
+
+  it('reveals all submitted income choices in the log once all players have submitted', () => {
+    // Both players have now submitted — selection is complete.
+    const state = {
+      ...makeGameState({
+        phase: 'CollectIncome',
+        players: [
+          makePlayer(PLAYER_A, { hand: ['6'] }),
+          makePlayer(PLAYER_B, { hand: ['7'] }),
+        ] as const,
+        pendingIncomeChoices: [
+          {
+            playerId: PLAYER_A,
+            districtId: 'D1',
+            cardId: '6',
+            suits: ['Moons', 'Knots'],
+          },
+          {
+            playerId: PLAYER_B,
+            districtId: 'D2',
+            cardId: '7',
+            suits: ['Suns', 'Wyrms'],
+          },
+        ],
+        submittedIncomeChoices: [
+          {
+            playerId: PLAYER_B,
+            districtId: 'D2',
+            cardId: '7',
+            suit: 'Suns',
+          },
+          {
+            playerId: PLAYER_A,
+            districtId: 'D1',
+            cardId: '6',
+            suit: 'Moons',
+          },
+        ],
+        incomeChoiceReturnPlayerId: PLAYER_A,
+      }),
+      log: [
+        {
+          turn: 1,
+          player: PLAYER_B,
+          phase: 'CollectIncome' as const,
+          summary: 'income choice 7:Suns',
+        },
+        {
+          turn: 1,
+          player: PLAYER_A,
+          phase: 'CollectIncome' as const,
+          summary: 'income choice 6:Moons',
+        },
+      ],
+    };
+
+    const viewAsA = toPlayerView(state, PLAYER_A);
+    expect(viewAsA.submittedIncomeChoices).toHaveLength(2);
+    expect(viewAsA.log.filter((e) => e.summary.startsWith('income choice '))).toHaveLength(2);
   });
 
   it('throws for unknown viewer ids', () => {
