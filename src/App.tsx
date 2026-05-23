@@ -117,6 +117,7 @@ export function App() {
       incomeHighlightCrowns,
       incomeResourcePreviewByPlayer,
       pendingDiscardHoldback,
+      pendingDrawCardIds,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,
     },
@@ -476,6 +477,22 @@ export function App() {
         resources: botPreviewResources,
       }
     : botPlayer;
+  const humanPanelPlayer =
+    pendingDrawCardIds.length > 0
+      ? {
+          ...humanPlayer,
+          hand: humanPlayer.hand.filter(
+            (id) => !pendingDrawCardIds.includes(id)
+          ),
+        }
+      : humanPlayer;
+  const botPendingDrawCount = pendingDrawCardIds.filter(
+    (id) => !humanPlayer.hand.includes(id)
+  ).length;
+  const botPanelPlayer =
+    botPendingDrawCount > 0
+      ? { ...botPlayer, handCount: botPlayer.handCount - botPendingDrawCount }
+      : botPlayer;
 
   return (
     <div className="app-shell">
@@ -548,7 +565,7 @@ export function App() {
 
           <PlayerPanel
             title="You"
-            player={humanPlayer}
+            player={humanPanelPlayer}
             isActive={!terminal && humanView.activePlayerId === HUMAN_PLAYER}
             score={score}
             terminal={terminal}
@@ -599,7 +616,7 @@ export function App() {
         <aside className="info-pane">
           <PlayerPanel
             title="Bot"
-            player={botPlayer}
+            player={botPanelPlayer}
             isActive={!terminal && humanView.activePlayerId === BOT_PLAYER}
             score={score}
             terminal={terminal}

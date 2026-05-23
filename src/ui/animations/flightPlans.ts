@@ -520,6 +520,7 @@ export function collectCardPlayFlights(
       nextPlayer &&
       nextPlayer.hand.length === previousPlayer.hand.length + 1;
     if (drewCard) {
+      const drawnCardId = nextPlayer.hand[nextPlayer.hand.length - 1];
       const sourceElement = domTargets.deckSource();
       const targetElement = domTargets.handDrawTarget(actingPlayerId);
       if (sourceElement && targetElement) {
@@ -530,6 +531,7 @@ export function collectCardPlayFlights(
             targetElement,
             'back',
             {
+              cardId: drawnCardId,
               delayMs: flights.length > 0 ? CARD_DRAW_FLIGHT_DELAY_MS : 0,
               variant: 'draw',
             },
