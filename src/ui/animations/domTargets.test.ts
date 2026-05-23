@@ -48,6 +48,88 @@ describe('domTargets', () => {
     expect(targets.deckSource()).toBe(stackTop);
   });
 
+  it('prefers explicit deck and discard animation anchors', () => {
+    const deckAnchor = makeElement();
+    const discardAnchor = makeElement();
+    const deckFallback = makeElement();
+    const discardFallback = makeElement();
+    const deckStack = makeElement({
+      queries: new Map([['.deck-pile-animation-anchor', deckAnchor]]),
+      queryAll: new Map([['.deck-pile-stack-card', [deckFallback]]]),
+    });
+    const discardStack = makeElement({
+      queries: new Map([['.discard-pile-animation-anchor', discardAnchor]]),
+      queryAll: new Map([['.deck-pile-stack-card', [discardFallback]]]),
+    });
+    const targets = createAnimationDomTargets(
+      makeEnvironment(
+        new Map([
+          ['.deck-pile-stack.is-deck', deckStack],
+          ['.deck-pile-stack.is-discard', discardStack],
+        ])
+      )
+    );
+
+    expect(targets.deckSource()).toBe(deckAnchor);
+    expect(targets.discardTarget()).toBe(discardAnchor);
+  });
+
+  it('prefers the centered hidden-hand animation anchor', () => {
+    const leftHiddenCard = makeElement();
+    const middleHiddenCard = makeElement();
+    const rightHiddenCard = makeElement();
+    const anchor = makeElement();
+    const hiddenSelector =
+      '.player-panel[data-player-id="PlayerB"] ' +
+      '.card-tile[data-hand-owner-id="PlayerB"][data-hand-slot-kind="hidden"]';
+    const anchorSelector =
+      '.player-panel[data-player-id="PlayerB"] ' +
+      '[data-hand-owner-id="PlayerB"][data-hand-animation-anchor="true"]';
+
+    const targetsWithoutAnchor = createAnimationDomTargets(
+      makeEnvironment(
+        new Map(),
+        new Map([
+          [hiddenSelector, [leftHiddenCard, middleHiddenCard, rightHiddenCard]],
+        ])
+      )
+    );
+    expect(targetsWithoutAnchor.handSource('PlayerB', '6')).toBe(
+      middleHiddenCard
+    );
+
+    const targetsWithAnchor = createAnimationDomTargets(
+      makeEnvironment(
+        new Map([[anchorSelector, anchor]]),
+        new Map([
+          [hiddenSelector, [leftHiddenCard, middleHiddenCard, rightHiddenCard]],
+        ])
+      )
+    );
+    expect(targetsWithAnchor.handSource('PlayerB', '6')).toBe(anchor);
+    expect(targetsWithAnchor.handDrawTarget('PlayerB')).toBe(anchor);
+  });
+
+  it('measures the board card size from lane CSS variables', () => {
+    const lane = makeElement({ width: 300, height: 500 });
+    const fallback = makeElement({ width: 80, height: 120 });
+    const targets = createAnimationDomTargets(
+      makeEnvironment(
+        new Map(),
+        new Map(),
+        new Map([
+          ['--card-width', '96px'],
+          ['--card-height', '140px'],
+        ])
+      )
+    );
+
+    expect(targets.laneCardSize(lane, fallback)).toEqual({
+      width: 96,
+      height: 140,
+    });
+  });
+
   it('targets an empty human lane from the top of its frame', () => {
     const frame = makeElement({ left: 100, top: 200, width: 180, height: 300 });
     const lane = makeElement({
@@ -89,17 +171,21 @@ describe('domTargets', () => {
 });
 
 function makeEnvironment(
-  queries: ReadonlyMap<string, HTMLElement> = new Map()
+  queries: ReadonlyMap<string, HTMLElement> = new Map(),
+  queryAll: ReadonlyMap<string, readonly HTMLElement[]> = new Map(),
+  computedValues: ReadonlyMap<string, string> = new Map()
 ): AnimationDomEnvironment {
   return {
     isAvailable: () => true,
     querySelector: <T extends Element>(selector: string) =>
       (queries.get(selector) as T | undefined) ?? null,
-    querySelectorAll: () => [],
+    querySelectorAll: <T extends Element>(selector: string) =>
+      (queryAll.get(selector) ?? []) as unknown as readonly T[],
     createElement: () => makeElement(),
     getComputedStyle: () =>
       ({
-        getPropertyValue: () => '',
+        getPropertyValue: (propertyName: string) =>
+          computedValues.get(propertyName) ?? '',
       }) as unknown as CSSStyleDeclaration,
     viewportHeight: () => 1000,
   };
@@ -120,16 +206,31 @@ function makeElement({
   queries?: ReadonlyMap<string, HTMLElement>;
   queryAll?: ReadonlyMap<string, readonly HTMLElement[]>;
 } = {}): HTMLElement {
+  const style = {} as CSSStyleDeclaration;
   return {
+    style,
     classList: {
       contains: () => false,
     },
-    getBoundingClientRect: () => makeRect(left, top, width, height),
+    appendChild: () => undefined,
+    remove: () => undefined,
+    getBoundingClientRect: () =>
+      makeRect(
+        left,
+        top,
+        parseStylePixelValue(style.width, width),
+        parseStylePixelValue(style.height, height)
+      ),
     querySelector: <T extends Element>(selector: string) =>
       (queries.get(selector) as T | undefined) ?? null,
     querySelectorAll: <T extends Element>(selector: string) =>
       (queryAll.get(selector) ?? []) as unknown as readonly T[],
   } as unknown as HTMLElement;
+}
+
+function parseStylePixelValue(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function makeRect(

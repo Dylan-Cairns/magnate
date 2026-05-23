@@ -74,6 +74,7 @@ export function DeckPiles({
                 2nd shuffle
               </span>
             ) : null}
+            <div className="deck-pile-animation-anchor" aria-hidden="true" />
           </div>
           <strong className="deck-pile-count">{drawCount}</strong>
         </div>
@@ -135,6 +136,7 @@ export function DeckPiles({
               ) : (
                 <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
               )}
+              <div className="discard-pile-animation-anchor" aria-hidden="true" />
             </div>
             <section
               className="player-score-popover discard-pile-popover"

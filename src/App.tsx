@@ -119,6 +119,7 @@ export function App() {
       incomeResourcePreviewByPlayer,
       pendingDiscardHoldback,
       pendingDrawCardIds,
+      activePlayerHighlightOverride,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,
     },
@@ -134,6 +135,7 @@ export function App() {
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const closeBugReport = useCallback(() => setBugReportOpen(false), []);
+  const visualActivePlayerId = activePlayerHighlightOverride ?? activePlayerId;
   const retryStartupPreload = useCallback(() => {
     setStartupPreloadReady(false);
     setStartupPreloadError(null);
@@ -566,7 +568,7 @@ export function App() {
 
           <PlayerPanel
             player={humanPanelPlayer}
-            isActive={!terminal && humanView.activePlayerId === HUMAN_PLAYER}
+            isActive={!terminal && visualActivePlayerId === HUMAN_PLAYER}
             score={score}
             terminal={terminal}
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
@@ -618,7 +620,7 @@ export function App() {
           <div className="bot-info-row">
             <BotHandPanel
               player={botPanelPlayer}
-              isActive={!terminal && humanView.activePlayerId === BOT_PLAYER}
+              isActive={!terminal && visualActivePlayerId === BOT_PLAYER}
               score={score}
               terminal={terminal}
               humanPlayerId={HUMAN_PLAYER}

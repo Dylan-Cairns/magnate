@@ -467,6 +467,9 @@ export function collectCardPlayFlights(
     const sourceElement = domTargets.handSource(actingPlayerId, action.cardId);
     if (sourceElement) {
       const laneElement = domTargets.lane(actingPlayerId, action.districtId);
+      const targetCardSize = laneElement
+        ? domTargets.laneCardSize(laneElement, sourceElement)
+        : null;
       const districtColumn = domTargets.districtColumn(action.districtId);
       const fallbackTargetElement =
         (laneElement ? domTargets.laneFrame(laneElement) : null) ??
@@ -476,7 +479,8 @@ export function collectCardPlayFlights(
         (laneElement
           ? domTargets.laneTargetCenter(
               laneElement,
-              sourceElement.getBoundingClientRect().height
+              targetCardSize?.height ??
+                sourceElement.getBoundingClientRect().height
             )
           : null) ??
         (fallbackTargetElement
@@ -500,6 +504,8 @@ export function collectCardPlayFlights(
               cardId: action.cardId,
               isDeed: action.type === 'buy-deed',
               perspective,
+              endWidth: targetCardSize?.width,
+              endHeight: targetCardSize?.height,
             },
             domTargets
           )
