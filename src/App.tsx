@@ -60,6 +60,29 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   message: 'Loading card images and bot models...',
 };
 
+const LOG_VISIBLE_KEY = 'magnate:logVisible';
+const MAP_VISIBLE_KEY = 'magnate:mapVisible';
+
+function readBooleanPreference(key: string, defaultValue: boolean): boolean {
+  if (typeof window === 'undefined') return defaultValue;
+  try {
+    const stored = window.localStorage.getItem(key);
+    if (stored === null) return defaultValue;
+    return stored !== 'false';
+  } catch {
+    return defaultValue;
+  }
+}
+
+function persistBooleanPreference(key: string, value: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value ? 'true' : 'false');
+  } catch {
+    // Ignore storage failures (e.g. private browsing restrictions).
+  }
+}
+
 function shouldShowResolutionWarningOnLoad(): boolean {
   if (typeof window === 'undefined') {
     return false;
@@ -81,8 +104,12 @@ export function App() {
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
   const [bugReportOpen, setBugReportOpen] = useState<boolean>(false);
-  const [logVisible, setLogVisible] = useState<boolean>(true);
-  const [mapVisible, setMapVisible] = useState<boolean>(true);
+  const [logVisible, setLogVisible] = useState<boolean>(() =>
+    readBooleanPreference(LOG_VISIBLE_KEY, true)
+  );
+  const [mapVisible, setMapVisible] = useState<boolean>(() =>
+    readBooleanPreference(MAP_VISIBLE_KEY, true)
+  );
   const [startupPreloadReady, setStartupPreloadReady] =
     useState<boolean>(false);
   const [startupPreloadError, setStartupPreloadError] = useState<string | null>(
@@ -178,6 +205,14 @@ export function App() {
       cancelled = true;
     };
   }, [startupPreloadAttempt]);
+
+  useEffect(() => {
+    persistBooleanPreference(LOG_VISIBLE_KEY, logVisible);
+  }, [logVisible]);
+
+  useEffect(() => {
+    persistBooleanPreference(MAP_VISIBLE_KEY, mapVisible);
+  }, [mapVisible]);
 
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
