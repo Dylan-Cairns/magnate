@@ -59,7 +59,6 @@ function resolveTurnCycleEntries(
   const incomeSummaries = summarizeIncome(
     nextState,
     postTaxResources,
-    cycle.pendingChoices.length,
     humanPlayerId
   );
 
@@ -137,20 +136,13 @@ function summarizeTax(
 function summarizeIncome(
   nextState: GameState,
   postTaxResources: Map<PlayerId, ResourcePool>,
-  pendingChoiceCount: number,
   humanPlayerId: PlayerId
 ): string[] {
-  const byPlayer = nextState.players.map((player) => {
+  return nextState.players.map((player) => {
     const baseline = postTaxResources.get(player.id) ?? player.resources;
     const delta = resourceDelta(baseline, player.resources);
     return `Income ${playerDisplayName(player.id, humanPlayerId)} ${formatDelta(delta)}`;
   });
-
-  if (pendingChoiceCount > 0) {
-    byPlayer.push(`Income pending choices ${pendingChoiceCount}`);
-  }
-
-  return byPlayer;
 }
 
 function resourceDelta(
