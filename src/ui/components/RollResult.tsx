@@ -55,7 +55,8 @@ export function RollResult({
   useEffect(() => {
     if (roll?.rollId === undefined) return;
     // When tax die is shown, wait for it to finish animating before pulsing anything
-    const delay = taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS;
+    const delay =
+      taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS;
     const timer = setTimeout(() => setIsPulsing(true), delay);
     return () => clearTimeout(timer);
   }, [gameKey, roll?.rollId, taxSuit]);
@@ -72,13 +73,31 @@ export function RollResult({
   }
 
   const pulseDie1 = isPulsing && roll.die1 >= roll.die2;
-  const pulseDie2 = isPulsing && roll.die2 >= roll.die1;
+  const pulseDie2 = isPulsing && roll.die2 > roll.die1;
 
   return (
     <div className="roll-value" aria-label="Roll result">
-      <D10Die result={roll.die1} rollKey={gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId} pulsing={pulseDie1} dimmed={isPulsing && !pulseDie1} />
-      <D10Die result={roll.die2} rollKey={gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId} pulsing={pulseDie2} dimmed={isPulsing && !pulseDie2} />
-      <D6Die suit={displayedSuit} pulsing={isPulsing && displayedSuit !== undefined} dimmed={d6Dimmed} />
+      <D10Die
+        result={roll.die1}
+        rollKey={
+          gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId
+        }
+        pulsing={pulseDie1}
+        dimmed={isPulsing && !pulseDie1}
+      />
+      <D10Die
+        result={roll.die2}
+        rollKey={
+          gameKey !== undefined ? `${gameKey}:${roll.rollId}` : roll.rollId
+        }
+        pulsing={pulseDie2}
+        dimmed={isPulsing && !pulseDie2}
+      />
+      <D6Die
+        suit={displayedSuit}
+        pulsing={isPulsing && displayedSuit !== undefined}
+        dimmed={d6Dimmed}
+      />
     </div>
   );
 }
