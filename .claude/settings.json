@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn typecheck)",
+      "Bash(yarn test)",
+      "Bash(yarn vitest run *)",
+      "Bash(yarn lint)",
+      "Bash(npx eslint *)"
+    ]
+  }
+}
