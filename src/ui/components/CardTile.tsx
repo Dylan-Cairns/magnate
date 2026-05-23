@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
-import {
-  CARD_BACK_IMAGE,
-  getCardImage,
-  isCardImageUrlReady,
-  preloadCardImageUrl,
-} from '../cardImages';
+import { getCardImage } from '../cardImages';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import {
@@ -150,44 +145,11 @@ function CardTileCard({
     progressValue,
     progressTarget
   );
-  const [cardImageReady, setCardImageReady] = useState<boolean>(() =>
-    isCardImageUrlReady(cardImage)
-  );
   const [animatedDeedProgressRatio, setAnimatedDeedProgressRatio] =
     useState<number>(deedProgressRatio);
   const animatedRatioRef = useRef(animatedDeedProgressRatio);
   const initializedRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (isCardImageUrlReady(cardImage)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCardImageReady(true);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setCardImageReady(false);
-    void preloadCardImageUrl(cardImage)
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        setCardImageReady(true);
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-        setCardImageReady(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cardImage]);
 
   useEffect(() => {
     animatedRatioRef.current = animatedDeedProgressRatio;
@@ -267,7 +229,7 @@ function CardTileCard({
   const deedProgressArcPath = buildDeedProgressArcPath(
     displayedDeedProgressRatio
   );
-  const displayedCardImage = cardImageReady ? cardImage : CARD_BACK_IMAGE;
+
 
   const metadataRow = (
     <div className="card-row card-meta">
@@ -331,7 +293,7 @@ function CardTileCard({
   const imageBody = (
     <div className="card-row card-body">
       <div className="card-image-frame" aria-hidden="true">
-        <img className="card-image" src={displayedCardImage} alt="" />
+        <img className="card-image" src={cardImage} alt="" />
       </div>
       {showDeedTokenRails ? (
         <>

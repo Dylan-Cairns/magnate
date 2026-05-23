@@ -49,8 +49,6 @@ const CARD_IMAGE_FILE_BY_NAME = {
   'The Watchman': 'pawn_watchman.png',
 } as const satisfies Record<CardName, string>;
 
-export const CARD_BACK_IMAGE_FILE = 'back.png';
-
 function resolveCardImageFile(fileName: string): string {
   const moduleKey = `../assets/CardImages/${fileName}`;
   const imageUrl = CARD_IMAGE_MODULES[moduleKey];
@@ -80,9 +78,8 @@ export const CARD_IMAGE_FILE_BY_ID = Object.freeze(
   mapByCardId(CARD_IMAGE_FILE_BY_NAME)
 );
 export const CARD_IMAGE_BY_ID = Object.freeze(mapByCardId(CARD_IMAGE_BY_NAME));
-export const CARD_BACK_IMAGE = resolveCardImageFile(CARD_BACK_IMAGE_FILE);
 export const ALL_CARD_IMAGE_URLS = Object.freeze(
-  Array.from(new Set([...Object.values(CARD_IMAGE_BY_ID), CARD_BACK_IMAGE]))
+  Array.from(new Set(Object.values(CARD_IMAGE_BY_ID)))
 );
 const PRELOADED_CARD_IMAGE_URLS = new Set<string>();
 const PRELOADED_CARD_IMAGE_BY_URL = new Map<string, HTMLImageElement>();
@@ -94,10 +91,6 @@ export function getCardImageFile(cardId: CardId): string {
 
 export function getCardImage(cardId: CardId): string {
   return CARD_IMAGE_BY_ID[cardId];
-}
-
-export function isCardImageUrlReady(url: string): boolean {
-  return PRELOADED_CARD_IMAGE_URLS.has(url);
 }
 
 export function preloadCardImageUrl(url: string): Promise<void> {
