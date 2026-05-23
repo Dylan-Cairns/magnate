@@ -1,3 +1,5 @@
+import type { CardId } from '../../engine/cards';
+import { PROPERTY_CARDS } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
 import { SUIT_ICON_BY_SUIT } from '../suitIcons';
 import { SUIT_TOKEN_BG } from './TokenComponents';
@@ -66,7 +68,24 @@ function lineAngleDeg(
 const positions = SUITS.map((_, i) => nodePos(i));
 const suitIndex = new Map<Suit, number>(SUITS.map((s, i) => [s, i]));
 
-export function DecktetSuitDiagram() {
+// Maps "SuitA|SuitB|rank" → CardId for all numeral property cards shown on edges.
+const CARD_BY_EDGE_KEY = new Map<string, CardId>(
+  PROPERTY_CARDS.flatMap((card) => {
+    if (card.suits.length !== 2) return [];
+    const [s1, s2] = card.suits;
+    const r = String(card.rank);
+    return [
+      [`${s1}|${s2}|${r}`, card.id],
+      [`${s2}|${s1}|${r}`, card.id],
+    ];
+  })
+);
+
+export function DecktetSuitDiagram({
+  dimmedCardIds,
+}: {
+  dimmedCardIds: ReadonlySet<CardId>;
+}) {
   return (
     <section className="panel suit-diagram-panel">
       <h2>Deck Map</h2>
@@ -118,11 +137,15 @@ export function DecktetSuitDiagram() {
                 } as React.CSSProperties
               }
             >
-              {label.split(' ').map((part, j) => (
-                <tspan key={j} dx={j === 0 ? 0 : 7}>
+              {label.split(' ').map((part, j) => {
+                const cardId = CARD_BY_EDGE_KEY.get(`${suitA}|${suitB}|${part}`);
+                const isDimmed = cardId !== undefined && dimmedCardIds.has(cardId);
+                return (
+                <tspan key={isDimmed ? `${j}d` : j} dx={j === 0 ? 0 : 7} opacity={isDimmed ? 0.25 : 1}>
                   {part}
                 </tspan>
-              ))}
+                );
+              })}
             </text>
           );
         })}
