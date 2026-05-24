@@ -35,7 +35,7 @@ describe('bugReport', () => {
       actionHistory,
       humanPlayerId: PLAYER_A,
       botPlayerId: PLAYER_B,
-      botProfileId: 'heuristic',
+      botProfileId: 'rollout-search-v2-medium',
       animationsEnabled: true,
       error: 'engine failed',
     });
@@ -44,7 +44,7 @@ describe('bugReport', () => {
     expect(report.game.state.seed).toBe('report-seed');
     expect(report.game.timelineLog).toEqual(timelineLog);
     expect(report.game.actionHistory).toEqual(actionHistory);
-    expect(report.game.botProfileId).toBe('heuristic');
+    expect(report.game.botProfileId).toBe('rollout-search-v2-medium');
     expect(report.game.animationsEnabled).toBe(true);
     expect(report.error).toBe('engine failed');
     expect(bugReportFilename()).toMatch(/^magnate-log-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.json$/);

@@ -174,7 +174,7 @@ function parseBotReference(value: unknown, label: string): BotSpec {
 
 function parseTdReplayBotReference(value: unknown, label: string): BotSpec {
   const spec = parseBotReference(value, label);
-  if (spec.kind === 'td-search' || spec.kind === 'td-root-search') {
+  if (spec.kind === 'td-root-search') {
     throw new Error(
       `${label}.kind ${spec.kind} is not supported by collect-td-replay yet; use random, heuristic, or search.`
     );

@@ -26,7 +26,7 @@ Typical outputs:
 - `artifacts/ts-bot-evals/<run>/matchup.json`
 - `artifacts/ts-bot-evals/<run>/summary.md`
 
-Config inputs can reference catalog presets with `{ "profileId": "heuristic" }` or define serializable bot specs directly.
+Config inputs can reference catalog presets with `{ "profileId": "rollout-search-v2-medium" }` or define serializable bot specs directly.
 
 ## TD Replay Export
 
@@ -58,4 +58,4 @@ Sweep aggregate artifacts are written with `status=running` before compute start
 
 ## Current Limitation
 
-Browser `td-search` specs are serializable through the shared policy factory, but direct Node eval of those specs still needs a local model-pack loader.
+Direct Node eval of future TD-root rollout specs still needs a local model-pack loader.

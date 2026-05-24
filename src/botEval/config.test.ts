@@ -25,14 +25,22 @@ describe('head-to-head config parsing', () => {
         },
       },
       opponent: {
-        profileId: 'heuristic',
+        profileId: 'rollout-search-v2-easy',
       },
     });
 
     expect(config.candidate.id).toBe('small-search');
     expect(config.opponent).toEqual({
-      id: 'heuristic',
-      kind: 'heuristic',
+      id: 'rollout-search-v2-easy',
+      kind: 'search',
+      config: {
+        worlds: 20,
+        rollouts: 1,
+        depth: 80,
+        maxRootActions: 10,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
     });
   });
 
@@ -43,8 +51,8 @@ describe('head-to-head config parsing', () => {
         runLabel: 'duplicate-test',
         seedPrefix: 'duplicate-test',
         gamesPerSide: 1,
-        candidate: { profileId: 'heuristic' },
-        opponent: { profileId: 'heuristic' },
+        candidate: { profileId: 'rollout-search-v2-easy' },
+        opponent: { profileId: 'rollout-search-v2-easy' },
       })
     ).toThrow('distinct');
   });
@@ -52,7 +60,7 @@ describe('head-to-head config parsing', () => {
   it('parses rollout-search sweep configs', () => {
     const config = parseRolloutSearchSweepConfig(sweepConfig());
 
-    expect(config.opponent.id).toBe('heuristic');
+    expect(config.opponent.id).toBe('rollout-search-v2-easy');
     expect(config.candidates.map((candidate) => candidate.id)).toEqual([
       'search-one',
     ]);
@@ -91,38 +99,26 @@ describe('head-to-head config parsing', () => {
   it('parses TD replay configs and resolves profile specs without using profile policies', () => {
     const config = parseTdReplayConfig({
       schemaVersion: 1,
-      runLabel: 'td-replay-test',
-      seedPrefix: 'td-replay-test',
-      games: 2,
-      playerA: { profileId: 'rollout-eval-search' },
-      playerB: { id: 'random-b', kind: 'random' },
-    });
+        runLabel: 'td-replay-test',
+        seedPrefix: 'td-replay-test',
+        games: 2,
+        playerA: { profileId: 'rollout-search-v2-medium' },
+        playerB: { id: 'random-b', kind: 'random' },
+      });
 
     expect(config.playerA).toEqual({
-      id: 'rollout-eval-search',
+      id: 'rollout-search-v2-medium',
       kind: 'search',
       config: {
-        worlds: 50,
+        worlds: 10,
         rollouts: 1,
-        depth: 160,
-        maxRootActions: 8,
+        depth: 40,
+        maxRootActions: 16,
         rolloutEpsilon: 0,
+        heuristic: 'v2',
       },
     });
     expect(config.playerB).toEqual({ id: 'random-b', kind: 'random' });
-  });
-
-  it('rejects TD replay configs with td-search specs', () => {
-    expect(() =>
-      parseTdReplayConfig({
-        schemaVersion: 1,
-        runLabel: 'td-replay-test',
-        seedPrefix: 'td-replay-test',
-        games: 1,
-        playerA: { profileId: 'td-search-fast' },
-        playerB: { id: 'random-b', kind: 'random' },
-      })
-    ).toThrow('td-search is not supported');
   });
 
   it('rejects TD replay configs with td-root-search specs', () => {
@@ -132,7 +128,17 @@ describe('head-to-head config parsing', () => {
         runLabel: 'td-replay-test',
         seedPrefix: 'td-replay-test',
         games: 1,
-        playerA: { profileId: 'td-root-rollout-search' },
+        playerA: {
+          id: 'td-root-inline',
+          kind: 'td-root-search',
+          config: {
+            worlds: 1,
+            rollouts: 1,
+            depth: 1,
+            maxRootActions: 1,
+            rolloutEpsilon: 0,
+          },
+        },
         playerB: { id: 'random-b', kind: 'random' },
       })
     ).toThrow('td-root-search is not supported');
@@ -158,7 +164,7 @@ function sweepConfig() {
     runLabel: 'sweep-test',
     seedPrefix: 'sweep-test',
     gamesPerSide: 1,
-    opponent: { profileId: 'heuristic' },
+    opponent: { profileId: 'rollout-search-v2-easy' },
     candidates: [searchSpec('search-one')],
   };
 }

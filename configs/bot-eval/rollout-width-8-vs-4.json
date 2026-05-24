@@ -4,7 +4,7 @@
   "seedPrefix": "rollout-width-8-vs-4",
   "gamesPerSide": 25,
   "candidate": {
-    "profileId": "rollout-eval-search"
+    "profileId": "rollout-search-v2-medium"
   },
   "opponent": {
     "id": "rollout-width-4",

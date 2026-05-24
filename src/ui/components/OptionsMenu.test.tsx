@@ -11,7 +11,7 @@ describe('OptionsMenu', () => {
     const html = renderToStaticMarkup(
       <OptionsMenu
         open
-        botProfileId="rollout-eval-search"
+        botProfileId="rollout-search-v2-medium"
         botStatusText="Selected bot status"
         animationsEnabled
         menuRef={createRef<HTMLElement>()}
@@ -42,7 +42,7 @@ describe('OptionsMenu', () => {
     expect(html).toContain('aria-label="Report a bug"');
     expect(html).toContain('id="seed-input"');
     expect(html).toContain('id="bot-profile-select"');
-    expect(html).toContain('value="rollout-eval-search" selected=""');
+    expect(html).toContain('value="rollout-search-v2-medium" selected=""');
     expect(html).toContain('id="animations-toggle" type="checkbox" checked=""');
     expect(html).toContain('Selected bot status');
   });

@@ -6,40 +6,35 @@ import {
 } from './startupPreload';
 
 describe('startupPreload', () => {
-  it('preloads images and models and reports progress', async () => {
+  it('preloads images and reports progress', async () => {
     const loadedImages: string[] = [];
-    let tdValueLoads = 0;
-    let tdSearchLoads = 0;
     const progressEvents: StartupPreloadProgress[] = [];
 
     await preloadStartupAssets({
       cardImageUrls: ['image-a.png', 'image-b.png'],
+      suitIconUrls: ['suit-a.svg'],
       preloadImage: async (url) => {
         loadedImages.push(url);
-      },
-      preloadTdValueModel: async () => {
-        tdValueLoads += 1;
-      },
-      preloadTdSearchModel: async () => {
-        tdSearchLoads += 1;
       },
       onProgress: (progress) => {
         progressEvents.push(progress);
       },
     });
 
-    expect([...loadedImages].sort()).toEqual(['image-a.png', 'image-b.png']);
-    expect(tdValueLoads).toBe(1);
-    expect(tdSearchLoads).toBe(1);
-    expect(progressEvents).toHaveLength(6);
+    expect([...loadedImages].sort()).toEqual([
+      'image-a.png',
+      'image-b.png',
+      'suit-a.svg',
+    ]);
+    expect(progressEvents).toHaveLength(5);
     expect(progressEvents[0]).toMatchObject({
       completed: 0,
-      total: 4,
+      total: 3,
       percent: 0,
     });
     expect(progressEvents.at(-1)).toMatchObject({
-      completed: 4,
-      total: 4,
+      completed: 3,
+      total: 3,
       percent: 100,
       message: 'Assets are ready.',
     });
@@ -48,13 +43,12 @@ describe('startupPreload', () => {
   it('propagates preload failures', async () => {
     await expect(
       preloadStartupAssets({
-        cardImageUrls: [],
-        preloadImage: async () => undefined,
-        preloadTdValueModel: async () => undefined,
-        preloadTdSearchModel: async () => {
-          throw new Error('search model failed');
+        cardImageUrls: ['broken.png'],
+        suitIconUrls: [],
+        preloadImage: async () => {
+          throw new Error('image failed');
         },
       })
-    ).rejects.toThrow('search model failed');
+    ).rejects.toThrow('image failed');
   });
 });
