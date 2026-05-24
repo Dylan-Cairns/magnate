@@ -25,31 +25,40 @@ import type {
   SubmittedIncomeChoice,
 } from './types';
 
-export function applyAction(state: GameState, action: GameAction): GameState {
+export interface ApplyActionOptions {
+  recordLog?: boolean;
+}
+
+export function applyAction(
+  state: GameState,
+  action: GameAction,
+  options: ApplyActionOptions = {}
+): GameState {
   assertActionIsLegal(state, action);
 
-  return applyKnownLegalAction(state, action);
+  return applyKnownLegalAction(state, action, options);
 }
 
 export function applyKnownLegalAction(
   state: GameState,
-  action: GameAction
+  action: GameAction,
+  options: ApplyActionOptions = {}
 ): GameState {
   switch (action.type) {
     case 'choose-income-suit':
-      return chooseIncomeSuit(state, action);
+      return chooseIncomeSuit(state, action, options);
     case 'end-turn':
-      return endTurn(state);
+      return endTurn(state, options);
     case 'trade':
-      return trade(state, action);
+      return trade(state, action, options);
     case 'develop-deed':
-      return developDeed(state, action);
+      return developDeed(state, action, options);
     case 'develop-outright':
-      return developOutright(state, action);
+      return developOutright(state, action, options);
     case 'buy-deed':
-      return buyDeed(state, action);
+      return buyDeed(state, action, options);
     case 'sell-card':
-      return sellCard(state, action);
+      return sellCard(state, action, options);
   }
 
   return state;
@@ -124,16 +133,20 @@ function sameSuitCounts(
   return SUITS.every((suit) => (left[suit] ?? 0) === (right[suit] ?? 0));
 }
 
-function endTurn(state: GameState): GameState {
+function endTurn(
+  state: GameState,
+  options: ApplyActionOptions
+): GameState {
   if (!state.cardPlayedThisTurn) {
     throw new Error('Cannot end turn before a card has been played.');
   }
-  return log({ ...state, phase: 'DrawCard' }, 'end turn');
+  return log({ ...state, phase: 'DrawCard' }, 'end turn', undefined, options);
 }
 
 function chooseIncomeSuit(
   state: GameState,
-  action: Extract<GameAction, { type: 'choose-income-suit' }>
+  action: Extract<GameAction, { type: 'choose-income-suit' }>,
+  options: ApplyActionOptions
 ): GameState {
   const pendingChoices = state.pendingIncomeChoices ?? [];
   if (pendingChoices.length === 0) {
@@ -170,7 +183,8 @@ function chooseIncomeSuit(
       submittedIncomeChoices,
     },
     `income choice ${action.cardId}:${action.suit}`,
-    action.playerId
+    action.playerId,
+    options
   );
 
   if (submittedIncomeChoices.length < pendingChoices.length) {
@@ -253,7 +267,8 @@ function resolveSubmittedIncomeChoices(
 
 function trade(
   state: GameState,
-  action: Extract<GameAction, { type: 'trade' }>
+  action: Extract<GameAction, { type: 'trade' }>,
+  options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   if (action.give === action.receive) {
@@ -269,12 +284,18 @@ function trade(
     resources: applyDelta(player.resources, delta),
   });
 
-  return log(updated, `trade ${action.give} for ${action.receive}`);
+  return log(
+    updated,
+    `trade ${action.give} for ${action.receive}`,
+    undefined,
+    options
+  );
 }
 
 function developDeed(
   state: GameState,
-  action: Extract<GameAction, { type: 'develop-deed' }>
+  action: Extract<GameAction, { type: 'develop-deed' }>,
+  options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   const card = getPropertyCard(action.cardId);
@@ -333,12 +354,18 @@ function developDeed(
   );
 
   const updated = replaceActivePlayer(state, { ...player, resources });
-  return log({ ...updated, districts }, `advance ${action.cardId}`);
+  return log(
+    { ...updated, districts },
+    `advance ${action.cardId}`,
+    undefined,
+    options
+  );
 }
 
 function developOutright(
   state: GameState,
-  action: Extract<GameAction, { type: 'develop-outright' }>
+  action: Extract<GameAction, { type: 'develop-outright' }>,
+  options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   const card = getPropertyCard(action.cardId);
@@ -391,13 +418,16 @@ function developOutright(
       phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
-    `develop ${action.cardId}`
+    `develop ${action.cardId}`,
+    undefined,
+    options
   );
 }
 
 function buyDeed(
   state: GameState,
-  action: Extract<GameAction, { type: 'buy-deed' }>
+  action: Extract<GameAction, { type: 'buy-deed' }>,
+  options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   const card = getPropertyCard(action.cardId);
@@ -433,13 +463,16 @@ function buyDeed(
       phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
-    `buy deed ${action.cardId}`
+    `buy deed ${action.cardId}`,
+    undefined,
+    options
   );
 }
 
 function sellCard(
   state: GameState,
-  action: Extract<GameAction, { type: 'sell-card' }>
+  action: Extract<GameAction, { type: 'sell-card' }>,
+  options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   assertPlayerHasCard(player, action.cardId);
@@ -462,7 +495,9 @@ function sellCard(
       phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
-    `sell ${action.cardId}`
+    `sell ${action.cardId}`,
+    undefined,
+    options
   );
 }
 
@@ -608,8 +643,12 @@ function negate(
 function log(
   state: GameState,
   summary: string,
-  playerId?: PlayerId
+  playerId?: PlayerId,
+  options: ApplyActionOptions = {}
 ): GameState {
+  if (options.recordLog === false) {
+    return state;
+  }
   const entryPlayerId = playerId ?? state.players[state.activePlayerIndex]?.id;
   if (!entryPlayerId) {
     throw new Error('Cannot append log entry without an active player.');

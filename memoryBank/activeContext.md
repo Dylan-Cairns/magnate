@@ -26,6 +26,9 @@
 - Browser heuristic, rollout search, TD search, and TD-root search share deterministic policy plumbing where appropriate.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
+- Rollout-search simulations use no-log engine stepping so simulated playouts do
+  not grow/copy human-readable game logs; real games and exported transcripts
+  still use normal logged stepping.
 - Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and serial or sharded rollout-search TD replay exports.
 - TypeScript TD replay action rows include required `actionProbs` targets:
   search policies derive them from root visit counts, and Python opponent/action
