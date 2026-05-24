@@ -7,10 +7,6 @@ import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
 import type { GameAction, GameState, PlayerId } from '../engine/types';
 import {
-  DEFAULT_TD_SEARCH_MODEL_INDEX_PATH,
-  preloadTdSearchBrowserModel,
-} from './modelRuntimeCache';
-import {
   selectRolloutSearchActionSync,
   type RolloutSearchRootGuide,
   type RolloutSearchRootGuideInput,
@@ -21,7 +17,7 @@ import {
   type SearchPolicyOptions,
 } from './searchConfig';
 import { evaluateSearchTerminalState } from './searchStateEvaluator';
-import type { LoadedTdSearchModel } from './tdSearchModelPack';
+import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
 import { encodeActionCandidates, encodeObservation } from './trainingEncoding';
 import type { ActionPolicy } from './types';
 
@@ -29,7 +25,7 @@ export type TdRootSearchPolicyConfig = SearchPolicyConfig;
 
 export type TdRootSearchPolicyOptions = SearchPolicyOptions & {
   modelIndexPath?: string;
-  loadModel?: () => Promise<LoadedTdSearchModel>;
+  loadModel?: () => Promise<LoadedTdGuidanceModel>;
   rootPriorTemperature?: number;
 };
 
@@ -43,14 +39,10 @@ export function createTdRootSearchPolicy(
     options.rootPriorTemperature ?? DEFAULT_ROOT_PRIOR_TEMPERATURE
   );
   const configuredLoader =
-    options.loadModel ??
-    (() =>
-      preloadTdSearchBrowserModel(
-        options.modelIndexPath ?? DEFAULT_TD_SEARCH_MODEL_INDEX_PATH
-      ));
+    options.loadModel ?? (() => missingTdRootSearchModel(options.modelIndexPath));
 
-  let modelPromise: Promise<LoadedTdSearchModel> | null = null;
-  function getModel(): Promise<LoadedTdSearchModel> {
+  let modelPromise: Promise<LoadedTdGuidanceModel> | null = null;
+  function getModel(): Promise<LoadedTdGuidanceModel> {
     if (modelPromise === null) {
       modelPromise = configuredLoader();
     }
@@ -104,7 +96,7 @@ export function createTdRootSearchRootGuide({
   model,
   rootPriorTemperature = DEFAULT_ROOT_PRIOR_TEMPERATURE,
 }: RolloutSearchRootGuideInput & {
-  model: LoadedTdSearchModel;
+  model: LoadedTdGuidanceModel;
   rootPriorTemperature?: number;
 }): RolloutSearchRootGuide {
   const temperature = resolveRootPriorTemperature(rootPriorTemperature);
@@ -167,7 +159,7 @@ function scoreRootActionInWorld({
   world: GameState;
   action: GameAction;
   rootPlayer: PlayerId;
-  model: LoadedTdSearchModel;
+  model: LoadedTdGuidanceModel;
 }): number {
   const next = stepToDecision(world, action);
   if (isTerminal(next)) {
@@ -199,7 +191,7 @@ function tdRootPriorsByKey({
   view: RolloutSearchRootGuideInput['view'];
   actions: readonly GameAction[];
   actionKeys: readonly string[];
-  model: LoadedTdSearchModel;
+  model: LoadedTdGuidanceModel;
   temperature: number;
 }): Map<string, number> {
   const observation = encodeObservation(view);
@@ -247,6 +239,13 @@ function resolveRootPriorTemperature(value: number): number {
     );
   }
   return value;
+}
+
+async function missingTdRootSearchModel(
+  modelIndexPath: string | undefined
+): Promise<never> {
+  const suffix = modelIndexPath ? ` for ${modelIndexPath}` : '';
+  throw new Error(`TD root search model loader is not configured${suffix}.`);
 }
 
 function approximatelyEqual(left: number, right: number): boolean {

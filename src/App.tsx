@@ -61,7 +61,7 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   completed: 0,
   total: 1,
   percent: 0,
-  message: 'Loading card images and bot models...',
+  message: 'Loading card images...',
 };
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';

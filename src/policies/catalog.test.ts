@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  BOT_PROFILES,
-  getBotProfile,
-} from './catalog';
+import { BOT_PROFILES, getBotProfile } from './catalog';
 
 describe('bot policy catalog', () => {
   it('throws when profile id is unknown', () => {
@@ -17,8 +14,12 @@ describe('bot policy catalog', () => {
     expect(BOT_PROFILES.every((profile) => profile.available)).toBe(true);
   });
 
-  it('includes at least one search profile', () => {
+  it('includes only rollout-search profiles for the active browser catalog', () => {
+    expect(BOT_PROFILES.length).toBe(3);
     expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(
+      true
+    );
+    expect(BOT_PROFILES.every((profile) => profile.kind === 'search')).toBe(
       true
     );
   });
@@ -32,32 +33,8 @@ describe('bot policy catalog', () => {
     ).toBe(true);
   });
 
-  it('does not include a browser td-value profile', () => {
-    const profileIds = BOT_PROFILES.map((profile) => profile.id);
-    expect(profileIds).not.toContain('td-value-browser');
-  });
-
-  it('includes a browser td-search profile', () => {
-    expect(
-      BOT_PROFILES.some((profile) => profile.id === 'td-search-browser')
-    ).toBe(true);
-  });
-
-  it('includes a heuristic profile', () => {
-    const heuristic = getBotProfile('heuristic');
-
-    expect(heuristic.kind).toBe('heuristic');
-    expect(heuristic.available).toBe(true);
-  });
-
-  it('includes a fast td-search profile', () => {
-    expect(
-      BOT_PROFILES.some((profile) => profile.id === 'td-search-fast')
-    ).toBe(true);
-  });
-
   it('includes a rollout-search v2 profile using the v2 heuristic', () => {
-    const profile = getBotProfile('rollout-search-v2');
+    const profile = getBotProfile('rollout-search-v2-medium');
 
     expect(profile.kind).toBe('search');
     expect(profile.available).toBe(true);

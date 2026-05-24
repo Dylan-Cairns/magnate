@@ -6,7 +6,7 @@ import { rngFromSeed } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import { toPlayerView } from '../engine/view';
-import type { LoadedTdSearchModel } from './tdSearchModelPack';
+import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
 import {
   createTdRootSearchPolicy,
   createTdRootSearchRootGuide,
@@ -126,34 +126,8 @@ function fakeModel({
     observation: readonly number[],
     actionFeatures: readonly number[][]
   ) => Float32Array;
-}): LoadedTdSearchModel {
+}): LoadedTdGuidanceModel {
   return {
-    manifest: {
-      schemaVersion: 1,
-      packId: 'td-root-search-test',
-      label: 'td-root-search-test',
-      createdAtUtc: '2026-06-05T00:00:00Z',
-      model: {
-        modelType: 'td-search-v1',
-        weightsPath: 'weights.json',
-        value: {
-          checkpointType: 'magnate_td_value_v1',
-          encodingVersion: 2,
-          observationDim: OBSERVATION_DIM,
-          hiddenDim: 8,
-          requiredStateDictKeys: [],
-        },
-        opponent: {
-          checkpointType: 'magnate_td_opponent_v1',
-          encodingVersion: 2,
-          observationDim: OBSERVATION_DIM,
-          actionFeatureDim: ACTION_FEATURE_DIM,
-          hiddenDim: 8,
-          requiredStateDictKeys: [],
-        },
-      },
-      source: {},
-    },
     valueScorer: {
       observationDim: OBSERVATION_DIM,
       predict,

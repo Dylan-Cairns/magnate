@@ -23,7 +23,7 @@
 - Browser controller/UI partial deed income follows the simultaneous engine phase: human and bot can submit owned income choices from the shared pending state, and resource flights occur on final reveal.
 - Vite dev builds support `?fixture=multi-income` for multiple partial-income choices and `?fixture=late-game` for a heuristic-rollout late-game board.
 - Bridge, direct TypeScript evaluation, replay collection, and TD policy lookahead use a single policy-facing decision actor during simultaneous income: one unsubmitted income-choice owner is exposed at a time in pending-choice order, with observations and masks aligned to that actor.
-- Browser heuristic, rollout search, TD search, and TD-root search share deterministic policy plumbing where appropriate.
+- Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
@@ -42,9 +42,9 @@
 
 ## Remaining Work
 
-- Improve `td-search` strength and throughput.
+- Make `td-root-search` the canonical TD-guided browser rollout bot using the rollout-search core end to end.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
-- Add Node-local model-pack loading for direct TypeScript evaluation of serialized `td-search` specs.
+- Add Node-local model-pack loading for direct TypeScript evaluation of serialized TD-root rollout specs when that path is enabled.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
 - Keep setup, wrapper, training, and bot-eval procedures in `docs/runbooks/` rather than expanding Memory Bank files.
 
@@ -56,4 +56,4 @@
 4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-06-09._
+_Updated: 2026-06-18._

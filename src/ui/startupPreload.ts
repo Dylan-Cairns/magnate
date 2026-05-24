@@ -1,11 +1,7 @@
-import {
-  preloadTdSearchBrowserModel,
-  preloadTdValueBrowserModel,
-} from '../policies/modelRuntimeCache';
 import { ALL_CARD_IMAGE_URLS, preloadCardImageUrl } from './cardImages';
 import { ALL_SUIT_ICON_URLS } from './suitIcons';
 
-const STARTUP_PRELOAD_LOADING_MESSAGE = 'Loading card images and bot models...';
+const STARTUP_PRELOAD_LOADING_MESSAGE = 'Loading card images...';
 const STARTUP_PRELOAD_READY_MESSAGE = 'Assets are ready.';
 
 export interface StartupPreloadProgress {
@@ -20,8 +16,6 @@ export interface StartupPreloadOptions {
   cardImageUrls?: readonly string[];
   suitIconUrls?: readonly string[];
   preloadImage?: (url: string) => Promise<void>;
-  preloadTdValueModel?: () => Promise<unknown>;
-  preloadTdSearchModel?: () => Promise<unknown>;
 }
 
 export async function preloadStartupAssets(
@@ -30,16 +24,10 @@ export async function preloadStartupAssets(
   const cardImageUrls = options.cardImageUrls ?? ALL_CARD_IMAGE_URLS;
   const suitIconUrls = options.suitIconUrls ?? ALL_SUIT_ICON_URLS;
   const preloadImage = options.preloadImage ?? preloadCardImageUrl;
-  const preloadTdValueModel =
-    options.preloadTdValueModel ?? preloadTdValueBrowserModel;
-  const preloadTdSearchModel =
-    options.preloadTdSearchModel ?? preloadTdSearchBrowserModel;
 
   const tasks: Array<() => Promise<unknown>> = [
     ...cardImageUrls.map((url) => () => preloadImage(url)),
     ...suitIconUrls.map((url) => () => preloadImage(url)),
-    preloadTdValueModel,
-    preloadTdSearchModel,
   ];
 
   const total = tasks.length;
