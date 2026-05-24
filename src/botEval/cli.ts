@@ -58,7 +58,7 @@ async function main(): Promise<void> {
       return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -221,15 +221,17 @@ async function runCollectTdReplayShardedCommand(
   const outputDirectory =
     flags.get('--out-dir') ?? defaultShardedTdReplayOutputDirectory();
   const workers = parseWorkers(flags);
+  const shardGames = parseOptionalPositiveInteger(flags, '--shard-games');
   const progressIntervalMs = parseProgressIntervalMs(flags);
   process.stderr.write(
-    `[td-replay-sharded] started playerA=${config.playerA.id} playerB=${config.playerB.id} games=${String(config.games)} workers=${String(workers)}\n`
+    `[td-replay-sharded] started playerA=${config.playerA.id} playerB=${config.playerB.id} games=${String(config.games)} workers=${String(workers)} shardGames=${formatOptionalShardGames(shardGames)}\n`
   );
   const written = await collectAndWriteShardedTdReplayArtifacts(
     config,
     outputDirectory,
     {
       workers,
+      ...(shardGames === undefined ? {} : { shardGames }),
       progressIntervalMs,
       onProgress: logTdReplayShardProgress,
     }
@@ -314,6 +316,21 @@ function parseWorkers(flags: ReadonlyMap<string, string>): number {
   return workers;
 }
 
+function parseOptionalPositiveInteger(
+  flags: ReadonlyMap<string, string>,
+  name: string
+): number | undefined {
+  const value = flags.get(name);
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return parsed;
+}
+
 function logRolloutSearchSweepProgress(
   progress: RolloutSearchSweepProgress
 ): void {
@@ -366,7 +383,7 @@ function logTdReplayShardProgress(progress: TdReplayShardProgress): void {
   switch (progress.type) {
     case 'sharded-started':
       process.stderr.write(
-        `[td-replay-sharded] shards started games=${String(progress.games)} workers=${String(progress.workers)} requestedWorkers=${String(progress.requestedWorkers)} directory=${path.resolve(progress.runDirectory)}\n`
+        `[td-replay-sharded] shards started games=${String(progress.games)} shards=${String(progress.shards)} workers=${String(progress.workers)} requestedWorkers=${String(progress.requestedWorkers)} shardGames=${formatOptionalShardGames(progress.shardGames)} directory=${path.resolve(progress.runDirectory)}\n`
       );
       return;
     case 'shard-started':
@@ -421,6 +438,10 @@ function formatDecimal(value: number): string {
 
 function formatMilliseconds(value: number): string {
   return `${value.toFixed(1)}ms`;
+}
+
+function formatOptionalShardGames(value: number | undefined): string {
+  return value === undefined ? 'auto' : String(value);
 }
 
 void main().catch((error: unknown) => {

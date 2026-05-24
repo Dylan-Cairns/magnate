@@ -37,6 +37,8 @@ export interface TdReplayShardExecution {
   requestedWorkers: number;
   workers: number;
   parallelUnit: 'contiguous-game-range';
+  shards: number;
+  shardGames?: number;
 }
 
 export interface TdReplayShardSummaryEntry {
@@ -91,6 +93,7 @@ export interface TdReplayShardedSummary {
 
 export interface CollectShardedTdReplayOptions {
   workers: number;
+  shardGames?: number;
   cwd?: string;
   generatedAtUtc?: string;
   git?: GitMetadata;
@@ -105,6 +108,8 @@ export type TdReplayShardProgress =
       type: 'sharded-started';
       requestedWorkers: number;
       workers: number;
+      shards: number;
+      shardGames?: number;
       games: number;
       runDirectory: string;
     }
@@ -140,15 +145,39 @@ interface PoolWorker {
   activeShardIndex?: number;
 }
 
+export interface PlanContiguousTdReplayShardsOptions {
+  games: number;
+  workers: number;
+  shardGames?: number;
+}
+
 export function planContiguousTdReplayShards(
-  games: number,
-  workers: number
+  options: PlanContiguousTdReplayShardsOptions
 ): TdReplayShardPlan[] {
+  const { games, workers, shardGames } = options;
   if (!Number.isInteger(games) || games <= 0) {
     throw new Error('games must be a positive integer.');
   }
   if (!Number.isInteger(workers) || workers <= 0) {
     throw new Error('workers must be a positive integer.');
+  }
+  if (shardGames !== undefined) {
+    if (!Number.isInteger(shardGames) || shardGames <= 0) {
+      throw new Error('shardGames must be a positive integer.');
+    }
+    const shards: TdReplayShardPlan[] = [];
+    for (
+      let gameIndexStart = 0, shardIndex = 0;
+      gameIndexStart < games;
+      gameIndexStart += shardGames, shardIndex += 1
+    ) {
+      shards.push({
+        shardIndex,
+        gameIndexStart,
+        games: Math.min(shardGames, games - gameIndexStart),
+      });
+    }
+    return shards;
   }
   const shardCount = Math.min(games, workers);
   const baseGamesPerShard = Math.floor(games / shardCount);
@@ -184,11 +213,20 @@ export async function collectAndWriteShardedTdReplayArtifacts(
   const git = options.git ?? collectGitMetadata(options.cwd);
   const nodeVersion = options.nodeVersion ?? process.version;
   const requestedWorkers = options.workers;
-  const shards = planContiguousTdReplayShards(config.games, requestedWorkers);
+  const shards = planContiguousTdReplayShards({
+    games: config.games,
+    workers: requestedWorkers,
+    shardGames: options.shardGames,
+  });
+  const workerCount = Math.min(requestedWorkers, shards.length);
   const execution: TdReplayShardExecution = {
     requestedWorkers,
-    workers: shards.length,
+    workers: workerCount,
     parallelUnit: 'contiguous-game-range',
+    shards: shards.length,
+    ...(options.shardGames === undefined
+      ? {}
+      : { shardGames: options.shardGames }),
   };
   const runBaseName =
     options.runBaseName ??
@@ -205,7 +243,11 @@ export async function collectAndWriteShardedTdReplayArtifacts(
   options.onProgress?.({
     type: 'sharded-started',
     requestedWorkers,
-    workers: shards.length,
+    workers: workerCount,
+    shards: shards.length,
+    ...(options.shardGames === undefined
+      ? {}
+      : { shardGames: options.shardGames }),
     games: config.games,
     runDirectory,
   });
@@ -213,6 +255,7 @@ export async function collectAndWriteShardedTdReplayArtifacts(
   const results = await runTdReplayShardJobsInChildPool({
     config,
     shards,
+    workers: workerCount,
     gameIndexTotal: config.games,
     outputDirectory: shardsDirectory,
     progressIntervalMs,
@@ -348,6 +391,7 @@ function createShardedTdReplaySummary({
 function runTdReplayShardJobsInChildPool({
   config,
   shards,
+  workers,
   gameIndexTotal,
   outputDirectory,
   progressIntervalMs,
@@ -360,6 +404,7 @@ function runTdReplayShardJobsInChildPool({
 }: {
   config: TdReplayConfig;
   shards: readonly TdReplayShardPlan[];
+  workers: number;
   gameIndexTotal: number;
   outputDirectory: string;
   progressIntervalMs: number;
@@ -378,6 +423,9 @@ function runTdReplayShardJobsInChildPool({
 }): Promise<TdReplayShardResult[]> {
   if (shards.length === 0) {
     return Promise.resolve([]);
+  }
+  if (!Number.isInteger(workers) || workers <= 0) {
+    throw new Error('workers must be a positive integer.');
   }
 
   return new Promise((resolve, reject) => {
@@ -499,7 +547,7 @@ function runTdReplayShardJobsInChildPool({
       }
     }
 
-    const poolSize = shards.length;
+    const poolSize = Math.min(workers, shards.length);
     for (let index = 0; index < poolSize; index += 1) {
       const child = fork(
         fileURLToPath(new URL('./tdReplayShardWorker.ts', import.meta.url)),
