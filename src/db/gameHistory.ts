@@ -1,5 +1,11 @@
 import type { FinalScore, PlayerId } from '../engine/types';
-import { db, type AchievementKey, type AchievementRecord, type GameRecord, type WinnerOutcome } from './db';
+import {
+  db,
+  type AchievementKey,
+  type AchievementRecord,
+  type GameRecord,
+  type WinnerOutcome,
+} from './db';
 import { checkNewAchievements, computeStats } from './historyLogic';
 
 export interface RecordGameParams {
@@ -32,13 +38,14 @@ export const ACHIEVEMENT_META: Record<
   },
   tactician: {
     label: 'Tactician',
-    description: 'Win with a lower total property rank than the opponent',
+    description: 'Win with more districts but less property points',
   },
 };
 
 export async function recordGame(params: RecordGameParams): Promise<void> {
   const { score, humanPlayerId, botProfileId, botLabel } = params;
-  const botPlayerId: PlayerId = humanPlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  const botPlayerId: PlayerId =
+    humanPlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
 
   const winner: WinnerOutcome =
     score.winner === humanPlayerId

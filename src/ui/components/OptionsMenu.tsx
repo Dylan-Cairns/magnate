@@ -64,14 +64,7 @@ export function OptionsMenu({
         issueUrl={bugReportIssueUrl}
         onDownload={onBugReportDownload}
       />
-      <button
-        type="button"
-        className="history-button"
-        aria-label="Game history"
-        onClick={onHistoryOpen}
-      >
-        <TrophyIcon />
-      </button>
+
       <button
         type="button"
         className={`log-toggle-button${!mapVisible ? ' is-inactive' : ''}`}
@@ -92,12 +85,23 @@ export function OptionsMenu({
       </button>
       <button
         type="button"
+        className="history-button"
+        aria-label="Game history"
+        onClick={onHistoryOpen}
+      >
+        <TrophyIcon />
+      </button>
+      <button
+        type="button"
         className={`bug-report-button${bugReportOpen ? ' is-open' : ''}`}
         aria-label={bugReportOpen ? 'Close bug report' : 'Report a bug'}
         onClick={onBugReport}
       >
         <BugIcon />
-        <span className="close-x" aria-hidden="true"><span /><span /></span>
+        <span className="close-x" aria-hidden="true">
+          <span />
+          <span />
+        </span>
       </button>
       <button
         ref={buttonRef}
@@ -109,7 +113,10 @@ export function OptionsMenu({
         onClick={onToggle}
       >
         <GearIcon />
-        <span className="close-x" aria-hidden="true"><span /><span /></span>
+        <span className="close-x" aria-hidden="true">
+          <span />
+          <span />
+        </span>
       </button>
       <NewGameButton
         expanded={newGameExpanded}
@@ -141,7 +148,10 @@ export function OptionsMenu({
                 }
               />
             </label>
-            <label className="animation-toggle-row" htmlFor="deck-map-interactive-toggle">
+            <label
+              className="animation-toggle-row"
+              htmlFor="deck-map-interactive-toggle"
+            >
               <span>Interactive deck map</span>
               <input
                 id="deck-map-interactive-toggle"
