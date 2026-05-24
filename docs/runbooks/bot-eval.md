@@ -10,6 +10,8 @@
   `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
 - Rollout-search TD replay export:
   `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
+- Sharded TD replay export:
+  `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers 8`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Override heartbeat cadence:
@@ -30,9 +32,21 @@ Config inputs can reference catalog presets with `{ "profileId": "heuristic" }` 
 
 `yarn bot:eval collect-td-replay --config <path> [--out-dir <path>]` runs full self-play games through Node-compatible policies and writes value, opponent, and summary artifacts under `artifacts/td_replay` by default.
 
+`yarn bot:eval collect-td-replay-sharded --config <path> --workers <count> [--out-dir <path>]` splits the same config into contiguous game-index ranges and runs those ranges in child Node processes. Each shard writes independent `shard-NNN.value.jsonl`, `shard-NNN.opponent.jsonl`, and `shard-NNN.summary.json` files under `artifacts/td_replay/<run>/shards/`; the parent writes `artifacts/td_replay/<run>/summary.json`.
+
 Replay rows use TypeScript `trainingEncoding`, include `episodeId` plus contiguous per-player `timestep` for `td-lambda`, order opponent action candidates by canonical stable action key, and are readable by `scripts.train_td`.
 
-When passing multiple exported value replay files into one td-lambda train run, keep each export's `seedPrefix` globally unique because the sequence key is `(episodeId, playerId, timestep)`.
+When passing multiple exported value replay files into one td-lambda train run, keep each export's `seedPrefix` globally unique because the sequence key is `(episodeId, playerId, timestep)`. Shards from one sharded export already use one global seed sequence and can be passed together directly.
+
+Example sharded training input:
+
+```powershell
+.\.venv\Scripts\python -m scripts.train_td `
+  --value-replay artifacts/td_replay/<run>/shards/*.value.jsonl `
+  --opponent-replay artifacts/td_replay/<run>/shards/*.opponent.jsonl `
+  --steps 2000 `
+  --run-label td-v2-teacher
+```
 
 ## Sweeps And Workers
 

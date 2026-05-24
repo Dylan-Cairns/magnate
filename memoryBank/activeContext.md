@@ -26,7 +26,7 @@
 - Browser heuristic, rollout search, TD search, and TD-root search share deterministic policy plumbing where appropriate.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
-- Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and rollout-search TD replay exports.
+- Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and serial or sharded rollout-search TD replay exports.
 - TypeScript TD replay action rows include required `actionProbs` targets:
   search policies derive them from root visit counts, and Python opponent/action
   training uses them as soft policy targets.
@@ -50,7 +50,7 @@
 1. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
 2. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
 3. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-4. Use `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json` when direct TypeScript rollout-search replay exports are needed for TD training.
+4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
 _Updated: 2026-06-09._
