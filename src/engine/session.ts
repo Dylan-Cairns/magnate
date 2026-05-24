@@ -22,3 +22,15 @@ export function stepKnownLegalActionToDecision(
     assumeActionWindowDecision: true,
   });
 }
+
+export function stepKnownLegalActionToDecisionForSimulation(
+  state: GameState,
+  action: GameAction
+): GameState {
+  return advanceToDecision(
+    applyKnownLegalAction(state, action, { recordLog: false }),
+    {
+      assumeActionWindowDecision: true,
+    }
+  );
+}

@@ -6,7 +6,7 @@ import {
 } from '../engine/decisionActor';
 import { rngFromSeed, type RandomFn } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
-import { stepKnownLegalActionToDecision } from '../engine/session';
+import { stepKnownLegalActionToDecisionForSimulation } from '../engine/session';
 import type {
   GameAction,
   GameState,
@@ -248,6 +248,7 @@ export function runRolloutSearchTask(
     ...(structuredClone(world) as GameState),
     seed: task.engineSeed,
     rngCursor: 0,
+    log: [],
   };
 
   const rollout = runRollout(
@@ -636,7 +637,10 @@ function runRollout(
   simulatedActionSteps: number;
   terminatedBeforeDepthLimit: boolean;
 } {
-  let state = stepKnownLegalActionToDecision(initialState, rootAction);
+  let state = stepKnownLegalActionToDecisionForSimulation(
+    initialState,
+    rootAction
+  );
   let depth = 0;
   let simulatedActionSteps = 1;
 
@@ -656,7 +660,7 @@ function runRollout(
       random,
       config
     );
-    state = stepKnownLegalActionToDecision(state, nextAction);
+    state = stepKnownLegalActionToDecisionForSimulation(state, nextAction);
     depth += 1;
     simulatedActionSteps += 1;
   }

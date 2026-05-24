@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from './actionBuilders';
-import { applyAction } from './reducer';
+import { applyAction, applyKnownLegalAction } from './reducer';
 import {
   PLAYER_A,
   PLAYER_B,
@@ -27,6 +27,12 @@ function getDistrict(
     throw new Error(`Missing district ${districtId}`);
   }
   return district;
+}
+
+function withoutLog<T extends { log: unknown }>(state: T): Omit<T, 'log'> {
+  const rest = { ...state };
+  delete (rest as { log?: unknown }).log;
+  return rest;
 }
 
 describe('applyAction legality gate', () => {
@@ -78,6 +84,26 @@ describe('applyAction legality gate', () => {
     const cloned = JSON.parse(JSON.stringify(trade)) as GameAction;
     const next = applyAction(state, cloned);
     expect(next.log).toHaveLength(1);
+  });
+
+  it('can apply a known legal action without recording a log entry', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    const trade = findLegalActionByType(state, 'trade');
+
+    const logged = applyKnownLegalAction(state, trade);
+    const unlogged = applyKnownLegalAction(state, trade, {
+      recordLog: false,
+    });
+
+    expect(logged.log).toHaveLength(1);
+    expect(unlogged.log).toEqual(state.log);
+    expect(withoutLog(unlogged)).toEqual(withoutLog(logged));
   });
 });
 
