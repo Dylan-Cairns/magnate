@@ -99,7 +99,9 @@ Design expectations:
 - Large TypeScript TD replay exports may use process-level contiguous sharding:
   each child owns a disjoint global game-index range, preserves the same
   seed/game-id sequence as serial collection, writes independent shard JSONL
-  files, and leaves Python training to consume multiple replay files directly.
+  files, may queue more fixed-size shard jobs than worker processes for
+  runtime balancing, and leaves Python training to consume multiple replay files
+  directly.
 - TypeScript rollout-search sweeps should run candidate configs sequentially
   against one fixed opponent with one shared paired-seed prefix. A configurable
   persistent child-process pool may distribute whole paired seeds for

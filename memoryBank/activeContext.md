@@ -53,7 +53,7 @@
 1. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
 2. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
 3. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
+4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
 _Updated: 2026-06-09._
