@@ -22,6 +22,7 @@ class OpponentSample:
     observation: Sequence[float]
     action_features: Sequence[Sequence[float]]
     action_index: int
+    action_probs: Sequence[float]
     player_id: PlayerId
 
 
@@ -39,4 +40,5 @@ class OpponentSamplePayload(TypedDict):
     observation: list[float]
     actionFeatures: list[list[float]]
     actionIndex: int
+    actionProbs: list[float]
     playerId: PlayerId

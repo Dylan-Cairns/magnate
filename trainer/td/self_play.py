@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import random
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -93,11 +94,17 @@ def collect_self_play_episode(
             state=step_result.state,
         )
         action_index = _find_action_index(legal.actions, action_key)
+        action_probs = _action_probs_from_policy(
+            policy=policy,
+            legal_actions=legal.actions,
+            chosen_action_index=action_index,
+        )
         opponent_samples.append(
             OpponentSample(
                 observation=observation_vector,
                 action_features=action_features,
                 action_index=action_index,
+                action_probs=action_probs,
                 player_id=active_player,
             )
         )
@@ -199,6 +206,45 @@ def _find_action_index(actions: Sequence[KeyedAction], action_key: str) -> int:
         if action.action_key == action_key:
             return index
     raise ValueError(f"Selected action key was not present in legal actions: {action_key}")
+
+
+def _action_probs_from_policy(
+    *,
+    policy: PolicyLike,
+    legal_actions: Sequence[KeyedAction],
+    chosen_action_index: int,
+) -> list[float]:
+    root_probs_method = getattr(policy, "root_action_probs", None)
+    if callable(root_probs_method):
+        by_key = root_probs_method()
+        if by_key is not None:
+            if not isinstance(by_key, Mapping):
+                raise ValueError(
+                    f"policy={type(policy).__name__} root_action_probs must return a mapping."
+                )
+            raw = [float(by_key.get(action.action_key, 0.0)) for action in legal_actions]
+            return _normalized_action_probs(
+                raw,
+                label=f"policy={type(policy).__name__} root_action_probs",
+            )
+
+    return [
+        1.0 if index == chosen_action_index else 0.0
+        for index in range(len(legal_actions))
+    ]
+
+
+def _normalized_action_probs(values: Sequence[float], *, label: str) -> list[float]:
+    total = 0.0
+    for value in values:
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(
+                f"{label} returned non-finite or negative action probability."
+            )
+        total += value
+    if not math.isfinite(total) or total <= 0.0:
+        raise ValueError(f"{label} probabilities must sum to > 0.")
+    return [float(value) / total for value in values]
 
 
 def _winner_from_state(state: SerializedStatePayload) -> Winner:

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "v2-teacher-action-probs-smoke",
+  "seedPrefix": "v2-teacher-action-probs-smoke",
+  "games": 1,
+  "playerA": {
+    "id": "v2-smoke-teacher-a",
+    "kind": "search",
+    "config": {
+      "worlds": 2,
+      "rollouts": 1,
+      "depth": 3,
+      "maxRootActions": 4,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2"
+    }
+  },
+  "playerB": {
+    "id": "v2-smoke-teacher-b",
+    "kind": "search",
+    "config": {
+      "worlds": 2,
+      "rollouts": 1,
+      "depth": 3,
+      "maxRootActions": 4,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2"
+    }
+  }
+}

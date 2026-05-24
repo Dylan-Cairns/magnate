@@ -8,7 +8,7 @@ import {
 } from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
-import type { GameState, PlayerId } from '../engine/types';
+import type { GameAction, GameState, PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import {
   policyRandomForState,
@@ -18,7 +18,10 @@ import {
   encodeActionCandidates,
   encodeObservation,
 } from '../policies/trainingEncoding';
-import type { ActionPolicy } from '../policies/types';
+import type {
+  ActionPolicy,
+  SearchDecisionDiagnostics,
+} from '../policies/types';
 import type { RuntimeBot } from './playGame';
 import type {
   CollectedTdReplayGame,
@@ -71,6 +74,7 @@ interface CollectTdReplayGameOptions {
   firstPlayer: PlayerId;
   botBySeat: Record<PlayerId, RuntimeBot>;
   maxDecisions: number;
+  policyTargetAlpha: number;
   now: () => number;
   progressIntervalMs: number;
   onHeartbeat?: (heartbeat: {
@@ -134,6 +138,7 @@ export async function collectTdReplayGames(
       botBySeat,
       maxDecisions:
         config.maxDecisionsPerGame ?? DEFAULT_MAX_DECISIONS_PER_GAME,
+      policyTargetAlpha: config.policyTargetAlpha ?? 1,
       now,
       progressIntervalMs,
       onHeartbeat(heartbeat) {
@@ -188,6 +193,13 @@ export function validateTdReplayConfig(config: TdReplayConfig): void {
   ) {
     throw new Error('maxDecisionsPerGame must be a positive integer.');
   }
+  if (
+    config.policyTargetAlpha !== undefined &&
+    (!Number.isFinite(config.policyTargetAlpha) ||
+      config.policyTargetAlpha <= 0)
+  ) {
+    throw new Error('policyTargetAlpha must be a positive finite number.');
+  }
   rejectUnsupportedBotSpec(config.playerA, 'playerA');
   rejectUnsupportedBotSpec(config.playerB, 'playerB');
 }
@@ -198,6 +210,7 @@ async function collectTdReplayGame({
   firstPlayer,
   botBySeat,
   maxDecisions,
+  policyTargetAlpha,
   now,
   progressIntervalMs,
   onHeartbeat,
@@ -249,9 +262,7 @@ async function collectTdReplayGame({
     const bot = botBySeat[activePlayerId];
     const actions = toKeyedActions(
       legalActionsForDecisionPlayer(state, activePlayerId)
-    ).map(
-      (entry) => entry.action
-    );
+    ).map((entry) => entry.action);
     if (actions.length === 0) {
       throw new Error(
         `Game ${gameId} has no legal actions for ${activePlayerId} during ${state.phase}.`
@@ -280,12 +291,16 @@ async function collectTdReplayGame({
     }
 
     const actionFeatures = encodeActionCandidates(actions);
+    let searchDiagnostics: SearchDecisionDiagnostics | undefined;
     const selected = await bot.policy.selectAction({
       state,
       view,
       legalActions: actions,
       random: policyRandomForState(state, bot.spec.id),
       randomSeed: policyRandomSeedForState(state, bot.spec.id),
+      onSearchDiagnostics(diagnostics) {
+        searchDiagnostics = structuredClone(diagnostics);
+      },
       onProgress: emitHeartbeatIfDue,
     });
     if (!selected) {
@@ -309,6 +324,13 @@ async function collectTdReplayGame({
       observation,
       actionFeatures,
       actionIndex,
+      actionProbs: actionProbabilitiesForDecision({
+        actions,
+        actionIndex,
+        bot,
+        diagnostics: searchDiagnostics,
+        policyTargetAlpha,
+      }),
       playerId: activePlayerId,
     });
     decisions.push({
@@ -400,6 +422,104 @@ function createRuntimeBot(
     spec,
     policy: createPolicy(spec),
   };
+}
+
+function actionProbabilitiesForDecision({
+  actions,
+  actionIndex,
+  bot,
+  diagnostics,
+  policyTargetAlpha,
+}: {
+  actions: readonly GameAction[];
+  actionIndex: number;
+  bot: RuntimeBot;
+  diagnostics: SearchDecisionDiagnostics | undefined;
+  policyTargetAlpha: number;
+}): number[] {
+  if (actions.length === 0) {
+    throw new Error(
+      `Bot ${bot.spec.id} has no legal actions for policy target.`
+    );
+  }
+  if (!Number.isFinite(policyTargetAlpha) || policyTargetAlpha <= 0) {
+    throw new Error(
+      `TD replay policyTargetAlpha must be > 0; received ${String(policyTargetAlpha)}.`
+    );
+  }
+  if (actions.length === 1) {
+    return [1];
+  }
+
+  if (!diagnostics) {
+    if (bot.spec.kind === 'search') {
+      throw new Error(
+        `Search bot ${bot.spec.id} did not emit search diagnostics for TD replay policy targets.`
+      );
+    }
+    return oneHotPolicyTarget(actions.length, actionIndex);
+  }
+
+  const visitsByKey = new Map(
+    diagnostics.rootActions.map((entry) => [entry.actionKey, entry.visits])
+  );
+  const raw = actions.map((action) => {
+    const visits = visitsByKey.get(actionStableKey(action)) ?? 0;
+    if (!Number.isFinite(visits) || visits < 0) {
+      throw new Error(
+        `Search bot ${bot.spec.id} emitted invalid visit count ${String(visits)}.`
+      );
+    }
+    return visits > 0 ? Math.pow(visits, policyTargetAlpha) : 0;
+  });
+  const total = raw.reduce((sum, value) => sum + value, 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error(
+      `Search bot ${bot.spec.id} emitted zero total visits for TD replay policy targets.`
+    );
+  }
+  const probs = raw.map((value) => value / total);
+  validatePolicyTarget(probs, actions.length, bot.spec.id);
+  if ((probs[actionIndex] ?? 0) <= 0) {
+    throw new Error(
+      `Search bot ${bot.spec.id} emitted zero probability for its selected action.`
+    );
+  }
+  return probs;
+}
+
+function oneHotPolicyTarget(length: number, actionIndex: number): number[] {
+  if (actionIndex < 0 || actionIndex >= length) {
+    throw new Error(
+      `Cannot build one-hot policy target: index=${String(actionIndex)} length=${String(length)}.`
+    );
+  }
+  return Array.from({ length }, (_, index) => (index === actionIndex ? 1 : 0));
+}
+
+function validatePolicyTarget(
+  probs: readonly number[],
+  actionCount: number,
+  botId: string
+): void {
+  if (probs.length !== actionCount) {
+    throw new Error(
+      `Bot ${botId} policy target length mismatch. probs=${String(probs.length)} actions=${String(actionCount)}.`
+    );
+  }
+  const total = probs.reduce((sum, value) => {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(
+        `Bot ${botId} emitted invalid policy target probability ${String(value)}.`
+      );
+    }
+    return sum + value;
+  }, 0);
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error(
+      `Bot ${botId} policy target probabilities must sum to > 0.`
+    );
+  }
 }
 
 function rejectUnsupportedBotSpec(spec: BotSpec, label: string): void {
