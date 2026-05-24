@@ -86,6 +86,13 @@ Design expectations:
   decision actor, not raw turn ownership, so simultaneous `CollectIncome`
   submissions are attributed to the player whose income choice is being
   selected.
+- TypeScript TD replay exports should include action-policy targets for every
+  opponent/action row:
+  - search policies emit visit-derived `actionProbs` aligned to canonical legal
+    action order;
+  - non-search policies emit a one-hot selected-action target;
+  - Python opponent/action training consumes these soft targets rather than
+    hard-label cross entropy only.
 - TypeScript rollout-search sweeps should run candidate configs sequentially
   against one fixed opponent with one shared paired-seed prefix. A configurable
   persistent child-process pool may distribute whole paired seeds for

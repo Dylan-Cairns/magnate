@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import deque
 from pathlib import Path
 from typing import Iterable, List, Mapping, Sequence
@@ -127,10 +128,16 @@ def write_opponent_samples_jsonl(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as handle:
         for sample in samples:
+            _validate_action_probs(
+                sample.action_probs,
+                action_count=len(sample.action_features),
+                label="opponent sample action_probs",
+            )
             payload: OpponentSamplePayload = {
                 "observation": list(sample.observation),
                 "actionFeatures": [list(features) for features in sample.action_features],
                 "actionIndex": int(sample.action_index),
+                "actionProbs": [float(value) for value in sample.action_probs],
                 "playerId": sample.player_id,
             }
             handle.write(json.dumps(payload) + "\n")
@@ -240,17 +247,25 @@ def _opponent_sample_from_json(
             f"actionIndex out of bounds on line {line_number}: "
             f"index={action_index}, candidates={len(action_features)}."
         )
+    action_probs = _float_list(payload.get("actionProbs"), line_number, "actionProbs")
+    _validate_action_probs(
+        action_probs,
+        action_count=len(action_features),
+        label=f"actionProbs on line {line_number}",
+    )
     player_id = _as_player_id(payload.get("playerId"), line_number, "playerId")
     sample_payload: OpponentSamplePayload = {
         "observation": observation,
         "actionFeatures": action_features,
         "actionIndex": action_index,
+        "actionProbs": action_probs,
         "playerId": player_id,
     }
     return OpponentSample(
         observation=sample_payload["observation"],
         action_features=sample_payload["actionFeatures"],
         action_index=sample_payload["actionIndex"],
+        action_probs=sample_payload["actionProbs"],
         player_id=sample_payload["playerId"],
     )
 
@@ -262,6 +277,29 @@ def _float_list(value: object, line_number: int, field: str) -> List[float]:
     for entry in value:
         out.append(_as_float(entry, line_number, field))
     return out
+
+
+def _validate_action_probs(
+    values: Sequence[float],
+    *,
+    action_count: int,
+    label: str,
+) -> None:
+    if len(values) != action_count:
+        raise ValueError(
+            f"{label} length must match actionFeatures: "
+            f"probs={len(values)}, actions={action_count}."
+        )
+    total = 0.0
+    for value in values:
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"{label} entries must be numeric.")
+        as_float = float(value)
+        if not math.isfinite(as_float) or as_float < 0.0:
+            raise ValueError(f"{label} entries must be finite and non-negative.")
+        total += as_float
+    if not (total > 0.0):
+        raise ValueError(f"{label} must sum to > 0.")
 
 
 def _as_int(value: object, line_number: int, field: str) -> int:

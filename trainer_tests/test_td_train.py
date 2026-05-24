@@ -62,12 +62,14 @@ def _sample_opponent_samples() -> list[OpponentSample]:
             observation=[0.1, 0.2, 0.3, 0.4],
             action_features=[[1.0, 0.0], [0.0, 1.0]],
             action_index=0,
+            action_probs=[0.8, 0.2],
             player_id="PlayerA",
         ),
         OpponentSample(
             observation=[0.4, 0.3, 0.2, 0.1],
             action_features=[[0.0, 1.0], [1.0, 0.0]],
             action_index=1,
+            action_probs=[0.1, 0.9],
             player_id="PlayerB",
         ),
     ]
@@ -181,6 +183,27 @@ class TDTrainTests(unittest.TestCase):
         self.assertLessEqual(accuracy, 1.0)
         changed = any(not torch.allclose(before[index], after[index]) for index in range(len(before)))
         self.assertTrue(changed)
+
+    def test_train_opponent_batch_rejects_mismatched_action_probs(self) -> None:
+        model = OpponentModel(observation_dim=4, action_feature_dim=2, hidden_dim=16)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        samples = [
+            OpponentSample(
+                observation=[0.1, 0.2, 0.3, 0.4],
+                action_features=[[1.0, 0.0], [0.0, 1.0]],
+                action_index=0,
+                action_probs=[1.0],
+                player_id="PlayerA",
+            )
+        ]
+
+        with self.assertRaises(ValueError):
+            train_opponent_batch(
+                model=model,
+                optimizer=optimizer,
+                samples=samples,
+                max_grad_norm=1.0,
+            )
 
     def test_td_opponent_trainer_tracks_steps(self) -> None:
         model = OpponentModel(observation_dim=4, action_feature_dim=2, hidden_dim=16)

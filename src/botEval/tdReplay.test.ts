@@ -11,6 +11,7 @@ import {
   legalActionsForDecisionPlayer,
 } from '../engine/decisionActor';
 import { heuristicPolicy } from '../policies/heuristicPolicy';
+import type { BotSpec } from '../policies/botSpec';
 import {
   ACTION_FEATURE_DIM,
   OBSERVATION_DIM,
@@ -65,6 +66,14 @@ describe('TypeScript TD replay collection', () => {
       expect(row.actionFeatures.length).toBeGreaterThan(0);
       expect(row.actionIndex).toBeGreaterThanOrEqual(0);
       expect(row.actionIndex).toBeLessThan(row.actionFeatures.length);
+      expect(row.actionProbs).toHaveLength(row.actionFeatures.length);
+      expect(row.actionProbs.every((value) => Number.isFinite(value))).toBe(
+        true
+      );
+      expect(row.actionProbs.every((value) => value >= 0)).toBe(true);
+      expect(
+        row.actionProbs.reduce((sum, value) => sum + value, 0)
+      ).toBeCloseTo(1);
       for (const features of row.actionFeatures) {
         expect(features).toHaveLength(ACTION_FEATURE_DIM);
       }
@@ -87,30 +96,36 @@ describe('TypeScript TD replay collection', () => {
   it('passes bridge-canonical legal-action order to replay policies', async () => {
     let checkedDecisions = 0;
     let sawRawOrderDifference = false;
-    await collectTdReplay(tdReplayConfig({ games: 1 }), {
-      createPolicy(): ActionPolicy {
-        return {
-          selectAction(context) {
-            const actualKeys = context.legalActions.map(actionStableKey);
-            const decisionPlayer = decisionPlayerIdForState(context.state);
-            const canonicalKeys = toKeyedActions(
-              legalActionsForDecisionPlayer(context.state, decisionPlayer)
-            ).map((entry) => entry.actionKey);
-            const rawKeys = engineLegalActions(context.state).map(
-              actionStableKey
-            );
+    await collectTdReplay(
+      tdReplayConfig({
+        games: 1,
+        playerA: { id: 'heuristic-a', kind: 'heuristic' },
+      }),
+      {
+        createPolicy(): ActionPolicy {
+          return {
+            selectAction(context) {
+              const actualKeys = context.legalActions.map(actionStableKey);
+              const decisionPlayer = decisionPlayerIdForState(context.state);
+              const canonicalKeys = toKeyedActions(
+                legalActionsForDecisionPlayer(context.state, decisionPlayer)
+              ).map((entry) => entry.actionKey);
+              const rawKeys = engineLegalActions(context.state).map(
+                actionStableKey
+              );
 
-            expect(context.view.activePlayerId).toBe(decisionPlayer);
-            expect(actualKeys).toEqual(canonicalKeys);
-            if (actualKeys.join('\0') !== rawKeys.join('\0')) {
-              sawRawOrderDifference = true;
-            }
-            checkedDecisions += 1;
-            return heuristicPolicy.selectAction(context);
-          },
-        };
-      },
-    });
+              expect(context.view.activePlayerId).toBe(decisionPlayer);
+              expect(actualKeys).toEqual(canonicalKeys);
+              if (actualKeys.join('\0') !== rawKeys.join('\0')) {
+                sawRawOrderDifference = true;
+              }
+              checkedDecisions += 1;
+              return heuristicPolicy.selectAction(context);
+            },
+          };
+        },
+      }
+    );
 
     expect(checkedDecisions).toBeGreaterThan(0);
     expect(sawRawOrderDifference).toBe(true);
@@ -162,6 +177,7 @@ describe('TypeScript TD replay collection', () => {
     expect(Object.keys(opponentRows[0]).sort()).toEqual([
       'actionFeatures',
       'actionIndex',
+      'actionProbs',
       'observation',
       'playerId',
     ]);
@@ -265,13 +281,21 @@ describe('TypeScript TD replay collection', () => {
   });
 });
 
-function tdReplayConfig({ games }: { games: number }): TdReplayConfig {
+function tdReplayConfig({
+  games,
+  playerA,
+  playerB,
+}: {
+  games: number;
+  playerA?: BotSpec;
+  playerB?: BotSpec;
+}): TdReplayConfig {
   return {
     schemaVersion: 1,
     runLabel: 'td-replay-test',
     seedPrefix: 'td-replay-test',
     games,
-    playerA: {
+    playerA: playerA ?? {
       id: 'tiny-search-a',
       kind: 'search',
       config: {
@@ -282,7 +306,7 @@ function tdReplayConfig({ games }: { games: number }): TdReplayConfig {
         rolloutEpsilon: 0,
       },
     },
-    playerB: {
+    playerB: playerB ?? {
       id: 'heuristic-b',
       kind: 'heuristic',
     },

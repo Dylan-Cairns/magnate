@@ -210,6 +210,9 @@ class TDSelfPlayTests(unittest.TestCase):
         self.assertEqual(episode.turns, 3)
         self.assertEqual(len(episode.opponent_samples), 3)
         self.assertEqual(len(episode.value_transitions), 3)
+        self.assertTrue(
+            all(sample.action_probs == [1.0] for sample in episode.opponent_samples)
+        )
 
         first_transition = episode.value_transitions[0]
         self.assertFalse(first_transition.done)

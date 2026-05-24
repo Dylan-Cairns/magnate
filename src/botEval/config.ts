@@ -152,6 +152,10 @@ export function parseTdReplayConfig(value: unknown): TdReplayConfig {
       source.playerB,
       'TD replay config.playerB'
     ),
+    policyTargetAlpha: optionalPositiveNumber(
+      source.policyTargetAlpha,
+      'TD replay config.policyTargetAlpha'
+    ),
     maxDecisionsPerGame: optionalPositiveInteger(
       source.maxDecisionsPerGame,
       'TD replay config.maxDecisionsPerGame'
@@ -225,4 +229,17 @@ function optionalPositiveInteger(
     return undefined;
   }
   return requiredPositiveInteger(value, label);
+}
+
+function optionalPositiveNumber(
+  value: unknown,
+  label: string
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${label} must be a positive finite number.`);
+  }
+  return value;
 }

@@ -51,12 +51,14 @@ class TDReplayBufferTests(unittest.TestCase):
                     observation=[0.0, 1.0],
                     action_features=[[1.0], [0.0]],
                     action_index=0,
+                    action_probs=[0.7, 0.3],
                     player_id="PlayerA",
                 ),
                 OpponentSample(
                     observation=[1.0, 0.0],
                     action_features=[[0.0], [1.0]],
                     action_index=1,
+                    action_probs=[0.2, 0.8],
                     player_id="PlayerB",
                 ),
             ]

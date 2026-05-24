@@ -307,6 +307,25 @@ function validateOpponentSample(
       `Invalid opponent row ${String(rowNumber)}: actionIndex is out of bounds.`
     );
   }
+  if (row.actionProbs.length !== row.actionFeatures.length) {
+    throw new Error(
+      `Invalid opponent row ${String(rowNumber)}: actionProbs length must match actionFeatures.`
+    );
+  }
+  let probTotal = 0;
+  for (const value of row.actionProbs) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(
+        `Invalid opponent row ${String(rowNumber)}: actionProbs must be finite non-negative numbers.`
+      );
+    }
+    probTotal += value;
+  }
+  if (!Number.isFinite(probTotal) || probTotal <= 0) {
+    throw new Error(
+      `Invalid opponent row ${String(rowNumber)}: actionProbs must sum to > 0.`
+    );
+  }
   for (let index = 0; index < row.actionFeatures.length; index += 1) {
     validateVector(
       row.actionFeatures[index],
