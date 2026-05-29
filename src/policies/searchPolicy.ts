@@ -3,23 +3,21 @@ import {
   actionStableKey,
   toKeyedActions,
 } from '../engine/actionSurface';
-import { CARD_BY_ID, PROPERTY_CARDS } from '../engine/cards';
+import { PROPERTY_CARDS } from '../engine/cards';
 import { shuffleInPlace } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
-import { SUITS } from '../engine/stateHelpers';
 import type {
-  DistrictStack,
   GameAction,
   GameState,
   PlayerId,
-  PlayerState,
   PlayerView,
 } from '../engine/types';
 import {
   heuristicPriorsByKey,
   rankHeuristicActions,
 } from './heuristicScorer';
+import { evaluateSearchLeafState } from './searchStateEvaluator';
 import type { ActionPolicy } from './types';
 
 const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
@@ -301,7 +299,7 @@ function runRollout(
   if (isTerminal(state)) {
     return terminalValue(state, rootPlayer);
   }
-  return heuristicStateValue(state, rootPlayer);
+  return evaluateSearchLeafState(state, rootPlayer);
 }
 
 function chooseRolloutActionKey(
@@ -419,94 +417,12 @@ function districtPropertyCards(view: PlayerView): Set<string> {
   return cards;
 }
 
-function propertyRank(cardId: string): number {
-  const card = CARD_BY_ID[cardId];
-  return card && card.kind === 'Property' ? card.rank : 0;
-}
-
 function terminalValue(state: GameState, rootPlayer: PlayerId): number {
   const winner = state.finalScore?.winner;
   if (!winner || winner === 'Draw') {
     return 0;
   }
   return winner === rootPlayer ? 1 : -1;
-}
-
-function heuristicStateValue(state: GameState, rootPlayer: PlayerId): number {
-  const opponent = otherPlayerId(rootPlayer);
-  const root = requiredPlayerState(state, rootPlayer);
-  const opponentState = requiredPlayerState(state, opponent);
-  const handDiff = root.hand.length - opponentState.hand.length;
-  const resourceDiff = resourceTotal(root) - resourceTotal(opponentState);
-
-  let districtLead = 0;
-  let rankDiff = 0;
-  let progressDiff = 0;
-  for (const district of state.districts) {
-    const rootStack = district.stacks[rootPlayer];
-    const opponentStack = district.stacks[opponent];
-    const rootScore = stackScore(rootStack);
-    const opponentScore = stackScore(opponentStack);
-    rankDiff += rootScore.rankTotal - opponentScore.rankTotal;
-    progressDiff += rootScore.progressTotal - opponentScore.progressTotal;
-    if (rootScore.rankTotal > opponentScore.rankTotal) {
-      districtLead += 1;
-    } else if (rootScore.rankTotal < opponentScore.rankTotal) {
-      districtLead -= 1;
-    }
-  }
-
-  const districtTerm = districtLead / Math.max(1, state.districts.length);
-  const rankTerm = Math.tanh(rankDiff / 18);
-  const progressTerm = Math.tanh(progressDiff / 8);
-  const resourceTerm = Math.tanh(resourceDiff / 10);
-  const handTerm = Math.tanh(handDiff / 4);
-
-  const score =
-    0.55 * districtTerm +
-    0.2 * rankTerm +
-    0.1 * progressTerm +
-    0.1 * resourceTerm +
-    0.05 * handTerm;
-  return Math.max(-1, Math.min(1, score));
-}
-
-function requiredPlayerState(
-  state: GameState,
-  playerId: PlayerId
-): PlayerState {
-  const player = state.players.find((candidate) => candidate.id === playerId);
-  if (!player) {
-    throw new Error(`Search policy state is missing player ${playerId}.`);
-  }
-  return player;
-}
-
-function resourceTotal(player: PlayerState): number {
-  let total = 0;
-  for (const suit of SUITS) {
-    total += player.resources[suit];
-  }
-  return total;
-}
-
-function stackScore(stack: DistrictStack): {
-  rankTotal: number;
-  progressTotal: number;
-} {
-  let rankTotal = 0;
-  let progressTotal = 0;
-
-  for (const cardId of stack.developed) {
-    rankTotal += propertyRank(cardId);
-  }
-
-  if (stack.deed) {
-    rankTotal += propertyRank(stack.deed.cardId);
-    progressTotal += stack.deed.progress;
-    rankTotal += 0.35 * stack.deed.progress;
-  }
-  return { rankTotal, progressTotal };
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
