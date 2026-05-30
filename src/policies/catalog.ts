@@ -28,9 +28,9 @@ export interface ResolvedBotProfile {
 }
 
 const rolloutEvalSearchPolicy = createSearchPolicy({
-  worlds: 8,
+  worlds: 10,
   rollouts: 4,
-  depth: 14,
+  depth: 16,
   maxRootActions: 8,
   rolloutEpsilon: 0.0,
 });
@@ -101,7 +101,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   },
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'td-search-browser';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-eval-search';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);
