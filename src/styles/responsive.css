@@ -1,0 +1,67 @@
+@media (max-width: 980px) {
+  .app-shell {
+    height: auto;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .actions-panel,
+  .log-panel {
+    min-height: initial;
+    height: auto;
+  }
+
+  .action-list,
+  .log-list {
+    overflow: visible;
+  }
+
+  .info-pane {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+
+  .actions-pane > .panel,
+  .info-pane > .panel {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .board-pane {
+    overflow: visible;
+  }
+
+  .trade-choice-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .corner-options-anchor {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .corner-options-anchor .brand-options-menu {
+    top: auto;
+    bottom: calc(100% + 0.36rem);
+    left: auto;
+    right: 0;
+    width: min(20.5rem, calc(100vw - 1rem));
+  }
+
+  .token-rail {
+    display: block;
+  }
+
+  .token-rail-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .token-row.fixed-suits.rail-resources-row {
+    flex-wrap: wrap;
+  }
+}

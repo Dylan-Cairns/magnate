@@ -1,0 +1,180 @@
+.resource-flight-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 140;
+}
+
+.resource-flight {
+  position: absolute;
+  left: var(--resource-flight-start-x);
+  top: var(--resource-flight-start-y);
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  animation-duration: var(--resource-flight-duration-ms);
+  animation-timing-function: linear;
+  animation-delay: var(--resource-flight-delay-ms);
+  animation-fill-mode: both;
+}
+
+.resource-flight.is-transfer {
+  animation-name: resource-chip-flight;
+}
+
+.resource-flight.is-tax-loss {
+  animation-name: tax-chip-loss;
+  animation-timing-function: linear;
+}
+
+.resource-flight.is-terminal-clear {
+  animation-name: terminal-clear-resource-flight;
+  animation-timing-function: ease-in;
+}
+
+.token-chip.compact.resource-flight-chip {
+  width: var(--token-rail-chip-size);
+  height: var(--token-rail-chip-size);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.token-chip.compact.resource-flight-chip .chip-suit-icon {
+  width: calc(100% - 0.16rem);
+  height: calc(100% - 0.16rem);
+}
+
+@keyframes resource-chip-flight {
+  0% {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
+    opacity: 1;
+  }
+}
+
+@keyframes tax-chip-loss {
+  0% {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
+    opacity: 0;
+  }
+}
+
+@keyframes terminal-clear-resource-flight {
+  0% {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
+    opacity: 0;
+  }
+}
+
+.card-flight-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 145;
+}
+
+.card-flight {
+  position: absolute;
+  left: var(--card-flight-start-x);
+  top: var(--card-flight-start-y);
+  will-change: transform;
+  transform-origin: center center;
+  animation-name: played-card-flight;
+  animation-duration: var(--card-flight-duration-ms);
+  animation-timing-function: linear;
+  animation-delay: var(--card-flight-delay-ms);
+  animation-fill-mode: forwards;
+  filter: drop-shadow(var(--card-stack-drop-shadow));
+}
+
+.card-flight.is-draw {
+  animation-name: draw-card-flight;
+}
+
+.card-flight.is-terminal-clear {
+  animation-name: terminal-clear-card-flight;
+}
+
+.card-flight .card-tile {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+@keyframes played-card-flight {
+  0% {
+    transform: translate(-50%, -50%) scale(1, 1);
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+  }
+}
+
+@keyframes draw-card-flight {
+  0% {
+    transform: translate(-50%, -50%) scale(1, 1);
+    opacity: 1;
+  }
+
+  88% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+    opacity: 0;
+  }
+}
+
+@keyframes terminal-clear-card-flight {
+  0% {
+    transform: translate(-50%, -50%) scale(1, 1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+        calc(-50% + var(--card-flight-dx)),
+        calc(-50% + var(--card-flight-dy))
+      )
+      scale(0.96, 0.96);
+    opacity: 0;
+  }
+}

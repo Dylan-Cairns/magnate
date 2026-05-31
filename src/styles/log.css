@@ -1,0 +1,74 @@
+.log-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 0.15rem;
+}
+
+.log-turn-group {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.log-turn-head {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: start;
+  font-size: 0.84rem;
+  line-height: 1.24;
+  color: var(--accent-soft);
+  font-weight: 700;
+}
+
+.log-turn {
+  color: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  align-self: start;
+}
+
+.log-player {
+  color: inherit;
+  align-self: start;
+}
+
+.log-turn-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.log-turn-entry {
+  display: block;
+  font-size: 0.84rem;
+  line-height: 1.24;
+}
+
+.log-turn-entry-seed {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.log-summary {
+  min-width: 0;
+  align-self: start;
+  overflow-wrap: anywhere;
+}
+
+.log-suit-code {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.log-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
