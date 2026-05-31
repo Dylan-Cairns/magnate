@@ -1,6 +1,7 @@
 import type { CardId } from '../../engine/cards';
-import type { PlayerId, Suit } from '../../engine/types';
+import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
 import type { TurnCycleEvents, TurnCycleIncomeToken } from '../turnCycleEvents';
+import { deriveTurnCycleEvents } from '../turnCycleEvents';
 import {
   ACTION_FLIGHT_COMMIT_BUFFER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
@@ -180,4 +181,14 @@ export function buildTurnCycleVisualPlan(
     totalDurationMs: hideAllAtMs + ACTION_FLIGHT_COMMIT_BUFFER_MS,
     incomeAnimationEndMs,
   };
+}
+
+export function collectTurnCycleAnimationPlan(
+  previousState: GameState,
+  nextState: GameState,
+  action: GameAction,
+  baseDelayMs: number
+): TurnCycleAnimationPlan | null {
+  const cycle = deriveTurnCycleEvents(previousState, nextState, action);
+  return cycle ? buildTurnCycleVisualPlan(cycle, baseDelayMs) : null;
 }
