@@ -30,7 +30,7 @@ export interface ResolvedBotProfile {
 const rolloutEvalSearchPolicy = createSearchPolicy({
   worlds: 10,
   rollouts: 4,
-  depth: 16,
+  depth: 80,
   maxRootActions: 8,
   rolloutEpsilon: 0.0,
 });
