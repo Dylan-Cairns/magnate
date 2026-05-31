@@ -62,6 +62,10 @@ Design expectations:
   engine validation and animation-plan assembly. Validate with
   `stepToDecision` before DOM-dependent planning so invalid actions cannot
   mutate UI-only deed-layout memory.
+- Browser session state, timeline logging, reset snapshots, bot scheduling,
+  shared action dispatch, and animation-hook composition should live in
+  `useGameController`; `App.tsx` should retain UI-local menu, picker, preload,
+  and rendering concerns.
 - Characterization tests should protect UI commit timing, tax-resource previews,
   composite picker resolution/invalidation, and log presentation while
   `App.tsx` is decomposed.
