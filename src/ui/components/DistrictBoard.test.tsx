@@ -20,12 +20,16 @@ describe('DistrictColumn', () => {
     };
 
     const html = renderToStaticMarkup(
-      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
     );
 
-    const laneScores = [...html.matchAll(/aria-label="District score: (\d+)"/g)].map((match) =>
-      Number.parseInt(match[1], 10)
-    );
+    const laneScores = [
+      ...html.matchAll(/aria-label="District score: (\d+)"/g),
+    ].map((match) => Number.parseInt(match[1], 10));
     expect(laneScores).toEqual([4, 0]);
   });
 
@@ -44,7 +48,11 @@ describe('DistrictColumn', () => {
     };
 
     const html = renderToStaticMarkup(
-      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
     );
 
     const scoreClassMatches = [
@@ -53,7 +61,9 @@ describe('DistrictColumn', () => {
     expect(scoreClassMatches).toHaveLength(2);
 
     const leadingScoreMatches = [
-      ...html.matchAll(/class="[^"]*\bdistrict-lane-score\b[^"]*\bis-leading\b[^"]*"/g),
+      ...html.matchAll(
+        /class="[^"]*\bdistrict-lane-score\b[^"]*\bis-leading\b[^"]*"/g
+      ),
     ];
     expect(leadingScoreMatches).toHaveLength(1);
   });
@@ -75,10 +85,16 @@ describe('DistrictColumn', () => {
     };
 
     const html = renderToStaticMarkup(
-      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
     );
 
-    const deedProgressLabels = [...html.matchAll(/aria-label="development progress"/g)];
+    const deedProgressLabels = [
+      ...html.matchAll(/aria-label="development progress"/g),
+    ];
     expect(deedProgressLabels).toHaveLength(2);
     expect(html).toContain('data-district-id="D3"');
     expect(html).toContain('data-lane-player-id="PlayerA"');
@@ -160,7 +176,11 @@ describe('DistrictColumn', () => {
     };
 
     const html = renderToStaticMarkup(
-      <DistrictColumn district={district} humanPlayerId="PlayerB" botPlayerId="PlayerA" />
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
     );
 
     expect(html).toContain('data-deed-token-rail="left"');

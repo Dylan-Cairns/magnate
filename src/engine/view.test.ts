@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { toActivePlayerView, toPlayerView } from './view';
-import { makeGameState, makePlayer, makeResources, PLAYER_A, PLAYER_B } from './__tests__/fixtures';
+import {
+  makeGameState,
+  makePlayer,
+  makeResources,
+  PLAYER_A,
+  PLAYER_B,
+} from './__tests__/fixtures';
 
 describe('toPlayerView', () => {
   it('shows own hand and hides opponent hand contents', () => {
@@ -19,8 +25,12 @@ describe('toPlayerView', () => {
     });
 
     const asPlayerA = toPlayerView(state, PLAYER_A);
-    const viewAPlayerA = asPlayerA.players.find((player) => player.id === PLAYER_A);
-    const viewAPlayerB = asPlayerA.players.find((player) => player.id === PLAYER_B);
+    const viewAPlayerA = asPlayerA.players.find(
+      (player) => player.id === PLAYER_A
+    );
+    const viewAPlayerB = asPlayerA.players.find(
+      (player) => player.id === PLAYER_B
+    );
     if (!viewAPlayerA || !viewAPlayerB) {
       throw new Error('Missing expected players in view.');
     }
@@ -77,8 +87,12 @@ describe('toPlayerView', () => {
 
     const view = toPlayerView(state, PLAYER_A);
     expect(view.activePlayerId).toBe(PLAYER_B);
-    expect(view.players.find((player) => player.id === PLAYER_A)?.resources.Moons).toBe(2);
-    expect(view.players.find((player) => player.id === PLAYER_B)?.crowns).toEqual(['33', '34', '35']);
+    expect(
+      view.players.find((player) => player.id === PLAYER_A)?.resources.Moons
+    ).toBe(2);
+    expect(
+      view.players.find((player) => player.id === PLAYER_B)?.crowns
+    ).toEqual(['33', '34', '35']);
     expect(view.pendingIncomeChoices).toEqual([
       {
         playerId: PLAYER_B,
@@ -93,8 +107,14 @@ describe('toPlayerView', () => {
   it('returns cloned data so mutating view does not mutate state', () => {
     const state = makeGameState({
       players: [
-        makePlayer(PLAYER_A, { hand: ['6'], resources: makeResources({ Moons: 1 }) }),
-        makePlayer(PLAYER_B, { hand: ['7'], resources: makeResources({ Suns: 1 }) }),
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 1 }),
+        }),
+        makePlayer(PLAYER_B, {
+          hand: ['7'],
+          resources: makeResources({ Suns: 1 }),
+        }),
       ] as const,
       pendingIncomeChoices: [
         {
@@ -132,7 +152,9 @@ describe('toPlayerView', () => {
 
   it('throws for unknown viewer ids', () => {
     const state = makeGameState();
-    expect(() => toPlayerView(state, 'Ghost' as never)).toThrow('Unknown player');
+    expect(() => toPlayerView(state, 'Ghost' as never)).toThrow(
+      'Unknown player'
+    );
   });
 });
 

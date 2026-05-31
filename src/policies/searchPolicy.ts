@@ -1,8 +1,5 @@
 import { legalActions } from '../engine/actionBuilders';
-import {
-  actionStableKey,
-  toKeyedActions,
-} from '../engine/actionSurface';
+import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { PROPERTY_CARDS } from '../engine/cards';
 import { shuffleInPlace } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
@@ -13,10 +10,7 @@ import type {
   PlayerId,
   PlayerView,
 } from '../engine/types';
-import {
-  heuristicPriorsByKey,
-  rankHeuristicActions,
-} from './heuristicScorer';
+import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
 import { evaluateSearchLeafState } from './searchStateEvaluator';
 import type { ActionPolicy } from './types';
 
@@ -71,7 +65,10 @@ export function createSearchPolicy(
       }
 
       const actionByKey = new Map(
-        rankedRootActions.map((candidate) => [candidate.actionKey, candidate.action])
+        rankedRootActions.map((candidate) => [
+          candidate.actionKey,
+          candidate.action,
+        ])
       );
       const rootPriorByKey = heuristicPriorsByKey(
         candidateActions,
@@ -134,10 +131,7 @@ export function createSearchPolicy(
 
       let bestActionKey = expandedKeys[0];
       let bestVisits = rootVisits.get(bestActionKey) ?? 0;
-      let bestValue = safeDiv(
-        rootValueSum.get(bestActionKey) ?? 0,
-        bestVisits
-      );
+      let bestValue = safeDiv(rootValueSum.get(bestActionKey) ?? 0, bestVisits);
       let bestPrior = rootPriorByKey.get(bestActionKey) ?? 0;
       for (const actionKey of expandedKeys.slice(1)) {
         const visits = rootVisits.get(actionKey) ?? 0;

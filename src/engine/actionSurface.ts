@@ -18,7 +18,9 @@ export interface KeyedAction {
   action: GameAction;
 }
 
-export function paymentSignature(tokens: Partial<Record<Suit, number>>): string {
+export function paymentSignature(
+  tokens: Partial<Record<Suit, number>>
+): string {
   return SUITS.map((suit) => `${suit}:${tokens[suit] ?? 0}`).join('|');
 }
 
@@ -60,4 +62,3 @@ export function toKeyedActions(actions: readonly GameAction[]): KeyedAction[] {
 export function legalActionsCanonical(state: GameState): KeyedAction[] {
   return toKeyedActions(legalActions(state));
 }
-

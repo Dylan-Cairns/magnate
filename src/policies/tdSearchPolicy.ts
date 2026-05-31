@@ -9,23 +9,20 @@ import { shuffleInPlace } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
 import { toPlayerView } from '../engine/view';
-import type { GameAction, GameState, PlayerId, PlayerView } from '../engine/types';
+import type {
+  GameAction,
+  GameState,
+  PlayerId,
+  PlayerView,
+} from '../engine/types';
 import type { ActionPolicy } from './types';
-import {
-  encodeActionCandidates,
-  encodeObservation,
-} from './trainingEncoding';
+import { encodeActionCandidates, encodeObservation } from './trainingEncoding';
 import {
   DEFAULT_TD_SEARCH_MODEL_INDEX_PATH,
   preloadTdSearchBrowserModel,
 } from './modelRuntimeCache';
-import {
-  heuristicPriorsByKey,
-  rankHeuristicActions,
-} from './heuristicScorer';
-import {
-  type LoadedTdSearchModel,
-} from './tdSearchModelPack';
+import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
+import { type LoadedTdSearchModel } from './tdSearchModelPack';
 
 const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
 
@@ -74,7 +71,12 @@ export function createTdSearchPolicy(
   }
 
   return {
-    async selectAction({ view, state, legalActions: candidateActions, random }) {
+    async selectAction({
+      view,
+      state,
+      legalActions: candidateActions,
+      random,
+    }) {
       if (candidateActions.length === 0) {
         return undefined;
       }
@@ -101,7 +103,10 @@ export function createTdSearchPolicy(
       }
 
       const actionByKey = new Map(
-        rankedRootActions.map((candidate) => [candidate.actionKey, candidate.action])
+        rankedRootActions.map((candidate) => [
+          candidate.actionKey,
+          candidate.action,
+        ])
       );
       const rootPriorByKey = heuristicPriorsByKey(
         candidateActions,
@@ -198,7 +203,9 @@ export function createTdSearchPolicy(
   };
 }
 
-function resolveTdSearchConfig(options: TdSearchPolicyOptions): TdSearchPolicyConfig {
+function resolveTdSearchConfig(
+  options: TdSearchPolicyOptions
+): TdSearchPolicyConfig {
   const worlds = integerWithFloor(
     options.worlds ?? DEFAULT_TD_SEARCH_POLICY_CONFIG.worlds,
     1
@@ -228,8 +235,8 @@ function resolveTdSearchConfig(options: TdSearchPolicyOptions): TdSearchPolicyCo
   }
 
   const opponentTemperature =
-    options.opponentTemperature
-    ?? DEFAULT_TD_SEARCH_POLICY_CONFIG.opponentTemperature;
+    options.opponentTemperature ??
+    DEFAULT_TD_SEARCH_POLICY_CONFIG.opponentTemperature;
   if (!Number.isFinite(opponentTemperature) || opponentTemperature <= 0) {
     throw new Error(
       `TD search opponentTemperature must be > 0; received ${String(opponentTemperature)}.`
@@ -244,8 +251,8 @@ function resolveTdSearchConfig(options: TdSearchPolicyOptions): TdSearchPolicyCo
     rolloutEpsilon,
     opponentTemperature,
     sampleOpponentActions:
-      options.sampleOpponentActions
-      ?? DEFAULT_TD_SEARCH_POLICY_CONFIG.sampleOpponentActions,
+      options.sampleOpponentActions ??
+      DEFAULT_TD_SEARCH_POLICY_CONFIG.sampleOpponentActions,
   };
 }
 
@@ -328,7 +335,12 @@ function runRollout({
 
     const nextActionKey =
       activePlayer === rootPlayer
-        ? chooseRootRolloutActionKey(state, actions, random, config.rolloutEpsilon)
+        ? chooseRootRolloutActionKey(
+            state,
+            actions,
+            random,
+            config.rolloutEpsilon
+          )
         : chooseOpponentRolloutActionKey({
             actions,
             state,
@@ -391,7 +403,10 @@ function chooseOpponentRolloutActionKey({
     );
   }
 
-  const scaledLogits = Array.from(logits, (value) => value / config.opponentTemperature);
+  const scaledLogits = Array.from(
+    logits,
+    (value) => value / config.opponentTemperature
+  );
   if (config.sampleOpponentActions) {
     const sampledIndex = sampleLogitsIndex(scaledLogits, random);
     return keyed[sampledIndex].actionKey;
@@ -415,7 +430,10 @@ function tdLeafValue(
   return clamp(rootValue, -1, 1);
 }
 
-function argmaxLogitsIndex(logits: readonly number[], keyed: readonly KeyedAction[]): number {
+function argmaxLogitsIndex(
+  logits: readonly number[],
+  keyed: readonly KeyedAction[]
+): number {
   if (logits.length === 0) {
     throw new Error('argmaxLogitsIndex requires at least one logit.');
   }
@@ -437,7 +455,10 @@ function argmaxLogitsIndex(logits: readonly number[], keyed: readonly KeyedActio
   return bestIndex;
 }
 
-function sampleLogitsIndex(logits: readonly number[], random: () => number): number {
+function sampleLogitsIndex(
+  logits: readonly number[],
+  random: () => number
+): number {
   if (logits.length === 0) {
     throw new Error('sampleLogitsIndex requires at least one logit.');
   }

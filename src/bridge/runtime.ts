@@ -1,4 +1,8 @@
-import { ACTION_IDS, actionStableKey, legalActionsCanonical } from '../engine/actionSurface';
+import {
+  ACTION_IDS,
+  actionStableKey,
+  legalActionsCanonical,
+} from '../engine/actionSurface';
 import { createSession } from '../engine/session';
 import { applyAction } from '../engine/reducer';
 import { isTerminal } from '../engine/scoring';
@@ -113,7 +117,9 @@ export class MagnateBridgeRuntime {
     const parsed = parseResetPayload(payload);
     if (parsed.serializedState !== undefined) {
       const deserialized = parseSerializedState(parsed.serializedState);
-      this.state = parsed.skipAdvanceToDecision ? deserialized : advanceToDecision(deserialized);
+      this.state = parsed.skipAdvanceToDecision
+        ? deserialized
+        : advanceToDecision(deserialized);
       return this.stateResult();
     }
 
@@ -194,7 +200,10 @@ export class MagnateBridgeRuntime {
         (candidate) => candidate.actionKey === key
       );
       if (!match) {
-        throw new RuntimeBridgeError('ILLEGAL_ACTION', `Unknown legal action key: ${key}`);
+        throw new RuntimeBridgeError(
+          'ILLEGAL_ACTION',
+          `Unknown legal action key: ${key}`
+        );
       }
 
       if (payload.action) {
@@ -247,7 +256,10 @@ function parseEnvelope(raw: unknown): {
   payload: unknown;
 } {
   if (!isObject(raw)) {
-    throw new RuntimeBridgeError('INVALID_PAYLOAD', 'Request must be a JSON object.');
+    throw new RuntimeBridgeError(
+      'INVALID_PAYLOAD',
+      'Request must be a JSON object.'
+    );
   }
 
   const requestId = raw.requestId;
@@ -279,7 +291,10 @@ function parseCommand(command: string): BridgeCommand {
     return command as BridgeCommand;
   }
 
-  throw new RuntimeBridgeError('INVALID_COMMAND', `Unsupported command: ${command}`);
+  throw new RuntimeBridgeError(
+    'INVALID_COMMAND',
+    `Unsupported command: ${command}`
+  );
 }
 
 function parseResetPayload(payload: unknown): BridgeResetPayload {
@@ -288,12 +303,18 @@ function parseResetPayload(payload: unknown): BridgeResetPayload {
   }
 
   if (!isObject(payload)) {
-    throw new RuntimeBridgeError('INVALID_PAYLOAD', 'reset payload must be an object.');
+    throw new RuntimeBridgeError(
+      'INVALID_PAYLOAD',
+      'reset payload must be an object.'
+    );
   }
 
   const seed = payload.seed;
   if (seed !== undefined && typeof seed !== 'string') {
-    throw new RuntimeBridgeError('INVALID_PAYLOAD', 'reset.seed must be a string when provided.');
+    throw new RuntimeBridgeError(
+      'INVALID_PAYLOAD',
+      'reset.seed must be a string when provided.'
+    );
   }
 
   const firstPlayer = payload.firstPlayer;
@@ -333,11 +354,18 @@ function parseObservationPayload(payload: unknown): BridgeObservationPayload {
   }
 
   if (!isObject(payload)) {
-    throw new RuntimeBridgeError('INVALID_PAYLOAD', 'observation payload must be an object.');
+    throw new RuntimeBridgeError(
+      'INVALID_PAYLOAD',
+      'observation payload must be an object.'
+    );
   }
 
   const viewerId = payload.viewerId;
-  if (viewerId !== undefined && viewerId !== 'PlayerA' && viewerId !== 'PlayerB') {
+  if (
+    viewerId !== undefined &&
+    viewerId !== 'PlayerA' &&
+    viewerId !== 'PlayerB'
+  ) {
     throw new RuntimeBridgeError(
       'INVALID_PAYLOAD',
       'observation.viewerId must be "PlayerA" or "PlayerB" when provided.'
@@ -363,14 +391,20 @@ function parseObservationPayload(payload: unknown): BridgeObservationPayload {
 
 function parseStepPayload(payload: unknown): BridgeStepPayload {
   if (!isObject(payload)) {
-    throw new RuntimeBridgeError('INVALID_PAYLOAD', 'step payload must be an object.');
+    throw new RuntimeBridgeError(
+      'INVALID_PAYLOAD',
+      'step payload must be an object.'
+    );
   }
 
   const action = payload.action;
   const actionKey = payload.actionKey;
 
   if (action !== undefined && !isObject(action)) {
-    throw new RuntimeBridgeError('INVALID_PAYLOAD', 'step.action must be an object when provided.');
+    throw new RuntimeBridgeError(
+      'INVALID_PAYLOAD',
+      'step.action must be an object when provided.'
+    );
   }
 
   if (actionKey !== undefined && typeof actionKey !== 'string') {

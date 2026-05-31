@@ -94,7 +94,8 @@ export function buildTradeSourceGroups(
 export function buildHumanActionList(
   actions: readonly GameAction[]
 ): HumanActionListItem[] {
-  const tradeItems: Extract<HumanActionListItem, { kind: 'trade-group' }>[] = [];
+  const tradeItems: Extract<HumanActionListItem, { kind: 'trade-group' }>[] =
+    [];
   const buyDeedItems: Extract<
     HumanActionListItem,
     { kind: 'buy-deed-group' }
@@ -107,7 +108,10 @@ export function buildHumanActionList(
     HumanActionListItem,
     { kind: 'develop-outright-group' }
   >[] = [];
-  const nonGroupedByType = new Map<NonGroupedAction['type'], NonGroupedAction[]>();
+  const nonGroupedByType = new Map<
+    NonGroupedAction['type'],
+    NonGroupedAction[]
+  >();
   const tradeGroups = new Map<Suit, { options: TradeAction[] }>();
   const buyDeedGroups = new Map<CardId, { options: BuyDeedAction[] }>();
   const developDeedGroups = new Map<string, { options: DevelopDeedAction[] }>();
@@ -243,7 +247,10 @@ export function pickerStillLegal(
   if (picker.kind === 'develop-outright-district') {
     const districtIds = new Set<string>();
     for (const action of actions) {
-      if (action.type !== 'develop-outright' || action.cardId !== picker.cardId) {
+      if (
+        action.type !== 'develop-outright' ||
+        action.cardId !== picker.cardId
+      ) {
         continue;
       }
       districtIds.add(action.districtId);
@@ -314,9 +321,9 @@ export function buildPickerOptions(
     const firstActionByDistrict = new Map<string, DevelopOutrightAction>();
     for (const action of actions) {
       if (
-        action.type !== 'develop-outright'
-        || action.cardId !== picker.cardId
-        || firstActionByDistrict.has(action.districtId)
+        action.type !== 'develop-outright' ||
+        action.cardId !== picker.cardId ||
+        firstActionByDistrict.has(action.districtId)
       ) {
         continue;
       }

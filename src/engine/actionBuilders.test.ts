@@ -75,12 +75,14 @@ describe('legalActions', () => {
       makePlayer(PLAYER_B),
     ] as const;
     const state = makeGameState({ phase: 'ActionWindow', players });
-    const trades = legalActions(state).filter((action) => action.type === 'trade');
+    const trades = legalActions(state).filter(
+      (action) => action.type === 'trade'
+    );
 
     expect(trades.length).toBeGreaterThan(0);
-    expect(trades.every((trade) => trade.give === 'Moons' || trade.give === 'Knots')).toBe(
-      true
-    );
+    expect(
+      trades.every((trade) => trade.give === 'Moons' || trade.give === 'Knots')
+    ).toBe(true);
   });
 
   it('ActionWindow never includes trades with same give/receive suit', () => {
@@ -89,7 +91,9 @@ describe('legalActions', () => {
       makePlayer(PLAYER_B),
     ] as const;
     const state = makeGameState({ phase: 'ActionWindow', players });
-    const trades = legalActions(state).filter((action) => action.type === 'trade');
+    const trades = legalActions(state).filter(
+      (action) => action.type === 'trade'
+    );
     expect(trades.every((trade) => trade.give !== trade.receive)).toBe(true);
   });
 
@@ -127,7 +131,9 @@ describe('legalActions', () => {
     expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
     expect(actions.some((action) => action.type === 'sell-card')).toBe(false);
     expect(actions.some((action) => action.type === 'buy-deed')).toBe(false);
-    expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
+    expect(actions.some((action) => action.type === 'develop-outright')).toBe(
+      false
+    );
   });
 
   it('ActionWindow emits one-token deed actions only for affordable deed suits', () => {
@@ -147,7 +153,7 @@ describe('legalActions', () => {
     });
 
     const developActions = legalActions(state).filter(
-      (action): action is Extract<(typeof action), { type: 'develop-deed' }> =>
+      (action): action is Extract<typeof action, { type: 'develop-deed' }> =>
         action.type === 'develop-deed'
     );
 
@@ -202,8 +208,14 @@ describe('legalActions', () => {
       makePlayer(PLAYER_B),
     ] as const;
     const state = makeGameState({ phase: 'ActionWindow', players });
-    const sells = legalActions(state).filter((action) => action.type === 'sell-card');
-    expect(sells.map((action) => action.cardId).sort()).toEqual(['13', '6', '8']);
+    const sells = legalActions(state).filter(
+      (action) => action.type === 'sell-card'
+    );
+    expect(sells.map((action) => action.cardId).sort()).toEqual([
+      '13',
+      '6',
+      '8',
+    ]);
   });
 
   it('ActionWindow excludes non-property cards present in hand', () => {
@@ -243,7 +255,9 @@ describe('legalActions', () => {
     const actions = legalActions(state);
     expect(actions.some((action) => action.type === 'sell-card')).toBe(false);
     expect(actions.some((action) => action.type === 'buy-deed')).toBe(false);
-    expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
+    expect(actions.some((action) => action.type === 'develop-outright')).toBe(
+      false
+    );
     expect(actions.some((action) => action.type === 'end-turn')).toBe(true);
   });
 
@@ -359,7 +373,9 @@ describe('legalActions', () => {
       ] as const,
     });
     const aceOutrights = legalActions(sufficient).filter(
-      (action): action is Extract<typeof action, { type: 'develop-outright' }> =>
+      (
+        action
+      ): action is Extract<typeof action, { type: 'develop-outright' }> =>
         action.type === 'develop-outright' && action.cardId === '0'
     );
     expect(aceOutrights).toHaveLength(1);
@@ -397,7 +413,9 @@ describe('legalActions', () => {
         action.cardId === '7'
     );
 
-    const districtIds = new Set(districtActions.map((action) => action.districtId));
+    const districtIds = new Set(
+      districtActions.map((action) => action.districtId)
+    );
     expect(districtIds.has('D1')).toBe(false);
     expect(districtIds.has('D2')).toBe(true);
     expect(districtIds.has('D3')).toBe(false);
@@ -421,8 +439,12 @@ describe('legalActions', () => {
     const actions = legalActions(state);
     expect(actions.some((action) => action.type === 'sell-card')).toBe(true);
     expect(actions.some((action) => action.type === 'buy-deed')).toBe(false);
-    expect(actions.some((action) => action.type === 'develop-outright')).toBe(false);
-    expect(actions.some((action) => action.type === 'develop-deed')).toBe(false);
+    expect(actions.some((action) => action.type === 'develop-outright')).toBe(
+      false
+    );
+    expect(actions.some((action) => action.type === 'develop-deed')).toBe(
+      false
+    );
     expect(actions.some((action) => action.type === 'end-turn')).toBe(false);
   });
 });

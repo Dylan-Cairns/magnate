@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { CARD_BY_ID, CROWN_CARDS, EXCUSE_CARD, PAWN_CARDS, PROPERTY_CARDS } from './cards';
+import {
+  CARD_BY_ID,
+  CROWN_CARDS,
+  EXCUSE_CARD,
+  PAWN_CARDS,
+  PROPERTY_CARDS,
+} from './cards';
 import { drawOne, initialSetup, type DrawContext } from './deck';
 
 function sumResourcePool(pool: Record<string, number>): number {
@@ -86,7 +92,9 @@ describe('initialSetup', () => {
     const pawnOrders = seeds.map((seed) => {
       const setup = initialSetup(seed);
       expect(setup.districts[2]).toBe(EXCUSE_CARD.id);
-      return setup.districts.filter((cardId) => cardId !== EXCUSE_CARD.id).join(',');
+      return setup.districts
+        .filter((cardId) => cardId !== EXCUSE_CARD.id)
+        .join(',');
     });
 
     expect(new Set(pawnOrders).size).toBeGreaterThan(1);
@@ -153,7 +161,11 @@ describe('drawOne', () => {
 
   it('uses seed + rngCursor for deterministic reshuffle ordering', () => {
     const baseContext: DrawContext = {
-      deck: { draw: [], discard: ['6', '7', '8', '9', '10', '11'], reshuffles: 0 },
+      deck: {
+        draw: [],
+        discard: ['6', '7', '8', '9', '10', '11'],
+        reshuffles: 0,
+      },
       seed: 'seed-f',
       rngCursor: 4,
     };
@@ -181,7 +193,11 @@ describe('issue regressions', () => {
 
   it('issue 7: reshuffle path changes when rngCursor changes', () => {
     const base: DrawContext = {
-      deck: { draw: [], discard: ['6', '7', '8', '9', '10', '11'], reshuffles: 0 },
+      deck: {
+        draw: [],
+        discard: ['6', '7', '8', '9', '10', '11'],
+        reshuffles: 0,
+      },
       seed: 'seed-reg-7',
       rngCursor: 1,
     };

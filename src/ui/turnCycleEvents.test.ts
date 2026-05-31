@@ -11,10 +11,7 @@ import {
 } from '../engine/__tests__/fixtures';
 import { deriveTurnCycleEvents } from './turnCycleEvents';
 
-function withEndTurnIncome(
-  previousState: GameState,
-  nextState: GameState
-) {
+function withEndTurnIncome(previousState: GameState, nextState: GameState) {
   const action: GameAction = { type: 'end-turn' };
   return deriveTurnCycleEvents(previousState, nextState, action);
 }

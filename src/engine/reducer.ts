@@ -51,7 +51,9 @@ function assertActionIsLegal(state: GameState, action: GameAction): void {
   const legal = legalActions(state);
   const isLegal = legal.some((candidate) => actionsEqual(candidate, action));
   if (!isLegal) {
-    throw new Error(`Illegal action for phase ${state.phase}: ${JSON.stringify(action)}`);
+    throw new Error(
+      `Illegal action for phase ${state.phase}: ${JSON.stringify(action)}`
+    );
   }
 }
 
@@ -64,7 +66,10 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     return true;
   }
 
-  if (left.type === 'choose-income-suit' && right.type === 'choose-income-suit') {
+  if (
+    left.type === 'choose-income-suit' &&
+    right.type === 'choose-income-suit'
+  ) {
     return (
       left.playerId === right.playerId &&
       left.districtId === right.districtId &&
@@ -138,7 +143,9 @@ function chooseIncomeSuit(
     action.districtId !== nextChoice.districtId ||
     action.cardId !== nextChoice.cardId
   ) {
-    throw new Error('Income choice does not match the next pending income choice.');
+    throw new Error(
+      'Income choice does not match the next pending income choice.'
+    );
   }
   if (!nextChoice.suits.includes(action.suit)) {
     throw new Error(`Suit ${action.suit} is not valid for this income choice.`);
@@ -209,10 +216,16 @@ function developDeed(
     throw new Error('No deed exists in this district for the active player.');
   }
   if (stack.deed.cardId !== action.cardId) {
-    throw new Error('Develop deed action card does not match district deed card.');
+    throw new Error(
+      'Develop deed action card does not match district deed card.'
+    );
   }
 
-  const spend = validateSuitSpend(action.tokens, card.suits, 'deed development');
+  const spend = validateSuitSpend(
+    action.tokens,
+    card.suits,
+    'deed development'
+  );
   if (!canAfford(player.resources, spend)) {
     throw new Error('Player cannot afford deed development spend.');
   }
@@ -224,27 +237,32 @@ function developDeed(
   }
 
   const resources = applyDelta(player.resources, negate(spend));
-  const districts = updateDistricts(state, action.districtId, player.id, (current) => {
-    const existingDeed = current.deed;
-    if (!existingDeed || existingDeed.cardId !== action.cardId) {
-      throw new Error('Invalid deed state during development.');
-    }
+  const districts = updateDistricts(
+    state,
+    action.districtId,
+    player.id,
+    (current) => {
+      const existingDeed = current.deed;
+      if (!existingDeed || existingDeed.cardId !== action.cardId) {
+        throw new Error('Invalid deed state during development.');
+      }
 
-    if (nextProgress === target) {
+      if (nextProgress === target) {
+        return {
+          developed: [...current.developed, action.cardId],
+        };
+      }
+
       return {
-        developed: [...current.developed, action.cardId],
+        developed: current.developed,
+        deed: {
+          cardId: action.cardId,
+          progress: nextProgress,
+          tokens: mergeTokens(existingDeed.tokens, spend),
+        },
       };
     }
-
-    return {
-      developed: current.developed,
-      deed: {
-        cardId: action.cardId,
-        progress: nextProgress,
-        tokens: mergeTokens(existingDeed.tokens, spend),
-      },
-    };
-  });
+  );
 
   const updated = replaceActivePlayer(state, { ...player, resources });
   return log({ ...updated, districts }, `advance ${action.cardId}`);
@@ -260,17 +278,27 @@ function developOutright(
   assertPlayerHasCard(player, action.cardId);
   const district = findDistrictById(state, action.districtId);
   if (!placementAllowed(card, district, player.id)) {
-    throw new Error('Outright development placement is not allowed in this district.');
+    throw new Error(
+      'Outright development placement is not allowed in this district.'
+    );
   }
 
-  const payment = validateSuitSpend(action.payment, card.suits, 'outright development');
+  const payment = validateSuitSpend(
+    action.payment,
+    card.suits,
+    'outright development'
+  );
   const totalPayment = sumTokens(payment);
   const required = developmentCost(card);
   if (totalPayment !== required) {
-    throw new Error(`Outright development requires exactly ${required} total tokens.`);
+    throw new Error(
+      `Outright development requires exactly ${required} total tokens.`
+    );
   }
   if (!card.suits.every((suit) => (payment[suit] ?? 0) >= 1)) {
-    throw new Error('Outright development payment must include at least one token of each card suit.');
+    throw new Error(
+      'Outright development payment must include at least one token of each card suit.'
+    );
   }
   if (!canAfford(player.resources, payment)) {
     throw new Error('Player cannot afford outright development payment.');
@@ -278,9 +306,14 @@ function developOutright(
 
   const resources = applyDelta(player.resources, negate(payment));
   const hand = player.hand.filter((id) => id !== action.cardId);
-  const districts = updateDistricts(state, action.districtId, player.id, (stack) => ({
-    developed: [...stack.developed, action.cardId],
-  }));
+  const districts = updateDistricts(
+    state,
+    action.districtId,
+    player.id,
+    (stack) => ({
+      developed: [...stack.developed, action.cardId],
+    })
+  );
 
   const updated = replaceActivePlayer(state, { ...player, hand, resources });
   return log(
@@ -314,10 +347,15 @@ function buyDeed(
 
   const resources = applyDelta(player.resources, negate(cost));
   const hand = player.hand.filter((id) => id !== action.cardId);
-  const districts = updateDistricts(state, action.districtId, player.id, (stack) => ({
-    developed: stack.developed,
-    deed: { cardId: action.cardId, progress: 0, tokens: {} },
-  }));
+  const districts = updateDistricts(
+    state,
+    action.districtId,
+    player.id,
+    (stack) => ({
+      developed: stack.developed,
+      deed: { cardId: action.cardId, progress: 0, tokens: {} },
+    })
+  );
 
   const updated = replaceActivePlayer(state, { ...player, hand, resources });
   return log(
@@ -378,7 +416,9 @@ function validateSuitSpend(
       throw new Error(`${label} tokens must be positive integers.`);
     }
     if (!allowed.has(suit)) {
-      throw new Error(`${label} includes suit ${suit} which is not on the card.`);
+      throw new Error(
+        `${label} includes suit ${suit} which is not on the card.`
+      );
     }
     next[suit] = value;
     total += value;
@@ -426,7 +466,10 @@ function gainFor(suits: readonly Suit[]): Partial<Record<Suit, number>> {
   }, {});
 }
 
-function replaceActivePlayer(state: GameState, updated: PlayerState): GameState {
+function replaceActivePlayer(
+  state: GameState,
+  updated: PlayerState
+): GameState {
   const players = state.players.map((player, index) =>
     index === state.activePlayerIndex ? updated : player
   );
@@ -482,7 +525,9 @@ function updateDistricts(
   });
 }
 
-function negate(tokens: Partial<Record<Suit, number>>): Partial<Record<Suit, number>> {
+function negate(
+  tokens: Partial<Record<Suit, number>>
+): Partial<Record<Suit, number>> {
   const result: Partial<Record<Suit, number>> = {};
   SUITS.forEach((suit) => {
     if (tokens[suit]) {
@@ -492,7 +537,11 @@ function negate(tokens: Partial<Record<Suit, number>>): Partial<Record<Suit, num
   return result;
 }
 
-function log(state: GameState, summary: string, playerId?: PlayerId): GameState {
+function log(
+  state: GameState,
+  summary: string,
+  playerId?: PlayerId
+): GameState {
   const entryPlayerId = playerId ?? state.players[state.activePlayerIndex]?.id;
   if (!entryPlayerId) {
     throw new Error('Cannot append log entry without an active player.');

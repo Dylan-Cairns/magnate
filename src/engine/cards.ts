@@ -454,10 +454,13 @@ const toCard = (raw: RawCardObject): Card => {
 
 export const ALL_CARDS: Card[] = RAW_CARD_OBJECTS.map(toCard);
 
-export const CARD_BY_ID: Record<CardId, Card> = ALL_CARDS.reduce((acc, c) => {
-  acc[c.id] = c;
-  return acc;
-}, Object.create(null) as Record<CardId, Card>);
+export const CARD_BY_ID: Record<CardId, Card> = ALL_CARDS.reduce(
+  (acc, c) => {
+    acc[c.id] = c;
+    return acc;
+  },
+  Object.create(null) as Record<CardId, Card>
+);
 
 export const PROPERTY_CARDS = ALL_CARDS.filter(
   (c): c is PropertyCard => c.kind === 'Property'

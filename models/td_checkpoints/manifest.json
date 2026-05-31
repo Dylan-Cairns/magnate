@@ -2,9 +2,7 @@
   "schemaVersion": 2,
   "generatedAtUtc": "2026-03-09T00:00:00Z",
   "defaultWarmStart": "promoted",
-  "opponentPool": [
-    "promoted"
-  ],
+  "opponentPool": ["promoted"],
   "checkpoints": {
     "promoted": {
       "status": "promoted",

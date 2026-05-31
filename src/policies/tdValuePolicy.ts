@@ -4,7 +4,12 @@ import { shuffleInPlace } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
 import { toPlayerView } from '../engine/view';
-import type { GameAction, GameState, PlayerId, PlayerView } from '../engine/types';
+import type {
+  GameAction,
+  GameState,
+  PlayerId,
+  PlayerView,
+} from '../engine/types';
 import type { ActionPolicy } from './types';
 import { encodeObservation } from './trainingEncoding';
 import {
@@ -23,7 +28,9 @@ export interface TdValuePolicyOptions {
   loadModel?: () => Promise<TdValueScorer>;
 }
 
-export function createTdValuePolicy(options: TdValuePolicyOptions = {}): ActionPolicy {
+export function createTdValuePolicy(
+  options: TdValuePolicyOptions = {}
+): ActionPolicy {
   const worlds = integerWithFloor(options.worlds ?? DEFAULT_TD_VALUE_WORLDS, 1);
   const configuredLoader =
     options.loadModel ??
@@ -41,7 +48,12 @@ export function createTdValuePolicy(options: TdValuePolicyOptions = {}): ActionP
   }
 
   return {
-    async selectAction({ view, state, legalActions: candidateActions, random }) {
+    async selectAction({
+      view,
+      state,
+      legalActions: candidateActions,
+      random,
+    }) {
       if (candidateActions.length === 0) {
         return undefined;
       }
@@ -81,9 +93,9 @@ export function createTdValuePolicy(options: TdValuePolicyOptions = {}): ActionP
         }
         const score = total / worldStates.length;
         if (
-          score > bestScore
-          || (approximatelyEqual(score, bestScore)
-            && actionKey.localeCompare(bestActionKey) < 0)
+          score > bestScore ||
+          (approximatelyEqual(score, bestScore) &&
+            actionKey.localeCompare(bestActionKey) < 0)
         ) {
           bestAction = action;
           bestActionKey = actionKey;
@@ -113,7 +125,9 @@ function scoreActionInWorld({
 
   const activePlayer = next.players[next.activePlayerIndex]?.id;
   if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
-    throw new Error('TD value policy could not resolve active player from next state.');
+    throw new Error(
+      'TD value policy could not resolve active player from next state.'
+    );
   }
   const nextView = toPlayerView(next, activePlayer);
   const observation = encodeObservation(nextView);
@@ -145,7 +159,9 @@ function sampleWorldStates(
     knownCards.add(cardId);
   }
 
-  const hiddenPool = PROPERTY_CARD_IDS.filter((cardId) => !knownCards.has(cardId));
+  const hiddenPool = PROPERTY_CARD_IDS.filter(
+    (cardId) => !knownCards.has(cardId)
+  );
   const expectedHiddenCount = opponentHandCount + drawCount;
   if (hiddenPool.length !== expectedHiddenCount) {
     throw new Error(

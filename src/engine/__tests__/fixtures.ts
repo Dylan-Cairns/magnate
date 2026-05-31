@@ -90,16 +90,20 @@ export interface GameStateOverrides {
 export function makeGameState(overrides: GameStateOverrides = {}): GameState {
   const players =
     overrides.players ??
-    ([
-      makePlayer(PLAYER_A),
-      makePlayer(PLAYER_B),
-    ] as const satisfies readonly [PlayerState, PlayerState]);
+    ([makePlayer(PLAYER_A), makePlayer(PLAYER_B)] as const satisfies readonly [
+      PlayerState,
+      PlayerState,
+    ]);
 
   return {
     schemaVersion: 1,
     seed: overrides.seed ?? 'test-seed',
     rngCursor: overrides.rngCursor ?? 0,
-    deck: overrides.deck ?? { draw: ['6', '7', '8'], discard: [], reshuffles: 0 },
+    deck: overrides.deck ?? {
+      draw: ['6', '7', '8'],
+      discard: [],
+      reshuffles: 0,
+    },
     players,
     activePlayerIndex: overrides.activePlayerIndex ?? 0,
     turn: overrides.turn ?? 1,
