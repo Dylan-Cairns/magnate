@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { legalActions } from './engine/actionBuilders';
 import type { CardId } from './engine/cards';
 import { rngFromSeed } from './engine/rng';
-import { createSession, stepToDecision } from './engine/session';
+import { createSession } from './engine/session';
 import {
   districtWinnersByPlayer,
   isTerminal,
@@ -31,14 +31,7 @@ import {
   tradeCompositePickerStillLegal,
   type ActionPickerState,
 } from './ui/actionPickerModel';
-import { cardFlightSettleMs } from './ui/animations/timing';
-import { collectTurnCycleAnimationPlan } from './ui/animations/turnCycleVisualPlan';
-import {
-  collectCardPlayFlights,
-  collectDeedResourceFlights,
-  collectIncomeChoiceResourceFlights,
-  collectTerminalCleanupFlights,
-} from './ui/animations/flightPlans';
+import { prepareActionDispatch } from './ui/actionDispatcher';
 import {
   canUseTurnReset,
   shouldCaptureTurnResetAnchor,
@@ -225,6 +218,53 @@ export function App() {
     clearAnimationFlights();
     clearTerminalWinnerOverlay();
   }, [clearAnimationFlights, clearTerminalWinnerOverlay]);
+  const dispatchAction = useCallback(
+    (
+      previousState: GameState,
+      action: GameAction,
+      actingPlayerId: PlayerId
+    ) => {
+      const plan = prepareActionDispatch({
+        previousState,
+        action,
+        actingPlayerId,
+        animationsEnabled,
+        makeResourceFlightId,
+        makeCardFlightId,
+      });
+      if (!animationsEnabled) {
+        clearAllFlights();
+        commitImmediateTransition(previousState, plan.nextState, action);
+        setError(null);
+        return;
+      }
+
+      runAnimationTransition({
+        previousState,
+        nextState: plan.nextState,
+        action,
+        resourceFlights: plan.resourceFlights,
+        cardFlights: plan.cardFlights,
+        turnCyclePlan: plan.turnCyclePlan,
+        onSettle: plan.enteredTerminal
+          ? () => {
+              setTerminalWinnerOverlayWinner(
+                (plan.nextState.finalScore ?? scoreLive(plan.nextState)).winner
+              );
+            }
+          : undefined,
+      });
+      setError(null);
+    },
+    [
+      animationsEnabled,
+      clearAllFlights,
+      commitImmediateTransition,
+      makeCardFlightId,
+      makeResourceFlightId,
+      runAnimationTransition,
+    ]
+  );
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
     () => [optionsMenuRef, optionsMenuButtonRef],
@@ -443,66 +483,7 @@ export function App() {
 
           const actingPlayerId =
             current.players[current.activePlayerIndex]?.id ?? BOT_PLAYER;
-          const queuedActionResourceFlights = [
-            ...collectDeedResourceFlights(
-              current,
-              choice,
-              actingPlayerId,
-              makeResourceFlightId
-            ),
-            ...collectIncomeChoiceResourceFlights(choice, makeResourceFlightId),
-          ];
-          const next = stepToDecision(current, choice);
-          if (!animationsEnabled) {
-            clearAllFlights();
-            commitImmediateTransition(current, next, choice);
-            setError(null);
-            return;
-          }
-          let queuedCardFlights = collectCardPlayFlights(
-            current,
-            next,
-            choice,
-            actingPlayerId,
-            makeCardFlightId
-          );
-          const terminalCleanupPlan = collectTerminalCleanupFlights(
-            current,
-            next,
-            makeResourceFlightId,
-            makeCardFlightId
-          );
-          const enteredTerminal = isTerminal(next);
-          const turnCyclePlan = collectTurnCycleAnimationPlan(
-            current,
-            next,
-            choice,
-            cardFlightSettleMs(queuedCardFlights)
-          );
-          const queuedResourceFlights = [...queuedActionResourceFlights];
-          if (terminalCleanupPlan) {
-            queuedResourceFlights.push(...terminalCleanupPlan.resourceFlights);
-            queuedCardFlights = [
-              ...queuedCardFlights,
-              ...terminalCleanupPlan.cardFlights,
-            ];
-          }
-          runAnimationTransition({
-            previousState: current,
-            nextState: next,
-            action: choice,
-            resourceFlights: queuedResourceFlights,
-            cardFlights: queuedCardFlights,
-            turnCyclePlan,
-            onSettle: enteredTerminal
-              ? () => {
-                  setTerminalWinnerOverlayWinner(
-                    (next.finalScore ?? scoreLive(next)).winner
-                  );
-                }
-              : undefined,
-          });
-          setError(null);
+          dispatchAction(current, choice, actingPlayerId);
         } catch (err) {
           setError(`Bot action failed: ${errorMessage(err)}`);
         } finally {
@@ -518,13 +499,8 @@ export function App() {
   }, [
     actionCommitPending,
     activePlayerId,
-    animationsEnabled,
-    clearAllFlights,
-    commitImmediateTransition,
-    makeCardFlightId,
-    makeResourceFlightId,
+    dispatchAction,
     resolvedBotProfile,
-    runAnimationTransition,
     state,
     startupPreloadReady,
     terminal,
@@ -607,66 +583,7 @@ export function App() {
     }
 
     try {
-      const next = stepToDecision(state, action);
-      if (!animationsEnabled) {
-        clearAllFlights();
-        commitImmediateTransition(state, next, action);
-        setError(null);
-        return;
-      }
-      const queuedActionResourceFlights = [
-        ...collectDeedResourceFlights(
-          state,
-          action,
-          activePlayerId,
-          makeResourceFlightId
-        ),
-        ...collectIncomeChoiceResourceFlights(action, makeResourceFlightId),
-      ];
-      let queuedCardFlights = collectCardPlayFlights(
-        state,
-        next,
-        action,
-        activePlayerId,
-        makeCardFlightId
-      );
-      const terminalCleanupPlan = collectTerminalCleanupFlights(
-        state,
-        next,
-        makeResourceFlightId,
-        makeCardFlightId
-      );
-      const enteredTerminal = isTerminal(next);
-      const turnCyclePlan = collectTurnCycleAnimationPlan(
-        state,
-        next,
-        action,
-        cardFlightSettleMs(queuedCardFlights)
-      );
-      const queuedResourceFlights = [...queuedActionResourceFlights];
-      if (terminalCleanupPlan) {
-        queuedResourceFlights.push(...terminalCleanupPlan.resourceFlights);
-        queuedCardFlights = [
-          ...queuedCardFlights,
-          ...terminalCleanupPlan.cardFlights,
-        ];
-      }
-      runAnimationTransition({
-        previousState: state,
-        nextState: next,
-        action,
-        resourceFlights: queuedResourceFlights,
-        cardFlights: queuedCardFlights,
-        turnCyclePlan,
-        onSettle: enteredTerminal
-          ? () => {
-              setTerminalWinnerOverlayWinner(
-                (next.finalScore ?? scoreLive(next)).winner
-              );
-            }
-          : undefined,
-      });
-      setError(null);
+      dispatchAction(state, action, activePlayerId);
     } catch (err) {
       setError(errorMessage(err));
     }
