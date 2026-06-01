@@ -3,10 +3,10 @@ import type { BotSpec, SearchBotSpec } from '../policies/botSpec';
 import type { SearchDecisionDiagnostics } from '../policies/types';
 
 export const HEAD_TO_HEAD_CONFIG_SCHEMA_VERSION = 1;
-export const HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION = 2;
+export const HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION = 3;
 export const HEAD_TO_HEAD_ARTIFACT_TYPE = 'ts-bot-head-to-head';
 export const ROLLOUT_SEARCH_SWEEP_CONFIG_SCHEMA_VERSION = 1;
-export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION = 1;
+export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION = 2;
 export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_TYPE = 'ts-rollout-search-sweep';
 export const ROOT_ACTION_COUNT_BUCKETS = [
   '2-4',
@@ -17,8 +17,16 @@ export const ROOT_ACTION_COUNT_BUCKETS = [
   '65+',
 ] as const;
 
-export type HeadToHeadArtifactSchemaVersion = 1 | 2;
+export type HeadToHeadArtifactSchemaVersion = 1 | 2 | 3;
+export type RolloutSearchSweepArtifactSchemaVersion = 1 | 2;
 export type RootActionCountBucket = (typeof ROOT_ACTION_COUNT_BUCKETS)[number];
+
+export interface EvaluationExecution {
+  requestedWorkers: number;
+  workers: number;
+  parallelUnit: 'paired-seed';
+  latencyMode: 'isolated' | 'loaded';
+}
 
 export interface HeadToHeadConfig {
   schemaVersion: typeof HEAD_TO_HEAD_CONFIG_SCHEMA_VERSION;
@@ -117,12 +125,14 @@ export interface HeadToHeadSummary {
 
 export interface HeadToHeadRun {
   config: HeadToHeadConfig;
+  execution: EvaluationExecution;
   summary: HeadToHeadSummary;
   games: PlayedGame[];
 }
 
 export interface RolloutSearchSweepRun {
   config: RolloutSearchSweepConfig;
+  execution: EvaluationExecution;
   matchups: HeadToHeadRun[];
 }
 
@@ -140,6 +150,7 @@ export interface HeadToHeadArtifact {
     nodeVersion: string;
   };
   git: GitMetadata;
+  execution?: EvaluationExecution;
   config: HeadToHeadConfig;
   summary: HeadToHeadSummary;
   games: PlayedGame[];
@@ -147,6 +158,7 @@ export interface HeadToHeadArtifact {
 
 export interface RolloutSearchSweepArtifactRow {
   candidate: SearchBotSpec;
+  execution: EvaluationExecution;
   summary: HeadToHeadSummary;
   matchupArtifactPath: string;
 }
@@ -154,13 +166,14 @@ export interface RolloutSearchSweepArtifactRow {
 export type RolloutSearchSweepArtifactStatus = 'running' | 'completed';
 
 export interface RolloutSearchSweepArtifact {
-  schemaVersion: typeof ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION;
+  schemaVersion: RolloutSearchSweepArtifactSchemaVersion;
   artifactType: typeof ROLLOUT_SEARCH_SWEEP_ARTIFACT_TYPE;
   generatedAtUtc: string;
   runtime: {
     nodeVersion: string;
   };
   git: GitMetadata;
+  execution?: EvaluationExecution;
   status: RolloutSearchSweepArtifactStatus;
   completedCandidates: number;
   totalCandidates: number;

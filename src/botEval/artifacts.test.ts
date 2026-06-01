@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -41,6 +41,27 @@ describe('TypeScript bot evaluation artifacts', () => {
 
     expect(loaded).toEqual(artifact);
     expect(markdown).toContain('# TypeScript Bot Evaluation: matchup-test');
+    expect(markdown).toContain(
+      'Execution: workers=1 requestedWorkers=1 parallelUnit=paired-seed latencyMode=isolated'
+    );
     expect(markdown).toContain('heuristic-candidate');
+  });
+
+  it('loads schema-v2 artifacts without execution metadata', async () => {
+    const outputDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'magnate-bot-eval-v2-')
+    );
+    cleanupPaths.push(outputDirectory);
+    const artifact = createHeadToHeadArtifact(
+      await runHeadToHead(testHeadToHeadConfig())
+    );
+    artifact.schemaVersion = 2;
+    delete artifact.execution;
+    const artifactPath = path.join(outputDirectory, 'matchup.json');
+    await writeFile(artifactPath, `${JSON.stringify(artifact)}\n`, 'utf8');
+
+    await expect(loadHeadToHeadArtifact(artifactPath)).resolves.toEqual(
+      artifact
+    );
   });
 });
