@@ -32,6 +32,15 @@ describe('bot policy catalog', () => {
     );
   });
 
+  it('records serializable specs for every configured profile', () => {
+    expect(
+      BOT_PROFILES.every(
+        (profile) =>
+          profile.spec.id === profile.id && profile.spec.kind === profile.kind
+      )
+    ).toBe(true);
+  });
+
   it('does not include a browser td-value profile', () => {
     const profileIds = BOT_PROFILES.map((profile) => profile.id);
     expect(profileIds).not.toContain('td-value-browser');

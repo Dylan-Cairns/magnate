@@ -45,6 +45,13 @@ Design expectations:
   - each pack provides `manifest.json` + `weights.json`
   - loader validates schema/checkpoint/encoding/dim compatibility before policy use
 - Policy randomness should be injected by the controller (seed-derived where determinism matters), not hardcoded to `Math.random`.
+- Browser bot evaluation should run the actual TypeScript `ActionPolicy`
+  implementations directly through `src/botEval/`, using serializable `BotSpec`
+  definitions and the same versioned state-derived policy RNG helper as browser
+  play.
+- TypeScript head-to-head bot evaluation should use paired seeds with swapped
+  policy seats, record stable action-key transcripts, write JSON plus Markdown
+  artifacts, and support exact-game replay checks.
 - Additive policy implementations should not replace existing training/eval paths:
   - policy kinds are wired through one factory (`policy_from_name(...)`)
   - policies that spawn external resources (for example bridge subprocesses for simulation) expose `close()`
@@ -167,6 +174,9 @@ Design expectations:
 - Contract tests to protect TS/Python integration behavior.
 - Python bridge-client/encoding/eval scaffolding has focused tests in `trainer_tests/`.
 - Search policies have focused tests for deterministic action choice and legal-action guarantees.
+- TypeScript browser-bot evaluation has focused tests for serializable specs,
+  full-game deterministic transcripts, legal-action enforcement, paired
+  seat-swapped scheduling, artifacts, and exact replay divergence reporting.
 - Side-swapped promotion evals run through a canonical pooled-window pipeline:
   - paired seeds with swapped policy seats
   - Wilson confidence interval reporting

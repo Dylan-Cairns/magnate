@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "rollout-search-small-vs-heuristic",
+  "seedPrefix": "rollout-search-small-vs-heuristic",
+  "gamesPerSide": 2,
+  "candidate": {
+    "id": "rollout-search-small",
+    "kind": "search",
+    "config": {
+      "worlds": 1,
+      "rollouts": 1,
+      "depth": 4,
+      "maxRootActions": 3,
+      "rolloutEpsilon": 0
+    }
+  },
+  "opponent": {
+    "profileId": "heuristic"
+  }
+}
