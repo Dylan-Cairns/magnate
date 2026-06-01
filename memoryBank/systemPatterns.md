@@ -52,6 +52,13 @@ Design expectations:
 - TypeScript head-to-head bot evaluation should use paired seeds with swapped
   policy seats, record stable action-key transcripts, write JSON plus Markdown
   artifacts, and support exact-game replay checks.
+- TypeScript rollout-search sweeps should run candidate configs sequentially
+  against one fixed opponent with one shared paired-seed prefix so latency and
+  strength comparisons remain comparable. Preserve replayable child matchups
+  and write aggregate JSON, CSV, and Markdown summaries.
+- Rollout-search evaluation diagnostics should remain optional at the policy
+  boundary so browser behavior is unchanged while direct evaluation can record
+  legal-root-action counts and actual simulated engine steps.
 - Additive policy implementations should not replace existing training/eval paths:
   - policy kinds are wired through one factory (`policy_from_name(...)`)
   - policies that spawn external resources (for example bridge subprocesses for simulation) expose `close()`

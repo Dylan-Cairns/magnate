@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "rollout-width-ceiling",
+  "seedPrefix": "rollout-width-ceiling",
+  "gamesPerSide": 25,
+  "opponent": {
+    "profileId": "rollout-eval-search"
+  },
+  "candidates": [
+    {
+      "id": "rollout-width-16",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 12,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-width-32",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 12,
+        "maxRootActions": 32,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-width-48",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 12,
+        "maxRootActions": 48,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-width-80",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 12,
+        "maxRootActions": 80,
+        "rolloutEpsilon": 0
+      }
+    },
+    {
+      "id": "rollout-width-128",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 4,
+        "depth": 12,
+        "maxRootActions": 128,
+        "rolloutEpsilon": 0
+      }
+    }
+  ]
+}

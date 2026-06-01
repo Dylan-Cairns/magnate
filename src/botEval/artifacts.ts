@@ -7,6 +7,7 @@ import { collectGitMetadata } from './gitMetadata';
 import {
   HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION,
   HEAD_TO_HEAD_ARTIFACT_TYPE,
+  ROOT_ACTION_COUNT_BUCKETS,
   type HeadToHeadArtifact,
   type HeadToHeadRun,
 } from './types';
@@ -62,7 +63,10 @@ export async function loadHeadToHeadArtifact(
 ): Promise<HeadToHeadArtifact> {
   const payload: unknown = JSON.parse(await readFile(artifactPath, 'utf8'));
   const source = requiredRecord(payload, 'head-to-head artifact');
-  if (source.schemaVersion !== HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION) {
+  if (
+    source.schemaVersion !== 1 &&
+    source.schemaVersion !== HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION
+  ) {
     throw new Error(
       `Unsupported head-to-head artifact schemaVersion=${String(source.schemaVersion)}.`
     );
@@ -91,6 +95,11 @@ export function defaultHeadToHeadOutputDirectory(
 }
 
 export function renderHeadToHeadSummary(artifact: HeadToHeadArtifact): string {
+  if (artifact.schemaVersion !== HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION) {
+    throw new Error(
+      `Head-to-head Markdown summaries require schemaVersion=${String(HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION)}.`
+    );
+  }
   const summary = artifact.summary;
   const ci = summary.candidateWinRateCi95;
   const lines = [
@@ -109,6 +118,52 @@ export function renderHeadToHeadSummary(artifact: HeadToHeadArtifact): string {
     lines.push(
       `| ${botId} | ${latency.actions} | ${format(latency.meanMs)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} |`
     );
+  }
+  lines.push(
+    '',
+    '## Multi-Choice Decision Latency',
+    '',
+    '| bot | actions | mean ms | p50 ms | p95 ms | max ms |',
+    '|:---|---:|---:|---:|---:|---:|'
+  );
+  for (const [botId, latency] of Object.entries(
+    summary.multiChoiceLatencyByBotId
+  )) {
+    lines.push(
+      `| ${botId} | ${latency.actions} | ${format(latency.meanMs)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} |`
+    );
+  }
+  lines.push(
+    '',
+    '## Rollout Search Work',
+    '',
+    '| bot | searched decisions | root visits | proxy cost | actual steps | max steps | utilization | mean steps | terminal rollouts |',
+    '|:---|---:|---:|---:|---:|---:|---:|---:|---:|'
+  );
+  for (const [botId, work] of Object.entries(summary.searchWorkByBotId)) {
+    lines.push(
+      `| ${botId} | ${work.searchedDecisions} | ${work.rootVisits} | ${work.configProxyCost} | ${work.simulatedActionSteps} | ${work.maxSimulatedActionSteps} | ${format(work.stepUtilization)} | ${format(work.meanSimulatedActionSteps)} | ${work.terminalRollouts} |`
+    );
+  }
+  for (const [botId, buckets] of Object.entries(
+    summary.searchLatencyByRootActionCountByBotId
+  )) {
+    if (summary.searchWorkByBotId[botId]?.searchedDecisions === 0) {
+      continue;
+    }
+    lines.push(
+      '',
+      `## Rollout Search Latency By Root Actions: ${botId}`,
+      '',
+      '| legal root actions | decisions | mean ms | p50 ms | p95 ms | max ms |',
+      '|:---|---:|---:|---:|---:|---:|'
+    );
+    for (const bucket of ROOT_ACTION_COUNT_BUCKETS) {
+      const latency = buckets[bucket];
+      lines.push(
+        `| ${bucket} | ${latency.actions} | ${format(latency.meanMs)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} |`
+      );
+    }
   }
   lines.push('');
   return `${lines.join('\n')}\n`;

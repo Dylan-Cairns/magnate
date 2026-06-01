@@ -32,5 +32,19 @@ describe('paired TypeScript bot matchups', () => {
     expect(
       run.summary.latencyByBotId['heuristic-candidate'].actions
     ).toBeGreaterThan(0);
+    expect(
+      run.summary.multiChoiceLatencyByBotId['heuristic-candidate'].actions
+    ).toBe(
+      run.games
+        .flatMap((game) => game.transcript)
+        .filter(
+          (decision) =>
+            decision.botId === 'heuristic-candidate' &&
+            decision.legalActionCount > 1
+        ).length
+    );
+    expect(
+      run.summary.multiChoiceLatencyByBotId['heuristic-candidate'].actions
+    ).toBeLessThan(run.summary.latencyByBotId['heuristic-candidate'].actions);
   });
 });

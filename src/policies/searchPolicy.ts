@@ -12,7 +12,7 @@ import type {
 } from '../engine/types';
 import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
 import { evaluateSearchLeafState } from './searchStateEvaluator';
-import type { ActionPolicy } from './types';
+import type { ActionPolicy, SearchDecisionDiagnostics } from './types';
 
 const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
 
@@ -39,7 +39,13 @@ export function createSearchPolicy(
 ): ActionPolicy {
   const config = resolveSearchConfig(options);
   return {
-    selectAction({ view, state, legalActions: candidateActions, random }) {
+    selectAction({
+      view,
+      state,
+      legalActions: candidateActions,
+      random,
+      onSearchDiagnostics,
+    }) {
       if (candidateActions.length === 0) {
         return undefined;
       }
@@ -93,6 +99,8 @@ export function createSearchPolicy(
       const visitCount = worldStates.length * config.rollouts;
       const rootBudget =
         Math.max(1, visitCount) * Math.max(1, config.maxRootActions);
+      let simulatedActionSteps = 0;
+      let terminalRollouts = 0;
       for (let visitIndex = 0; visitIndex < rootBudget; visitIndex += 1) {
         const targetCount = progressiveTargetActionCount(
           rankedRootActions.length,
@@ -118,16 +126,30 @@ export function createSearchPolicy(
               );
 
         const worldIndex = visitIndex % worldStates.length;
-        const score = runRollout(
+        const rollout = runRollout(
           worldStates[worldIndex],
           rootPlayer,
           actionKey,
           config,
           random
         );
+        const score = rollout.score;
+        simulatedActionSteps += rollout.simulatedActionSteps;
+        terminalRollouts += rollout.terminatedBeforeDepthLimit ? 1 : 0;
         rootVisits.set(actionKey, (rootVisits.get(actionKey) ?? 0) + 1);
         rootValueSum.set(actionKey, (rootValueSum.get(actionKey) ?? 0) + score);
       }
+
+      onSearchDiagnostics?.(
+        searchDecisionDiagnostics({
+          config,
+          legalRootActions: candidateActions.length,
+          expandedRootActions: expandedKeys.length,
+          rootVisitBudget: rootBudget,
+          simulatedActionSteps,
+          terminalRollouts,
+        })
+      );
 
       let bestActionKey = expandedKeys[0];
       let bestVisits = rootVisits.get(bestActionKey) ?? 0;
@@ -271,9 +293,14 @@ function runRollout(
   rootActionKey: string,
   config: SearchPolicyConfig,
   random: () => number
-): number {
+): {
+  score: number;
+  simulatedActionSteps: number;
+  terminatedBeforeDepthLimit: boolean;
+} {
   let state = stepByActionKey(initialState, rootActionKey);
   let depth = 0;
+  let simulatedActionSteps = 1;
 
   while (!isTerminal(state) && depth < config.depth) {
     const actions = legalActions(state);
@@ -288,12 +315,49 @@ function runRollout(
     );
     state = stepByActionKey(state, nextActionKey);
     depth += 1;
+    simulatedActionSteps += 1;
   }
 
+  const terminatedBeforeDepthLimit = isTerminal(state) && depth < config.depth;
   if (isTerminal(state)) {
-    return terminalValue(state, rootPlayer);
+    return {
+      score: terminalValue(state, rootPlayer),
+      simulatedActionSteps,
+      terminatedBeforeDepthLimit,
+    };
   }
-  return evaluateSearchLeafState(state, rootPlayer);
+  return {
+    score: evaluateSearchLeafState(state, rootPlayer),
+    simulatedActionSteps,
+    terminatedBeforeDepthLimit,
+  };
+}
+
+function searchDecisionDiagnostics({
+  config,
+  legalRootActions,
+  expandedRootActions,
+  rootVisitBudget,
+  simulatedActionSteps,
+  terminalRollouts,
+}: {
+  config: SearchPolicyConfig;
+  legalRootActions: number;
+  expandedRootActions: number;
+  rootVisitBudget: number;
+  simulatedActionSteps: number;
+  terminalRollouts: number;
+}): SearchDecisionDiagnostics {
+  return {
+    kind: 'search',
+    legalRootActions,
+    expandedRootActions,
+    rootVisitBudget,
+    configProxyCost: rootVisitBudget * config.depth,
+    maxSimulatedActionSteps: rootVisitBudget * (config.depth + 1),
+    simulatedActionSteps,
+    terminalRollouts,
+  };
 }
 
 function chooseRolloutActionKey(

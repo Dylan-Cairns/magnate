@@ -34,7 +34,15 @@
     swapped seats, alternating first-player seats, Wilson confidence intervals,
     latency summaries, JSON plus Markdown artifacts, and exact stable-action-key
     replay checks;
-  - `configs/bot-eval/head-to-head.example.json` is the runnable first example.
+  - head-to-head artifact schema v2 adds legal-action counts, multi-choice
+    latency, rollout-search simulated-work diagnostics, and root-action-count
+    latency buckets while keeping schema v1 replay compatibility;
+  - sequential rollout-search sweeps run explicit high-cost configs against one
+    fixed opponent with shared paired seeds and write aggregate JSON, CSV, and
+    Markdown plus replayable child matchups;
+  - `configs/bot-eval/head-to-head.example.json` and
+    `configs/bot-eval/rollout-search-width-sweep.example.json` are runnable
+    examples.
 - Browser UI decomposition now includes behavior-preserving extraction of pure animation timing, turn-cycle visual planning, injectable browser DOM animation targets, flight planning helpers, animation lifecycle ownership in `useGameAnimations`, browser session/timeline/reset/bot-scheduling ownership in `useGameController`, shared validated human/bot action-dispatch planning, composite action-picker modeling, log presentation helpers, stateless rendering components for deck piles, logs, options, terminal scoring, overlays, and flight layers, plus controlled `ActionsPanel` and `ActionPicker` components. Styles now follow the same ownership split under `src/styles/`, with card-flight rules isolated from card primitives and responsive overrides imported last. Focused characterization tests protect those surfaces while `App.tsx` remains the UI-local composition layer.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Trainer policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
@@ -73,8 +81,6 @@
 - Improve `td-search` strength and throughput.
 - Tune replay-window size/caps from repeated runs; a broader online reservoir remains a future option.
 - Tune browser rollout-search strength/latency now that `Rollout Search` is the default, while keeping TD-search profiles available for comparison.
-- Add TypeScript baseline-sweep orchestration over arbitrary browser search
-  configs after the head-to-head harness has been exercised.
 - Add a Node-local browser model-pack loader so the direct TypeScript harness
   can evaluate serialized `td-search` specs without a Vite server.
 - Continue evaluating the remaining `App.tsx` UI-local composition code for smaller rendering-model helpers while preserving the characterization-tested behavior.
@@ -87,7 +93,7 @@
 3. Track checkpoint-selection winners, block-selection winners, sequential generator-gate accept/reject or inconclusive outcomes, final dual-gate outcomes, and side-gap stability.
 4. Extend the typed rollout from `trainer/` into the remaining `scripts/` orchestration and export helpers as those surfaces are touched.
 5. Keep the Windows laptop wrappers and Linux cloud flows aligned with the runbook in `memoryBank/techContext.md`.
-6. Use direct TypeScript head-to-head artifacts to tune browser rollout-search
-   strength versus latency, then add baseline sweep orchestration.
+6. Use the sequential TypeScript rollout-search sweep artifacts to map the
+   high-cost strength ceiling and browser latency frontier.
 
 _Updated: 2026-06-01._

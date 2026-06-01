@@ -6,6 +6,7 @@ import { rngFromSeed } from '../engine/rng';
 import { createSession } from '../engine/session';
 import { toPlayerView } from '../engine/view';
 import { createSearchPolicy } from './searchPolicy';
+import type { SearchDecisionDiagnostics } from './types';
 
 describe('search policy', () => {
   it('chooses deterministically for the same state and RNG seed', async () => {
@@ -95,4 +96,88 @@ describe('search policy', () => {
       })
     ).toThrow('Search determinization mismatch');
   });
+
+  it('emits deterministic simulated-work diagnostics', async () => {
+    const state = createSession('search-policy-diagnostics', 'PlayerB');
+    const view = toPlayerView(state, 'PlayerB');
+    const actions = legalActions(state);
+    const policy = createSearchPolicy({
+      worlds: 2,
+      rollouts: 1,
+      depth: 3,
+      maxRootActions: 4,
+      rolloutEpsilon: 0,
+    });
+
+    const first = await selectWithDiagnostics(
+      policy,
+      state,
+      view,
+      actions,
+      'search-diagnostics-rng'
+    );
+    const second = await selectWithDiagnostics(
+      policy,
+      state,
+      view,
+      actions,
+      'search-diagnostics-rng'
+    );
+
+    expect(first).toEqual(second);
+    expect(first).toHaveLength(1);
+    expect(first[0].rootVisitBudget).toBe(8);
+    expect(first[0].configProxyCost).toBe(24);
+    expect(first[0].maxSimulatedActionSteps).toBe(32);
+    expect(first[0].simulatedActionSteps).toBeGreaterThanOrEqual(
+      first[0].rootVisitBudget
+    );
+    expect(first[0].simulatedActionSteps).toBeLessThanOrEqual(
+      first[0].maxSimulatedActionSteps
+    );
+  });
+
+  it('does not emit diagnostics for the single-action fast path', async () => {
+    const state = createSession('search-policy-single-action', 'PlayerB');
+    const view = toPlayerView(state, 'PlayerB');
+    const actions = legalActions(state);
+    const diagnostics: SearchDecisionDiagnostics[] = [];
+    const policy = createSearchPolicy();
+
+    await Promise.resolve(
+      policy.selectAction({
+        state,
+        view,
+        legalActions: [actions[0]],
+        random: rngFromSeed('search-single-action-rng'),
+        onSearchDiagnostics(value) {
+          diagnostics.push(value);
+        },
+      })
+    );
+
+    expect(diagnostics).toEqual([]);
+  });
 });
+
+async function selectWithDiagnostics(
+  policy: ReturnType<typeof createSearchPolicy>,
+  state: ReturnType<typeof createSession>,
+  view: ReturnType<typeof toPlayerView>,
+  actions: ReturnType<typeof legalActions>,
+  randomSeed: string
+): Promise<SearchDecisionDiagnostics[]> {
+  const diagnostics: SearchDecisionDiagnostics[] = [];
+  await Promise.resolve(
+    policy.selectAction({
+      state,
+      view,
+      legalActions: actions,
+      random: rngFromSeed(randomSeed),
+      onSearchDiagnostics(value) {
+        diagnostics.push(value);
+      },
+    })
+  );
+  return diagnostics;
+}
