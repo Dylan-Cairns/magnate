@@ -23,7 +23,30 @@ import type {
 export interface HeadToHeadDependencies {
   createPolicy?: (spec: BotSpec) => ActionPolicy;
   now?: () => number;
+  progressIntervalMs?: number;
+  onProgress?: (progress: HeadToHeadProgress) => void;
 }
+
+export type HeadToHeadProgress =
+  | {
+      type: 'game-heartbeat';
+      candidateId: string;
+      gameId: string;
+      turn: number;
+      decisions: number;
+      elapsedMs: number;
+    }
+  | {
+      type: 'pair-completed';
+      candidateId: string;
+      completedPairs: number;
+      totalPairs: number;
+      completedGames: number;
+      totalGames: number;
+      elapsedMs: number;
+      gamesPerMinute: number;
+      etaMs: number;
+    };
 
 export async function runHeadToHead(
   config: HeadToHeadConfig,
@@ -33,6 +56,7 @@ export async function runHeadToHead(
 
   const createPolicy = dependencies.createPolicy ?? createPolicyFromBotSpec;
   const now = dependencies.now ?? (() => performance.now());
+  const progressIntervalMs = dependencies.progressIntervalMs ?? 0;
   const candidate = createRuntimeBot(config.candidate, createPolicy);
   const opponent = createRuntimeBot(config.opponent, createPolicy);
   const games: PlayedGame[] = [];
@@ -54,6 +78,14 @@ export async function runHeadToHead(
         },
         maxDecisions: config.maxDecisionsPerGame,
         now,
+        progressIntervalMs,
+        onHeartbeat(heartbeat) {
+          dependencies.onProgress?.({
+            type: 'game-heartbeat',
+            candidateId: config.candidate.id,
+            ...heartbeat,
+          });
+        },
       })
     );
     games.push(
@@ -67,8 +99,35 @@ export async function runHeadToHead(
         },
         maxDecisions: config.maxDecisionsPerGame,
         now,
+        progressIntervalMs,
+        onHeartbeat(heartbeat) {
+          dependencies.onProgress?.({
+            type: 'game-heartbeat',
+            candidateId: config.candidate.id,
+            ...heartbeat,
+          });
+        },
       })
     );
+    const elapsedMs = now() - startedAt;
+    const completedGames = games.length;
+    const totalGames = config.gamesPerSide * 2;
+    const gamesPerMinute =
+      elapsedMs > 0 ? (completedGames * 60_000) / elapsedMs : 0;
+    dependencies.onProgress?.({
+      type: 'pair-completed',
+      candidateId: config.candidate.id,
+      completedPairs: pairNumber,
+      totalPairs: config.gamesPerSide,
+      completedGames,
+      totalGames,
+      elapsedMs,
+      gamesPerMinute,
+      etaMs:
+        gamesPerMinute > 0
+          ? ((totalGames - completedGames) * 60_000) / gamesPerMinute
+          : 0,
+    });
   }
 
   return {

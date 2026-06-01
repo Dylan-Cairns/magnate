@@ -56,6 +56,10 @@ Design expectations:
   against one fixed opponent with one shared paired-seed prefix so latency and
   strength comparisons remain comparable. Preserve replayable child matchups
   and write aggregate JSON, CSV, and Markdown summaries.
+- Long bot-eval runs should stream human-readable progress to stderr while
+  preserving final machine-readable JSON on stdout. Sweep aggregates should be
+  written before compute starts and atomically refreshed after each durable
+  completed candidate; active-candidate resume is not required.
 - Rollout-search evaluation diagnostics should remain optional at the policy
   boundary so browser behavior is unchanged while direct evaluation can record
   legal-root-action counts and actual simulated engine steps.
