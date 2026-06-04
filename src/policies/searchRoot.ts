@@ -1,5 +1,8 @@
 import type { SearchPolicyConfig } from './searchConfig';
-import type { SearchDecisionDiagnostics } from './types';
+import type {
+  SearchDecisionDiagnostics,
+  SearchRootActionDiagnostics,
+} from './types';
 
 export function progressiveTargetActionCount(
   totalActions: number,
@@ -101,6 +104,8 @@ export function createSearchDecisionDiagnostics({
   rootVisitBudget,
   simulatedActionSteps,
   terminalRollouts,
+  selectedActionKey,
+  rootActions,
   parallelWorkers,
   parallelBatches,
   parallelBatchSize,
@@ -111,10 +116,20 @@ export function createSearchDecisionDiagnostics({
   rootVisitBudget: number;
   simulatedActionSteps: number;
   terminalRollouts: number;
+  selectedActionKey: string;
+  rootActions: readonly SearchRootActionDiagnostics[];
   parallelWorkers?: number;
   parallelBatches?: number;
   parallelBatchSize?: number;
 }): SearchDecisionDiagnostics {
+  const selectedRootAction = rootActions.find(
+    (entry) => entry.actionKey === selectedActionKey
+  );
+  if (!selectedRootAction) {
+    throw new Error(
+      `Search diagnostics selected action missing from root actions: ${selectedActionKey}.`
+    );
+  }
   return {
     kind: 'search',
     legalRootActions,
@@ -124,6 +139,13 @@ export function createSearchDecisionDiagnostics({
     maxSimulatedActionSteps: rootVisitBudget * (config.depth + 1),
     simulatedActionSteps,
     terminalRollouts,
+    terminalRate: safeDiv(terminalRollouts, rootVisitBudget),
+    selectedActionKey,
+    selectedActionVisits: selectedRootAction.visits,
+    selectedActionMeanValue: selectedRootAction.meanValue,
+    selectedActionTerminalRollouts: selectedRootAction.terminalRollouts,
+    selectedActionTerminalRate: selectedRootAction.terminalRate,
+    rootActions: rootActions.map((entry) => ({ ...entry })),
     ...(parallelWorkers !== undefined ? { parallelWorkers } : {}),
     ...(parallelBatches !== undefined ? { parallelBatches } : {}),
     ...(parallelBatchSize !== undefined ? { parallelBatchSize } : {}),

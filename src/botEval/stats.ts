@@ -98,6 +98,10 @@ export function summarizeSearchWork(
     stepUtilization: 0,
     meanSimulatedActionSteps: 0,
     terminalRollouts: 0,
+    terminalRate: 0,
+    meanSelectedActionValue: 0,
+    meanSelectedActionVisits: 0,
+    meanSelectedActionTerminalRate: 0,
   };
   for (const diagnostic of diagnostics) {
     summary.rootVisits += diagnostic.rootVisitBudget;
@@ -105,6 +109,10 @@ export function summarizeSearchWork(
     summary.maxSimulatedActionSteps += diagnostic.maxSimulatedActionSteps;
     summary.simulatedActionSteps += diagnostic.simulatedActionSteps;
     summary.terminalRollouts += diagnostic.terminalRollouts;
+    summary.meanSelectedActionValue += diagnostic.selectedActionMeanValue;
+    summary.meanSelectedActionVisits += diagnostic.selectedActionVisits;
+    summary.meanSelectedActionTerminalRate +=
+      diagnostic.selectedActionTerminalRate;
   }
   summary.stepUtilization = safeDiv(
     summary.simulatedActionSteps,
@@ -112,6 +120,19 @@ export function summarizeSearchWork(
   );
   summary.meanSimulatedActionSteps = safeDiv(
     summary.simulatedActionSteps,
+    summary.searchedDecisions
+  );
+  summary.terminalRate = safeDiv(summary.terminalRollouts, summary.rootVisits);
+  summary.meanSelectedActionValue = safeDiv(
+    summary.meanSelectedActionValue,
+    summary.searchedDecisions
+  );
+  summary.meanSelectedActionVisits = safeDiv(
+    summary.meanSelectedActionVisits,
+    summary.searchedDecisions
+  );
+  summary.meanSelectedActionTerminalRate = safeDiv(
+    summary.meanSelectedActionTerminalRate,
     summary.searchedDecisions
   );
   return summary;

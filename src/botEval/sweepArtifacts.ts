@@ -210,6 +210,10 @@ export function renderRolloutSearchSweepCsv(
     'actualSimulatedSteps',
     'maxSimulatedActionSteps',
     'stepUtilization',
+    'terminalRolloutRate',
+    'meanSelectedActionValue',
+    'meanSelectedActionVisits',
+    'meanSelectedActionTerminalRate',
   ];
   const rows = artifact.rows.map((row) => {
     const summary = row.summary;
@@ -258,6 +262,10 @@ export function renderRolloutSearchSweepCsv(
       searchWork.simulatedActionSteps,
       searchWork.maxSimulatedActionSteps,
       searchWork.stepUtilization,
+      searchWork.terminalRate,
+      searchWork.meanSelectedActionValue,
+      searchWork.meanSelectedActionVisits,
+      searchWork.meanSelectedActionTerminalRate,
     ];
   });
   return `${[headers, ...rows]
@@ -277,8 +285,8 @@ export function renderRolloutSearchSweepSummary(
     '',
     `Status: ${artifact.status} (${String(artifact.completedCandidates)}/${String(artifact.totalCandidates)} candidates)`,
     '',
-    '| candidate | opponent | config | workers | latency mode | proxy cost | games | win rate | ci95 | side gap | games/min | multi p50 ms | multi p95 ms | multi max ms | actual steps | utilization |',
-    '|:---|:---|:---|---:|:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|---:|---:|',
+    '| candidate | opponent | config | workers | latency mode | proxy cost | games | win rate | ci95 | side gap | games/min | multi p50 ms | multi p95 ms | multi max ms | actual steps | utilization | terminal rate | selected value | selected visits |',
+    '|:---|:---|:---|---:|:---|---:|---:|---:|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
   ];
   for (const row of artifact.rows) {
     const summary = row.summary;
@@ -294,7 +302,7 @@ export function renderRolloutSearchSweepSummary(
       'search work'
     );
     lines.push(
-      `| ${candidateId} | ${summary.opponentId} | ${searchConfigLabel(row)} | ${String(row.execution?.workers ?? 1)} | ${row.execution?.latencyMode ?? 'isolated'} | ${configProxyCost(row)} | ${summary.totalGames} | ${format(summary.candidateWinRate)} | [${format(summary.candidateWinRateCi95.low)}, ${format(summary.candidateWinRateCi95.high)}] | ${format(summary.sideGap)} | ${format(summary.gamesPerMinute)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} | ${work.simulatedActionSteps} | ${format(work.stepUtilization)} |`
+      `| ${candidateId} | ${summary.opponentId} | ${searchConfigLabel(row)} | ${String(row.execution?.workers ?? 1)} | ${row.execution?.latencyMode ?? 'isolated'} | ${configProxyCost(row)} | ${summary.totalGames} | ${format(summary.candidateWinRate)} | [${format(summary.candidateWinRateCi95.low)}, ${format(summary.candidateWinRateCi95.high)}] | ${format(summary.sideGap)} | ${format(summary.gamesPerMinute)} | ${format(latency.p50Ms)} | ${format(latency.p95Ms)} | ${format(latency.maxMs)} | ${work.simulatedActionSteps} | ${format(work.stepUtilization)} | ${format(work.terminalRate)} | ${format(work.meanSelectedActionValue)} | ${format(work.meanSelectedActionVisits)} |`
     );
   }
   for (const row of artifact.rows) {

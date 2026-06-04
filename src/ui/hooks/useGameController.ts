@@ -46,6 +46,14 @@ type UseGameControllerOptions = {
 };
 
 function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
+  const rootActions = diagnostics.rootActions.map((entry) => ({
+    actionKey: entry.actionKey,
+    visits: entry.visits,
+    meanValue: roundDiagnosticNumber(entry.meanValue),
+    terminalRate: roundDiagnosticNumber(entry.terminalRate),
+    terminalRollouts: entry.terminalRollouts,
+    prior: roundDiagnosticNumber(entry.prior),
+  }));
   console.info('[Magnate bot search]', {
     workers: diagnostics.parallelWorkers ?? 1,
     batches: diagnostics.parallelBatches ?? null,
@@ -56,7 +64,20 @@ function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
     simulatedActionSteps: diagnostics.simulatedActionSteps,
     maxSimulatedActionSteps: diagnostics.maxSimulatedActionSteps,
     terminalRollouts: diagnostics.terminalRollouts,
+    terminalRate: diagnostics.terminalRate,
+    selectedActionKey: diagnostics.selectedActionKey,
+    selectedActionVisits: diagnostics.selectedActionVisits,
+    selectedActionMeanValue: diagnostics.selectedActionMeanValue,
+    selectedActionTerminalRate: diagnostics.selectedActionTerminalRate,
+    rootActions,
   });
+  if (rootActions.length > 0) {
+    console.table(rootActions);
+  }
+}
+
+function roundDiagnosticNumber(value: number): number {
+  return Number(value.toFixed(4));
 }
 
 export function useGameController({
