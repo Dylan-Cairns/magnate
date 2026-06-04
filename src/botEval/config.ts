@@ -3,8 +3,10 @@ import { parseBotSpec, type BotSpec } from '../policies/botSpec';
 import {
   HEAD_TO_HEAD_CONFIG_SCHEMA_VERSION,
   ROLLOUT_SEARCH_SWEEP_CONFIG_SCHEMA_VERSION,
+  TD_REPLAY_CONFIG_SCHEMA_VERSION,
   type HeadToHeadConfig,
   type RolloutSearchSweepConfig,
+  type TdReplayConfig,
 } from './types';
 
 export function parseHeadToHeadConfig(value: unknown): HeadToHeadConfig {
@@ -122,6 +124,41 @@ export function parseRolloutSearchSweepConfig(
   };
 }
 
+export function parseTdReplayConfig(value: unknown): TdReplayConfig {
+  const source = requiredRecord(value, 'TD replay config');
+  const schemaVersion = requiredInteger(
+    source.schemaVersion,
+    'TD replay config.schemaVersion'
+  );
+  if (schemaVersion !== TD_REPLAY_CONFIG_SCHEMA_VERSION) {
+    throw new Error(
+      `Unsupported TD replay config schemaVersion=${String(schemaVersion)}.`
+    );
+  }
+
+  return {
+    schemaVersion,
+    runLabel: requiredString(source.runLabel, 'TD replay config.runLabel'),
+    seedPrefix: requiredString(
+      source.seedPrefix,
+      'TD replay config.seedPrefix'
+    ),
+    games: requiredPositiveInteger(source.games, 'TD replay config.games'),
+    playerA: parseTdReplayBotReference(
+      source.playerA,
+      'TD replay config.playerA'
+    ),
+    playerB: parseTdReplayBotReference(
+      source.playerB,
+      'TD replay config.playerB'
+    ),
+    maxDecisionsPerGame: optionalPositiveInteger(
+      source.maxDecisionsPerGame,
+      'TD replay config.maxDecisionsPerGame'
+    ),
+  };
+}
+
 function parseBotReference(value: unknown, label: string): BotSpec {
   const source = requiredRecord(value, label);
   if ('profileId' in source) {
@@ -129,6 +166,16 @@ function parseBotReference(value: unknown, label: string): BotSpec {
     return structuredClone(getBotProfile(profileId).spec);
   }
   return parseBotSpec(source, label);
+}
+
+function parseTdReplayBotReference(value: unknown, label: string): BotSpec {
+  const spec = parseBotReference(value, label);
+  if (spec.kind === 'td-search') {
+    throw new Error(
+      `${label}.kind td-search is not supported by collect-td-replay yet; use random, heuristic, or search.`
+    );
+  }
+  return spec;
 }
 
 function requiredArray(value: unknown, label: string): unknown[] {

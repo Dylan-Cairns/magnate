@@ -8,6 +8,9 @@ export const HEAD_TO_HEAD_ARTIFACT_TYPE = 'ts-bot-head-to-head';
 export const ROLLOUT_SEARCH_SWEEP_CONFIG_SCHEMA_VERSION = 1;
 export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION = 2;
 export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_TYPE = 'ts-rollout-search-sweep';
+export const TD_REPLAY_CONFIG_SCHEMA_VERSION = 1;
+export const TD_REPLAY_SUMMARY_SCHEMA_VERSION = 1;
+export const TD_REPLAY_ARTIFACT_TYPE = 'ts-td-replay';
 export const ROOT_ACTION_COUNT_BUCKETS = [
   '2-4',
   '5-8',
@@ -46,6 +49,66 @@ export interface RolloutSearchSweepConfig {
   opponent: BotSpec;
   candidates: SearchBotSpec[];
   maxDecisionsPerGame?: number;
+}
+
+export interface TdReplayConfig {
+  schemaVersion: typeof TD_REPLAY_CONFIG_SCHEMA_VERSION;
+  runLabel: string;
+  seedPrefix: string;
+  games: number;
+  playerA: BotSpec;
+  playerB: BotSpec;
+  maxDecisionsPerGame?: number;
+}
+
+export interface TdReplayValueTransitionPayload {
+  observation: number[];
+  reward: number;
+  done: boolean;
+  nextObservation: number[] | null;
+  playerId: PlayerId;
+  episodeId: string;
+  timestep: number;
+}
+
+export interface TdReplayOpponentSamplePayload {
+  observation: number[];
+  actionFeatures: number[][];
+  actionIndex: number;
+  playerId: PlayerId;
+}
+
+export interface TdReplayDecisionRecord {
+  decisionIndex: number;
+  turn: number;
+  phase: GamePhase;
+  activePlayerId: PlayerId;
+  botId: string;
+  actionKey: string;
+  actionIndex: number;
+  indexedActionKey: string;
+  legalActionCount: number;
+}
+
+export interface CollectedTdReplayGame {
+  gameId: string;
+  seed: string;
+  firstPlayer: PlayerId;
+  botBySeat: Record<PlayerId, string>;
+  decisions: TdReplayDecisionRecord[];
+  finalScore: FinalScore;
+  turns: number;
+  elapsedMs: number;
+  valueTransitions: TdReplayValueTransitionPayload[];
+  opponentSamples: TdReplayOpponentSamplePayload[];
+}
+
+export interface TdReplayRun {
+  config: TdReplayConfig;
+  games: CollectedTdReplayGame[];
+  valueTransitions: TdReplayValueTransitionPayload[];
+  opponentSamples: TdReplayOpponentSamplePayload[];
+  elapsedMs: number;
 }
 
 export interface DecisionRecord {
@@ -183,4 +246,50 @@ export interface RolloutSearchSweepArtifact {
   totalCandidates: number;
   config: RolloutSearchSweepConfig;
   rows: RolloutSearchSweepArtifactRow[];
+}
+
+export interface TdReplaySummaryGame {
+  gameId: string;
+  seed: string;
+  firstPlayer: PlayerId;
+  botBySeat: Record<PlayerId, string>;
+  winner: FinalScore['winner'];
+  finalScore: FinalScore;
+  turns: number;
+  decisions: number;
+  valueTransitions: number;
+  opponentSamples: number;
+  elapsedMs: number;
+}
+
+export interface TdReplaySummary {
+  schemaVersion: typeof TD_REPLAY_SUMMARY_SCHEMA_VERSION;
+  artifactType: typeof TD_REPLAY_ARTIFACT_TYPE;
+  generatedAtUtc: string;
+  policyRandomSchemeVersion: string;
+  runtime: {
+    nodeVersion: string;
+  };
+  git: GitMetadata;
+  config: TdReplayConfig;
+  encoding: {
+    encodingVersion: number;
+    observationDim: number;
+    actionFeatureDim: number;
+  };
+  results: {
+    games: number;
+    winners: Record<FinalScore['winner'], number>;
+    averageTurns: number;
+    decisions: number;
+    valueTransitions: number;
+    opponentSamples: number;
+    elapsedMs: number;
+  };
+  artifacts: {
+    valueTransitions: string;
+    opponentSamples: string;
+    summary: string;
+  };
+  games: TdReplaySummaryGame[];
 }
