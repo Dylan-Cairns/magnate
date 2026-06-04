@@ -192,7 +192,7 @@ function resolveRolloutSearchWorkerCount(
   const availableWorkers = Math.max(1, hardwareConcurrency - 2);
   return Math.max(
     1,
-    Math.min(4, availableWorkers, rootBudget, request.legalActions.length * 4)
+    Math.min(8, availableWorkers, rootBudget, request.legalActions.length * 4)
   );
 }
 
