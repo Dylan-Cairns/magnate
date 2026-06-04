@@ -9,6 +9,19 @@ import type {
   WinnerDecider,
 } from './types';
 
+export interface DistrictScoreMargin {
+  districtId: DistrictId;
+  margin: number;
+}
+
+export interface PlayerScoreMargins {
+  districtPointMargin: number;
+  districtScoreMargins: readonly DistrictScoreMargin[];
+  districtScoreMarginTotal: number;
+  rankTotalMargin: number;
+  resourceMargin: number;
+}
+
 export function isTerminal(state: GameState): boolean {
   return state.phase === 'GameOver';
 }
@@ -50,6 +63,36 @@ export function scoreGame(state: GameState): FinalScore {
 
 export function scoreLive(state: GameState): FinalScore {
   return scoreGame(state);
+}
+
+export function scoreMarginsForPlayer(
+  state: GameState,
+  playerId: PlayerId,
+  finalScore: FinalScore = state.finalScore ?? scoreGame(state)
+): PlayerScoreMargins {
+  const opponent = otherPlayerId(playerId);
+  const districtScoreMargins = state.districts.map((district) => ({
+    districtId: district.id,
+    margin:
+      districtScore(district.stacks[playerId]) -
+      districtScore(district.stacks[opponent]),
+  }));
+
+  return {
+    districtPointMargin:
+      finalScore.districtPoints[playerId] -
+      finalScore.districtPoints[opponent],
+    districtScoreMargins,
+    districtScoreMarginTotal: districtScoreMargins.reduce(
+      (total, entry) => total + entry.margin,
+      0
+    ),
+    rankTotalMargin:
+      finalScore.rankTotals[playerId] - finalScore.rankTotals[opponent],
+    resourceMargin:
+      finalScore.resourceTotals[playerId] -
+      finalScore.resourceTotals[opponent],
+  };
 }
 
 export function districtWinnersByPlayer(
@@ -157,6 +200,10 @@ function createPlayerDistrictList(): Record<PlayerId, DistrictId[]> {
     PlayerA: [],
     PlayerB: [],
   };
+}
+
+function otherPlayerId(playerId: PlayerId): PlayerId {
+  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
 }
 
 function isDefined<T>(value: T | undefined): value is T {

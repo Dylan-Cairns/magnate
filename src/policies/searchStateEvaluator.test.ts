@@ -9,6 +9,7 @@ import {
   PLAYER_A,
   PLAYER_B,
 } from '../engine/__tests__/fixtures';
+import { scoreGame } from '../engine/scoring';
 import type {
   DeckState,
   DistrictStack,
@@ -17,7 +18,10 @@ import type {
   PlayerId,
   ResourcePool,
 } from '../engine/types';
-import { evaluateSearchLeafState } from './searchStateEvaluator';
+import {
+  evaluateSearchLeafState,
+  evaluateSearchTerminalState,
+} from './searchStateEvaluator';
 
 describe('search state evaluator', () => {
   it('uses ace bonus when evaluating district control', () => {
@@ -157,6 +161,95 @@ describe('search state evaluator', () => {
       evaluateSearchLeafState(opponentLargeHand, PLAYER_A)
     );
   });
+
+  it('keeps terminal wins above draws and losses', () => {
+    const narrowWin = terminalState(
+      makeEvalState({
+        districts: withDistrictStacks({
+          D1: {
+            [PLAYER_A]: stack({ developed: ['0', '6'] }),
+            [PLAYER_B]: stack({ developed: ['10'] }),
+          },
+        }),
+      })
+    );
+    const draw = terminalState(makeEvalState());
+    const loss = terminalState(
+      makeEvalState({
+        districts: withDistrictStacks({
+          D1: {
+            [PLAYER_A]: stack(),
+            [PLAYER_B]: stack({ developed: ['29'] }),
+          },
+        }),
+      })
+    );
+
+    expect(evaluateSearchTerminalState(narrowWin, PLAYER_A)).toBeGreaterThan(
+      0
+    );
+    expect(evaluateSearchTerminalState(draw, PLAYER_A)).toBe(0);
+    expect(evaluateSearchTerminalState(loss, PLAYER_A)).toBeLessThan(0);
+  });
+
+  it('rewards wider terminal margins without changing the outcome sign', () => {
+    const narrowWin = terminalState(
+      makeEvalState({
+        districts: withDistrictStacks({
+          D1: {
+            [PLAYER_A]: stack({ developed: ['0', '6'] }),
+            [PLAYER_B]: stack({ developed: ['10'] }),
+          },
+        }),
+      })
+    );
+    const wideWin = terminalState(
+      makeEvalState({
+        districts: withDistrictStacks({
+          D1: { [PLAYER_A]: stack({ developed: ['29'] }) },
+          D2: { [PLAYER_A]: stack({ developed: ['28'] }) },
+          D3: { [PLAYER_A]: stack({ developed: ['27'] }) },
+        }),
+      })
+    );
+
+    expect(evaluateSearchTerminalState(wideWin, PLAYER_A)).toBeGreaterThan(
+      evaluateSearchTerminalState(narrowWin, PLAYER_A)
+    );
+    expect(evaluateSearchTerminalState(narrowWin, PLAYER_B)).toBeLessThan(0);
+  });
+
+  it('uses final-score tiebreak margins for terminal bonuses', () => {
+    const rankTiebreakWin = terminalState(
+      makeEvalState({
+        districts: withDistrictStacks({
+          D1: {
+            [PLAYER_A]: stack({ developed: ['15'] }),
+            [PLAYER_B]: stack(),
+          },
+          D2: {
+            [PLAYER_A]: stack(),
+            [PLAYER_B]: stack({ developed: ['6'] }),
+          },
+        }),
+      })
+    );
+    const resourceTiebreakWin = terminalState(
+      makeEvalState({
+        resourcesA: makeResources({ Moons: 3 }),
+        resourcesB: makeResources({ Moons: 1 }),
+      })
+    );
+
+    expect(rankTiebreakWin.finalScore?.decidedBy).toBe('rank-total');
+    expect(resourceTiebreakWin.finalScore?.decidedBy).toBe('resources');
+    expect(
+      evaluateSearchTerminalState(rankTiebreakWin, PLAYER_A)
+    ).toBeGreaterThan(0.72);
+    expect(
+      evaluateSearchTerminalState(resourceTiebreakWin, PLAYER_A)
+    ).toBeGreaterThan(0.72);
+  });
 });
 
 function makeEvalState({
@@ -223,5 +316,16 @@ function stack({
           tokens: {},
         }
       : undefined,
+  };
+}
+
+function terminalState(state: GameState): GameState {
+  const terminal = {
+    ...state,
+    phase: 'GameOver' as const,
+  };
+  return {
+    ...terminal,
+    finalScore: scoreGame(terminal),
   };
 }
