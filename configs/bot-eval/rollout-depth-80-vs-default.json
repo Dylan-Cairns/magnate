@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "rollout-depth-80-vs-default",
+  "seedPrefix": "rollout-depth-80-vs-default",
+  "gamesPerSide": 25,
+  "candidate": {
+    "id": "rollout-depth-80",
+    "kind": "search",
+    "config": {
+      "worlds": 6,
+      "rollouts": 2,
+      "depth": 80,
+      "maxRootActions": 6,
+      "rolloutEpsilon": 0.04
+    }
+  },
+  "opponent": {
+    "id": "rollout-default-baseline",
+    "kind": "search",
+    "config": {
+      "worlds": 10,
+      "rollouts": 4,
+      "depth": 12,
+      "maxRootActions": 8,
+      "rolloutEpsilon": 0
+    }
+  }
+}

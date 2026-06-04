@@ -1,5 +1,6 @@
 import { createPolicyFromBotSpec, type BotKind, type BotSpec } from './botSpec';
 import type { ActionPolicy } from './types';
+import { createWorkerBackedPolicy } from './workerPolicy';
 
 export type BotProfileId =
   | 'heuristic'
@@ -94,6 +95,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         rolloutEpsilon: 0.0,
       },
     },
+    createPolicy: createWorkerBackedPolicy,
   }),
   createBotProfile({
     id: 'random-legal',
@@ -132,11 +134,14 @@ export function resolveBotProfile(id: string): ResolvedBotProfile {
 }
 
 function createBotProfile(
-  profile: Omit<BotProfile, 'kind' | 'policy'>
+  profile: Omit<BotProfile, 'kind' | 'policy'> & {
+    createPolicy?: (spec: BotSpec) => ActionPolicy;
+  }
 ): BotProfile {
+  const { createPolicy, ...profileConfig } = profile;
   return {
-    ...profile,
-    kind: profile.spec.kind,
-    policy: createPolicyFromBotSpec(profile.spec),
+    ...profileConfig,
+    kind: profileConfig.spec.kind,
+    policy: (createPolicy ?? createPolicyFromBotSpec)(profileConfig.spec),
   };
 }

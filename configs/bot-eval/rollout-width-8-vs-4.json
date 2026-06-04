@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "rollout-width-8-vs-4",
+  "seedPrefix": "rollout-width-8-vs-4",
+  "gamesPerSide": 25,
+  "candidate": {
+    "profileId": "rollout-eval-search"
+  },
+  "opponent": {
+    "id": "rollout-width-4",
+    "kind": "search",
+    "config": {
+      "worlds": 10,
+      "rollouts": 4,
+      "depth": 12,
+      "maxRootActions": 4,
+      "rolloutEpsilon": 0
+    }
+  }
+}
