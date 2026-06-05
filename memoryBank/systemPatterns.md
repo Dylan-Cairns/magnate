@@ -50,6 +50,10 @@ Design expectations:
   where practical: root state/stat ownership in the coordinator, cloneable
   worker tasks/results, stable action keys for merging, and algorithm-specific
   rollout/leaf/opponent kernels behind a small task-result union.
+- TD-root rollout-search variants should keep the current rollout-search
+  rollout kernel, sampled hidden worlds, root visit scheduling/UCB, and
+  leaf/terminal evaluator intact while replacing only root action ordering and
+  root priors with TD model-pack value/action-logit signals.
 - Heuristic scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.

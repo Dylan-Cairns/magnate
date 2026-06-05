@@ -6,9 +6,18 @@ import {
   type TdSearchPolicyConfig,
   type TdSearchPolicyOptions,
 } from './tdSearchPolicy';
+import {
+  createTdRootSearchPolicy,
+  type TdRootSearchPolicyOptions,
+} from './tdRootSearchPolicy';
 import type { ActionPolicy } from './types';
 
-export type BotKind = 'random' | 'heuristic' | 'search' | 'td-search';
+export type BotKind =
+  | 'random'
+  | 'heuristic'
+  | 'search'
+  | 'td-search'
+  | 'td-root-search';
 
 export interface RandomBotSpec {
   id: string;
@@ -33,14 +42,23 @@ export interface TdSearchBotSpec {
   modelIndexPath?: string;
 }
 
+export interface TdRootSearchBotSpec {
+  id: string;
+  kind: 'td-root-search';
+  config: SearchPolicyConfig;
+  modelIndexPath?: string;
+}
+
 export type BotSpec =
   | RandomBotSpec
   | HeuristicBotSpec
   | SearchBotSpec
-  | TdSearchBotSpec;
+  | TdSearchBotSpec
+  | TdRootSearchBotSpec;
 
 export interface BotPolicyRuntimeOverrides {
   tdSearchLoadModel?: TdSearchPolicyOptions['loadModel'];
+  tdRootSearchLoadModel?: TdRootSearchPolicyOptions['loadModel'];
 }
 
 export function createPolicyFromBotSpec(
@@ -59,6 +77,12 @@ export function createPolicyFromBotSpec(
         ...spec.config,
         modelIndexPath: spec.modelIndexPath,
         loadModel: overrides.tdSearchLoadModel,
+      });
+    case 'td-root-search':
+      return createTdRootSearchPolicy({
+        ...spec.config,
+        modelIndexPath: spec.modelIndexPath,
+        loadModel: overrides.tdRootSearchLoadModel,
       });
   }
 }
@@ -89,9 +113,19 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
           `${label}.modelIndexPath`
         ),
       };
+    case 'td-root-search':
+      return {
+        id,
+        kind,
+        config: parseSearchConfig(source.config, `${label}.config`),
+        modelIndexPath: optionalString(
+          source.modelIndexPath,
+          `${label}.modelIndexPath`
+        ),
+      };
     default:
       throw new Error(
-        `${label}.kind must be random, heuristic, search, or td-search.`
+        `${label}.kind must be random, heuristic, search, td-search, or td-root-search.`
       );
   }
 }

@@ -125,6 +125,19 @@ describe('head-to-head config parsing', () => {
     ).toThrow('td-search is not supported');
   });
 
+  it('rejects TD replay configs with td-root-search specs', () => {
+    expect(() =>
+      parseTdReplayConfig({
+        schemaVersion: 1,
+        runLabel: 'td-replay-test',
+        seedPrefix: 'td-replay-test',
+        games: 1,
+        playerA: { profileId: 'td-root-rollout-search' },
+        playerB: { id: 'random-b', kind: 'random' },
+      })
+    ).toThrow('td-root-search is not supported');
+  });
+
   it('rejects TD replay configs without positive games', () => {
     expect(() =>
       parseTdReplayConfig({

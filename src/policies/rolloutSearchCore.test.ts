@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
-import { actionStableKey } from '../engine/actionSurface';
+import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
 import { createSession } from '../engine/session';
 import { toPlayerView } from '../engine/view';
@@ -113,14 +113,58 @@ describe('rollout search core', () => {
       })
     ).rejects.toThrow('not-the-scheduled-action');
   });
+
+  it('uses an injected root guide for expansion order and priors', () => {
+    const fixture = selectionFixture('rollout-core-custom-root-guide');
+    const keyed = toKeyedActions(fixture.candidateActions);
+    const rankedRootActions = keyed
+      .slice()
+      .reverse()
+      .map(({ action, actionKey }) => ({ action, actionKey }));
+    const rootPriorByKey = new Map(
+      rankedRootActions.map((candidate, index) => [
+        candidate.actionKey,
+        index === 0 ? 0.8 : 0.2 / (rankedRootActions.length - 1),
+      ])
+    );
+    const diagnostics: SearchDecisionDiagnostics[] = [];
+
+    selectRolloutSearchActionSync({
+      ...fixture,
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 1,
+        maxRootActions: 2,
+        rolloutEpsilon: 0,
+      },
+      random: rngFromSeed('rollout-core-custom-root-guide-rng'),
+      randomSeed: 'rollout-core-custom-root-guide-rng',
+      createRootGuide() {
+        return {
+          rankedRootActions,
+          rootPriorByKey,
+        };
+      },
+      onSearchDiagnostics(value) {
+        diagnostics.push(value);
+      },
+    });
+
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].rootActions.map((entry) => entry.actionKey)).toEqual(
+      rankedRootActions
+        .slice(0, diagnostics[0].expandedRootActions)
+        .map((entry) => entry.actionKey)
+    );
+    expect(diagnostics[0].rootActions[0].prior).toBe(0.8);
+  });
 });
 
 function expectRootActionDiagnosticsAreConsistent(
   diagnostics: SearchDecisionDiagnostics
 ): void {
-  expect(diagnostics.rootActions).toHaveLength(
-    diagnostics.expandedRootActions
-  );
+  expect(diagnostics.rootActions).toHaveLength(diagnostics.expandedRootActions);
   expect(
     diagnostics.rootActions.reduce((total, entry) => total + entry.visits, 0)
   ).toBe(diagnostics.rootVisitBudget);

@@ -1,16 +1,22 @@
 import { actionStableKey } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
 import type { GameAction } from '../engine/types';
-import { createPolicyFromBotSpec } from './botSpec';
+import { createPolicyFromBotSpec, type BotSpec } from './botSpec';
+import {
+  DEFAULT_TD_SEARCH_MODEL_INDEX_PATH,
+  preloadTdSearchBrowserModel,
+} from './modelRuntimeCache';
 import {
   rolloutSearchRootBudget,
   selectRolloutSearchActionParallel,
   selectRolloutSearchActionSync,
+  type RolloutSearchRootGuideFactory,
 } from './rolloutSearchCore';
 import {
   createSearchWorkerPool,
   type SearchWorkerPool,
 } from './searchWorkerPool';
+import { createTdRootSearchRootGuide } from './tdRootSearchPolicy';
 import type { ActionPolicy, SearchDecisionDiagnostics } from './types';
 import type {
   BotWorkerRequest,
@@ -28,6 +34,10 @@ const policyBySpecKey = new Map<string, ActionPolicy>();
 const cancelledRequestIds = new Set<number>();
 let searchWorkerPool: SearchWorkerPool | null = null;
 let searchWorkerPoolSize = 0;
+
+type RolloutLikeSearchBotSpec =
+  | Extract<BotSpec, { kind: 'search' }>
+  | Extract<BotSpec, { kind: 'td-root-search' }>;
 
 workerScope.onmessage = (event) => {
   void handleRequest(event.data).catch((error: unknown) => {
@@ -68,10 +78,9 @@ async function selectAction(
     }
     diagnostics = structuredClone(value);
   };
-  const selected =
-    request.spec.kind === 'search'
-      ? await selectSearchAction(request, captureDiagnostics)
-      : await selectGenericPolicyAction(request, captureDiagnostics);
+  const selected = isRolloutLikeSearchSpec(request.spec)
+    ? await selectSearchAction(request, captureDiagnostics)
+    : await selectGenericPolicyAction(request, captureDiagnostics);
 
   if (cancelledRequestIds.has(request.requestId)) {
     cancelledRequestIds.delete(request.requestId);
@@ -109,11 +118,13 @@ async function selectSearchAction(
   request: BotWorkerSelectActionRequest,
   onSearchDiagnostics: (diagnostics: SearchDecisionDiagnostics) => void
 ): Promise<GameAction | undefined> {
-  if (request.spec.kind !== 'search') {
+  if (!isRolloutLikeSearchSpec(request.spec)) {
     throw new Error(
       `selectSearchAction received unsupported bot kind ${request.spec.kind}.`
     );
   }
+  const spec = request.spec;
+  const createRootGuide = await createRootGuideFactoryForSpec(spec);
 
   const workerCount = resolveRolloutSearchWorkerCount(request);
   if (workerCount > 1) {
@@ -123,9 +134,10 @@ async function selectSearchAction(
         state: request.state,
         view: request.view,
         candidateActions: request.legalActions,
-        config: request.spec.config,
+        config: spec.config,
         random: rngFromSeed(request.randomSeed),
         randomSeed: request.randomSeed,
+        ...(createRootGuide ? { createRootGuide } : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
         onSearchDiagnostics,
@@ -143,11 +155,28 @@ async function selectSearchAction(
     state: request.state,
     view: request.view,
     candidateActions: request.legalActions,
-    config: request.spec.config,
+    config: spec.config,
     random: rngFromSeed(request.randomSeed),
     randomSeed: request.randomSeed,
+    ...(createRootGuide ? { createRootGuide } : {}),
     onSearchDiagnostics,
   });
+}
+
+async function createRootGuideFactoryForSpec(
+  spec: RolloutLikeSearchBotSpec
+): Promise<RolloutSearchRootGuideFactory | undefined> {
+  if (spec.kind === 'search') {
+    return undefined;
+  }
+  const model = await preloadTdSearchBrowserModel(
+    spec.modelIndexPath ?? DEFAULT_TD_SEARCH_MODEL_INDEX_PATH
+  );
+  return (input) =>
+    createTdRootSearchRootGuide({
+      ...input,
+      model,
+    });
 }
 
 function policyForSpec(request: BotWorkerSelectActionRequest): ActionPolicy {
@@ -180,7 +209,7 @@ function closeSearchWorkerPool(): void {
 function resolveRolloutSearchWorkerCount(
   request: BotWorkerSelectActionRequest
 ): number {
-  if (request.spec.kind !== 'search') {
+  if (!isRolloutLikeSearchSpec(request.spec)) {
     return 1;
   }
   const rootBudget = rolloutSearchRootBudget(
@@ -200,7 +229,7 @@ function resolveRolloutSearchBatchSize(
   request: BotWorkerSelectActionRequest,
   workerCount: number
 ): number {
-  if (request.spec.kind !== 'search') {
+  if (!isRolloutLikeSearchSpec(request.spec)) {
     return 1;
   }
   const rootBudget = rolloutSearchRootBudget(
@@ -208,6 +237,12 @@ function resolveRolloutSearchBatchSize(
     request.spec.config.worlds
   );
   return Math.max(1, Math.min(rootBudget, workerCount * 2));
+}
+
+function isRolloutLikeSearchSpec(
+  spec: BotSpec
+): spec is RolloutLikeSearchBotSpec {
+  return spec.kind === 'search' || spec.kind === 'td-root-search';
 }
 
 function postSelectedAction(response: {
