@@ -25,9 +25,24 @@ Update Memory Bank files when:
 - Keep docs concise and decision-focused.
 - Prefer durable facts over changelog noise.
 - Avoid tracking volatile details (for example exact test counts).
-- Keep operational runbook material in `memoryBank/techContext.md`; keep `README.md` brief and link out.
+- Keep operational runbook material in `docs/runbooks/`; keep `memoryBank/techContext.md` as tooling context and runbook index.
 - Keep `memoryBank/activeContext.md` focused on current work, not release-note history.
 - Keep `README.md`, `AGENTS.md`, and relevant Memory Bank files aligned in the same pass.
+- Replace stale bullets instead of appending near-duplicates.
+- Do not record task-completion logs, experiment blow-by-blow, or agent handoff chatter in Memory Bank files.
+- Do not document volatile UI selections unless the user explicitly asks for that to be part of project direction.
+
+## Document Ownership
+
+- `README.md`: short project overview, quickstart, common commands, and links.
+- `AGENTS.md`: agent startup checklist, durable decisions, and working rules.
+- `memoryBank/projectBrief.md`: project goal, scope, non-goals, and success criteria.
+- `memoryBank/systemPatterns.md`: stable architecture and implementation patterns.
+- `memoryBank/techContext.md`: stack, tooling, command index, constraints, and runbook links.
+- `memoryBank/magnateRules.md`: rules reference only.
+- `memoryBank/bridgeInterfaceContract.md`: TS/Python bridge contract only.
+- `memoryBank/activeContext.md`: current focus, current state, remaining work, and immediate next steps.
+- `docs/runbooks/`: operational setup, training, evaluation, wrapper, and recovery procedures.
 
 ## Minimum End-of-Task Check
 
