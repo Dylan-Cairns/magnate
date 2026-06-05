@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 
 import { POLICY_RANDOM_SCHEME_VERSION } from '../policies/policyRandom';
@@ -10,11 +11,19 @@ import {
 } from '../policies/trainingEncoding';
 import { collectGitMetadata } from './gitMetadata';
 import {
+  collectTdReplayGames,
+  validateTdReplayConfig,
+  type TdReplayDependencies,
+} from './tdReplay';
+import {
   TD_REPLAY_ARTIFACT_TYPE,
   TD_REPLAY_SUMMARY_SCHEMA_VERSION,
+  type CollectedTdReplayGame,
+  type TdReplayConfig,
   type TdReplayOpponentSamplePayload,
   type TdReplayRun,
   type TdReplaySummary,
+  type TdReplaySummaryGame,
   type TdReplayValueTransitionPayload,
 } from './types';
 
@@ -31,6 +40,15 @@ export interface WrittenTdReplayArtifacts {
   valuePath: string;
   opponentPath: string;
   summaryPath: string;
+}
+
+export type CollectTdReplayArtifactOptions = TdReplayArtifactOptions &
+  TdReplayDependencies;
+
+interface TdReplaySummarySource {
+  config: TdReplayConfig;
+  games: readonly TdReplaySummaryGame[];
+  elapsedMs: number;
 }
 
 export async function writeTdReplayArtifacts(
@@ -59,8 +77,14 @@ export async function writeTdReplayArtifacts(
   });
 
   await mkdir(outputDirectory, { recursive: true });
-  await writeAtomic(valuePath, renderValueTransitionsJsonl(run.valueTransitions));
-  await writeAtomic(opponentPath, renderOpponentSamplesJsonl(run.opponentSamples));
+  await writeAtomic(
+    valuePath,
+    renderValueTransitionsJsonl(run.valueTransitions)
+  );
+  await writeAtomic(
+    opponentPath,
+    renderOpponentSamplesJsonl(run.opponentSamples)
+  );
   await writeAtomic(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
   return {
     summary,
@@ -70,8 +94,46 @@ export async function writeTdReplayArtifacts(
   };
 }
 
+export async function collectAndWriteTdReplayArtifacts(
+  config: TdReplayConfig,
+  outputDirectory: string,
+  options: CollectTdReplayArtifactOptions = {}
+): Promise<WrittenTdReplayArtifacts> {
+  validateTdReplayConfig(config);
+  const writer = await StreamingTdReplayArtifactWriter.open(
+    config,
+    outputDirectory,
+    options
+  );
+  try {
+    const result = await collectTdReplayGames(config, options, (game) =>
+      writer.writeGame(game)
+    );
+    return await writer.close(result.elapsedMs);
+  } catch (error) {
+    await writer.abort();
+    throw error;
+  }
+}
+
 export function createTdReplaySummary(
   run: TdReplayRun,
+  options: TdReplayArtifactOptions & {
+    artifacts: TdReplaySummary['artifacts'];
+  }
+): TdReplaySummary {
+  return createTdReplaySummaryFromGames(
+    {
+      config: run.config,
+      games: run.games.map(summarizeTdReplayGame),
+      elapsedMs: run.elapsedMs,
+    },
+    options
+  );
+}
+
+export function createTdReplaySummaryFromGames(
+  source: TdReplaySummarySource,
   options: TdReplayArtifactOptions & {
     artifacts: TdReplaySummary['artifacts'];
   }
@@ -83,10 +145,14 @@ export function createTdReplaySummary(
   };
   let turnTotal = 0;
   let decisionTotal = 0;
-  for (const game of run.games) {
-    winners[game.finalScore.winner] += 1;
+  let valueTransitionTotal = 0;
+  let opponentSampleTotal = 0;
+  for (const game of source.games) {
+    winners[game.winner] += 1;
     turnTotal += game.turns;
-    decisionTotal += game.decisions.length;
+    decisionTotal += game.decisions;
+    valueTransitionTotal += game.valueTransitions;
+    opponentSampleTotal += game.opponentSamples;
   }
 
   return {
@@ -98,35 +164,24 @@ export function createTdReplaySummary(
       nodeVersion: options.nodeVersion ?? process.version,
     },
     git: options.git ?? collectGitMetadata(options.cwd),
-    config: structuredClone(run.config),
+    config: structuredClone(source.config),
     encoding: {
       encodingVersion: ENCODING_VERSION,
       observationDim: OBSERVATION_DIM,
       actionFeatureDim: ACTION_FEATURE_DIM,
     },
     results: {
-      games: run.games.length,
+      games: source.games.length,
       winners,
-      averageTurns: run.games.length > 0 ? turnTotal / run.games.length : 0,
+      averageTurns:
+        source.games.length > 0 ? turnTotal / source.games.length : 0,
       decisions: decisionTotal,
-      valueTransitions: run.valueTransitions.length,
-      opponentSamples: run.opponentSamples.length,
-      elapsedMs: run.elapsedMs,
+      valueTransitions: valueTransitionTotal,
+      opponentSamples: opponentSampleTotal,
+      elapsedMs: source.elapsedMs,
     },
     artifacts: structuredClone(options.artifacts),
-    games: run.games.map((game) => ({
-      gameId: game.gameId,
-      seed: game.seed,
-      firstPlayer: game.firstPlayer,
-      botBySeat: structuredClone(game.botBySeat),
-      winner: game.finalScore.winner,
-      finalScore: structuredClone(game.finalScore),
-      turns: game.turns,
-      decisions: game.decisions.length,
-      valueTransitions: game.valueTransitions.length,
-      opponentSamples: game.opponentSamples.length,
-      elapsedMs: game.elapsedMs,
-    })),
+    games: source.games.map((game) => structuredClone(game)),
   };
 }
 
@@ -164,6 +219,20 @@ function renderJsonl<T>(
   const lines: string[] = [];
   for (let index = 0; index < rows.length; index += 1) {
     const rowNumber = index + 1;
+    validate(rows[index], rowNumber);
+    lines.push(JSON.stringify(rows[index]));
+  }
+  return lines.length > 0 ? `${lines.join('\n')}\n` : '';
+}
+
+function renderJsonlChunk<T>(
+  rows: readonly T[],
+  validate: (row: T, rowNumber: number) => void,
+  firstRowNumber: number
+): string {
+  const lines: string[] = [];
+  for (let index = 0; index < rows.length; index += 1) {
+    const rowNumber = firstRowNumber + index;
     validate(rows[index], rowNumber);
     lines.push(JSON.stringify(rows[index]));
   }
@@ -269,6 +338,202 @@ async function writeAtomic(
   const tempPath = `${targetPath}.${String(process.pid)}.${randomUUID()}.tmp`;
   await writeFile(tempPath, contents, 'utf8');
   await rename(tempPath, targetPath);
+}
+
+class StreamingTdReplayArtifactWriter {
+  private valueHandle: FileHandle | null;
+  private opponentHandle: FileHandle | null;
+  private valueRowsWritten = 0;
+  private opponentRowsWritten = 0;
+  private readonly games: TdReplaySummaryGame[] = [];
+  private closed = false;
+
+  private constructor(
+    private readonly config: TdReplayConfig,
+    private readonly options: TdReplayArtifactOptions,
+    private readonly valuePath: string,
+    private readonly opponentPath: string,
+    private readonly summaryPath: string,
+    private readonly valueTempPath: string,
+    private readonly opponentTempPath: string,
+    private readonly summaryTempPath: string,
+    valueHandle: FileHandle,
+    opponentHandle: FileHandle
+  ) {
+    this.valueHandle = valueHandle;
+    this.opponentHandle = opponentHandle;
+  }
+
+  static async open(
+    config: TdReplayConfig,
+    outputDirectory: string,
+    options: TdReplayArtifactOptions
+  ): Promise<StreamingTdReplayArtifactWriter> {
+    const generatedAtUtc = options.generatedAtUtc ?? new Date().toISOString();
+    const runBaseName =
+      options.runBaseName ??
+      defaultTdReplayRunBaseName(config.runLabel, generatedAtUtc);
+    const valuePath = path.join(outputDirectory, `${runBaseName}.value.jsonl`);
+    const opponentPath = path.join(
+      outputDirectory,
+      `${runBaseName}.opponent.jsonl`
+    );
+    const summaryPath = path.join(
+      outputDirectory,
+      `${runBaseName}.summary.json`
+    );
+    const valueTempPath = tempArtifactPath(valuePath);
+    const opponentTempPath = tempArtifactPath(opponentPath);
+    const summaryTempPath = tempArtifactPath(summaryPath);
+
+    await mkdir(outputDirectory, { recursive: true });
+    const valueHandle = await open(valueTempPath, 'w');
+    const opponentHandle = await open(opponentTempPath, 'w');
+    return new StreamingTdReplayArtifactWriter(
+      structuredClone(config),
+      {
+        ...options,
+        generatedAtUtc,
+      },
+      valuePath,
+      opponentPath,
+      summaryPath,
+      valueTempPath,
+      opponentTempPath,
+      summaryTempPath,
+      valueHandle,
+      opponentHandle
+    );
+  }
+
+  async writeGame(game: CollectedTdReplayGame): Promise<void> {
+    if (
+      this.closed ||
+      this.valueHandle === null ||
+      this.opponentHandle === null
+    ) {
+      throw new Error(
+        'Cannot write TD replay game after artifact writer is closed.'
+      );
+    }
+    const valueChunk = renderJsonlChunk(
+      game.valueTransitions,
+      validateValueTransition,
+      this.valueRowsWritten + 1
+    );
+    if (valueChunk.length > 0) {
+      await this.valueHandle.writeFile(valueChunk, 'utf8');
+    }
+    this.valueRowsWritten += game.valueTransitions.length;
+
+    const opponentChunk = renderJsonlChunk(
+      game.opponentSamples,
+      validateOpponentSample,
+      this.opponentRowsWritten + 1
+    );
+    if (opponentChunk.length > 0) {
+      await this.opponentHandle.writeFile(opponentChunk, 'utf8');
+    }
+    this.opponentRowsWritten += game.opponentSamples.length;
+    this.games.push(summarizeTdReplayGame(game));
+  }
+
+  async close(elapsedMs: number): Promise<WrittenTdReplayArtifacts> {
+    if (this.closed) {
+      throw new Error('TD replay artifact writer is already closed.');
+    }
+    this.closed = true;
+    await this.closeOpenHandles();
+
+    const summary = createTdReplaySummaryFromGames(
+      {
+        config: this.config,
+        games: this.games,
+        elapsedMs,
+      },
+      {
+        ...this.options,
+        artifacts: {
+          valueTransitions: this.valuePath,
+          opponentSamples: this.opponentPath,
+          summary: this.summaryPath,
+        },
+      }
+    );
+    await writeFile(
+      this.summaryTempPath,
+      `${JSON.stringify(summary, null, 2)}\n`,
+      'utf8'
+    );
+
+    const renamed: string[] = [];
+    try {
+      await rename(this.valueTempPath, this.valuePath);
+      renamed.push(this.valuePath);
+      await rename(this.opponentTempPath, this.opponentPath);
+      renamed.push(this.opponentPath);
+      await rename(this.summaryTempPath, this.summaryPath);
+      renamed.push(this.summaryPath);
+    } catch (error) {
+      await Promise.all(
+        renamed.map((targetPath) => rm(targetPath, { force: true }))
+      );
+      await this.removeTempFiles();
+      throw error;
+    }
+
+    return {
+      summary,
+      valuePath: this.valuePath,
+      opponentPath: this.opponentPath,
+      summaryPath: this.summaryPath,
+    };
+  }
+
+  async abort(): Promise<void> {
+    if (!this.closed) {
+      this.closed = true;
+      await this.closeOpenHandles();
+    }
+    await this.removeTempFiles();
+  }
+
+  private async closeOpenHandles(): Promise<void> {
+    const handles = [this.valueHandle, this.opponentHandle];
+    this.valueHandle = null;
+    this.opponentHandle = null;
+    await Promise.all(handles.map((handle) => handle?.close()));
+  }
+
+  private async removeTempFiles(): Promise<void> {
+    await Promise.all(
+      [this.valueTempPath, this.opponentTempPath, this.summaryTempPath].map(
+        (targetPath) => rm(targetPath, { force: true })
+      )
+    );
+  }
+}
+
+function summarizeTdReplayGame(
+  game: CollectedTdReplayGame
+): TdReplaySummaryGame {
+  return {
+    gameId: game.gameId,
+    seed: game.seed,
+    firstPlayer: game.firstPlayer,
+    botBySeat: structuredClone(game.botBySeat),
+    winner: game.finalScore.winner,
+    finalScore: structuredClone(game.finalScore),
+    turns: game.turns,
+    decisions: game.decisions.length,
+    valueTransitions: game.valueTransitions.length,
+    opponentSamples: game.opponentSamples.length,
+    elapsedMs: game.elapsedMs,
+  };
+}
+
+function tempArtifactPath(targetPath: string): string {
+  return `${targetPath}.${String(process.pid)}.${randomUUID()}.tmp`;
 }
 
 function slug(value: string): string {

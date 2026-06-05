@@ -239,17 +239,19 @@ Use `--help` on each script for the full option surface.
   runs full self-play games through direct Node-compatible
   `createPolicyFromBotSpec` / `ActionPolicy` policies and writes
   `<run>.value.jsonl`, `<run>.opponent.jsonl`, and `<run>.summary.json`
-  under `artifacts/td_replay` by default. Replay rows use TypeScript
-  `trainingEncoding`, include `episodeId` plus contiguous per-player
-  `timestep` for `td-lambda`, order opponent action candidates by canonical
-  stable action key, and are readable by `scripts.train_td`.
+  under `artifacts/td_replay` by default. The CLI streams per-game JSONL rows
+  to temporary artifact files and atomically publishes them at completion, so
+  export memory is bounded by one completed game plus summary metadata. Replay
+  rows use TypeScript `trainingEncoding`, include `episodeId` plus contiguous
+  per-player `timestep` for `td-lambda`, order opponent action candidates by
+  canonical stable action key, and are readable by `scripts.train_td`.
   Configs support `random`, `heuristic`, and rollout `search` BotSpecs plus
   profile references resolved to specs; direct `td-search` replay export is
   rejected until the Node-local model-pack loader gap is closed.
   When passing multiple exported value replay files into one td-lambda train
-  run, keep each export's `seedPrefix` globally unique so `(episodeId,
-  playerId, timestep)` sequences do not collide. For parallel exports, use
-  distinct seed prefixes and distinct output directories or run labels.
+  run, keep each export's `seedPrefix` globally unique because the sequence key
+  is `(episodeId, playerId, timestep)`. For parallel exports, use distinct seed
+  prefixes and distinct output directories or run labels.
 - `yarn bot:eval rollout-search-sweep --config <path> [--workers <count>]`
   runs explicit rollout `search` candidates sequentially against one fixed
   opponent with one shared paired-seed prefix. Within each matchup, opt-in

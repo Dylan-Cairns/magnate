@@ -83,7 +83,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Rollout Search',
     description: '',
     available: true,
-    turnDelayMs: 450,
+    turnDelayMs: 0,
     spec: {
       id: 'rollout-eval-search',
       kind: 'search',
