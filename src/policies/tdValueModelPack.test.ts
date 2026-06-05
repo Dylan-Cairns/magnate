@@ -4,6 +4,7 @@ import { ENCODING_VERSION, OBSERVATION_DIM } from './trainingEncoding';
 import {
   createTdValueNetworkFromWeights,
   parseModelPackManifest,
+  resolvePublicAssetUrl,
   type TdValueModelPackManifest,
 } from './tdValueModelPack';
 
@@ -38,6 +39,28 @@ function makeManifest(hiddenDim: number): TdValueModelPackManifest {
 }
 
 describe('td value model pack', () => {
+  it('resolves public asset URLs from a built worker to the app root', () => {
+    withGlobalLocation(
+      'https://example.github.io/magnate/assets/botWorker-test.js',
+      () => {
+        expect(resolvePublicAssetUrl('model-packs/index.json')).toBe(
+          'https://example.github.io/magnate/model-packs/index.json'
+        );
+      }
+    );
+  });
+
+  it('resolves public asset URLs from a Vite dev worker to the dev origin root', () => {
+    withGlobalLocation(
+      'http://localhost:5173/src/policies/botWorker.ts',
+      () => {
+        expect(resolvePublicAssetUrl('model-packs/index.json')).toBe(
+          'http://localhost:5173/model-packs/index.json'
+        );
+      }
+    );
+  });
+
   it('parses manifest with expected schema and dimensions', () => {
     const manifest = parseModelPackManifest(makeManifest(2));
     expect(manifest.model.encodingVersion).toBe(ENCODING_VERSION);
@@ -73,3 +96,23 @@ describe('td value model pack', () => {
     expect(score).toBeCloseTo(expected, 6);
   });
 });
+
+function withGlobalLocation(href: string, callback: () => void): void {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'location'
+  );
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true,
+    value: { href },
+  });
+  try {
+    callback();
+  } finally {
+    if (originalDescriptor) {
+      Object.defineProperty(globalThis, 'location', originalDescriptor);
+    } else {
+      delete (globalThis as { location?: unknown }).location;
+    }
+  }
+}
