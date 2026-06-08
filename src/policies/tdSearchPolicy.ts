@@ -4,17 +4,16 @@ import {
   toKeyedActions,
   type KeyedAction,
 } from '../engine/actionSurface';
-import { PROPERTY_CARDS } from '../engine/cards';
-import { shuffleInPlace } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
 import { toPlayerView } from '../engine/view';
-import type {
-  GameAction,
-  GameState,
-  PlayerId,
-  PlayerView,
-} from '../engine/types';
+import type { GameAction, GameState, PlayerId } from '../engine/types';
+import { sampleHiddenWorldStates } from './determinization';
+import {
+  progressiveTargetActionCount,
+  selectBestRootActionKey,
+  selectRootUcbAction,
+} from './searchRoot';
 import type { ActionPolicy } from './types';
 import { encodeActionCandidates, encodeObservation } from './trainingEncoding';
 import {
@@ -23,8 +22,7 @@ import {
 } from './modelRuntimeCache';
 import { heuristicPriorsByKey, rankHeuristicActions } from './heuristicScorer';
 import { type LoadedTdSearchModel } from './tdSearchModelPack';
-
-const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
+import { cachedAsyncLoader, forcedAction } from './policyUtils';
 
 export interface TdSearchPolicyConfig {
   worlds: number;
@@ -62,13 +60,7 @@ export function createTdSearchPolicy(
         options.modelIndexPath ?? DEFAULT_TD_SEARCH_MODEL_INDEX_PATH
       ));
 
-  let modelPromise: Promise<LoadedTdSearchModel> | null = null;
-  function getModel(): Promise<LoadedTdSearchModel> {
-    if (modelPromise === null) {
-      modelPromise = configuredLoader();
-    }
-    return modelPromise;
-  }
+  const getModel = cachedAsyncLoader(configuredLoader);
 
   return {
     async selectAction({
@@ -77,11 +69,9 @@ export function createTdSearchPolicy(
       legalActions: candidateActions,
       random,
     }) {
-      if (candidateActions.length === 0) {
-        return undefined;
-      }
-      if (candidateActions.length === 1) {
-        return candidateActions[0];
+      const forced = forcedAction(candidateActions);
+      if (forced !== null) {
+        return forced;
       }
 
       const model = await getModel();
@@ -91,13 +81,14 @@ export function createTdSearchPolicy(
         candidateActions,
         heuristicContext
       );
-      const worldStates = sampleWorldStates(
+      const worldStates = sampleHiddenWorldStates({
         state,
         view,
         rootPlayer,
-        config.worlds,
-        random
-      );
+        worldCount: config.worlds,
+        random,
+        errorPrefix: 'TD search',
+      });
       if (worldStates.length === 0) {
         return rankedRootActions[0].action;
       }
@@ -168,29 +159,12 @@ export function createTdSearchPolicy(
         rootValueSum.set(actionKey, (rootValueSum.get(actionKey) ?? 0) + score);
       }
 
-      let bestActionKey = expandedKeys[0];
-      let bestVisits = rootVisits.get(bestActionKey) ?? 0;
-      let bestValue = safeDiv(rootValueSum.get(bestActionKey) ?? 0, bestVisits);
-      let bestPrior = rootPriorByKey.get(bestActionKey) ?? 0;
-      for (const actionKey of expandedKeys.slice(1)) {
-        const visits = rootVisits.get(actionKey) ?? 0;
-        const value = safeDiv(rootValueSum.get(actionKey) ?? 0, visits);
-        const prior = rootPriorByKey.get(actionKey) ?? 0;
-        if (
-          visits > bestVisits ||
-          (visits === bestVisits &&
-            (value > bestValue ||
-              (approximatelyEqual(value, bestValue) &&
-                (prior > bestPrior ||
-                  (approximatelyEqual(prior, bestPrior) &&
-                    actionKey.localeCompare(bestActionKey) < 0)))))
-        ) {
-          bestActionKey = actionKey;
-          bestVisits = visits;
-          bestValue = value;
-          bestPrior = prior;
-        }
-      }
+      const bestActionKey = selectBestRootActionKey({
+        expandedKeys,
+        visitsByKey: rootVisits,
+        valueSumByKey: rootValueSum,
+        priorsByKey: rootPriorByKey,
+      });
 
       const selected = actionByKey.get(bestActionKey);
       if (!selected) {
@@ -254,55 +228,6 @@ function resolveTdSearchConfig(
       options.sampleOpponentActions ??
       DEFAULT_TD_SEARCH_POLICY_CONFIG.sampleOpponentActions,
   };
-}
-
-function progressiveTargetActionCount(
-  totalActions: number,
-  initialActions: number,
-  visits: number
-): number {
-  if (totalActions <= 0) {
-    return 0;
-  }
-  const base = Math.max(1, Math.min(initialActions, totalActions));
-  const widened = base + Math.floor(Math.sqrt(Math.max(0, visits) + 1));
-  return Math.min(totalActions, widened);
-}
-
-function selectRootUcbAction(
-  actionKeys: readonly string[],
-  visitsByKey: ReadonlyMap<string, number>,
-  valueSumByKey: ReadonlyMap<string, number>,
-  priorsByKey: ReadonlyMap<string, number>,
-  totalVisits: number,
-  cPuct = 1
-): string {
-  if (actionKeys.length === 0) {
-    throw new Error('selectRootUcbAction requires at least one action key.');
-  }
-  if (!(cPuct > 0)) {
-    throw new Error('selectRootUcbAction requires cPuct > 0.');
-  }
-
-  const sqrtParent = Math.sqrt(Math.max(0, totalVisits) + 1);
-  let bestActionKey = actionKeys[0];
-  let bestScore = Number.NEGATIVE_INFINITY;
-  for (const actionKey of actionKeys) {
-    const visits = visitsByKey.get(actionKey) ?? 0;
-    const valueSum = valueSumByKey.get(actionKey) ?? 0;
-    const q = safeDiv(valueSum, visits);
-    const prior = priorsByKey.get(actionKey) ?? 0;
-    const score = q + (cPuct * prior * sqrtParent) / (1 + visits);
-    if (
-      score > bestScore ||
-      (approximatelyEqual(score, bestScore) &&
-        actionKey.localeCompare(bestActionKey) < 0)
-    ) {
-      bestActionKey = actionKey;
-      bestScore = score;
-    }
-  }
-  return bestActionKey;
 }
 
 function runRollout({
@@ -494,105 +419,12 @@ function stepByActionKey(state: GameState, actionKey: string): GameState {
   return stepToDecision(state, action);
 }
 
-function sampleWorldStates(
-  state: GameState,
-  view: PlayerView,
-  rootPlayer: PlayerId,
-  worldCount: number,
-  random: () => number
-): GameState[] {
-  const opponentPlayer = otherPlayerId(rootPlayer);
-  const rootView = requiredPlayerView(view, rootPlayer);
-  const opponentView = requiredPlayerView(view, opponentPlayer);
-
-  const rootHand = [...rootView.hand];
-  const opponentHandCount = opponentView.handCount;
-  const drawCount = view.deck.drawCount;
-
-  const knownCards = new Set<string>(rootHand);
-  for (const cardId of view.deck.discard) {
-    knownCards.add(cardId);
-  }
-  for (const cardId of districtPropertyCards(view)) {
-    knownCards.add(cardId);
-  }
-
-  const hiddenPool = PROPERTY_CARD_IDS.filter(
-    (cardId) => !knownCards.has(cardId)
-  );
-  const expectedHiddenCount = opponentHandCount + drawCount;
-  if (hiddenPool.length !== expectedHiddenCount) {
-    throw new Error(
-      `TD search determinization mismatch: expected hidden=${String(expectedHiddenCount)} but found ${String(hiddenPool.length)}.`
-    );
-  }
-
-  const worlds: GameState[] = [];
-  for (let index = 0; index < worldCount; index += 1) {
-    const sampledHidden = [...hiddenPool];
-    shuffleInPlace(sampledHidden, random);
-    const opponentHand = sampledHidden.slice(0, opponentHandCount);
-    const draw = sampledHidden.slice(
-      opponentHandCount,
-      opponentHandCount + drawCount
-    );
-
-    const world = structuredClone(state) as GameState;
-    world.players = world.players.map((player) => {
-      if (player.id === rootPlayer) {
-        return { ...player, hand: [...rootHand] };
-      }
-      if (player.id === opponentPlayer) {
-        return { ...player, hand: [...opponentHand] };
-      }
-      return player;
-    });
-    world.deck = {
-      ...world.deck,
-      draw: [...draw],
-    };
-    worlds.push(world);
-  }
-  return worlds;
-}
-
-function requiredPlayerView(
-  view: PlayerView,
-  playerId: PlayerId
-): PlayerView['players'][number] {
-  const player = view.players.find((candidate) => candidate.id === playerId);
-  if (!player) {
-    throw new Error(`TD search view is missing player ${playerId}.`);
-  }
-  return player;
-}
-
-function districtPropertyCards(view: PlayerView): Set<string> {
-  const cards = new Set<string>();
-  for (const district of view.districts) {
-    for (const playerId of ['PlayerA', 'PlayerB'] as const) {
-      const stack = district.stacks[playerId];
-      for (const cardId of stack.developed) {
-        cards.add(cardId);
-      }
-      if (stack.deed) {
-        cards.add(stack.deed.cardId);
-      }
-    }
-  }
-  return cards;
-}
-
 function terminalValue(state: GameState, rootPlayer: PlayerId): number {
   const winner = state.finalScore?.winner;
   if (!winner || winner === 'Draw') {
     return 0;
   }
   return winner === rootPlayer ? 1 : -1;
-}
-
-function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
 }
 
 function integerWithFloor(value: number, floor: number): number {
@@ -612,13 +444,6 @@ function integerWithFloor(value: number, floor: number): number {
 
 function approximatelyEqual(left: number, right: number): boolean {
   return Math.abs(left - right) <= 1e-9;
-}
-
-function safeDiv(total: number, count: number): number {
-  if (count <= 0) {
-    return 0;
-  }
-  return total / count;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

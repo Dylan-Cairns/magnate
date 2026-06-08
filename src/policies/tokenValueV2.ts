@@ -5,10 +5,8 @@ import {
   deedCost,
   developmentCost,
   findProperty,
-  mergeTokens,
   placementAllowed,
   SUITS,
-  sumTokens,
 } from '../engine/stateHelpers';
 import type {
   DistrictState,
@@ -20,6 +18,13 @@ import type {
   ResourcePool,
   Suit,
 } from '../engine/types';
+import {
+  clamp,
+  isDistrictAction,
+  otherPlayerId,
+  projectDistrictAction,
+  smoothstep,
+} from './policyProjection';
 
 export type SuitValueMap<T> = Record<Suit, T>;
 
@@ -87,10 +92,7 @@ export function contextualSuitTokenValuesV2(
       value:
         rawDemand <= 0
           ? 0
-          : Math.max(
-              DIRECT_VALUE_FLOOR,
-              rawDemand * replaceabilityMultiplier
-            ),
+          : Math.max(DIRECT_VALUE_FLOOR, rawDemand * replaceabilityMultiplier),
     };
   });
 
@@ -198,7 +200,7 @@ export function projectStateForTokenValueV2(
         ...withPlayer,
         districts: withPlayer.districts.map((district) =>
           district.id === action.districtId
-            ? projectDistrictForTokenValue(district, action, playerId)
+            ? projectDistrictAction(district, action, playerId)
             : district
         ),
       }
@@ -271,8 +273,7 @@ export function tradeLiquidityValueForSuitV2(
 
   const completedSets = Math.floor(count / 3);
   const remainder = count % 3;
-  const completedSetBonus =
-    completedSets * TRADE_SET_WEIGHT * bestTargetValue;
+  const completedSetBonus = completedSets * TRADE_SET_WEIGHT * bestTargetValue;
   const remainderBonus =
     remainder === 2
       ? TRADE_REMAINDER_TWO_WEIGHT * bestTargetValue
@@ -359,9 +360,7 @@ function addHandDemand(
     addCardDemandToSuits(demand, {
       card,
       earningDemand:
-        cardEarningDemand(card, phase) *
-        HAND_DEMAND_WEIGHT *
-        placementWeight,
+        cardEarningDemand(card, phase) * HAND_DEMAND_WEIGHT * placementWeight,
       scoringDemand:
         bestHandCardScoringDemand(state, player.id, card) *
         HAND_DEMAND_WEIGHT *
@@ -467,9 +466,7 @@ function cardScoringDemandInDistrict(
           ? 0.08
           : 0;
 
-  return (
-    Math.max(0, saturatedDelta + controlBonus) * SCORING_DEMAND_SCALE
-  );
+  return Math.max(0, saturatedDelta + controlBonus) * SCORING_DEMAND_SCALE;
 }
 
 function playerHasLegalPlacement(
@@ -550,8 +547,7 @@ function bestTradeTargetValue(
       continue;
     }
     const targetCount = Math.max(0, resources[targetSuit]);
-    const scarcity =
-      targetCount === 0 ? 1 : targetCount === 1 ? 0.55 : 0.2;
+    const scarcity = targetCount === 0 ? 1 : targetCount === 1 ? 0.55 : 0.2;
     best = Math.max(best, suitValues[targetSuit].value * scarcity);
   }
   return best;
@@ -585,73 +581,6 @@ function projectPlayerForTokenValue(
   };
 }
 
-function projectDistrictForTokenValue(
-  district: DistrictState,
-  action: Extract<
-    GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
-  >,
-  playerId: PlayerId
-): DistrictState {
-  const stack = district.stacks[playerId];
-  const projectedStack = projectStackForTokenValue(stack, action);
-  return {
-    ...district,
-    stacks: {
-      ...district.stacks,
-      [playerId]: projectedStack,
-    },
-  };
-}
-
-function projectStackForTokenValue(
-  stack: DistrictState['stacks'][PlayerId],
-  action: Extract<
-    GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
-  >
-): DistrictState['stacks'][PlayerId] {
-  if (action.type === 'buy-deed') {
-    return {
-      ...stack,
-      deed: {
-        cardId: action.cardId,
-        progress: 0,
-        tokens: {},
-      },
-    };
-  }
-  if (action.type === 'develop-outright') {
-    return {
-      ...stack,
-      developed: [...stack.developed, action.cardId],
-    };
-  }
-
-  const deed = stack.deed;
-  if (!deed) {
-    return stack;
-  }
-  const card = findProperty(deed.cardId);
-  const progress = deed.progress + sumTokens(action.tokens);
-  const target = card ? developmentCost(card) : 0;
-  if (target > 0 && progress >= target) {
-    return {
-      ...stack,
-      developed: [...stack.developed, deed.cardId],
-      deed: undefined,
-    };
-  }
-  return {
-    ...stack,
-    deed: {
-      ...deed,
-      progress,
-      tokens: mergeTokens(deed.tokens, action.tokens),
-    },
-  };
-}
-
 function replacePlayer(
   state: GameState,
   playerId: PlayerId,
@@ -663,19 +592,6 @@ function replacePlayer(
       player.id === playerId ? updatedPlayer : player
     ),
   };
-}
-
-function isDistrictAction(
-  action: GameAction
-): action is Extract<
-  GameAction,
-  { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
-> {
-  return (
-    action.type === 'buy-deed' ||
-    action.type === 'develop-deed' ||
-    action.type === 'develop-outright'
-  );
 }
 
 function replaceabilityMultiplierForAccess(access: number): number {
@@ -709,9 +625,7 @@ function negateTokens(
   return out;
 }
 
-export function incomeProbabilityForRankV2(
-  rank: PropertyCard['rank']
-): number {
+export function incomeProbabilityForRankV2(rank: PropertyCard['rank']): number {
   if (rank === 1) {
     return 0.01;
   }
@@ -726,24 +640,11 @@ function requiredPlayer(state: GameState, playerId: PlayerId): PlayerState {
   return player;
 }
 
-function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
-}
-
 function gamePhase(state: GameState): number {
   if ((state.finalTurnsRemaining ?? 0) > 0) {
     return 1;
   }
   return clamp(state.turn / EXPECTED_GAME_TURNS, 0, 1);
-}
-
-function smoothstep(value: number): number {
-  const x = clamp(value, 0, 1);
-  return x * x * (3 - 2 * x);
-}
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.max(minimum, Math.min(maximum, value));
 }
 
 function emptySuitValueMap<T>(create: (suit: Suit) => T): SuitValueMap<T> {
