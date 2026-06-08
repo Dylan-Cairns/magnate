@@ -1,4 +1,5 @@
 import type { GameAction, GameState, PlayerView } from '../engine/types';
+import type { SearchHeuristicVersion } from './searchConfig';
 
 export interface SearchRootActionDiagnostics {
   actionKey: string;
@@ -11,6 +12,7 @@ export interface SearchRootActionDiagnostics {
 
 export interface SearchDecisionDiagnostics {
   kind: 'search';
+  heuristic?: SearchHeuristicVersion;
   legalRootActions: number;
   expandedRootActions: number;
   rootVisitBudget: number;

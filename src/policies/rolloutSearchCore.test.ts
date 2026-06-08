@@ -5,6 +5,7 @@ import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
 import { createSession } from '../engine/session';
 import { toPlayerView } from '../engine/view';
+import { rankHeuristicV2Actions } from './heuristicScorerV2';
 import {
   runRolloutSearchTask,
   selectRolloutSearchActionParallel,
@@ -158,6 +159,63 @@ describe('rollout search core', () => {
         .map((entry) => entry.actionKey)
     );
     expect(diagnostics[0].rootActions[0].prior).toBe(0.8);
+  });
+
+  it('uses heuristic v2 for configured root expansion order', () => {
+    const fixture = selectionFixture('rollout-core-heuristic-v2-root');
+    const diagnostics: SearchDecisionDiagnostics[] = [];
+
+    selectRolloutSearchActionSync({
+      ...fixture,
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 1,
+        maxRootActions: 3,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
+      random: rngFromSeed('rollout-core-heuristic-v2-root-rng'),
+      randomSeed: 'rollout-core-heuristic-v2-root-rng',
+      onSearchDiagnostics(value) {
+        diagnostics.push(value);
+      },
+    });
+
+    const expected = rankHeuristicV2Actions(fixture.candidateActions, {
+      state: fixture.state,
+      view: fixture.view,
+    })
+      .slice(0, diagnostics[0].expandedRootActions)
+      .map((entry) => entry.actionKey);
+    expect(diagnostics[0].rootActions.map((entry) => entry.actionKey)).toEqual(
+      expected
+    );
+    expect(diagnostics[0].heuristic).toBe('v2');
+  });
+
+  it('runs rollout tasks with heuristic v2 playout selection configured', () => {
+    const fixture = selectionFixture('rollout-core-heuristic-v2-task');
+    const rootActionKey = toKeyedActions(fixture.candidateActions)[0].actionKey;
+    const result = runRolloutSearchTask({
+      kind: 'rollout-search',
+      visitIndex: 0,
+      world: fixture.state,
+      rootPlayer: fixture.view.activePlayerId,
+      rootActionKey,
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 3,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
+      randomSeed: 'rollout-core-heuristic-v2-task-rng',
+    });
+
+    expect(result.actionKey).toBe(rootActionKey);
+    expect(result.simulatedActionSteps).toBeGreaterThan(0);
   });
 });
 

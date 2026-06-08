@@ -132,6 +132,7 @@ export function createSearchDecisionDiagnostics({
   }
   return {
     kind: 'search',
+    heuristic: config.heuristic ?? 'v1',
     legalRootActions,
     expandedRootActions,
     rootVisitBudget,

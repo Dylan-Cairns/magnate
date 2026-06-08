@@ -6,6 +6,7 @@ export type BotProfileId =
   | 'heuristic'
   | 'td-search-fast'
   | 'rollout-eval-search'
+  | 'rollout-search-v2'
   | 'td-root-rollout-search'
   | 'td-search-browser'
   | 'random-legal';
@@ -94,6 +95,26 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         depth: 160,
         maxRootActions: 8,
         rolloutEpsilon: 0.0,
+      },
+    },
+    createPolicy: createWorkerBackedPolicy,
+  }),
+  createBotProfile({
+    id: 'rollout-search-v2',
+    label: 'Rollout Search V2',
+    description: '',
+    available: true,
+    turnDelayMs: 0,
+    spec: {
+      id: 'rollout-search-v2',
+      kind: 'search',
+      config: {
+        worlds: 50,
+        rollouts: 1,
+        depth: 270,
+        maxRootActions: 16,
+        rolloutEpsilon: 0.0,
+        heuristic: 'v2',
       },
     },
     createPolicy: createWorkerBackedPolicy,

@@ -29,6 +29,34 @@ describe('bot specs', () => {
     });
   });
 
+  it('parses a rollout-search spec with heuristic v2', () => {
+    expect(
+      parseBotSpec({
+        id: 'search-v2',
+        kind: 'search',
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          heuristic: 'v2',
+        },
+      })
+    ).toEqual({
+      id: 'search-v2',
+      kind: 'search',
+      config: {
+        worlds: 2,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 3,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
+    });
+  });
+
   it('parses a complete TD-root rollout-search spec', () => {
     expect(
       parseBotSpec({
@@ -91,5 +119,22 @@ describe('bot specs', () => {
         },
       })
     ).toThrow('rollouts');
+  });
+
+  it('rejects unsupported search heuristic versions', () => {
+    expect(() =>
+      parseBotSpec({
+        id: 'broken-search',
+        kind: 'search',
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          heuristic: 'v3',
+        },
+      })
+    ).toThrow('heuristic');
   });
 });
