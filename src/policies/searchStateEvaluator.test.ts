@@ -147,6 +147,17 @@ describe('search state evaluator', () => {
     expect(evaluateSearchLeafState(state, PLAYER_A)).toBeGreaterThan(0);
   });
 
+  it('values resource banks that match contextual suit demand', () => {
+    const state = makeEvalState({
+      handA: ['24'],
+      handB: ['24'],
+      resourcesA: makeResources({ Wyrms: 1, Knots: 1 }),
+      resourcesB: makeResources({ Suns: 1, Leaves: 1 }),
+    });
+
+    expect(evaluateSearchLeafState(state, PLAYER_A)).toBeGreaterThan(0);
+  });
+
   it('does not use hand size as a leaf-value signal', () => {
     const rootLargeHand = makeEvalState({
       handA: ['6', '7', '8'],

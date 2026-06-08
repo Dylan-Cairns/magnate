@@ -13,7 +13,7 @@ import type {
   PropertyCard,
   Suit,
 } from '../engine/types';
-import { suitAccessBySuitV2 } from './tokenValueV2';
+import { suitAccessBySuitV2, tokenDeltaForActionV2 } from './tokenValueV2';
 
 export interface HeuristicV2SelectionContext {
   state: GameState;
@@ -34,6 +34,7 @@ type HeuristicV2EvaluationContext = Partial<
 const EXPECTED_GAME_TURNS = 42;
 const SCORING_SCALE = 5;
 const SMALL_ACTION_BASELINE = 0.05;
+const TOKEN_VALUE_WEIGHT = 0.02;
 
 export function selectHeuristicV2Action(
   context: HeuristicV2SelectionContext
@@ -115,6 +116,7 @@ export function scoreHeuristicV2Action(
   return (
     scoringWeight * scoringDeltaForAction(action, state, activePlayerId) +
     earningWeight * earningDeltaForAction(action, state, activePlayerId) +
+    TOKEN_VALUE_WEIGHT * tokenDeltaForActionV2(action, state, activePlayerId) +
     actionBaseline(action)
   );
 }
