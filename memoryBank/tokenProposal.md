@@ -37,6 +37,9 @@ A suit becomes less valuable when:
 - the game is late enough that new income engines have little time to pay off
 - the player already has reliable access to that suit
 - extra copies of that suit in the bank have diminishing marginal value
+- extra copies above one are exposed to taxation
+
+Three or more copies of a suit also have trade liquidity because they can be converted into another suit. That liquidity is real, but it should be valued separately from direct demand for the suit itself.
 
 This avoids brittle rules like "do not spend the last token of a suit." Spending the last Sun can be acceptable if Suns are easy to replace and remaining Sun demand is low. Spending the last Wyrm can be costly if Wyrms are hard to replace and important Wyrm cards remain.
 
@@ -94,6 +97,34 @@ suit access = how reliably this player can produce a suit
 
 Earning potential uses suit access to value new generators. Token value uses suit access to value loose resources.
 
+## Marginal Bank Value
+
+Token value should be concave within each suit. A flat value per token would overvalue hoarding, especially because taxation only protects the first loose token of each suit.
+
+A simple shape:
+
+```text
+1st token of a suit: full contextual suit value
+2nd token: reduced value
+3rd token: further reduced value, with possible trade liquidity
+4th+ token: low surplus value
+```
+
+The exact multipliers should be calibrated, but the important property is:
+
+```text
+value(token 1) > value(token 2) > value(token 3) > value(token 4+)
+```
+
+This captures two game realities:
+
+- the first token of a suit is safe from taxation and can preserve access to that suit
+- surplus tokens are useful but fragile because taxation discards that suit down to one
+
+For action scoring, this should be a local marginal curve, not a long-horizon tax projection. Each rollout decision re-scores the current state after the previous action, so tax risk does not need to be pre-simulated over many future turns. The current bank can simply treat surplus tokens as discounted because they are tax-exposed right now.
+
+Trade liquidity should be an additional local adjustment. If a player has at least three tokens of a suit, that pile can become one token of a missing high-demand suit. This should add some value to the third token and beyond, but not enough to make large piles look as good as naturally holding the demanded suit.
+
 ## Move Scoring
 
 For a candidate move, compare the player's resource-bank value before and after the move:
@@ -106,11 +137,15 @@ token delta =
 
 That delta becomes an additional heuristic v2 term alongside scoring and earning deltas.
 
+The token delta should represent discounted option value, not fully realized board value. A token that could support a strong future card is valuable, but the unfinished possibility should be worth less than actually building the card. When a move spends a scarce token to create real scoring or earning value, the scoring and earning deltas should carry the main reward, while the token delta charges only the lost liquidity and remaining opportunity cost.
+
 Examples:
 
 - Selling a low-impact Wyrms/Knots card can be good if it gains scarce Wyrms/Knots tokens while stronger Wyrms/Knots opportunities remain.
 - Buying a mediocre Wyrms/Knots deed can be bad if it spends rare tokens needed for more important future cards.
 - Buying a modest Suns/Leaves deed can be acceptable if Suns and Leaves are easy for the player to replace and the move adds some scoring value.
+- Spending the only copy of a scarce suit can be costly; spending from four copies down to three should usually be much cheaper because both states still have surplus tax-exposed tokens.
+- Trading three low-demand surplus tokens into one high-demand missing suit can be good even though total token count decreases.
 
 The goal is not to reward hoarding. Tokens matter because they preserve or create useful future options.
 
