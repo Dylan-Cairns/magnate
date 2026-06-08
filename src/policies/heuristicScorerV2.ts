@@ -1,5 +1,5 @@
 import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
-import { CARD_BY_ID, type CardId } from '../engine/cards';
+import type { CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
 import { developmentCost, findProperty, SUITS, sumTokens } from '../engine/stateHelpers';
 import type {
@@ -13,6 +13,7 @@ import type {
   PropertyCard,
   Suit,
 } from '../engine/types';
+import { suitAccessBySuitV2 } from './tokenValueV2';
 
 export interface HeuristicV2SelectionContext {
   state: GameState;
@@ -30,13 +31,8 @@ type HeuristicV2EvaluationContext = Partial<
   Pick<HeuristicV2SelectionContext, 'state' | 'view' | 'legalActions'>
 >;
 
-type AccessBySuit = Record<Suit, number>;
-
 const EXPECTED_GAME_TURNS = 42;
 const SCORING_SCALE = 5;
-const DEVELOPED_ACCESS_WEIGHT = 1.0;
-const INCOMPLETE_DEED_ACCESS_WEIGHT = 0.8;
-const CROWN_ACCESS_BASELINE = 1.0;
 const SMALL_ACTION_BASELINE = 0.05;
 
 export function selectHeuristicV2Action(
@@ -131,19 +127,7 @@ export function earningPotentialValueForPlayerV2(
   if (!player) {
     return 0;
   }
-  const access = emptyAccessBySuit();
-
-  for (const crownId of player.crowns) {
-    const card = CARD_BY_ID[crownId];
-    if (card?.kind !== 'Crown') {
-      continue;
-    }
-    access[card.suits[0]] += CROWN_ACCESS_BASELINE;
-  }
-
-  for (const district of state.districts) {
-    addStackAccess(access, district.stacks[playerId]);
-  }
+  const access = suitAccessBySuitV2(state, playerId);
 
   return SUITS.reduce((total, suit) => total + Math.log1p(access[suit]), 0);
 }
@@ -356,40 +340,6 @@ function projectStackAction(
   };
 }
 
-function addStackAccess(access: AccessBySuit, stack: DistrictStack): void {
-  for (const cardId of stack.developed) {
-    const card = propertyCard(cardId);
-    if (!card) {
-      continue;
-    }
-    addCardAccess(access, card, DEVELOPED_ACCESS_WEIGHT);
-  }
-  if (stack.deed) {
-    const card = propertyCard(stack.deed.cardId);
-    if (card) {
-      addCardAccess(access, card, INCOMPLETE_DEED_ACCESS_WEIGHT);
-    }
-  }
-}
-
-function addCardAccess(
-  access: AccessBySuit,
-  card: PropertyCard,
-  sourceWeight: number
-): void {
-  const value = incomeProbabilityForRank(card.rank) * sourceWeight;
-  for (const suit of card.suits) {
-    access[suit] += value;
-  }
-}
-
-function incomeProbabilityForRank(rank: PropertyCard['rank']): number {
-  if (rank === 1) {
-    return 0.01;
-  }
-  return (2 * rank - 1) / 100;
-}
-
 function scoringWeightForPhase(phase: number): number {
   const t = smoothstep(phase);
   return 7 + 17 * t;
@@ -406,17 +356,6 @@ function gamePhase(state: GameState): number {
 
 function actionBaseline(action: GameAction): number {
   return action.type === 'end-turn' ? 0 : SMALL_ACTION_BASELINE;
-}
-
-function emptyAccessBySuit(): AccessBySuit {
-  return {
-    Moons: 0,
-    Suns: 0,
-    Waves: 0,
-    Leaves: 0,
-    Wyrms: 0,
-    Knots: 0,
-  };
 }
 
 function mergeTokens(
