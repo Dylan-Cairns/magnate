@@ -1,0 +1,142 @@
+# Token Value Proposal
+
+## Purpose
+
+Heuristic v2 currently understands two major action benefits:
+
+- scoring potential: how a move changes district outcomes
+- earning potential: how a move improves future resource generation
+
+The missing concept is the value of loose resources in the player's bank. A token should not be treated as generically useful or useless. Its value depends on what that suit can still accomplish in the current game, and how hard that suit is for the player to replace.
+
+The proposed model is a contextual suit-token value:
+
+```text
+token value for a suit =
+  earning demand for that suit
++ scoring demand for that suit
+adjusted by player access / replaceability
+```
+
+This gives the bot a principled way to decide whether spending, gaining, trading, or preserving a token is strategically meaningful.
+
+## Concept
+
+Each suit has a current value for each player. That value is not fixed across the game.
+
+A suit becomes more valuable when:
+
+- important unplayed cards use that suit
+- those cards have strong future earning potential
+- those cards could make meaningful district-scoring gains
+- the player has weak access to that suit through crowns or board income
+
+A suit becomes less valuable when:
+
+- its strongest cards have already been played or are no longer realistically useful
+- the game is late enough that new income engines have little time to pay off
+- the player already has reliable access to that suit
+- extra copies of that suit in the bank have diminishing marginal value
+
+This avoids brittle rules like "do not spend the last token of a suit." Spending the last Sun can be acceptable if Suns are easy to replace and remaining Sun demand is low. Spending the last Wyrm can be costly if Wyrms are hard to replace and important Wyrm cards remain.
+
+## Earning Demand
+
+The earning side asks:
+
+```text
+What future income infrastructure can this suit still help buy or build?
+```
+
+For each suit, look at unplayed cards that include that suit. Each card contributes based on its income potential, mostly from its rank and expected roll frequency. High-rank cards usually contribute more because they generate on more likely income rolls and can become stronger income infrastructure.
+
+This earning value should decline as the game progresses. A high-rank card still has static income quality, but it has fewer future turns to produce resources. Late in the game, that same card may remain valuable for scoring, while its earning component should fade.
+
+This is related to existing heuristic v2 earning potential, but in the reverse direction:
+
+```text
+card earning potential: this card can produce future tokens
+token earning value: this token can help unlock future producing cards
+```
+
+The same underlying suit-access idea should inform both.
+
+## Scoring Demand
+
+The scoring side asks:
+
+```text
+What district-scoring opportunities can cards of this suit still support?
+```
+
+For each unplayed card that uses a suit, estimate how much scoring value that card could create in the current board position. A card has higher scoring demand if it could flip, protect, or materially improve a district. It has lower scoring demand if it would only add redundant points to a district that is already secure or irrelevant.
+
+This makes token value board-sensitive. A rank 4 card can be low value in one game state and high value in another, depending on district margins and legal placement paths.
+
+## Access And Replaceability
+
+Raw suit demand should be adjusted by how reliably the player can regain that suit.
+
+Relevant access sources include:
+
+- crown suits
+- developed cards that generate the suit
+- incomplete deeds that may become future generators
+- existing resource-engine strength and game phase
+
+If the player has strong access to a suit, loose tokens of that suit are cheaper to spend. If the player lacks access, each token is more precious because replacing it may require selling, trading, or waiting for unlikely income.
+
+This overlaps intentionally with earning potential. The shared concept is:
+
+```text
+suit access = how reliably this player can produce a suit
+```
+
+Earning potential uses suit access to value new generators. Token value uses suit access to value loose resources.
+
+## Move Scoring
+
+For a candidate move, compare the player's resource-bank value before and after the move:
+
+```text
+token delta =
+  value of resource bank after the move
+- value of resource bank before the move
+```
+
+That delta becomes an additional heuristic v2 term alongside scoring and earning deltas.
+
+Examples:
+
+- Selling a low-impact Wyrms/Knots card can be good if it gains scarce Wyrms/Knots tokens while stronger Wyrms/Knots opportunities remain.
+- Buying a mediocre Wyrms/Knots deed can be bad if it spends rare tokens needed for more important future cards.
+- Buying a modest Suns/Leaves deed can be acceptable if Suns and Leaves are easy for the player to replace and the move adds some scoring value.
+
+The goal is not to reward hoarding. Tokens matter because they preserve or create useful future options.
+
+## Leaf-State Evaluation
+
+The same concept should improve rollout leaf evaluation.
+
+A non-terminal leaf state should not only ask:
+
+```text
+Who has more resources?
+Who has broader suit coverage?
+```
+
+It should also ask:
+
+```text
+Whose resource bank matches the remaining earning and scoring demands of the game?
+```
+
+This helps rollout v2 evaluate unfinished simulations more accurately. A player with fewer tokens may still have the better bank if those tokens match scarce, high-value remaining suits. A player with many tokens may have a weaker bank if those tokens are easy to replace or no longer support meaningful cards.
+
+Terminal scoring remains rules-based. Token value is mainly for action scoring and non-terminal leaf evaluation, where strategic resource quality is otherwise under-modeled.
+
+## Relevance
+
+This model targets a real weakness in rollout v2. The bot currently values moves that improve scoring or income infrastructure, but it weakly understands the opportunity cost of the resources spent to make those moves.
+
+Human players naturally see that some tokens are precious in a given position and others are expendable. A contextual suit-token value gives the bot a clean mathematical version of that judgment without one-off tactical patches.
