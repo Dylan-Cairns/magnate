@@ -26,7 +26,6 @@ import {
 } from './ui/startupPreload';
 import { ActionPicker } from './ui/components/ActionPicker';
 import { ActionsPanel } from './ui/components/ActionsPanel';
-import { BugReportModal } from './ui/components/BugReportModal';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
 import { DeckPiles } from './ui/components/DeckPiles';
 import {
@@ -324,7 +323,7 @@ export function App() {
   const handleOpenBugReport = () => {
     closeActionPicker();
     closeOptionsMenu();
-    setBugReportOpen(true);
+    setBugReportOpen((open) => !open);
   };
 
   const handleDownloadBugReport = () => {
@@ -647,22 +646,22 @@ export function App() {
             buttonRef={optionsMenuButtonRef}
             seedInputRef={seedInputRef}
             onBugReport={handleOpenBugReport}
-            onToggle={() => setOptionsMenuOpen((open) => !open)}
+            onToggle={() => {
+                setBugReportOpen(false);
+                setOptionsMenuOpen((open) => !open);
+              }}
             onReset={handleReset}
             onBotProfileChange={setBotProfileId}
             onAnimationsEnabledChange={setAnimationsEnabled}
+            bugReportOpen={bugReportOpen}
+            bugReportIssueUrl={getBugReportIssueUrl()}
+            onBugReportDownload={handleDownloadBugReport}
           />
         </aside>
       </main>
 
       <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
-
-      <BugReportModal
-        open={bugReportOpen}
-        issueUrl={getBugReportIssueUrl()}
-        onDownload={handleDownloadBugReport}
-        onClose={closeBugReport}
-      />
+      <OptionsBackdrop open={bugReportOpen} onClose={closeBugReport} />
 
       <StartupPreloadOverlay
         ready={startupPreloadReady}

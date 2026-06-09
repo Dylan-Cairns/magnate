@@ -22,6 +22,9 @@ describe('OptionsMenu', () => {
         onReset={noop}
         onBotProfileChange={noop}
         onAnimationsEnabledChange={noop}
+        bugReportOpen={false}
+        bugReportIssueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
+        onBugReportDownload={noop}
       />
     );
 
