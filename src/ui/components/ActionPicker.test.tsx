@@ -26,6 +26,29 @@ const OUTRIGHT_ACTIONS: GameAction[] = [
     payment: { Moons: 1, Knots: 2 },
   },
 ];
+const INCOME_ACTIONS: GameAction[] = [
+  {
+    type: 'choose-income-suit',
+    playerId: 'PlayerA',
+    districtId: 'D1',
+    cardId: '6',
+    suit: 'Moons',
+  },
+  {
+    type: 'choose-income-suit',
+    playerId: 'PlayerA',
+    districtId: 'D1',
+    cardId: '6',
+    suit: 'Knots',
+  },
+  {
+    type: 'choose-income-suit',
+    playerId: 'PlayerA',
+    districtId: 'D2',
+    cardId: '7',
+    suit: 'Suns',
+  },
+];
 
 describe('ActionPicker', () => {
   it('renders a positioned standard picker and cancel control', () => {
@@ -99,5 +122,31 @@ describe('ActionPicker', () => {
     expect(html).toContain('>D2</button>');
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
+  });
+
+  it('renders income-choice suit options for one grouped card', () => {
+    const html = renderToStaticMarkup(
+      <ActionPicker
+        picker={{
+          kind: 'income-choice',
+          playerId: 'PlayerA',
+          cardId: '6',
+          districtId: 'D1',
+          top: 0,
+          left: 0,
+        }}
+        pickerRef={createRef<HTMLElement>()}
+        legalActions={INCOME_ACTIONS}
+        tradeSourceGroups={[]}
+        onPickerChange={noop}
+        onSelectAction={noop}
+        onClose={noop}
+      />
+    );
+
+    expect(html).toContain('Choose income');
+    expect(html).toContain('data-token-suit="Moons"');
+    expect(html).toContain('data-token-suit="Knots"');
+    expect(html).not.toContain('data-token-suit="Suns"');
   });
 });

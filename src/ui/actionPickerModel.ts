@@ -181,6 +181,14 @@ export function toPickerQuery(
       districtId: picker.districtId,
     };
   }
+  if (picker.kind === 'income-choice') {
+    return {
+      kind: 'income-choice',
+      playerId: picker.playerId,
+      cardId: picker.cardId,
+      districtId: picker.districtId,
+    };
+  }
   return {
     kind: 'district',
     actionType: picker.actionType,

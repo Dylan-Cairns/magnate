@@ -39,7 +39,25 @@ describe('action panel categories', () => {
         action: { type: 'end-turn' },
       })
     ).toBe('end-turn');
+    expect(
+      actionCategoryForItem({
+        kind: 'income-choice-group',
+        playerId: 'PlayerA',
+        districtId: 'D1',
+        cardId: '6',
+        options: [
+          {
+            type: 'choose-income-suit',
+            playerId: 'PlayerA',
+            districtId: 'D1',
+            cardId: '6',
+            suit: 'Moons',
+          },
+        ],
+      })
+    ).toBe('choose-income-suit');
     expect(actionCategoryLabel('develop-outright')).toBe('Develop Outright');
+    expect(actionCategoryLabel('choose-income-suit')).toBe('Choose Income');
     expect(actionCategoryLabel('custom')).toBe('custom');
   });
 });
