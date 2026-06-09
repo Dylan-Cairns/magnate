@@ -253,6 +253,7 @@ export function useGameController({
         terminal,
         activePlayerId,
         botPlayerId,
+        isIncomeChoicePhase: state.phase === 'CollectIncome',
         actionCommitPending,
         allowIncomeChoiceWhileCommitPending:
           allowHumanActionsWhileCommitPending,
@@ -277,19 +278,21 @@ export function useGameController({
           currentLegalActions,
           botPlayerId
         );
+        const isCurrentIncomeChoicePhase = current.phase === 'CollectIncome';
         if (
           cancelled ||
           isTerminal(current) ||
-          (currentActive !== botPlayerId && currentBotIncomeActions.length === 0)
+          (isCurrentIncomeChoicePhase
+            ? currentBotIncomeActions.length === 0
+            : currentActive !== botPlayerId)
         ) {
           setBotThinking(false);
           return;
         }
 
-        const actions =
-          currentBotIncomeActions.length > 0
-            ? currentBotIncomeActions
-            : currentLegalActions;
+        const actions = isCurrentIncomeChoicePhase
+          ? currentBotIncomeActions
+          : currentLegalActions;
         if (actions.length === 0) {
           setError('Bot has no legal actions.');
           setBotThinking(false);
@@ -298,7 +301,7 @@ export function useGameController({
 
         try {
           const botView =
-            currentBotIncomeActions.length > 0
+            isCurrentIncomeChoicePhase
               ? toDecisionPlayerView(current, botPlayerId)
               : toPlayerView(current, botPlayerId);
           const choice = await resolvedBotProfile.policy.selectAction({

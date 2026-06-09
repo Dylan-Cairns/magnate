@@ -110,6 +110,7 @@ export function shouldScheduleBotAction({
   terminal,
   activePlayerId,
   botPlayerId,
+  isIncomeChoicePhase,
   actionCommitPending,
   allowIncomeChoiceWhileCommitPending,
   botIncomeActionCount,
@@ -118,6 +119,7 @@ export function shouldScheduleBotAction({
   terminal: boolean;
   activePlayerId: PlayerId;
   botPlayerId: PlayerId;
+  isIncomeChoicePhase: boolean;
   actionCommitPending: boolean;
   allowIncomeChoiceWhileCommitPending: boolean;
   botIncomeActionCount: number;
@@ -133,10 +135,10 @@ export function shouldScheduleBotAction({
   ) {
     return false;
   }
-  return (
-    activePlayerId === botPlayerId ||
-    hasBotIncomeAction
-  );
+  if (isIncomeChoicePhase) {
+    return hasBotIncomeAction;
+  }
+  return activePlayerId === botPlayerId;
 }
 
 export function errorMessage(error: unknown): string {
