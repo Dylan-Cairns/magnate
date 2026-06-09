@@ -166,20 +166,15 @@
   text-underline-offset: 0.14rem;
 }
 
-.bug-report-download-button {
-  border: 1px solid var(--action-border);
-  border-radius: 7px;
-  background: var(--button-primary-bg);
-  color: var(--button-primary-text);
+.bug-report-download-link {
+  background: none;
+  border: none;
+  padding: 0;
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
-  padding: 0.24rem 0.54rem;
-  box-shadow: var(--button-shadow);
-}
-
-.bug-report-download-button:hover {
-  background: var(--button-primary-bg-hover);
+  color: var(--accent-soft);
+  text-decoration: underline;
+  text-underline-offset: 0.14rem;
 }
 
 .turn-cycle-overlay {
