@@ -20,6 +20,7 @@ import {
   resolveBotProfile,
 } from '../../policies/catalog';
 import type { SearchDecisionDiagnostics } from '../../policies/types';
+import type { BugReportActionEntry } from '../bugReport';
 import { prepareActionDispatch } from '../actionDispatcher';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import {
@@ -104,6 +105,9 @@ export function useGameController({
     () => withSeedLogPrefix(state, state.log, humanPlayerId)
   );
   const [error, setError] = useState<string | null>(null);
+  const [actionHistory, setActionHistory] = useState<
+    ReadonlyArray<BugReportActionEntry>
+  >([]);
   const [botThinking, setBotThinking] = useState<boolean>(false);
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(
     DEFAULT_BOT_PROFILE_ID
@@ -112,6 +116,8 @@ export function useGameController({
     useState<TurnResetAnchor | null>(null);
   const [turnResetTimelineAnchor, setTurnResetTimelineAnchor] =
     useState<ReadonlyArray<GameLogEntry> | null>(null);
+  const [turnResetActionHistoryAnchor, setTurnResetActionHistoryAnchor] =
+    useState<ReadonlyArray<BugReportActionEntry> | null>(null);
   const stateRef = useRef(state);
 
   const commitTransition = useCallback(
@@ -163,11 +169,29 @@ export function useGameController({
       });
       if (!animationsEnabled) {
         clearAllFlights();
+        setActionHistory((existing) => [
+          ...existing,
+          {
+            turn: previousState.turn,
+            phase: previousState.phase,
+            actingPlayerId,
+            action,
+          },
+        ]);
         commitTransition(previousState, plan.nextState, action);
         setError(null);
         return;
       }
 
+      setActionHistory((existing) => [
+        ...existing,
+        {
+          turn: previousState.turn,
+          phase: previousState.phase,
+          actingPlayerId,
+          action,
+        },
+      ]);
       runAnimationTransition({
         previousState,
         nextState: plan.nextState,
@@ -245,7 +269,15 @@ export function useGameController({
       state,
     });
     setTurnResetTimelineAnchor(timelineLog);
-  }, [activePlayerId, humanPlayerId, state, timelineLog, turnResetAnchor]);
+    setTurnResetActionHistoryAnchor(actionHistory);
+  }, [
+    actionHistory,
+    activePlayerId,
+    humanPlayerId,
+    state,
+    timelineLog,
+    turnResetAnchor,
+  ]);
 
   useEffect(() => {
     if (
@@ -406,6 +438,7 @@ export function useGameController({
       const seed = specifiedSeed?.trim() || makeBrowserSessionSeed();
       setTurnResetAnchor(null);
       setTurnResetTimelineAnchor(null);
+      setTurnResetActionHistoryAnchor(null);
       clearPendingActionCommit();
       clearAllFlights();
       clearAllDeedTokenLayouts();
@@ -420,6 +453,7 @@ export function useGameController({
         setTimelineLog(
           withSeedLogPrefix(initialState, initialState.log, humanPlayerId)
         );
+        setActionHistory([]);
         setError(null);
         setBotThinking(false);
       } catch (err) {
@@ -450,6 +484,9 @@ export function useGameController({
             humanPlayerId
           )
     );
+    setActionHistory(
+      turnResetActionHistoryAnchor ? [...turnResetActionHistoryAnchor] : []
+    );
     setError(null);
     setBotThinking(false);
     clearAllFlights();
@@ -461,6 +498,7 @@ export function useGameController({
     humanPlayerId,
     state,
     turnResetAnchor,
+    turnResetActionHistoryAnchor,
     turnResetTimelineAnchor,
   ]);
 
@@ -468,6 +506,7 @@ export function useGameController({
     state,
     humanView,
     timelineLog,
+    actionHistory,
     error,
     terminal,
     activePlayerId,
