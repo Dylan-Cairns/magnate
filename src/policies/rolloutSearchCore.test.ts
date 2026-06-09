@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
-import { createSession } from '../engine/session';
+import {
+  createSession,
+  stepKnownLegalActionToDecision,
+} from '../engine/session';
 import { toPlayerView } from '../engine/view';
 import { rankHeuristicV2Actions } from './heuristicScorerV2';
 import {
@@ -202,27 +205,157 @@ describe('rollout search core', () => {
       contextId: 'rollout-core-heuristic-v2-task-context',
       worldStates: [fixture.state],
     };
-    const result = runRolloutSearchTask({
-      kind: 'rollout-search',
-      contextId: context.contextId,
-      visitIndex: 0,
-      worldIndex: 0,
-      rootPlayer: fixture.view.activePlayerId,
-      rootAction: rootAction.action,
-      rootActionKey: rootAction.actionKey,
-      config: {
-        worlds: 1,
-        rollouts: 1,
-        depth: 4,
-        maxRootActions: 3,
-        rolloutEpsilon: 0,
-        heuristic: 'v2',
+    const result = runRolloutSearchTask(
+      {
+        kind: 'rollout-search',
+        contextId: context.contextId,
+        visitIndex: 0,
+        actionVisitIndex: 0,
+        scenarioIndex: 0,
+        worldIndex: 0,
+        engineSeed: 'rollout-core-heuristic-v2-task-engine',
+        rootPlayer: fixture.view.activePlayerId,
+        rootAction: rootAction.action,
+        rootActionKey: rootAction.actionKey,
+        config: {
+          worlds: 1,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          heuristic: 'v2',
+        },
+        randomSeed: 'rollout-core-heuristic-v2-task-rng',
       },
-      randomSeed: 'rollout-core-heuristic-v2-task-rng',
-    }, context.worldStates);
+      context.worldStates
+    );
 
     expect(result.actionKey).toBe(rootAction.actionKey);
     expect(result.simulatedActionSteps).toBeGreaterThan(0);
+  });
+
+  it('assigns common random scenarios by action-local visit index', async () => {
+    const fixture = selectionFixture('rollout-core-common-scenarios');
+    const keyed = toKeyedActions(fixture.candidateActions).slice(0, 2);
+    const capturedTasks: RolloutSearchWorkerTask[] = [];
+
+    await selectRolloutSearchActionParallel({
+      ...fixture,
+      candidateActions: keyed.map((entry) => entry.action),
+      config: {
+        worlds: 2,
+        rollouts: 1,
+        depth: 1,
+        maxRootActions: 2,
+        rolloutEpsilon: 0,
+      },
+      random: rngFromSeed('rollout-core-common-scenarios-rng'),
+      randomSeed: 'rollout-core-common-scenarios-rng',
+      batchSize: 2,
+      parallelWorkers: 1,
+      createRootGuide() {
+        return {
+          rankedRootActions: keyed.map(({ action, actionKey }) => ({
+            action,
+            actionKey,
+          })),
+          rootPriorByKey: new Map(
+            keyed.map(({ actionKey }) => [actionKey, 0.5])
+          ),
+        };
+      },
+      async runBatch(tasks, context) {
+        capturedTasks.push(...tasks);
+        return runTasks(tasks, context);
+      },
+    });
+
+    const byAction = new Map<string, RolloutSearchWorkerTask[]>();
+    for (const task of capturedTasks) {
+      byAction.set(task.rootActionKey, [
+        ...(byAction.get(task.rootActionKey) ?? []),
+        task,
+      ]);
+    }
+    const firstActionTasks = byAction.get(keyed[0].actionKey) ?? [];
+    const secondActionTasks = byAction.get(keyed[1].actionKey) ?? [];
+
+    expect(firstActionTasks[0]).toMatchObject({
+      actionVisitIndex: 0,
+      scenarioIndex: 0,
+      worldIndex: 0,
+    });
+    expect(secondActionTasks[0]).toMatchObject({
+      actionVisitIndex: 0,
+      scenarioIndex: 0,
+      worldIndex: 0,
+    });
+    expect(firstActionTasks[0].engineSeed).toBe(
+      secondActionTasks[0].engineSeed
+    );
+    expect(firstActionTasks[0].randomSeed).toBe(
+      secondActionTasks[0].randomSeed
+    );
+
+    const laterScenario = capturedTasks.find((task) => task.scenarioIndex === 1);
+    expect(laterScenario).toMatchObject({
+      actionVisitIndex: 1,
+      worldIndex: 1,
+    });
+  });
+
+  it('runs simulated engine seeds without mutating shared world states', () => {
+    const fixture = selectionFixture('rollout-core-simulated-engine-seed');
+    const cardPlayAction = fixture.candidateActions.find((action) =>
+      ['buy-deed', 'develop-outright', 'sell-card'].includes(action.type)
+    );
+    if (!cardPlayAction) {
+      throw new Error('Expected a card-play action in the fixture.');
+    }
+    const firstActionState = stepKnownLegalActionToDecision(
+      fixture.state,
+      cardPlayAction
+    );
+    const actionsAfterCardPlay = legalActions(firstActionState);
+    const endTurn = actionsAfterCardPlay.find(
+      (action) => action.type === 'end-turn'
+    );
+    if (!endTurn) {
+      throw new Error('Expected an end-turn action after first card play.');
+    }
+    const context: RolloutSearchWorkerContext = {
+      contextId: 'rollout-core-simulated-engine-seed-context',
+      worldStates: [firstActionState],
+    };
+    const originalSeed = firstActionState.seed;
+    const originalRngCursor = firstActionState.rngCursor;
+
+    runRolloutSearchTask(
+      {
+        kind: 'rollout-search',
+        contextId: context.contextId,
+        visitIndex: 0,
+        actionVisitIndex: 0,
+        scenarioIndex: 0,
+        worldIndex: 0,
+        engineSeed: 'rollout-core-simulated-engine-seed-engine',
+        rootPlayer: fixture.view.activePlayerId,
+        rootAction: endTurn,
+        rootActionKey: actionStableKey(endTurn),
+        config: {
+          worlds: 1,
+          rollouts: 1,
+          depth: 1,
+          maxRootActions: 1,
+          rolloutEpsilon: 0,
+        },
+        randomSeed: 'rollout-core-simulated-engine-seed-playout',
+      },
+      context.worldStates
+    );
+
+    expect(firstActionState.seed).toBe(originalSeed);
+    expect(firstActionState.rngCursor).toBe(originalRngCursor);
   });
 });
 
