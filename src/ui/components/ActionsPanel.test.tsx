@@ -39,6 +39,7 @@ function renderPanel(
       humanPlayerId="PlayerA"
       botPlayerId="PlayerB"
       visibleActionItems={ACTION_ITEMS}
+      isIncomeChoicePhase={false}
       hasMultipleTradeSources={false}
       actionPicker={null}
       canResetTurn={false}
@@ -107,5 +108,37 @@ describe('ActionsPanel', () => {
 
     expect(html).not.toContain('Bot is thinking...');
     expect(html).not.toContain('Waiting for bot...');
+  });
+
+  it('renders human income choices during a bot-owned shared income phase', () => {
+    const html = renderPanel({
+      activePlayerId: 'PlayerB',
+      isIncomeChoicePhase: true,
+      visibleActionItems: [
+        {
+          kind: 'action',
+          action: {
+            type: 'choose-income-suit',
+            playerId: 'PlayerA',
+            districtId: 'D1',
+            cardId: '6',
+            suit: 'Moons',
+          },
+        },
+      ],
+    });
+
+    expect(html).toContain('Choose Income');
+    expect(html).not.toContain('Waiting for bot...');
+  });
+
+  it('uses shared income-choice wording after the human has submitted', () => {
+    const html = renderPanel({
+      isIncomeChoicePhase: true,
+      visibleActionItems: [],
+    });
+
+    expect(html).toContain('Resolving income choices...');
+    expect(html).not.toContain('No legal actions.');
   });
 });

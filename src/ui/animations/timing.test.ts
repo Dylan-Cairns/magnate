@@ -67,12 +67,12 @@ describe('animation commit semantics', () => {
     },
   ];
 
-  it('commits only sell, end-turn, and income-choice actions before animations settle', () => {
+  it('commits only sell and end-turn actions before animations settle', () => {
     expect(
       actions
         .filter(shouldCommitBeforeAnimationSettle)
         .map((action) => action.type)
-    ).toEqual(['sell-card', 'end-turn', 'choose-income-suit']);
+    ).toEqual(['sell-card', 'end-turn']);
   });
 
   it('allows follow-up human input only during end-turn and income-choice settle', () => {

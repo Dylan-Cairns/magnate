@@ -109,6 +109,16 @@ Design expectations:
   engine validation and animation-plan assembly. Validate with
   `stepToDecision` before DOM-dependent planning so invalid actions cannot
   mutate UI-only deed-layout memory.
+- Browser `CollectIncome` controls follow income-choice ownership rather than
+  normal turn ownership:
+  - human input is available when the human has an unsubmitted
+    `choose-income-suit` action, even if the main turn owner is the bot
+  - bot scheduling can select bot-owned income choices from the same pending
+    income state, including during the turn-cycle input window
+  - normal `ActionWindow` controls remain blocked until all simultaneous income
+    choices resolve
+  - partial-income resource flights are planned only on the final reveal that
+    actually applies submitted choices
 - Browser session state, timeline logging, reset snapshots, bot scheduling,
   shared action dispatch, and animation-hook composition should live in
   `useGameController`; `App.tsx` should retain UI-local menu, picker, preload,

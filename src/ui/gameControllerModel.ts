@@ -62,14 +62,21 @@ export function humanActionsAcceptingInputForState({
   actionCommitPending: boolean;
   allowHumanActionsWhileCommitPending: boolean;
 }): readonly GameAction[] {
-  if (
-    isTerminal(state) ||
-    activePlayerIdForState(state, humanPlayerId) !== humanPlayerId
-  ) {
+  if (isTerminal(state)) {
     return [];
   }
 
   const actions = legalActions(state);
+  if (state.phase === 'CollectIncome') {
+    if (actionCommitPending && !allowHumanActionsWhileCommitPending) {
+      return [];
+    }
+    return incomeChoiceActionsForPlayer(actions, humanPlayerId);
+  }
+
+  if (activePlayerIdForState(state, humanPlayerId) !== humanPlayerId) {
+    return [];
+  }
   if (!actionCommitPending) {
     return actions;
   }
@@ -79,24 +86,48 @@ export function humanActionsAcceptingInputForState({
   return actions.filter((action) => action.type === 'choose-income-suit');
 }
 
+export function incomeChoiceActionsForPlayer(
+  actions: readonly GameAction[],
+  playerId: PlayerId
+): readonly Extract<GameAction, { type: 'choose-income-suit' }>[] {
+  return actions.filter(
+    (
+      action
+    ): action is Extract<GameAction, { type: 'choose-income-suit' }> =>
+      action.type === 'choose-income-suit' && action.playerId === playerId
+  );
+}
+
 export function shouldScheduleBotAction({
   terminal,
   activePlayerId,
   botPlayerId,
   actionCommitPending,
+  allowIncomeChoiceWhileCommitPending,
+  botIncomeActionCount,
   startupPreloadReady,
 }: {
   terminal: boolean;
   activePlayerId: PlayerId;
   botPlayerId: PlayerId;
   actionCommitPending: boolean;
+  allowIncomeChoiceWhileCommitPending: boolean;
+  botIncomeActionCount: number;
   startupPreloadReady: boolean;
 }): boolean {
+  const hasBotIncomeAction = botIncomeActionCount > 0;
+  if (terminal || !startupPreloadReady) {
+    return false;
+  }
+  if (
+    actionCommitPending &&
+    !(allowIncomeChoiceWhileCommitPending && hasBotIncomeAction)
+  ) {
+    return false;
+  }
   return (
-    !terminal &&
-    activePlayerId === botPlayerId &&
-    !actionCommitPending &&
-    startupPreloadReady
+    activePlayerId === botPlayerId ||
+    hasBotIncomeAction
   );
 }
 
