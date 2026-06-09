@@ -14,6 +14,8 @@ Primary APIs:
 - `applyAction(state, action)`
 - `advanceToDecision(state)`
 - `toPlayerView(state, viewerId)` / `toActivePlayerView(state)`
+- `decisionPlayerIdForState(state)` / `legalActionsForDecisionPlayer(state)` /
+  `toDecisionPlayerView(state)` for policy/bridge-facing single-actor decisions
 
 Design expectations:
 
@@ -76,6 +78,10 @@ Design expectations:
 - TypeScript head-to-head bot evaluation should use paired seeds with swapped
   policy seats, record stable action-key transcripts, write JSON plus Markdown
   artifacts, and support exact-game replay checks.
+- TypeScript bot evaluation and replay collection should use the policy-facing
+  decision actor, not raw turn ownership, so simultaneous `CollectIncome`
+  submissions are attributed to the player whose income choice is being
+  selected.
 - TypeScript rollout-search sweeps should run candidate configs sequentially
   against one fixed opponent with one shared paired-seed prefix. A configurable
   persistent child-process pool may distribute whole paired seeds for
@@ -163,6 +169,12 @@ Design expectations:
 - Runtime transport is NDJSON over stdin/stdout via `src/bridge/cli.ts`.
 - Command handling lives in `src/bridge/runtime.ts` and returns strict success/error envelopes.
 - Python bridge clients must continuously drain bridge stderr to avoid long-run pipe stalls on Windows.
+- The bridge preserves a single policy actor per request:
+  - normal phases use the engine turn owner
+  - simultaneous `CollectIncome` uses the first unsubmitted
+    `pendingIncomeChoices` owner
+  - bridge `legalActions`, legal masks, raw `step` action validation, and
+    returned actor views are filtered/aligned to that decision actor
 - Canonical bridge action surface comes from `src/engine/actionSurface.ts`:
   - stable action keys
   - canonical legal-action ordering by lexicographic action key

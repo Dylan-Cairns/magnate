@@ -2,13 +2,19 @@ import {
   ACTION_IDS,
   actionStableKey,
   legalActionsCanonical,
+  toKeyedActions,
 } from '../engine/actionSurface';
 import { createSession } from '../engine/session';
 import { applyAction } from '../engine/reducer';
 import { isTerminal } from '../engine/scoring';
 import { advanceToDecision } from '../engine/turnFlow';
 import type { GameAction, GameState, PlayerId } from '../engine/types';
-import { toActivePlayerView, toPlayerView } from '../engine/view';
+import { toPlayerView } from '../engine/view';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import type {
   BridgeCommand,
   BridgeErrorCode,
@@ -97,7 +103,7 @@ export class MagnateBridgeRuntime {
       },
       observationSpec: {
         name: 'player_view_v1',
-        defaultViewer: 'active-player',
+        defaultViewer: 'decision-player',
         optionalMask: 'legal action keys',
       },
       modelIO: {
@@ -138,24 +144,28 @@ export class MagnateBridgeRuntime {
     }
 
     return {
-      actions: cloneForWire(legalActionsCanonical(this.state)),
-      activePlayerId: this.activePlayerId(),
+      actions: cloneForWire(this.decisionLegalActionsCanonical()),
+      activePlayerId: this.decisionPlayerId(),
       phase: this.state.phase,
     };
   }
 
   private observation(payload: unknown): BridgeObservationResult {
     const parsed = parseObservationPayload(payload);
-    const viewerId = parsed.viewerId ?? this.activePlayerId();
-    const view = toPlayerView(this.state, viewerId);
+    const decisionPlayerId = this.decisionPlayerId();
+    const viewerId = parsed.viewerId ?? decisionPlayerId;
+    const view =
+      viewerId === decisionPlayerId
+        ? toDecisionPlayerView(this.state, decisionPlayerId)
+        : toPlayerView(this.state, viewerId);
 
     if (!parsed.includeLegalActionMask) {
       return { view: cloneForWire(view) };
     }
 
     const legalActionMask =
-      viewerId === this.activePlayerId()
-        ? legalActionsCanonical(this.state).map((entry) => entry.actionKey)
+      viewerId === decisionPlayerId
+        ? this.decisionLegalActionsCanonical().map((entry) => entry.actionKey)
         : [];
 
     return {
@@ -196,7 +206,7 @@ export class MagnateBridgeRuntime {
   private resolveStepAction(payload: BridgeStepPayload): GameAction {
     if (payload.actionKey !== undefined) {
       const key = payload.actionKey;
-      const match = legalActionsCanonical(this.state).find(
+      const match = this.decisionLegalActionsCanonical().find(
         (candidate) => candidate.actionKey === key
       );
       if (!match) {
@@ -221,7 +231,17 @@ export class MagnateBridgeRuntime {
     }
 
     if (payload.action) {
-      return payload.action;
+      const payloadKey = actionStableKey(payload.action);
+      const match = this.decisionLegalActionsCanonical().find(
+        (candidate) => candidate.actionKey === payloadKey
+      );
+      if (!match) {
+        throw new RuntimeBridgeError(
+          'ILLEGAL_ACTION',
+          `Unknown legal action key: ${payloadKey}`
+        );
+      }
+      return match.action;
     }
 
     throw new RuntimeBridgeError(
@@ -233,20 +253,30 @@ export class MagnateBridgeRuntime {
   private stateResult(): BridgeStateResult {
     return {
       state: cloneForWire(this.state),
-      view: cloneForWire(toActivePlayerView(this.state)),
+      view: cloneForWire(toDecisionPlayerView(this.state)),
       terminal: isTerminal(this.state),
     };
   }
 
-  private activePlayerId(): PlayerId {
-    const activePlayer = this.state.players[this.state.activePlayerIndex];
-    if (!activePlayer) {
+  private decisionPlayerId(): PlayerId {
+    const decisionPlayerId = decisionPlayerIdForState(this.state);
+    if (decisionPlayerId !== 'PlayerA' && decisionPlayerId !== 'PlayerB') {
       throw new RuntimeBridgeError(
         'INTERNAL_ENGINE_ERROR',
-        `Active player index is out of bounds: ${this.state.activePlayerIndex}.`
+        'Could not resolve bridge decision player.'
       );
     }
-    return activePlayer.id;
+    return decisionPlayerId;
+  }
+
+  private decisionLegalActionsCanonical() {
+    const decisionPlayerId = this.decisionPlayerId();
+    if (this.state.phase === 'CollectIncome') {
+      return toKeyedActions(
+        legalActionsForDecisionPlayer(this.state, decisionPlayerId)
+      );
+    }
+    return legalActionsCanonical(this.state);
   }
 }
 

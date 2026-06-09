@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { legalActions as engineLegalActions } from '../engine/actionBuilders';
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+} from '../engine/decisionActor';
 import { heuristicPolicy } from '../policies/heuristicPolicy';
 import {
   ACTION_FEATURE_DIM,
@@ -88,13 +92,15 @@ describe('TypeScript TD replay collection', () => {
         return {
           selectAction(context) {
             const actualKeys = context.legalActions.map(actionStableKey);
+            const decisionPlayer = decisionPlayerIdForState(context.state);
             const canonicalKeys = toKeyedActions(
-              engineLegalActions(context.state)
+              legalActionsForDecisionPlayer(context.state, decisionPlayer)
             ).map((entry) => entry.actionKey);
             const rawKeys = engineLegalActions(context.state).map(
               actionStableKey
             );
 
+            expect(context.view.activePlayerId).toBe(decisionPlayer);
             expect(actualKeys).toEqual(canonicalKeys);
             if (actualKeys.join('\0') !== rawKeys.join('\0')) {
               sawRawOrderDifference = true;

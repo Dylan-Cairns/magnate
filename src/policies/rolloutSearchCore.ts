@@ -1,5 +1,9 @@
-import { legalActions as legalActionsForState } from '../engine/actionBuilders';
 import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { rngFromSeed, type RandomFn } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { stepKnownLegalActionToDecision } from '../engine/session';
@@ -637,13 +641,18 @@ function runRollout(
   let simulatedActionSteps = 1;
 
   while (!isTerminal(state) && depth < config.depth) {
-    const actions = legalActionsForState(state);
+    const decisionPlayer = decisionPlayerIdForState(state);
+    if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+      break;
+    }
+    const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
     if (actions.length === 0) {
       break;
     }
     const nextAction = chooseRolloutAction(
       state,
       actions,
+      decisionPlayer,
       random,
       config
     );
@@ -670,6 +679,7 @@ function runRollout(
 function chooseRolloutAction(
   state: GameState,
   actions: readonly GameAction[],
+  decisionPlayer: PlayerId,
   random: RandomFn,
   config: SearchPolicyConfig
 ): GameAction {
@@ -677,7 +687,11 @@ function chooseRolloutAction(
     const keyed = toKeyedActions(actions);
     return keyed[Math.floor(random() * keyed.length)].action;
   }
-  const best = bestActionByHeuristic(actions, { state }, config.heuristic);
+  const best = bestActionByHeuristic(
+    actions,
+    { state, view: toDecisionPlayerView(state, decisionPlayer) },
+    config.heuristic
+  );
   if (!best) {
     throw new Error('Rollout search could not select from legal actions.');
   }

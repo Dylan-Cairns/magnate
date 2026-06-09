@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from '../../engine/actionBuilders';
+import {
+  toDecisionPlayerView,
+  turnOwnerIdForState,
+} from '../../engine/decisionActor';
 import { isTerminal } from '../../engine/scoring';
 import type {
   GameAction,
@@ -261,7 +265,7 @@ export function useGameController({
     const timerId = window.setTimeout(() => {
       void (async () => {
         const current = stateRef.current;
-        const currentActive = current.players[current.activePlayerIndex]?.id;
+        const currentActive = turnOwnerIdForState(current);
         const currentLegalActions = legalActions(current);
         const currentBotIncomeActions = incomeChoiceActionsForPlayer(
           currentLegalActions,
@@ -287,7 +291,10 @@ export function useGameController({
         }
 
         try {
-          const botView = toPlayerView(current, botPlayerId);
+          const botView =
+            currentBotIncomeActions.length > 0
+              ? toDecisionPlayerView(current, botPlayerId)
+              : toPlayerView(current, botPlayerId);
           const choice = await resolvedBotProfile.policy.selectAction({
             state: current,
             view: botView,

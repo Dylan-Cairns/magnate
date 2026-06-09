@@ -1,11 +1,14 @@
 import { performance } from 'node:perf_hooks';
 
-import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey } from '../engine/actionSurface';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import type { PlayerId } from '../engine/types';
-import { toPlayerView } from '../engine/view';
 import type { BotSpec } from '../policies/botSpec';
 import {
   policyRandomForState,
@@ -88,13 +91,13 @@ export async function playGame({
       );
     }
 
-    const activePlayerId = state.players[state.activePlayerIndex]?.id;
+    const activePlayerId = decisionPlayerIdForState(state);
     if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
       throw new Error(`Game ${gameId} could not resolve its active player.`);
     }
 
     const bot = botBySeat[activePlayerId];
-    const actions = legalActions(state);
+    const actions = legalActionsForDecisionPlayer(state, activePlayerId);
     if (actions.length === 0) {
       throw new Error(
         `Game ${gameId} has no legal actions for ${activePlayerId} during ${state.phase}.`
@@ -105,7 +108,7 @@ export async function playGame({
     let searchDiagnostics: SearchDecisionDiagnostics | undefined;
     const selected = await bot.policy.selectAction({
       state,
-      view: toPlayerView(state, activePlayerId),
+      view: toDecisionPlayerView(state, activePlayerId),
       legalActions: actions,
       random: policyRandomForState(state, bot.spec.id),
       randomSeed: policyRandomSeedForState(state, bot.spec.id),

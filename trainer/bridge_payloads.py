@@ -56,6 +56,13 @@ class IncomeChoicePayload(TypedDict):
     suits: list[Suit]
 
 
+class SubmittedIncomeChoicePayload(TypedDict):
+    playerId: PlayerId
+    districtId: str
+    cardId: str
+    suit: Suit
+
+
 class GameLogEntryPayload(TypedDict):
     turn: int
     player: PlayerId
@@ -143,6 +150,7 @@ class SerializedStatePayload(TypedDict):
     lastIncomeRoll: NotRequired[IncomeRollPayload]
     lastTaxSuit: NotRequired[Suit]
     pendingIncomeChoices: NotRequired[list[IncomeChoicePayload]]
+    submittedIncomeChoices: NotRequired[list[SubmittedIncomeChoicePayload]]
     incomeChoiceReturnPlayerId: NotRequired[PlayerId]
     finalScore: NotRequired[FinalScorePayload]
 
@@ -161,6 +169,7 @@ class PlayerViewPayload(TypedDict):
     lastIncomeRoll: NotRequired[IncomeRollPayload]
     lastTaxSuit: NotRequired[Suit]
     pendingIncomeChoices: NotRequired[list[IncomeChoicePayload]]
+    submittedIncomeChoices: NotRequired[list[SubmittedIncomeChoicePayload]]
     incomeChoiceReturnPlayerId: NotRequired[PlayerId]
     finalScore: NotRequired[FinalScorePayload]
 
@@ -226,7 +235,7 @@ class BridgeActionSurfacePayload(TypedDict):
 
 class BridgeObservationSpecPayload(TypedDict):
     name: Literal["player_view_v1"]
-    defaultViewer: Literal["active-player"]
+    defaultViewer: Literal["decision-player"]
     optionalMask: Literal["legal action keys"]
 
 
