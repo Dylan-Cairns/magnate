@@ -1,11 +1,21 @@
 import type { CardId } from '../engine/cards';
+import {
+  decisionPlayerIdForState,
+  legalActionsForDecisionPlayer,
+  toDecisionPlayerView,
+} from '../engine/decisionActor';
 import { newGame } from '../engine/game';
+import { isTerminal } from '../engine/scoring';
+import { createSession, stepToDecision } from '../engine/session';
 import { advanceToDecision } from '../engine/turnFlow';
 import type { GameState, PlayerId } from '../engine/types';
+import { selectHeuristicAction } from '../policies/heuristicScorer';
 
-export type DevFixtureId = 'multi-income';
+export type DevFixtureId = 'multi-income' | 'late-game';
 
 const DEV_FIXTURE_PARAM = 'fixture';
+const LATE_GAME_FIXTURE_SEED = 'dev-late-6';
+const LATE_GAME_MAX_DECISIONS = 500;
 const HUMAN_MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['6', '7'];
 const BOT_MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['8'];
 const MULTI_INCOME_DEED_CARDS: readonly CardId[] = [
@@ -26,7 +36,10 @@ export function devFixtureIdFromSearch(search: string): DevFixtureId | null {
   }
 
   const fixtureId = new URLSearchParams(search).get(DEV_FIXTURE_PARAM);
-  return fixtureId === 'multi-income' ? fixtureId : null;
+  if (fixtureId === 'multi-income' || fixtureId === 'late-game') {
+    return fixtureId;
+  }
+  return null;
 }
 
 export function createDevFixtureSession(
@@ -36,6 +49,8 @@ export function createDevFixtureSession(
   switch (fixtureId) {
     case 'multi-income':
       return createMultiIncomeFixture(humanPlayerId);
+    case 'late-game':
+      return createLateGameFixture(humanPlayerId);
   }
 }
 
@@ -126,4 +141,67 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
   return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+}
+
+function createLateGameFixture(humanPlayerId: PlayerId): GameState {
+  let state = createSession(LATE_GAME_FIXTURE_SEED, humanPlayerId);
+
+  for (
+    let decisionCount = 0;
+    decisionCount < LATE_GAME_MAX_DECISIONS && !isTerminal(state);
+    decisionCount += 1
+  ) {
+    if (
+      (state.finalTurnsRemaining ?? 0) === 2 &&
+      state.phase === 'ActionWindow'
+    ) {
+      return appendFixtureLog(
+        state,
+        humanPlayerId,
+        'Dev fixture: late game rollout'
+      );
+    }
+
+    const decisionPlayerId = decisionPlayerIdForState(state);
+    if (decisionPlayerId !== 'PlayerA' && decisionPlayerId !== 'PlayerB') {
+      throw new Error('Late-game dev fixture could not resolve decision player.');
+    }
+
+    const actions = legalActionsForDecisionPlayer(state, decisionPlayerId);
+    const action = selectHeuristicAction({
+      state,
+      view: toDecisionPlayerView(state, decisionPlayerId),
+      legalActions: actions,
+    });
+    if (!action) {
+      throw new Error('Late-game dev fixture rollout had no selected action.');
+    }
+
+    state = stepToDecision(state, action);
+  }
+
+  throw new Error(
+    `Late-game dev fixture did not reach final turns within ${String(
+      LATE_GAME_MAX_DECISIONS
+    )} decisions.`
+  );
+}
+
+function appendFixtureLog(
+  state: GameState,
+  humanPlayerId: PlayerId,
+  summary: string
+): GameState {
+  return {
+    ...state,
+    log: [
+      ...state.log,
+      {
+        turn: state.turn,
+        player: humanPlayerId,
+        phase: state.phase,
+        summary,
+      },
+    ],
+  };
 }
