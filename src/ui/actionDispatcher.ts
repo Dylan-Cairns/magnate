@@ -94,12 +94,7 @@ export function prepareActionDispatch({
     actingPlayerId,
     makeCardFlightId
   );
-  const terminalCleanupPlan = dependencies.collectTerminalCleanupFlights(
-    previousState,
-    nextState,
-    makeResourceFlightId,
-    makeCardFlightId
-  );
+  const terminalCleanupPlan = dependencies.collectTerminalCleanupFlights();
   const turnCyclePlan = dependencies.collectTurnCycleAnimationPlan(
     previousState,
     nextState,

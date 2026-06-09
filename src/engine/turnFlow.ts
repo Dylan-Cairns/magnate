@@ -6,7 +6,6 @@ import { rngFromSeed } from './rng';
 import { scoreGame } from './scoring';
 import { applyDelta, findProperty } from './stateHelpers';
 import type {
-  DistrictStack,
   GamePhase,
   GameState,
   IncomeChoice,
@@ -395,19 +394,9 @@ function finalizeGame(state: GameState): GameState {
     };
   });
 
-  const districts = state.districts.map((district) => ({
-    ...district,
-    stacks: {
-      ...district.stacks,
-      PlayerA: clearIncompleteDeed(district.stacks.PlayerA, discardedCards),
-      PlayerB: clearIncompleteDeed(district.stacks.PlayerB, discardedCards),
-    },
-  }));
-
   const terminalState: GameState = {
     ...state,
     players,
-    districts,
     deck: {
       ...state.deck,
       discard: [...discardedCards, ...state.deck.discard],
@@ -417,18 +406,6 @@ function finalizeGame(state: GameState): GameState {
   return {
     ...terminalState,
     finalScore: scoreGame(terminalState),
-  };
-}
-
-function clearIncompleteDeed(
-  stack: DistrictStack,
-  discardedCards: CardId[]
-): DistrictStack {
-  if (stack.deed) {
-    discardedCards.push(stack.deed.cardId);
-  }
-  return {
-    developed: [...stack.developed],
   };
 }
 
