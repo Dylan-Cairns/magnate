@@ -80,23 +80,26 @@ function developActions(
 }
 
 function collectIncomeChoiceActions(state: GameState): GameAction[] {
-  const [choice] = state.pendingIncomeChoices ?? [];
-  if (!choice) {
-    return [];
-  }
-
-  const activePlayer = state.players[state.activePlayerIndex];
-  if (!activePlayer || activePlayer.id !== choice.playerId) {
-    return [];
-  }
-
-  return choice.suits.map((suit) => ({
-    type: 'choose-income-suit' as const,
-    playerId: choice.playerId,
-    districtId: choice.districtId,
-    cardId: choice.cardId,
-    suit,
-  }));
+  const submitted = state.submittedIncomeChoices ?? [];
+  return (state.pendingIncomeChoices ?? [])
+    .filter(
+      (choice) =>
+        !submitted.some(
+          (entry) =>
+            entry.playerId === choice.playerId &&
+            entry.districtId === choice.districtId &&
+            entry.cardId === choice.cardId
+        )
+    )
+    .flatMap((choice) =>
+      choice.suits.map((suit) => ({
+        type: 'choose-income-suit' as const,
+        playerId: choice.playerId,
+        districtId: choice.districtId,
+        cardId: choice.cardId,
+        suit,
+      }))
+    );
 }
 
 function playActions(state: GameState): GameAction[] {

@@ -18,15 +18,22 @@ describe('legalActions', () => {
     expect(legalActions(state)).toEqual([]);
   });
 
-  it('CollectIncome exposes choose-income-suit actions when pending choices exist', () => {
+  it('CollectIncome exposes choose-income-suit actions for all unsubmitted pending choices', () => {
     const state = makeGameState({
       phase: 'CollectIncome',
+      activePlayerIndex: 1,
       pendingIncomeChoices: [
         {
           playerId: PLAYER_A,
           districtId: 'D1',
           cardId: '7',
           suits: ['Suns', 'Wyrms'],
+        },
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
         },
       ],
     });
@@ -47,13 +54,26 @@ describe('legalActions', () => {
         cardId: '7',
         suit: 'Wyrms',
       },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '8',
+        suit: 'Waves',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '8',
+        suit: 'Leaves',
+      },
     ]);
   });
 
-  it('CollectIncome emits no choice actions for non-owning active player', () => {
+  it('CollectIncome omits choices that already have submitted income', () => {
     const state = makeGameState({
       phase: 'CollectIncome',
-      activePlayerIndex: 1,
       pendingIncomeChoices: [
         {
           playerId: PLAYER_A,
@@ -61,10 +81,39 @@ describe('legalActions', () => {
           cardId: '7',
           suits: ['Suns', 'Wyrms'],
         },
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+      submittedIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '7',
+          suit: 'Suns',
+        },
       ],
     });
 
-    expect(legalActions(state)).toEqual([]);
+    expect(legalActions(state)).toEqual([
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '8',
+        suit: 'Waves',
+      },
+      {
+        type: 'choose-income-suit',
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '8',
+        suit: 'Leaves',
+      },
+    ]);
   });
 
   it('ActionWindow only includes trade give suits with at least 3 tokens', () => {

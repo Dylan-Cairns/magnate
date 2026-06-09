@@ -130,7 +130,7 @@ Design expectations:
 ## Turn-Flow Pattern
 
 - Non-decision phases auto-resolve via `advanceToDecision`.
-- Decision phases are where external actors choose actions (`CollectIncome` with pending choices and `ActionWindow`).
+- Decision phases are where external actors choose actions (`CollectIncome` with unsubmitted income choices and `ActionWindow`).
 - Draw/exhaustion handling and final-turn countdown are part of phase resolution.
 - Draw exhaustion source is canonical in `deck.reshuffles` (no duplicate exhaustion field).
 - Income-choice return owner is stored as `PlayerId`.
@@ -139,9 +139,11 @@ Design expectations:
   - `ActionWindow` uses a unified action surface:
     - pre-card: `trade`, `develop-deed`, and card-play actions
     - post-card: `trade`, `develop-deed`, and `end-turn`
-- Income suit-choice actor ownership is explicit:
-  - active actor switches to pending choice owner during `CollectIncome`
-  - turn owner is restored before normal turn decisions resume
+- Partial deed income choices are submitted before resolution:
+  - `pendingIncomeChoices` keeps the full obligation list for the roll
+  - `submittedIncomeChoices` records selected suits without applying resources immediately
+  - once every pending choice has a submission, selected resources are applied in deterministic pending-choice order
+  - the original turn owner remains the normal action-window owner after simultaneous income resolves
 
 ## Bridge Pattern
 
