@@ -1,4 +1,5 @@
 import type {
+  RolloutSearchWorkerContext,
   RolloutSearchVisitResult,
   RolloutSearchWorkerTask,
 } from './rolloutSearchCore';
@@ -12,13 +13,25 @@ export interface SearchWorkerRunBatchRequest {
   tasks: SearchWorkerTask[];
 }
 
+export interface SearchWorkerInitializeRolloutSearchRequest {
+  type: 'initialize-rollout-search';
+  requestId: number;
+  context: RolloutSearchWorkerContext;
+}
+
 export interface SearchWorkerShutdownRequest {
   type: 'shutdown';
 }
 
 export type SearchWorkerRequest =
   | SearchWorkerRunBatchRequest
+  | SearchWorkerInitializeRolloutSearchRequest
   | SearchWorkerShutdownRequest;
+
+export interface SearchWorkerInitializedResponse {
+  type: 'initialized';
+  requestId: number;
+}
 
 export interface SearchWorkerBatchResultResponse {
   type: 'batch-result';
@@ -34,5 +47,6 @@ export interface SearchWorkerErrorResponse {
 }
 
 export type SearchWorkerResponse =
+  | SearchWorkerInitializedResponse
   | SearchWorkerBatchResultResponse
   | SearchWorkerErrorResponse;

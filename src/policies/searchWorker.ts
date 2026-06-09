@@ -1,7 +1,9 @@
 import { runRolloutSearchTask } from './rolloutSearchCore';
+import type { GameState } from '../engine/types';
 import type {
   SearchWorkerRequest,
   SearchWorkerResponse,
+  SearchWorkerInitializeRolloutSearchRequest,
   SearchWorkerRunBatchRequest,
 } from './searchWorkerProtocol';
 
@@ -12,13 +14,18 @@ interface SearchWorkerGlobalScope {
 }
 
 const workerScope = globalThis as unknown as SearchWorkerGlobalScope;
+let rolloutSearchContextId: string | null = null;
+let rolloutSearchWorldStates: readonly GameState[] = [];
 
 workerScope.onmessage = (event) => {
   try {
     handleRequest(event.data);
   } catch (error: unknown) {
     const requestId =
-      event.data.type === 'run-batch' ? event.data.requestId : undefined;
+      event.data.type === 'run-batch' ||
+      event.data.type === 'initialize-rollout-search'
+        ? event.data.requestId
+        : undefined;
     postError(requestId, error);
   }
 };
@@ -31,14 +38,33 @@ function handleRequest(request: SearchWorkerRequest): void {
     case 'run-batch':
       runBatch(request);
       return;
+    case 'initialize-rollout-search':
+      initializeRolloutSearch(request);
+      return;
   }
+}
+
+function initializeRolloutSearch(
+  request: SearchWorkerInitializeRolloutSearchRequest
+): void {
+  rolloutSearchContextId = request.context.contextId;
+  rolloutSearchWorldStates = request.context.worldStates;
+  workerScope.postMessage({
+    type: 'initialized',
+    requestId: request.requestId,
+  });
 }
 
 function runBatch(request: SearchWorkerRunBatchRequest): void {
   const results = request.tasks.map((task) => {
     switch (task.kind) {
       case 'rollout-search':
-        return runRolloutSearchTask(task);
+        if (task.contextId !== rolloutSearchContextId) {
+          throw new Error(
+            `Rollout search worker missing context ${task.contextId}.`
+          );
+        }
+        return runRolloutSearchTask(task, rolloutSearchWorldStates);
     }
   });
   workerScope.postMessage({
