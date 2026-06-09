@@ -57,6 +57,8 @@ export function createSearchWorkerPool({
   let activeRequest = false;
   let nextRequestId = 1;
   let initializedRolloutSearchContextId: string | null = null;
+  let initializedRolloutSearchWorldStates: RolloutSearchWorkerContext['worldStates'] | null =
+    null;
   const pendingByRequestId = new Map<number, PendingRequest>();
   const workers: PoolWorker[] = Array.from(
     { length: workerCount },
@@ -114,13 +116,17 @@ export function createSearchWorkerPool({
   async function ensureRolloutSearchContext(
     context: RolloutSearchWorkerContext
   ): Promise<void> {
-    if (initializedRolloutSearchContextId === context.contextId) {
+    if (
+      initializedRolloutSearchContextId === context.contextId &&
+      initializedRolloutSearchWorldStates === context.worldStates
+    ) {
       return;
     }
     await Promise.all(
       workers.map((poolWorker) => initializeWorker(poolWorker, context))
     );
     initializedRolloutSearchContextId = context.contextId;
+    initializedRolloutSearchWorldStates = context.worldStates;
   }
 
   function initializeWorker(
