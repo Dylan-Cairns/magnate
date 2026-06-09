@@ -72,7 +72,7 @@ function Get-MagnateVenvPython {
   return (Resolve-Path $pythonPath).Path
 }
 
-function Assert-MagnateNode22Runtime {
+function Assert-MagnateNode20Runtime {
   param(
     [Parameter(Mandatory = $true)]
     [string]$RepoRoot
@@ -101,7 +101,7 @@ function Assert-MagnateNode22Runtime {
   }
 
   if ([string]::IsNullOrWhiteSpace($nodePath)) {
-    throw 'Node is not installed in a known location. Run "nvm use 22.12.0" in this shell first.'
+    throw 'Node is not installed in a known location. Run "nvm use 20.19.0" in this shell first.'
   }
 
   $nodeDir = Split-Path $nodePath -Parent
@@ -112,13 +112,13 @@ function Assert-MagnateNode22Runtime {
 
   $versionText = (& $nodePath --version).Trim()
   if ([string]::IsNullOrWhiteSpace($versionText)) {
-    throw 'Unable to determine Node version. Run "nvm use 22.12.0" and try again.'
+    throw 'Unable to determine Node version. Run "nvm use 20.19.0" and try again.'
   }
 
   $normalizedVersion = $versionText.TrimStart("v")
   $parsedVersion = [version]$normalizedVersion
-  if ($parsedVersion.Major -ne 22 -or $parsedVersion -lt [version]"22.12.0") {
-    throw "Expected Node 22.12.0+ for this repo, but found $versionText. Run ""nvm use 22.12.0""."
+  if ($parsedVersion.Major -ne 20 -or $parsedVersion -lt [version]"20.19.0") {
+    throw "Expected Node 20.19.0+ for this repo, but found $versionText. Run ""nvm use 20.19.0""."
   }
 
   $tsxPath = Join-Path $RepoRoot "node_modules\.bin\tsx.cmd"
