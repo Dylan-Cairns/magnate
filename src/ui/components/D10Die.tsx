@@ -22,11 +22,13 @@ const INITIAL_ROT = { x: -TILT, y: 15 };
 export function D10Die({
   result,
   rollKey,
+  pulsing,
 }: {
   result: number | undefined;
   // Changing rollKey triggers animation even when result is the same number.
   // Uses rollId from IncomeRollResult — increments with rngCursor on each real roll.
   rollKey?: number;
+  pulsing?: boolean;
 }) {
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
@@ -47,7 +49,7 @@ export function D10Die({
 
   return (
     <div
-      className="die-scene-d10"
+      className={`die-scene-d10${pulsing ? ' is-pulsing' : ''}`}
       aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
     >
       <div

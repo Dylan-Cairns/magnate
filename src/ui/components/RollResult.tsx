@@ -16,6 +16,7 @@ export function RollResult({
   const [displayedSuit, setDisplayedSuit] = useState<Suit | undefined>(
     undefined
   );
+  const [isPulsing, setIsPulsing] = useState(false);
 
   useEffect(() => {
     if (taxSuit === undefined) {
@@ -31,15 +32,27 @@ export function RollResult({
     // roll?.rollId ensures this re-arms on every new roll, not just when suit changes
   }, [roll?.rollId, taxSuit]);
 
+  useEffect(() => {
+    setIsPulsing(false);
+    if (!roll) return;
+    // When tax die is shown, wait for it to finish animating before pulsing anything
+    const delay = taxSuit !== undefined ? D10_TRANSITION_MS * 2 : D10_TRANSITION_MS;
+    const timer = setTimeout(() => setIsPulsing(true), delay);
+    return () => clearTimeout(timer);
+  }, [roll?.rollId, taxSuit]);
+
   if (!roll) {
     return <p className="roll-value">-</p>;
   }
 
+  const pulseDie1 = isPulsing && roll.die1 >= roll.die2;
+  const pulseDie2 = isPulsing && roll.die2 >= roll.die1;
+
   return (
     <div className="roll-value" aria-label="Roll result">
-      <D10Die result={roll.die1} rollKey={roll.rollId} />
-      <D10Die result={roll.die2} rollKey={roll.rollId} />
-      <D6Die suit={displayedSuit} />
+      <D10Die result={roll.die1} rollKey={roll.rollId} pulsing={pulseDie1} />
+      <D10Die result={roll.die2} rollKey={roll.rollId} pulsing={pulseDie2} />
+      <D6Die suit={displayedSuit} pulsing={isPulsing && displayedSuit !== undefined} />
     </div>
   );
 }
