@@ -37,8 +37,9 @@ export function D6Die({ suit }: { suit: Suit | undefined }) {
     prevSuitRef.current = suit;
 
     if (suit === undefined) {
-      setRotX(INITIAL_ROT.x);
-      setRotY(INITIAL_ROT.y);
+      setRotX(prev => Math.round(prev / 360) * 360 + INITIAL_ROT.x);
+      setRotY(prev => Math.round(prev / 360) * 360 + INITIAL_ROT.y);
+      setRotZ(prev => Math.round(prev / 360) * 360);
       return;
     }
 
