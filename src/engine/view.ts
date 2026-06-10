@@ -120,6 +120,7 @@ function cloneIncomeRoll(
   return {
     die1: roll.die1,
     die2: roll.die2,
+    rollId: roll.rollId,
   };
 }
 
