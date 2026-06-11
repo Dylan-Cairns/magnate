@@ -132,10 +132,12 @@ export function App() {
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const closeBugReport = useCallback(() => setBugReportOpen(false), []);
-  const retryStartupPreload = useCallback(
-    () => setStartupPreloadAttempt((current) => current + 1),
-    []
-  );
+  const retryStartupPreload = useCallback(() => {
+    setStartupPreloadReady(false);
+    setStartupPreloadError(null);
+    setStartupPreloadProgress(STARTUP_PRELOAD_INITIAL_PROGRESS);
+    setStartupPreloadAttempt((current) => current + 1);
+  }, []);
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
     () => [optionsMenuRef, optionsMenuButtonRef],
@@ -143,9 +145,6 @@ export function App() {
   );
   useEffect(() => {
     let cancelled = false;
-    setStartupPreloadReady(false);
-    setStartupPreloadError(null);
-    setStartupPreloadProgress(STARTUP_PRELOAD_INITIAL_PROGRESS);
 
     void preloadStartupAssets({
       onProgress(progress) {
@@ -247,6 +246,7 @@ export function App() {
 
   useEffect(() => {
     if (terminal || (activePlayerId !== HUMAN_PLAYER && !isIncomeChoicePhase)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       closeActionPicker();
       return;
     }

@@ -60,6 +60,7 @@ export function D6Die({
 
     const face = SUIT_TO_FACE[suit];
     const { x, y } = FACE_OFFSET[face];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRotX(x);
     setRotY(y);
     setRotZ((prev) => prev - 720);

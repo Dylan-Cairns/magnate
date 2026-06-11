@@ -93,12 +93,11 @@ export function useGameController({
   botPlayerId,
   startupPreloadReady,
 }: UseGameControllerOptions) {
-  const devFixtureIdRef = useRef(devFixtureIdFromBrowserLocation());
   const [state, setState] = useState<GameState>(() =>
     createBrowserSession(
       makeBrowserSessionSeed(),
       humanPlayerId,
-      devFixtureIdRef.current
+      devFixtureIdFromBrowserLocation()
     )
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
@@ -262,6 +261,7 @@ export function useGameController({
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTurnResetAnchor({
       turn: state.turn,
       playerId: humanPlayerId,
@@ -292,6 +292,7 @@ export function useGameController({
         startupPreloadReady,
       })
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBotThinking(false);
       return;
     }
@@ -446,7 +447,7 @@ export function useGameController({
         const initialState = createBrowserSession(
           seed,
           humanPlayerId,
-          devFixtureIdRef.current
+          devFixtureIdFromBrowserLocation()
         );
         setState(initialState);
         setTimelineLog(
