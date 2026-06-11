@@ -206,6 +206,15 @@ export function ActionsPanel({
                         </button>
                       );
 
+                    const renderDirectAction = (key: string, action: GameAction) =>
+                      renderCategorizedAction(
+                        key,
+                        <ActionButton
+                          text={describeAction(action, SUIT_TEXT_TOKEN)}
+                          onClick={() => onAction(action)}
+                        />
+                      );
+
                     if (item.kind === 'trade-group') {
                       if (hasMultipleTradeSources) {
                         return renderCategorizedAction(
@@ -269,12 +278,9 @@ export function ActionsPanel({
                     if (item.kind === 'buy-deed-group') {
                       if (item.options.length === 1) {
                         const [onlyOption] = item.options;
-                        return renderCategorizedAction(
+                        return renderDirectAction(
                           `buy-deed-direct-${actionStableKey(onlyOption)}`,
-                          <ActionButton
-                            text={describeAction(onlyOption, SUIT_TEXT_TOKEN)}
-                            onClick={() => onAction(onlyOption)}
-                          />
+                          onlyOption
                         );
                       }
 
@@ -296,12 +302,9 @@ export function ActionsPanel({
                     if (item.kind === 'develop-deed-group') {
                       if (item.options.length === 1) {
                         const [onlyOption] = item.options;
-                        return renderCategorizedAction(
+                        return renderDirectAction(
                           `develop-deed-direct-${actionStableKey(onlyOption)}`,
-                          <ActionButton
-                            text={describeAction(onlyOption, SUIT_TEXT_TOKEN)}
-                            onClick={() => onAction(onlyOption)}
-                          />
+                          onlyOption
                         );
                       }
 
