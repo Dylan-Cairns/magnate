@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   ResolutionWarningOverlay,
   StartupPreloadOverlay,
-  TurnCycleOverlay,
 } from './GameOverlays';
 
 const noop = () => {};
@@ -44,26 +43,5 @@ describe('ResolutionWarningOverlay', () => {
         <ResolutionWarningOverlay open={false} onDismiss={noop} />
       )
     ).toBe('');
-  });
-});
-
-describe('TurnCycleOverlay', () => {
-  it('renders tax and income variants', () => {
-    const tax = renderToStaticMarkup(
-      <TurnCycleOverlay
-        overlay={{ kind: 'tax', suit: 'Moons' }}
-      />
-    );
-    const income = renderToStaticMarkup(
-      <TurnCycleOverlay
-        overlay={{ kind: 'income', rank: 9 }}
-      />
-    );
-
-    expect(tax).toContain('Taxes:');
-    expect(tax).toContain('data-token-suit="Moons"');
-    expect(income).toContain('Income:');
-    expect(income).toContain('>9</strong>');
-    expect(renderToStaticMarkup(<TurnCycleOverlay overlay={null} />)).toBe('');
   });
 });

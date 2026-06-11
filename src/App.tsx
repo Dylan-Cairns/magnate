@@ -31,7 +31,6 @@ import { DeckPiles } from './ui/components/DeckPiles';
 import {
   ResolutionWarningOverlay,
   StartupPreloadOverlay,
-  TurnCycleOverlay,
 } from './ui/components/GameOverlays';
 import { DecktetSuitDiagram } from './ui/components/DecktetSuitDiagram';
 import { LogPanel } from './ui/components/LogPanel';
@@ -114,7 +113,6 @@ export function App() {
       setEnabled: setAnimationsEnabled,
       resourceFlights,
       cardFlights,
-      turnCycleOverlay,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
       incomeResourcePreviewByPlayer,
@@ -677,10 +675,6 @@ export function App() {
       <ResolutionWarningOverlay
         open={resolutionWarningOpen}
         onDismiss={() => setResolutionWarningOpen(false)}
-      />
-
-      <TurnCycleOverlay
-        overlay={turnCycleOverlay}
       />
 
       <ResourceFlightLayer flights={resourceFlights} />

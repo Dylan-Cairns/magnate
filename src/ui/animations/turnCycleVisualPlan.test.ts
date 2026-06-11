@@ -8,26 +8,23 @@ import {
 } from './turnCycleVisualPlan';
 
 describe('buildTurnCycleVisualPlan', () => {
-  it('schedules a text-only income stage after an existing card-flight delay', () => {
-    const plan = buildTurnCycleVisualPlan(makeCycle(), 280);
+  it('schedules income flights after d10 dice settle (no tax)', () => {
+    const plan = buildTurnCycleVisualPlan(makeCycle());
 
     expect(plan.visualPlan).toMatchObject({
-      taxLabelAtMs: null,
       taxFlightLaunchAtMs: null,
-      incomeLabelAtMs: 280,
-      incomeLabelHideAtMs: 1780,
-      incomeFlightLaunchAtMs: 1780,
-      incomeHighlightStartAtMs: 280,
-      incomeHighlightEndAtMs: 1780,
-      hideAllAtMs: 2000,
+      // cursor starts at DICE_D10_SETTLE_MS (1000); income flights launch 400ms later
+      incomeFlightLaunchAtMs: 1400,
+      incomeHighlightStartAtMs: 1000,
+      incomeHighlightEndAtMs: 1400,
+      hideAllAtMs: 1620,
       taxSuit: null,
-      incomeRank: 7,
     });
-    expect(plan.incomeAnimationEndMs).toBe(1780);
-    expect(plan.totalDurationMs).toBe(2020);
+    expect(plan.incomeAnimationEndMs).toBe(1400);
+    expect(plan.totalDurationMs).toBe(1640);
   });
 
-  it('keeps the tax label stage when tax triggers without resource losses', () => {
+  it('keeps the tax stage when tax triggers without resource losses', () => {
     const plan = buildTurnCycleVisualPlan(
       makeCycle({
         tax: {
@@ -38,22 +35,19 @@ describe('buildTurnCycleVisualPlan', () => {
           ],
         },
       }),
-      0
     );
 
     expect(plan.visualPlan).toMatchObject({
-      taxLabelAtMs: 0,
-      taxLabelHideAtMs: 1000,
       taxPulseStartAtMs: null,
       taxPulseEndAtMs: null,
       taxFlightLaunchAtMs: null,
       taxResourcesApplyAtMs: null,
       taxPulseTargets: [],
       taxFlightTokens: [],
-      incomeLabelAtMs: 1340,
-      hideAllAtMs: 3060,
+      // cursor starts at DICE_TAX_SETTLE_MS (2000); income flights at 2340 + 400 = 2740
+      hideAllAtMs: 2960,
     });
-    expect(plan.totalDurationMs).toBe(3080);
+    expect(plan.totalDurationMs).toBe(2980);
   });
 
   it('orders tax losses before income flights and preserves visual targets', () => {
@@ -90,15 +84,16 @@ describe('buildTurnCycleVisualPlan', () => {
         { playerId: 'PlayerB', districtId: 'D3', cardId: '27' },
       ],
     });
-    const plan = buildTurnCycleVisualPlan(cycle, 280);
+    const plan = buildTurnCycleVisualPlan(cycle);
 
     expect(plan.visualPlan).toMatchObject({
-      taxLabelAtMs: 280,
-      taxLabelHideAtMs: 1280,
-      taxPulseStartAtMs: 280,
-      taxPulseEndAtMs: 1280,
-      taxFlightLaunchAtMs: 1400,
-      taxResourcesApplyAtMs: 3300,
+      // cursor = DICE_TAX_SETTLE_MS (2000); pulse starts there
+      taxPulseStartAtMs: 2000,
+      // flights start at 2000 + 120 = 2120
+      taxFlightLaunchAtMs: 2120,
+      // 3 tokens, stagger 500, duration 900: 2120 + 2*500 + 900 = 4020
+      taxResourcesApplyAtMs: 4020,
+      taxPulseEndAtMs: 4020,
       taxPulseTargets: [
         { playerId: 'PlayerA', suit: 'Moons' },
         { playerId: 'PlayerB', suit: 'Moons' },
@@ -112,15 +107,16 @@ describe('buildTurnCycleVisualPlan', () => {
         { playerId: 'PlayerA', count: 2 },
         { playerId: 'PlayerB', count: 1 },
       ],
-      incomeLabelAtMs: 3520,
-      incomeFlightLaunchAtMs: 5020,
-      incomeHighlightStartAtMs: 3520,
-      incomeHighlightEndAtMs: 5675,
-      hideAllAtMs: 5895,
+      // income cursor = 4020 + 220 = 4240; flights at 4240 + 400 = 4640
+      incomeFlightLaunchAtMs: 4640,
+      incomeHighlightStartAtMs: 4240,
+      // 2 tokens, stagger 95, duration 560: 4640 + 95 + 560 = 5295
+      incomeHighlightEndAtMs: 5295,
+      hideAllAtMs: 5515,
       highlightCardIds: ['29', '27'],
     });
-    expect(plan.incomeAnimationEndMs).toBe(5675);
-    expect(plan.totalDurationMs).toBe(5915);
+    expect(plan.incomeAnimationEndMs).toBe(5295);
+    expect(plan.totalDurationMs).toBe(5535);
   });
 
   it('deduplicates crown highlights by player and suit', () => {
@@ -145,7 +141,6 @@ describe('buildTurnCycleVisualPlan', () => {
           },
         ],
       }),
-      0
     );
 
     expect(plan.visualPlan.highlightCrowns).toEqual([
@@ -169,15 +164,14 @@ describe('collectTurnCycleAnimationPlan', () => {
         previous,
         next,
         { type: 'trade', give: 'Moons', receive: 'Suns' },
-        280
       )
     ).toBeNull();
     expect(
-      collectTurnCycleAnimationPlan(previous, next, { type: 'end-turn' }, 280)
+      collectTurnCycleAnimationPlan(previous, next, { type: 'end-turn' })
         ?.visualPlan
     ).toMatchObject({
-      incomeLabelAtMs: 280,
-      incomeRank: 7,
+      // no tax: cursor starts at DICE_D10_SETTLE_MS (1000), flights at 1400
+      incomeFlightLaunchAtMs: 1400,
     });
   });
 });

@@ -29,7 +29,6 @@ import type {
 import type {
   CardFlight,
   ResourceFlight,
-  TurnCycleOverlayState,
 } from '../animations/types';
 
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
@@ -62,8 +61,6 @@ export function useGameAnimations({
     ReadonlyArray<ResourceFlight>
   >([]);
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
-  const [turnCycleOverlay, setTurnCycleOverlay] =
-    useState<TurnCycleOverlayState | null>(null);
   const [incomeHighlightCardIds, setIncomeHighlightCardIds] = useState<
     ReadonlyArray<CardId>
   >([]);
@@ -131,7 +128,6 @@ export function useGameAnimations({
   const clearTurnCycleVisuals = useCallback(() => {
     turnCycleVisualTimers.clearAll();
     clearTaxPulseElements();
-    setTurnCycleOverlay(null);
     setIncomeHighlightCardIds([]);
     setIncomeHighlightCrowns([]);
     setIncomeResourcePreviewByPlayer(null);
@@ -143,16 +139,7 @@ export function useGameAnimations({
         return;
       }
 
-      if (plan.taxLabelAtMs !== null && plan.taxSuit) {
-        const taxSuit = plan.taxSuit;
-        turnCycleVisualTimers.schedule(plan.taxLabelAtMs, () => {
-          setTurnCycleOverlay({ kind: 'tax', suit: taxSuit });
-        });
-        if (plan.taxLabelHideAtMs !== null) {
-          turnCycleVisualTimers.schedule(plan.taxLabelHideAtMs, () => {
-            setTurnCycleOverlay(null);
-          });
-        }
+      if (plan.taxSuit) {
         if (
           plan.taxPulseStartAtMs !== null &&
           plan.taxPulseTargets.length > 0
@@ -183,12 +170,6 @@ export function useGameAnimations({
         }
       }
 
-      turnCycleVisualTimers.schedule(plan.incomeLabelAtMs, () => {
-        setTurnCycleOverlay({ kind: 'income', rank: plan.incomeRank });
-      });
-      turnCycleVisualTimers.schedule(plan.incomeLabelHideAtMs, () => {
-        setTurnCycleOverlay(null);
-      });
       turnCycleVisualTimers.schedule(plan.incomeFlightLaunchAtMs, () => {
         const incomeFlights = buildIncomeFlightsFromDom(
           plan.incomeFlightTokens,
@@ -209,7 +190,6 @@ export function useGameAnimations({
       });
       turnCycleVisualTimers.schedule(plan.hideAllAtMs, () => {
         clearTaxPulseElements();
-        setTurnCycleOverlay(null);
         setIncomeHighlightCardIds([]);
         setIncomeHighlightCrowns([]);
       });
@@ -348,7 +328,6 @@ export function useGameAnimations({
     setEnabled,
     resourceFlights,
     cardFlights,
-    turnCycleOverlay,
     incomeHighlightCardIds,
     incomeHighlightCrowns,
     incomeResourcePreviewByPlayer,

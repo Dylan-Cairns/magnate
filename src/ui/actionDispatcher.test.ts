@@ -111,14 +111,13 @@ describe('prepareActionDispatch', () => {
     });
   });
 
-  it('appends terminal cleanup flights after action flights without delaying the turn cycle', () => {
+  it('appends terminal cleanup flights after action flights', () => {
     const previousState = makeGameState();
     const nextState = makeGameState({ phase: 'GameOver' });
     const actionResourceFlight = makeResourceFlight('action-resource');
     const terminalResourceFlight = makeResourceFlight('terminal-resource');
     const actionCardFlight = makeCardFlight('action-card', 200, 10);
     const terminalCardFlight = makeCardFlight('terminal-card', 900);
-    let turnCycleBaseDelayMs: number | null = null;
     const dependencies = makeDependencies(nextState);
     dependencies.collectDeedResourceFlights = () => [actionResourceFlight];
     dependencies.collectCardPlayFlights = () => [actionCardFlight];
@@ -126,15 +125,6 @@ describe('prepareActionDispatch', () => {
       resourceFlights: [terminalResourceFlight],
       cardFlights: [terminalCardFlight],
     });
-    dependencies.collectTurnCycleAnimationPlan = (
-      _previousState,
-      _nextState,
-      _action,
-      baseDelayMs
-    ) => {
-      turnCycleBaseDelayMs = baseDelayMs;
-      return null;
-    };
 
     const plan = prepareActionDispatch({
       previousState,
@@ -146,7 +136,6 @@ describe('prepareActionDispatch', () => {
       dependencies,
     });
 
-    expect(turnCycleBaseDelayMs).toBe(230);
     expect(plan.resourceFlights).toEqual([
       actionResourceFlight,
       terminalResourceFlight,
