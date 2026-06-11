@@ -1,4 +1,5 @@
 import type { CardId } from '../../engine/cards';
+import type { Suit } from '../../engine/types';
 import type { CardPerspective } from '../components/CardTile';
 
 export type ResourceFlight = {
