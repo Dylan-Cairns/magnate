@@ -15,6 +15,8 @@ export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
   Knots: knotsIcon,
 };
 
+export const ALL_SUIT_ICON_URLS: readonly string[] = Object.values(SUIT_ICON_BY_SUIT);
+
 export const SUIT_TEXT_TOKEN: Record<Suit, string> = {
   Moons: '{Moons}',
   Suns: '{Suns}',
