@@ -11,6 +11,23 @@
   margin-left: 23px;
 }
 
+@keyframes die-dim {
+  from { filter: brightness(1); }
+  to   { filter: brightness(0.6); }
+}
+
+.die-scene-d10.is-dimmed {
+  animation: die-dim 900ms ease-in-out 1 forwards;
+}
+
+.die-scene-d6 {
+  transition: opacity 600ms ease-in-out;
+}
+
+.die-scene-d6.is-dimmed {
+  opacity: 0.65;
+}
+
 @keyframes die-pulse {
   0%, 100% {
     transform: scale(1);
@@ -24,5 +41,5 @@
 
 .die-scene-d10.is-pulsing,
 .die-scene-d6.is-pulsing {
-  animation: die-pulse 900ms ease-in-out 2 forwards;
+  animation: die-pulse 900ms ease-in-out 1 forwards;
 }

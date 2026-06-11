@@ -13,20 +13,20 @@ const SUIT_TO_FACE: Record<Suit, number> = {
   Moons: 1, Suns: 2, Waves: 3, Leaves: 4, Wyrms: 5, Knots: 6,
 };
 
-// rotateX/Y to bring each face toward the camera, offset slightly so the die never looks flat
+// rotateX/Y to bring each face toward the camera with a slight Y offset so it never looks flat.
+// Side faces (1-4) keep x:0 so the die stays upright. Top/bottom (5-6) need a modest X tilt.
 const FACE_OFFSET: Record<number, { x: number; y: number }> = {
-  1: { x: -10, y: 15 },
-  2: { x: -10, y: 195 },
-  3: { x: -10, y: -75 },
-  4: { x: -10, y: 105 },
-  5: { x: -100, y: 15 },
-  6: { x: 80, y: 15 },
+  1: { x: 0, y: 15 },
+  2: { x: 0, y: 195 },
+  3: { x: 0, y: -75 },
+  4: { x: 0, y: 105 },
+  5: { x: -90, y: 15 },
+  6: { x: 90, y: 15 },
 };
 
-// Show three faces at rest so the die reads as 3D before any roll
-const INITIAL_ROT = { x: -15, y: 20 };
+const INITIAL_ROT = { x: 0, y: 15 };
 
-export function D6Die({ suit, pulsing }: { suit: Suit | undefined; pulsing?: boolean }) {
+export function D6Die({ suit, pulsing, dimmed }: { suit: Suit | undefined; pulsing?: boolean; dimmed?: boolean }) {
   const prevSuitRef = useRef<Suit | undefined>(undefined);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
@@ -37,10 +37,7 @@ export function D6Die({ suit, pulsing }: { suit: Suit | undefined; pulsing?: boo
     prevSuitRef.current = suit;
 
     if (suit === undefined) {
-      setRotX(prev => Math.round(prev / 360) * 360 + INITIAL_ROT.x);
-      setRotY(prev => Math.round(prev / 360) * 360 + INITIAL_ROT.y);
-      setRotZ(prev => Math.round(prev / 360) * 360);
-      return;
+      return; // stay at current position; parent handles dimming
     }
 
     const face = SUIT_TO_FACE[suit];
@@ -54,7 +51,7 @@ export function D6Die({ suit, pulsing }: { suit: Suit | undefined; pulsing?: boo
 
   return (
     <div
-      className={`die-scene-d6${pulsing ? ' is-pulsing' : ''}`}
+      className={`die-scene-d6${pulsing ? ' is-pulsing' : ''}${dimmed ? ' is-dimmed' : ''}`}
       aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
     >
       <div
