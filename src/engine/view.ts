@@ -24,6 +24,28 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
     );
   }
 
+  // Income choice selection is double-blind: while some players have submitted
+  // but others haven't, hide the already-submitted choices and their log entries
+  // from players who haven't submitted yet, so no one can react to an opponent's
+  // choice before making their own.
+  const pendingCount = state.pendingIncomeChoices?.length ?? 0;
+  const submittedCount = state.submittedIncomeChoices?.length ?? 0;
+  const selectionInProgress = pendingCount > submittedCount;
+
+  const filteredSubmitted = selectionInProgress
+    ? state.submittedIncomeChoices?.filter((c) => c.playerId === viewerId)
+    : state.submittedIncomeChoices;
+  // Normalize an empty filtered array to undefined to match the convention that
+  // undefined means "no submissions visible yet" (avoids [] vs undefined ambiguity).
+  const visibleSubmitted =
+    filteredSubmitted?.length === 0 ? undefined : filteredSubmitted;
+
+  const visibleLog = selectionInProgress
+    ? state.log.filter(
+        (e) => !e.summary.startsWith('income choice ') || e.player === viewerId
+      )
+    : state.log;
+
   return {
     viewerId,
     activePlayerId: activePlayer.id,
@@ -41,12 +63,10 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
     lastIncomeRoll: cloneIncomeRoll(state.lastIncomeRoll),
     lastTaxSuit: state.lastTaxSuit,
     pendingIncomeChoices: cloneIncomeChoices(state.pendingIncomeChoices),
-    submittedIncomeChoices: cloneSubmittedIncomeChoices(
-      state.submittedIncomeChoices
-    ),
+    submittedIncomeChoices: cloneSubmittedIncomeChoices(visibleSubmitted),
     incomeChoiceReturnPlayerId: state.incomeChoiceReturnPlayerId,
     finalScore: cloneFinalScore(state.finalScore),
-    log: state.log.map(cloneLogEntry),
+    log: visibleLog.map(cloneLogEntry),
   };
 }
 
