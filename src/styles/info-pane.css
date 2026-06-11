@@ -1,7 +1,7 @@
 .info-pane {
   display: grid;
   gap: var(--layout-gap);
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   height: 100%;
   min-height: 0;
   align-content: stretch;
@@ -26,4 +26,94 @@
 .seed-input {
   width: 100%;
   max-width: none;
+}
+
+.bot-info-row {
+  --bot-info-card-gap: 1.55rem;
+  display: grid;
+  grid-template-columns: minmax(8.65rem, 0.78fr) minmax(0, 1.52fr);
+  gap: 0.5rem;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+  overflow: visible;
+}
+
+.bot-info-row > .panel {
+  width: 100%;
+  min-width: 0;
+  background: var(--side-rail-panel-fill);
+  border-color: var(--panel-border);
+  box-shadow:
+    var(--rail-panel-shadow),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.bot-hand-panel {
+  width: 100%;
+  justify-self: stretch;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0;
+  padding: var(--panel-padding);
+}
+
+.bot-hand-panel .player-header {
+  margin: 0 0 0.65rem;
+}
+
+.bot-hand-panel .player-header h2 {
+  color: #f4dfc1;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
+}
+
+.bot-hand-card-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  min-height: calc(
+    var(--deck-pile-card-height) + (var(--deck-pile-stack-step) * 2)
+  );
+}
+
+.bot-hand-fan {
+  position: relative;
+  width: min(100%, calc(var(--deck-pile-card-width) + 2.8rem));
+  height: calc(
+    var(--deck-pile-card-height) + (var(--deck-pile-stack-step) * 2)
+  );
+  isolation: isolate;
+}
+
+.bot-hand-fan-card {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--deck-pile-stack-step) * 2);
+  z-index: var(--bot-hand-card-z);
+  transform: translateX(-50%) rotate(var(--bot-hand-card-angle));
+  transform-origin: 50% 96%;
+}
+
+.bot-hand-card-wrap .card-tile {
+  width: var(--deck-pile-card-width);
+  height: var(--deck-pile-card-height);
+  min-height: var(--deck-pile-card-height);
+  border-radius: 8px;
+  padding: 0;
+}
+
+.bot-info-row .deck-piles {
+  grid-template-columns: repeat(2, max-content);
+  gap: var(--bot-info-card-gap);
+  justify-content: center;
+  align-items: start;
+}
+
+.bot-info-row .deck-pile-stack.is-deck {
+  width: calc(
+    var(--deck-pile-card-width) + (var(--deck-pile-stack-step) * 2)
+  );
 }
