@@ -6,11 +6,21 @@ import { SUIT_TOKEN_BG } from './TokenComponents';
 import { SUIT_ICON_BY_SUIT } from '../suitIcons';
 
 const SUITS_BY_FACE: [Suit, Suit, Suit, Suit, Suit, Suit] = [
-  'Moons', 'Suns', 'Waves', 'Leaves', 'Wyrms', 'Knots',
+  'Moons',
+  'Suns',
+  'Waves',
+  'Leaves',
+  'Wyrms',
+  'Knots',
 ];
 
 const SUIT_TO_FACE: Record<Suit, number> = {
-  Moons: 1, Suns: 2, Waves: 3, Leaves: 4, Wyrms: 5, Knots: 6,
+  Moons: 1,
+  Suns: 2,
+  Waves: 3,
+  Leaves: 4,
+  Wyrms: 5,
+  Knots: 6,
 };
 
 // rotateX/Y to bring each face toward the camera with a slight Y offset so it never looks flat.
@@ -26,7 +36,15 @@ const FACE_OFFSET: Record<number, { x: number; y: number }> = {
 
 const INITIAL_ROT = { x: 0, y: 15 };
 
-export function D6Die({ suit, pulsing, dimmed }: { suit: Suit | undefined; pulsing?: boolean; dimmed?: boolean }) {
+export function D6Die({
+  suit,
+  pulsing,
+  dimmed,
+}: {
+  suit: Suit | undefined;
+  pulsing?: boolean;
+  dimmed?: boolean;
+}) {
   const prevSuitRef = useRef<Suit | undefined>(undefined);
   const [rotX, setRotX] = useState(INITIAL_ROT.x);
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
@@ -41,12 +59,10 @@ export function D6Die({ suit, pulsing, dimmed }: { suit: Suit | undefined; pulsi
     }
 
     const face = SUIT_TO_FACE[suit];
-    const { x: faceX, y: faceY } = FACE_OFFSET[face];
-    // Round to nearest multiple of 360 then add 720 for two full spins before landing.
-    // Z adds a 720° tumble (always a multiple of 360, so it doesn't affect resting face).
-    setRotX(prev => Math.round(prev / 360) * 360 + 720 + faceX);
-    setRotY(prev => Math.round(prev / 360) * 360 + 720 + faceY);
-    setRotZ(prev => prev - 720);
+    const { x, y } = FACE_OFFSET[face];
+    setRotX(x);
+    setRotY(y);
+    setRotZ((prev) => prev - 720);
   }, [suit]);
 
   return (
@@ -56,7 +72,9 @@ export function D6Die({ suit, pulsing, dimmed }: { suit: Suit | undefined; pulsi
     >
       <div
         className="die-d6"
-        style={{ transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)` }}
+        style={{
+          transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+        }}
       >
         {SUITS_BY_FACE.map((faceSuit, i) => (
           <div
@@ -65,7 +83,11 @@ export function D6Die({ suit, pulsing, dimmed }: { suit: Suit | undefined; pulsi
             style={{ '--suit-bg': SUIT_TOKEN_BG[faceSuit] } as CSSProperties}
           >
             <div className="die-suit-circle">
-              <img src={SUIT_ICON_BY_SUIT[faceSuit]} alt="" className="die-suit-icon" />
+              <img
+                src={SUIT_ICON_BY_SUIT[faceSuit]}
+                alt=""
+                className="die-suit-icon"
+              />
             </div>
           </div>
         ))}
