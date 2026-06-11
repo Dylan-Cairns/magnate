@@ -244,57 +244,21 @@ export function App() {
   const humanActionUiBlockedByTurnCycleAnimation =
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
 
-  useEffect(() => {
-    if (terminal || (activePlayerId !== HUMAN_PLAYER && !isIncomeChoicePhase)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      closeActionPicker();
-      return;
-    }
-    if (humanActionUiBlockedByAnimation) {
-      closeActionPicker();
-      return;
-    }
-
-    if (actionPicker) {
-      if (actionPicker.kind === 'trade-combined') {
-        if (
-          !tradeCompositePickerStillLegal(
-            actionPicker,
-            humanActionsAcceptingInput
-          )
-        ) {
-          closeActionPicker();
-        }
-        return;
-      }
-      if (actionPicker.kind === 'develop-outright-combined') {
-        if (
-          !developOutrightCompositePickerStillLegal(
-            actionPicker,
-            humanActionsAcceptingInput
-          )
-        ) {
-          closeActionPicker();
-        }
-        return;
-      }
-      const stillLegal = pickerStillLegal(
-        toPickerQuery(actionPicker),
-        humanActionsAcceptingInput
-      );
-      if (!stillLegal) {
-        closeActionPicker();
-      }
-    }
-  }, [
-    activePlayerId,
-    humanActionsAcceptingInput,
-    isIncomeChoicePhase,
-    terminal,
-    actionPicker,
-    closeActionPicker,
-    humanActionUiBlockedByAnimation,
-  ]);
+  if (
+    terminal ||
+    (activePlayerId !== HUMAN_PLAYER && !isIncomeChoicePhase) ||
+    humanActionUiBlockedByAnimation
+  ) {
+    if (actionPicker) closeActionPicker();
+  } else if (actionPicker) {
+    const isIllegal =
+      actionPicker.kind === 'trade-combined'
+        ? !tradeCompositePickerStillLegal(actionPicker, humanActionsAcceptingInput)
+        : actionPicker.kind === 'develop-outright-combined'
+          ? !developOutrightCompositePickerStillLegal(actionPicker, humanActionsAcceptingInput)
+          : !pickerStillLegal(toPickerQuery(actionPicker), humanActionsAcceptingInput);
+    if (isIllegal) closeActionPicker();
+  }
 
   useDismissableLayer({
     enabled: Boolean(actionPicker),
