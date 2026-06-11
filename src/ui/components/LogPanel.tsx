@@ -9,6 +9,7 @@ import {
   suitCodeToSuit,
   type SuitLogCode,
 } from '../logPresentation';
+import { playerDisplayName } from '../playerDisplay';
 import { SUIT_TOKEN_BG } from './TokenComponents';
 
 export function LogPanel({
@@ -33,7 +34,7 @@ export function LogPanel({
               <div className="log-turn-head">
                 <span className="log-turn">T{group.turn}</span>
                 <span className="log-player">
-                  {group.player === humanPlayerId ? 'You' : 'Bot'}
+                  {playerDisplayName(group.player, humanPlayerId)}
                 </span>
               </div>
               <ol className="log-turn-entries">
@@ -61,7 +62,7 @@ export function LogPanel({
                         <LogSummary
                           summary={
                             entry.player !== group.player
-                              ? `[${entry.player === humanPlayerId ? 'You' : 'Bot'}] ${entry.summary}`
+                              ? `[${playerDisplayName(entry.player, humanPlayerId)}] ${entry.summary}`
                               : entry.summary
                           }
                         />
