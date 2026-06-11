@@ -282,10 +282,11 @@ export function useGameAnimations({
       }
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
-        const drawnIds = queuedCardFlights
-          .filter((f) => f.variant === 'draw' && f.cardId != null)
-          .map((f) => f.cardId as CardId);
-        if (drawnIds.length > 0) {
+        const drawFlights = queuedCardFlights.filter(
+          (f) => f.variant === 'draw' && f.cardId != null
+        );
+        if (drawFlights.length > 0) {
+          const drawnIds = drawFlights.map((f) => f.cardId as CardId);
           setPendingDrawCardIds((existing) => [...existing, ...drawnIds]);
         }
       }
@@ -299,6 +300,15 @@ export function useGameAnimations({
         onCommitTransition(previousState, nextState, action);
       }
       actionCommitTimers.clearAll();
+      const drawFlightsForTimer = queuedCardFlights.filter(
+        (f) => f.variant === 'draw' && f.cardId != null
+      );
+      if (drawFlightsForTimer.length > 0) {
+        const drawSettleMs = cardFlightSettleMs(drawFlightsForTimer);
+        actionCommitTimers.schedule(drawSettleMs, () => {
+          setPendingDrawCardIds([]);
+        });
+      }
       actionCommitTimers.schedule(settleMs, () => {
         if (!shouldCommitBeforeAnimationSettle(action)) {
           onCommitTransition(previousState, nextState, action);
