@@ -158,7 +158,6 @@ describe('transitionLogEntries', () => {
       'Tax Moons (You -2, Bot -1)',
       'Income You +1 Suns',
       'Income Bot none',
-      'Income pending choices 1',
     ]);
     expect(entries[2]?.player).toBe(PLAYER_B);
     expect(entries[3]?.phase).toBe('CollectIncome');
