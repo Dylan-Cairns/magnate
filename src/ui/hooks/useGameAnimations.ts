@@ -17,19 +17,22 @@ import {
   shouldAllowHumanActionsDuringAnimationSettle,
   shouldCommitBeforeAnimationSettle,
 } from '../animations/timing';
-import {
-  applyTurnCycleResourcePreviewEvent,
-  buildTurnCycleResourcePreviewPlan,
-  type ResourcePreviewByPlayer,
-} from '../animations/turnCycleResourcePreview';
 import type {
   TurnCycleAnimationPlan,
   TurnCycleVisualPlan,
 } from '../animations/turnCycleVisualPlan';
+import type { CardFlight, ResourceFlight } from '../animations/types';
+import {
+  derivePresentationSnapshot,
+  type PresentationSnapshot,
+} from '../runtime/presentation';
+import { buildPresentationTimeline } from '../runtime/timeline';
+import { deriveGamePresentationEvents } from '../runtime/transactions';
 import type {
-  CardFlight,
-  ResourceFlight,
-} from '../animations/types';
+  GameTransaction,
+  PresentationTimeline,
+  PresentationTimelineEvent,
+} from '../runtime/types';
 
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 
@@ -37,6 +40,7 @@ type RunTransitionOptions = {
   previousState: GameState;
   nextState: GameState;
   action: GameAction;
+  actingPlayerId: PlayerId;
   resourceFlights: readonly ResourceFlight[];
   cardFlights: readonly CardFlight[];
   turnCyclePlan: TurnCycleAnimationPlan | null;
@@ -67,13 +71,10 @@ export function useGameAnimations({
   const [incomeHighlightCrowns, setIncomeHighlightCrowns] = useState<
     ReadonlyArray<{ playerId: PlayerId; suit: Suit }>
   >([]);
-  const [incomeResourcePreviewByPlayer, setIncomeResourcePreviewByPlayer] =
-    useState<ResourcePreviewByPlayer>(null);
+  const [presentationSnapshot, setPresentationSnapshot] =
+    useState<PresentationSnapshot | null>(null);
   const [pendingDiscardHoldback, setPendingDiscardHoldback] =
     useState<number>(0);
-  const [pendingDrawCardIds, setPendingDrawCardIds] = useState<
-    ReadonlyArray<CardId>
-  >([]);
   const [activePlayerHighlightOverride, setActivePlayerHighlightOverride] =
     useState<PlayerId | null>(null);
   const [actionCommitPending, setActionCommitPending] =
@@ -135,7 +136,6 @@ export function useGameAnimations({
     clearTaxPulseElements();
     setIncomeHighlightCardIds([]);
     setIncomeHighlightCrowns([]);
-    setIncomeResourcePreviewByPlayer(null);
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
   const scheduleTurnCycleVisuals = useCallback(
     (plan: TurnCycleVisualPlan | null, startDelayMs = 0) => {
@@ -225,48 +225,20 @@ export function useGameAnimations({
       turnCycleVisualTimers,
     ]
   );
-  const scheduleTurnCycleResourcePreview = useCallback(
-    (
-      previousState: GameState,
-      nextState: GameState,
-      turnCyclePlan: TurnCycleAnimationPlan,
-      startDelayMs = 0
-    ) => {
-      const previewPlan = buildTurnCycleResourcePreviewPlan(
-        previousState,
-        nextState,
-        turnCyclePlan
-      );
-      if (startDelayMs > 0) {
-        turnCycleVisualTimers.schedule(startDelayMs, () => {
-          setIncomeResourcePreviewByPlayer(previewPlan.initialPreview);
-        });
-      } else {
-        setIncomeResourcePreviewByPlayer(previewPlan.initialPreview);
-      }
-      for (const event of previewPlan.events) {
-        turnCycleVisualTimers.schedule(startDelayMs + event.atMs, () => {
-          setIncomeResourcePreviewByPlayer((existing) =>
-            applyTurnCycleResourcePreviewEvent(existing, event)
-          );
-        });
-      }
-    },
-    [turnCycleVisualTimers]
-  );
   const clearPendingActionCommit = useCallback(() => {
     actionCommitTimers.clearAll();
     setActionCommitPending(false);
     setActivePlayerHighlightOverride(null);
     setAllowHumanActionsWhileCommitPending(false);
+    setPresentationSnapshot(null);
   }, [actionCommitTimers]);
   const clearAllFlights = useCallback(() => {
     setResourceFlights([]);
     setCardFlights([]);
     setPendingDiscardHoldback(0);
-    setPendingDrawCardIds([]);
     setActivePlayerHighlightOverride(null);
     setAllowHumanActionsWhileCommitPending(false);
+    setPresentationSnapshot(null);
     clearTurnCycleVisuals();
   }, [clearTurnCycleVisuals]);
   const runTransition = useCallback(
@@ -274,6 +246,7 @@ export function useGameAnimations({
       previousState,
       nextState,
       action,
+      actingPlayerId,
       resourceFlights: queuedResourceFlights,
       cardFlights: queuedCardFlights,
       turnCyclePlan,
@@ -290,13 +263,28 @@ export function useGameAnimations({
         turnCyclePlan?.visualPlan ?? null,
         turnCycleStartDelayMs
       );
-      if (action.type === 'end-turn' && turnCyclePlan) {
-        scheduleTurnCycleResourcePreview(
-          previousState,
-          nextState,
-          turnCyclePlan,
-          turnCycleStartDelayMs
+      const presentationTransaction = buildPresentationTransactionForTransition(
+        previousState,
+        nextState,
+        action,
+        actingPlayerId,
+        queuedResourceFlights,
+        drawFlightsForTimer,
+        turnCyclePlan
+      );
+      const presentationTimeline = presentationTransaction
+        ? buildPresentationTimeline(presentationTransaction)
+        : null;
+      if (presentationTransaction && presentationTimeline) {
+        setPresentationSnapshot(
+          derivePresentationSnapshot({
+            transaction: presentationTransaction,
+            timeline: presentationTimeline,
+            elapsedMs: 0,
+          })
         );
+      } else {
+        setPresentationSnapshot(null);
       }
 
       const settleMs = Math.max(
@@ -309,6 +297,7 @@ export function useGameAnimations({
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
         setActivePlayerHighlightOverride(null);
+        setPresentationSnapshot(null);
         setAllowHumanActionsWhileCommitPending(
           shouldAllowHumanActionsDuringAnimationSettle(action)
         );
@@ -325,13 +314,6 @@ export function useGameAnimations({
       }
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
-        const drawFlights = queuedCardFlights.filter(
-          (f) => f.variant === 'draw' && f.cardId != null
-        );
-        if (drawFlights.length > 0) {
-          const drawnIds = drawFlights.map((f) => f.cardId as CardId);
-          setPendingDrawCardIds((existing) => [...existing, ...drawnIds]);
-        }
       }
       setActivePlayerHighlightOverride(
         activeHighlightOverrideForTransition(
@@ -346,14 +328,22 @@ export function useGameAnimations({
           action.type !== 'choose-income-suit'
       );
       setActionCommitPending(true);
+      actionCommitTimers.clearAll();
+      if (presentationTransaction && presentationTimeline) {
+        schedulePresentationSnapshots(
+          presentationTransaction,
+          presentationTimeline,
+          settleMs,
+          actionCommitTimers,
+          setPresentationSnapshot
+        );
+      }
       if (shouldCommitBeforeAnimationSettle(action)) {
         onCommitTransition(previousState, nextState, action);
       }
-      actionCommitTimers.clearAll();
       if (drawFlightsForTimer.length > 0) {
         const drawSettleMs = cardFlightSettleMs(drawFlightsForTimer);
         actionCommitTimers.schedule(drawSettleMs, () => {
-          setPendingDrawCardIds([]);
           setActivePlayerHighlightOverride(null);
         });
       }
@@ -364,9 +354,9 @@ export function useGameAnimations({
         setResourceFlights([]);
         setCardFlights([]);
         setPendingDiscardHoldback(0);
-        setPendingDrawCardIds([]);
         setActivePlayerHighlightOverride(null);
         setAllowHumanActionsWhileCommitPending(false);
+        setPresentationSnapshot(null);
         clearTurnCycleVisuals();
         onSettle?.();
         setActionCommitPending(false);
@@ -376,7 +366,6 @@ export function useGameAnimations({
       actionCommitTimers,
       clearTurnCycleVisuals,
       onCommitTransition,
-      scheduleTurnCycleResourcePreview,
       scheduleTurnCycleVisuals,
     ]
   );
@@ -400,9 +389,8 @@ export function useGameAnimations({
     cardFlights,
     incomeHighlightCardIds,
     incomeHighlightCrowns,
-    incomeResourcePreviewByPlayer,
+    presentationSnapshot,
     pendingDiscardHoldback,
-    pendingDrawCardIds,
     activePlayerHighlightOverride,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
@@ -433,6 +421,69 @@ export function turnCycleStartDelayForTransition(
     return 0;
   }
   return cardFlightSettleMs(drawFlights);
+}
+
+function buildPresentationTransactionForTransition(
+  previousState: GameState,
+  nextState: GameState,
+  action: GameAction,
+  actingPlayerId: PlayerId,
+  resourceFlights: readonly ResourceFlight[],
+  drawFlights: readonly CardFlight[],
+  turnCyclePlan: TurnCycleAnimationPlan | null
+): GameTransaction | null {
+  const shouldUseRuntime =
+    (action.type === 'end-turn' &&
+      (turnCyclePlan !== null || drawFlights.length > 0)) ||
+    (action.type === 'choose-income-suit' && resourceFlights.length > 0);
+  if (!shouldUseRuntime) {
+    return null;
+  }
+
+  return {
+    id: `${previousState.seed}:${previousState.turn}:${previousState.phase}:${action.type}`,
+    previousState,
+    nextState,
+    action,
+    actingPlayerId,
+    events: deriveGamePresentationEvents(
+      previousState,
+      nextState,
+      action,
+      actingPlayerId
+    ),
+  };
+}
+
+function schedulePresentationSnapshots(
+  transaction: GameTransaction,
+  timeline: PresentationTimeline,
+  settleMs: number,
+  timers: AnimationTimerRegistry,
+  setSnapshot: (snapshot: PresentationSnapshot | null) => void
+): void {
+  const updateTimes = uniquePresentationUpdateTimes(timeline.events).filter(
+    (atMs) => atMs > 0 && atMs < settleMs
+  );
+  for (const atMs of updateTimes) {
+    timers.schedule(atMs, () => {
+      setSnapshot(
+        derivePresentationSnapshot({
+          transaction,
+          timeline,
+          elapsedMs: atMs,
+        })
+      );
+    });
+  }
+}
+
+function uniquePresentationUpdateTimes(
+  events: readonly PresentationTimelineEvent[]
+): number[] {
+  return [...new Set(events.map((event) => event.atMs))].sort(
+    (left, right) => left - right
+  );
 }
 
 function readAnimationsEnabledPreference(): boolean {

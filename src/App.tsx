@@ -68,7 +68,14 @@ const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
 const DECK_MAP_INTERACTIVE_KEY = 'magnate:deckMapInteractive';
 
-const ALL_SUITS: Suit[] = ['Moons', 'Suns', 'Waves', 'Leaves', 'Wyrms', 'Knots'];
+const ALL_SUITS: Suit[] = [
+  'Moons',
+  'Suns',
+  'Waves',
+  'Leaves',
+  'Wyrms',
+  'Knots',
+];
 const SUIT_CARD_IDS = new Map<Suit, ReadonlyArray<CardId>>(
   ALL_SUITS.map((suit) => [
     suit,
@@ -141,6 +148,7 @@ export function App() {
   );
   const {
     state,
+    viewState,
     humanView,
     pendingNextDistricts,
     timelineLog,
@@ -164,9 +172,7 @@ export function App() {
       cardFlights,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
-      incomeResourcePreviewByPlayer,
       pendingDiscardHoldback,
-      pendingDrawCardIds,
       activePlayerHighlightOverride,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,
@@ -244,12 +250,15 @@ export function App() {
     persistBooleanPreference(DECK_MAP_INTERACTIVE_KEY, deckMapInteractive);
   }, [deckMapInteractive]);
 
-  const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
+  const isLastTurn = !terminal && (viewState.finalTurnsRemaining ?? 0) > 0;
   const holdPreviousRoll = turnCyclePreludeActive || terminal;
-  const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
+  const score = useMemo(
+    () => viewState.finalScore ?? scoreLive(viewState),
+    [viewState]
+  );
   const wonDistrictsByPlayer = useMemo(
-    () => districtWinnersByPlayer(state),
-    [state]
+    () => districtWinnersByPlayer(viewState),
+    [viewState]
   );
 
   const gameRecordedRef = useRef(false);
@@ -276,9 +285,9 @@ export function App() {
       };
     }
     const inCirculation = new Set<CardId>([
-      ...state.deck.draw,
-      ...state.players.flatMap((p) => p.hand),
-      ...(state.deck.reshuffles === 0 ? state.deck.discard : []),
+      ...viewState.deck.draw,
+      ...viewState.players.flatMap((p) => p.hand),
+      ...(viewState.deck.reshuffles === 0 ? viewState.deck.discard : []),
     ]);
     // Cards about to leave circulation once the current animation commits
     const pendingCards = new Set<CardId>();
@@ -303,12 +312,14 @@ export function App() {
     // Suit-node dimming: a suit dims when every one of its property cards is gone
     const dimmedSuits = new Set<Suit>();
     for (const [suit, cardIds] of SUIT_CARD_IDS) {
-      if (cardIds.every((id) => !inCirculation.has(id) || pendingCards.has(id))) {
+      if (
+        cardIds.every((id) => !inCirculation.has(id) || pendingCards.has(id))
+      ) {
         dimmedSuits.add(suit);
       }
     }
     return { dimmedCardIds, dimmedSuits };
-  }, [deckMapInteractive, state, pendingNextDistricts]);
+  }, [deckMapInteractive, viewState, pendingNextDistricts]);
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
   );
@@ -316,8 +327,8 @@ export function App() {
     (player) => player.id === BOT_PLAYER
   );
   const pendingIncomeChoiceCardIds = useMemo(
-    () => (state.pendingIncomeChoices ?? []).map((choice) => choice.cardId),
-    [state.pendingIncomeChoices]
+    () => (viewState.pendingIncomeChoices ?? []).map((choice) => choice.cardId),
+    [viewState.pendingIncomeChoices]
   );
   const incomeHighlightCardIdSet = useMemo(
     () =>
@@ -388,10 +399,19 @@ export function App() {
   } else if (actionPicker) {
     const isIllegal =
       actionPicker.kind === 'trade-combined'
-        ? !tradeCompositePickerStillLegal(actionPicker, humanActionsAcceptingInput)
+        ? !tradeCompositePickerStillLegal(
+            actionPicker,
+            humanActionsAcceptingInput
+          )
         : actionPicker.kind === 'develop-outright-combined'
-          ? !developOutrightCompositePickerStillLegal(actionPicker, humanActionsAcceptingInput)
-          : !pickerStillLegal(toPickerQuery(actionPicker), humanActionsAcceptingInput);
+          ? !developOutrightCompositePickerStillLegal(
+              actionPicker,
+              humanActionsAcceptingInput
+            )
+          : !pickerStillLegal(
+              toPickerQuery(actionPicker),
+              humanActionsAcceptingInput
+            );
     if (isIllegal) closeActionPicker();
   }
 
@@ -614,37 +634,6 @@ export function App() {
     );
   }
 
-  const humanPreviewResources = incomeResourcePreviewByPlayer?.[HUMAN_PLAYER];
-  const botPreviewResources = incomeResourcePreviewByPlayer?.[BOT_PLAYER];
-  const humanRailPlayer = humanPreviewResources
-    ? {
-        ...humanPlayer,
-        resources: humanPreviewResources,
-      }
-    : humanPlayer;
-  const botRailPlayer = botPreviewResources
-    ? {
-        ...botPlayer,
-        resources: botPreviewResources,
-      }
-    : botPlayer;
-  const humanPanelPlayer =
-    pendingDrawCardIds.length > 0
-      ? {
-          ...humanPlayer,
-          hand: humanPlayer.hand.filter(
-            (id) => !pendingDrawCardIds.includes(id)
-          ),
-        }
-      : humanPlayer;
-  const botPendingDrawCount = pendingDrawCardIds.filter(
-    (id) => !humanPlayer.hand.includes(id)
-  ).length;
-  const botPanelPlayer =
-    botPendingDrawCount > 0
-      ? { ...botPlayer, handCount: botPlayer.handCount - botPendingDrawCount }
-      : botPlayer;
-
   return (
     <div className="app-shell">
       {error && (
@@ -712,7 +701,7 @@ export function App() {
           />
 
           <PlayerPanel
-            player={humanPanelPlayer}
+            player={humanPlayer}
             isActive={!terminal && visualActivePlayerId === HUMAN_PLAYER}
             score={score}
             terminal={terminal}
@@ -739,7 +728,7 @@ export function App() {
               />
             </div>
             <PlayerTokenRail
-              player={botRailPlayer}
+              player={botPlayer}
               side="bot"
               highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
                 BOT_PLAYER
@@ -759,7 +748,7 @@ export function App() {
             ))}
           </div>
           <PlayerTokenRail
-            player={humanRailPlayer}
+            player={humanPlayer}
             side="human"
             highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
               HUMAN_PLAYER
@@ -770,7 +759,7 @@ export function App() {
         <aside className="info-pane">
           <div className="bot-info-row">
             <BotHandPanel
-              player={botPanelPlayer}
+              player={botPlayer}
               isActive={!terminal && visualActivePlayerId === BOT_PLAYER}
               score={score}
               terminal={terminal}
@@ -788,8 +777,18 @@ export function App() {
           </div>
 
           <div className="log-map-stack">
-            {logVisible && <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />}
-            {mapVisible && <DecktetSuitDiagram dimmedCardIds={dimmedCardIds} dimmedSuits={dimmedSuits} />}
+            {logVisible && (
+              <LogPanel
+                timelineLog={timelineLog}
+                humanPlayerId={HUMAN_PLAYER}
+              />
+            )}
+            {mapVisible && (
+              <DecktetSuitDiagram
+                dimmedCardIds={dimmedCardIds}
+                dimmedSuits={dimmedSuits}
+              />
+            )}
           </div>
 
           <OptionsMenu
@@ -805,10 +804,10 @@ export function App() {
             newGameButtonRef={newGameButtonRef}
             onBugReport={handleOpenBugReport}
             onToggle={() => {
-                setBugReportOpen(false);
-                closeNewGame();
-                setOptionsMenuOpen((open) => !open);
-              }}
+              setBugReportOpen(false);
+              closeNewGame();
+              setOptionsMenuOpen((open) => !open);
+            }}
             onNewGameToggle={handleNewGameToggle}
             onBotProfileChange={setBotProfileId}
             onAnimationsEnabledChange={setAnimationsEnabled}

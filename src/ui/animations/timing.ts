@@ -1,10 +1,4 @@
-import type {
-  GameAction,
-  GameState,
-  PlayerId,
-  ResourcePool,
-  Suit,
-} from '../../engine/types';
+import type { GameAction } from '../../engine/types';
 import type { CardFlight, ResourceFlight } from './types';
 
 export const RESOURCE_FLIGHT_DURATION_MS = 280;
@@ -66,41 +60,4 @@ export function shouldAllowHumanActionsDuringAnimationSettle(
   action: GameAction
 ): boolean {
   return action.type === 'end-turn' || action.type === 'choose-income-suit';
-}
-
-export function buildResourcePreviewByPlayer(
-  state: GameState
-): Partial<Record<PlayerId, ResourcePool>> {
-  const preview: Partial<Record<PlayerId, ResourcePool>> = {};
-  for (const player of state.players) {
-    preview[player.id] = { ...player.resources };
-  }
-  return preview;
-}
-
-export function applySingleTaxLossToPreview(
-  preview: Partial<Record<PlayerId, ResourcePool>> | null,
-  token: { playerId: PlayerId; suit: Suit }
-): Partial<Record<PlayerId, ResourcePool>> | null {
-  if (!preview) {
-    return preview;
-  }
-
-  const resources = preview[token.playerId];
-  if (!resources) {
-    return preview;
-  }
-
-  const count = resources[token.suit];
-  if (count <= 0) {
-    return preview;
-  }
-
-  return {
-    ...preview,
-    [token.playerId]: {
-      ...resources,
-      [token.suit]: Math.max(0, count - 1),
-    },
-  };
 }
