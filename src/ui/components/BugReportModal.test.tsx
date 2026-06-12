@@ -16,7 +16,7 @@ describe('BugReportModal', () => {
     );
 
     expect(html).toContain('See a bug?');
-    expect(html).toContain('To report a bug:');
+    expect(html).toContain('A report would be appreciated. To file:');
     expect(html).toContain('download');
     expect(html).toContain('file a new bug');
     expect(html).toContain(
