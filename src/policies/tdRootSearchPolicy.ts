@@ -231,8 +231,9 @@ function tdRootLogits({
   label: string;
 }): Float32Array {
   const observation = encodeObservation(view);
-  const actionFeatures = encodeActionCandidates(actions);
-  const logits = model.opponentScorer.logits(observation, actionFeatures);
+  const logits = model.opponentScorer.logitsForActions
+    ? model.opponentScorer.logitsForActions(observation, actions)
+    : model.opponentScorer.logits(observation, encodeActionCandidates(actions));
   if (logits.length !== actionKeys.length) {
     throw new Error(
       `TD root search ${label} logits length mismatch. logits=${String(logits.length)} actions=${String(actionKeys.length)}.`

@@ -163,48 +163,57 @@ export function encodeActionCandidates(
 }
 
 export function encodeAction(action: GameAction): number[] {
-  const payload = action as unknown as Partial<Record<string, unknown>>;
-  const vector: number[] = [];
+  const vector = new Array<number>(ACTION_FEATURE_DIM).fill(0.0);
+  encodeActionInto(action, vector);
+  return vector;
+}
 
-  vector.push(
-    ...oneHot(ACTION_ID_INDEX.get(action.type) ?? -1, ACTION_IDS.length)
+export function encodeActionInto(
+  action: GameAction,
+  vector: { [index: number]: number; length: number }
+): void {
+  if (vector.length !== ACTION_FEATURE_DIM) {
+    throw new Error(
+      `Action feature output length mismatch. expected=${ACTION_FEATURE_DIM}, actual=${vector.length}`
+    );
+  }
+  fillVector(vector, 0.0);
+  const payload = action as unknown as Partial<Record<string, unknown>>;
+
+  writeOneHot(
+    vector,
+    0,
+    ACTION_ID_INDEX.get(action.type) ?? -1,
+    ACTION_IDS.length
   );
 
   const cardId = asString(payload.cardId);
   const cardRank = cardRankFromId(cardId);
-  vector.push(norm(cardNumericId(cardId), MAX_CARD_ID));
-  vector.push(norm(cardRank, 10.0));
+  vector[7] = norm(cardNumericId(cardId), MAX_CARD_ID);
+  vector[8] = norm(cardRank, 10.0);
 
   const districtId = asString(payload.districtId);
-  vector.push(norm(districtIndex(districtId), 5.0));
+  vector[9] = norm(districtIndex(districtId), 5.0);
 
   const playerId = payload.playerId;
   const playerIndex =
     playerId === 'PlayerA' || playerId === 'PlayerB'
       ? (PLAYER_INDEX.get(playerId) ?? -1)
       : -1;
-  vector.push(...oneHot(playerIndex, 2));
+  writeOneHot(vector, 10, playerIndex, 2);
 
-  vector.push(...suitOneHot(suitOrUndefined(payload.suit)));
-  vector.push(...suitOneHot(suitOrUndefined(payload.give)));
-  vector.push(...suitOneHot(suitOrUndefined(payload.receive)));
+  writeSuitOneHot(vector, 12, suitOrUndefined(payload.suit));
+  writeSuitOneHot(vector, 18, suitOrUndefined(payload.give));
+  writeSuitOneHot(vector, 24, suitOrUndefined(payload.receive));
 
   const tokenMap =
     mapFromUnknown(payload.payment) ?? mapFromUnknown(payload.tokens) ?? {};
-  const tokenVector = resourceVector(tokenMap, MAX_TOKEN_COUNT);
-  vector.push(...tokenVector);
-  vector.push(norm(sumResourceMap(tokenMap), MAX_TOKEN_COUNT));
+  writeResourceVector(vector, 30, tokenMap, MAX_TOKEN_COUNT);
+  vector[36] = norm(sumResourceMap(tokenMap), MAX_TOKEN_COUNT);
 
-  vector.push(cardId ? 1.0 : 0.0);
-  vector.push(districtId ? 1.0 : 0.0);
-  vector.push(isPropertyCard(cardId) ? 1.0 : 0.0);
-
-  if (vector.length !== ACTION_FEATURE_DIM) {
-    throw new Error(
-      `Action feature length mismatch. expected=${ACTION_FEATURE_DIM}, actual=${vector.length}`
-    );
-  }
-  return vector;
+  vector[37] = cardId ? 1.0 : 0.0;
+  vector[38] = districtId ? 1.0 : 0.0;
+  vector[39] = isPropertyCard(cardId) ? 1.0 : 0.0;
 }
 
 function districtStackFeatures(stack: {
@@ -443,6 +452,49 @@ function oneHot(index: number, length: number): number[] {
     out[index] = 1.0;
   }
   return out;
+}
+
+function writeOneHot(
+  vector: { [index: number]: number },
+  offset: number,
+  index: number,
+  length: number
+): void {
+  if (index >= 0 && index < length) {
+    vector[offset + index] = 1.0;
+  }
+}
+
+function writeSuitOneHot(
+  vector: { [index: number]: number },
+  offset: number,
+  suit: Suit | undefined
+): void {
+  writeOneHot(vector, offset, suit ? (SUIT_INDEX.get(suit) ?? -1) : -1, 6);
+}
+
+function writeResourceVector(
+  vector: { [index: number]: number },
+  offset: number,
+  resourceMap:
+    | Partial<Record<Suit, number>>
+    | Record<string, unknown>
+    | undefined,
+  normalizeBy: number
+): void {
+  for (let index = 0; index < SUITS.length; index += 1) {
+    const suit = SUITS[index];
+    vector[offset + index] = norm(asInt(resourceMap?.[suit]), normalizeBy);
+  }
+}
+
+function fillVector(
+  vector: { [index: number]: number; length: number },
+  value: number
+): void {
+  for (let index = 0; index < vector.length; index += 1) {
+    vector[index] = value;
+  }
 }
 
 function asInt(value: unknown): number {
