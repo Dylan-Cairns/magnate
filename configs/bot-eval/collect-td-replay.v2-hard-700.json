@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "v2-hard-laptop-700",
+  "seedPrefix": "v2-hard-laptop-700",
+  "games": 700,
+  "playerA": {
+    "id": "v2-hard-teacher-a",
+    "kind": "search",
+    "config": {
+      "worlds": 50,
+      "rollouts": 1,
+      "depth": 270,
+      "maxRootActions": 16,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2"
+    }
+  },
+  "playerB": {
+    "id": "v2-hard-teacher-b",
+    "kind": "search",
+    "config": {
+      "worlds": 50,
+      "rollouts": 1,
+      "depth": 270,
+      "maxRootActions": 16,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2"
+    }
+  }
+}
