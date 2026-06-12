@@ -79,7 +79,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         worlds: 10,
         rollouts: 1,
         depth: 40,
-        maxRootActions: 16,
+        maxRootActions: 10,
         rolloutEpsilon: 0.0,
       },
     },
