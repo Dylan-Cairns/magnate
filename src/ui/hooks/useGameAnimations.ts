@@ -138,7 +138,7 @@ export function useGameAnimations({
     setIncomeResourcePreviewByPlayer(null);
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
   const scheduleTurnCycleVisuals = useCallback(
-    (plan: TurnCycleVisualPlan | null) => {
+    (plan: TurnCycleVisualPlan | null, startDelayMs = 0) => {
       clearTurnCycleVisuals();
       if (!plan) {
         return;
@@ -149,51 +149,69 @@ export function useGameAnimations({
           plan.taxPulseStartAtMs !== null &&
           plan.taxPulseTargets.length > 0
         ) {
-          turnCycleVisualTimers.schedule(plan.taxPulseStartAtMs, () => {
-            applyTaxPulseTargets(plan.taxPulseTargets);
-          });
+          turnCycleVisualTimers.schedule(
+            startDelayMs + plan.taxPulseStartAtMs,
+            () => {
+              applyTaxPulseTargets(plan.taxPulseTargets);
+            }
+          );
         }
         if (plan.taxPulseEndAtMs !== null) {
-          turnCycleVisualTimers.schedule(plan.taxPulseEndAtMs, () => {
-            clearTaxPulseElements();
-          });
+          turnCycleVisualTimers.schedule(
+            startDelayMs + plan.taxPulseEndAtMs,
+            () => {
+              clearTaxPulseElements();
+            }
+          );
         }
         if (
           plan.taxFlightLaunchAtMs !== null &&
           plan.taxFlightTokens.length > 0
         ) {
-          turnCycleVisualTimers.schedule(plan.taxFlightLaunchAtMs, () => {
-            const taxFlights = buildTaxLossFlightsFromDom(
-              plan.taxFlightTokens,
-              makeResourceFlightId
-            );
-            if (taxFlights.length === 0) {
-              return;
+          turnCycleVisualTimers.schedule(
+            startDelayMs + plan.taxFlightLaunchAtMs,
+            () => {
+              const taxFlights = buildTaxLossFlightsFromDom(
+                plan.taxFlightTokens,
+                makeResourceFlightId
+              );
+              if (taxFlights.length === 0) {
+                return;
+              }
+              setResourceFlights((existing) => [...existing, ...taxFlights]);
             }
-            setResourceFlights((existing) => [...existing, ...taxFlights]);
-          });
+          );
         }
       }
 
-      turnCycleVisualTimers.schedule(plan.incomeFlightLaunchAtMs, () => {
-        const incomeFlights = buildIncomeFlightsFromDom(
-          plan.incomeFlightTokens,
-          makeResourceFlightId
-        );
-        if (incomeFlights.length === 0) {
-          return;
+      turnCycleVisualTimers.schedule(
+        startDelayMs + plan.incomeFlightLaunchAtMs,
+        () => {
+          const incomeFlights = buildIncomeFlightsFromDom(
+            plan.incomeFlightTokens,
+            makeResourceFlightId
+          );
+          if (incomeFlights.length === 0) {
+            return;
+          }
+          setResourceFlights((existing) => [...existing, ...incomeFlights]);
         }
-        setResourceFlights((existing) => [...existing, ...incomeFlights]);
-      });
-      turnCycleVisualTimers.schedule(plan.incomeHighlightStartAtMs, () => {
-        setIncomeHighlightCardIds(plan.highlightCardIds);
-        setIncomeHighlightCrowns(plan.highlightCrowns);
-      });
-      turnCycleVisualTimers.schedule(plan.incomeHighlightEndAtMs, () => {
-        setIncomeHighlightCardIds([]);
-        setIncomeHighlightCrowns([]);
-      });
-      turnCycleVisualTimers.schedule(plan.hideAllAtMs, () => {
+      );
+      turnCycleVisualTimers.schedule(
+        startDelayMs + plan.incomeHighlightStartAtMs,
+        () => {
+          setIncomeHighlightCardIds(plan.highlightCardIds);
+          setIncomeHighlightCrowns(plan.highlightCrowns);
+        }
+      );
+      turnCycleVisualTimers.schedule(
+        startDelayMs + plan.incomeHighlightEndAtMs,
+        () => {
+          setIncomeHighlightCardIds([]);
+          setIncomeHighlightCrowns([]);
+        }
+      );
+      turnCycleVisualTimers.schedule(startDelayMs + plan.hideAllAtMs, () => {
         clearTaxPulseElements();
         setIncomeHighlightCardIds([]);
         setIncomeHighlightCrowns([]);
@@ -211,16 +229,23 @@ export function useGameAnimations({
     (
       previousState: GameState,
       nextState: GameState,
-      turnCyclePlan: TurnCycleAnimationPlan
+      turnCyclePlan: TurnCycleAnimationPlan,
+      startDelayMs = 0
     ) => {
       const previewPlan = buildTurnCycleResourcePreviewPlan(
         previousState,
         nextState,
         turnCyclePlan
       );
-      setIncomeResourcePreviewByPlayer(previewPlan.initialPreview);
+      if (startDelayMs > 0) {
+        turnCycleVisualTimers.schedule(startDelayMs, () => {
+          setIncomeResourcePreviewByPlayer(previewPlan.initialPreview);
+        });
+      } else {
+        setIncomeResourcePreviewByPlayer(previewPlan.initialPreview);
+      }
       for (const event of previewPlan.events) {
-        turnCycleVisualTimers.schedule(event.atMs, () => {
+        turnCycleVisualTimers.schedule(startDelayMs + event.atMs, () => {
           setIncomeResourcePreviewByPlayer((existing) =>
             applyTurnCycleResourcePreviewEvent(existing, event)
           );
@@ -254,19 +279,32 @@ export function useGameAnimations({
       turnCyclePlan,
       onSettle,
     }: RunTransitionOptions) => {
-      scheduleTurnCycleVisuals(turnCyclePlan?.visualPlan ?? null);
+      const drawFlightsForTimer = queuedCardFlights.filter(
+        (f) => f.variant === 'draw' && f.cardId != null
+      );
+      const turnCycleStartDelayMs =
+        action.type === 'end-turn' && drawFlightsForTimer.length > 0
+          ? cardFlightSettleMs(drawFlightsForTimer)
+          : 0;
+      scheduleTurnCycleVisuals(
+        turnCyclePlan?.visualPlan ?? null,
+        turnCycleStartDelayMs
+      );
       if (action.type === 'end-turn' && turnCyclePlan) {
         scheduleTurnCycleResourcePreview(
           previousState,
           nextState,
-          turnCyclePlan
+          turnCyclePlan,
+          turnCycleStartDelayMs
         );
       }
 
       const settleMs = Math.max(
         resourceFlightSettleMs(queuedResourceFlights),
         cardFlightSettleMs(queuedCardFlights),
-        turnCyclePlan?.totalDurationMs ?? 0
+        turnCyclePlan
+          ? turnCycleStartDelayMs + turnCyclePlan.totalDurationMs
+          : 0
       );
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
@@ -295,9 +333,6 @@ export function useGameAnimations({
           setPendingDrawCardIds((existing) => [...existing, ...drawnIds]);
         }
       }
-      const drawFlightsForTimer = queuedCardFlights.filter(
-        (f) => f.variant === 'draw' && f.cardId != null
-      );
       setActivePlayerHighlightOverride(
         activeHighlightOverrideForTransition(
           action,
