@@ -131,7 +131,7 @@ export function buildTurnCycleVisualPlan(
       suit: token.suit,
     });
   }
-  const incomeHighlightStartAtMs = cursorMs;
+  const incomeHighlightStartAtMs = incomeAnimationStartMs;
   const hasIncomeHighlightTargets =
     highlightCardIds.length > 0 || highlightCrowns.length > 0;
   const minimumHighlightDurationMs = hasIncomeHighlightTargets

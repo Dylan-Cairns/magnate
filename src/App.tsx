@@ -135,6 +135,7 @@ export function App() {
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const closeBugReport = useCallback(() => setBugReportOpen(false), []);
+  const turnCyclePreludeActive = activePlayerHighlightOverride !== null;
   const visualActivePlayerId = activePlayerHighlightOverride ?? activePlayerId;
   const retryStartupPreload = useCallback(() => {
     setStartupPreloadReady(false);
@@ -193,8 +194,12 @@ export function App() {
     [state.pendingIncomeChoices]
   );
   const incomeHighlightCardIdSet = useMemo(
-    () => new Set([...incomeHighlightCardIds, ...pendingIncomeChoiceCardIds]),
-    [incomeHighlightCardIds, pendingIncomeChoiceCardIds]
+    () =>
+      new Set([
+        ...incomeHighlightCardIds,
+        ...(actionCommitPending ? [] : pendingIncomeChoiceCardIds),
+      ]),
+    [actionCommitPending, incomeHighlightCardIds, pendingIncomeChoiceCardIds]
   );
   const incomeHighlightCrownSuitsByPlayer = useMemo(() => {
     const byPlayer = new Map<PlayerId, Set<Suit>>([
@@ -582,8 +587,12 @@ export function App() {
           <div className="board-top-row">
             <div className="dice-float">
               <RollResult
-                roll={humanView.lastIncomeRoll}
-                taxSuit={humanView.lastTaxSuit}
+                roll={
+                  turnCyclePreludeActive ? undefined : humanView.lastIncomeRoll
+                }
+                taxSuit={
+                  turnCyclePreludeActive ? undefined : humanView.lastTaxSuit
+                }
                 gameKey={state.seed}
               />
             </div>
