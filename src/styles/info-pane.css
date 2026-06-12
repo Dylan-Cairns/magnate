@@ -88,6 +88,17 @@
   isolation: isolate;
 }
 
+.bot-hand-animation-anchor {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--deck-pile-card-width);
+  height: var(--deck-pile-card-height);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
 .bot-hand-fan-card {
   position: absolute;
   left: 50%;

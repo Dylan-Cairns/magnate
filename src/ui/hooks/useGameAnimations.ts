@@ -74,6 +74,8 @@ export function useGameAnimations({
   const [pendingDrawCardIds, setPendingDrawCardIds] = useState<
     ReadonlyArray<CardId>
   >([]);
+  const [activePlayerHighlightOverride, setActivePlayerHighlightOverride] =
+    useState<PlayerId | null>(null);
   const [actionCommitPending, setActionCommitPending] =
     useState<boolean>(false);
   const [
@@ -230,6 +232,7 @@ export function useGameAnimations({
   const clearPendingActionCommit = useCallback(() => {
     actionCommitTimers.clearAll();
     setActionCommitPending(false);
+    setActivePlayerHighlightOverride(null);
     setAllowHumanActionsWhileCommitPending(false);
   }, [actionCommitTimers]);
   const clearAllFlights = useCallback(() => {
@@ -237,6 +240,7 @@ export function useGameAnimations({
     setCardFlights([]);
     setPendingDiscardHoldback(0);
     setPendingDrawCardIds([]);
+    setActivePlayerHighlightOverride(null);
     setAllowHumanActionsWhileCommitPending(false);
     clearTurnCycleVisuals();
   }, [clearTurnCycleVisuals]);
@@ -266,6 +270,7 @@ export function useGameAnimations({
       );
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
+        setActivePlayerHighlightOverride(null);
         setAllowHumanActionsWhileCommitPending(
           shouldAllowHumanActionsDuringAnimationSettle(action)
         );
@@ -290,6 +295,16 @@ export function useGameAnimations({
           setPendingDrawCardIds((existing) => [...existing, ...drawnIds]);
         }
       }
+      const drawFlightsForTimer = queuedCardFlights.filter(
+        (f) => f.variant === 'draw' && f.cardId != null
+      );
+      setActivePlayerHighlightOverride(
+        activeHighlightOverrideForTransition(
+          action,
+          previousState,
+          drawFlightsForTimer
+        )
+      );
       setPendingDiscardHoldback(action.type === 'sell-card' ? 1 : 0);
       setAllowHumanActionsWhileCommitPending(
         shouldAllowHumanActionsDuringAnimationSettle(action) &&
@@ -300,13 +315,11 @@ export function useGameAnimations({
         onCommitTransition(previousState, nextState, action);
       }
       actionCommitTimers.clearAll();
-      const drawFlightsForTimer = queuedCardFlights.filter(
-        (f) => f.variant === 'draw' && f.cardId != null
-      );
       if (drawFlightsForTimer.length > 0) {
         const drawSettleMs = cardFlightSettleMs(drawFlightsForTimer);
         actionCommitTimers.schedule(drawSettleMs, () => {
           setPendingDrawCardIds([]);
+          setActivePlayerHighlightOverride(null);
         });
       }
       actionCommitTimers.schedule(settleMs, () => {
@@ -317,6 +330,7 @@ export function useGameAnimations({
         setCardFlights([]);
         setPendingDiscardHoldback(0);
         setPendingDrawCardIds([]);
+        setActivePlayerHighlightOverride(null);
         setAllowHumanActionsWhileCommitPending(false);
         clearTurnCycleVisuals();
         onSettle?.();
@@ -354,6 +368,7 @@ export function useGameAnimations({
     incomeResourcePreviewByPlayer,
     pendingDiscardHoldback,
     pendingDrawCardIds,
+    activePlayerHighlightOverride,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
     makeResourceFlightId,
@@ -362,6 +377,17 @@ export function useGameAnimations({
     clearAllFlights,
     runTransition,
   };
+}
+
+export function activeHighlightOverrideForTransition(
+  action: GameAction,
+  previousState: GameState,
+  drawFlights: readonly CardFlight[]
+): PlayerId | null {
+  if (action.type !== 'end-turn' || drawFlights.length === 0) {
+    return null;
+  }
+  return previousState.players[previousState.activePlayerIndex]?.id ?? null;
 }
 
 function readAnimationsEnabledPreference(): boolean {

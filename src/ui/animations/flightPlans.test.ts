@@ -187,6 +187,7 @@ describe('flightPlans', () => {
       lane: () => lane,
       districtColumn: () => target,
       laneTargetCenter: () => ({ x: 400, y: 500 }),
+      laneCardSize: () => ({ width: 96, height: 140 }),
     });
 
     expect(
@@ -341,6 +342,8 @@ describe('flightPlans', () => {
         perspective: 'bot',
         endX: 400,
         endY: 500,
+        endWidth: 96,
+        endHeight: 140,
       },
     ]);
 
@@ -388,6 +391,7 @@ function makeTargets(
     districtColumn: () => null,
     laneFrame: () => null,
     laneTargetCenter: () => null,
+    laneCardSize: () => null,
     deckSource: () => null,
     discardTarget: () => null,
     handSource: () => null,

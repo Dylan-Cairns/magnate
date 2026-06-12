@@ -88,6 +88,12 @@ export function BotHandPanel({
           className="bot-hand-fan"
           style={{ '--bot-hand-count': hiddenCardCount } as CSSProperties}
         >
+          <div
+            className="bot-hand-animation-anchor"
+            aria-hidden="true"
+            data-hand-owner-id={botPlayerId}
+            data-hand-animation-anchor="true"
+          />
           {Array.from({ length: hiddenCardCount }).map((_, index) => {
             const angle =
               hiddenCardCount <= 1

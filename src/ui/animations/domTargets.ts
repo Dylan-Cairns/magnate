@@ -7,6 +7,11 @@ export interface Point {
   y: number;
 }
 
+export interface Size {
+  width: number;
+  height: number;
+}
+
 export interface AnimationDomEnvironment {
   isAvailable(): boolean;
   querySelector<T extends Element = HTMLElement>(selectors: string): T | null;
@@ -54,6 +59,10 @@ export interface AnimationDomTargets {
     laneElement: HTMLElement,
     cardHeightPx: number
   ): Point | null;
+  laneCardSize(
+    laneElement: HTMLElement,
+    fallbackElement?: HTMLElement
+  ): Size | null;
   deckSource(): HTMLElement | null;
   discardTarget(): HTMLElement | null;
   handSource(playerId: PlayerId, cardId: CardId): HTMLElement | null;
@@ -106,6 +115,65 @@ export function deedTokenCenterInRail(
 
 function lastMatch<T extends Element>(matches: readonly T[]): T | null {
   return matches.length > 0 ? matches[matches.length - 1] : null;
+}
+
+function middleMatch<T extends Element>(matches: readonly T[]): T | null {
+  return matches.length > 0 ? matches[Math.floor(matches.length / 2)] : null;
+}
+
+function measureCssLength(
+  environment: AnimationDomEnvironment,
+  container: HTMLElement,
+  propertyName: string,
+  cssValue: string,
+  fallbackPx: number
+): number {
+  if (cssValue.length === 0) {
+    return fallbackPx;
+  }
+
+  const probe = environment.createElement('div');
+  probe.style.position = 'absolute';
+  probe.style.visibility = 'hidden';
+  probe.style.pointerEvents = 'none';
+  probe.style.padding = '0';
+  probe.style.margin = '0';
+  probe.style.border = '0';
+  probe.style.width = propertyName === 'width' ? cssValue : '0';
+  probe.style.height = propertyName === 'height' ? cssValue : '0';
+  container.appendChild(probe);
+  const rect = probe.getBoundingClientRect();
+  probe.remove();
+
+  const measured = propertyName === 'width' ? rect.width : rect.height;
+  return measured > 0 ? measured : fallbackPx;
+}
+
+function laneCardSize(
+  environment: AnimationDomEnvironment,
+  laneElement: HTMLElement,
+  fallbackElement?: HTMLElement
+): Size | null {
+  const fallbackRect = fallbackElement?.getBoundingClientRect();
+  const fallbackWidth = fallbackRect?.width ?? 0;
+  const fallbackHeight = fallbackRect?.height ?? 0;
+  const laneStyle = environment.getComputedStyle(laneElement);
+  const width = measureCssLength(
+    environment,
+    laneElement,
+    'width',
+    laneStyle.getPropertyValue('--card-width').trim(),
+    fallbackWidth
+  );
+  const height = measureCssLength(
+    environment,
+    laneElement,
+    'height',
+    laneStyle.getPropertyValue('--card-height').trim(),
+    fallbackHeight
+  );
+
+  return width > 0 && height > 0 ? { width, height } : null;
 }
 
 function stackStepForLane(
@@ -219,15 +287,33 @@ export function createAnimationDomTargets(
     );
   };
 
-  const nestedStackTarget = (stackSelector: string): HTMLElement | null => {
+  const nestedStackTarget = (
+    stackSelector: string,
+    anchorSelector?: string
+  ): HTMLElement | null => {
     const stack = environment.querySelector<HTMLElement>(stackSelector);
     if (!stack) {
       return null;
     }
     return (
+      (anchorSelector
+        ? stack.querySelector<HTMLElement>(anchorSelector)
+        : null) ??
       lastMatch(
         Array.from(stack.querySelectorAll<HTMLElement>('.deck-pile-stack-card'))
       ) ?? stack
+    );
+  };
+
+  const hiddenHandTarget = (escapedPlayerId: string): HTMLElement | null => {
+    const panelSelector = `.player-panel[data-player-id="${escapedPlayerId}"]`;
+    const hiddenSelector = `${panelSelector} .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`;
+    return (
+      environment.querySelector<HTMLElement>(
+        `${panelSelector} [data-hand-owner-id="${escapedPlayerId}"][data-hand-animation-anchor="true"]`
+      ) ??
+      middleMatch(environment.querySelectorAll<HTMLElement>(hiddenSelector)) ??
+      environment.querySelector<HTMLElement>(hiddenSelector)
     );
   };
 
@@ -300,8 +386,18 @@ export function createAnimationDomTargets(
       laneElement.querySelector<HTMLElement>('.lane-stack-frame'),
     laneTargetCenter: (laneElement, cardHeightPx) =>
       laneTargetCenter(environment, laneElement, cardHeightPx),
-    deckSource: () => nestedStackTarget('.deck-pile-stack.is-deck'),
-    discardTarget: () => nestedStackTarget('.deck-pile-stack.is-discard'),
+    laneCardSize: (laneElement, fallbackElement) =>
+      laneCardSize(environment, laneElement, fallbackElement),
+    deckSource: () =>
+      nestedStackTarget(
+        '.deck-pile-stack.is-deck',
+        '.deck-pile-animation-anchor'
+      ),
+    discardTarget: () =>
+      nestedStackTarget(
+        '.deck-pile-stack.is-discard',
+        '.discard-pile-animation-anchor'
+      ),
     handSource: (playerId, cardId) => {
       const escapedPlayerId = cssEscapeValue(playerId);
       const escapedCardId = cssEscapeValue(cardId);
@@ -313,9 +409,7 @@ export function createAnimationDomTargets(
         environment.querySelector<HTMLElement>(
           `${panelSelector} .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="occupied"][data-card-id="${escapedCardId}"]`
         ) ??
-        environment.querySelector<HTMLElement>(
-          `${panelSelector} .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`
-        )
+        hiddenHandTarget(escapedPlayerId)
       );
     },
     handDrawTarget: (playerId) => {
@@ -324,9 +418,7 @@ export function createAnimationDomTargets(
         environment.querySelector<HTMLElement>(
           `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="empty"]`
         ) ??
-        environment.querySelector<HTMLElement>(
-          `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="hidden"]`
-        )
+        hiddenHandTarget(escapedPlayerId)
       );
     },
   };
