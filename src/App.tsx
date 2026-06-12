@@ -114,6 +114,7 @@ export function App() {
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
   const [bugReportOpen, setBugReportOpen] = useState<boolean>(false);
+  const [newGameExpanded, setNewGameExpanded] = useState<boolean>(false);
   const [logVisible, setLogVisible] = useState<boolean>(() =>
     readBooleanPreference(LOG_VISIBLE_KEY, true)
   );
@@ -174,10 +175,13 @@ export function App() {
   const actionPopoverRef = useRef<HTMLElement | null>(null);
   const optionsMenuRef = useRef<HTMLElement | null>(null);
   const optionsMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const newGamePanelRef = useRef<HTMLElement | null>(null);
+  const newGameButtonRef = useRef<HTMLButtonElement | null>(null);
   const seedInputRef = useRef<HTMLInputElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const closeBugReport = useCallback(() => setBugReportOpen(false), []);
+  const closeNewGame = useCallback(() => setNewGameExpanded(false), []);
   const turnCyclePreludeActive = activePlayerHighlightOverride !== null;
   const visualActivePlayerId = activePlayerHighlightOverride ?? activePlayerId;
   const retryStartupPreload = useCallback(() => {
@@ -189,6 +193,10 @@ export function App() {
   const actionPopoverLayerRefs = useMemo(() => [actionPopoverRef], []);
   const optionsMenuLayerRefs = useMemo(
     () => [optionsMenuRef, optionsMenuButtonRef],
+    []
+  );
+  const newGameLayerRefs = useMemo(
+    () => [newGamePanelRef, newGameButtonRef],
     []
   );
   useEffect(() => {
@@ -378,6 +386,12 @@ export function App() {
     insideRefs: optionsMenuLayerRefs,
   });
 
+  useDismissableLayer({
+    enabled: newGameExpanded,
+    onDismiss: closeNewGame,
+    insideRefs: newGameLayerRefs,
+  });
+
   const handleReset = () => {
     const specifiedSeed = seedInputRef.current?.value.trim() ?? '';
     if (seedInputRef.current) {
@@ -385,7 +399,18 @@ export function App() {
     }
     closeActionPicker();
     closeOptionsMenu();
+    closeNewGame();
     resetSession(specifiedSeed || undefined);
+  };
+
+  const handleNewGameToggle = () => {
+    if (newGameExpanded) {
+      handleReset();
+    } else {
+      closeOptionsMenu();
+      closeBugReport();
+      setNewGameExpanded(true);
+    }
   };
 
   const handleOpenBugReport = () => {
@@ -753,12 +778,16 @@ export function App() {
             menuRef={optionsMenuRef}
             buttonRef={optionsMenuButtonRef}
             seedInputRef={seedInputRef}
+            newGameExpanded={newGameExpanded}
+            newGamePanelRef={newGamePanelRef}
+            newGameButtonRef={newGameButtonRef}
             onBugReport={handleOpenBugReport}
             onToggle={() => {
                 setBugReportOpen(false);
+                closeNewGame();
                 setOptionsMenuOpen((open) => !open);
               }}
-            onReset={handleReset}
+            onNewGameToggle={handleNewGameToggle}
             onBotProfileChange={setBotProfileId}
             onAnimationsEnabledChange={setAnimationsEnabled}
             bugReportOpen={bugReportOpen}
@@ -776,6 +805,7 @@ export function App() {
 
       <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
       <OptionsBackdrop open={bugReportOpen} onClose={closeBugReport} />
+      <OptionsBackdrop open={newGameExpanded} onClose={closeNewGame} />
 
       <ResolutionWarningOverlay
         open={resolutionWarningOpen}
