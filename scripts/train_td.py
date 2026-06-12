@@ -185,6 +185,12 @@ def main() -> int:
     opponent_replay = OpponentReplayBuffer(capacity=max(1, 10_000_000))
 
     if train_value:
+        print(
+            "[td-train] loading value replay "
+            f"files={len(args.value_replay)} maxLines={args.value_replay_max_lines}",
+            file=sys.stderr,
+            flush=True,
+        )
         transitions = read_value_transitions_jsonl_many(
             args.value_replay,
             max_transitions=args.value_replay_max_lines,
@@ -192,7 +198,18 @@ def main() -> int:
         value_replay.extend(transitions)
         if len(value_replay) == 0:
             raise SystemExit(f"value replay is empty: {args.value_replay}")
+        print(
+            f"[td-train] loaded value replay rows={len(value_replay)}",
+            file=sys.stderr,
+            flush=True,
+        )
     if train_opponent:
+        print(
+            "[td-train] loading opponent replay "
+            f"files={len(args.opponent_replay)} maxLines={args.opponent_replay_max_lines}",
+            file=sys.stderr,
+            flush=True,
+        )
         samples = read_opponent_samples_jsonl_many(
             args.opponent_replay,
             max_samples=args.opponent_replay_max_lines,
@@ -200,6 +217,11 @@ def main() -> int:
         opponent_replay.extend(samples)
         if len(opponent_replay) == 0:
             raise SystemExit(f"opponent replay is empty: {args.opponent_replay}")
+        print(
+            f"[td-train] loaded opponent replay rows={len(opponent_replay)}",
+            file=sys.stderr,
+            flush=True,
+        )
 
     value_model = None
     value_target_model = None
@@ -236,8 +258,18 @@ def main() -> int:
             ),
         )
         if args.value_target_mode == TD_VALUE_TARGET_MODE_TD_LAMBDA:
+            print(
+                "[td-train] building value sequence index for td-lambda",
+                file=sys.stderr,
+                flush=True,
+            )
             value_sequence_index = build_value_sequence_index(
                 transitions=value_replay.as_list(),
+            )
+            print(
+                f"[td-train] built value sequences={len(value_sequence_index)}",
+                file=sys.stderr,
+                flush=True,
             )
 
     opponent_model = None

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import random
-from collections import deque
-from typing import Deque, Iterable, List, Sequence, TypeVar
+from typing import Iterable, List, Sequence, TypeVar
 
 from .types import OpponentSample, ValueTransition
 
@@ -30,7 +29,7 @@ class ValueReplayBuffer:
         if capacity <= 0:
             raise ValueError("capacity must be > 0.")
         self._capacity = capacity
-        self._items: Deque[ValueTransition] = deque(maxlen=capacity)
+        self._items: list[ValueTransition] = []
 
     @property
     def capacity(self) -> int:
@@ -40,6 +39,8 @@ class ValueReplayBuffer:
         return len(self._items)
 
     def add(self, transition: ValueTransition) -> None:
+        if len(self._items) >= self._capacity:
+            del self._items[0 : len(self._items) - self._capacity + 1]
         self._items.append(transition)
 
     def extend(self, transitions: Iterable[ValueTransition]) -> None:
@@ -47,7 +48,7 @@ class ValueReplayBuffer:
             self.add(transition)
 
     def sample(self, *, batch_size: int, rng: random.Random) -> list[ValueTransition]:
-        return _sample_items(items=list(self._items), batch_size=batch_size, rng=rng)
+        return _sample_items(items=self._items, batch_size=batch_size, rng=rng)
 
     def as_list(self) -> List[ValueTransition]:
         return list(self._items)
@@ -58,7 +59,7 @@ class OpponentReplayBuffer:
         if capacity <= 0:
             raise ValueError("capacity must be > 0.")
         self._capacity = capacity
-        self._items: Deque[OpponentSample] = deque(maxlen=capacity)
+        self._items: list[OpponentSample] = []
 
     @property
     def capacity(self) -> int:
@@ -68,6 +69,8 @@ class OpponentReplayBuffer:
         return len(self._items)
 
     def add(self, sample: OpponentSample) -> None:
+        if len(self._items) >= self._capacity:
+            del self._items[0 : len(self._items) - self._capacity + 1]
         self._items.append(sample)
 
     def extend(self, samples: Iterable[OpponentSample]) -> None:
@@ -75,7 +78,7 @@ class OpponentReplayBuffer:
             self.add(sample)
 
     def sample(self, *, batch_size: int, rng: random.Random) -> list[OpponentSample]:
-        return _sample_items(items=list(self._items), batch_size=batch_size, rng=rng)
+        return _sample_items(items=self._items, batch_size=batch_size, rng=rng)
 
     def as_list(self) -> List[OpponentSample]:
         return list(self._items)
