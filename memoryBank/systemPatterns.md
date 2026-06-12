@@ -141,6 +141,10 @@ Design expectations:
 - Browser rendering should prefer the controller-provided `viewState`/player
   view for visual game data while keeping canonical `state` internal for
   legality, bot scheduling, bug reports, and persistence.
+- Animation overlays that describe semantic presentation state, including
+  income source highlights and active-player visual holdbacks, should be
+  emitted by the presentation timeline/reducer rather than maintained by
+  independent hook-local timers.
 - Human and bot browser actions should share `prepareActionDispatch` for
   engine validation and animation-plan assembly. Validate with
   `stepToDecision` before DOM-dependent planning so invalid actions cannot

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { CardId } from '../../engine/cards';
 import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
 import {
   createAnimationTimerRegistry,
@@ -65,18 +64,10 @@ export function useGameAnimations({
     ReadonlyArray<ResourceFlight>
   >([]);
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
-  const [incomeHighlightCardIds, setIncomeHighlightCardIds] = useState<
-    ReadonlyArray<CardId>
-  >([]);
-  const [incomeHighlightCrowns, setIncomeHighlightCrowns] = useState<
-    ReadonlyArray<{ playerId: PlayerId; suit: Suit }>
-  >([]);
   const [presentationSnapshot, setPresentationSnapshot] =
     useState<PresentationSnapshot | null>(null);
   const [pendingDiscardHoldback, setPendingDiscardHoldback] =
     useState<number>(0);
-  const [activePlayerHighlightOverride, setActivePlayerHighlightOverride] =
-    useState<PlayerId | null>(null);
   const [actionCommitPending, setActionCommitPending] =
     useState<boolean>(false);
   const [
@@ -134,8 +125,6 @@ export function useGameAnimations({
   const clearTurnCycleVisuals = useCallback(() => {
     turnCycleVisualTimers.clearAll();
     clearTaxPulseElements();
-    setIncomeHighlightCardIds([]);
-    setIncomeHighlightCrowns([]);
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
   const scheduleTurnCycleVisuals = useCallback(
     (plan: TurnCycleVisualPlan | null, startDelayMs = 0) => {
@@ -197,24 +186,8 @@ export function useGameAnimations({
           setResourceFlights((existing) => [...existing, ...incomeFlights]);
         }
       );
-      turnCycleVisualTimers.schedule(
-        startDelayMs + plan.incomeHighlightStartAtMs,
-        () => {
-          setIncomeHighlightCardIds(plan.highlightCardIds);
-          setIncomeHighlightCrowns(plan.highlightCrowns);
-        }
-      );
-      turnCycleVisualTimers.schedule(
-        startDelayMs + plan.incomeHighlightEndAtMs,
-        () => {
-          setIncomeHighlightCardIds([]);
-          setIncomeHighlightCrowns([]);
-        }
-      );
       turnCycleVisualTimers.schedule(startDelayMs + plan.hideAllAtMs, () => {
         clearTaxPulseElements();
-        setIncomeHighlightCardIds([]);
-        setIncomeHighlightCrowns([]);
       });
     },
     [
@@ -228,7 +201,6 @@ export function useGameAnimations({
   const clearPendingActionCommit = useCallback(() => {
     actionCommitTimers.clearAll();
     setActionCommitPending(false);
-    setActivePlayerHighlightOverride(null);
     setAllowHumanActionsWhileCommitPending(false);
     setPresentationSnapshot(null);
   }, [actionCommitTimers]);
@@ -236,7 +208,6 @@ export function useGameAnimations({
     setResourceFlights([]);
     setCardFlights([]);
     setPendingDiscardHoldback(0);
-    setActivePlayerHighlightOverride(null);
     setAllowHumanActionsWhileCommitPending(false);
     setPresentationSnapshot(null);
     clearTurnCycleVisuals();
@@ -296,7 +267,6 @@ export function useGameAnimations({
       );
       if (settleMs <= 0) {
         setPendingDiscardHoldback(0);
-        setActivePlayerHighlightOverride(null);
         setPresentationSnapshot(null);
         setAllowHumanActionsWhileCommitPending(
           shouldAllowHumanActionsDuringAnimationSettle(action)
@@ -315,13 +285,6 @@ export function useGameAnimations({
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
       }
-      setActivePlayerHighlightOverride(
-        activeHighlightOverrideForTransition(
-          action,
-          previousState,
-          drawFlightsForTimer
-        )
-      );
       setPendingDiscardHoldback(action.type === 'sell-card' ? 1 : 0);
       setAllowHumanActionsWhileCommitPending(
         shouldAllowHumanActionsDuringAnimationSettle(action) &&
@@ -341,12 +304,6 @@ export function useGameAnimations({
       if (shouldCommitBeforeAnimationSettle(action)) {
         onCommitTransition(previousState, nextState, action);
       }
-      if (drawFlightsForTimer.length > 0) {
-        const drawSettleMs = cardFlightSettleMs(drawFlightsForTimer);
-        actionCommitTimers.schedule(drawSettleMs, () => {
-          setActivePlayerHighlightOverride(null);
-        });
-      }
       actionCommitTimers.schedule(settleMs, () => {
         if (!shouldCommitBeforeAnimationSettle(action)) {
           onCommitTransition(previousState, nextState, action);
@@ -354,7 +311,6 @@ export function useGameAnimations({
         setResourceFlights([]);
         setCardFlights([]);
         setPendingDiscardHoldback(0);
-        setActivePlayerHighlightOverride(null);
         setAllowHumanActionsWhileCommitPending(false);
         setPresentationSnapshot(null);
         clearTurnCycleVisuals();
@@ -382,16 +338,19 @@ export function useGameAnimations({
     };
   }, [actionCommitTimers, clearTaxPulseElements, turnCycleVisualTimers]);
 
+  const presentationOverlays = presentationSnapshot?.overlays;
+
   return {
     enabled,
     setEnabled,
     resourceFlights,
     cardFlights,
-    incomeHighlightCardIds,
-    incomeHighlightCrowns,
+    incomeHighlightCardIds: presentationOverlays?.incomeHighlightCardIds ?? [],
+    incomeHighlightCrowns: presentationOverlays?.incomeHighlightCrowns ?? [],
     presentationSnapshot,
     pendingDiscardHoldback,
-    activePlayerHighlightOverride,
+    activePlayerHighlightOverride:
+      presentationOverlays?.activePlayerHighlightOverride ?? null,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
     makeResourceFlightId,
@@ -400,17 +359,6 @@ export function useGameAnimations({
     clearAllFlights,
     runTransition,
   };
-}
-
-export function activeHighlightOverrideForTransition(
-  action: GameAction,
-  previousState: GameState,
-  drawFlights: readonly CardFlight[]
-): PlayerId | null {
-  if (action.type !== 'end-turn' || drawFlights.length === 0) {
-    return null;
-  }
-  return previousState.players[previousState.activePlayerIndex]?.id ?? null;
 }
 
 export function turnCycleStartDelayForTransition(

@@ -39,8 +39,9 @@
   with semantic game transactions, presentation timeline derivation, and a pure
   presentation snapshot reducer. Initial controller/App wiring now renders
   visual game data from runtime `viewState` for turn-cycle income/draw staging;
-  canonical state still drives legality, bot scheduling, bug reports, and
-  persistence.
+  income highlights and active-player visual holdbacks are derived from runtime
+  overlays; canonical state still drives legality, bot scheduling, bug reports,
+  and persistence.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
@@ -65,4 +66,4 @@
 4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-07._
+_Updated: 2026-07-08._

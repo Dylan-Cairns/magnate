@@ -1,4 +1,3 @@
-import type { CardId } from '../../engine/cards';
 import type {
   GameState,
   PlayerId,
@@ -92,7 +91,25 @@ function applyTimelineEvent(
     case 'launch-income-token-flight':
       return {
         viewState,
-        overlays: addIncomeHighlight(overlays, event.event),
+        overlays,
+      };
+    case 'show-income-highlights':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          incomeHighlightCardIds: event.cardIds,
+          incomeHighlightCrowns: event.crowns,
+        },
+      };
+    case 'clear-income-highlights':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          incomeHighlightCardIds: [],
+          incomeHighlightCrowns: [],
+        },
       };
     case 'apply-income-token-gain':
       return {
@@ -211,53 +228,6 @@ function applyDeltaToResources(
     Leaves: Math.max(0, resources.Leaves + (delta.Leaves ?? 0)),
     Wyrms: Math.max(0, resources.Wyrms + (delta.Wyrms ?? 0)),
     Knots: Math.max(0, resources.Knots + (delta.Knots ?? 0)),
-  };
-}
-
-function addIncomeHighlight(
-  overlays: AnimationOverlayState,
-  event: Extract<
-    PresentationTimelineEvent,
-    { type: 'launch-income-token-flight' }
-  >['event']
-): AnimationOverlayState {
-  if (event.source.kind === 'crown') {
-    return addCrownHighlight(overlays, event.playerId, event.suit);
-  }
-  return addCardHighlight(overlays, event.source.cardId);
-}
-
-function addCardHighlight(
-  overlays: AnimationOverlayState,
-  cardId: CardId
-): AnimationOverlayState {
-  if (overlays.incomeHighlightCardIds.includes(cardId)) {
-    return overlays;
-  }
-  return {
-    ...overlays,
-    incomeHighlightCardIds: [...overlays.incomeHighlightCardIds, cardId],
-  };
-}
-
-function addCrownHighlight(
-  overlays: AnimationOverlayState,
-  playerId: PlayerId,
-  suit: Suit
-): AnimationOverlayState {
-  if (
-    overlays.incomeHighlightCrowns.some(
-      (entry) => entry.playerId === playerId && entry.suit === suit
-    )
-  ) {
-    return overlays;
-  }
-  return {
-    ...overlays,
-    incomeHighlightCrowns: [
-      ...overlays.incomeHighlightCrowns,
-      { playerId, suit },
-    ],
   };
 }
 
