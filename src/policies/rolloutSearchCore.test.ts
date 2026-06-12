@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
+import { isTerminal } from '../engine/scoring';
 import {
   createSession,
   stepKnownLegalActionToDecision,
@@ -233,6 +234,94 @@ describe('rollout search core', () => {
 
     expect(result.actionKey).toBe(rootAction.actionKey);
     expect(result.simulatedActionSteps).toBeGreaterThan(0);
+  });
+
+  it('uses injected guidance for non-terminal leaf evaluation', () => {
+    const fixture = selectionFixture('rollout-core-guided-leaf');
+    const rootAction = nonTerminalRootAction(fixture);
+    const context: RolloutSearchWorkerContext = {
+      contextId: 'rollout-core-guided-leaf-context',
+      worldStates: [fixture.state],
+    };
+    const result = runRolloutSearchTask(
+      {
+        kind: 'rollout-search',
+        contextId: context.contextId,
+        visitIndex: 0,
+        actionVisitIndex: 0,
+        scenarioIndex: 0,
+        worldIndex: 0,
+        engineSeed: 'rollout-core-guided-leaf-engine',
+        rootPlayer: fixture.view.activePlayerId,
+        rootAction: rootAction.action,
+        rootActionKey: rootAction.actionKey,
+        config: {
+          worlds: 1,
+          rollouts: 1,
+          depth: 0,
+          maxRootActions: 1,
+          rolloutEpsilon: 0,
+        },
+        randomSeed: 'rollout-core-guided-leaf-rng',
+      },
+      context.worldStates,
+      undefined,
+      {
+        evaluateLeaf() {
+          return 0.75;
+        },
+      }
+    );
+
+    expect(result.score).toBe(0.75);
+    expect(result.terminatedBeforeDepthLimit).toBe(false);
+  });
+
+  it('uses injected guidance for rollout playout action selection', () => {
+    const fixture = selectionFixture('rollout-core-guided-playout');
+    const rootAction = rootActionWithFollowup(fixture);
+    const context: RolloutSearchWorkerContext = {
+      contextId: 'rollout-core-guided-playout-context',
+      worldStates: [fixture.state],
+    };
+    let playoutCalls = 0;
+    const result = runRolloutSearchTask(
+      {
+        kind: 'rollout-search',
+        contextId: context.contextId,
+        visitIndex: 0,
+        actionVisitIndex: 0,
+        scenarioIndex: 0,
+        worldIndex: 0,
+        engineSeed: 'rollout-core-guided-playout-engine',
+        rootPlayer: fixture.view.activePlayerId,
+        rootAction: rootAction.action,
+        rootActionKey: rootAction.actionKey,
+        config: {
+          worlds: 1,
+          rollouts: 1,
+          depth: 1,
+          maxRootActions: 1,
+          rolloutEpsilon: 0,
+        },
+        randomSeed: 'rollout-core-guided-playout-rng',
+      },
+      context.worldStates,
+      undefined,
+      {
+        chooseRolloutAction({ actions }) {
+          playoutCalls += 1;
+          return actions[actions.length - 1];
+        },
+        evaluateLeaf() {
+          return 0.25;
+        },
+      }
+    );
+
+    expect(playoutCalls).toBeGreaterThan(0);
+    expect(result.score).toBe(0.25);
+    expect(result.simulatedActionSteps).toBeGreaterThanOrEqual(2);
   });
 
   it('simulation stepping preserves gameplay state while suppressing logs', () => {
@@ -480,6 +569,40 @@ function selectionFixture(seed: string) {
     view,
     candidateActions,
   };
+}
+
+function nonTerminalRootAction(fixture: ReturnType<typeof selectionFixture>) {
+  const keyed = toKeyedActions(fixture.candidateActions);
+  const match = keyed.find(
+    (candidate) =>
+      !isTerminal(
+        stepKnownLegalActionToDecisionForSimulation(
+          fixture.state,
+          candidate.action
+        )
+      )
+  );
+  if (!match) {
+    throw new Error('rollout search core test requires a non-terminal action.');
+  }
+  return match;
+}
+
+function rootActionWithFollowup(fixture: ReturnType<typeof selectionFixture>) {
+  const keyed = toKeyedActions(fixture.candidateActions);
+  const match = keyed.find((candidate) => {
+    const next = stepKnownLegalActionToDecisionForSimulation(
+      fixture.state,
+      candidate.action
+    );
+    return !isTerminal(next) && legalActions(next).length > 0;
+  });
+  if (!match) {
+    throw new Error(
+      'rollout search core test requires a root action with a follow-up decision.'
+    );
+  }
+  return match;
 }
 
 function withoutLog<T extends { log: unknown }>(state: T): Omit<T, 'log'> {

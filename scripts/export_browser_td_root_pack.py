@@ -24,7 +24,7 @@ from scripts.checkpoint_manifest import (
 INDEX_SCHEMA_VERSION = 1
 MANIFEST_SCHEMA_VERSION = 1
 WEIGHTS_SCHEMA_VERSION = 1
-MODEL_TYPE = "td-search-v1"
+MODEL_TYPE = "td-root-search-v1"
 
 VALUE_REQUIRED_STATE_DICT_KEYS: Sequence[str] = (
     "encoder.0.weight",
@@ -52,7 +52,7 @@ OPPONENT_REQUIRED_STATE_DICT_KEYS: Sequence[str] = (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Export TD value+opponent checkpoints into static browser td-search model-pack files."
+            "Export TD value+opponent checkpoints into static browser TD-root rollout model-pack files."
         )
     )
     parser.add_argument(
@@ -131,7 +131,7 @@ def main() -> int:
         artifact_root=args.artifact_root,
     )
 
-    result = export_td_search_checkpoint_pack(
+    result = export_td_root_checkpoint_pack(
         value_checkpoint_path=resolution["valueCheckpointPath"],
         opponent_checkpoint_path=resolution["opponentCheckpointPath"],
         output_root=args.output_root,
@@ -146,7 +146,7 @@ def main() -> int:
     return 0
 
 
-def export_td_search_checkpoint_pack(
+def export_td_root_checkpoint_pack(
     *,
     value_checkpoint_path: Path,
     opponent_checkpoint_path: Path,
@@ -556,7 +556,7 @@ def _default_pack_id(
         raw_step = metadata.get("step")
         if isinstance(raw_step, int):
             step_value = f"step-{raw_step:07d}"
-    parts = [source_run_id or value_checkpoint_path.stem, "td-search", step_value or "step", stamp]
+    parts = [source_run_id or value_checkpoint_path.stem, "td-root", step_value or "step", stamp]
     return _slug("-".join(part for part in parts if part))
 
 
@@ -572,7 +572,7 @@ def _default_label(
         raw_step = metadata.get("step")
         if isinstance(raw_step, int):
             step_text = f" step {raw_step}"
-    return f"TD Search {run_label}{step_text}".strip()
+    return f"TD Root {run_label}{step_text}".strip()
 
 
 def _slug(value: str) -> str:

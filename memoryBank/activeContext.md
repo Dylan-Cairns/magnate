@@ -25,7 +25,8 @@
 - Bridge, direct TypeScript evaluation, replay collection, and TD policy lookahead use a single policy-facing decision actor during simultaneous income: one unsubmitted income-choice owner is exposed at a time in pending-choice order, with observations and masks aligned to that actor.
 - Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
-- Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, and optional worker-backed execution.
+- Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
+- TD-root search is the canonical TD-guided browser rollout path: root ranking/priors use opponent/action logits, rollout playouts use opponent/action logits, and non-terminal leaves use TD value predictions. It loads `td-root-search-v1` static model packs and fails fast when no valid pack is available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
   not grow/copy human-readable game logs; real games and exported transcripts
   still use normal logged stepping.
@@ -42,9 +43,8 @@
 
 ## Remaining Work
 
-- Make `td-root-search` the canonical TD-guided browser rollout bot using the rollout-search core end to end.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
-- Add Node-local model-pack loading for direct TypeScript evaluation of serialized TD-root rollout specs when that path is enabled.
+- Add Node-local model-pack loading for direct TypeScript evaluation of serialized TD-root rollout specs outside browser/worker runtime.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
 - Keep setup, wrapper, training, and bot-eval procedures in `docs/runbooks/` rather than expanding Memory Bank files.
 

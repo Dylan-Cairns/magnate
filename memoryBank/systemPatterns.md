@@ -61,10 +61,12 @@ Design expectations:
   where practical: root state/stat ownership in the coordinator, cloneable
   worker tasks/results, stable action keys for merging, and algorithm-specific
   rollout/leaf/opponent kernels behind a small task-result union.
-- TD-root rollout-search variants should keep the current rollout-search
-  rollout kernel, sampled hidden worlds, root visit scheduling/UCB, and
-  leaf/terminal evaluator intact while replacing only root action ordering and
-  root priors with TD model-pack value/action-logit signals.
+- TD-root rollout-search variants keep the current rollout-search kernel,
+  sampled hidden worlds, root visit scheduling/UCB, no-log simulation stepping,
+  diagnostics, and worker-backed execution while replacing heuristic guidance
+  with TD model-pack signals: root action ordering and priors from
+  opponent/action logits, non-terminal leaf values from the value model, and
+  rollout playout action choice from opponent/action logits.
 - Heuristic v1 scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Heuristic v2 should remain additive and broad-delta based: score district-local saturated scoring-margin deltas, future suit-access earning deltas, and contextual token-bank deltas without rewarding generic resource hoarding or v1 tactical patchwork constants.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.

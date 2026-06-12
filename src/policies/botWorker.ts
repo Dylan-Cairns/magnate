@@ -3,15 +3,25 @@ import { rngFromSeed } from '../engine/rng';
 import type { GameAction } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from './botSpec';
 import {
+  DEFAULT_TD_ROOT_MODEL_INDEX_PATH,
+  preloadTdRootBrowserModel,
+} from './modelRuntimeCache';
+import {
   rolloutSearchRootBudget,
   selectRolloutSearchActionParallel,
   selectRolloutSearchActionSync,
+  type RolloutSearchRuntimeGuidance,
   type RolloutSearchRootGuideFactory,
+  type RolloutSearchWorkerGuidance,
 } from './rolloutSearchCore';
 import {
   createSearchWorkerPool,
   type SearchWorkerPool,
 } from './searchWorkerPool';
+import {
+  createTdRootSearchRolloutGuidance,
+  createTdRootSearchRootGuide,
+} from './tdRootSearchPolicy';
 import type { ActionPolicy, SearchDecisionDiagnostics } from './types';
 import type {
   BotWorkerRequest,
@@ -33,6 +43,12 @@ let searchWorkerPoolSize = 0;
 type RolloutLikeSearchBotSpec =
   | Extract<BotSpec, { kind: 'search' }>
   | Extract<BotSpec, { kind: 'td-root-search' }>;
+
+interface SearchGuidanceFactories {
+  createRootGuide?: RolloutSearchRootGuideFactory;
+  rolloutGuidance?: RolloutSearchRuntimeGuidance;
+  workerGuidance?: RolloutSearchWorkerGuidance;
+}
 
 workerScope.onmessage = (event) => {
   void handleRequest(event.data).catch((error: unknown) => {
@@ -119,7 +135,7 @@ async function selectSearchAction(
     );
   }
   const spec = request.spec;
-  const createRootGuide = await createRootGuideFactoryForSpec(spec);
+  const guidance = await createGuidanceForSpec(spec);
 
   const workerCount = resolveRolloutSearchWorkerCount(request);
   if (workerCount > 1) {
@@ -132,7 +148,12 @@ async function selectSearchAction(
         config: spec.config,
         random: rngFromSeed(request.randomSeed),
         randomSeed: request.randomSeed,
-        ...(createRootGuide ? { createRootGuide } : {}),
+        ...(guidance.createRootGuide
+          ? { createRootGuide: guidance.createRootGuide }
+          : {}),
+        ...(guidance.workerGuidance
+          ? { workerGuidance: guidance.workerGuidance }
+          : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
         onSearchDiagnostics,
@@ -153,18 +174,37 @@ async function selectSearchAction(
     config: spec.config,
     random: rngFromSeed(request.randomSeed),
     randomSeed: request.randomSeed,
-    ...(createRootGuide ? { createRootGuide } : {}),
+    ...(guidance.createRootGuide
+      ? { createRootGuide: guidance.createRootGuide }
+      : {}),
+    ...(guidance.rolloutGuidance
+      ? { rolloutGuidance: guidance.rolloutGuidance }
+      : {}),
     onSearchDiagnostics,
   });
 }
 
-async function createRootGuideFactoryForSpec(
+async function createGuidanceForSpec(
   spec: RolloutLikeSearchBotSpec
-): Promise<RolloutSearchRootGuideFactory | undefined> {
+): Promise<SearchGuidanceFactories> {
   if (spec.kind === 'search') {
-    return undefined;
+    return {};
   }
-  throw new Error('TD root search worker model loading is not configured.');
+  const modelIndexPath = spec.modelIndexPath ?? DEFAULT_TD_ROOT_MODEL_INDEX_PATH;
+  const model = await preloadTdRootBrowserModel(modelIndexPath);
+  return {
+    createRootGuide(input) {
+      return createTdRootSearchRootGuide({
+        ...input,
+        model,
+      });
+    },
+    rolloutGuidance: createTdRootSearchRolloutGuidance({ model }),
+    workerGuidance: {
+      kind: 'td-root',
+      modelIndexPath,
+    },
+  };
 }
 
 function policyForSpec(request: BotWorkerSelectActionRequest): ActionPolicy {

@@ -3,36 +3,24 @@ import { describe, expect, it } from 'vitest';
 import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
-import { isTerminal } from '../engine/scoring';
-import { createSession, stepToDecision } from '../engine/session';
+import { createSession } from '../engine/session';
 import { toPlayerView } from '../engine/view';
 import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
 import {
   createTdRootSearchPolicy,
+  createTdRootSearchRolloutGuidance,
   createTdRootSearchRootGuide,
 } from './tdRootSearchPolicy';
 import { ACTION_FEATURE_DIM, OBSERVATION_DIM } from './trainingEncoding';
 
 describe('td root search policy', () => {
-  it('uses TD value scores for root ranking and TD logits for priors', () => {
+  it('uses TD logits for root ranking and priors', () => {
     const state = createSession('td-root-search-guide', 'PlayerA');
     const view = toPlayerView(state, 'PlayerA');
     const actions = legalActions(state);
     const keyed = toKeyedActions(actions);
-    const preferredIndex = 0;
+    const preferredIndex = Math.min(1, keyed.length - 1);
     const preferredKey = keyed[preferredIndex].actionKey;
-    const activeValueSignByAction = keyed.map((candidate) => {
-      const next = stepToDecision(state, candidate.action);
-      if (isTerminal(next)) {
-        throw new Error(
-          'TD root search guide test expected non-terminal roots.'
-        );
-      }
-      return next.players[next.activePlayerIndex]?.id === view.activePlayerId
-        ? 1
-        : -1;
-    });
-    let valueCallCount = 0;
 
     const guide = createTdRootSearchRootGuide({
       state,
@@ -42,10 +30,7 @@ describe('td root search policy', () => {
       rootPlayer: view.activePlayerId,
       model: fakeModel({
         predict() {
-          const rootValue = valueCallCount === preferredIndex ? 0.8 : -0.2;
-          const value = rootValue * activeValueSignByAction[valueCallCount];
-          valueCallCount += 1;
-          return value;
+          throw new Error('Root guide should not call the value model.');
         },
         logits(_observation, actionFeatures) {
           return Float32Array.from(
@@ -114,6 +99,53 @@ describe('td root search policy', () => {
       randomSeed: 'td-root-search-policy-rng-2',
     });
     expect(loadCount).toBe(1);
+  });
+
+  it('uses TD rollout guidance for leaf values and playout action logits', () => {
+    const state = createSession('td-root-search-rollout-guide', 'PlayerA');
+    const view = toPlayerView(state, 'PlayerA');
+    const actions = legalActions(state);
+    const keyed = toKeyedActions(actions);
+    const preferred = keyed[keyed.length - 1];
+    const guidance = createTdRootSearchRolloutGuidance({
+      model: fakeModel({
+        predict() {
+          return 0.6;
+        },
+        logits(_observation, actionFeatures) {
+          return Float32Array.from(
+            actionFeatures.map((_features, index) =>
+              index === keyed.length - 1 ? 5 : 0
+            )
+          );
+        },
+      }),
+    });
+
+    expect(
+      guidance.evaluateLeaf?.({
+        state,
+        rootPlayer: view.activePlayerId,
+      })
+    ).toBe(0.6);
+    expect(
+      actionStableKey(
+        guidance.chooseRolloutAction!({
+          state,
+          actions,
+          decisionPlayer: view.activePlayerId,
+          rootPlayer: view.activePlayerId,
+          random: rngFromSeed('td-root-search-rollout-guide-rng'),
+          config: {
+            worlds: 1,
+            rollouts: 1,
+            depth: 1,
+            maxRootActions: 1,
+            rolloutEpsilon: 0,
+          },
+        })!
+      )
+    ).toBe(preferred.actionKey);
   });
 });
 
