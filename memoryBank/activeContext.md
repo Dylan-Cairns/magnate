@@ -37,8 +37,10 @@
 - Browser UI code is split across controller hooks, animation helpers, stateless components, and ownership-based style files; `App.tsx` remains the composition layer.
 - Browser presentation-runtime migration has started under `src/ui/runtime/`
   with semantic game transactions, presentation timeline derivation, and a pure
-  presentation snapshot reducer; current rendering is not yet wired to the
-  runtime.
+  presentation snapshot reducer. Initial controller/App wiring now renders
+  visual game data from runtime `viewState` for turn-cycle income/draw staging;
+  canonical state still drives legality, bot scheduling, bug reports, and
+  persistence.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

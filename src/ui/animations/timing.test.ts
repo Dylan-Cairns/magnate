@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  makeGameState,
-  makePlayer,
-  makeResources,
-  PLAYER_A,
-  PLAYER_B,
-} from '../../engine/__tests__/fixtures';
+import { PLAYER_A } from '../../engine/__tests__/fixtures';
 import type { GameAction } from '../../engine/types';
 import {
-  applySingleTaxLossToPreview,
-  buildResourcePreviewByPlayer,
   cardFlightSettleMs,
   resourceFlightSettleMs,
   shouldAllowHumanActionsDuringAnimationSettle,
@@ -81,50 +73,6 @@ describe('animation commit semantics', () => {
         .filter(shouldAllowHumanActionsDuringAnimationSettle)
         .map((action) => action.type)
     ).toEqual(['end-turn', 'choose-income-suit']);
-  });
-});
-
-describe('tax resource preview', () => {
-  it('clones canonical resources and applies tax losses without mutating prior previews', () => {
-    const state = makeGameState({
-      players: [
-        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
-        makePlayer(PLAYER_B, { resources: makeResources({ Moons: 1 }) }),
-      ] as const,
-    });
-    const initial = buildResourcePreviewByPlayer(state);
-    const afterFirst = applySingleTaxLossToPreview(initial, {
-      playerId: PLAYER_A,
-      suit: 'Moons',
-    });
-    const afterSecond = applySingleTaxLossToPreview(afterFirst, {
-      playerId: PLAYER_A,
-      suit: 'Moons',
-    });
-
-    expect(initial.PlayerA?.Moons).toBe(3);
-    expect(afterFirst?.PlayerA?.Moons).toBe(2);
-    expect(afterSecond?.PlayerA?.Moons).toBe(1);
-    expect(state.players[0].resources.Moons).toBe(3);
-  });
-
-  it('leaves null and exhausted previews unchanged', () => {
-    expect(
-      applySingleTaxLossToPreview(null, {
-        playerId: PLAYER_A,
-        suit: 'Moons',
-      })
-    ).toBeNull();
-
-    const preview = {
-      [PLAYER_A]: makeResources({ Moons: 0 }),
-    };
-    expect(
-      applySingleTaxLossToPreview(preview, {
-        playerId: PLAYER_A,
-        suit: 'Moons',
-      })
-    ).toBe(preview);
   });
 });
 

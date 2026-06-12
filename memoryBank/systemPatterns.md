@@ -130,14 +130,17 @@ Design expectations:
   derivation, injectable browser-only DOM target resolution, and flight
   planning in `src/ui/animations/`; browser DOM access remains outside the
   engine and isolated in `domTargets.ts`.
-- UI animation lifecycle state, timer cleanup, preview scheduling, and delayed
-  commit coordination should live in `useGameAnimations`; canonical state
-  transitions and timeline logging remain injected controller callbacks.
+- UI animation lifecycle state, timer cleanup, presentation snapshot scheduling,
+  and delayed commit coordination should live in `useGameAnimations`; canonical
+  state transitions and timeline logging remain injected controller callbacks.
 - The next UI animation architecture is being staged under `src/ui/runtime/`:
   action dispatch should produce semantic `GameTransaction` events and a
   presentation timeline, then derive a coherent render-only `viewState` plus
   overlays from that runtime instead of scattering per-component previews and
   holdbacks.
+- Browser rendering should prefer the controller-provided `viewState`/player
+  view for visual game data while keeping canonical `state` internal for
+  legality, bot scheduling, bug reports, and persistence.
 - Human and bot browser actions should share `prepareActionDispatch` for
   engine validation and animation-plan assembly. Validate with
   `stepToDecision` before DOM-dependent planning so invalid actions cannot

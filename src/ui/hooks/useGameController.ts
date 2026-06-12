@@ -152,9 +152,8 @@ export function useGameController({
     cardFlights,
     incomeHighlightCardIds,
     incomeHighlightCrowns,
-    incomeResourcePreviewByPlayer,
+    presentationSnapshot,
     pendingDiscardHoldback,
-    pendingDrawCardIds,
     activePlayerHighlightOverride,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
@@ -213,6 +212,7 @@ export function useGameController({
         previousState,
         nextState: plan.nextState,
         action,
+        actingPlayerId,
         resourceFlights: plan.resourceFlights,
         cardFlights: plan.cardFlights,
         turnCyclePlan: plan.turnCyclePlan,
@@ -229,11 +229,13 @@ export function useGameController({
     ]
   );
 
+  const viewState = presentationSnapshot?.viewState ?? state;
   const terminal = isTerminal(state);
+  const viewTerminal = isTerminal(viewState);
   const activePlayerId = activePlayerIdForState(state, humanPlayerId);
   const humanView = useMemo(
-    () => toPlayerView(state, humanPlayerId),
-    [humanPlayerId, state]
+    () => toPlayerView(viewState, humanPlayerId),
+    [humanPlayerId, viewState]
   );
   const resolvedBotProfile = useMemo(
     () => resolveBotProfile(botProfileId),
@@ -530,12 +532,13 @@ export function useGameController({
 
   return {
     state,
+    viewState,
     humanView,
     pendingNextDistricts,
     timelineLog,
     actionHistory,
     error,
-    terminal,
+    terminal: viewTerminal,
     activePlayerId,
     botThinking,
     botProfileId,
@@ -553,9 +556,7 @@ export function useGameController({
       cardFlights,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
-      incomeResourcePreviewByPlayer,
       pendingDiscardHoldback,
-      pendingDrawCardIds,
       activePlayerHighlightOverride,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,
