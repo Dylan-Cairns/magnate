@@ -83,8 +83,10 @@ const CARD_BY_EDGE_KEY = new Map<string, CardId>(
 
 export function DecktetSuitDiagram({
   dimmedCardIds,
+  dimmedSuits,
 }: {
   dimmedCardIds: ReadonlySet<CardId>;
+  dimmedSuits: ReadonlySet<Suit>;
 }) {
   return (
     <section className="panel suit-diagram-panel">
@@ -151,6 +153,7 @@ export function DecktetSuitDiagram({
         })}
         {SUITS.map((suit, i) => {
           const [x, y] = positions[i];
+          const isDimmed = dimmedSuits.has(suit);
           return (
             <g key={suit}>
               <circle
@@ -168,6 +171,9 @@ export function DecktetSuitDiagram({
                 width={NODE_R * 2 - 4}
                 height={NODE_R * 2 - 4}
               />
+              {isDimmed && (
+                <circle cx={x} cy={y} r={NODE_R} fill="rgba(5,8,15,0.78)" />
+              )}
             </g>
           );
         })}

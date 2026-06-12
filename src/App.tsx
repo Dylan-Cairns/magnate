@@ -65,6 +65,14 @@ const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
 const DECK_MAP_INTERACTIVE_KEY = 'magnate:deckMapInteractive';
 
+const ALL_SUITS: Suit[] = ['Moons', 'Suns', 'Waves', 'Leaves', 'Wyrms', 'Knots'];
+const SUIT_CARD_IDS = new Map<Suit, ReadonlyArray<CardId>>(
+  ALL_SUITS.map((suit) => [
+    suit,
+    PROPERTY_CARDS.filter((c) => c.suits.includes(suit)).map((c) => c.id),
+  ])
+);
+
 function readBooleanPreference(key: string, defaultValue: boolean): boolean {
   if (typeof window === 'undefined') return defaultValue;
   try {
@@ -230,32 +238,46 @@ export function App() {
     () => districtWinnersByPlayer(state),
     [state]
   );
-  const dimmedCardIds = useMemo<ReadonlySet<CardId>>(() => {
-    if (!deckMapInteractive) return new Set();
-    // Cards still available: draw pile, player hands, and discard (only while < 2nd shuffle)
+  const { dimmedCardIds, dimmedSuits } = useMemo(() => {
+    if (!deckMapInteractive) {
+      return {
+        dimmedCardIds: new Set<CardId>(),
+        dimmedSuits: new Set<Suit>(),
+      };
+    }
     const inCirculation = new Set<CardId>([
       ...state.deck.draw,
       ...state.players.flatMap((p) => p.hand),
       ...(state.deck.reshuffles === 0 ? state.deck.discard : []),
     ]);
-    // Numeral property cards (2 suits) not in circulation are on the board → dim them
-    const ids = new Set<CardId>();
-    for (const card of PROPERTY_CARDS) {
-      if (card.suits.length === 2 && !inCirculation.has(card.id)) {
-        ids.add(card.id);
-      }
-    }
-    // During animation, pendingNextDistricts holds the about-to-commit state —
-    // add any cards there too so dimming is immediate when a card is played
+    // Cards about to leave circulation once the current animation commits
+    const pendingCards = new Set<CardId>();
     if (pendingNextDistricts) {
       for (const district of pendingNextDistricts) {
         for (const stack of Object.values(district.stacks)) {
-          for (const cardId of stack.developed) ids.add(cardId);
-          if (stack.deed) ids.add(stack.deed.cardId);
+          for (const cardId of stack.developed) pendingCards.add(cardId);
+          if (stack.deed) pendingCards.add(stack.deed.cardId);
         }
       }
     }
-    return ids;
+    // Edge-label dimming: 2-suit numeral property cards not in (effective) circulation
+    const dimmedCardIds = new Set<CardId>();
+    for (const card of PROPERTY_CARDS) {
+      if (card.suits.length === 2 && !inCirculation.has(card.id)) {
+        dimmedCardIds.add(card.id);
+      }
+    }
+    for (const cardId of pendingCards) {
+      dimmedCardIds.add(cardId);
+    }
+    // Suit-node dimming: a suit dims when every one of its property cards is gone
+    const dimmedSuits = new Set<Suit>();
+    for (const [suit, cardIds] of SUIT_CARD_IDS) {
+      if (cardIds.every((id) => !inCirculation.has(id) || pendingCards.has(id))) {
+        dimmedSuits.add(suit);
+      }
+    }
+    return { dimmedCardIds, dimmedSuits };
   }, [deckMapInteractive, state, pendingNextDistricts]);
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
@@ -720,7 +742,7 @@ export function App() {
 
           {logVisible && <LogPanel timelineLog={timelineLog} humanPlayerId={HUMAN_PLAYER} />}
 
-          {mapVisible && <DecktetSuitDiagram dimmedCardIds={dimmedCardIds} />}
+          {mapVisible && <DecktetSuitDiagram dimmedCardIds={dimmedCardIds} dimmedSuits={dimmedSuits} />}
 
           <OptionsMenu
             open={optionsMenuOpen}
