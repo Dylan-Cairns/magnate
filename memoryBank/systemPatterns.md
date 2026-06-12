@@ -236,6 +236,10 @@ Design expectations:
 - Platform-specific runtime tuning lives in thin wrapper scripts, not the canonical Python loop defaults:
   - RunPod/Linux uses bash launchers with cloud presets.
   - Windows laptop runs use PowerShell launchers that set temp/cache dirs, CPU thread caps, and explicit worker counts.
+- Long-running TD orchestration should use the shared Python step runner in
+  `scripts.td_loop_common.run_step` for merged stdout/stderr, live output,
+  heartbeat/progress writes, and fail-fast return-code handling; PowerShell
+  wrappers should not duplicate per-stage train execution.
 - Canonical evaluation is `scripts.eval_suite` with explicit modes:
   - loop default: `--mode certify` for fixed-size side-swapped promotion evals
   - self-play chunk gating now uses `--mode gate` for resumable sequential incumbent tests

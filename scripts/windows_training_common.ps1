@@ -346,98 +346,23 @@ function Invoke-MagnateLoggedCommand {
     return 0
   }
 
-  function Write-MagnateCapturedLine {
-    param(
-      [Parameter(Mandatory = $true)]
-      [System.IO.StreamWriter]$Writer,
-
-      [Parameter(Mandatory = $true)]
-      [AllowEmptyString()]
-      [string]$Line,
-
-      [switch]$EchoToConsole
-    )
-
-    $Writer.WriteLine($Line)
-    if ($EchoToConsole) {
-      Write-Host $Line
-    }
-  }
-
-  function Drain-MagnateReader {
-    param(
-      [Parameter(Mandatory = $true)]
-      [System.IO.StreamReader]$Reader,
-
-      [Parameter(Mandatory = $true)]
-      [System.IO.StreamWriter]$Writer,
-
-      [string]$Prefix = ""
-    )
-
-    $count = 0
-    while ($Reader.Peek() -ge 0) {
-      $line = $Reader.ReadLine()
-      if ($null -eq $line) {
-        break
-      }
-
-      if ([string]::IsNullOrEmpty($Prefix)) {
-        Write-MagnateCapturedLine -Writer $Writer -Line $line -EchoToConsole
-      } else {
-        Write-MagnateCapturedLine -Writer $Writer -Line "$Prefix$line" -EchoToConsole
-      }
-      $count += 1
-    }
-
-    return $count
-  }
-
+  $exitCode = 1
   $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
   $logWriter = [System.IO.StreamWriter]::new($logPath, $false, $utf8NoBom)
   $logWriter.AutoFlush = $true
-
-  $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $Command[0]
-  $psi.WorkingDirectory = $RepoRoot
-  $psi.UseShellExecute = $false
-  $psi.CreateNoWindow = $true
-  $psi.RedirectStandardOutput = $true
-  $psi.RedirectStandardError = $true
-  foreach ($argument in ($Command | Select-Object -Skip 1)) {
-    [void]$psi.ArgumentList.Add($argument)
-  }
-
-  $process = [System.Diagnostics.Process]::new()
-  $process.StartInfo = $psi
-
-  $exitCode = 1
   try {
-    if (-not $process.Start()) {
-      throw "Failed to start process: $(Format-MagnateCommandLine -Command $Command)"
+    $executable = $Command[0]
+    $arguments = [string[]]($Command | Select-Object -Skip 1)
+    & $executable @arguments 2>&1 | ForEach-Object {
+      $line = $_.ToString()
+      $logWriter.WriteLine($line)
+      Write-Host $line
     }
-
-    while (-not $process.HasExited) {
-      $drained = 0
-      $drained += Drain-MagnateReader -Reader $process.StandardOutput -Writer $logWriter
-      $drained += Drain-MagnateReader -Reader $process.StandardError -Writer $logWriter -Prefix "[stderr] "
-      if ($drained -eq 0) {
-        Start-Sleep -Milliseconds 200
-      }
-    }
-
-    [void]$process.WaitForExit()
-    [void](Drain-MagnateReader -Reader $process.StandardOutput -Writer $logWriter)
-    [void](Drain-MagnateReader -Reader $process.StandardError -Writer $logWriter -Prefix "[stderr] ")
-    $exitCode = [int]$process.ExitCode
+    $exitCode = [int]$LASTEXITCODE
   } finally {
-    if ($null -ne $process) {
-      $process.Dispose()
-    }
     if ($null -ne $logWriter) {
       $logWriter.Dispose()
     }
-
     $endedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     @(
       "endedAtUtc=$endedAt"
