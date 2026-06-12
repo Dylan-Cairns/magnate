@@ -135,6 +135,16 @@ describe('buildPresentationTimeline', () => {
     });
     expect(timeline.events).toContainEqual({
       atMs: 4570,
+      type: 'show-income-highlights',
+      cardIds: ['21'],
+      crowns: [],
+    });
+    expect(timeline.events).toContainEqual({
+      atMs: 5530,
+      type: 'clear-income-highlights',
+    });
+    expect(timeline.events).toContainEqual({
+      atMs: 4570,
       type: 'launch-income-token-flight',
       event: {
         type: 'income-token-gained',
@@ -210,6 +220,12 @@ describe('buildPresentationTimeline', () => {
 
     const timeline = buildPresentationTimeline(transaction);
 
+    expect(timeline.events).toContainEqual({
+      atMs: 0,
+      type: 'show-income-highlights',
+      cardIds: ['6', '8'],
+      crowns: [],
+    });
     expect(
       timeline.events.filter(
         (event) => event.type === 'launch-income-token-flight'

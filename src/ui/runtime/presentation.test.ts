@@ -106,6 +106,24 @@ describe('derivePresentationSnapshot', () => {
     );
     expect(afterIncomeLaunch.overlays.incomeHighlightCardIds).toEqual(['21']);
 
+    const clearHighlightAtMs =
+      timeline.events.find((event) => event.type === 'clear-income-highlights')
+        ?.atMs ?? 0;
+    expect(
+      derivePresentationSnapshot({
+        transaction,
+        timeline,
+        elapsedMs: clearHighlightAtMs - 1,
+      }).overlays.incomeHighlightCardIds
+    ).toEqual(['21']);
+    expect(
+      derivePresentationSnapshot({
+        transaction,
+        timeline,
+        elapsedMs: clearHighlightAtMs,
+      }).overlays.incomeHighlightCardIds
+    ).toEqual([]);
+
     expect(
       resourceCount(
         derivePresentationSnapshot({

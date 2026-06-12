@@ -141,6 +141,16 @@ export type PresentationTimelineEvent =
     }
   | {
       atMs: number;
+      type: 'show-income-highlights';
+      cardIds: readonly CardId[];
+      crowns: readonly { playerId: PlayerId; suit: Suit }[];
+    }
+  | {
+      atMs: number;
+      type: 'clear-income-highlights';
+    }
+  | {
+      atMs: number;
       type: 'apply-income-token-gain';
       event: Extract<GamePresentationEvent, { type: 'income-token-gained' }>;
     }
