@@ -120,6 +120,12 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
   private readonly headB1: Float32Array;
   private readonly headW2: Float32Array;
   private readonly headB2: Float32Array;
+  private readonly observationHidden1: Float32Array;
+  private readonly observationHidden2: Float32Array;
+  private readonly actionEmbedding: Float32Array;
+  private readonly interactionEmbedding: Float32Array;
+  private readonly observationHeadBase: Float32Array;
+  private readonly policyHidden: Float32Array;
 
   constructor(tensors: TdRootOpponentNetworkTensors) {
     this.observationDim = tensors.observationDim;
@@ -135,6 +141,12 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     this.headB1 = tensors.headB1;
     this.headW2 = tensors.headW2;
     this.headB2 = tensors.headB2;
+    this.observationHidden1 = new Float32Array(this.hiddenDim);
+    this.observationHidden2 = new Float32Array(this.hiddenDim);
+    this.actionEmbedding = new Float32Array(this.hiddenDim);
+    this.interactionEmbedding = new Float32Array(this.hiddenDim);
+    this.observationHeadBase = new Float32Array(this.hiddenDim);
+    this.policyHidden = new Float32Array(this.hiddenDim);
   }
 
   logits(
@@ -159,31 +171,36 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     }
 
     const obsEmbedding = this.encodeObservation(observation);
+    this.encodeObservationHeadBase(obsEmbedding);
     const logits = new Float32Array(actionFeatures.length);
     for (let index = 0; index < actionFeatures.length; index += 1) {
       const actionEmbedding = this.encodeAction(actionFeatures[index]);
-      logits[index] = this.policyLogit(obsEmbedding, actionEmbedding);
+      const interactionEmbedding = this.encodeInteraction(
+        obsEmbedding,
+        actionEmbedding
+      );
+      logits[index] = this.policyLogit(actionEmbedding, interactionEmbedding);
     }
     return logits;
   }
 
   private encodeObservation(observation: readonly number[]): Float32Array {
-    const hidden1 = new Float32Array(this.hiddenDim);
+    const hidden1 = this.observationHidden1;
     for (let row = 0; row < this.hiddenDim; row += 1) {
-      let sum = this.obsB1[row] ?? 0;
+      let sum = this.obsB1[row];
       const offset = row * this.observationDim;
       for (let col = 0; col < this.observationDim; col += 1) {
-        sum += (this.obsW1[offset + col] ?? 0) * observation[col];
+        sum += this.obsW1[offset + col] * observation[col];
       }
       hidden1[row] = Math.tanh(sum);
     }
 
-    const hidden2 = new Float32Array(this.hiddenDim);
+    const hidden2 = this.observationHidden2;
     for (let row = 0; row < this.hiddenDim; row += 1) {
-      let sum = this.obsB2[row] ?? 0;
+      let sum = this.obsB2[row];
       const offset = row * this.hiddenDim;
       for (let col = 0; col < this.hiddenDim; col += 1) {
-        sum += (this.obsW2[offset + col] ?? 0) * hidden1[col];
+        sum += this.obsW2[offset + col] * hidden1[col];
       }
       hidden2[row] = Math.tanh(sum);
     }
@@ -191,45 +208,66 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
   }
 
   private encodeAction(actionFeatures: readonly number[]): Float32Array {
-    const embedding = new Float32Array(this.hiddenDim);
+    const embedding = this.actionEmbedding;
     for (let row = 0; row < this.hiddenDim; row += 1) {
-      let sum = this.actionB[row] ?? 0;
+      let sum = this.actionB[row];
       const offset = row * this.actionFeatureDim;
       for (let col = 0; col < this.actionFeatureDim; col += 1) {
-        sum += (this.actionW[offset + col] ?? 0) * actionFeatures[col];
+        sum += this.actionW[offset + col] * actionFeatures[col];
       }
       embedding[row] = Math.tanh(sum);
     }
     return embedding;
   }
 
-  private policyLogit(
+  private encodeInteraction(
     observationEmbedding: Float32Array,
     actionEmbedding: Float32Array
-  ): number {
-    const pair = new Float32Array(this.hiddenDim * 3);
+  ): Float32Array {
+    const interaction = this.interactionEmbedding;
     for (let index = 0; index < this.hiddenDim; index += 1) {
-      const obs = observationEmbedding[index] ?? 0;
-      const action = actionEmbedding[index] ?? 0;
-      pair[index] = obs;
-      pair[this.hiddenDim + index] = action;
-      pair[this.hiddenDim * 2 + index] = obs * action;
+      interaction[index] = observationEmbedding[index] * actionEmbedding[index];
     }
+    return interaction;
+  }
 
-    const hidden = new Float32Array(this.hiddenDim);
+  private encodeObservationHeadBase(
+    observationEmbedding: Float32Array
+  ): Float32Array {
+    const headBase = this.observationHeadBase;
     const width = this.hiddenDim * 3;
     for (let row = 0; row < this.hiddenDim; row += 1) {
-      let sum = this.headB1[row] ?? 0;
+      let sum = this.headB1[row];
       const offset = row * width;
-      for (let col = 0; col < width; col += 1) {
-        sum += (this.headW1[offset + col] ?? 0) * pair[col];
+      for (let col = 0; col < this.hiddenDim; col += 1) {
+        sum += this.headW1[offset + col] * observationEmbedding[col];
+      }
+      headBase[row] = sum;
+    }
+    return headBase;
+  }
+
+  private policyLogit(
+    actionEmbedding: Float32Array,
+    interactionEmbedding: Float32Array
+  ): number {
+    const hidden = this.policyHidden;
+    const width = this.hiddenDim * 3;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sum = this.observationHeadBase[row];
+      const offset = row * width;
+      const actionOffset = offset + this.hiddenDim;
+      const productOffset = actionOffset + this.hiddenDim;
+      for (let col = 0; col < this.hiddenDim; col += 1) {
+        sum += this.headW1[actionOffset + col] * actionEmbedding[col];
+        sum += this.headW1[productOffset + col] * interactionEmbedding[col];
       }
       hidden[row] = Math.tanh(sum);
     }
 
-    let output = this.headB2[0] ?? 0;
+    let output = this.headB2[0];
     for (let col = 0; col < this.hiddenDim; col += 1) {
-      output += (this.headW2[col] ?? 0) * hidden[col];
+      output += this.headW2[col] * hidden[col];
     }
     return output;
   }
