@@ -35,7 +35,10 @@ import {
   shouldScheduleBotAction,
   withSeedLogPrefix,
 } from '../gameControllerModel';
-import { transitionLogEntries } from '../logTimeline';
+import {
+  transitionLogUpdate,
+  type DeferredIncomeLogContext,
+} from '../logTimeline';
 import {
   canUseTurnReset,
   shouldCaptureTurnResetAnchor,
@@ -118,13 +121,22 @@ export function useGameController({
   const [turnResetActionHistoryAnchor, setTurnResetActionHistoryAnchor] =
     useState<ReadonlyArray<BugReportActionEntry> | null>(null);
   const stateRef = useRef(state);
+  const deferredIncomeLogContextRef = useRef<DeferredIncomeLogContext | null>(
+    null
+  );
 
   const commitTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
-      setTimelineLog((existing) => [
-        ...existing,
-        ...transitionLogEntries(previousState, nextState, action, humanPlayerId),
-      ]);
+      const timelineUpdate = transitionLogUpdate(
+        previousState,
+        nextState,
+        action,
+        humanPlayerId,
+        deferredIncomeLogContextRef.current
+      );
+      deferredIncomeLogContextRef.current =
+        timelineUpdate.deferredIncomeLogContext;
+      setTimelineLog((existing) => [...existing, ...timelineUpdate.entries]);
       setState(nextState);
     },
     [humanPlayerId]
@@ -336,10 +348,9 @@ export function useGameController({
         }
 
         try {
-          const botView =
-            isCurrentIncomeChoicePhase
-              ? toDecisionPlayerView(current, botPlayerId)
-              : toPlayerView(current, botPlayerId);
+          const botView = isCurrentIncomeChoicePhase
+            ? toDecisionPlayerView(current, botPlayerId)
+            : toPlayerView(current, botPlayerId);
           const choice = await resolvedBotProfile.policy.selectAction({
             state: current,
             view: botView,
@@ -420,7 +431,9 @@ export function useGameController({
         dispatchAction(
           state,
           action,
-          action.type === 'choose-income-suit' ? action.playerId : activePlayerId
+          action.type === 'choose-income-suit'
+            ? action.playerId
+            : activePlayerId
         );
       } catch (err) {
         setError(errorMessage(err));
@@ -443,6 +456,7 @@ export function useGameController({
       setTurnResetAnchor(null);
       setTurnResetTimelineAnchor(null);
       setTurnResetActionHistoryAnchor(null);
+      deferredIncomeLogContextRef.current = null;
       clearPendingActionCommit();
       clearAllFlights();
       clearAllDeedTokenLayouts();
@@ -478,6 +492,7 @@ export function useGameController({
     }
 
     clearPendingActionCommit();
+    deferredIncomeLogContextRef.current = null;
     setState(turnResetAnchor.state);
     setTimelineLog(
       turnResetTimelineAnchor
