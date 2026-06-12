@@ -44,7 +44,6 @@ function renderPanel(
       actionPicker={null}
       canResetTurn={false}
       botThinking={false}
-      showBotThinkingDuringIncomeChoiceLock={false}
       hideBotWaitMessageDuringTurnCycleLock={false}
       humanActionUiBlockedByAnimation={false}
       humanActionUiBlockedByTurnCycleAnimation={false}
@@ -97,8 +96,14 @@ describe('ActionsPanel', () => {
     expect(
       renderPanel({
         activePlayerId: 'PlayerB',
+        botThinking: true,
       })
-    ).toContain('Waiting for bot...');
+    ).toContain('bot-thinking-dot is-visible');
+    expect(
+      renderPanel({
+        activePlayerId: 'PlayerB',
+      })
+    ).toContain('Bot is thinking...');
   });
 
   it('hides bot wait text during a non-income turn-cycle lock', () => {
@@ -108,7 +113,6 @@ describe('ActionsPanel', () => {
     });
 
     expect(html).not.toContain('Bot is thinking...');
-    expect(html).not.toContain('Waiting for bot...');
   });
 
   it('renders human income choices during a bot-owned shared income phase', () => {
@@ -130,7 +134,6 @@ describe('ActionsPanel', () => {
     });
 
     expect(html).toContain('Choose Income');
-    expect(html).not.toContain('Waiting for bot...');
   });
 
   it('renders grouped income choices as card-summary submenu buttons', () => {
@@ -167,7 +170,6 @@ describe('ActionsPanel', () => {
     expect(html).toContain('Choose income 2');
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
-    expect(html).not.toContain('Waiting for bot...');
   });
 
   it('uses shared income-choice wording after the human has submitted', () => {
