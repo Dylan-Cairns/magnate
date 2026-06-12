@@ -1,6 +1,17 @@
 {
   "schemaVersion": 1,
-  "generatedAtUtc": "2026-06-18T00:00:00.000000+00:00",
-  "defaultPackId": null,
-  "packs": []
+  "generatedAtUtc": "2026-06-18T18:06:44.096522+00:00",
+  "defaultPackId": "td-v2-hard-teacher-60-step-2000",
+  "packs": [
+    {
+      "id": "td-v2-hard-teacher-60-step-2000",
+      "label": "TD V2 Hard Teacher 60 Step 2000",
+      "modelType": "td-root-search-v1",
+      "manifestPath": "model-packs/td-v2-hard-teacher-60-step-2000/manifest.json",
+      "createdAtUtc": "2026-06-18T18:06:44.096522+00:00",
+      "sourceRunId": null,
+      "sourceValueCheckpoint": "artifacts\\td_checkpoints\\20260618-163518Z-td-v2-hard-teacher-60\\value-step-0002000.pt",
+      "sourceOpponentCheckpoint": "artifacts\\td_checkpoints\\20260618-163518Z-td-v2-hard-teacher-60\\opponent-step-0002000.pt"
+    }
+  ]
 }
