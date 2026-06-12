@@ -1,8 +1,18 @@
 {
   "schemaVersion": 1,
-  "generatedAtUtc": "2026-06-18T18:06:44.096522+00:00",
-  "defaultPackId": "td-v2-hard-teacher-60-step-2000",
+  "generatedAtUtc": "2026-07-08T13:03:29.840970+00:00",
+  "defaultPackId": "td-two-stage-imported-20260706-hard-step-30000",
   "packs": [
+    {
+      "id": "td-two-stage-imported-20260706-hard-step-30000",
+      "label": "TD Two Stage Imported 20260706 Hard Step 30000",
+      "modelType": "td-root-search-v1",
+      "manifestPath": "model-packs/td-two-stage-imported-20260706-hard-step-30000/manifest.json",
+      "createdAtUtc": "2026-07-08T13:03:29.840970+00:00",
+      "sourceRunId": null,
+      "sourceValueCheckpoint": "artifacts\\td_checkpoints\\two_stage_imported_20260706\\20260708-004231Z-td-two-stage-20260706-stage2-hard-only-value\\value-step-0030000.pt",
+      "sourceOpponentCheckpoint": "artifacts\\td_checkpoints\\two_stage_imported_20260706\\20260708-051231Z-td-two-stage-20260706-stage2-hard-only-opponent\\opponent-step-0030000.pt"
+    },
     {
       "id": "td-v2-hard-teacher-60-step-2000",
       "label": "TD V2 Hard Teacher 60 Step 2000",

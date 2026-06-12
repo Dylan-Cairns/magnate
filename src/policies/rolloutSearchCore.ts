@@ -59,6 +59,8 @@ export interface RolloutSearchRuntimeGuidance {
   }) => GameAction | undefined;
 }
 
+export type RolloutSearchGuidanceKind = 'heuristic' | 'td-root' | 'custom';
+
 export interface RolloutSearchTdRootWorkerGuidance {
   kind: 'td-root';
   modelIndexPath: string;
@@ -76,6 +78,7 @@ export interface RolloutSearchSelectionInput {
   createRootGuide?: RolloutSearchRootGuideFactory;
   rolloutGuidance?: RolloutSearchRuntimeGuidance;
   workerGuidance?: RolloutSearchWorkerGuidance;
+  guidanceKind?: RolloutSearchGuidanceKind;
   onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
   onProgress?: () => void;
 }
@@ -318,6 +321,7 @@ function createRolloutSearchSession({
   createRootGuide,
   rolloutGuidance,
   workerGuidance,
+  guidanceKind,
 }: RolloutSearchSelectionInput): RolloutSearchSession | null {
   const rootPlayer = view.activePlayerId;
   const worldStates = sampleHiddenWorldStates({
@@ -355,6 +359,8 @@ function createRolloutSearchSession({
     config,
     rolloutGuidance,
     workerGuidance,
+    guidanceKind:
+      guidanceKind ?? (createRootGuide || rolloutGuidance ? 'custom' : 'heuristic'),
     rootRandomSeed: randomSeedForSession({ random, randomSeed }),
   });
 }
@@ -394,6 +400,7 @@ class RolloutSearchSession {
   private readonly config: SearchPolicyConfig;
   private readonly rolloutGuidance: RolloutSearchRuntimeGuidance | undefined;
   private readonly workerGuidance: RolloutSearchWorkerGuidance | undefined;
+  private readonly guidanceKind: RolloutSearchGuidanceKind;
   private readonly rootRandomSeed: string;
   private readonly rootBudget: number;
   private readonly rootVisits = new Map<string, number>();
@@ -418,6 +425,7 @@ class RolloutSearchSession {
     config,
     rolloutGuidance,
     workerGuidance,
+    guidanceKind,
     rootRandomSeed,
   }: {
     candidateActions: readonly GameAction[];
@@ -428,6 +436,7 @@ class RolloutSearchSession {
     config: SearchPolicyConfig;
     rolloutGuidance?: RolloutSearchRuntimeGuidance;
     workerGuidance?: RolloutSearchWorkerGuidance;
+    guidanceKind: RolloutSearchGuidanceKind;
     rootRandomSeed: string;
   }) {
     this.actionByKey = new Map(
@@ -443,6 +452,7 @@ class RolloutSearchSession {
     this.config = config;
     this.rolloutGuidance = rolloutGuidance;
     this.workerGuidance = workerGuidance;
+    this.guidanceKind = guidanceKind;
     this.rootRandomSeed = rootRandomSeed;
     this.rootBudget = rolloutSearchRootBudget(config, worldStates.length);
 
@@ -645,6 +655,7 @@ class RolloutSearchSession {
       actionKey,
       diagnostics: createSearchDecisionDiagnostics({
         config: this.config,
+        guidance: this.guidanceKind,
         legalRootActions: this.rankedRootActions.length,
         expandedRootActions: this.expandedKeys.length,
         rootVisitBudget: this.rootBudget,

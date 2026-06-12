@@ -154,6 +154,7 @@ async function selectSearchAction(
         ...(guidance.workerGuidance
           ? { workerGuidance: guidance.workerGuidance }
           : {}),
+        ...(guidance.workerGuidance ? { guidanceKind: 'td-root' } : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
         onSearchDiagnostics,
@@ -180,6 +181,7 @@ async function selectSearchAction(
     ...(guidance.rolloutGuidance
       ? { rolloutGuidance: guidance.rolloutGuidance }
       : {}),
+    ...(guidance.rolloutGuidance ? { guidanceKind: 'td-root' } : {}),
     onSearchDiagnostics,
   });
 }
