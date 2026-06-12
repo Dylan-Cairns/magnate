@@ -61,6 +61,7 @@ describe('td root search policy', () => {
     expect(actions.length).toBeGreaterThan(1);
 
     let loadCount = 0;
+    const diagnostics: unknown[] = [];
     const policy = createTdRootSearchPolicy({
       worlds: 1,
       rollouts: 1,
@@ -86,10 +87,15 @@ describe('td root search policy', () => {
       legalActions: actions,
       random: rngFromSeed('td-root-search-policy-rng'),
       randomSeed: 'td-root-search-policy-rng',
+      onSearchDiagnostics(value) {
+        diagnostics.push(value);
+      },
     });
     expect(selected).toBeDefined();
     const legalKeys = new Set(actions.map((action) => actionStableKey(action)));
     expect(legalKeys.has(actionStableKey(selected!))).toBe(true);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toMatchObject({ guidance: 'td-root' });
 
     await policy.selectAction({
       state,

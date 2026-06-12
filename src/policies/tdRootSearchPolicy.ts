@@ -89,6 +89,7 @@ export function createTdRootSearchPolicy(
           });
         },
         rolloutGuidance,
+        guidanceKind: 'td-root',
         onSearchDiagnostics,
         onProgress,
       });

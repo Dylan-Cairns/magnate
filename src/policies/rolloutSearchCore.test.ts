@@ -65,6 +65,7 @@ describe('rollout search core', () => {
     expect(serialDiagnostics[0].selectedActionKey).toBe(
       actionStableKey(serial!)
     );
+    expect(serialDiagnostics[0].guidance).toBe('heuristic');
     expectRootActionDiagnosticsAreConsistent(serialDiagnostics[0]);
   });
 
@@ -165,6 +166,7 @@ describe('rollout search core', () => {
         .map((entry) => entry.actionKey)
     );
     expect(diagnostics[0].rootActions[0].prior).toBe(0.8);
+    expect(diagnostics[0].guidance).toBe('custom');
   });
 
   it('uses heuristic v2 for configured root expansion order', () => {
@@ -198,6 +200,7 @@ describe('rollout search core', () => {
       expected
     );
     expect(diagnostics[0].heuristic).toBe('v2');
+    expect(diagnostics[0].guidance).toBe('heuristic');
   });
 
   it('runs rollout tasks with heuristic v2 playout selection configured', () => {

@@ -99,6 +99,7 @@ export function selectBestRootActionKey({
 
 export function createSearchDecisionDiagnostics({
   config,
+  guidance,
   legalRootActions,
   expandedRootActions,
   rootVisitBudget,
@@ -111,6 +112,7 @@ export function createSearchDecisionDiagnostics({
   parallelBatchSize,
 }: {
   config: SearchPolicyConfig;
+  guidance: SearchDecisionDiagnostics['guidance'];
   legalRootActions: number;
   expandedRootActions: number;
   rootVisitBudget: number;
@@ -132,6 +134,7 @@ export function createSearchDecisionDiagnostics({
   }
   return {
     kind: 'search',
+    guidance,
     heuristic: config.heuristic ?? 'v1',
     stochasticSimulation: 'common-random-scenarios-v1',
     legalRootActions,
