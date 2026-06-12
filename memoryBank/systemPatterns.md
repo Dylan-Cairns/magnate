@@ -135,9 +135,9 @@ Design expectations:
   transitions and timeline logging remain injected controller callbacks.
 - The next UI animation architecture is being staged under `src/ui/runtime/`:
   action dispatch should produce semantic `GameTransaction` events and a
-  presentation timeline first, then later derive a coherent render-only
-  `viewState` plus overlays from that runtime instead of scattering
-  per-component previews and holdbacks.
+  presentation timeline, then derive a coherent render-only `viewState` plus
+  overlays from that runtime instead of scattering per-component previews and
+  holdbacks.
 - Human and bot browser actions should share `prepareActionDispatch` for
   engine validation and animation-plan assembly. Validate with
   `stepToDecision` before DOM-dependent planning so invalid actions cannot
