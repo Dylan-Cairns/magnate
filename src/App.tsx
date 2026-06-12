@@ -245,6 +245,7 @@ export function App() {
   }, [deckMapInteractive]);
 
   const isLastTurn = !terminal && (state.finalTurnsRemaining ?? 0) > 0;
+  const holdPreviousRoll = turnCyclePreludeActive || terminal;
   const score = useMemo(() => state.finalScore ?? scoreLive(state), [state]);
   const wonDistrictsByPlayer = useMemo(
     () => districtWinnersByPlayer(state),
@@ -733,7 +734,7 @@ export function App() {
                   turnCyclePreludeActive ? undefined : humanView.lastTaxSuit
                 }
                 gameKey={state.seed}
-                holdPrevious={turnCyclePreludeActive}
+                holdPrevious={holdPreviousRoll}
                 animationsEnabled={animationsEnabled}
               />
             </div>
