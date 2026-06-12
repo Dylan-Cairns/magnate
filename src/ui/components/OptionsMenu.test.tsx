@@ -29,6 +29,8 @@ describe('OptionsMenu', () => {
         onToggleLog={noop}
         mapVisible
         onToggleMap={noop}
+        deckMapInteractive
+        onDeckMapInteractiveChange={noop}
       />
     );
 
