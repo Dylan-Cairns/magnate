@@ -27,6 +27,8 @@ describe('OptionsMenu', () => {
         onBugReportDownload={noop}
         logVisible
         onToggleLog={noop}
+        mapVisible
+        onToggleMap={noop}
       />
     );
 
