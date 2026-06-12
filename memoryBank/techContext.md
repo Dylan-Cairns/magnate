@@ -47,6 +47,7 @@
 - Python lint autofix: `python -m ruff check --fix scripts trainer trainer_tests`
 - Python typecheck: `.\.venv\Scripts\python -m pyright -p .`
 - Promote/register checkpoint pair: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
+- Export browser TD-root model pack: `.\.venv\Scripts\python -m scripts.export_browser_td_root_pack --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --set-default`
 
 ## Python Workflow
 
@@ -78,9 +79,8 @@
 
 ## Known Gaps
 
-- `td-root-search` needs full TD guidance through the shared rollout-search core.
 - Search baseline promotion thresholds still need repeated confirmation.
-- Browser TD deployment needs the new canonical TD-root rollout model pack wired in; legacy checked-in browser model artifacts have been removed.
-- Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized TD-root rollout specs.
+- Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
+- Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized TD-root rollout specs outside browser/worker runtime.
 
 _Updated: 2026-06-18._

@@ -5,6 +5,7 @@ import { createWorkerBackedPolicy } from './workerPolicy';
 export type BotProfileId =
   | 'rollout-search-v2-hard'
   | 'rollout-search-v2-medium'
+  | 'td-root-search-v2-medium'
   | 'rollout-search-v2-easy';
 
 export interface BotProfile {
@@ -61,6 +62,25 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
         heuristic: 'v2',
+      },
+    },
+    createPolicy: createWorkerBackedPolicy,
+  }),
+  createBotProfile({
+    id: 'td-root-search-v2-medium',
+    label: 'TD V2 Medium',
+    description: '',
+    available: true,
+    turnDelayMs: 0,
+    spec: {
+      id: 'td-root-search-v2-medium',
+      kind: 'td-root-search',
+      config: {
+        worlds: 10,
+        rollouts: 1,
+        depth: 40,
+        maxRootActions: 16,
+        rolloutEpsilon: 0.0,
       },
     },
     createPolicy: createWorkerBackedPolicy,

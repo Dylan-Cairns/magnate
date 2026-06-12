@@ -58,4 +58,4 @@ Sweep aggregate artifacts are written with `status=running` before compute start
 
 ## Current Limitation
 
-Direct Node eval of future TD-root rollout specs still needs a local model-pack loader.
+Browser and Web Worker TD-root search load `td-root-search-v1` packs from `public/model-packs`. Direct Node eval of serialized TD-root rollout specs still needs a local model-pack loader outside the browser asset runtime.
