@@ -16,7 +16,8 @@ export type DevFixtureId =
   | 'late-game'
   | 'd6-moons'
   | 'd6-wyrms'
-  | 'd6-knots';
+  | 'd6-knots'
+  | 'd6-suns';
 
 const DEV_FIXTURE_PARAM = 'fixture';
 const LATE_GAME_FIXTURE_SEED = 'dev-late-6';
@@ -46,7 +47,8 @@ export function devFixtureIdFromSearch(search: string): DevFixtureId | null {
     fixtureId === 'late-game' ||
     fixtureId === 'd6-moons' ||
     fixtureId === 'd6-wyrms' ||
-    fixtureId === 'd6-knots'
+    fixtureId === 'd6-knots' ||
+    fixtureId === 'd6-suns'
   ) {
     return fixtureId;
   }
@@ -68,6 +70,8 @@ export function createDevFixtureSession(
       return createD6TaxFixture(humanPlayerId, 'Wyrms');
     case 'd6-knots':
       return createD6TaxFixture(humanPlayerId, 'Knots');
+    case 'd6-suns':
+      return createD6TaxFixture(humanPlayerId, 'Suns');
   }
 }
 
@@ -191,7 +195,9 @@ function createLateGameFixture(humanPlayerId: PlayerId): GameState {
 
     const decisionPlayerId = decisionPlayerIdForState(state);
     if (decisionPlayerId !== 'PlayerA' && decisionPlayerId !== 'PlayerB') {
-      throw new Error('Late-game dev fixture could not resolve decision player.');
+      throw new Error(
+        'Late-game dev fixture could not resolve decision player.'
+      );
     }
 
     const actions = legalActionsForDecisionPlayer(state, decisionPlayerId);
