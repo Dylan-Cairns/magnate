@@ -2,7 +2,9 @@ import {
   ACTION_FEATURE_DIM,
   ENCODING_VERSION,
   OBSERVATION_DIM,
+  encodeActionInto,
 } from './trainingEncoding';
+import type { GameAction } from '../engine/types';
 import {
   TD_VALUE_CHECKPOINT_TYPE,
   TD_VALUE_MODEL_PACK_WEIGHTS_SCHEMA_VERSION,
@@ -46,8 +48,7 @@ export const TD_ROOT_OPPONENT_REQUIRED_TENSOR_KEYS = [
   'policy_head.2.bias',
 ] as const;
 
-type OpponentTensorKey =
-  (typeof TD_ROOT_OPPONENT_REQUIRED_TENSOR_KEYS)[number];
+type OpponentTensorKey = (typeof TD_ROOT_OPPONENT_REQUIRED_TENSOR_KEYS)[number];
 type ValueTensorKey = (typeof TD_VALUE_REQUIRED_TENSOR_KEYS)[number];
 type TdRootTensorKey = OpponentTensorKey | ValueTensorKey;
 
@@ -123,6 +124,7 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
   private readonly observationHidden1: Float32Array;
   private readonly observationHidden2: Float32Array;
   private readonly actionEmbedding: Float32Array;
+  private readonly actionFeatureScratch: Float32Array;
   private readonly interactionEmbedding: Float32Array;
   private readonly observationHeadBase: Float32Array;
   private readonly policyHidden: Float32Array;
@@ -144,6 +146,7 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     this.observationHidden1 = new Float32Array(this.hiddenDim);
     this.observationHidden2 = new Float32Array(this.hiddenDim);
     this.actionEmbedding = new Float32Array(this.hiddenDim);
+    this.actionFeatureScratch = new Float32Array(this.actionFeatureDim);
     this.interactionEmbedding = new Float32Array(this.hiddenDim);
     this.observationHeadBase = new Float32Array(this.hiddenDim);
     this.policyHidden = new Float32Array(this.hiddenDim);
@@ -153,11 +156,7 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     observation: readonly number[],
     actionFeatures: readonly number[][]
   ): Float32Array {
-    if (observation.length !== this.observationDim) {
-      throw new Error(
-        `TD root opponent model observation length mismatch. expected=${String(this.observationDim)} actual=${String(observation.length)}.`
-      );
-    }
+    this.validateObservation(observation);
     if (actionFeatures.length === 0) {
       return new Float32Array(0);
     }
@@ -184,6 +183,38 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     return logits;
   }
 
+  logitsForActions(
+    observation: readonly number[],
+    actions: readonly GameAction[]
+  ): Float32Array {
+    this.validateObservation(observation);
+    if (actions.length === 0) {
+      return new Float32Array(0);
+    }
+
+    const obsEmbedding = this.encodeObservation(observation);
+    this.encodeObservationHeadBase(obsEmbedding);
+    const logits = new Float32Array(actions.length);
+    for (let index = 0; index < actions.length; index += 1) {
+      encodeActionInto(actions[index], this.actionFeatureScratch);
+      const actionEmbedding = this.encodeAction(this.actionFeatureScratch);
+      const interactionEmbedding = this.encodeInteraction(
+        obsEmbedding,
+        actionEmbedding
+      );
+      logits[index] = this.policyLogit(actionEmbedding, interactionEmbedding);
+    }
+    return logits;
+  }
+
+  private validateObservation(observation: readonly number[]): void {
+    if (observation.length !== this.observationDim) {
+      throw new Error(
+        `TD root opponent model observation length mismatch. expected=${String(this.observationDim)} actual=${String(observation.length)}.`
+      );
+    }
+  }
+
   private encodeObservation(observation: readonly number[]): Float32Array {
     const hidden1 = this.observationHidden1;
     for (let row = 0; row < this.hiddenDim; row += 1) {
@@ -207,7 +238,7 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     return hidden2;
   }
 
-  private encodeAction(actionFeatures: readonly number[]): Float32Array {
+  private encodeAction(actionFeatures: ArrayLike<number>): Float32Array {
     const embedding = this.actionEmbedding;
     for (let row = 0; row < this.hiddenDim; row += 1) {
       let sum = this.actionB[row];
@@ -579,16 +610,12 @@ function createTdRootValueNetwork(
       hiddenDim,
       observationDim,
     ]),
-    b1: parseTdRootTensor(weights.valueTensors, 'encoder.0.bias', [
-      hiddenDim,
-    ]),
+    b1: parseTdRootTensor(weights.valueTensors, 'encoder.0.bias', [hiddenDim]),
     w2: parseTdRootTensor(weights.valueTensors, 'encoder.2.weight', [
       hiddenDim,
       hiddenDim,
     ]),
-    b2: parseTdRootTensor(weights.valueTensors, 'encoder.2.bias', [
-      hiddenDim,
-    ]),
+    b2: parseTdRootTensor(weights.valueTensors, 'encoder.2.bias', [hiddenDim]),
     w3: parseTdRootTensor(weights.valueTensors, 'encoder.4.weight', [
       1,
       hiddenDim,
@@ -632,22 +659,22 @@ function createTdRootOpponentNetwork(
       'action_encoder.0.bias',
       [hiddenDim]
     ),
-    headW1: parseTdRootTensor(
-      weights.opponentTensors,
-      'policy_head.0.weight',
-      [hiddenDim, hiddenDim * 3]
-    ),
+    headW1: parseTdRootTensor(weights.opponentTensors, 'policy_head.0.weight', [
+      hiddenDim,
+      hiddenDim * 3,
+    ]),
     headB1: parseTdRootTensor(weights.opponentTensors, 'policy_head.0.bias', [
       hiddenDim,
     ]),
-    headW2: parseTdRootTensor(
-      weights.opponentTensors,
-      'policy_head.2.weight',
-      [1, hiddenDim]
-    ),
-    headB2: parseTdRootTensor(weights.opponentTensors, 'policy_head.2.bias', [
+    headW2: parseTdRootTensor(weights.opponentTensors, 'policy_head.2.weight', [
       1,
+      hiddenDim,
     ]),
+    headB2: parseTdRootTensor(
+      weights.opponentTensors,
+      'policy_head.2.bias',
+      [1]
+    ),
   });
 }
 

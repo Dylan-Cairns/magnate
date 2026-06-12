@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { legalActions } from '../engine/actionBuilders';
+import { createSession } from '../engine/session';
 import {
   ACTION_FEATURE_DIM,
   ENCODING_VERSION,
   OBSERVATION_DIM,
+  encodeActionCandidates,
 } from './trainingEncoding';
 import {
   TD_ROOT_MODEL_TYPE,
@@ -77,10 +80,13 @@ describe('td root model pack', () => {
   it('runs opponent logits from exported tensors', () => {
     const model = makeTinyOpponentNetwork();
 
-    const logits = model.logits([0.5, 0.25], [
-      [0.1, 0.2],
-      [0.9, 0.2],
-    ]);
+    const logits = model.logits(
+      [0.5, 0.25],
+      [
+        [0.1, 0.2],
+        [0.9, 0.2],
+      ]
+    );
 
     expect(logits).toHaveLength(2);
     expect(logits[0]).toBeCloseTo(expectedTinyOpponentLogit(0.5, 0.1), 6);
@@ -131,6 +137,26 @@ describe('td root model pack', () => {
       'action feature length mismatch'
     );
   });
+
+  it('scores raw actions the same as pre-encoded action features', () => {
+    const model = makeFullActionOpponentNetwork();
+    const observation = new Array<number>(OBSERVATION_DIM).fill(0);
+    observation[0] = 0.5;
+    observation[1] = 0.25;
+    const state = createSession('td-root-raw-action-logits', 'PlayerA');
+    const actions = legalActions(state);
+
+    const fromFeatures = model.logits(
+      observation,
+      encodeActionCandidates(actions)
+    );
+    const fromActions = model.logitsForActions(observation, actions);
+
+    expect(fromActions).toHaveLength(fromFeatures.length);
+    for (let index = 0; index < fromFeatures.length; index += 1) {
+      expect(fromActions[index]).toBeCloseTo(fromFeatures[index], 6);
+    }
+  });
 });
 
 function makeTinyOpponentNetwork(): TdRootOpponentNetwork {
@@ -158,4 +184,28 @@ function expectedTinyOpponentLogit(
   const observationEmbedding0 = Math.tanh(Math.tanh(observation0));
   const actionEmbedding0 = Math.tanh(action0);
   return Math.tanh(observationEmbedding0) + Math.tanh(actionEmbedding0);
+}
+
+function makeFullActionOpponentNetwork(): TdRootOpponentNetwork {
+  const obsW1 = new Array<number>(OBSERVATION_DIM * 2).fill(0);
+  obsW1[0] = 1;
+  obsW1[OBSERVATION_DIM + 1] = 1;
+  const actionW = new Array<number>(ACTION_FEATURE_DIM * 2).fill(0);
+  actionW[0] = 1;
+  actionW[ACTION_FEATURE_DIM + 1] = 1;
+  return new TdRootOpponentNetwork({
+    observationDim: OBSERVATION_DIM,
+    actionFeatureDim: ACTION_FEATURE_DIM,
+    hiddenDim: 2,
+    obsW1: Float32Array.from(obsW1),
+    obsB1: Float32Array.from([0, 0]),
+    obsW2: Float32Array.from([1, 0, 0, 1]),
+    obsB2: Float32Array.from([0, 0]),
+    actionW: Float32Array.from(actionW),
+    actionB: Float32Array.from([0, 0]),
+    headW1: Float32Array.from([1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0]),
+    headB1: Float32Array.from([0, 0]),
+    headW2: Float32Array.from([1, 1]),
+    headB2: Float32Array.from([0]),
+  });
 }
