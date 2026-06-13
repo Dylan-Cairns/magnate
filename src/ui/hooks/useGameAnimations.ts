@@ -22,16 +22,16 @@ import type {
 } from '../animations/turnCycleVisualPlan';
 import type { CardFlight, ResourceFlight } from '../animations/types';
 import {
-  derivePresentationSnapshot,
+  derivePresentationSnapshotFromSequence,
   type PresentationSnapshot,
 } from '../runtime/presentation';
-import { buildPresentationTimeline } from '../runtime/timeline';
+import {
+  buildAnimationSequence,
+  type AnimationSequence,
+  type ScheduledAnimationStep,
+} from '../runtime/animationSequence';
 import { deriveGamePresentationEvents } from '../runtime/transactions';
-import type {
-  GameTransaction,
-  PresentationTimeline,
-  PresentationTimelineEvent,
-} from '../runtime/types';
+import type { GameTransaction } from '../runtime/types';
 
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 
@@ -240,14 +240,14 @@ export function useGameAnimations({
         queuedCardFlights,
         turnCyclePlan
       );
-      const presentationTimeline = presentationTransaction
-        ? buildPresentationTimeline(presentationTransaction)
+      const presentationSequence = presentationTransaction
+        ? buildAnimationSequence(presentationTransaction)
         : null;
-      if (presentationTransaction && presentationTimeline) {
+      if (presentationTransaction && presentationSequence) {
         setPresentationSnapshot(
-          derivePresentationSnapshot({
+          derivePresentationSnapshotFromSequence({
             transaction: presentationTransaction,
-            timeline: presentationTimeline,
+            sequence: presentationSequence,
             elapsedMs: 0,
           })
         );
@@ -260,7 +260,8 @@ export function useGameAnimations({
         cardFlightSettleMs(queuedCardFlights),
         turnCyclePlan
           ? turnCycleStartDelayMs + turnCyclePlan.totalDurationMs
-          : 0
+          : 0,
+        presentationSequence?.durationMs ?? 0
       );
       if (settleMs <= 0) {
         setPresentationSnapshot(null);
@@ -287,10 +288,10 @@ export function useGameAnimations({
       );
       setActionCommitPending(true);
       actionCommitTimers.clearAll();
-      if (presentationTransaction && presentationTimeline) {
-        schedulePresentationSnapshots(
+      if (presentationTransaction && presentationSequence) {
+        scheduleSequencePresentationSnapshots(
           presentationTransaction,
-          presentationTimeline,
+          presentationSequence,
           settleMs,
           actionCommitTimers,
           setPresentationSnapshot
@@ -400,22 +401,22 @@ function buildPresentationTransactionForTransition(
   };
 }
 
-function schedulePresentationSnapshots(
+function scheduleSequencePresentationSnapshots(
   transaction: GameTransaction,
-  timeline: PresentationTimeline,
+  sequence: AnimationSequence,
   settleMs: number,
   timers: AnimationTimerRegistry,
   setSnapshot: (snapshot: PresentationSnapshot | null) => void
 ): void {
-  const updateTimes = uniquePresentationUpdateTimes(timeline.events).filter(
+  const updateTimes = uniqueSequenceUpdateTimes(sequence.steps).filter(
     (atMs) => atMs > 0 && atMs < settleMs
   );
   for (const atMs of updateTimes) {
     timers.schedule(atMs, () => {
       setSnapshot(
-        derivePresentationSnapshot({
+        derivePresentationSnapshotFromSequence({
           transaction,
-          timeline,
+          sequence,
           elapsedMs: atMs,
         })
       );
@@ -423,10 +424,10 @@ function schedulePresentationSnapshots(
   }
 }
 
-function uniquePresentationUpdateTimes(
-  events: readonly PresentationTimelineEvent[]
+function uniqueSequenceUpdateTimes(
+  steps: readonly ScheduledAnimationStep[]
 ): number[] {
-  return [...new Set(events.map((event) => event.atMs))].sort(
+  return [...new Set(steps.flatMap((step) => [step.startMs, step.endMs]))].sort(
     (left, right) => left - right
   );
 }

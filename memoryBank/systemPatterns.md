@@ -149,9 +149,14 @@ Design expectations:
   durations as the single timing source. React components should eventually
   render snapshots/overlays derived from that sequence rather than owning
   sequence timers locally.
+- Presentation `viewState` snapshots should be derived from
+  `AnimationSequence` step boundaries. Launch steps may start visual flights,
+  but canonical-looking resource/card/count mutations belong to explicit
+  sequence apply/commit steps so React cannot leak `nextState` before the
+  sequence reaches it.
 - Animation overlays that describe semantic presentation state, including
   income source highlights and active-player visual holdbacks, should be
-  emitted by the presentation timeline/reducer rather than maintained by
+  emitted by the animation sequence reducer rather than maintained by
   independent hook-local timers.
 - Human and bot browser actions should share `prepareActionDispatch` for
   engine validation and animation-plan assembly. Validate with

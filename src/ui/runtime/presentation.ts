@@ -4,12 +4,17 @@ import type {
   ResourcePool,
   Suit,
 } from '../../engine/types';
+import type { CardId } from '../../engine/cards';
 import type {
   AnimationOverlayState,
   GameTransaction,
   PresentationTimeline,
   PresentationTimelineEvent,
 } from './types';
+import type {
+  AnimationSequence,
+  ScheduledAnimationStep,
+} from './animationSequence';
 
 export type PresentationSnapshot = {
   viewState: GameState;
@@ -19,6 +24,12 @@ export type PresentationSnapshot = {
 export type DerivePresentationSnapshotOptions = {
   transaction: GameTransaction;
   timeline: PresentationTimeline;
+  elapsedMs: number;
+};
+
+export type DerivePresentationSnapshotFromSequenceOptions = {
+  transaction: GameTransaction;
+  sequence: AnimationSequence;
   elapsedMs: number;
 };
 
@@ -57,6 +68,41 @@ export function derivePresentationSnapshot({
   return { viewState, overlays };
 }
 
+export function derivePresentationSnapshotFromSequence({
+  transaction,
+  sequence,
+  elapsedMs,
+}: DerivePresentationSnapshotFromSequenceOptions): PresentationSnapshot {
+  const commitStep = sequence.steps.find(
+    (step) => step.type === 'commit-view-state'
+  );
+  if (commitStep && elapsedMs >= commitStep.startMs) {
+    return {
+      viewState: transaction.nextState,
+      overlays: EMPTY_OVERLAYS,
+    };
+  }
+
+  let viewState = cloneGameState(transaction.previousState);
+  let overlays = initialOverlays(transaction);
+  for (const step of sequence.steps) {
+    if (step.startMs > elapsedMs) {
+      break;
+    }
+    const updated = applySequenceStep(
+      viewState,
+      overlays,
+      transaction,
+      step,
+      elapsedMs
+    );
+    viewState = updated.viewState;
+    overlays = updated.overlays;
+  }
+
+  return { viewState, overlays };
+}
+
 function applyTimelineEvent(
   viewState: GameState,
   overlays: AnimationOverlayState,
@@ -68,7 +114,11 @@ function applyTimelineEvent(
       return { viewState, overlays };
     case 'reveal-drawn-card':
       return {
-        viewState: revealDrawnCard(viewState, transaction.nextState, event),
+        viewState: revealDrawnCard(
+          viewState,
+          transaction.nextState,
+          event.event
+        ),
         overlays: {
           ...overlays,
           activePlayerHighlightOverride: null,
@@ -81,7 +131,11 @@ function applyTimelineEvent(
       };
     case 'show-income-roll':
       return {
-        viewState: revealIncomeRoll(viewState, transaction.nextState, event),
+        viewState: revealIncomeRoll(
+          viewState,
+          transaction.nextState,
+          event.event
+        ),
         overlays,
       };
     case 'apply-tax-token-loss':
@@ -156,6 +210,130 @@ function applyTimelineEvent(
   }
 }
 
+function applySequenceStep(
+  viewState: GameState,
+  overlays: AnimationOverlayState,
+  transaction: GameTransaction,
+  step: ScheduledAnimationStep,
+  elapsedMs: number
+): PresentationSnapshot {
+  switch (step.type) {
+    case 'hold-previous-state':
+    case 'pulse-income-die':
+    case 'pulse-tax-die':
+    case 'hold-before-tax-flights':
+    case 'launch-tax-token-flights':
+    case 'stage-gap':
+    case 'hold-before-income-flights':
+    case 'launch-income-token-flights':
+      return { viewState, overlays };
+    case 'draw-card-flight':
+      if (elapsedMs < step.endMs) {
+        return { viewState, overlays };
+      }
+      return {
+        viewState: revealDrawnCard(viewState, transaction.nextState, step),
+        overlays: {
+          ...overlays,
+          activePlayerHighlightOverride: null,
+        },
+      };
+    case 'stage-sold-card':
+      return {
+        viewState: stageSoldCard(viewState, transaction.nextState),
+        overlays,
+      };
+    case 'roll-income-dice':
+      return {
+        viewState: revealIncomeRoll(viewState, transaction.nextState, step),
+        overlays: {
+          ...overlays,
+          activePlayerHighlightOverride: null,
+        },
+      };
+    case 'roll-tax-die':
+      return {
+        viewState: {
+          ...viewState,
+          lastTaxSuit: step.suit,
+        },
+        overlays,
+      };
+    case 'apply-tax-losses':
+      return {
+        viewState: applyResourceDeltas(
+          viewState,
+          step.losses.map((event) => ({
+            playerId: event.playerId,
+            delta: { [event.suit]: -1 },
+          }))
+        ),
+        overlays,
+      };
+    case 'highlight-income-sources':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          incomeHighlightCardIds: step.cardIds,
+          incomeHighlightCrowns: step.crowns,
+        },
+      };
+    case 'apply-income-gains':
+      return {
+        viewState: applyResourceDeltas(
+          viewState,
+          step.gains.map((event) => ({
+            playerId: event.playerId,
+            delta: { [event.suit]: 1 },
+          }))
+        ),
+        overlays,
+      };
+    case 'post-income-hold':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          incomeHighlightCardIds: [],
+          incomeHighlightCrowns: [],
+        },
+      };
+    case 'reveal-income-choice-request':
+      return {
+        viewState: {
+          ...viewState,
+          phase: 'CollectIncome',
+          pendingIncomeChoices: step.choices,
+          incomeChoiceReturnPlayerId:
+            transaction.nextState.incomeChoiceReturnPlayerId,
+        },
+        overlays,
+      };
+    case 'reveal-income-choice-submission':
+      return {
+        viewState: {
+          ...viewState,
+          submittedIncomeChoices: [
+            ...(viewState.submittedIncomeChoices ?? []),
+            {
+              playerId: step.event.playerId,
+              districtId: step.event.districtId,
+              cardId: step.event.cardId,
+              suit: step.event.suit,
+            },
+          ],
+        },
+        overlays,
+      };
+    case 'commit-view-state':
+      return {
+        viewState: transaction.nextState,
+        overlays: EMPTY_OVERLAYS,
+      };
+  }
+}
+
 function initialOverlays(transaction: GameTransaction): AnimationOverlayState {
   const hasDraw = transaction.events.some(
     (event) => event.type === 'draw-card'
@@ -179,18 +357,18 @@ function stageSoldCard(viewState: GameState, nextState: GameState): GameState {
 function revealDrawnCard(
   viewState: GameState,
   nextState: GameState,
-  event: Extract<PresentationTimelineEvent, { type: 'reveal-drawn-card' }>
+  event: { playerId: PlayerId; cardId: CardId }
 ): GameState {
   return {
     ...viewState,
     deck: nextState.deck,
     players: viewState.players.map((player) =>
-      player.id === event.event.playerId
+      player.id === event.playerId
         ? {
             ...player,
-            hand: player.hand.includes(event.event.cardId)
+            hand: player.hand.includes(event.cardId)
               ? player.hand
-              : [...player.hand, event.event.cardId],
+              : [...player.hand, event.cardId],
           }
         : player
     ),
@@ -200,15 +378,29 @@ function revealDrawnCard(
 function revealIncomeRoll(
   viewState: GameState,
   nextState: GameState,
-  event: Extract<PresentationTimelineEvent, { type: 'show-income-roll' }>
+  event: { roll: GameState['lastIncomeRoll'] }
 ): GameState {
   return {
     ...viewState,
     activePlayerIndex: nextState.activePlayerIndex,
     turn: nextState.turn,
-    lastIncomeRoll: event.event.roll,
+    lastIncomeRoll: event.roll,
     lastTaxSuit: nextState.lastTaxSuit,
   };
+}
+
+function applyResourceDeltas(
+  state: GameState,
+  deltas: readonly {
+    playerId: PlayerId;
+    delta: Partial<Record<Suit, number>>;
+  }[]
+): GameState {
+  return deltas.reduce(
+    (updated, entry) =>
+      applyResourceDelta(updated, entry.playerId, entry.delta),
+    state
+  );
 }
 
 function applyResourceDelta(
