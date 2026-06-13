@@ -9,6 +9,7 @@ import { browserAnimationDomTargets } from '../animations/domTargets';
 import {
   buildIncomeFlightsFromDom,
   buildTaxLossFlightsFromDom,
+  type IncomeFlightToken,
 } from '../animations/flightPlans';
 import {
   cardFlightSettleMs,
@@ -16,11 +17,12 @@ import {
   shouldAllowHumanActionsDuringAnimationSettle,
   shouldCommitBeforeAnimationSettle,
 } from '../animations/timing';
-import type {
-  TurnCycleAnimationPlan,
-  TurnCycleVisualPlan,
-} from '../animations/turnCycleVisualPlan';
+import type { TurnCycleAnimationPlan } from '../animations/turnCycleVisualPlan';
 import type { CardFlight, ResourceFlight } from '../animations/types';
+import {
+  deriveAnimationVisualCommands,
+  type AnimationVisualCommand,
+} from '../runtime/animationVisualCommands';
 import {
   derivePresentationSnapshotFromSequence,
   type PresentationSnapshot,
@@ -124,77 +126,71 @@ export function useGameAnimations({
     turnCycleVisualTimers.clearAll();
     clearTaxPulseElements();
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
-  const scheduleTurnCycleVisuals = useCallback(
-    (plan: TurnCycleVisualPlan | null, startDelayMs = 0) => {
-      clearTurnCycleVisuals();
-      if (!plan) {
-        return;
+  const scheduleSequenceVisualCommand = useCallback(
+    (command: AnimationVisualCommand) => {
+      switch (command.type) {
+        case 'pulse-tax-resources':
+          turnCycleVisualTimers.schedule(command.startMs, () => {
+            applyTaxPulseTargets(command.targets);
+          });
+          turnCycleVisualTimers.schedule(command.endMs, () => {
+            clearTaxPulseElements();
+          });
+          return;
+        case 'launch-tax-token-flights':
+          turnCycleVisualTimers.schedule(command.atMs, () => {
+            const taxFlights = buildTaxLossFlightsFromDom(
+              command.losses.map((loss) => ({
+                playerId: loss.playerId,
+                suit: loss.suit,
+              })),
+              makeResourceFlightId
+            );
+            if (taxFlights.length === 0) {
+              return;
+            }
+            setResourceFlights((existing) => [...existing, ...taxFlights]);
+          });
+          return;
+        case 'launch-income-token-flights':
+          turnCycleVisualTimers.schedule(command.atMs, () => {
+            const incomeFlights = buildIncomeFlightsFromDom(
+              command.gains.map(
+                (gain): IncomeFlightToken => ({
+                  playerId: gain.playerId,
+                  suit: gain.suit,
+                  source: gain.source,
+                })
+              ),
+              makeResourceFlightId
+            );
+            if (incomeFlights.length === 0) {
+              return;
+            }
+            setResourceFlights((existing) => [...existing, ...incomeFlights]);
+          });
+          return;
       }
-
-      if (plan.taxSuit) {
-        if (
-          plan.taxPulseStartAtMs !== null &&
-          plan.taxPulseTargets.length > 0
-        ) {
-          turnCycleVisualTimers.schedule(
-            startDelayMs + plan.taxPulseStartAtMs,
-            () => {
-              applyTaxPulseTargets(plan.taxPulseTargets);
-            }
-          );
-        }
-        if (plan.taxPulseEndAtMs !== null) {
-          turnCycleVisualTimers.schedule(
-            startDelayMs + plan.taxPulseEndAtMs,
-            () => {
-              clearTaxPulseElements();
-            }
-          );
-        }
-        if (
-          plan.taxFlightLaunchAtMs !== null &&
-          plan.taxFlightTokens.length > 0
-        ) {
-          turnCycleVisualTimers.schedule(
-            startDelayMs + plan.taxFlightLaunchAtMs,
-            () => {
-              const taxFlights = buildTaxLossFlightsFromDom(
-                plan.taxFlightTokens,
-                makeResourceFlightId
-              );
-              if (taxFlights.length === 0) {
-                return;
-              }
-              setResourceFlights((existing) => [...existing, ...taxFlights]);
-            }
-          );
-        }
-      }
-
-      turnCycleVisualTimers.schedule(
-        startDelayMs + plan.incomeFlightLaunchAtMs,
-        () => {
-          const incomeFlights = buildIncomeFlightsFromDom(
-            plan.incomeFlightTokens,
-            makeResourceFlightId
-          );
-          if (incomeFlights.length === 0) {
-            return;
-          }
-          setResourceFlights((existing) => [...existing, ...incomeFlights]);
-        }
-      );
-      turnCycleVisualTimers.schedule(startDelayMs + plan.hideAllAtMs, () => {
-        clearTaxPulseElements();
-      });
     },
     [
       applyTaxPulseTargets,
       clearTaxPulseElements,
-      clearTurnCycleVisuals,
       makeResourceFlightId,
       turnCycleVisualTimers,
     ]
+  );
+  const scheduleSequenceVisuals = useCallback(
+    (sequence: AnimationSequence | null) => {
+      clearTurnCycleVisuals();
+      if (!sequence) {
+        return;
+      }
+
+      for (const command of deriveAnimationVisualCommands(sequence)) {
+        scheduleSequenceVisualCommand(command);
+      }
+    },
+    [clearTurnCycleVisuals, scheduleSequenceVisualCommand]
   );
   const clearPendingActionCommit = useCallback(() => {
     actionCommitTimers.clearAll();
@@ -220,17 +216,6 @@ export function useGameAnimations({
       turnCyclePlan,
       onSettle,
     }: RunTransitionOptions) => {
-      const drawFlightsForTimer = queuedCardFlights.filter(
-        (f) => f.variant === 'draw' && f.cardId != null
-      );
-      const turnCycleStartDelayMs = turnCycleStartDelayForTransition(
-        action,
-        drawFlightsForTimer
-      );
-      scheduleTurnCycleVisuals(
-        turnCyclePlan?.visualPlan ?? null,
-        turnCycleStartDelayMs
-      );
       const presentationTransaction = buildPresentationTransactionForTransition(
         previousState,
         nextState,
@@ -243,6 +228,7 @@ export function useGameAnimations({
       const presentationSequence = presentationTransaction
         ? buildAnimationSequence(presentationTransaction)
         : null;
+      scheduleSequenceVisuals(presentationSequence);
       if (presentationTransaction && presentationSequence) {
         setPresentationSnapshot(
           derivePresentationSnapshotFromSequence({
@@ -255,12 +241,20 @@ export function useGameAnimations({
         setPresentationSnapshot(null);
       }
 
+      const fallbackTurnCycleSettleMs = presentationSequence
+        ? 0
+        : turnCyclePlan
+          ? turnCycleStartDelayForTransition(
+              action,
+              queuedCardFlights.filter(
+                (flight) => flight.variant === 'draw' && flight.cardId != null
+              )
+            ) + turnCyclePlan.totalDurationMs
+          : 0;
       const settleMs = Math.max(
         resourceFlightSettleMs(queuedResourceFlights),
         cardFlightSettleMs(queuedCardFlights),
-        turnCyclePlan
-          ? turnCycleStartDelayMs + turnCyclePlan.totalDurationMs
-          : 0,
+        fallbackTurnCycleSettleMs,
         presentationSequence?.durationMs ?? 0
       );
       if (settleMs <= 0) {
@@ -273,10 +267,14 @@ export function useGameAnimations({
         return;
       }
 
-      if (queuedResourceFlights.length > 0) {
+      const immediateResourceFlights =
+        presentationSequence && action.type === 'choose-income-suit'
+          ? []
+          : queuedResourceFlights;
+      if (immediateResourceFlights.length > 0) {
         setResourceFlights((existing) => [
           ...existing,
-          ...queuedResourceFlights,
+          ...immediateResourceFlights,
         ]);
       }
       if (queuedCardFlights.length > 0) {
@@ -317,7 +315,7 @@ export function useGameAnimations({
       actionCommitTimers,
       clearTurnCycleVisuals,
       onCommitTransition,
-      scheduleTurnCycleVisuals,
+      scheduleSequenceVisuals,
     ]
   );
 

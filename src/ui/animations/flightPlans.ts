@@ -33,6 +33,18 @@ const BOT_PLAYER: PlayerId = 'PlayerB';
 const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
 
+export type IncomeFlightToken = {
+  playerId: PlayerId;
+  suit: Suit;
+  source:
+    | TurnCycleIncomeToken['source']
+    | {
+        kind: 'income-choice';
+        cardId: CardId;
+        districtId: string;
+      };
+};
+
 export function collectTerminalCleanupFlights(): {
   resourceFlights: ReadonlyArray<ResourceFlight>;
   cardFlights: ReadonlyArray<CardFlight>;
@@ -81,7 +93,7 @@ export function buildTaxLossFlightsFromDom(
 }
 
 export function buildIncomeFlightsFromDom(
-  tokens: ReadonlyArray<TurnCycleIncomeToken>,
+  tokens: ReadonlyArray<IncomeFlightToken>,
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): ResourceFlight[] {
@@ -92,22 +104,22 @@ export function buildIncomeFlightsFromDom(
   const flights: ResourceFlight[] = [];
   for (const [index, token] of tokens.entries()) {
     const sourceElement =
-      token.source.kind === 'district-card'
-        ? domTargets.districtCard(
+      token.source.kind === 'crown'
+        ? domTargets.crownToken(token.playerId, token.suit)
+        : domTargets.districtCard(
             token.playerId,
             token.source.districtId,
             token.source.cardId
-          )
-        : domTargets.crownToken(token.playerId, token.suit);
+          );
     const targetElement = domTargets.resourceToken(token.playerId, token.suit);
     if (!sourceElement || !targetElement) {
       continue;
     }
 
     const source =
-      token.source.kind === 'district-card'
-        ? domTargets.elementCenter(sourceElement)
-        : domTargets.tokenVisualCenter(sourceElement);
+      token.source.kind === 'crown'
+        ? domTargets.tokenVisualCenter(sourceElement)
+        : domTargets.elementCenter(sourceElement);
     const target = domTargets.tokenVisualCenter(targetElement);
     flights.push({
       id: makeFlightId(),

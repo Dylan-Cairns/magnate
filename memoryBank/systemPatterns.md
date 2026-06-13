@@ -154,6 +154,10 @@ Design expectations:
   but canonical-looking resource/card/count mutations belong to explicit
   sequence apply/commit steps so React cannot leak `nextState` before the
   sequence reaches it.
+- Browser token visual effects should be scheduled from sequence-derived visual
+  commands. DOM target lookup and flight object construction stay browser-only,
+  but the command `atMs`/`startMs` values must come from `AnimationSequence`
+  steps rather than a parallel turn-cycle visual timing plan.
 - Animation overlays that describe semantic presentation state, including
   income source highlights and active-player visual holdbacks, should be
   emitted by the animation sequence reducer rather than maintained by
