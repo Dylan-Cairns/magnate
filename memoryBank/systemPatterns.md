@@ -144,6 +144,11 @@ Design expectations:
 - App-level visual helpers should accept `viewState` rather than canonical
   state, so animated transitions cannot leak already-committed engine results
   into visible UI before the presentation timeline reaches them.
+- The target animation architecture is one sequence per `GameTransaction`:
+  `buildAnimationSequence(transaction)` produces ordered semantic steps with
+  durations as the single timing source. React components should eventually
+  render snapshots/overlays derived from that sequence rather than owning
+  sequence timers locally.
 - Animation overlays that describe semantic presentation state, including
   income source highlights and active-player visual holdbacks, should be
   emitted by the presentation timeline/reducer rather than maintained by
