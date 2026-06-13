@@ -1,10 +1,13 @@
 import { stepToDecision as defaultStepToDecision } from '../../engine/session';
+import { developmentCost, findProperty } from '../../engine/stateHelpers';
 import type {
   GameAction,
   GameState,
   IncomeChoice,
   PlayerId,
+  ResourcePool,
   SubmittedIncomeChoice,
+  Suit,
 } from '../../engine/types';
 import { deriveTurnCycleEvents } from '../turnCycleEvents';
 import type {
@@ -71,6 +74,58 @@ export function deriveGamePresentationEvents(
       playerId: actingPlayerId,
       cardId: action.cardId,
     });
+    events.push(
+      ...deriveSellResourceGainEvents(
+        previousState,
+        nextState,
+        action,
+        actingPlayerId
+      )
+    );
+  }
+  if (action.type === 'buy-deed') {
+    events.push(
+      ...deriveCardPlayEvents(
+        previousState,
+        nextState,
+        action,
+        actingPlayerId,
+        'buy-deed',
+        'deed'
+      )
+    );
+  }
+  if (action.type === 'develop-outright') {
+    events.push(
+      ...deriveCardPlayEvents(
+        previousState,
+        nextState,
+        action,
+        actingPlayerId,
+        'develop-outright',
+        'developed'
+      )
+    );
+  }
+  if (action.type === 'develop-deed') {
+    events.push(
+      ...deriveDevelopDeedEvents(
+        previousState,
+        nextState,
+        action,
+        actingPlayerId
+      )
+    );
+  }
+  if (action.type === 'trade') {
+    events.push({
+      type: 'trade-resources-applied',
+      playerId: actingPlayerId,
+      give: action.give,
+      receive: action.receive,
+      giveCount: 3,
+      receiveCount: 1,
+    });
   }
   if (action.type === 'choose-income-suit') {
     events.push(...deriveIncomeChoiceEvents(previousState, nextState, action));
@@ -93,6 +148,147 @@ export function deriveGamePresentationEvents(
     });
   }
   events.push({ type: 'transaction-settled' });
+  return events;
+}
+
+function deriveCardPlayEvents(
+  previousState: GameState,
+  nextState: GameState,
+  action: Extract<GameAction, { type: 'buy-deed' | 'develop-outright' }>,
+  actingPlayerId: PlayerId,
+  reason: 'buy-deed' | 'develop-outright',
+  placement: 'deed' | 'developed'
+): GamePresentationEvent[] {
+  const payment = resourcePaymentForPlayer(
+    previousState,
+    nextState,
+    actingPlayerId
+  );
+  return [
+    {
+      type: 'resource-payment-started',
+      playerId: actingPlayerId,
+      reason,
+      cardId: action.cardId,
+      districtId: action.districtId,
+      payment,
+    },
+    {
+      type: 'resource-payment-applied',
+      playerId: actingPlayerId,
+      reason,
+      cardId: action.cardId,
+      districtId: action.districtId,
+      payment,
+    },
+    {
+      type: 'card-played-to-district',
+      playerId: actingPlayerId,
+      cardId: action.cardId,
+      districtId: action.districtId,
+      placement,
+    },
+  ];
+}
+
+function deriveDevelopDeedEvents(
+  previousState: GameState,
+  nextState: GameState,
+  action: Extract<GameAction, { type: 'develop-deed' }>,
+  actingPlayerId: PlayerId
+): GamePresentationEvent[] {
+  const payment = resourcePaymentForPlayer(
+    previousState,
+    nextState,
+    actingPlayerId
+  );
+  const previousDeed = previousState.districts.find(
+    (district) => district.id === action.districtId
+  )?.stacks[actingPlayerId]?.deed;
+  const nextDeed = nextState.districts.find(
+    (district) => district.id === action.districtId
+  )?.stacks[actingPlayerId]?.deed;
+  const card = findProperty(action.cardId);
+  const targetProgress = card
+    ? developmentCost(card)
+    : (nextDeed?.progress ?? previousDeed?.progress ?? 0);
+  const previousProgress = previousDeed?.progress ?? 0;
+  const nextProgress = nextDeed?.progress ?? targetProgress;
+  const completed = !nextDeed && nextProgress >= targetProgress;
+  const events: GamePresentationEvent[] = [
+    {
+      type: 'resource-payment-started',
+      playerId: actingPlayerId,
+      reason: 'develop-deed',
+      cardId: action.cardId,
+      districtId: action.districtId,
+      payment,
+    },
+  ];
+
+  for (const entry of tokenEntries(payment)) {
+    for (let tokenIndex = 0; tokenIndex < entry.count; tokenIndex += 1) {
+      events.push({
+        type: 'deed-token-paid',
+        playerId: actingPlayerId,
+        districtId: action.districtId,
+        cardId: action.cardId,
+        suit: entry.suit,
+        tokenIndex,
+      });
+    }
+  }
+
+  events.push(
+    {
+      type: 'resource-payment-applied',
+      playerId: actingPlayerId,
+      reason: 'develop-deed',
+      cardId: action.cardId,
+      districtId: action.districtId,
+      payment,
+    },
+    {
+      type: 'deed-progress-applied',
+      playerId: actingPlayerId,
+      districtId: action.districtId,
+      cardId: action.cardId,
+      previousProgress,
+      nextProgress,
+      targetProgress,
+      completed,
+    }
+  );
+  if (completed) {
+    events.push({
+      type: 'deed-completed',
+      playerId: actingPlayerId,
+      districtId: action.districtId,
+      cardId: action.cardId,
+    });
+  }
+  return events;
+}
+
+function deriveSellResourceGainEvents(
+  previousState: GameState,
+  nextState: GameState,
+  action: Extract<GameAction, { type: 'sell-card' }>,
+  actingPlayerId: PlayerId
+): GamePresentationEvent[] {
+  const gains = resourceGainForPlayer(previousState, nextState, actingPlayerId);
+  const events: GamePresentationEvent[] = [];
+  for (const entry of tokenEntries(gains)) {
+    for (let tokenIndex = 0; tokenIndex < entry.count; tokenIndex += 1) {
+      events.push({
+        type: 'sell-resource-gained',
+        playerId: actingPlayerId,
+        cardId: action.cardId,
+        suit: entry.suit,
+        tokenIndex,
+      });
+    }
+  }
   return events;
 }
 
@@ -216,6 +412,70 @@ function deriveIncomeChoiceEvents(
 
 function activePlayerId(state: GameState): PlayerId | null {
   return state.players[state.activePlayerIndex]?.id ?? null;
+}
+
+const SUITS: readonly Suit[] = [
+  'Moons',
+  'Suns',
+  'Waves',
+  'Leaves',
+  'Wyrms',
+  'Knots',
+];
+
+function resourcePaymentForPlayer(
+  previousState: GameState,
+  nextState: GameState,
+  playerId: PlayerId
+): Partial<Record<Suit, number>> {
+  const previous = resourcesForPlayer(previousState, playerId);
+  const next = resourcesForPlayer(nextState, playerId);
+  if (!previous || !next) {
+    return {};
+  }
+  const payment: Partial<Record<Suit, number>> = {};
+  for (const suit of SUITS) {
+    const spent = previous[suit] - next[suit];
+    if (spent > 0) {
+      payment[suit] = spent;
+    }
+  }
+  return payment;
+}
+
+function resourceGainForPlayer(
+  previousState: GameState,
+  nextState: GameState,
+  playerId: PlayerId
+): Partial<Record<Suit, number>> {
+  const previous = resourcesForPlayer(previousState, playerId);
+  const next = resourcesForPlayer(nextState, playerId);
+  if (!previous || !next) {
+    return {};
+  }
+  const gains: Partial<Record<Suit, number>> = {};
+  for (const suit of SUITS) {
+    const gained = next[suit] - previous[suit];
+    if (gained > 0) {
+      gains[suit] = gained;
+    }
+  }
+  return gains;
+}
+
+function resourcesForPlayer(
+  state: GameState,
+  playerId: PlayerId
+): ResourcePool | undefined {
+  return state.players.find((player) => player.id === playerId)?.resources;
+}
+
+function tokenEntries(
+  tokens: Partial<Record<Suit, number>>
+): Array<{ suit: Suit; count: number }> {
+  return SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 })).filter(
+    (entry) => entry.count > 0
+  );
 }
 
 function incomeChoiceMatches(

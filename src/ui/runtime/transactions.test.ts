@@ -176,10 +176,22 @@ describe('deriveGamePresentationEvents', () => {
 
   it('derives sold-card presentation events', () => {
     const previous = makeGameState({
-      players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer(PLAYER_B)],
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
     });
     const next = makeGameState({
-      players: [makePlayer(PLAYER_A, { hand: [] }), makePlayer(PLAYER_B)],
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources({ Moons: 2, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
       deck: {
         draw: [],
         discard: ['6'],
@@ -198,6 +210,249 @@ describe('deriveGamePresentationEvents', () => {
       type: 'card-sold',
       playerId: PLAYER_A,
       cardId: '6',
+    });
+    expect(
+      deriveGamePresentationEvents(
+        previous,
+        next,
+        { type: 'sell-card', cardId: '6' },
+        PLAYER_A
+      )
+    ).toContainEqual({
+      type: 'sell-resource-gained',
+      playerId: PLAYER_A,
+      cardId: '6',
+      suit: 'Moons',
+      tokenIndex: 0,
+    });
+  });
+
+  it('derives buy-deed payment and card placement events', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 2, Knots: 2 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          [PLAYER_A]: {
+            developed: [],
+            deed: { cardId: '6', progress: 0, tokens: {} },
+          },
+        }),
+      ],
+    });
+
+    const events = deriveGamePresentationEvents(
+      previous,
+      next,
+      { type: 'buy-deed', cardId: '6', districtId: 'D1' },
+      PLAYER_A
+    );
+
+    expect(events).toContainEqual({
+      type: 'resource-payment-started',
+      playerId: PLAYER_A,
+      reason: 'buy-deed',
+      cardId: '6',
+      districtId: 'D1',
+      payment: { Moons: 1, Knots: 1 },
+    });
+    expect(events).toContainEqual({
+      type: 'resource-payment-applied',
+      playerId: PLAYER_A,
+      reason: 'buy-deed',
+      cardId: '6',
+      districtId: 'D1',
+      payment: { Moons: 1, Knots: 1 },
+    });
+    expect(events).toContainEqual({
+      type: 'card-played-to-district',
+      playerId: PLAYER_A,
+      cardId: '6',
+      districtId: 'D1',
+      placement: 'deed',
+    });
+  });
+
+  it('derives outright-development payment and developed placement events', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 3, Knots: 3 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          [PLAYER_A]: { developed: ['6'] },
+        }),
+      ],
+      cardPlayedThisTurn: true,
+    });
+
+    const events = deriveGamePresentationEvents(
+      previous,
+      next,
+      {
+        type: 'develop-outright',
+        cardId: '6',
+        districtId: 'D1',
+        payment: { Moons: 3, Knots: 3 },
+      },
+      PLAYER_A
+    );
+
+    expect(events).toContainEqual({
+      type: 'resource-payment-started',
+      playerId: PLAYER_A,
+      reason: 'develop-outright',
+      cardId: '6',
+      districtId: 'D1',
+      payment: { Moons: 3, Knots: 3 },
+    });
+    expect(events).toContainEqual({
+      type: 'card-played-to-district',
+      playerId: PLAYER_A,
+      cardId: '6',
+      districtId: 'D1',
+      placement: 'developed',
+    });
+  });
+
+  it('derives deed token, progress, and completion events', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          [PLAYER_A]: {
+            developed: [],
+            deed: {
+              cardId: '6',
+              progress: 0,
+              tokens: {},
+            },
+          },
+        }),
+      ],
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources() }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          [PLAYER_A]: { developed: ['6'] },
+        }),
+      ],
+    });
+
+    const events = deriveGamePresentationEvents(
+      previous,
+      next,
+      {
+        type: 'develop-deed',
+        cardId: '6',
+        districtId: 'D1',
+        tokens: { Moons: 1, Knots: 1 },
+      },
+      PLAYER_A
+    );
+
+    expect(events).toContainEqual({
+      type: 'deed-token-paid',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '6',
+      suit: 'Moons',
+      tokenIndex: 0,
+    });
+    expect(events).toContainEqual({
+      type: 'deed-token-paid',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '6',
+      suit: 'Knots',
+      tokenIndex: 0,
+    });
+    expect(events).toContainEqual({
+      type: 'deed-progress-applied',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '6',
+      previousProgress: 0,
+      nextProgress: 2,
+      targetProgress: 2,
+      completed: true,
+    });
+    expect(events).toContainEqual({
+      type: 'deed-completed',
+      playerId: PLAYER_A,
+      districtId: 'D1',
+      cardId: '6',
+    });
+  });
+
+  it('derives trade resource application events', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 3 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Suns: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+    });
+
+    expect(
+      deriveGamePresentationEvents(
+        previous,
+        next,
+        { type: 'trade', give: 'Moons', receive: 'Suns' },
+        PLAYER_A
+      )
+    ).toContainEqual({
+      type: 'trade-resources-applied',
+      playerId: PLAYER_A,
+      give: 'Moons',
+      receive: 'Suns',
+      giveCount: 3,
+      receiveCount: 1,
     });
   });
 

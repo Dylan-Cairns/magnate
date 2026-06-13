@@ -9,6 +9,11 @@ import type {
   Suit,
 } from '../../engine/types';
 
+export type ActionResourcePaymentReason =
+  | 'buy-deed'
+  | 'develop-outright'
+  | 'develop-deed';
+
 export type RuntimeMode =
   | { type: 'idle' }
   | { type: 'animating'; transactionId: string; elapsedMs: number }
@@ -63,6 +68,68 @@ export type GamePresentationEvent =
       type: 'card-sold';
       playerId: PlayerId;
       cardId: CardId;
+    }
+  | {
+      type: 'sell-resource-gained';
+      playerId: PlayerId;
+      cardId: CardId;
+      suit: Suit;
+      tokenIndex: number;
+    }
+  | {
+      type: 'resource-payment-started';
+      playerId: PlayerId;
+      reason: ActionResourcePaymentReason;
+      cardId: CardId;
+      districtId: string;
+      payment: Partial<Record<Suit, number>>;
+    }
+  | {
+      type: 'resource-payment-applied';
+      playerId: PlayerId;
+      reason: ActionResourcePaymentReason;
+      cardId: CardId;
+      districtId: string;
+      payment: Partial<Record<Suit, number>>;
+    }
+  | {
+      type: 'card-played-to-district';
+      playerId: PlayerId;
+      cardId: CardId;
+      districtId: string;
+      placement: 'deed' | 'developed';
+    }
+  | {
+      type: 'deed-token-paid';
+      playerId: PlayerId;
+      districtId: string;
+      cardId: CardId;
+      suit: Suit;
+      tokenIndex: number;
+    }
+  | {
+      type: 'deed-progress-applied';
+      playerId: PlayerId;
+      districtId: string;
+      cardId: CardId;
+      previousProgress: number;
+      nextProgress: number;
+      targetProgress: number;
+      completed: boolean;
+    }
+  | {
+      type: 'deed-completed';
+      playerId: PlayerId;
+      districtId: string;
+      cardId: CardId;
+    }
+  | {
+      type: 'trade-resources-applied';
+      playerId: PlayerId;
+      give: Suit;
+      receive: Suit;
+      giveCount: number;
+      receiveCount: number;
     }
   | {
       type: 'income-roll';
