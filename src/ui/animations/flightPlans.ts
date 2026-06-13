@@ -17,12 +17,14 @@ import {
 } from './domTargets';
 import {
   CARD_DRAW_FLIGHT_DELAY_MS,
+  RESOURCE_FLIGHT_DURATION_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
   TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
 } from './timing';
+import type { GamePresentationEvent } from '../runtime/types';
 import type {
   CardFlight,
   PendingResourceFlight,
@@ -130,6 +132,48 @@ export function buildIncomeFlightsFromDom(
       endY: target.y,
       delayMs: index * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
       durationMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
+      variant: 'transfer',
+    });
+  }
+
+  return flights;
+}
+
+export function buildPaymentFlightsFromDom(
+  event: Extract<GamePresentationEvent, { type: 'resource-payment-started' }>,
+  makeFlightId: () => string,
+  domTargets: AnimationDomTargets = browserAnimationDomTargets
+): ResourceFlight[] {
+  if (!domTargets.isAvailable()) {
+    return [];
+  }
+
+  const viewportCenterY = domTargets.viewportCenterY();
+  const flights: ResourceFlight[] = [];
+  const suitsToAnimate: Suit[] = [];
+  for (const entry of tokenEntries(event.payment)) {
+    for (let count = 0; count < entry.count; count += 1) {
+      suitsToAnimate.push(entry.suit);
+    }
+  }
+
+  for (const [index, suit] of suitsToAnimate.entries()) {
+    const sourceElement =
+      domTargets.resourceTokenForDeedTransfer(event.playerId, suit) ??
+      domTargets.resourceToken(event.playerId, suit);
+    if (!sourceElement) {
+      continue;
+    }
+    const source = domTargets.tokenVisualCenter(sourceElement);
+    flights.push({
+      id: makeFlightId(),
+      suit,
+      startX: source.x,
+      startY: source.y,
+      endX: source.x,
+      endY: viewportCenterY,
+      delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
+      durationMs: RESOURCE_FLIGHT_DURATION_MS,
       variant: 'transfer',
     });
   }

@@ -8,7 +8,10 @@ import {
 import { browserAnimationDomTargets } from '../animations/domTargets';
 import {
   buildIncomeFlightsFromDom,
+  buildPaymentFlightsFromDom,
   buildTaxLossFlightsFromDom,
+  collectCardPlayFlights,
+  collectDeedResourceFlights,
   type IncomeFlightToken,
 } from '../animations/flightPlans';
 import {
@@ -125,8 +128,51 @@ export function useGameAnimations({
     clearTaxPulseElements();
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
   const scheduleSequenceVisualCommand = useCallback(
-    (command: AnimationVisualCommand) => {
+    (command: AnimationVisualCommand, transaction: GameTransaction) => {
       switch (command.type) {
+        case 'launch-draw-card-flight':
+        case 'launch-sold-card-flight':
+        case 'launch-card-to-district-flight':
+          turnCycleVisualTimers.schedule(command.atMs, () => {
+            const flights = collectCardPlayFlights(
+              transaction.previousState,
+              transaction.nextState,
+              transaction.action,
+              transaction.actingPlayerId,
+              makeCardFlightId
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            setCardFlights((existing) => [...existing, ...flights]);
+          });
+          return;
+        case 'launch-payment-token-flights':
+          turnCycleVisualTimers.schedule(command.atMs, () => {
+            const flights = buildPaymentFlightsFromDom(
+              command.event,
+              makeResourceFlightId
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            setResourceFlights((existing) => [...existing, ...flights]);
+          });
+          return;
+        case 'launch-deed-token-flights':
+          turnCycleVisualTimers.schedule(command.atMs, () => {
+            const flights = collectDeedResourceFlights(
+              transaction.previousState,
+              transaction.action,
+              transaction.actingPlayerId,
+              makeResourceFlightId
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            setResourceFlights((existing) => [...existing, ...flights]);
+          });
+          return;
         case 'pulse-tax-resources':
           turnCycleVisualTimers.schedule(command.startMs, () => {
             applyTaxPulseTargets(command.targets);
@@ -173,19 +219,20 @@ export function useGameAnimations({
     [
       applyTaxPulseTargets,
       clearTaxPulseElements,
+      makeCardFlightId,
       makeResourceFlightId,
       turnCycleVisualTimers,
     ]
   );
   const scheduleSequenceVisuals = useCallback(
-    (sequence: AnimationSequence | null) => {
+    (transaction: GameTransaction | null, sequence: AnimationSequence | null) => {
       clearTurnCycleVisuals();
-      if (!sequence) {
+      if (!transaction || !sequence) {
         return;
       }
 
       for (const command of deriveAnimationVisualCommands(sequence)) {
-        scheduleSequenceVisualCommand(command);
+        scheduleSequenceVisualCommand(command, transaction);
       }
     },
     [clearTurnCycleVisuals, scheduleSequenceVisualCommand]
@@ -224,7 +271,7 @@ export function useGameAnimations({
       const presentationSequence = presentationTransaction
         ? buildAnimationSequence(presentationTransaction)
         : null;
-      scheduleSequenceVisuals(presentationSequence);
+      scheduleSequenceVisuals(presentationTransaction, presentationSequence);
       if (presentationTransaction && presentationSequence) {
         setPresentationSnapshot(
           derivePresentationSnapshotFromSequence({
