@@ -17,7 +17,6 @@ import {
   shouldAllowHumanActionsDuringAnimationSettle,
   shouldCommitBeforeAnimationSettle,
 } from '../animations/timing';
-import type { TurnCycleAnimationPlan } from '../animations/turnCycleVisualPlan';
 import type { CardFlight, ResourceFlight } from '../animations/types';
 import {
   deriveAnimationVisualCommands,
@@ -44,7 +43,6 @@ type RunTransitionOptions = {
   actingPlayerId: PlayerId;
   resourceFlights: readonly ResourceFlight[];
   cardFlights: readonly CardFlight[];
-  turnCyclePlan: TurnCycleAnimationPlan | null;
   onSettle?: () => void;
 };
 
@@ -213,7 +211,6 @@ export function useGameAnimations({
       actingPlayerId,
       resourceFlights: queuedResourceFlights,
       cardFlights: queuedCardFlights,
-      turnCyclePlan,
       onSettle,
     }: RunTransitionOptions) => {
       const presentationTransaction = buildPresentationTransactionForTransition(
@@ -222,8 +219,7 @@ export function useGameAnimations({
         action,
         actingPlayerId,
         queuedResourceFlights,
-        queuedCardFlights,
-        turnCyclePlan
+        queuedCardFlights
       );
       const presentationSequence = presentationTransaction
         ? buildAnimationSequence(presentationTransaction)
@@ -241,20 +237,9 @@ export function useGameAnimations({
         setPresentationSnapshot(null);
       }
 
-      const fallbackTurnCycleSettleMs = presentationSequence
-        ? 0
-        : turnCyclePlan
-          ? turnCycleStartDelayForTransition(
-              action,
-              queuedCardFlights.filter(
-                (flight) => flight.variant === 'draw' && flight.cardId != null
-              )
-            ) + turnCyclePlan.totalDurationMs
-          : 0;
       const settleMs = Math.max(
         resourceFlightSettleMs(queuedResourceFlights),
         cardFlightSettleMs(queuedCardFlights),
-        fallbackTurnCycleSettleMs,
         presentationSequence?.durationMs ?? 0
       );
       if (settleMs <= 0) {
@@ -353,33 +338,24 @@ export function useGameAnimations({
   };
 }
 
-export function turnCycleStartDelayForTransition(
-  action: GameAction,
-  drawFlights: readonly CardFlight[]
-): number {
-  if (action.type !== 'end-turn' || drawFlights.length === 0) {
-    return 0;
-  }
-  return cardFlightSettleMs(drawFlights);
-}
-
 function buildPresentationTransactionForTransition(
   previousState: GameState,
   nextState: GameState,
   action: GameAction,
   actingPlayerId: PlayerId,
   resourceFlights: readonly ResourceFlight[],
-  cardFlights: readonly CardFlight[],
-  turnCyclePlan: TurnCycleAnimationPlan | null
+  cardFlights: readonly CardFlight[]
 ): GameTransaction | null {
-  const drawFlights = cardFlights.filter(
-    (flight) => flight.variant === 'draw' && flight.cardId != null
+  const events = deriveGamePresentationEvents(
+    previousState,
+    nextState,
+    action,
+    actingPlayerId
   );
   const shouldUseRuntime =
-    (action.type === 'end-turn' &&
-      (turnCyclePlan !== null || drawFlights.length > 0)) ||
-    (action.type === 'choose-income-suit' && resourceFlights.length > 0) ||
-    (action.type === 'sell-card' && cardFlights.length > 0);
+    events.some(isAnimatedPresentationEvent) ||
+    resourceFlights.length > 0 ||
+    cardFlights.length > 0;
   if (!shouldUseRuntime) {
     return null;
   }
@@ -390,13 +366,22 @@ function buildPresentationTransactionForTransition(
     nextState,
     action,
     actingPlayerId,
-    events: deriveGamePresentationEvents(
-      previousState,
-      nextState,
-      action,
-      actingPlayerId
-    ),
+    events,
   };
+}
+
+function isAnimatedPresentationEvent(
+  event: ReturnType<typeof deriveGamePresentationEvents>[number]
+): boolean {
+  return (
+    event.type === 'draw-card' ||
+    event.type === 'card-sold' ||
+    event.type === 'income-roll' ||
+    event.type === 'tax-token-lost' ||
+    event.type === 'income-token-gained' ||
+    event.type === 'income-choice-required' ||
+    event.type === 'income-choice-submitted'
+  );
 }
 
 function scheduleSequencePresentationSnapshots(

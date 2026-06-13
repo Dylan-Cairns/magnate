@@ -4,22 +4,15 @@ import type { GameAction, GameState, PlayerId } from '../engine/types';
 import {
   collectCardPlayFlights,
   collectDeedResourceFlights,
-  collectIncomeChoiceResourceFlights,
   collectTerminalCleanupFlights,
 } from './animations/flightPlans';
-import {
-  collectTurnCycleAnimationPlan,
-  type TurnCycleAnimationPlan,
-} from './animations/turnCycleVisualPlan';
 import type { CardFlight, ResourceFlight } from './animations/types';
 
 export type ActionDispatchDependencies = {
   stepToDecision: typeof stepToDecision;
   collectDeedResourceFlights: typeof collectDeedResourceFlights;
-  collectIncomeChoiceResourceFlights: typeof collectIncomeChoiceResourceFlights;
   collectCardPlayFlights: typeof collectCardPlayFlights;
   collectTerminalCleanupFlights: typeof collectTerminalCleanupFlights;
-  collectTurnCycleAnimationPlan: typeof collectTurnCycleAnimationPlan;
 };
 
 export type ActionDispatchPlan = {
@@ -28,7 +21,6 @@ export type ActionDispatchPlan = {
   action: GameAction;
   resourceFlights: readonly ResourceFlight[];
   cardFlights: readonly CardFlight[];
-  turnCyclePlan: TurnCycleAnimationPlan | null;
   enteredTerminal: boolean;
 };
 
@@ -45,10 +37,8 @@ type PrepareActionDispatchOptions = {
 const browserActionDispatchDependencies: ActionDispatchDependencies = {
   stepToDecision,
   collectDeedResourceFlights,
-  collectIncomeChoiceResourceFlights,
   collectCardPlayFlights,
   collectTerminalCleanupFlights,
-  collectTurnCycleAnimationPlan,
 };
 
 export function prepareActionDispatch({
@@ -69,7 +59,6 @@ export function prepareActionDispatch({
       action,
       resourceFlights: [],
       cardFlights: [],
-      turnCyclePlan: null,
       enteredTerminal,
     };
   }
@@ -81,12 +70,6 @@ export function prepareActionDispatch({
       actingPlayerId,
       makeResourceFlightId
     ),
-    ...dependencies.collectIncomeChoiceResourceFlights(
-      previousState,
-      nextState,
-      action,
-      makeResourceFlightId
-    ),
   ];
   const actionCardFlights = dependencies.collectCardPlayFlights(
     previousState,
@@ -96,11 +79,6 @@ export function prepareActionDispatch({
     makeCardFlightId
   );
   const terminalCleanupPlan = dependencies.collectTerminalCleanupFlights();
-  const turnCyclePlan = dependencies.collectTurnCycleAnimationPlan(
-    previousState,
-    nextState,
-    action,
-  );
 
   return {
     previousState,
@@ -112,7 +90,6 @@ export function prepareActionDispatch({
     cardFlights: terminalCleanupPlan
       ? [...actionCardFlights, ...terminalCleanupPlan.cardFlights]
       : actionCardFlights,
-    turnCyclePlan,
     enteredTerminal,
   };
 }

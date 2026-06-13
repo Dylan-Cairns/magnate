@@ -10,245 +10,12 @@ import {
   makeResources,
 } from '../../engine/__tests__/fixtures';
 import {
-  ACTION_FLIGHT_COMMIT_BUFFER_MS,
-  CARD_FLIGHT_DURATION_MS,
-  TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
-} from '../animations/timing';
-import {
   buildAnimationSequence,
   type AnimationSequence,
 } from './animationSequence';
-import { buildPresentationTimeline } from './timeline';
 import { buildGameTransaction } from './transactions';
 import type { GameTransaction } from './types';
-import {
-  derivePresentationSnapshot,
-  derivePresentationSnapshotFromSequence,
-} from './presentation';
-
-describe('derivePresentationSnapshot', () => {
-  it('holds previous resources before delayed turn-cycle reveal even after canonical nextState has income', () => {
-    const { transaction, timeline } = makeEndTurnTransaction();
-    const snapshot = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: 0,
-    });
-
-    expect(resourceCount(snapshot.viewState, PLAYER_A, 'Moons')).toBe(3);
-    expect(resourceCount(snapshot.viewState, PLAYER_B, 'Suns')).toBe(1);
-    expect(snapshot.viewState.lastIncomeRoll).toBeUndefined();
-    expect(snapshot.viewState.activePlayerIndex).toBe(0);
-    expect(snapshot.viewState.players[0].hand).toEqual(['6']);
-    expect(snapshot.overlays.activePlayerHighlightOverride).toBe(PLAYER_A);
-  });
-
-  it('reveals the drawn card, active player, and income roll without applying future resources', () => {
-    const { transaction, timeline } = makeEndTurnTransaction();
-    const drawRevealMs =
-      CARD_FLIGHT_DURATION_MS + ACTION_FLIGHT_COMMIT_BUFFER_MS;
-    const snapshot = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: drawRevealMs,
-    });
-
-    expect(snapshot.viewState.players[0].hand).toEqual(['6', '7']);
-    expect(snapshot.viewState.activePlayerIndex).toBe(1);
-    expect(snapshot.viewState.lastIncomeRoll).toEqual({
-      die1: 7,
-      die2: 4,
-      rollId: 12,
-    });
-    expect(snapshot.viewState.lastTaxSuit).toBe('Moons');
-    expect(resourceCount(snapshot.viewState, PLAYER_A, 'Moons')).toBe(3);
-    expect(resourceCount(snapshot.viewState, PLAYER_B, 'Suns')).toBe(1);
-    expect(snapshot.overlays.activePlayerHighlightOverride).toBeNull();
-  });
-
-  it('applies tax and income only at their presentation timeline checkpoints', () => {
-    const { transaction, timeline } = makeEndTurnTransaction();
-
-    expect(
-      resourceCount(
-        derivePresentationSnapshot({
-          transaction,
-          timeline,
-          elapsedMs: 2849,
-        }).viewState,
-        PLAYER_A,
-        'Moons'
-      )
-    ).toBe(3);
-    expect(
-      resourceCount(
-        derivePresentationSnapshot({
-          transaction,
-          timeline,
-          elapsedMs: 2850,
-        }).viewState,
-        PLAYER_A,
-        'Moons'
-      )
-    ).toBe(2);
-    expect(
-      resourceCount(
-        derivePresentationSnapshot({
-          transaction,
-          timeline,
-          elapsedMs: 3350,
-        }).viewState,
-        PLAYER_A,
-        'Moons'
-      )
-    ).toBe(1);
-
-    const afterIncomeLaunch = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: 4870,
-    });
-    expect(resourceCount(afterIncomeLaunch.viewState, PLAYER_B, 'Suns')).toBe(
-      1
-    );
-    expect(afterIncomeLaunch.overlays.incomeHighlightCardIds).toEqual(['21']);
-
-    const clearHighlightAtMs =
-      timeline.events.find((event) => event.type === 'clear-income-highlights')
-        ?.atMs ?? 0;
-    expect(
-      derivePresentationSnapshot({
-        transaction,
-        timeline,
-        elapsedMs: clearHighlightAtMs - 1,
-      }).overlays.incomeHighlightCardIds
-    ).toEqual(['21']);
-    expect(
-      derivePresentationSnapshot({
-        transaction,
-        timeline,
-        elapsedMs: clearHighlightAtMs,
-      }).overlays.incomeHighlightCardIds
-    ).toEqual([]);
-
-    expect(
-      resourceCount(
-        derivePresentationSnapshot({
-          transaction,
-          timeline,
-          elapsedMs: 4870 + TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
-        }).viewState,
-        PLAYER_B,
-        'Suns'
-      )
-    ).toBe(2);
-  });
-
-  it('commits to nextState at the final presentation checkpoint', () => {
-    const { transaction, timeline } = makeEndTurnTransaction();
-    const snapshot = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: timeline.durationMs,
-    });
-
-    expect(snapshot.viewState).toBe(transaction.nextState);
-    expect(snapshot.overlays.incomeHighlightCardIds).toEqual([]);
-  });
-
-  it('stages final income-choice reveal without applying resources before token landing', () => {
-    const transaction = makeIncomeChoiceTransaction();
-    const timeline = buildPresentationTimeline(transaction);
-    const beforeLanding = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS - 1,
-    });
-    const afterFirstLanding = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
-    });
-
-    expect(beforeLanding.viewState.submittedIncomeChoices).toEqual([
-      {
-        playerId: PLAYER_A,
-        districtId: 'D1',
-        cardId: '6',
-        suit: 'Knots',
-      },
-      {
-        playerId: PLAYER_B,
-        districtId: 'D2',
-        cardId: '8',
-        suit: 'Leaves',
-      },
-    ]);
-    expect(resourceCount(beforeLanding.viewState, PLAYER_A, 'Knots')).toBe(0);
-    expect(resourceCount(beforeLanding.viewState, PLAYER_B, 'Leaves')).toBe(0);
-    expect(resourceCount(afterFirstLanding.viewState, PLAYER_A, 'Knots')).toBe(
-      1
-    );
-    expect(resourceCount(afterFirstLanding.viewState, PLAYER_B, 'Leaves')).toBe(
-      0
-    );
-  });
-
-  it('stages sold-card state without leaking the discard pile before the flight settles', () => {
-    const previous = makeGameState({
-      players: [
-        makePlayer(PLAYER_A, {
-          hand: ['6'],
-          resources: makeResources(),
-        }),
-        makePlayer(PLAYER_B),
-      ],
-      deck: {
-        draw: [],
-        discard: [],
-        reshuffles: 0,
-      },
-    });
-    const next = makeGameState({
-      players: [
-        makePlayer(PLAYER_A, {
-          hand: [],
-          resources: makeResources({ Moons: 1, Knots: 1 }),
-        }),
-        makePlayer(PLAYER_B),
-      ],
-      deck: {
-        draw: [],
-        discard: ['6'],
-        reshuffles: 0,
-      },
-    });
-    const transaction = buildGameTransaction({
-      previousState: previous,
-      action: { type: 'sell-card', cardId: '6' },
-      actingPlayerId: PLAYER_A,
-      transactionId: 'tx-sell-card',
-      stepToDecision: () => next,
-    });
-    const timeline = buildPresentationTimeline(transaction);
-
-    const staged = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: 0,
-    });
-    expect(staged.viewState.players[0].hand).toEqual([]);
-    expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(1);
-    expect(staged.viewState.deck.discard).toEqual([]);
-
-    const settled = derivePresentationSnapshot({
-      transaction,
-      timeline,
-      elapsedMs: timeline.durationMs,
-    });
-    expect(settled.viewState.deck.discard).toEqual(['6']);
-  });
-});
+import { derivePresentationSnapshotFromSequence } from './presentation';
 
 describe('derivePresentationSnapshotFromSequence', () => {
   it('keeps income resources hidden until the sequence reaches the income gain step', () => {
@@ -370,11 +137,66 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(resourceCount(afterLanding.viewState, PLAYER_A, 'Knots')).toBe(1);
     expect(resourceCount(afterLanding.viewState, PLAYER_B, 'Leaves')).toBe(1);
   });
+
+  it('stages sold-card state without leaking the discard pile before commit', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      deck: {
+        draw: [],
+        discard: [],
+        reshuffles: 0,
+      },
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      deck: {
+        draw: [],
+        discard: ['6'],
+        reshuffles: 0,
+      },
+    });
+    const transaction = buildGameTransaction({
+      previousState: previous,
+      action: { type: 'sell-card', cardId: '6' },
+      actingPlayerId: PLAYER_A,
+      transactionId: 'tx-sell-card',
+      stepToDecision: () => next,
+    });
+    const sequence = buildAnimationSequence(transaction);
+    const commit = step(sequence, 'commit-view-state');
+
+    const staged = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: 0,
+    });
+    expect(staged.viewState.players[0].hand).toEqual([]);
+    expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(1);
+    expect(staged.viewState.deck.discard).toEqual([]);
+
+    const committed = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: commit.startMs,
+    });
+    expect(committed.viewState.deck.discard).toEqual(['6']);
+  });
 });
 
 function makeEndTurnTransaction(): {
   transaction: GameTransaction;
-  timeline: ReturnType<typeof buildPresentationTimeline>;
 } {
   const previous = makeGameState({
     phase: 'ActionWindow',
@@ -424,7 +246,6 @@ function makeEndTurnTransaction(): {
   });
   return {
     transaction,
-    timeline: buildPresentationTimeline(transaction),
   };
 }
 

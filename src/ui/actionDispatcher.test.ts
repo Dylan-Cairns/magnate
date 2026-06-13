@@ -51,14 +51,7 @@ describe('prepareActionDispatch', () => {
       dependencies,
     });
 
-    expect(calls).toEqual([
-      'step',
-      'deed',
-      'income-choice',
-      'card',
-      'terminal',
-      'turn-cycle',
-    ]);
+    expect(calls).toEqual(['step', 'deed', 'card', 'terminal']);
     expect(actingPlayerIds).toEqual(['PlayerB', 'PlayerB']);
   });
 
@@ -106,7 +99,6 @@ describe('prepareActionDispatch', () => {
       action: ACTION,
       resourceFlights: [],
       cardFlights: [],
-      turnCyclePlan: null,
       enteredTerminal: true,
     });
   });
@@ -158,20 +150,12 @@ function makeDependencies(
       calls.push('deed');
       return [];
     },
-    collectIncomeChoiceResourceFlights: () => {
-      calls.push('income-choice');
-      return [];
-    },
     collectCardPlayFlights: () => {
       calls.push('card');
       return [];
     },
     collectTerminalCleanupFlights: () => {
       calls.push('terminal');
-      return null;
-    },
-    collectTurnCycleAnimationPlan: () => {
-      calls.push('turn-cycle');
       return null;
     },
   };

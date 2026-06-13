@@ -5,12 +5,7 @@ import type {
   Suit,
 } from '../../engine/types';
 import type { CardId } from '../../engine/cards';
-import type {
-  AnimationOverlayState,
-  GameTransaction,
-  PresentationTimeline,
-  PresentationTimelineEvent,
-} from './types';
+import type { AnimationOverlayState, GameTransaction } from './types';
 import type {
   AnimationSequence,
   ScheduledAnimationStep,
@@ -19,12 +14,6 @@ import type {
 export type PresentationSnapshot = {
   viewState: GameState;
   overlays: AnimationOverlayState;
-};
-
-export type DerivePresentationSnapshotOptions = {
-  transaction: GameTransaction;
-  timeline: PresentationTimeline;
-  elapsedMs: number;
 };
 
 export type DerivePresentationSnapshotFromSequenceOptions = {
@@ -38,35 +27,6 @@ const EMPTY_OVERLAYS: AnimationOverlayState = {
   incomeHighlightCrowns: [],
   activePlayerHighlightOverride: null,
 };
-
-export function derivePresentationSnapshot({
-  transaction,
-  timeline,
-  elapsedMs,
-}: DerivePresentationSnapshotOptions): PresentationSnapshot {
-  const commitEvent = timeline.events.find(
-    (event) => event.type === 'commit-view-to-next-state'
-  );
-  if (commitEvent && elapsedMs >= commitEvent.atMs) {
-    return {
-      viewState: transaction.nextState,
-      overlays: EMPTY_OVERLAYS,
-    };
-  }
-
-  let viewState = cloneGameState(transaction.previousState);
-  let overlays = initialOverlays(transaction);
-  for (const event of timeline.events) {
-    if (event.atMs > elapsedMs) {
-      break;
-    }
-    const updated = applyTimelineEvent(viewState, overlays, transaction, event);
-    viewState = updated.viewState;
-    overlays = updated.overlays;
-  }
-
-  return { viewState, overlays };
-}
 
 export function derivePresentationSnapshotFromSequence({
   transaction,
@@ -101,113 +61,6 @@ export function derivePresentationSnapshotFromSequence({
   }
 
   return { viewState, overlays };
-}
-
-function applyTimelineEvent(
-  viewState: GameState,
-  overlays: AnimationOverlayState,
-  transaction: GameTransaction,
-  event: PresentationTimelineEvent
-): PresentationSnapshot {
-  switch (event.type) {
-    case 'hold-previous-state':
-      return { viewState, overlays };
-    case 'reveal-drawn-card':
-      return {
-        viewState: revealDrawnCard(
-          viewState,
-          transaction.nextState,
-          event.event
-        ),
-        overlays: {
-          ...overlays,
-          activePlayerHighlightOverride: null,
-        },
-      };
-    case 'stage-sold-card':
-      return {
-        viewState: stageSoldCard(viewState, transaction.nextState),
-        overlays,
-      };
-    case 'show-income-roll':
-      return {
-        viewState: revealIncomeRoll(
-          viewState,
-          transaction.nextState,
-          event.event
-        ),
-        overlays,
-      };
-    case 'apply-tax-token-loss':
-      return {
-        viewState: applyResourceDelta(viewState, event.event.playerId, {
-          [event.event.suit]: -1,
-        }),
-        overlays,
-      };
-    case 'launch-income-token-flight':
-      return {
-        viewState,
-        overlays,
-      };
-    case 'show-income-highlights':
-      return {
-        viewState,
-        overlays: {
-          ...overlays,
-          incomeHighlightCardIds: event.cardIds,
-          incomeHighlightCrowns: event.crowns,
-        },
-      };
-    case 'clear-income-highlights':
-      return {
-        viewState,
-        overlays: {
-          ...overlays,
-          incomeHighlightCardIds: [],
-          incomeHighlightCrowns: [],
-        },
-      };
-    case 'apply-income-token-gain':
-      return {
-        viewState: applyResourceDelta(viewState, event.event.playerId, {
-          [event.event.suit]: 1,
-        }),
-        overlays,
-      };
-    case 'reveal-income-choice-request':
-      return {
-        viewState: {
-          ...viewState,
-          phase: 'CollectIncome',
-          pendingIncomeChoices: event.event.choices,
-          incomeChoiceReturnPlayerId:
-            transaction.nextState.incomeChoiceReturnPlayerId,
-        },
-        overlays,
-      };
-    case 'reveal-income-choice-submission':
-      return {
-        viewState: {
-          ...viewState,
-          submittedIncomeChoices: [
-            ...(viewState.submittedIncomeChoices ?? []),
-            {
-              playerId: event.event.playerId,
-              districtId: event.event.districtId,
-              cardId: event.event.cardId,
-              suit: event.event.suit,
-            },
-          ],
-        },
-        overlays,
-      };
-    case 'commit-view-to-next-state':
-      return {
-        viewState: transaction.nextState,
-        overlays: EMPTY_OVERLAYS,
-      };
-  }
 }
 
 function applySequenceStep(
