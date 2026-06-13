@@ -126,29 +126,28 @@ Design expectations:
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
-- UI animation sequencing should keep pure timing, turn-cycle visual-plan
-  derivation, injectable browser-only DOM target resolution, and flight
-  planning in `src/ui/animations/`; browser DOM access remains outside the
-  engine and isolated in `domTargets.ts`.
+- UI animation sequencing should keep pure runtime sequencing, injectable
+  browser-only DOM target resolution, and flight object construction separate;
+  browser DOM access remains outside the engine and isolated in `domTargets.ts`.
 - UI animation lifecycle state, timer cleanup, presentation snapshot scheduling,
   and delayed commit coordination should live in `useGameAnimations`; canonical
   state transitions and timeline logging remain injected controller callbacks.
-- The next UI animation architecture is being staged under `src/ui/runtime/`:
-  action dispatch should produce semantic `GameTransaction` events and a
-  presentation timeline, then derive a coherent render-only `viewState` plus
-  overlays from that runtime instead of scattering per-component previews and
-  holdbacks.
+- UI animation runtime lives under `src/ui/runtime/`: action dispatch provides
+  previous/next engine states and action context, runtime code derives semantic
+  `GameTransaction` events, `AnimationSequence` steps, coherent render-only
+  `viewState` snapshots, overlays, and visual commands from that sequence
+  instead of scattering per-component previews and holdbacks.
 - Browser rendering should prefer the controller-provided `viewState`/player
   view for visual game data while keeping canonical `state` internal for
   legality, bot scheduling, bug reports, and persistence.
 - App-level visual helpers should accept `viewState` rather than canonical
   state, so animated transitions cannot leak already-committed engine results
-  into visible UI before the presentation timeline reaches them.
-- The target animation architecture is one sequence per `GameTransaction`:
+  into visible UI before the animation sequence reaches them.
+- The animation architecture is one sequence per `GameTransaction`:
   `buildAnimationSequence(transaction)` produces ordered semantic steps with
-  durations as the single timing source. React components should eventually
-  render snapshots/overlays derived from that sequence rather than owning
-  sequence timers locally.
+  durations as the single timing source. React scheduling should consume
+  snapshots, overlays, and visual commands derived from that sequence rather
+  than owning sequence timers locally.
 - Presentation `viewState` snapshots should be derived from
   `AnimationSequence` step boundaries. Launch steps may start visual flights,
   but canonical-looking resource/card/count mutations belong to explicit

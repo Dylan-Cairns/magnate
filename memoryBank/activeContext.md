@@ -35,24 +35,17 @@
   search policies derive them from root visit counts, and Python opponent/action
   training uses them as soft policy targets.
 - Browser UI code is split across controller hooks, animation helpers, stateless components, and ownership-based style files; `App.tsx` remains the composition layer.
-- Browser presentation-runtime migration has started under `src/ui/runtime/`
-  with semantic game transactions, presentation timeline derivation, and a pure
-  presentation snapshot reducer. Initial controller/App wiring now renders
-  visual game data from runtime `viewState` for turn-cycle income/draw staging;
-  income highlights and active-player visual holdbacks are derived from runtime
-  overlays; sell-card discard reveal and deck-map render derivations no longer
-  use scattered preview state; canonical state still drives legality, bot
-  scheduling, bug reports, and persistence.
-- The next one-animation-system migration now has a pure `AnimationSequence`
-  contract/builder in `src/ui/runtime/animationSequence.ts`,
-  sequence-driven presentation snapshot derivation, and sequence-derived visual
-  commands for tax pulses, tax-token flights, and income-token flights.
-  `useGameAnimations` builds the sequence for animated transactions and
-  schedules both render-only `viewState` updates and token visual effects from
-  sequence step boundaries, so resource counts, visual launches, and commits
-  follow the central sequence timing. Card flights are still queued by the
+- Browser presentation runtime now uses one `AnimationSequence` per animated
+  `GameTransaction`. `useGameAnimations` builds that sequence and schedules
+  render-only `viewState` snapshots plus sequence-derived visual commands for
+  tax pulses, tax-token flights, and income-token flights from sequence step
+  boundaries, so resource counts, visual launches, and commits follow the
+  central sequence timing. The old presentation timeline, turn-cycle visual
+  timing plan, eager income-choice flight planner, and hook-level turn-cycle
+  plan contract have been removed. Card flights are still queued by the
   action-dispatch DOM planning path while draw/sell presentation state follows
-  the sequence.
+  the sequence; canonical state still drives legality, bot scheduling, bug
+  reports, and persistence.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

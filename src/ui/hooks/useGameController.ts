@@ -208,7 +208,6 @@ export function useGameController({
         actingPlayerId,
         resourceFlights: plan.resourceFlights,
         cardFlights: plan.cardFlights,
-        turnCyclePlan: plan.turnCyclePlan,
       });
       setError(null);
     },
