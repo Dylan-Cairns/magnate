@@ -46,6 +46,12 @@
   action-dispatch DOM planning path while draw/sell presentation state follows
   the sequence; canonical state still drives legality, bot scheduling, bug
   reports, and persistence.
+- Presentation event derivation now emits semantic coverage for all canonical
+  action families: card placement, action resource payments, deed token/progress
+  and completion, sell-card resource gains, and trades. These new events are
+  not yet sequence-owned animation steps; follow-up work still needs to convert
+  card play, deed development, sell gains, and trade visible mutations into
+  `AnimationSequence` timing.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
@@ -70,4 +76,4 @@
 4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-08._
+_Updated: 2026-07-09._
