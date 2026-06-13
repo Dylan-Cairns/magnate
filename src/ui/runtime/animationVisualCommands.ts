@@ -1,8 +1,45 @@
+import type { CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import type { AnimationSequence } from './animationSequence';
 import type { GamePresentationEvent } from './types';
 
 export type AnimationVisualCommand =
+  | {
+      type: 'launch-draw-card-flight';
+      atMs: number;
+      playerId: PlayerId;
+      cardId: CardId;
+    }
+  | {
+      type: 'launch-sold-card-flight';
+      atMs: number;
+      playerId: PlayerId;
+      cardId: CardId;
+    }
+  | {
+      type: 'launch-card-to-district-flight';
+      atMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'card-played-to-district' }
+      >;
+    }
+  | {
+      type: 'launch-payment-token-flights';
+      atMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'resource-payment-started' }
+      >;
+    }
+  | {
+      type: 'launch-deed-token-flights';
+      atMs: number;
+      tokens: readonly Extract<
+        GamePresentationEvent,
+        { type: 'deed-token-paid' }
+      >[];
+    }
   | {
       type: 'pulse-tax-resources';
       startMs: number;
@@ -30,6 +67,48 @@ export function deriveAnimationVisualCommands(
   sequence: AnimationSequence
 ): readonly AnimationVisualCommand[] {
   const commands: AnimationVisualCommand[] = [];
+  for (const step of sequence.steps) {
+    switch (step.type) {
+      case 'draw-card-flight':
+        commands.push({
+          type: 'launch-draw-card-flight',
+          atMs: step.startMs,
+          playerId: step.playerId,
+          cardId: step.cardId,
+        });
+        break;
+      case 'stage-sold-card':
+        commands.push({
+          type: 'launch-sold-card-flight',
+          atMs: step.startMs,
+          playerId: step.playerId,
+          cardId: step.cardId,
+        });
+        break;
+      case 'launch-card-to-district-flight':
+        commands.push({
+          type: 'launch-card-to-district-flight',
+          atMs: step.startMs,
+          event: step.event,
+        });
+        break;
+      case 'launch-payment-token-flights':
+        commands.push({
+          type: 'launch-payment-token-flights',
+          atMs: step.startMs,
+          event: step.event,
+        });
+        break;
+      case 'launch-deed-token-flights':
+        commands.push({
+          type: 'launch-deed-token-flights',
+          atMs: step.startMs,
+          tokens: step.tokens,
+        });
+        break;
+    }
+  }
+
   const taxFlightStep = sequence.steps.find(
     (step) => step.type === 'launch-tax-token-flights'
   );

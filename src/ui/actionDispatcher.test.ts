@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { makeGameState } from '../engine/__tests__/fixtures';
-import type { GameAction, GameState, PlayerId } from '../engine/types';
+import type { GameAction, GameState } from '../engine/types';
 import type { CardFlight, ResourceFlight } from './animations/types';
 import {
   prepareActionDispatch,
@@ -15,31 +15,10 @@ const ACTION: GameAction = {
 };
 
 describe('prepareActionDispatch', () => {
-  it('validates before animation planning and forwards the acting player', () => {
+  it('validates before terminal cleanup planning', () => {
     const previousState = makeGameState();
     const nextState = makeGameState();
     const calls: string[] = [];
-    const actingPlayerIds: PlayerId[] = [];
-    const dependencies = makeDependencies(nextState, calls);
-    dependencies.collectDeedResourceFlights = (
-      _state,
-      _action,
-      actingPlayerId
-    ) => {
-      calls.push('deed');
-      actingPlayerIds.push(actingPlayerId);
-      return [];
-    };
-    dependencies.collectCardPlayFlights = (
-      _state,
-      _nextState,
-      _action,
-      actingPlayerId
-    ) => {
-      calls.push('card');
-      actingPlayerIds.push(actingPlayerId);
-      return [];
-    };
 
     prepareActionDispatch({
       previousState,
@@ -48,14 +27,13 @@ describe('prepareActionDispatch', () => {
       animationsEnabled: true,
       makeResourceFlightId: makeIds('resource'),
       makeCardFlightId: makeIds('card'),
-      dependencies,
+      dependencies: makeDependencies(nextState, calls),
     });
 
-    expect(calls).toEqual(['step', 'deed', 'card', 'terminal']);
-    expect(actingPlayerIds).toEqual(['PlayerB', 'PlayerB']);
+    expect(calls).toEqual(['step', 'terminal']);
   });
 
-  it('does not run UI planners when engine validation fails', () => {
+  it('does not run cleanup planning when engine validation fails', () => {
     const calls: string[] = [];
     const dependencies = makeDependencies(makeGameState(), calls);
     dependencies.stepToDecision = () => {
@@ -77,7 +55,7 @@ describe('prepareActionDispatch', () => {
     expect(calls).toEqual(['step']);
   });
 
-  it('skips DOM-dependent planners when animations are disabled', () => {
+  it('skips cleanup planning when animations are disabled', () => {
     const previousState = makeGameState();
     const nextState = makeGameState({ phase: 'GameOver' });
     const calls: string[] = [];
@@ -103,16 +81,12 @@ describe('prepareActionDispatch', () => {
     });
   });
 
-  it('appends terminal cleanup flights after action flights', () => {
+  it('returns terminal cleanup flights', () => {
     const previousState = makeGameState();
     const nextState = makeGameState({ phase: 'GameOver' });
-    const actionResourceFlight = makeResourceFlight('action-resource');
     const terminalResourceFlight = makeResourceFlight('terminal-resource');
-    const actionCardFlight = makeCardFlight('action-card', 200, 10);
     const terminalCardFlight = makeCardFlight('terminal-card', 900);
     const dependencies = makeDependencies(nextState);
-    dependencies.collectDeedResourceFlights = () => [actionResourceFlight];
-    dependencies.collectCardPlayFlights = () => [actionCardFlight];
     dependencies.collectTerminalCleanupFlights = () => ({
       resourceFlights: [terminalResourceFlight],
       cardFlights: [terminalCardFlight],
@@ -128,11 +102,8 @@ describe('prepareActionDispatch', () => {
       dependencies,
     });
 
-    expect(plan.resourceFlights).toEqual([
-      actionResourceFlight,
-      terminalResourceFlight,
-    ]);
-    expect(plan.cardFlights).toEqual([actionCardFlight, terminalCardFlight]);
+    expect(plan.resourceFlights).toEqual([terminalResourceFlight]);
+    expect(plan.cardFlights).toEqual([terminalCardFlight]);
     expect(plan.enteredTerminal).toBe(true);
   });
 });
@@ -145,14 +116,6 @@ function makeDependencies(
     stepToDecision: () => {
       calls.push('step');
       return nextState;
-    },
-    collectDeedResourceFlights: () => {
-      calls.push('deed');
-      return [];
-    },
-    collectCardPlayFlights: () => {
-      calls.push('card');
-      return [];
     },
     collectTerminalCleanupFlights: () => {
       calls.push('terminal');
