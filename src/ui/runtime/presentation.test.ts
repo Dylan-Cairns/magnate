@@ -14,10 +14,17 @@ import {
   CARD_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
 } from '../animations/timing';
+import {
+  buildAnimationSequence,
+  type AnimationSequence,
+} from './animationSequence';
 import { buildPresentationTimeline } from './timeline';
 import { buildGameTransaction } from './transactions';
 import type { GameTransaction } from './types';
-import { derivePresentationSnapshot } from './presentation';
+import {
+  derivePresentationSnapshot,
+  derivePresentationSnapshotFromSequence,
+} from './presentation';
 
 describe('derivePresentationSnapshot', () => {
   it('holds previous resources before delayed turn-cycle reveal even after canonical nextState has income', () => {
@@ -243,6 +250,128 @@ describe('derivePresentationSnapshot', () => {
   });
 });
 
+describe('derivePresentationSnapshotFromSequence', () => {
+  it('keeps income resources hidden until the sequence reaches the income gain step', () => {
+    const { transaction } = makeEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const incomeFlights = step(sequence, 'launch-income-token-flights');
+    const applyIncome = step(sequence, 'apply-income-gains');
+
+    const duringIncomeFlights = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeFlights.startMs,
+    });
+    expect(duringIncomeFlights.viewState.lastIncomeRoll).toEqual({
+      die1: 7,
+      die2: 4,
+      rollId: 12,
+    });
+    expect(duringIncomeFlights.overlays.incomeHighlightCardIds).toEqual(['21']);
+    expect(resourceCount(duringIncomeFlights.viewState, PLAYER_B, 'Suns')).toBe(
+      1
+    );
+    expect(
+      resourceCount(duringIncomeFlights.viewState, PLAYER_B, 'Knots')
+    ).toBe(0);
+
+    const beforeIncomeGain = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyIncome.startMs - 1,
+    });
+    expect(resourceCount(beforeIncomeGain.viewState, PLAYER_B, 'Suns')).toBe(1);
+    expect(resourceCount(beforeIncomeGain.viewState, PLAYER_B, 'Knots')).toBe(
+      0
+    );
+
+    const afterIncomeGain = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyIncome.startMs,
+    });
+    expect(resourceCount(afterIncomeGain.viewState, PLAYER_B, 'Suns')).toBe(2);
+    expect(resourceCount(afterIncomeGain.viewState, PLAYER_B, 'Knots')).toBe(1);
+  });
+
+  it('applies tax losses only at the sequence tax-loss step', () => {
+    const { transaction } = makeEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const applyTax = step(sequence, 'apply-tax-losses');
+
+    const beforeTaxLoss = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyTax.startMs - 1,
+    });
+    const afterTaxLoss = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyTax.startMs,
+    });
+
+    expect(resourceCount(beforeTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(3);
+    expect(resourceCount(afterTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(1);
+  });
+
+  it('commits to nextState at the sequence commit step', () => {
+    const { transaction } = makeEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const commit = step(sequence, 'commit-view-state');
+
+    const beforeCommit = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: commit.startMs - 1,
+    });
+    const atCommit = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: commit.startMs,
+    });
+
+    expect(beforeCommit.viewState).not.toBe(transaction.nextState);
+    expect(atCommit.viewState).toBe(transaction.nextState);
+    expect(atCommit.overlays.incomeHighlightCardIds).toEqual([]);
+  });
+
+  it('stages final income-choice reveal and waits for the sequence gain step', () => {
+    const transaction = makeIncomeChoiceTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const applyIncome = step(sequence, 'apply-income-gains');
+
+    const beforeLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyIncome.startMs - 1,
+    });
+    const afterLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyIncome.startMs,
+    });
+
+    expect(beforeLanding.viewState.submittedIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Knots',
+      },
+      {
+        playerId: PLAYER_B,
+        districtId: 'D2',
+        cardId: '8',
+        suit: 'Leaves',
+      },
+    ]);
+    expect(resourceCount(beforeLanding.viewState, PLAYER_A, 'Knots')).toBe(0);
+    expect(resourceCount(beforeLanding.viewState, PLAYER_B, 'Leaves')).toBe(0);
+    expect(resourceCount(afterLanding.viewState, PLAYER_A, 'Knots')).toBe(1);
+    expect(resourceCount(afterLanding.viewState, PLAYER_B, 'Leaves')).toBe(1);
+  });
+});
+
 function makeEndTurnTransaction(): {
   transaction: GameTransaction;
   timeline: ReturnType<typeof buildPresentationTimeline>;
@@ -357,4 +486,15 @@ function resourceCount(
   return state.players.find((player) => player.id === playerId)?.resources[
     suit
   ] as number;
+}
+
+function step<TType extends AnimationSequence['steps'][number]['type']>(
+  sequence: AnimationSequence,
+  type: TType
+): Extract<AnimationSequence['steps'][number], { type: TType }> {
+  const found = sequence.steps.find((entry) => entry.type === type);
+  if (!found) {
+    throw new Error(`Missing step ${type}`);
+  }
+  return found as Extract<AnimationSequence['steps'][number], { type: TType }>;
 }

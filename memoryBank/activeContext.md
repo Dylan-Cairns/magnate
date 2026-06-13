@@ -43,11 +43,13 @@
   overlays; sell-card discard reveal and deck-map render derivations no longer
   use scattered preview state; canonical state still drives legality, bot
   scheduling, bug reports, and persistence.
-- The next one-animation-system migration has begun with a pure
-  `AnimationSequence` contract/builder in `src/ui/runtime/animationSequence.ts`.
-  It centralizes semantic step ordering and durations for draw, dice, tax,
-  income, income-choice, sell-card, and commit phases, but current rendering is
-  not wired to consume it yet.
+- The next one-animation-system migration now has a pure `AnimationSequence`
+  contract/builder in `src/ui/runtime/animationSequence.ts` and
+  sequence-driven presentation snapshot derivation. `useGameAnimations` builds
+  the sequence for animated transactions and schedules render-only `viewState`
+  updates from sequence step boundaries, so resource counts and commits follow
+  the central sequence timing. DOM token/card flight launch scheduling still
+  uses the legacy visual-plan timers until the next migration step.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
