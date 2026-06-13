@@ -86,6 +86,15 @@ describe('flightPlans', () => {
             suit: 'Suns',
             source: { kind: 'crown', cardId: '30' },
           },
+          {
+            playerId: 'PlayerA',
+            suit: 'Knots',
+            source: {
+              kind: 'income-choice',
+              cardId: '8',
+              districtId: 'D2',
+            },
+          },
         ],
         makeIds('income'),
         targets
@@ -104,6 +113,12 @@ describe('flightPlans', () => {
         startX: 310,
         startY: 50,
         delayMs: TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
+      },
+      {
+        id: 'income-3',
+        startX: 140,
+        startY: 260,
+        delayMs: 2 * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
       },
     ]);
   });
