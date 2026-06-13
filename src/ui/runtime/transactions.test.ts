@@ -174,6 +174,33 @@ describe('deriveGamePresentationEvents', () => {
     ]);
   });
 
+  it('derives sold-card presentation events', () => {
+    const previous = makeGameState({
+      players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer(PLAYER_B)],
+    });
+    const next = makeGameState({
+      players: [makePlayer(PLAYER_A, { hand: [] }), makePlayer(PLAYER_B)],
+      deck: {
+        draw: [],
+        discard: ['6'],
+        reshuffles: 0,
+      },
+    });
+
+    expect(
+      deriveGamePresentationEvents(
+        previous,
+        next,
+        { type: 'sell-card', cardId: '6' },
+        PLAYER_A
+      )
+    ).toContainEqual({
+      type: 'card-sold',
+      playerId: PLAYER_A,
+      cardId: '6',
+    });
+  });
+
   it('keeps pending income choices as request events when turn-cycle income cannot resolve immediately', () => {
     const previous = makeGameState({
       activePlayerIndex: 0,

@@ -3,7 +3,6 @@ import { getBotProfile } from './policies/catalog';
 import { recordGame } from './db/gameHistory';
 
 import type { CardId } from './engine/cards';
-import { PROPERTY_CARDS } from './engine/cards';
 import { districtWinnersByPlayer, scoreLive } from './engine/scoring';
 import type { GameAction, PlayerId, Suit } from './engine/types';
 import {
@@ -23,6 +22,10 @@ import {
   buildBugReport,
   downloadBugReport,
 } from './ui/bugReport';
+import {
+  buildDeckMapDimming,
+  isVisibleIncomeChoicePhase,
+} from './ui/appRenderModel';
 import {
   preloadStartupAssets,
   type StartupPreloadProgress,
@@ -67,21 +70,6 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
 const DECK_MAP_INTERACTIVE_KEY = 'magnate:deckMapInteractive';
-
-const ALL_SUITS: Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
-const SUIT_CARD_IDS = new Map<Suit, ReadonlyArray<CardId>>(
-  ALL_SUITS.map((suit) => [
-    suit,
-    PROPERTY_CARDS.filter((c) => c.suits.includes(suit)).map((c) => c.id),
-  ])
-);
 
 function readBooleanPreference(key: string, defaultValue: boolean): boolean {
   if (typeof window === 'undefined') return defaultValue;
@@ -147,10 +135,9 @@ export function App() {
     shouldShowResolutionWarningOnLoad
   );
   const {
-    state,
+    state: canonicalState,
     viewState,
     humanView,
-    pendingNextDistricts,
     timelineLog,
     actionHistory,
     error,
@@ -172,7 +159,6 @@ export function App() {
       cardFlights,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
-      pendingDiscardHoldback,
       activePlayerHighlightOverride,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,
@@ -277,49 +263,10 @@ export function App() {
       botLabel: botProfile.label,
     });
   }, [terminal, score, botProfileId]);
-  const { dimmedCardIds, dimmedSuits } = useMemo(() => {
-    if (!deckMapInteractive) {
-      return {
-        dimmedCardIds: new Set<CardId>(),
-        dimmedSuits: new Set<Suit>(),
-      };
-    }
-    const inCirculation = new Set<CardId>([
-      ...viewState.deck.draw,
-      ...viewState.players.flatMap((p) => p.hand),
-      ...(viewState.deck.reshuffles === 0 ? viewState.deck.discard : []),
-    ]);
-    // Cards about to leave circulation once the current animation commits
-    const pendingCards = new Set<CardId>();
-    if (pendingNextDistricts) {
-      for (const district of pendingNextDistricts) {
-        for (const stack of Object.values(district.stacks)) {
-          for (const cardId of stack.developed) pendingCards.add(cardId);
-          if (stack.deed) pendingCards.add(stack.deed.cardId);
-        }
-      }
-    }
-    // Edge-label dimming: 2-suit numeral property cards not in (effective) circulation
-    const dimmedCardIds = new Set<CardId>();
-    for (const card of PROPERTY_CARDS) {
-      if (card.suits.length === 2 && !inCirculation.has(card.id)) {
-        dimmedCardIds.add(card.id);
-      }
-    }
-    for (const cardId of pendingCards) {
-      dimmedCardIds.add(cardId);
-    }
-    // Suit-node dimming: a suit dims when every one of its property cards is gone
-    const dimmedSuits = new Set<Suit>();
-    for (const [suit, cardIds] of SUIT_CARD_IDS) {
-      if (
-        cardIds.every((id) => !inCirculation.has(id) || pendingCards.has(id))
-      ) {
-        dimmedSuits.add(suit);
-      }
-    }
-    return { dimmedCardIds, dimmedSuits };
-  }, [deckMapInteractive, viewState, pendingNextDistricts]);
+  const { dimmedCardIds, dimmedSuits } = useMemo(
+    () => buildDeckMapDimming({ deckMapInteractive, viewState }),
+    [deckMapInteractive, viewState]
+  );
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
   );
@@ -358,9 +305,7 @@ export function App() {
     [humanActionsAcceptingInput]
   );
   const hasMultipleTradeSources = tradeSourceGroups.length > 1;
-  const isIncomeChoicePhase =
-    state.phase === 'CollectIncome' &&
-    (state.pendingIncomeChoices?.length ?? 0) > 0;
+  const isIncomeChoicePhase = isVisibleIncomeChoicePhase(viewState);
   const firstTradeGroupIndex = useMemo(
     () => humanActionItems.findIndex((item) => item.kind === 'trade-group'),
     [humanActionItems]
@@ -464,7 +409,7 @@ export function App() {
   const handleDownloadBugReport = () => {
     downloadBugReport(
       buildBugReport({
-        state,
+        state: canonicalState,
         timelineLog,
         actionHistory,
         humanPlayerId: HUMAN_PLAYER,
@@ -722,7 +667,7 @@ export function App() {
                 taxSuit={
                   turnCyclePreludeActive ? undefined : humanView.lastTaxSuit
                 }
-                gameKey={state.seed}
+                gameKey={viewState.seed}
                 holdPrevious={holdPreviousRoll}
                 animationsEnabled={animationsEnabled}
               />
@@ -771,7 +716,6 @@ export function App() {
               drawCount={humanView.deck.drawCount}
               reshuffles={humanView.deck.reshuffles}
               discard={humanView.deck.discard}
-              pendingDiscardHoldback={pendingDiscardHoldback}
               terminal={terminal}
             />
           </div>

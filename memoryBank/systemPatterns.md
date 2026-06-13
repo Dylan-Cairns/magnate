@@ -141,6 +141,9 @@ Design expectations:
 - Browser rendering should prefer the controller-provided `viewState`/player
   view for visual game data while keeping canonical `state` internal for
   legality, bot scheduling, bug reports, and persistence.
+- App-level visual helpers should accept `viewState` rather than canonical
+  state, so animated transitions cannot leak already-committed engine results
+  into visible UI before the presentation timeline reaches them.
 - Animation overlays that describe semantic presentation state, including
   income source highlights and active-player visual holdbacks, should be
   emitted by the presentation timeline/reducer rather than maintained by

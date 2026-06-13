@@ -65,6 +65,13 @@ export function deriveGamePresentationEvents(
   if (action.type === 'end-turn') {
     events.push(...deriveEndTurnEvents(previousState, nextState, action));
   }
+  if (action.type === 'sell-card') {
+    events.push({
+      type: 'card-sold',
+      playerId: actingPlayerId,
+      cardId: action.cardId,
+    });
+  }
   if (action.type === 'choose-income-suit') {
     events.push(...deriveIncomeChoiceEvents(previousState, nextState, action));
   }

@@ -40,8 +40,9 @@
   presentation snapshot reducer. Initial controller/App wiring now renders
   visual game data from runtime `viewState` for turn-cycle income/draw staging;
   income highlights and active-player visual holdbacks are derived from runtime
-  overlays; canonical state still drives legality, bot scheduling, bug reports,
-  and persistence.
+  overlays; sell-card discard reveal and deck-map render derivations no longer
+  use scattered preview state; canonical state still drives legality, bot
+  scheduling, bug reports, and persistence.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

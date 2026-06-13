@@ -186,6 +186,61 @@ describe('derivePresentationSnapshot', () => {
       0
     );
   });
+
+  it('stages sold-card state without leaking the discard pile before the flight settles', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      deck: {
+        draw: [],
+        discard: [],
+        reshuffles: 0,
+      },
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      deck: {
+        draw: [],
+        discard: ['6'],
+        reshuffles: 0,
+      },
+    });
+    const transaction = buildGameTransaction({
+      previousState: previous,
+      action: { type: 'sell-card', cardId: '6' },
+      actingPlayerId: PLAYER_A,
+      transactionId: 'tx-sell-card',
+      stepToDecision: () => next,
+    });
+    const timeline = buildPresentationTimeline(transaction);
+
+    const staged = derivePresentationSnapshot({
+      transaction,
+      timeline,
+      elapsedMs: 0,
+    });
+    expect(staged.viewState.players[0].hand).toEqual([]);
+    expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(1);
+    expect(staged.viewState.deck.discard).toEqual([]);
+
+    const settled = derivePresentationSnapshot({
+      transaction,
+      timeline,
+      elapsedMs: timeline.durationMs,
+    });
+    expect(settled.viewState.deck.discard).toEqual(['6']);
+  });
 });
 
 function makeEndTurnTransaction(): {
