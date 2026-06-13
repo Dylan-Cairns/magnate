@@ -8,7 +8,6 @@ import {
 } from '../../engine/decisionActor';
 import { isTerminal } from '../../engine/scoring';
 import type {
-  DistrictLine,
   GameAction,
   GameLogEntry,
   GameState,
@@ -125,9 +124,6 @@ export function useGameController({
   const deferredIncomeLogContextRef = useRef<DeferredIncomeLogContext | null>(
     null
   );
-  const [pendingNextDistricts, setPendingNextDistricts] =
-    useState<DistrictLine | null>(null);
-
   const commitTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
       const timelineUpdate = transitionLogUpdate(
@@ -141,7 +137,6 @@ export function useGameController({
         timelineUpdate.deferredIncomeLogContext;
       setTimelineLog((existing) => [...existing, ...timelineUpdate.entries]);
       setState(nextState);
-      setPendingNextDistricts(null);
     },
     [humanPlayerId]
   );
@@ -153,7 +148,6 @@ export function useGameController({
     incomeHighlightCardIds,
     incomeHighlightCrowns,
     presentationSnapshot,
-    pendingDiscardHoldback,
     activePlayerHighlightOverride,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
@@ -207,7 +201,6 @@ export function useGameController({
           action,
         },
       ]);
-      setPendingNextDistricts(plan.nextState.districts);
       runAnimationTransition({
         previousState,
         nextState: plan.nextState,
@@ -465,7 +458,6 @@ export function useGameController({
       setTurnResetActionHistoryAnchor(null);
       deferredIncomeLogContextRef.current = null;
       clearPendingActionCommit();
-      setPendingNextDistricts(null);
       clearAllFlights();
       clearAllDeedTokenLayouts();
 
@@ -501,7 +493,6 @@ export function useGameController({
 
     clearPendingActionCommit();
     deferredIncomeLogContextRef.current = null;
-    setPendingNextDistricts(null);
     setState(turnResetAnchor.state);
     setTimelineLog(
       turnResetTimelineAnchor
@@ -534,7 +525,6 @@ export function useGameController({
     state,
     viewState,
     humanView,
-    pendingNextDistricts,
     timelineLog,
     actionHistory,
     error,
@@ -556,7 +546,6 @@ export function useGameController({
       cardFlights,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
-      pendingDiscardHoldback,
       activePlayerHighlightOverride,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,

@@ -242,6 +242,45 @@ describe('buildPresentationTimeline', () => {
       type: 'commit-view-to-next-state',
     });
   });
+
+  it('stages sold-card discard reveal until the card flight settles', () => {
+    const transaction: GameTransaction = {
+      id: 'tx-sell-card',
+      previousState: stateForTimeline(),
+      nextState: stateForTimeline(),
+      action: { type: 'sell-card', cardId: '6' },
+      actingPlayerId: 'PlayerA',
+      events: [
+        {
+          type: 'action-started',
+          action: { type: 'sell-card', cardId: '6' },
+          actingPlayerId: 'PlayerA',
+        },
+        {
+          type: 'card-sold',
+          playerId: 'PlayerA',
+          cardId: '6',
+        },
+        { type: 'transaction-settled' },
+      ],
+    };
+
+    const timeline = buildPresentationTimeline(transaction);
+
+    expect(timeline.events).toContainEqual({
+      atMs: 0,
+      type: 'stage-sold-card',
+      event: {
+        type: 'card-sold',
+        playerId: 'PlayerA',
+        cardId: '6',
+      },
+    });
+    expect(timeline.events.at(-1)).toEqual({
+      atMs: CARD_FLIGHT_DURATION_MS + ACTION_FLIGHT_COMMIT_BUFFER_MS,
+      type: 'commit-view-to-next-state',
+    });
+  });
 });
 
 function stateForTimeline(): GameState {

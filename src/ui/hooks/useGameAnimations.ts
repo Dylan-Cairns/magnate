@@ -66,8 +66,6 @@ export function useGameAnimations({
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
   const [presentationSnapshot, setPresentationSnapshot] =
     useState<PresentationSnapshot | null>(null);
-  const [pendingDiscardHoldback, setPendingDiscardHoldback] =
-    useState<number>(0);
   const [actionCommitPending, setActionCommitPending] =
     useState<boolean>(false);
   const [
@@ -207,7 +205,6 @@ export function useGameAnimations({
   const clearAllFlights = useCallback(() => {
     setResourceFlights([]);
     setCardFlights([]);
-    setPendingDiscardHoldback(0);
     setAllowHumanActionsWhileCommitPending(false);
     setPresentationSnapshot(null);
     clearTurnCycleVisuals();
@@ -240,7 +237,7 @@ export function useGameAnimations({
         action,
         actingPlayerId,
         queuedResourceFlights,
-        drawFlightsForTimer,
+        queuedCardFlights,
         turnCyclePlan
       );
       const presentationTimeline = presentationTransaction
@@ -266,7 +263,6 @@ export function useGameAnimations({
           : 0
       );
       if (settleMs <= 0) {
-        setPendingDiscardHoldback(0);
         setPresentationSnapshot(null);
         setAllowHumanActionsWhileCommitPending(
           shouldAllowHumanActionsDuringAnimationSettle(action)
@@ -285,7 +281,6 @@ export function useGameAnimations({
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
       }
-      setPendingDiscardHoldback(action.type === 'sell-card' ? 1 : 0);
       setAllowHumanActionsWhileCommitPending(
         shouldAllowHumanActionsDuringAnimationSettle(action) &&
           action.type !== 'choose-income-suit'
@@ -310,7 +305,6 @@ export function useGameAnimations({
         }
         setResourceFlights([]);
         setCardFlights([]);
-        setPendingDiscardHoldback(0);
         setAllowHumanActionsWhileCommitPending(false);
         setPresentationSnapshot(null);
         clearTurnCycleVisuals();
@@ -348,7 +342,6 @@ export function useGameAnimations({
     incomeHighlightCardIds: presentationOverlays?.incomeHighlightCardIds ?? [],
     incomeHighlightCrowns: presentationOverlays?.incomeHighlightCrowns ?? [],
     presentationSnapshot,
-    pendingDiscardHoldback,
     activePlayerHighlightOverride:
       presentationOverlays?.activePlayerHighlightOverride ?? null,
     actionCommitPending,
@@ -377,13 +370,17 @@ function buildPresentationTransactionForTransition(
   action: GameAction,
   actingPlayerId: PlayerId,
   resourceFlights: readonly ResourceFlight[],
-  drawFlights: readonly CardFlight[],
+  cardFlights: readonly CardFlight[],
   turnCyclePlan: TurnCycleAnimationPlan | null
 ): GameTransaction | null {
+  const drawFlights = cardFlights.filter(
+    (flight) => flight.variant === 'draw' && flight.cardId != null
+  );
   const shouldUseRuntime =
     (action.type === 'end-turn' &&
       (turnCyclePlan !== null || drawFlights.length > 0)) ||
-    (action.type === 'choose-income-suit' && resourceFlights.length > 0);
+    (action.type === 'choose-income-suit' && resourceFlights.length > 0) ||
+    (action.type === 'sell-card' && cardFlights.length > 0);
   if (!shouldUseRuntime) {
     return null;
   }

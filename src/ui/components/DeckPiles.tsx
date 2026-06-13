@@ -8,13 +8,11 @@ export function DeckPiles({
   drawCount,
   reshuffles,
   discard,
-  pendingDiscardHoldback,
   terminal,
 }: {
   drawCount: number;
   reshuffles: number;
   discard: readonly CardId[];
-  pendingDiscardHoldback: number;
   terminal: boolean;
 }) {
   const deckStackCount = Math.min(3, drawCount);
@@ -26,10 +24,7 @@ export function DeckPiles({
         : 'overlay-shift-0';
   const showSecondShuffleLabel =
     reshuffles > 0 && !(terminal && drawCount === 0);
-  const visibleDiscardCards =
-    pendingDiscardHoldback > 0
-      ? discard.slice(pendingDiscardHoldback)
-      : discard;
+  const visibleDiscardCards = discard;
   const discardStackCardIds = visibleDiscardCards.slice(0, 3).reverse();
   const discardCardDetails = visibleDiscardCards.map((cardId) => {
     const card = CARD_BY_ID[cardId];
@@ -136,7 +131,10 @@ export function DeckPiles({
               ) : (
                 <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
               )}
-              <div className="discard-pile-animation-anchor" aria-hidden="true" />
+              <div
+                className="discard-pile-animation-anchor"
+                aria-hidden="true"
+              />
             </div>
             <section
               className="player-score-popover discard-pile-popover"

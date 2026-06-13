@@ -48,6 +48,13 @@ export function buildPresentationTimeline(
           event,
         });
         break;
+      case 'card-sold':
+        events.push({
+          atMs: 0,
+          type: 'stage-sold-card',
+          event,
+        });
+        break;
       case 'income-roll':
         events.push({
           atMs: turnCycleStartDelayMs,
@@ -258,6 +265,9 @@ function commitTimeMs(
       ACTION_FLIGHT_COMMIT_BUFFER_MS
     );
   }
+  if (hasEvent(transaction, 'card-sold')) {
+    return DRAW_CARD_REVEAL_MS;
+  }
 
   return 0;
 }
@@ -297,6 +307,8 @@ function timelineEventPriority(
       return 0;
     case 'reveal-drawn-card':
       return 10;
+    case 'stage-sold-card':
+      return 15;
     case 'show-income-roll':
       return 20;
     case 'apply-tax-token-loss':

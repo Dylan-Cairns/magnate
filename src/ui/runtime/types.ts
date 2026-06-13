@@ -8,7 +8,6 @@ import type {
   ResourcePool,
   Suit,
 } from '../../engine/types';
-import type { CardFlight, ResourceFlight } from '../animations/types';
 
 export type RuntimeMode =
   | { type: 'idle' }
@@ -16,8 +15,6 @@ export type RuntimeMode =
   | { type: 'awaiting-input'; actorId: PlayerId };
 
 export type AnimationOverlayState = {
-  resourceFlights: readonly ResourceFlight[];
-  cardFlights: readonly CardFlight[];
   incomeHighlightCardIds: readonly CardId[];
   incomeHighlightCrowns: readonly { playerId: PlayerId; suit: Suit }[];
   activePlayerHighlightOverride: PlayerId | null;
@@ -59,6 +56,11 @@ export type GamePresentationEvent =
     }
   | {
       type: 'draw-card';
+      playerId: PlayerId;
+      cardId: CardId;
+    }
+  | {
+      type: 'card-sold';
       playerId: PlayerId;
       cardId: CardId;
     }
@@ -123,6 +125,11 @@ export type PresentationTimelineEvent =
       atMs: number;
       type: 'reveal-drawn-card';
       event: Extract<GamePresentationEvent, { type: 'draw-card' }>;
+    }
+  | {
+      atMs: number;
+      type: 'stage-sold-card';
+      event: Extract<GamePresentationEvent, { type: 'card-sold' }>;
     }
   | {
       atMs: number;

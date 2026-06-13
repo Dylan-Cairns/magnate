@@ -23,8 +23,6 @@ export type DerivePresentationSnapshotOptions = {
 };
 
 const EMPTY_OVERLAYS: AnimationOverlayState = {
-  resourceFlights: [],
-  cardFlights: [],
   incomeHighlightCardIds: [],
   incomeHighlightCrowns: [],
   activePlayerHighlightOverride: null,
@@ -75,6 +73,11 @@ function applyTimelineEvent(
           ...overlays,
           activePlayerHighlightOverride: null,
         },
+      };
+    case 'stage-sold-card':
+      return {
+        viewState: stageSoldCard(viewState, transaction.nextState),
+        overlays,
       };
     case 'show-income-roll':
       return {
@@ -160,6 +163,16 @@ function initialOverlays(transaction: GameTransaction): AnimationOverlayState {
   return {
     ...EMPTY_OVERLAYS,
     activePlayerHighlightOverride: hasDraw ? transaction.actingPlayerId : null,
+  };
+}
+
+function stageSoldCard(viewState: GameState, nextState: GameState): GameState {
+  return {
+    ...nextState,
+    deck: {
+      ...nextState.deck,
+      discard: viewState.deck.discard,
+    },
   };
 }
 
