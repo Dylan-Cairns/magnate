@@ -49,9 +49,11 @@
 - Presentation event derivation now emits semantic coverage for all canonical
   action families: card placement, action resource payments, deed token/progress
   and completion, sell-card resource gains, and trades. These new events are
-  not yet sequence-owned animation steps; follow-up work still needs to convert
-  card play, deed development, sell gains, and trade visible mutations into
-  `AnimationSequence` timing.
+  now produce ordered `AnimationSequence` steps for action payments, card
+  placement, deed token flights/progress/completion, sell gains, and trades.
+  Follow-up work still needs to convert legacy DOM flight construction into
+  sequence-derived visual commands and make the presentation reducer apply the
+  new action steps instead of treating them as timing-only/no-op steps.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

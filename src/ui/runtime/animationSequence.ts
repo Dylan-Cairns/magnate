@@ -8,6 +8,8 @@ import type {
 import {
   ACTION_FLIGHT_COMMIT_BUFFER_MS,
   CARD_FLIGHT_DURATION_MS,
+  RESOURCE_FLIGHT_DURATION_MS,
+  RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
@@ -18,6 +20,8 @@ import type { GamePresentationEvent, GameTransaction } from './types';
 export type AnimationDurations = {
   cardFlightMs: number;
   commitBufferMs: number;
+  actionResourceFlightMs: number;
+  actionResourceFlightStaggerMs: number;
   dieRollMs: number;
   diePulseMs: number;
   taxDieRollMs: number;
@@ -35,6 +39,8 @@ export type AnimationDurations = {
 export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
   cardFlightMs: CARD_FLIGHT_DURATION_MS,
   commitBufferMs: ACTION_FLIGHT_COMMIT_BUFFER_MS,
+  actionResourceFlightMs: RESOURCE_FLIGHT_DURATION_MS,
+  actionResourceFlightStaggerMs: RESOURCE_FLIGHT_STAGGER_MS,
   dieRollMs: 1000,
   diePulseMs: 900,
   taxDieRollMs: 1000,
@@ -68,6 +74,84 @@ export type AnimationStep =
       durationMs: number;
       playerId: PlayerId;
       cardId: CardId;
+    }
+  | {
+      id: string;
+      type: 'apply-sell-resource-gains';
+      durationMs: number;
+      gains: readonly Extract<
+        GamePresentationEvent,
+        { type: 'sell-resource-gained' }
+      >[];
+    }
+  | {
+      id: string;
+      type: 'launch-payment-token-flights';
+      durationMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'resource-payment-started' }
+      >;
+    }
+  | {
+      id: string;
+      type: 'apply-resource-payment';
+      durationMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'resource-payment-applied' }
+      >;
+    }
+  | {
+      id: string;
+      type: 'launch-card-to-district-flight';
+      durationMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'card-played-to-district' }
+      >;
+    }
+  | {
+      id: string;
+      type: 'place-card-in-district';
+      durationMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'card-played-to-district' }
+      >;
+    }
+  | {
+      id: string;
+      type: 'launch-deed-token-flights';
+      durationMs: number;
+      tokens: readonly Extract<
+        GamePresentationEvent,
+        { type: 'deed-token-paid' }
+      >[];
+    }
+  | {
+      id: string;
+      type: 'apply-deed-progress';
+      durationMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'deed-progress-applied' }
+      >;
+    }
+  | {
+      id: string;
+      type: 'reveal-deed-completion';
+      durationMs: number;
+      event: Extract<GamePresentationEvent, { type: 'deed-completed' }>;
+    }
+  | {
+      id: string;
+      type: 'apply-trade-resources';
+      durationMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'trade-resources-applied' }
+      >;
     }
   | {
       id: string;
@@ -219,6 +303,14 @@ export function buildAnimationSequence(
         cardId: event.cardId,
       });
     }
+    if (event.type === 'trade-resources-applied') {
+      steps.push({
+        id: `apply-trade-resources:${event.playerId}:${event.give}:${event.receive}`,
+        type: 'apply-trade-resources',
+        durationMs: 0,
+        event,
+      });
+    }
     if (event.type === 'income-choice-submitted') {
       steps.push({
         id: `reveal-income-choice-submission:${event.playerId}:${event.districtId}:${event.cardId}`,
@@ -228,6 +320,11 @@ export function buildAnimationSequence(
       });
     }
   }
+
+  appendActionResourcePaymentSteps(transaction, steps, durations);
+  appendCardPlacementSteps(transaction, steps, durations);
+  appendDeedDevelopmentSteps(transaction, steps, durations);
+  appendSellGainSteps(transaction, steps);
 
   const incomeRoll = firstEvent(transaction, 'income-roll');
   if (incomeRoll) {
@@ -400,6 +497,169 @@ function staggeredDuration(
     return 0;
   }
   return (count - 1) * staggerMs + durationMs;
+}
+
+function appendActionResourcePaymentSteps(
+  transaction: GameTransaction,
+  steps: AnimationStep[],
+  durations: AnimationDurations
+): void {
+  const starts = transaction.events.filter(
+    (
+      event
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: 'resource-payment-started' }
+    > =>
+      event.type === 'resource-payment-started' &&
+      event.reason !== 'develop-deed'
+  );
+  for (const start of starts) {
+    steps.push({
+      id: `launch-payment-token-flights:${start.reason}:${start.playerId}:${start.cardId}:${start.districtId}`,
+      type: 'launch-payment-token-flights',
+      durationMs: staggeredDuration(
+        tokenCount(start.payment),
+        durations.actionResourceFlightMs,
+        durations.actionResourceFlightStaggerMs
+      ),
+      event: start,
+    });
+    const apply = transaction.events.find(
+      (
+        event
+      ): event is Extract<
+        GamePresentationEvent,
+        { type: 'resource-payment-applied' }
+      > =>
+        event.type === 'resource-payment-applied' &&
+        event.reason === start.reason &&
+        event.playerId === start.playerId &&
+        event.cardId === start.cardId &&
+        event.districtId === start.districtId
+    );
+    if (apply) {
+      steps.push({
+        id: `apply-resource-payment:${apply.reason}:${apply.playerId}:${apply.cardId}:${apply.districtId}`,
+        type: 'apply-resource-payment',
+        durationMs: 0,
+        event: apply,
+      });
+    }
+  }
+}
+
+function appendCardPlacementSteps(
+  transaction: GameTransaction,
+  steps: AnimationStep[],
+  durations: AnimationDurations
+): void {
+  const placements = transaction.events.filter(
+    (
+      event
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: 'card-played-to-district' }
+    > => event.type === 'card-played-to-district'
+  );
+  for (const event of placements) {
+    steps.push(
+      {
+        id: `launch-card-to-district-flight:${event.playerId}:${event.cardId}:${event.districtId}`,
+        type: 'launch-card-to-district-flight',
+        durationMs: durations.cardFlightMs,
+        event,
+      },
+      {
+        id: `place-card-in-district:${event.playerId}:${event.cardId}:${event.districtId}`,
+        type: 'place-card-in-district',
+        durationMs: 0,
+        event,
+      }
+    );
+  }
+}
+
+function appendDeedDevelopmentSteps(
+  transaction: GameTransaction,
+  steps: AnimationStep[],
+  durations: AnimationDurations
+): void {
+  const deedTokens = transaction.events.filter(
+    (
+      event
+    ): event is Extract<GamePresentationEvent, { type: 'deed-token-paid' }> =>
+      event.type === 'deed-token-paid'
+  );
+  if (deedTokens.length > 0) {
+    steps.push({
+      id: 'launch-deed-token-flights',
+      type: 'launch-deed-token-flights',
+      durationMs: staggeredDuration(
+        deedTokens.length,
+        durations.actionResourceFlightMs,
+        durations.actionResourceFlightStaggerMs
+      ),
+      tokens: deedTokens,
+    });
+  }
+
+  for (const event of transaction.events) {
+    if (
+      event.type === 'resource-payment-applied' &&
+      event.reason === 'develop-deed'
+    ) {
+      steps.push({
+        id: `apply-resource-payment:${event.reason}:${event.playerId}:${event.cardId}:${event.districtId}`,
+        type: 'apply-resource-payment',
+        durationMs: 0,
+        event,
+      });
+    }
+    if (event.type === 'deed-progress-applied') {
+      steps.push({
+        id: `apply-deed-progress:${event.playerId}:${event.cardId}:${event.districtId}`,
+        type: 'apply-deed-progress',
+        durationMs: 0,
+        event,
+      });
+    }
+    if (event.type === 'deed-completed') {
+      steps.push({
+        id: `reveal-deed-completion:${event.playerId}:${event.cardId}:${event.districtId}`,
+        type: 'reveal-deed-completion',
+        durationMs: 0,
+        event,
+      });
+    }
+  }
+}
+
+function appendSellGainSteps(
+  transaction: GameTransaction,
+  steps: AnimationStep[]
+): void {
+  const gains = transaction.events.filter(
+    (
+      event
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: 'sell-resource-gained' }
+    > => event.type === 'sell-resource-gained'
+  );
+  if (gains.length === 0) {
+    return;
+  }
+  steps.push({
+    id: `apply-sell-resource-gains:${gains[0].playerId}:${gains[0].cardId}`,
+    type: 'apply-sell-resource-gains',
+    durationMs: 0,
+    gains,
+  });
+}
+
+function tokenCount(tokens: Partial<Record<Suit, number>>): number {
+  return Object.values(tokens).reduce((total, count) => total + (count ?? 0), 0);
 }
 
 function firstEvent<TType extends GamePresentationEvent['type']>(
