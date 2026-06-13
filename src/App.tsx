@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getBotProfile } from './policies/catalog';
+import { recordGame } from './db/gameHistory';
 
 import type { CardId } from './engine/cards';
 import { PROPERTY_CARDS } from './engine/cards';
@@ -37,6 +39,7 @@ import {
 import { DecktetSuitDiagram } from './ui/components/DecktetSuitDiagram';
 import { LogPanel } from './ui/components/LogPanel';
 import { OptionsBackdrop, OptionsMenu } from './ui/components/OptionsMenu';
+import { HistoryModal } from './ui/components/HistoryModal';
 import { ResourceFlightLayer } from './ui/components/ResourceFlightLayer';
 import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
@@ -113,6 +116,7 @@ export function App() {
     null
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
+  const [historyOpen, setHistoryOpen] = useState<boolean>(false);
   const [bugReportOpen, setBugReportOpen] = useState<boolean>(false);
   const [newGameExpanded, setNewGameExpanded] = useState<boolean>(false);
   const [logVisible, setLogVisible] = useState<boolean>(() =>
@@ -246,6 +250,23 @@ export function App() {
     () => districtWinnersByPlayer(state),
     [state]
   );
+
+  const gameRecordedRef = useRef(false);
+  useEffect(() => {
+    if (!terminal) {
+      gameRecordedRef.current = false;
+      return;
+    }
+    if (gameRecordedRef.current) return;
+    gameRecordedRef.current = true;
+    const botProfile = getBotProfile(botProfileId);
+    void recordGame({
+      score,
+      humanPlayerId: HUMAN_PLAYER,
+      botProfileId,
+      botLabel: botProfile.label,
+    });
+  }, [terminal, score, botProfileId]);
   const { dimmedCardIds, dimmedSuits } = useMemo(() => {
     if (!deckMapInteractive) {
       return {
@@ -799,9 +820,12 @@ export function App() {
             onToggleMap={() => setMapVisible((v) => !v)}
             deckMapInteractive={deckMapInteractive}
             onDeckMapInteractiveChange={setDeckMapInteractive}
+            onHistoryOpen={() => setHistoryOpen(true)}
           />
         </aside>
       </main>
+
+      <HistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
 
       <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
       <OptionsBackdrop open={bugReportOpen} onClose={closeBugReport} />

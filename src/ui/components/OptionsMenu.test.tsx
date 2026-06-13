@@ -34,6 +34,7 @@ describe('OptionsMenu', () => {
         onToggleMap={noop}
         deckMapInteractive
         onDeckMapInteractiveChange={noop}
+        onHistoryOpen={noop}
       />
     );
 
