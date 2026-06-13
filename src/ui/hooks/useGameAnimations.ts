@@ -376,6 +376,14 @@ function isAnimatedPresentationEvent(
   return (
     event.type === 'draw-card' ||
     event.type === 'card-sold' ||
+    event.type === 'sell-resource-gained' ||
+    event.type === 'resource-payment-started' ||
+    event.type === 'resource-payment-applied' ||
+    event.type === 'card-played-to-district' ||
+    event.type === 'deed-token-paid' ||
+    event.type === 'deed-progress-applied' ||
+    event.type === 'deed-completed' ||
+    event.type === 'trade-resources-applied' ||
     event.type === 'income-roll' ||
     event.type === 'tax-token-lost' ||
     event.type === 'income-token-gained' ||

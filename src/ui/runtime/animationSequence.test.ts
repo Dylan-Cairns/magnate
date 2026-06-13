@@ -84,6 +84,73 @@ describe('buildAnimationSequence', () => {
       DEFAULT_ANIMATION_DURATIONS.incomePreFlightHoldMs
     );
   });
+
+  it('sequences card play payment before card placement', () => {
+    const sequence = buildAnimationSequence(makeBuyDeedTransaction());
+
+    expect(stepTypes(sequence)).toEqual([
+      'hold-previous-state',
+      'launch-payment-token-flights',
+      'apply-resource-payment',
+      'launch-card-to-district-flight',
+      'place-card-in-district',
+      'commit-view-state',
+    ]);
+
+    const payment = step(sequence, 'launch-payment-token-flights');
+    const applyPayment = step(sequence, 'apply-resource-payment');
+    const cardFlight = step(sequence, 'launch-card-to-district-flight');
+    const placement = step(sequence, 'place-card-in-district');
+    expect(payment.durationMs).toBe(
+      DEFAULT_ANIMATION_DURATIONS.actionResourceFlightMs +
+        DEFAULT_ANIMATION_DURATIONS.actionResourceFlightStaggerMs
+    );
+    expect(applyPayment.startMs).toBe(payment.endMs);
+    expect(cardFlight.startMs).toBe(applyPayment.endMs);
+    expect(placement.startMs).toBe(cardFlight.endMs);
+  });
+
+  it('sequences deed progress and completion after deed-token flights', () => {
+    const sequence = buildAnimationSequence(makeCompleteDeedTransaction());
+
+    expect(stepTypes(sequence)).toEqual([
+      'hold-previous-state',
+      'launch-deed-token-flights',
+      'apply-resource-payment',
+      'apply-deed-progress',
+      'reveal-deed-completion',
+      'commit-view-state',
+    ]);
+
+    const tokenFlights = step(sequence, 'launch-deed-token-flights');
+    const payment = step(sequence, 'apply-resource-payment');
+    const progress = step(sequence, 'apply-deed-progress');
+    const completion = step(sequence, 'reveal-deed-completion');
+    expect(payment.startMs).toBe(tokenFlights.endMs);
+    expect(progress.startMs).toBe(payment.endMs);
+    expect(completion.startMs).toBe(progress.endMs);
+    expect(progress.event.completed).toBe(true);
+  });
+
+  it('adds explicit sell gain and trade resource steps', () => {
+    const sellSequence = buildAnimationSequence(makeSellCardTransaction());
+    expect(stepTypes(sellSequence)).toEqual([
+      'hold-previous-state',
+      'stage-sold-card',
+      'apply-sell-resource-gains',
+      'commit-view-state',
+    ]);
+    expect(step(sellSequence, 'apply-sell-resource-gains').startMs).toBe(
+      step(sellSequence, 'stage-sold-card').endMs
+    );
+
+    const tradeSequence = buildAnimationSequence(makeTradeTransaction());
+    expect(stepTypes(tradeSequence)).toEqual([
+      'hold-previous-state',
+      'apply-trade-resources',
+      'commit-view-state',
+    ]);
+  });
 });
 
 function makeEndTurnTransaction() {
@@ -181,6 +248,143 @@ function makeIncomeChoiceTransaction() {
     },
     actingPlayerId: PLAYER_B,
     transactionId: 'tx-income-choice',
+    stepToDecision: () => next,
+  });
+}
+
+function makeBuyDeedTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources({ Moons: 2, Knots: 2 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: [],
+        resources: makeResources({ Moons: 1, Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: {
+          developed: [],
+          deed: { cardId: '6', progress: 0, tokens: {} },
+        },
+      }),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'buy-deed', cardId: '6', districtId: 'D1' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-buy-deed',
+    stepToDecision: () => next,
+  });
+}
+
+function makeCompleteDeedTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        resources: makeResources({ Moons: 1, Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: {
+          developed: [],
+          deed: { cardId: '6', progress: 0, tokens: {} },
+        },
+      }),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, { resources: makeResources() }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: { developed: ['6'] },
+      }),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: {
+      type: 'develop-deed',
+      cardId: '6',
+      districtId: 'D1',
+      tokens: { Moons: 1, Knots: 1 },
+    },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-develop-deed',
+    stepToDecision: () => next,
+  });
+}
+
+function makeSellCardTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources(),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: [],
+        resources: makeResources({ Moons: 1, Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    deck: {
+      draw: [],
+      discard: ['6'],
+      reshuffles: 0,
+    },
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'sell-card', cardId: '6' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-sell-card',
+    stepToDecision: () => next,
+  });
+}
+
+function makeTradeTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        resources: makeResources({ Moons: 3 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        resources: makeResources({ Suns: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'trade', give: 'Moons', receive: 'Suns' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-trade',
     stepToDecision: () => next,
   });
 }

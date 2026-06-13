@@ -79,6 +79,15 @@ function applySequenceStep(
     case 'stage-gap':
     case 'hold-before-income-flights':
     case 'launch-income-token-flights':
+    case 'launch-payment-token-flights':
+    case 'apply-resource-payment':
+    case 'launch-card-to-district-flight':
+    case 'place-card-in-district':
+    case 'launch-deed-token-flights':
+    case 'apply-deed-progress':
+    case 'reveal-deed-completion':
+    case 'apply-sell-resource-gains':
+    case 'apply-trade-resources':
       return { viewState, overlays };
     case 'draw-card-flight':
       if (elapsedMs < step.endMs) {
