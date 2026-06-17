@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Dict, Mapping, Sequence, Tuple
 
@@ -298,18 +299,33 @@ def train_opponent_batch(
             raise ValueError(
                 "sample action_index is out of bounds for action_features length."
             )
+        if len(sample.action_probs) != len(sample.action_features):
+            raise ValueError(
+                "sample action_probs length must match action_features length."
+            )
         feature_dim = len(sample.action_features[0])
         if feature_dim == 0:
             raise ValueError("Action feature vectors must be non-empty.")
         for action_features in sample.action_features:
             if len(action_features) != feature_dim:
                 raise ValueError("All action feature vectors in a sample must share dimension.")
+        prob_total = 0.0
+        for value in sample.action_probs:
+            value_float = float(value)
+            if not math.isfinite(value_float) or value_float < 0.0:
+                raise ValueError("sample action_probs must be finite and non-negative.")
+            prob_total += value_float
+        if prob_total <= 0.0:
+            raise ValueError("sample action_probs must sum to > 0.")
 
         observation = torch.tensor(sample.observation, dtype=torch.float32)
         action_features_tensor = torch.tensor(sample.action_features, dtype=torch.float32)
         logits = model.logits_tensor(observation, action_features_tensor).unsqueeze(0)
-        target = torch.tensor([sample.action_index], dtype=torch.long)
-        sample_loss = F.cross_entropy(logits, target)
+        target_probs = torch.tensor(
+            [float(value) / prob_total for value in sample.action_probs],
+            dtype=torch.float32,
+        )
+        sample_loss = -(target_probs * F.log_softmax(logits.squeeze(0), dim=-1)).sum()
         total_loss = total_loss + sample_loss
         predicted = int(torch.argmax(logits, dim=1).item())
         if predicted == sample.action_index:

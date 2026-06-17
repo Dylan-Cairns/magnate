@@ -58,6 +58,7 @@ export interface TdReplayConfig {
   games: number;
   playerA: BotSpec;
   playerB: BotSpec;
+  policyTargetAlpha?: number;
   maxDecisionsPerGame?: number;
 }
 
@@ -75,6 +76,7 @@ export interface TdReplayOpponentSamplePayload {
   observation: number[];
   actionFeatures: number[][];
   actionIndex: number;
+  actionProbs: number[];
   playerId: PlayerId;
 }
 

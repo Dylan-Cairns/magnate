@@ -50,6 +50,7 @@ class TDIOTests(unittest.TestCase):
                 observation=[0.1, 0.2],
                 action_features=[[0.0, 1.0], [1.0, 0.0]],
                 action_index=1,
+                action_probs=[0.25, 0.75],
                 player_id="PlayerA",
             )
         ]
@@ -58,6 +59,43 @@ class TDIOTests(unittest.TestCase):
             write_opponent_samples_jsonl(samples, path)
             loaded = read_opponent_samples_jsonl(path)
         self.assertEqual(loaded, samples)
+
+    def test_read_opponent_sample_rejects_missing_action_probs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "bad-opponent.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "observation": [0.1, 0.2],
+                        "actionFeatures": [[0.0, 1.0], [1.0, 0.0]],
+                        "actionIndex": 1,
+                        "playerId": "PlayerA",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                read_opponent_samples_jsonl(path)
+
+    def test_read_opponent_sample_rejects_mismatched_action_probs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            path = Path(tmp_dir) / "bad-opponent.jsonl"
+            path.write_text(
+                json.dumps(
+                    {
+                        "observation": [0.1, 0.2],
+                        "actionFeatures": [[0.0, 1.0], [1.0, 0.0]],
+                        "actionIndex": 1,
+                        "actionProbs": [1.0],
+                        "playerId": "PlayerA",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                read_opponent_samples_jsonl(path)
 
     def test_read_value_transitions_jsonl_many_preserves_file_order(self) -> None:
         first = [
@@ -97,6 +135,7 @@ class TDIOTests(unittest.TestCase):
                 observation=[0.1, 0.2],
                 action_features=[[0.0, 1.0]],
                 action_index=0,
+                action_probs=[1.0],
                 player_id="PlayerA",
             )
         ]
@@ -105,12 +144,14 @@ class TDIOTests(unittest.TestCase):
                 observation=[0.3, 0.4],
                 action_features=[[1.0, 0.0]],
                 action_index=0,
+                action_probs=[1.0],
                 player_id="PlayerB",
             ),
             OpponentSample(
                 observation=[0.5, 0.6],
                 action_features=[[0.5, 0.5]],
                 action_index=0,
+                action_probs=[1.0],
                 player_id="PlayerA",
             ),
         ]
