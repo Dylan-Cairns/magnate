@@ -55,6 +55,8 @@ export type TdReplayProgress =
 export interface TdReplayDependencies {
   createPolicy?: (spec: BotSpec) => ActionPolicy;
   now?: () => number;
+  gameIndexStart?: number;
+  gameIndexTotal?: number;
   progressIntervalMs?: number;
   onProgress?: (progress: TdReplayProgress) => void;
 }
@@ -116,6 +118,19 @@ export async function collectTdReplayGames(
 
   const createPolicy = dependencies.createPolicy ?? createPolicyFromBotSpec;
   const now = dependencies.now ?? (() => performance.now());
+  const gameIndexStart = dependencies.gameIndexStart ?? 0;
+  if (!Number.isInteger(gameIndexStart) || gameIndexStart < 0) {
+    throw new Error('gameIndexStart must be an integer >= 0.');
+  }
+  const gameIndexTotal = dependencies.gameIndexTotal ?? config.games;
+  if (
+    !Number.isInteger(gameIndexTotal) ||
+    gameIndexTotal < gameIndexStart + config.games
+  ) {
+    throw new Error(
+      'gameIndexTotal must be an integer >= gameIndexStart + games.'
+    );
+  }
   const progressIntervalMs = dependencies.progressIntervalMs ?? 0;
   if (!Number.isFinite(progressIntervalMs) || progressIntervalMs < 0) {
     throw new Error('progressIntervalMs must be a finite number >= 0.');
@@ -128,13 +143,14 @@ export async function collectTdReplayGames(
   };
 
   for (let gameIndex = 0; gameIndex < config.games; gameIndex += 1) {
-    const gameNumber = gameIndex + 1;
-    const gameId = `game-${String(gameIndex).padStart(4, '0')}`;
-    const seed = `${config.seedPrefix}-${String(gameIndex)}`;
+    const globalGameIndex = gameIndexStart + gameIndex;
+    const gameNumber = globalGameIndex + 1;
+    const gameId = `game-${String(globalGameIndex).padStart(4, '0')}`;
+    const seed = `${config.seedPrefix}-${String(globalGameIndex)}`;
     const game = await collectTdReplayGame({
       gameId,
       seed,
-      firstPlayer: gameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB',
+      firstPlayer: globalGameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB',
       botBySeat,
       maxDecisions:
         config.maxDecisionsPerGame ?? DEFAULT_MAX_DECISIONS_PER_GAME,
@@ -145,7 +161,7 @@ export async function collectTdReplayGames(
         dependencies.onProgress?.({
           type: 'game-heartbeat',
           gameNumber,
-          totalGames: config.games,
+          totalGames: gameIndexTotal,
           ...heartbeat,
         });
       },
@@ -153,12 +169,13 @@ export async function collectTdReplayGames(
     await onGame(game);
 
     const elapsedMs = now() - startedAt;
+    const completedGames = gameIndex + 1;
     const gamesPerMinute =
-      elapsedMs > 0 ? (gameNumber * 60_000) / elapsedMs : 0;
+      elapsedMs > 0 ? (completedGames * 60_000) / elapsedMs : 0;
     dependencies.onProgress?.({
       type: 'game-completed',
       gameNumber,
-      totalGames: config.games,
+      totalGames: gameIndexTotal,
       game,
       elapsedMs,
       gamesPerMinute,

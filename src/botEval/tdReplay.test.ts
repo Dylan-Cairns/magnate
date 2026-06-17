@@ -81,6 +81,29 @@ describe('TypeScript TD replay collection', () => {
     assertContiguousValueSequences(run.valueTransitions);
   }, 15_000);
 
+  it('can collect from a non-zero global game index', async () => {
+    const run = await collectTdReplay(tdReplayConfig({ games: 2 }), {
+      gameIndexStart: 4,
+      gameIndexTotal: 6,
+    });
+
+    expect(run.games.map((game) => game.gameId)).toEqual([
+      'game-0004',
+      'game-0005',
+    ]);
+    expect(run.games.map((game) => game.seed)).toEqual([
+      'td-replay-test-4',
+      'td-replay-test-5',
+    ]);
+    expect(run.games.map((game) => game.firstPlayer)).toEqual([
+      'PlayerA',
+      'PlayerB',
+    ]);
+    expect(new Set(run.valueTransitions.map((row) => row.episodeId))).toEqual(
+      new Set(['td-replay-test-4', 'td-replay-test-5'])
+    );
+  }, 15_000);
+
   it('records selected action indexes against the same legal-action order used for encoding', async () => {
     const run = await collectTdReplay(tdReplayConfig({ games: 1 }));
 

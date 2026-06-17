@@ -29,6 +29,11 @@ import {
   collectAndWriteTdReplayArtifacts,
   defaultTdReplayOutputDirectory,
 } from './tdReplayArtifacts';
+import {
+  collectAndWriteShardedTdReplayArtifacts,
+  defaultShardedTdReplayOutputDirectory,
+  type TdReplayShardProgress,
+} from './tdReplayShards';
 import type { RolloutSearchSweepRun } from './types';
 
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
@@ -48,9 +53,12 @@ async function main(): Promise<void> {
     case 'collect-td-replay':
       await runCollectTdReplayCommand(args);
       return;
+    case 'collect-td-replay-sharded':
+      await runCollectTdReplayShardedCommand(args);
+      return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -202,6 +210,54 @@ async function runCollectTdReplayCommand(
   );
 }
 
+async function runCollectTdReplayShardedCommand(
+  args: readonly string[]
+): Promise<void> {
+  const flags = parseFlags(args);
+  const configPath = requiredFlag(flags, '--config');
+  const config = parseTdReplayConfig(
+    JSON.parse(await readFile(configPath, 'utf8'))
+  );
+  const outputDirectory =
+    flags.get('--out-dir') ?? defaultShardedTdReplayOutputDirectory();
+  const workers = parseWorkers(flags);
+  const progressIntervalMs = parseProgressIntervalMs(flags);
+  process.stderr.write(
+    `[td-replay-sharded] started playerA=${config.playerA.id} playerB=${config.playerB.id} games=${String(config.games)} workers=${String(workers)}\n`
+  );
+  const written = await collectAndWriteShardedTdReplayArtifacts(
+    config,
+    outputDirectory,
+    {
+      workers,
+      progressIntervalMs,
+      onProgress: logTdReplayShardProgress,
+    }
+  );
+  process.stderr.write(
+    `[td-replay-sharded] artifacts completed directory=${path.resolve(written.runDirectory)} shards=${path.resolve(written.shardsDirectory)} summary=${path.resolve(written.summaryPath)}\n`
+  );
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: 'completed',
+        runDirectory: path.resolve(written.runDirectory),
+        shardsDirectory: path.resolve(written.shardsDirectory),
+        summaryArtifact: path.resolve(written.summaryPath),
+        valueTransitionArtifacts: written.summary.shards.map((shard) =>
+          path.resolve(shard.valuePath)
+        ),
+        opponentSampleArtifacts: written.summary.shards.map((shard) =>
+          path.resolve(shard.opponentPath)
+        ),
+        results: written.summary.results,
+      },
+      null,
+      2
+    )}\n`
+  );
+}
+
 async function runReplayCommand(args: readonly string[]): Promise<void> {
   const flags = parseFlags(args);
   const artifactPath = requiredFlag(flags, '--artifact');
@@ -301,6 +357,34 @@ function logTdReplayProgress(progress: TdReplayProgress): void {
     case 'game-completed':
       process.stderr.write(
         `[td-replay] game completed=${String(progress.gameNumber)}/${String(progress.totalGames)} game=${progress.game.gameId} winner=${progress.game.finalScore.winner} turns=${String(progress.game.turns)} decisions=${String(progress.game.decisions.length)} valueRows=${String(progress.game.valueTransitions.length)} opponentRows=${String(progress.game.opponentSamples.length)} elapsed=${formatDuration(progress.elapsedMs)} rate=${formatDecimal(progress.gamesPerMinute)} games/min\n`
+      );
+      return;
+  }
+}
+
+function logTdReplayShardProgress(progress: TdReplayShardProgress): void {
+  switch (progress.type) {
+    case 'sharded-started':
+      process.stderr.write(
+        `[td-replay-sharded] shards started games=${String(progress.games)} workers=${String(progress.workers)} requestedWorkers=${String(progress.requestedWorkers)} directory=${path.resolve(progress.runDirectory)}\n`
+      );
+      return;
+    case 'shard-started':
+      process.stderr.write(
+        `[td-replay-sharded] shard ${String(progress.shard.shardIndex)} started start=${String(progress.shard.gameIndexStart)} games=${String(progress.shard.games)}\n`
+      );
+      return;
+    case 'shard-progress':
+      logTdReplayProgress(progress.progress);
+      return;
+    case 'shard-completed':
+      process.stderr.write(
+        `[td-replay-sharded] shard ${String(progress.shard.shardIndex)} completed start=${String(progress.shard.gameIndexStart)} games=${String(progress.shard.games)} valueRows=${String(progress.result.written.summary.results.valueTransitions)} opponentRows=${String(progress.result.written.summary.results.opponentSamples)} elapsed=${formatDuration(progress.result.written.summary.results.elapsedMs)}\n`
+      );
+      return;
+    case 'sharded-completed':
+      process.stderr.write(
+        `[td-replay-sharded] completed games=${String(progress.summary.results.games)} valueRows=${String(progress.summary.results.valueTransitions)} opponentRows=${String(progress.summary.results.opponentSamples)} elapsed=${formatDuration(progress.summary.results.elapsedMs)}\n`
       );
       return;
   }
