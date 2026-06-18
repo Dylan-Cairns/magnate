@@ -6,11 +6,6 @@ import {
   type SearchPolicyConfig,
 } from './searchPolicy';
 import {
-  createTdSearchPolicy,
-  type TdSearchPolicyConfig,
-  type TdSearchPolicyOptions,
-} from './tdSearchPolicy';
-import {
   createTdRootSearchPolicy,
   type TdRootSearchPolicyOptions,
 } from './tdRootSearchPolicy';
@@ -20,7 +15,6 @@ export type BotKind =
   | 'random'
   | 'heuristic'
   | 'search'
-  | 'td-search'
   | 'td-root-search';
 
 export interface RandomBotSpec {
@@ -39,13 +33,6 @@ export interface SearchBotSpec {
   config: SearchPolicyConfig;
 }
 
-export interface TdSearchBotSpec {
-  id: string;
-  kind: 'td-search';
-  config: TdSearchPolicyConfig;
-  modelIndexPath?: string;
-}
-
 export interface TdRootSearchBotSpec {
   id: string;
   kind: 'td-root-search';
@@ -57,11 +44,9 @@ export type BotSpec =
   | RandomBotSpec
   | HeuristicBotSpec
   | SearchBotSpec
-  | TdSearchBotSpec
   | TdRootSearchBotSpec;
 
 export interface BotPolicyRuntimeOverrides {
-  tdSearchLoadModel?: TdSearchPolicyOptions['loadModel'];
   tdRootSearchLoadModel?: TdRootSearchPolicyOptions['loadModel'];
 }
 
@@ -76,12 +61,6 @@ export function createPolicyFromBotSpec(
       return heuristicPolicy;
     case 'search':
       return createSearchPolicy(spec.config);
-    case 'td-search':
-      return createTdSearchPolicy({
-        ...spec.config,
-        modelIndexPath: spec.modelIndexPath,
-        loadModel: overrides.tdSearchLoadModel,
-      });
     case 'td-root-search':
       return createTdRootSearchPolicy({
         ...spec.config,
@@ -107,16 +86,6 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
         kind,
         config: parseSearchConfig(source.config, `${label}.config`),
       };
-    case 'td-search':
-      return {
-        id,
-        kind,
-        config: parseTdSearchConfig(source.config, `${label}.config`),
-        modelIndexPath: optionalString(
-          source.modelIndexPath,
-          `${label}.modelIndexPath`
-        ),
-      };
     case 'td-root-search':
       return {
         id,
@@ -129,7 +98,7 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
       };
     default:
       throw new Error(
-        `${label}.kind must be random, heuristic, search, td-search, or td-root-search.`
+        `${label}.kind must be random, heuristic, search, or td-root-search.`
       );
   }
 }
@@ -154,24 +123,6 @@ function parseSearchConfig(value: unknown, label: string): SearchPolicyConfig {
     `${label}.heuristic`
   );
   return heuristic ? { ...config, heuristic } : config;
-}
-
-function parseTdSearchConfig(
-  value: unknown,
-  label: string
-): TdSearchPolicyConfig {
-  const source = requiredRecord(value, label);
-  return {
-    ...parseSearchConfig(source, label),
-    opponentTemperature: requiredPositiveNumber(
-      source.opponentTemperature,
-      `${label}.opponentTemperature`
-    ),
-    sampleOpponentActions: requiredBoolean(
-      source.sampleOpponentActions,
-      `${label}.sampleOpponentActions`
-    ),
-  };
 }
 
 function requiredRecord(
@@ -205,13 +156,6 @@ function requiredPositiveInteger(value: unknown, label: string): number {
   return value as number;
 }
 
-function requiredPositiveNumber(value: unknown, label: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    throw new Error(`${label} must be a positive finite number.`);
-  }
-  return value;
-}
-
 function requiredProbability(value: unknown, label: string): number {
   if (
     typeof value !== 'number' ||
@@ -220,13 +164,6 @@ function requiredProbability(value: unknown, label: string): number {
     value > 1
   ) {
     throw new Error(`${label} must be a finite number in [0, 1].`);
-  }
-  return value;
-}
-
-function requiredBoolean(value: unknown, label: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new Error(`${label} must be a boolean.`);
   }
   return value;
 }

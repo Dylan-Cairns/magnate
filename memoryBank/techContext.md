@@ -78,9 +78,9 @@
 
 ## Known Gaps
 
-- `td-search` needs stronger search/value coupling and throughput optimization.
+- `td-root-search` needs full TD guidance through the shared rollout-search core.
 - Search baseline promotion thresholds still need repeated confirmation.
-- Browser `td-value` and `td-search` deployment paths exist via static model-pack export/loading; runtime performance tuning remains.
-- Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized `td-search` specs.
+- Browser TD deployment needs the new canonical TD-root rollout model pack wired in; legacy checked-in browser model artifacts have been removed.
+- Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized TD-root rollout specs.
 
-_Updated: 2026-06-09._
+_Updated: 2026-06-18._

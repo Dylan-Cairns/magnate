@@ -7,9 +7,9 @@ import { policyRandomForState, policyRandomSeedForState } from './policyRandom';
 describe('policy random helpers', () => {
   it('derives the same RNG stream from the exported state seed helper', () => {
     const state = makeGameState({ seed: 'policy-random-seed-test', turn: 4 });
-    const random = policyRandomForState(state, 'rollout-eval-search');
+    const random = policyRandomForState(state, 'rollout-search-v2-medium');
     const fromSeed = rngFromSeed(
-      policyRandomSeedForState(state, 'rollout-eval-search')
+      policyRandomSeedForState(state, 'rollout-search-v2-medium')
     );
 
     expect([random(), random(), random()]).toEqual([

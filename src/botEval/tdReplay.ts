@@ -217,8 +217,6 @@ export function validateTdReplayConfig(config: TdReplayConfig): void {
   ) {
     throw new Error('policyTargetAlpha must be a positive finite number.');
   }
-  rejectUnsupportedBotSpec(config.playerA, 'playerA');
-  rejectUnsupportedBotSpec(config.playerB, 'playerB');
 }
 
 async function collectTdReplayGame({
@@ -535,14 +533,6 @@ function validatePolicyTarget(
   if (!Number.isFinite(total) || total <= 0) {
     throw new Error(
       `Bot ${botId} policy target probabilities must sum to > 0.`
-    );
-  }
-}
-
-function rejectUnsupportedBotSpec(spec: BotSpec, label: string): void {
-  if (spec.kind === 'td-search') {
-    throw new Error(
-      `${label}.kind td-search is not supported by collect-td-replay yet; use random, heuristic, or search.`
     );
   }
 }

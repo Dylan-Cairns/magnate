@@ -3,10 +3,6 @@ import { rngFromSeed } from '../engine/rng';
 import type { GameAction } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from './botSpec';
 import {
-  DEFAULT_TD_SEARCH_MODEL_INDEX_PATH,
-  preloadTdSearchBrowserModel,
-} from './modelRuntimeCache';
-import {
   rolloutSearchRootBudget,
   selectRolloutSearchActionParallel,
   selectRolloutSearchActionSync,
@@ -16,7 +12,6 @@ import {
   createSearchWorkerPool,
   type SearchWorkerPool,
 } from './searchWorkerPool';
-import { createTdRootSearchRootGuide } from './tdRootSearchPolicy';
 import type { ActionPolicy, SearchDecisionDiagnostics } from './types';
 import type {
   BotWorkerRequest,
@@ -169,14 +164,7 @@ async function createRootGuideFactoryForSpec(
   if (spec.kind === 'search') {
     return undefined;
   }
-  const model = await preloadTdSearchBrowserModel(
-    spec.modelIndexPath ?? DEFAULT_TD_SEARCH_MODEL_INDEX_PATH
-  );
-  return (input) =>
-    createTdRootSearchRootGuide({
-      ...input,
-      model,
-    });
+  throw new Error('TD root search worker model loading is not configured.');
 }
 
 function policyForSpec(request: BotWorkerSelectActionRequest): ActionPolicy {
