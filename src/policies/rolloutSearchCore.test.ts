@@ -6,6 +6,7 @@ import { rngFromSeed } from '../engine/rng';
 import {
   createSession,
   stepKnownLegalActionToDecision,
+  stepKnownLegalActionToDecisionForSimulation,
 } from '../engine/session';
 import { toPlayerView } from '../engine/view';
 import { rankHeuristicV2Actions } from './heuristicScorerV2';
@@ -234,6 +235,26 @@ describe('rollout search core', () => {
     expect(result.simulatedActionSteps).toBeGreaterThan(0);
   });
 
+  it('simulation stepping preserves gameplay state while suppressing logs', () => {
+    const fixture = selectionFixture('rollout-core-no-log-step');
+    const rootAction = fixture.candidateActions.find((action) =>
+      ['buy-deed', 'develop-outright', 'sell-card'].includes(action.type)
+    );
+    if (!rootAction) {
+      throw new Error('Expected a card-play action in the fixture.');
+    }
+
+    const logged = stepKnownLegalActionToDecision(fixture.state, rootAction);
+    const unlogged = stepKnownLegalActionToDecisionForSimulation(
+      fixture.state,
+      rootAction
+    );
+
+    expect(logged.log.length).toBeGreaterThan(fixture.state.log.length);
+    expect(unlogged.log).toEqual(fixture.state.log);
+    expect(withoutLog(unlogged)).toEqual(withoutLog(logged));
+  });
+
   it('assigns common random scenarios by action-local visit index', async () => {
     const fixture = selectionFixture('rollout-core-common-scenarios');
     const keyed = toKeyedActions(fixture.candidateActions).slice(0, 2);
@@ -357,6 +378,49 @@ describe('rollout search core', () => {
     expect(firstActionState.seed).toBe(originalSeed);
     expect(firstActionState.rngCursor).toBe(originalRngCursor);
   });
+
+  it('keeps rollout task results independent of source world logs', () => {
+    const fixture = selectionFixture('rollout-core-log-independent-task');
+    const rootAction = toKeyedActions(fixture.candidateActions)[0];
+    const baseTask: RolloutSearchWorkerTask = {
+      kind: 'rollout-search',
+      contextId: 'rollout-core-log-independent-task-context',
+      visitIndex: 0,
+      actionVisitIndex: 0,
+      scenarioIndex: 0,
+      worldIndex: 0,
+      engineSeed: 'rollout-core-log-independent-task-engine',
+      rootPlayer: fixture.view.activePlayerId,
+      rootAction: rootAction.action,
+      rootActionKey: rootAction.actionKey,
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 1,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
+      randomSeed: 'rollout-core-log-independent-task-playout',
+    };
+    const noisyWorld = {
+      ...fixture.state,
+      log: [
+        ...fixture.state.log,
+        {
+          turn: fixture.state.turn,
+          phase: fixture.state.phase,
+          player: fixture.view.activePlayerId,
+          summary: 'test-only source log entry',
+        },
+      ],
+    };
+
+    const cleanResult = runRolloutSearchTask(baseTask, [fixture.state]);
+    const noisyResult = runRolloutSearchTask(baseTask, [noisyWorld]);
+
+    expect(noisyResult).toEqual(cleanResult);
+  });
 });
 
 function expectRootActionDiagnosticsAreConsistent(
@@ -416,4 +480,10 @@ function selectionFixture(seed: string) {
     view,
     candidateActions,
   };
+}
+
+function withoutLog<T extends { log: unknown }>(state: T): Omit<T, 'log'> {
+  const rest = { ...state };
+  delete (rest as { log?: unknown }).log;
+  return rest;
 }

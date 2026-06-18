@@ -45,6 +45,9 @@ Design expectations:
 - Rollout-search specs may opt into additive heuristic variants for both root ranking/priors and rollout playout action selection; omitted heuristic config preserves v1 behavior.
 - Browser rollout-search leaf evaluation should stay separate from action scoring and estimate unfinished rollout states from canonical district scoring, deed potential/threat pressure, late-game urgency, and contextual resource-bank quality.
 - Rollout-search simulations should use deterministic common-random scenarios by action-local visit index: hidden-world samples are reused by scenario index and each rollout replaces the real game seed/rng cursor with a simulated engine seed, so root actions compare matched hidden-card and future dice/tax/shuffle samples without leaking the actual game RNG stream.
+- Rollout-search simulations should use simulation-only stepping that suppresses
+  game-log growth while preserving normal logged stepping for real games and
+  exported transcripts.
 - Browser rollout-search parallelism should live below the `ActionPolicy`
   boundary:
   - the UI/controller still awaits one async policy decision;
