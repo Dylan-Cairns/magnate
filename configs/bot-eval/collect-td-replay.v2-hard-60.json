@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "runLabel": "v2-hard-teacher-100",
   "seedPrefix": "v2-hard-teacher-100",
-  "games": 100,
+  "games": 60,
   "playerA": {
     "id": "v2-hard-teacher-a",
     "kind": "search",
