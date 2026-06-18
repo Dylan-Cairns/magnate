@@ -44,6 +44,28 @@ import type {
   SearchRootActionDiagnostics,
 } from './types';
 
+export interface RolloutSearchRuntimeGuidance {
+  evaluateLeaf?: (input: {
+    state: GameState;
+    rootPlayer: PlayerId;
+  }) => number;
+  chooseRolloutAction?: (input: {
+    state: GameState;
+    actions: readonly GameAction[];
+    decisionPlayer: PlayerId;
+    rootPlayer: PlayerId;
+    random: RandomFn;
+    config: SearchPolicyConfig;
+  }) => GameAction | undefined;
+}
+
+export interface RolloutSearchTdRootWorkerGuidance {
+  kind: 'td-root';
+  modelIndexPath: string;
+}
+
+export type RolloutSearchWorkerGuidance = RolloutSearchTdRootWorkerGuidance;
+
 export interface RolloutSearchSelectionInput {
   state: GameState;
   view: PlayerView;
@@ -52,6 +74,8 @@ export interface RolloutSearchSelectionInput {
   random: RandomFn;
   randomSeed?: string;
   createRootGuide?: RolloutSearchRootGuideFactory;
+  rolloutGuidance?: RolloutSearchRuntimeGuidance;
+  workerGuidance?: RolloutSearchWorkerGuidance;
   onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
   onProgress?: () => void;
 }
@@ -68,6 +92,7 @@ export interface RolloutSearchParallelSelectionInput extends RolloutSearchSelect
 export interface RolloutSearchWorkerContext {
   contextId: string;
   worldStates: readonly GameState[];
+  guidance?: RolloutSearchWorkerGuidance;
 }
 
 export interface RolloutSearchWorkerTask {
@@ -152,7 +177,12 @@ export function selectRolloutSearchActionSync(
   while (session.hasUnscheduledVisits()) {
     input.onProgress?.();
     const task = session.nextTask(workerContext.contextId);
-    const result = runRolloutSearchTask(task, workerContext.worldStates);
+    const result = runRolloutSearchTask(
+      task,
+      workerContext.worldStates,
+      undefined,
+      session.runtimeGuidance()
+    );
     session.mergeResult(result);
   }
 
@@ -230,7 +260,8 @@ export async function selectRolloutSearchActionParallel(
 export function runRolloutSearchTask(
   task: RolloutSearchWorkerTask,
   worldStates: readonly GameState[],
-  fallbackRandom?: RandomFn
+  fallbackRandom?: RandomFn,
+  guidance?: RolloutSearchRuntimeGuidance
 ): RolloutSearchVisitResult {
   const random = task.randomSeed
     ? rngFromSeed(task.randomSeed)
@@ -256,7 +287,8 @@ export function runRolloutSearchTask(
     task.rootPlayer,
     task.rootAction,
     task.config,
-    random
+    random,
+    guidance
   );
   return {
     kind: 'rollout-search',
@@ -284,6 +316,8 @@ function createRolloutSearchSession({
   random,
   randomSeed,
   createRootGuide,
+  rolloutGuidance,
+  workerGuidance,
 }: RolloutSearchSelectionInput): RolloutSearchSession | null {
   const rootPlayer = view.activePlayerId;
   const worldStates = sampleHiddenWorldStates({
@@ -319,6 +353,8 @@ function createRolloutSearchSession({
     worldStates,
     rootPlayer,
     config,
+    rolloutGuidance,
+    workerGuidance,
     rootRandomSeed: randomSeedForSession({ random, randomSeed }),
   });
 }
@@ -356,6 +392,8 @@ class RolloutSearchSession {
   private readonly worldStates: readonly GameState[];
   private readonly rootPlayer: PlayerId;
   private readonly config: SearchPolicyConfig;
+  private readonly rolloutGuidance: RolloutSearchRuntimeGuidance | undefined;
+  private readonly workerGuidance: RolloutSearchWorkerGuidance | undefined;
   private readonly rootRandomSeed: string;
   private readonly rootBudget: number;
   private readonly rootVisits = new Map<string, number>();
@@ -378,6 +416,8 @@ class RolloutSearchSession {
     worldStates,
     rootPlayer,
     config,
+    rolloutGuidance,
+    workerGuidance,
     rootRandomSeed,
   }: {
     candidateActions: readonly GameAction[];
@@ -386,6 +426,8 @@ class RolloutSearchSession {
     worldStates: readonly GameState[];
     rootPlayer: PlayerId;
     config: SearchPolicyConfig;
+    rolloutGuidance?: RolloutSearchRuntimeGuidance;
+    workerGuidance?: RolloutSearchWorkerGuidance;
     rootRandomSeed: string;
   }) {
     this.actionByKey = new Map(
@@ -399,6 +441,8 @@ class RolloutSearchSession {
     this.worldStates = worldStates;
     this.rootPlayer = rootPlayer;
     this.config = config;
+    this.rolloutGuidance = rolloutGuidance;
+    this.workerGuidance = workerGuidance;
     this.rootRandomSeed = rootRandomSeed;
     this.rootBudget = rolloutSearchRootBudget(config, worldStates.length);
 
@@ -437,10 +481,15 @@ class RolloutSearchSession {
     return this.mergedVisitTotal;
   }
 
+  runtimeGuidance(): RolloutSearchRuntimeGuidance | undefined {
+    return this.rolloutGuidance;
+  }
+
   workerContext(contextId: string): RolloutSearchWorkerContext {
     return {
       contextId,
       worldStates: this.worldStates,
+      ...(this.workerGuidance ? { guidance: this.workerGuidance } : {}),
     };
   }
 
@@ -631,7 +680,8 @@ function runRollout(
   rootPlayer: PlayerId,
   rootAction: GameAction,
   config: SearchPolicyConfig,
-  random: RandomFn
+  random: RandomFn,
+  guidance?: RolloutSearchRuntimeGuidance
 ): {
   score: number;
   simulatedActionSteps: number;
@@ -657,8 +707,10 @@ function runRollout(
       state,
       actions,
       decisionPlayer,
+      rootPlayer,
       random,
-      config
+      config,
+      guidance
     );
     state = stepKnownLegalActionToDecisionForSimulation(state, nextAction);
     depth += 1;
@@ -674,7 +726,9 @@ function runRollout(
     };
   }
   return {
-    score: evaluateSearchLeafState(state, rootPlayer),
+    score: guidance?.evaluateLeaf
+      ? guidance.evaluateLeaf({ state, rootPlayer })
+      : evaluateSearchLeafState(state, rootPlayer),
     simulatedActionSteps,
     terminatedBeforeDepthLimit,
   };
@@ -684,12 +738,25 @@ function chooseRolloutAction(
   state: GameState,
   actions: readonly GameAction[],
   decisionPlayer: PlayerId,
+  rootPlayer: PlayerId,
   random: RandomFn,
-  config: SearchPolicyConfig
+  config: SearchPolicyConfig,
+  guidance?: RolloutSearchRuntimeGuidance
 ): GameAction {
   if (random() < config.rolloutEpsilon) {
     const keyed = toKeyedActions(actions);
     return keyed[Math.floor(random() * keyed.length)].action;
+  }
+  const guided = guidance?.chooseRolloutAction?.({
+    state,
+    actions,
+    decisionPlayer,
+    rootPlayer,
+    random,
+    config,
+  });
+  if (guided) {
+    return guided;
   }
   const best = bestActionByHeuristic(
     actions,

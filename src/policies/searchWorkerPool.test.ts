@@ -142,6 +142,56 @@ describe('search worker pool', () => {
     await expect(second).resolves.toEqual([result(1)]);
   });
 
+  it('reinitializes rollout search context when guidance changes', async () => {
+    const workers: FakeSearchWorker[] = [];
+    const pool = createSearchWorkerPool({
+      workerCount: 1,
+      createWorker: () => pushWorker(workers),
+    });
+    const firstContext = {
+      ...TEST_CONTEXT,
+      guidance: {
+        kind: 'td-root' as const,
+        modelIndexPath: 'model-packs/first-index.json',
+      },
+    };
+    const secondContext = {
+      ...TEST_CONTEXT,
+      guidance: {
+        kind: 'td-root' as const,
+        modelIndexPath: 'model-packs/second-index.json',
+      },
+    };
+
+    const first = pool.runBatch([task(0)], firstContext);
+    workers[0].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[0].messages[0]).requestId,
+    });
+    await flushAsyncWork();
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[1]).requestId,
+      results: [result(0)],
+    });
+    await expect(first).resolves.toEqual([result(0)]);
+
+    const second = pool.runBatch([task(1)], secondContext);
+
+    expect(initRequest(workers[0].messages[2]).context).toBe(secondContext);
+    workers[0].emit({
+      type: 'initialized',
+      requestId: initRequest(workers[0].messages[2]).requestId,
+    });
+    await flushAsyncWork();
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[3]).requestId,
+      results: [result(1)],
+    });
+    await expect(second).resolves.toEqual([result(1)]);
+  });
+
   it('rejects active work and closes workers when a worker fails', async () => {
     const workers: FakeSearchWorker[] = [];
     const pool = createSearchWorkerPool({

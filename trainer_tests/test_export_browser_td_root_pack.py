@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.export_browser_td_search_pack import (
-    export_td_search_checkpoint_pack,
+from scripts.export_browser_td_root_pack import (
+    export_td_root_checkpoint_pack,
     resolve_checkpoints,
 )
 from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
@@ -14,7 +14,7 @@ from trainer.td.checkpoint import save_opponent_checkpoint, save_value_checkpoin
 from trainer.td.models import OpponentModel, ValueNet
 
 
-class ExportBrowserTdSearchPackTests(unittest.TestCase):
+class ExportBrowserTdRootPackTests(unittest.TestCase):
     def test_exports_pack_manifest_weights_and_index(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -36,18 +36,18 @@ class ExportBrowserTdSearchPackTests(unittest.TestCase):
             )
 
             output_root = root / "public" / "model-packs"
-            result = export_td_search_checkpoint_pack(
+            result = export_td_root_checkpoint_pack(
                 value_checkpoint_path=value_checkpoint,
                 opponent_checkpoint_path=opponent_checkpoint,
                 output_root=output_root,
-                pack_id="td-search-test-pack",
-                label="TD Search Test",
+                pack_id="td-root-test-pack",
+                label="TD Root Test",
                 set_default=False,
             )
 
             manifest = json.loads(Path(result["manifest"]).read_text(encoding="utf-8"))
-            self.assertEqual(manifest["packId"], "td-search-test-pack")
-            self.assertEqual(manifest["model"]["modelType"], "td-search-v1")
+            self.assertEqual(manifest["packId"], "td-root-test-pack")
+            self.assertEqual(manifest["model"]["modelType"], "td-root-search-v1")
             self.assertIn("value", manifest["model"])
             self.assertIn("opponent", manifest["model"])
 
@@ -57,7 +57,7 @@ class ExportBrowserTdSearchPackTests(unittest.TestCase):
             self.assertIn("obs_encoder.0.weight", weights["opponentTensors"])
 
             index = json.loads(Path(result["index"]).read_text(encoding="utf-8"))
-            self.assertTrue(any(pack["id"] == "td-search-test-pack" for pack in index["packs"]))
+            self.assertTrue(any(pack["id"] == "td-root-test-pack" for pack in index["packs"]))
 
     def test_resolve_latest_promoted_pair_from_loop_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
