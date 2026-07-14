@@ -339,8 +339,8 @@ export function buildAnimationSequence(
     }
   }
 
-  appendActionResourcePaymentSteps(transaction, steps, durations);
   appendCardPlacementSteps(transaction, steps, durations);
+  appendActionResourcePaymentSteps(transaction, steps, durations);
   appendDeedDevelopmentSteps(transaction, steps, durations);
   appendSellGainSteps(transaction, steps, durations);
 

@@ -86,6 +86,8 @@
   `AnimationSequence.durationMs`.
   Income-choice bot thinking visibility now keys off bot thinking state during
   visible income choice resolution rather than normal turn ownership.
+  Buy-deed and develop-outright sequences move/place the card into the district
+  before launching and applying payment token removal.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
