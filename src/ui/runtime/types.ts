@@ -23,6 +23,22 @@ export type AnimationOverlayState = {
   incomeHighlightCardIds: readonly CardId[];
   incomeHighlightCrowns: readonly { playerId: PlayerId; suit: Suit }[];
   activePlayerHighlightOverride: PlayerId | null;
+  dice: DiceVisualState | null;
+};
+
+export type IncomeDicePhase = 'rolling' | 'pulsing' | 'settled';
+export type TaxDicePhase =
+  | 'hidden'
+  | 'rolling'
+  | 'pulsing'
+  | 'settled'
+  | 'dimmed';
+
+export type DiceVisualState = {
+  incomeRoll: IncomeRollResult;
+  taxSuit: Suit | undefined;
+  incomePhase: IncomeDicePhase;
+  taxPhase: TaxDicePhase;
 };
 
 export type InteractionState = {

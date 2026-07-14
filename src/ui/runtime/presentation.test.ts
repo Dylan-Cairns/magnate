@@ -81,6 +81,63 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(resourceCount(afterTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(1);
   });
 
+  it('derives dice visual state from sequence boundaries without leaking tax early', () => {
+    const { transaction } = makeEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const incomeRoll = step(sequence, 'roll-income-dice');
+    const incomePulse = step(sequence, 'pulse-income-die');
+    const taxRoll = step(sequence, 'roll-tax-die');
+    const taxPulse = step(sequence, 'pulse-tax-die');
+
+    const duringIncomeRoll = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeRoll.startMs,
+    });
+    expect(duringIncomeRoll.overlays.dice).toEqual({
+      incomeRoll: { die1: 7, die2: 4, rollId: 12 },
+      taxSuit: undefined,
+      incomePhase: 'rolling',
+      taxPhase: 'hidden',
+    });
+    expect(duringIncomeRoll.viewState.lastTaxSuit).toBeUndefined();
+
+    const duringIncomePulse = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomePulse.startMs,
+    });
+    expect(duringIncomePulse.overlays.dice).toMatchObject({
+      incomePhase: 'pulsing',
+      taxSuit: undefined,
+      taxPhase: 'hidden',
+    });
+    expect(duringIncomePulse.viewState.lastTaxSuit).toBeUndefined();
+
+    const duringTaxRoll = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: taxRoll.startMs,
+    });
+    expect(duringTaxRoll.overlays.dice).toMatchObject({
+      incomePhase: 'settled',
+      taxSuit: 'Moons',
+      taxPhase: 'rolling',
+    });
+    expect(duringTaxRoll.viewState.lastTaxSuit).toBe('Moons');
+
+    const duringTaxPulse = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: taxPulse.startMs,
+    });
+    expect(duringTaxPulse.overlays.dice).toMatchObject({
+      incomePhase: 'settled',
+      taxSuit: 'Moons',
+      taxPhase: 'pulsing',
+    });
+  });
+
   it('commits to nextState at the sequence commit step', () => {
     const { transaction } = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
