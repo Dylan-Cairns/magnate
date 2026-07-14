@@ -153,6 +153,10 @@ Design expectations:
   but canonical-looking resource/card/count mutations belong to explicit
   sequence apply/commit steps so React cannot leak `nextState` before the
   sequence reaches it.
+- Animation sequences should be driven by current-transaction semantic events,
+  not sticky canonical history fields. For example, `lastTaxSuit` records the
+  latest resolved tax for display/history, while only a transaction-level
+  `tax-resolved` event means the current sequence should animate tax dice.
 - Browser token visual effects should be scheduled from sequence-derived visual
   commands. DOM target lookup and flight object construction stay browser-only,
   but the command `atMs`/`startMs` values must come from `AnimationSequence`

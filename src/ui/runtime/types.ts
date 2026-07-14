@@ -138,6 +138,10 @@ export type GamePresentationEvent =
       incomeRank: number;
     }
   | {
+      type: 'tax-resolved';
+      suit: Suit;
+    }
+  | {
       type: 'tax-token-lost';
       playerId: PlayerId;
       suit: Suit;

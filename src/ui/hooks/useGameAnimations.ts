@@ -340,6 +340,10 @@ export function useGameAnimations({
           presentationTransaction,
           presentationSequence,
           settleMs,
+          Math.min(
+            presentationSequence.commitMs,
+            presentationSequence.inputUnlockMs
+          ),
           actionCommitTimers,
           setPresentationSnapshot
         );
@@ -354,17 +358,36 @@ export function useGameAnimations({
       };
       const commitMs = presentationSequence?.commitMs ?? settleMs;
       const inputUnlockMs = presentationSequence?.inputUnlockMs ?? commitMs;
-      if (commitMs <= 0) {
+      if (
+        commitMs === inputUnlockMs &&
+        commitMs > 0 &&
+        commitMs < settleMs
+      ) {
+        // Commit and unlock are one user-visible boundary. Keep them in one
+        // timer so React cannot paint a settled board while input is still
+        // locked because an equal-time unlock callback has not run yet.
+        actionCommitTimers.schedule(commitMs, () => {
+          commitTransition();
+          setPresentationSnapshot(null);
+          setAllowHumanActionsWhileCommitPending(false);
+          setActionCommitPending(false);
+        });
+      } else if (commitMs <= 0) {
         commitTransition();
       } else if (commitMs < settleMs) {
         actionCommitTimers.schedule(commitMs, commitTransition);
       }
-      if (inputUnlockMs <= 0) {
+      if (commitMs === inputUnlockMs && inputUnlockMs > 0) {
+        // Handled by the combined boundary above, or by the settle callback
+        // when the boundary coincides with final cleanup.
+      } else if (inputUnlockMs <= 0) {
         commitTransition();
+        setPresentationSnapshot(null);
         setActionCommitPending(false);
       } else if (inputUnlockMs < settleMs) {
         actionCommitTimers.schedule(inputUnlockMs, () => {
           commitTransition();
+          setPresentationSnapshot(null);
           setAllowHumanActionsWhileCommitPending(false);
           setActionCommitPending(false);
         });
@@ -469,6 +492,7 @@ function isAnimatedPresentationEvent(
     event.type === 'deed-completed' ||
     event.type === 'trade-resources-applied' ||
     event.type === 'income-roll' ||
+    event.type === 'tax-resolved' ||
     event.type === 'tax-token-lost' ||
     event.type === 'income-token-gained' ||
     event.type === 'income-choice-required' ||
@@ -480,11 +504,14 @@ function scheduleSequencePresentationSnapshots(
   transaction: GameTransaction,
   sequence: AnimationSequence,
   settleMs: number,
+  finalBoundaryMs: number,
   timers: AnimationTimerRegistry,
   setSnapshot: (snapshot: PresentationSnapshot | null) => void
 ): void {
-  const updateTimes = uniqueSequenceUpdateTimes(sequence.steps).filter(
-    (atMs) => atMs > 0 && atMs < settleMs
+  const updateTimes = sequencePresentationSnapshotUpdateTimes(
+    sequence,
+    settleMs,
+    finalBoundaryMs
   );
   for (const atMs of updateTimes) {
     timers.schedule(atMs, () => {
@@ -497,6 +524,16 @@ function scheduleSequencePresentationSnapshots(
       );
     });
   }
+}
+
+export function sequencePresentationSnapshotUpdateTimes(
+  sequence: AnimationSequence,
+  settleMs: number,
+  finalBoundaryMs: number
+): number[] {
+  return uniqueSequenceUpdateTimes(sequence.steps).filter(
+    (atMs) => atMs > 0 && atMs < settleMs && atMs < finalBoundaryMs
+  );
 }
 
 function uniqueSequenceUpdateTimes(

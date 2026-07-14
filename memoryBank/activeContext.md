@@ -67,9 +67,11 @@
   geometry with local requestAnimationFrame interpolation, but its duration is
   sourced from the shared animation timing constant. Action commit/input unlock
   are derived from `AnimationSequence` `commitMs`/`inputUnlockMs` rather than
-  action-type timing rules. Income-choice bot thinking visibility now keys off
-  bot thinking state during visible income choice resolution rather than normal
-  turn ownership.
+  action-type timing rules. Turn-cycle tax animation is driven by an explicit
+  transaction `tax-resolved` semantic event; sticky canonical `lastTaxSuit`
+  history must not create tax animation steps for later non-tax actions.
+  Income-choice bot thinking visibility now keys off bot thinking state during
+  visible income choice resolution rather than normal turn ownership.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

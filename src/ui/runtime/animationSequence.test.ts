@@ -159,6 +159,36 @@ describe('buildAnimationSequence', () => {
       'commit-view-state',
     ]);
   });
+
+  it('keeps no-loss tax animation on the turn-cycle transaction that resolved it', () => {
+    const sequence = buildAnimationSequence(makeNoLossTaxEndTurnTransaction());
+
+    expect(stepTypes(sequence)).toEqual([
+      'hold-previous-state',
+      'draw-card-flight',
+      'roll-income-dice',
+      'pulse-income-die',
+      'roll-tax-die',
+      'pulse-tax-die',
+      'commit-view-state',
+    ]);
+  });
+
+  it('does not animate a stale previous tax suit on a later sell-card transaction', () => {
+    const sequence = buildAnimationSequence(
+      makeSellCardTransactionWithStickyLastTaxSuit()
+    );
+
+    expect(stepTypes(sequence)).toEqual([
+      'hold-previous-state',
+      'stage-sold-card',
+      'apply-sell-resource-gains',
+      'commit-view-state',
+    ]);
+    expect(sequence.commitMs).toBe(
+      step(sequence, 'apply-sell-resource-gains').endMs
+    );
+  });
 });
 
 function makeEndTurnTransaction() {
@@ -367,6 +397,88 @@ function makeSellCardTransaction() {
     action: { type: 'sell-card', cardId: '6' },
     actingPlayerId: PLAYER_A,
     transactionId: 'tx-sell-card',
+    stepToDecision: () => next,
+  });
+}
+
+function makeSellCardTransactionWithStickyLastTaxSuit() {
+  const previous = {
+    ...makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+    }),
+    lastTaxSuit: 'Moons',
+  } satisfies GameState;
+  const next = {
+    ...makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      deck: {
+        draw: [],
+        discard: ['6'],
+        reshuffles: 0,
+      },
+    }),
+    lastTaxSuit: 'Moons',
+  } satisfies GameState;
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'sell-card', cardId: '6' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-sell-card-after-tax',
+    stepToDecision: () => next,
+  });
+}
+
+function makeNoLossTaxEndTurnTransaction() {
+  const previous = makeGameState({
+    phase: 'ActionWindow',
+    activePlayerIndex: 0,
+    cardPlayedThisTurn: true,
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources({ Moons: 1 }),
+      }),
+      makePlayer(PLAYER_B, {
+        hand: ['8'],
+        resources: makeResources({ Moons: 1 }),
+      }),
+    ],
+  });
+  const next = {
+    ...makeGameState({
+      phase: 'ActionWindow',
+      activePlayerIndex: 1,
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6', '7'],
+          resources: makeResources({ Moons: 1 }),
+        }),
+        makePlayer(PLAYER_B, {
+          hand: ['8'],
+          resources: makeResources({ Moons: 1 }),
+        }),
+      ],
+      lastIncomeRoll: { die1: 1, die2: 7, rollId: 12 },
+    }),
+    lastTaxSuit: 'Moons',
+  } satisfies GameState;
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'end-turn' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-no-loss-tax-end-turn',
     stepToDecision: () => next,
   });
 }

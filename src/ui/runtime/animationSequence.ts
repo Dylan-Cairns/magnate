@@ -365,7 +365,8 @@ export function buildAnimationSequence(
     ): event is Extract<GamePresentationEvent, { type: 'tax-token-lost' }> =>
       event.type === 'tax-token-lost'
   );
-  const taxSuit = taxLosses[0]?.suit ?? transaction.nextState.lastTaxSuit;
+  const taxResolved = firstEvent(transaction, 'tax-resolved');
+  const taxSuit = taxResolved?.suit ?? taxLosses[0]?.suit;
   if (taxSuit) {
     steps.push({
       id: `roll-tax-die:${taxSuit}`,
