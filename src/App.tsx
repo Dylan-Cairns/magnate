@@ -25,6 +25,7 @@ import {
 import {
   buildDeckMapDimming,
   isVisibleIncomeChoicePhase,
+  shouldHideBotWaitMessageDuringAnimationLock,
 } from './ui/appRenderModel';
 import {
   preloadStartupAssets,
@@ -322,12 +323,12 @@ export function App() {
 
   const isTurnCycleAnimationLock =
     actionCommitPending && allowHumanActionsWhileCommitPending;
-  const showBotThinkingDuringIncomeChoiceLock =
-    isTurnCycleAnimationLock &&
-    activePlayerId === BOT_PLAYER &&
-    isIncomeChoicePhase;
   const hideBotWaitMessageDuringTurnCycleLock =
-    isTurnCycleAnimationLock && !showBotThinkingDuringIncomeChoiceLock;
+    shouldHideBotWaitMessageDuringAnimationLock({
+      isAnimationLock: isTurnCycleAnimationLock,
+      isIncomeChoicePhase,
+      botThinking,
+    });
   const humanActionUiBlockedByAnimation =
     activePlayerId === HUMAN_PLAYER &&
     actionCommitPending &&

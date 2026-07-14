@@ -17,8 +17,6 @@ import {
 import {
   cardFlightSettleMs,
   resourceFlightSettleMs,
-  shouldAllowHumanActionsDuringAnimationSettle,
-  shouldCommitBeforeAnimationSettle,
 } from '../animations/timing';
 import type { CardFlight, ResourceFlight } from '../animations/types';
 import {
@@ -129,11 +127,19 @@ export function useGameAnimations({
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
   const scheduleSequenceVisualCommand = useCallback(
     (command: AnimationVisualCommand, transaction: GameTransaction) => {
+      const scheduleAt = (atMs: number, callback: () => void) => {
+        if (atMs <= 0) {
+          callback();
+          return;
+        }
+        turnCycleVisualTimers.schedule(atMs, callback);
+      };
+
       switch (command.type) {
         case 'launch-draw-card-flight':
         case 'launch-sold-card-flight':
         case 'launch-card-to-district-flight':
-          turnCycleVisualTimers.schedule(command.atMs, () => {
+          scheduleAt(command.atMs, () => {
             const flights = collectCardPlayFlights(
               transaction.previousState,
               transaction.nextState,
@@ -148,7 +154,7 @@ export function useGameAnimations({
           });
           return;
         case 'launch-payment-token-flights':
-          turnCycleVisualTimers.schedule(command.atMs, () => {
+          scheduleAt(command.atMs, () => {
             const flights = buildPaymentFlightsFromDom(
               command.event,
               makeResourceFlightId
@@ -160,7 +166,7 @@ export function useGameAnimations({
           });
           return;
         case 'launch-deed-token-flights':
-          turnCycleVisualTimers.schedule(command.atMs, () => {
+          scheduleAt(command.atMs, () => {
             const flights = collectDeedResourceFlights(
               transaction.previousState,
               transaction.action,
@@ -174,15 +180,15 @@ export function useGameAnimations({
           });
           return;
         case 'pulse-tax-resources':
-          turnCycleVisualTimers.schedule(command.startMs, () => {
+          scheduleAt(command.startMs, () => {
             applyTaxPulseTargets(command.targets);
           });
-          turnCycleVisualTimers.schedule(command.endMs, () => {
+          scheduleAt(command.endMs, () => {
             clearTaxPulseElements();
           });
           return;
         case 'launch-tax-token-flights':
-          turnCycleVisualTimers.schedule(command.atMs, () => {
+          scheduleAt(command.atMs, () => {
             const taxFlights = buildTaxLossFlightsFromDom(
               command.losses.map((loss) => ({
                 playerId: loss.playerId,
@@ -197,7 +203,7 @@ export function useGameAnimations({
           });
           return;
         case 'launch-income-token-flights':
-          turnCycleVisualTimers.schedule(command.atMs, () => {
+          scheduleAt(command.atMs, () => {
             const incomeFlights = buildIncomeFlightsFromDom(
               command.gains.map(
                 (gain): IncomeFlightToken => ({
@@ -291,9 +297,7 @@ export function useGameAnimations({
       );
       if (settleMs <= 0) {
         setPresentationSnapshot(null);
-        setAllowHumanActionsWhileCommitPending(
-          shouldAllowHumanActionsDuringAnimationSettle(action)
-        );
+        setAllowHumanActionsWhileCommitPending(false);
         onCommitTransition(previousState, nextState, action);
         onSettle?.();
         return;
@@ -312,10 +316,7 @@ export function useGameAnimations({
       if (queuedCardFlights.length > 0) {
         setCardFlights((existing) => [...existing, ...queuedCardFlights]);
       }
-      setAllowHumanActionsWhileCommitPending(
-        shouldAllowHumanActionsDuringAnimationSettle(action) &&
-          action.type !== 'choose-income-suit'
-      );
+      setAllowHumanActionsWhileCommitPending(false);
       setActionCommitPending(true);
       actionCommitTimers.clearAll();
       if (presentationTransaction && presentationSequence) {
@@ -327,13 +328,33 @@ export function useGameAnimations({
           setPresentationSnapshot
         );
       }
-      if (shouldCommitBeforeAnimationSettle(action)) {
+      let committed = false;
+      const commitTransition = () => {
+        if (committed) {
+          return;
+        }
+        committed = true;
         onCommitTransition(previousState, nextState, action);
+      };
+      const commitMs = presentationSequence?.commitMs ?? settleMs;
+      const inputUnlockMs = presentationSequence?.inputUnlockMs ?? commitMs;
+      if (commitMs <= 0) {
+        commitTransition();
+      } else if (commitMs < settleMs) {
+        actionCommitTimers.schedule(commitMs, commitTransition);
+      }
+      if (inputUnlockMs <= 0) {
+        commitTransition();
+        setActionCommitPending(false);
+      } else if (inputUnlockMs < settleMs) {
+        actionCommitTimers.schedule(inputUnlockMs, () => {
+          commitTransition();
+          setAllowHumanActionsWhileCommitPending(false);
+          setActionCommitPending(false);
+        });
       }
       actionCommitTimers.schedule(settleMs, () => {
-        if (!shouldCommitBeforeAnimationSettle(action)) {
-          onCommitTransition(previousState, nextState, action);
-        }
+        commitTransition();
         setResourceFlights([]);
         setCardFlights([]);
         setAllowHumanActionsWhileCommitPending(false);

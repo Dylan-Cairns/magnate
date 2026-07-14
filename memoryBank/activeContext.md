@@ -57,9 +57,12 @@
   action card/deed flights. The presentation reducer now applies action payment,
   card placement, deed progress/completion, sell gain, and trade resource
   mutations at their sequence steps, so those visible state changes no longer
-  depend on generic commit timing. Follow-up work still needs to clean up
-  component-local deed progress timing and replace action-type input unlock
-  policy with sequence-derived unlock timing.
+  depend on generic commit timing. Deed progress visual timing uses the shared
+  animation timing constant instead of component-local requestAnimationFrame
+  state, and action commit/input unlock are derived from `AnimationSequence`
+  `commitMs`/`inputUnlockMs` rather than action-type timing rules. Income-choice
+  bot thinking visibility now keys off bot thinking state during visible income
+  choice resolution rather than normal turn ownership.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

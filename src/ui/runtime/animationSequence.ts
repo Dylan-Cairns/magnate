@@ -8,6 +8,7 @@ import type {
 import {
   ACTION_FLIGHT_COMMIT_BUFFER_MS,
   CARD_FLIGHT_DURATION_MS,
+  DEED_PROGRESS_REVEAL_MS,
   RESOURCE_FLIGHT_DURATION_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
@@ -54,7 +55,7 @@ export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
   incomeFlightMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   incomeFlightStaggerMs: TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   postIncomeHoldMs: 220,
-  deedProgressRevealMs: 420,
+  deedProgressRevealMs: DEED_PROGRESS_REVEAL_MS,
 };
 
 export type AnimationStep =
@@ -274,6 +275,8 @@ export type ScheduledAnimationStep = AnimationStep & {
 export type AnimationSequence = {
   transactionId: string;
   durationMs: number;
+  commitMs: number;
+  inputUnlockMs: number;
   steps: readonly ScheduledAnimationStep[];
 };
 
@@ -486,6 +489,10 @@ function scheduleSteps(
   return {
     transactionId,
     durationMs: cursorMs,
+    commitMs: scheduled.find((step) => step.type === 'commit-view-state')
+      ?.startMs ?? cursorMs,
+    inputUnlockMs: scheduled.find((step) => step.type === 'commit-view-state')
+      ?.startMs ?? cursorMs,
     steps: scheduled,
   };
 }

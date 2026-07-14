@@ -65,6 +65,10 @@ describe('buildAnimationSequence', () => {
     expect(step(sequence, 'apply-income-gains').startMs).toBe(
       incomeFlights.endMs
     );
+    expect(sequence.commitMs).toBe(step(sequence, 'commit-view-state').startMs);
+    expect(sequence.inputUnlockMs).toBe(
+      step(sequence, 'commit-view-state').startMs
+    );
   });
 
   it('builds final income-choice reveal as submission, hold, income flights, gains, and commit', () => {
