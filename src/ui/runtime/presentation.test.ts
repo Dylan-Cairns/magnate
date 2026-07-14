@@ -138,7 +138,7 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(resourceCount(afterLanding.viewState, PLAYER_B, 'Leaves')).toBe(1);
   });
 
-  it('stages sold-card state without leaking the discard pile before commit', () => {
+  it('stages sold-card state without leaking resources or discard before their steps', () => {
     const previous = makeGameState({
       players: [
         makePlayer(PLAYER_A, {
@@ -175,6 +175,7 @@ describe('derivePresentationSnapshotFromSequence', () => {
       stepToDecision: () => next,
     });
     const sequence = buildAnimationSequence(transaction);
+    const sellGains = step(sequence, 'apply-sell-resource-gains');
     const commit = step(sequence, 'commit-view-state');
 
     const staged = derivePresentationSnapshotFromSequence({
@@ -183,8 +184,17 @@ describe('derivePresentationSnapshotFromSequence', () => {
       elapsedMs: 0,
     });
     expect(staged.viewState.players[0].hand).toEqual([]);
-    expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(1);
+    expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(0);
     expect(staged.viewState.deck.discard).toEqual([]);
+
+    const afterGain = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: sellGains.startMs,
+    });
+    expect(resourceCount(afterGain.viewState, PLAYER_A, 'Moons')).toBe(1);
+    expect(resourceCount(afterGain.viewState, PLAYER_A, 'Knots')).toBe(1);
+    expect(afterGain.viewState.deck.discard).toEqual([]);
 
     const committed = derivePresentationSnapshotFromSequence({
       transaction,
@@ -192,6 +202,101 @@ describe('derivePresentationSnapshotFromSequence', () => {
       elapsedMs: commit.startMs,
     });
     expect(committed.viewState.deck.discard).toEqual(['6']);
+  });
+
+  it('applies card-play payment before card placement and does not leak district placement early', () => {
+    const transaction = makeBuyDeedTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const applyPayment = step(sequence, 'apply-resource-payment');
+    const placeCard = step(sequence, 'place-card-in-district');
+
+    const beforePayment = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyPayment.startMs - 1,
+    }).viewState;
+    expect(resourceCount(beforePayment, PLAYER_A, 'Moons')).toBe(2);
+    expect(cardInHand(beforePayment, PLAYER_A, '6')).toBe(true);
+    expect(deedCardInDistrict(beforePayment, PLAYER_A, 'D1')).toBeUndefined();
+
+    const afterPayment = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyPayment.startMs,
+    }).viewState;
+    expect(resourceCount(afterPayment, PLAYER_A, 'Moons')).toBe(1);
+    expect(resourceCount(afterPayment, PLAYER_A, 'Knots')).toBe(1);
+    expect(cardInHand(afterPayment, PLAYER_A, '6')).toBe(true);
+    expect(deedCardInDistrict(afterPayment, PLAYER_A, 'D1')).toBeUndefined();
+
+    const afterPlacement = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: placeCard.startMs,
+    }).viewState;
+    expect(cardInHand(afterPlacement, PLAYER_A, '6')).toBe(false);
+    expect(deedCardInDistrict(afterPlacement, PLAYER_A, 'D1')).toBe('6');
+  });
+
+  it('applies deed payment, then deed progress, then completion reveal', () => {
+    const transaction = makeCompleteDeedTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const applyPayment = step(sequence, 'apply-resource-payment');
+    const applyProgress = step(sequence, 'apply-deed-progress');
+    const revealCompletion = step(sequence, 'reveal-deed-completion');
+
+    const beforePayment = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyPayment.startMs - 1,
+    }).viewState;
+    expect(resourceCount(beforePayment, PLAYER_A, 'Moons')).toBe(1);
+    expect(deedProgress(beforePayment, PLAYER_A, 'D1')).toBe(0);
+    expect(developedCards(beforePayment, PLAYER_A, 'D1')).toEqual([]);
+
+    const afterPayment = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyPayment.startMs,
+    }).viewState;
+    expect(resourceCount(afterPayment, PLAYER_A, 'Moons')).toBe(0);
+    expect(resourceCount(afterPayment, PLAYER_A, 'Knots')).toBe(0);
+    expect(deedProgress(afterPayment, PLAYER_A, 'D1')).toBe(0);
+    expect(developedCards(afterPayment, PLAYER_A, 'D1')).toEqual([]);
+
+    const afterProgress = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyProgress.startMs,
+    }).viewState;
+    expect(deedProgress(afterProgress, PLAYER_A, 'D1')).toBe(2);
+    expect(deedTokens(afterProgress, PLAYER_A, 'D1')).toEqual({
+      Moons: 1,
+      Knots: 1,
+    });
+    expect(developedCards(afterProgress, PLAYER_A, 'D1')).toEqual([]);
+
+    const afterCompletion = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: revealCompletion.startMs,
+    }).viewState;
+    expect(deedCardInDistrict(afterCompletion, PLAYER_A, 'D1')).toBeUndefined();
+    expect(developedCards(afterCompletion, PLAYER_A, 'D1')).toEqual(['6']);
+  });
+
+  it('applies trade resources at the trade sequence step', () => {
+    const transaction = makeTradeTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const tradeStep = step(sequence, 'apply-trade-resources');
+
+    const afterTrade = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: tradeStep.startMs,
+    }).viewState;
+    expect(resourceCount(afterTrade, PLAYER_A, 'Moons')).toBe(0);
+    expect(resourceCount(afterTrade, PLAYER_A, 'Suns')).toBe(1);
   });
 });
 
@@ -299,6 +404,110 @@ function makeIncomeChoiceTransaction(): GameTransaction {
   });
 }
 
+function makeBuyDeedTransaction(): GameTransaction {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources({ Moons: 2, Knots: 2 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: [],
+        resources: makeResources({ Moons: 1, Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: {
+          developed: [],
+          deed: { cardId: '6', progress: 0, tokens: {} },
+        },
+      }),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'buy-deed', cardId: '6', districtId: 'D1' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-buy-deed',
+    stepToDecision: () => next,
+  });
+}
+
+function makeCompleteDeedTransaction(): GameTransaction {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        resources: makeResources({ Moons: 1, Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: {
+          developed: [],
+          deed: { cardId: '6', progress: 0, tokens: {} },
+        },
+      }),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, { resources: makeResources() }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: { developed: ['6'] },
+      }),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: {
+      type: 'develop-deed',
+      cardId: '6',
+      districtId: 'D1',
+      tokens: { Moons: 1, Knots: 1 },
+    },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-develop-deed',
+    stepToDecision: () => next,
+  });
+}
+
+function makeTradeTransaction(): GameTransaction {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        resources: makeResources({ Moons: 3 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        resources: makeResources({ Suns: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'trade', give: 'Moons', receive: 'Suns' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-trade',
+    stepToDecision: () => next,
+  });
+}
+
 function resourceCount(
   state: GameState,
   playerId: PlayerId,
@@ -307,6 +516,56 @@ function resourceCount(
   return state.players.find((player) => player.id === playerId)?.resources[
     suit
   ] as number;
+}
+
+function cardInHand(
+  state: GameState,
+  playerId: PlayerId,
+  cardId: string
+): boolean {
+  return (
+    state.players.find((player) => player.id === playerId)?.hand.includes(
+      cardId
+    ) ?? false
+  );
+}
+
+function stackFor(state: GameState, playerId: PlayerId, districtId: string) {
+  return state.districts.find((district) => district.id === districtId)?.stacks[
+    playerId
+  ];
+}
+
+function deedCardInDistrict(
+  state: GameState,
+  playerId: PlayerId,
+  districtId: string
+): string | undefined {
+  return stackFor(state, playerId, districtId)?.deed?.cardId;
+}
+
+function deedProgress(
+  state: GameState,
+  playerId: PlayerId,
+  districtId: string
+): number | undefined {
+  return stackFor(state, playerId, districtId)?.deed?.progress;
+}
+
+function deedTokens(
+  state: GameState,
+  playerId: PlayerId,
+  districtId: string
+): Partial<Record<Suit, number>> | undefined {
+  return stackFor(state, playerId, districtId)?.deed?.tokens;
+}
+
+function developedCards(
+  state: GameState,
+  playerId: PlayerId,
+  districtId: string
+): readonly string[] {
+  return stackFor(state, playerId, districtId)?.developed ?? [];
 }
 
 function step<TType extends AnimationSequence['steps'][number]['type']>(

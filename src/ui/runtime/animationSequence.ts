@@ -34,6 +34,7 @@ export type AnimationDurations = {
   incomeFlightMs: number;
   incomeFlightStaggerMs: number;
   postIncomeHoldMs: number;
+  deedProgressRevealMs: number;
 };
 
 export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
@@ -53,6 +54,7 @@ export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
   incomeFlightMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   incomeFlightStaggerMs: TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   postIncomeHoldMs: 220,
+  deedProgressRevealMs: 420,
 };
 
 export type AnimationStep =
@@ -324,7 +326,7 @@ export function buildAnimationSequence(
   appendActionResourcePaymentSteps(transaction, steps, durations);
   appendCardPlacementSteps(transaction, steps, durations);
   appendDeedDevelopmentSteps(transaction, steps, durations);
-  appendSellGainSteps(transaction, steps);
+  appendSellGainSteps(transaction, steps, durations);
 
   const incomeRoll = firstEvent(transaction, 'income-roll');
   if (incomeRoll) {
@@ -542,7 +544,7 @@ function appendActionResourcePaymentSteps(
       steps.push({
         id: `apply-resource-payment:${apply.reason}:${apply.playerId}:${apply.cardId}:${apply.districtId}`,
         type: 'apply-resource-payment',
-        durationMs: 0,
+        durationMs: durations.commitBufferMs,
         event: apply,
       });
     }
@@ -612,7 +614,7 @@ function appendDeedDevelopmentSteps(
       steps.push({
         id: `apply-resource-payment:${event.reason}:${event.playerId}:${event.cardId}:${event.districtId}`,
         type: 'apply-resource-payment',
-        durationMs: 0,
+        durationMs: durations.commitBufferMs,
         event,
       });
     }
@@ -620,7 +622,7 @@ function appendDeedDevelopmentSteps(
       steps.push({
         id: `apply-deed-progress:${event.playerId}:${event.cardId}:${event.districtId}`,
         type: 'apply-deed-progress',
-        durationMs: 0,
+        durationMs: durations.deedProgressRevealMs,
         event,
       });
     }
@@ -637,7 +639,8 @@ function appendDeedDevelopmentSteps(
 
 function appendSellGainSteps(
   transaction: GameTransaction,
-  steps: AnimationStep[]
+  steps: AnimationStep[],
+  durations: AnimationDurations
 ): void {
   const gains = transaction.events.filter(
     (
@@ -653,7 +656,7 @@ function appendSellGainSteps(
   steps.push({
     id: `apply-sell-resource-gains:${gains[0].playerId}:${gains[0].cardId}`,
     type: 'apply-sell-resource-gains',
-    durationMs: 0,
+    durationMs: durations.commitBufferMs,
     gains,
   });
 }
