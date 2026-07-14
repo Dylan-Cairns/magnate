@@ -32,6 +32,18 @@ export function isVisibleIncomeChoicePhase(viewState: GameState): boolean {
   );
 }
 
+export function shouldHideBotWaitMessageDuringAnimationLock({
+  isAnimationLock,
+  isIncomeChoicePhase,
+  botThinking,
+}: {
+  isAnimationLock: boolean;
+  isIncomeChoicePhase: boolean;
+  botThinking: boolean;
+}): boolean {
+  return isAnimationLock && !(isIncomeChoicePhase && botThinking);
+}
+
 export function buildDeckMapDimming({
   deckMapInteractive,
   viewState,

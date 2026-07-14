@@ -8,6 +8,7 @@ import {
 import {
   buildDeckMapDimming,
   isVisibleIncomeChoicePhase,
+  shouldHideBotWaitMessageDuringAnimationLock,
 } from './appRenderModel';
 
 describe('app render model', () => {
@@ -54,5 +55,29 @@ describe('app render model', () => {
         viewState,
       }).dimmedCardIds.size
     ).toBe(0);
+  });
+
+  it('keeps bot thinking visible during locked income-choice resolution', () => {
+    expect(
+      shouldHideBotWaitMessageDuringAnimationLock({
+        isAnimationLock: true,
+        isIncomeChoicePhase: true,
+        botThinking: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldHideBotWaitMessageDuringAnimationLock({
+        isAnimationLock: true,
+        isIncomeChoicePhase: true,
+        botThinking: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldHideBotWaitMessageDuringAnimationLock({
+        isAnimationLock: true,
+        isIncomeChoicePhase: false,
+        botThinking: true,
+      })
+    ).toBe(true);
   });
 });

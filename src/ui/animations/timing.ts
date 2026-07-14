@@ -1,4 +1,3 @@
-import type { GameAction } from '../../engine/types';
 import type { CardFlight, ResourceFlight } from './types';
 
 export const RESOURCE_FLIGHT_DURATION_MS = 280;
@@ -21,6 +20,7 @@ export const TURN_CYCLE_TAX_FLIGHT_STAGGER_MS = 500;
 export const TURN_CYCLE_INCOME_FLIGHT_DURATION_MS = 560;
 export const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
 export const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
+export const DEED_PROGRESS_REVEAL_MS = 420;
 export const TERMINAL_CLEANUP_FLIGHT_DURATION_MS = 900;
 export const TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX = 220;
 
@@ -50,14 +50,4 @@ export function cardFlightSettleMs(flights: readonly CardFlight[]): number {
     )
   );
   return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
-}
-
-export function shouldCommitBeforeAnimationSettle(action: GameAction): boolean {
-  return action.type === 'sell-card' || action.type === 'end-turn';
-}
-
-export function shouldAllowHumanActionsDuringAnimationSettle(
-  action: GameAction
-): boolean {
-  return action.type === 'end-turn' || action.type === 'choose-income-suit';
 }
