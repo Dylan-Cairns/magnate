@@ -18,10 +18,15 @@ export function resolvePublicAssetUrl(relativePath: string): string {
   if (workerBase) {
     return new URL(normalizedPath, workerBase).toString();
   }
-  const base = import.meta.env.BASE_URL ?? '/';
+  const base = importMetaBaseUrl() ?? '/';
   const normalizedBase = base.endsWith('/') ? base : `${base}/`;
   const rootedPath = `${normalizedBase}${normalizedPath}`;
   return toAbsoluteUrl(rootedPath);
+}
+
+function importMetaBaseUrl(): string | undefined {
+  return (import.meta as ImportMeta & { env?: { BASE_URL?: string } }).env
+    ?.BASE_URL;
 }
 
 export function resolveManifestUrl(

@@ -6,14 +6,16 @@ import {
   defaultHeadToHeadOutputDirectory,
   writeHeadToHeadArtifacts,
 } from '../src/botEval/artifacts';
+import {
+  installLocalPublicFetch,
+  localPublicUrl,
+  tdModelIndexPath,
+} from '../src/botEval/localPublicFetch';
 import { runHeadToHead } from '../src/botEval/matchup';
-import type { HeadToHeadConfig } from '../src/botEval/types';
-import { createPolicyFromBotSpec, type BotSpec } from '../src/policies/botSpec';
-import { createTdRootSearchPolicy } from '../src/policies/tdRootSearchPolicy';
-import { loadTdRootModelFromManifestUrl } from '../src/policies/tdRootModelPack';
-import type { LoadedTdGuidanceModel } from '../src/policies/tdGuidanceModel';
+import type { HeadToHeadConfig, PlayedGame } from '../src/botEval/types';
+import type { PlayerId } from '../src/engine/types';
+import type { BotSpec } from '../src/policies/botSpec';
 import type { TdRootGuidanceSource } from '../src/policies/tdRootGuidanceConfig';
-import type { ActionPolicy } from '../src/policies/types';
 
 interface ModelPackIndex {
   defaultPackId: string | null;
@@ -34,7 +36,9 @@ interface Options {
   tdRoot: TdRootGuidanceSource;
   tdRollout: TdRootGuidanceSource;
   tdLeaf: TdRootGuidanceSource;
+  opponent: 'heuristic-v2' | 'td';
   tdPackId?: string;
+  workers: number;
   maxDecisionsPerGame: number;
   outDir?: string;
 }
@@ -49,6 +53,8 @@ const DEFAULT_OPTIONS: Options = {
   tdRoot: 'td',
   tdRollout: 'td',
   tdLeaf: 'td',
+  opponent: 'heuristic-v2',
+  workers: 1,
   maxDecisionsPerGame: 260,
 };
 
@@ -58,40 +64,28 @@ async function main(): Promise<void> {
     throw new Error('--games must be even because this benchmark side-swaps paired seeds.');
   }
 
+  installLocalPublicFetch();
   const manifestUrl = await resolveTdManifestUrl(options);
-  const modelCache = new Map<string, Promise<LoadedTdGuidanceModel>>();
-  const createPolicy = (spec: BotSpec): ActionPolicy => {
-    if (spec.kind !== 'td-root-search') {
-      return createPolicyFromBotSpec(spec);
-    }
-    return createTdRootSearchPolicy({
-      ...spec.config,
-      guidance: spec.guidance,
-      loadModel: () => {
-        const cached = modelCache.get(manifestUrl);
-        if (cached) {
-          return cached;
-        }
-        const loaded = loadTdRootModelFromManifestUrl(manifestUrl);
-        modelCache.set(manifestUrl, loaded);
-        return loaded;
-      },
-    });
-  };
-
   const config = benchmarkConfig(options);
   const outDir =
     options.outDir ?? defaultHeadToHeadOutputDirectory(config.runLabel);
   process.stderr.write(
-    `[td-vs-v2] games=${String(options.games)} worlds=${String(options.worlds)} depth=${String(options.depth)} maxRootActions=${String(options.maxRootActions)} tdRoot=${options.tdRoot} tdRollout=${options.tdRollout} tdLeaf=${options.tdLeaf} tdManifest=${manifestUrl}\n`
+    `[td-vs-v2] games=${String(options.games)} workers=${String(options.workers)} worlds=${String(options.worlds)} depth=${String(options.depth)} maxRootActions=${String(options.maxRootActions)} tdRoot=${options.tdRoot} tdRollout=${options.tdRollout} tdLeaf=${options.tdLeaf} tdManifest=${manifestUrl}\n`
   );
 
   const run = await runHeadToHead(config, {
-    workers: 1,
-    createPolicy,
+    workers: options.workers,
     progressIntervalMs: 30_000,
     onProgress(progress) {
-      if (progress.type === 'pair-completed') {
+      if (progress.type === 'game-heartbeat') {
+        process.stderr.write(
+          `[td-vs-v2] heartbeat pair=${String(progress.pairNumber)} game=${progress.gameId} turn=${String(progress.turn)} decisions=${String(progress.decisions)} elapsed=${formatSeconds(progress.elapsedMs)}\n`
+        );
+      } else if (progress.type === 'game-completed') {
+        process.stderr.write(
+          `${formatGameResult(progress.game, config)} completed=${String(progress.completedGames)}/${String(progress.totalGames)} rate=${progress.gamesPerMinute.toFixed(2)} games/min\n`
+        );
+      } else if (progress.type === 'pair-completed') {
         process.stderr.write(
           `[td-vs-v2] completed ${String(progress.completedGames)}/${String(progress.totalGames)} games rate=${progress.gamesPerMinute.toFixed(2)} games/min\n`
         );
@@ -125,15 +119,36 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
     heuristic: 'v2' as const,
   };
   const guidanceLabel = `root-${options.tdRoot}-rollout-${options.tdRollout}-leaf-${options.tdLeaf}`;
+  const opponentLabel =
+    options.opponent === 'td' ? 'td-root-all-td' : 'heuristic-v2';
+  const opponent =
+    options.opponent === 'td'
+      ? ({
+          id: 'td-root-medium-root-td-rollout-td-leaf-td',
+          kind: 'td-root-search',
+          modelIndexPath: tdModelIndexPath(options.tdPackId),
+          config: searchConfig,
+          guidance: {
+            root: 'td' as const,
+            rollout: 'td' as const,
+            leaf: 'td' as const,
+          },
+        } satisfies BotSpec)
+      : ({
+          id: 'heuristic-v2-medium',
+          kind: 'search',
+          config: searchConfig,
+        } satisfies BotSpec);
   return {
     schemaVersion: 1,
-    runLabel: `td-root-${guidanceLabel}-vs-heuristic-v2-medium`,
-    seedPrefix: `td-root-${guidanceLabel}-vs-heuristic-v2-medium`,
+    runLabel: `td-root-${guidanceLabel}-vs-${opponentLabel}-medium`,
+    seedPrefix: `td-root-${guidanceLabel}-vs-${opponentLabel}-medium`,
     gamesPerSide: options.games / 2,
     maxDecisionsPerGame: options.maxDecisionsPerGame,
     candidate: {
       id: `td-root-medium-${guidanceLabel}`,
       kind: 'td-root-search',
+      modelIndexPath: tdModelIndexPath(options.tdPackId),
       config: searchConfig,
       guidance: {
         root: options.tdRoot,
@@ -141,16 +156,58 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
         leaf: options.tdLeaf,
       },
     },
-    opponent: {
-      id: 'heuristic-v2-medium',
-      kind: 'search',
-      config: searchConfig,
-    },
+    opponent,
   };
 }
 
+function formatGameResult(
+  game: PlayedGame,
+  config: HeadToHeadConfig
+): string {
+  const candidateSeat = seatForBot(game, config.candidate.id);
+  const opponentSeat = seatForBot(game, config.opponent.id);
+  const candidateResult =
+    game.finalScore.winner === 'Draw'
+      ? 'draw'
+      : game.finalScore.winner === candidateSeat
+        ? 'candidate-win'
+        : 'opponent-win';
+  const winnerBot =
+    game.finalScore.winner === 'Draw'
+      ? 'Draw'
+      : game.botBySeat[game.finalScore.winner];
+  return [
+    '[td-vs-v2]',
+    `game=${game.gameId}`,
+    `candidateSeat=${candidateSeat}`,
+    `opponentSeat=${opponentSeat}`,
+    `result=${candidateResult}`,
+    `winner=${winnerBot}`,
+    `districts=${game.finalScore.districtPoints.PlayerA}-${game.finalScore.districtPoints.PlayerB}`,
+    `ranks=${game.finalScore.rankTotals.PlayerA}-${game.finalScore.rankTotals.PlayerB}`,
+    `resources=${game.finalScore.resourceTotals.PlayerA}-${game.finalScore.resourceTotals.PlayerB}`,
+    `decidedBy=${game.finalScore.decidedBy}`,
+    `turns=${String(game.turns)}`,
+    `decisions=${String(game.transcript.length)}`,
+    `elapsed=${formatSeconds(game.elapsedMs)}`,
+  ].join(' ');
+}
+
+function seatForBot(game: PlayedGame, botId: string): PlayerId {
+  if (game.botBySeat.PlayerA === botId) {
+    return 'PlayerA';
+  }
+  if (game.botBySeat.PlayerB === botId) {
+    return 'PlayerB';
+  }
+  throw new Error(`Game ${game.gameId} does not include bot ${botId}.`);
+}
+
+function formatSeconds(elapsedMs: number): string {
+  return `${(elapsedMs / 1000).toFixed(1)}s`;
+}
+
 async function resolveTdManifestUrl(options: Options): Promise<string> {
-  installLocalPublicFetch();
   const indexPath = path.join(process.cwd(), 'public', 'model-packs', 'index.json');
   const index = JSON.parse(await readFile(indexPath, 'utf8')) as ModelPackIndex;
   const selectedPackId = options.tdPackId ?? index.defaultPackId;
@@ -164,31 +221,6 @@ async function resolveTdManifestUrl(options: Options): Promise<string> {
     throw new Error(`Could not find td-root-search-v1 pack id=${selectedPackId}.`);
   }
   return localPublicUrl(selected.manifestPath);
-}
-
-function installLocalPublicFetch(): void {
-  globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
-    const url = new URL(String(input));
-    if (url.protocol !== 'http:' || url.hostname !== 'localhost') {
-      throw new Error(`Unexpected benchmark fetch URL: ${url.toString()}`);
-    }
-    const relativePath = url.pathname.replace(/^\/+/, '');
-    const payload = JSON.parse(
-      await readFile(path.join(process.cwd(), 'public', relativePath), 'utf8')
-    ) as unknown;
-    return {
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      async json() {
-        return payload;
-      },
-    } as Response;
-  };
-}
-
-function localPublicUrl(publicRelativePath: string): string {
-  return `http://localhost/${publicRelativePath.replace(/^\/+/, '')}`;
 }
 
 function parseOptions(args: readonly string[]): Options {
@@ -232,6 +264,8 @@ function parseOptions(args: readonly string[]): Options {
       '--td-leaf',
       DEFAULT_OPTIONS.tdLeaf
     ),
+    opponent: optionalOpponent(flags, '--opponent', DEFAULT_OPTIONS.opponent),
+    workers: optionalInt(flags, '--workers', DEFAULT_OPTIONS.workers),
     maxDecisionsPerGame: optionalInt(
       flags,
       '--max-decisions-per-game',
@@ -287,6 +321,21 @@ function optionalTdRootGuidanceSource(
     return raw;
   }
   throw new Error(`${name} must be td or heuristic.`);
+}
+
+function optionalOpponent(
+  flags: ReadonlyMap<string, string>,
+  name: string,
+  fallback: Options['opponent']
+): Options['opponent'] {
+  const raw = flags.get(name);
+  if (raw === undefined) {
+    return fallback;
+  }
+  if (raw === 'heuristic-v2' || raw === 'td') {
+    return raw;
+  }
+  throw new Error(`${name} must be heuristic-v2 or td.`);
 }
 
 void main().catch((error: unknown) => {

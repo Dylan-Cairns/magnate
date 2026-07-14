@@ -7,7 +7,7 @@ import type {
   PairWorkerRequest,
   PairWorkerResponse,
 } from './pairWorkerProtocol';
-import type { HeadToHeadConfig } from './types';
+import type { HeadToHeadConfig, PlayedGame } from './types';
 
 export interface RunPairedSeedJobsInChildPoolOptions {
   config: HeadToHeadConfig;
@@ -18,6 +18,11 @@ export interface RunPairedSeedJobsInChildPoolOptions {
     workerId: number,
     pairIndex: number,
     heartbeat: PlayGameHeartbeat
+  ) => void;
+  onGameCompleted?: (
+    workerId: number,
+    pairIndex: number,
+    game: PlayedGame
   ) => void;
   onPairCompleted?: (
     workerId: number,
@@ -37,6 +42,7 @@ export async function runPairedSeedJobsInChildPool({
   workers,
   progressIntervalMs,
   onHeartbeat,
+  onGameCompleted,
   onPairCompleted,
 }: RunPairedSeedJobsInChildPoolOptions): Promise<PairedSeedResult[]> {
   if (!Number.isInteger(workers) || workers <= 0) {
@@ -110,6 +116,9 @@ export async function runPairedSeedJobsInChildPool({
           return;
         case 'heartbeat':
           onHeartbeat?.(worker.id, response.pairIndex, response.heartbeat);
+          return;
+        case 'game-completed':
+          onGameCompleted?.(worker.id, response.pairIndex, response.game);
           return;
         case 'pair-completed':
           if (worker.activePairIndex !== response.result.pairIndex) {

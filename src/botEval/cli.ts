@@ -13,6 +13,7 @@ import {
   parseRolloutSearchSweepConfig,
   parseTdReplayConfig,
 } from './config';
+import { installLocalPublicFetch } from './localPublicFetch';
 import { resolveEvaluationExecution } from './execution';
 import { runHeadToHead, type HeadToHeadProgress } from './matchup';
 import { replayArtifactGame } from './replay';
@@ -64,6 +65,7 @@ async function main(): Promise<void> {
 }
 
 async function runHeadToHeadCommand(args: readonly string[]): Promise<void> {
+  installLocalPublicFetch();
   const flags = parseFlags(args);
   const configPath = requiredFlag(flags, '--config');
   const config = parseHeadToHeadConfig(
@@ -412,6 +414,11 @@ function logHeadToHeadProgress(progress: HeadToHeadProgress): void {
     case 'game-heartbeat':
       process.stderr.write(
         `[matchup] ${progress.candidateId} heartbeat worker=${String(progress.workerId)} pair=${String(progress.pairNumber)} game=${progress.gameId} turn=${String(progress.turn)} decisions=${String(progress.decisions)} elapsed=${formatDuration(progress.elapsedMs)}\n`
+      );
+      return;
+    case 'game-completed':
+      process.stderr.write(
+        `[matchup] ${progress.candidateId} game completed=${String(progress.completedGames)}/${String(progress.totalGames)} worker=${String(progress.workerId)} pair=${String(progress.pairNumber)} game=${progress.game.gameId} winner=${progress.game.finalScore.winner} turns=${String(progress.game.turns)} decisions=${String(progress.game.transcript.length)} elapsed=${formatDuration(progress.elapsedMs)} rate=${formatDecimal(progress.gamesPerMinute)} games/min\n`
       );
       return;
     case 'pair-completed':

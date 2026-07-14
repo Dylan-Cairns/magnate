@@ -30,7 +30,7 @@
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
   not grow/copy human-readable game logs; real games and exported transcripts
   still use normal logged stepping.
-- Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and serial or sharded rollout-search TD replay exports.
+- Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and serial or sharded rollout-search TD replay exports. Node bot-eval installs a local `public/` fetch shim so serialized TD-root model-pack specs can run in the parent process and child-process matchup workers.
 - TypeScript TD replay action rows include required `actionProbs` targets:
   search policies derive them from root visit counts, and Python opponent/action
   training uses them as soft policy targets.
@@ -100,7 +100,7 @@
 ## Remaining Work
 
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
-- Add Node-local model-pack loading for direct TypeScript evaluation of serialized TD-root rollout specs outside browser/worker runtime.
+- Continue improving throughput for direct TypeScript TD-root matchups; child-process paired-seed parallelism is available, while individual search decisions remain synchronous in Node.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
 - Keep setup, wrapper, training, and bot-eval procedures in `docs/runbooks/` rather than expanding Memory Bank files.
 

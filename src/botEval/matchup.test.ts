@@ -6,9 +6,12 @@ import { runHeadToHead } from './matchup';
 describe('paired TypeScript bot matchups', () => {
   it('uses paired seeds, swaps seats, and alternates the first player seat', async () => {
     const completedPairs: number[] = [];
+    const completedGameIds: string[] = [];
     const run = await runHeadToHead(testHeadToHeadConfig(2), {
       onProgress(progress) {
-        if (progress.type === 'pair-completed') {
+        if (progress.type === 'game-completed') {
+          completedGameIds.push(progress.game.gameId);
+        } else if (progress.type === 'pair-completed') {
           completedPairs.push(progress.completedPairs);
         }
       },
@@ -54,6 +57,12 @@ describe('paired TypeScript bot matchups', () => {
       run.summary.multiChoiceLatencyByBotId['heuristic-candidate'].actions
     ).toBeLessThan(run.summary.latencyByBotId['heuristic-candidate'].actions);
     expect(completedPairs).toEqual([1, 2]);
+    expect(completedGameIds).toEqual([
+      'pair-0001-candidate-as-a',
+      'pair-0001-candidate-as-b',
+      'pair-0002-candidate-as-a',
+      'pair-0002-candidate-as-b',
+    ]);
   });
 
   it(
@@ -61,7 +70,15 @@ describe('paired TypeScript bot matchups', () => {
     async () => {
       const config = testHeadToHeadConfig(2);
       const sequential = await runHeadToHead(config);
-      const parallel = await runHeadToHead(config, { workers: 2 });
+      const completedGameIds: string[] = [];
+      const parallel = await runHeadToHead(config, {
+        workers: 2,
+        onProgress(progress) {
+          if (progress.type === 'game-completed') {
+            completedGameIds.push(progress.game.gameId);
+          }
+        },
+      });
 
       expect(parallel.execution).toEqual({
         requestedWorkers: 2,
@@ -72,6 +89,12 @@ describe('paired TypeScript bot matchups', () => {
       expect(parallel.games.map(gameResult)).toEqual(
         sequential.games.map(gameResult)
       );
+      expect([...completedGameIds].sort()).toEqual([
+        'pair-0001-candidate-as-a',
+        'pair-0001-candidate-as-b',
+        'pair-0002-candidate-as-a',
+        'pair-0002-candidate-as-b',
+      ]);
     },
     15_000
   );

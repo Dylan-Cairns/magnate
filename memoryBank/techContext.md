@@ -81,6 +81,6 @@
 
 - Search baseline promotion thresholds still need repeated confirmation.
 - Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
-- Direct TypeScript bot evaluation needs Node-local model-pack loading for serialized TD-root rollout specs outside browser/worker runtime.
+- Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
 _Updated: 2026-06-18._
