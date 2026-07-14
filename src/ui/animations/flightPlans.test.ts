@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  PLAYER_A,
-  makeGameState,
-  withDeed,
-} from '../../engine/__tests__/fixtures';
+import { PLAYER_A } from '../../engine/__tests__/fixtures';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import { elementCenter, type AnimationDomTargets } from './domTargets';
 import {
@@ -15,7 +11,6 @@ import {
   buildPaymentFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
-  collectTerminalCleanupFlights,
 } from './flightPlans';
 import {
   RESOURCE_FLIGHT_STAGGER_MS,
@@ -211,19 +206,6 @@ describe('flightPlans', () => {
         variant: 'payment',
       },
     ]);
-  });
-
-  it('does not plan terminal cleanup flights for retained deeds', () => {
-    const previous = withDeed(makeGameState(), 'D1', PLAYER_A, {
-      cardId: '6',
-      progress: 2,
-      tokens: { Moons: 2 },
-    });
-    const next = { ...previous, phase: 'GameOver' as const };
-
-    expect(previous.phase).not.toBe('GameOver');
-    expect(next.phase).toBe('GameOver');
-    expect(collectTerminalCleanupFlights()).toBeNull();
   });
 
   it('plans sold-card, lane-play, and draw flights', () => {

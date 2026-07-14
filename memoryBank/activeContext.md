@@ -42,10 +42,10 @@
   boundaries, so resource counts, visual launches, and commits follow the
   central sequence timing. The old presentation timeline, turn-cycle visual
   timing plan, eager income-choice flight planner, and hook-level turn-cycle
-  plan contract have been removed. Card flights are still queued by the
-  action-dispatch DOM planning path while draw/sell presentation state follows
-  the sequence; canonical state still drives legality, bot scheduling, bug
-  reports, and persistence.
+  plan contract have been removed. Action dispatch now only validates/applies
+  the engine transition and reports terminal entry; ordinary visual flights and
+  commit timing are derived from the animation sequence. Canonical state still
+  drives legality, bot scheduling, bug reports, and persistence.
 - Presentation event derivation now emits semantic coverage for all canonical
   action families: card placement, action resource payments, deed token/progress
   and completion, sell-card resource gains, and trades. These new events are
@@ -81,7 +81,9 @@
   token flight commands now also launch from semantic `deed-token-paid` event
   payloads that carry the before/after deed token pools needed for target rail
   layout, so the hook no longer passes action/state diffs into deed flight
-  planning.
+  planning. The old queued flight settle path and terminal cleanup flight stub
+  have been removed; `useGameAnimations` settles transitions from
+  `AnimationSequence.durationMs`.
   Income-choice bot thinking visibility now keys off bot thinking state during
   visible income choice resolution rather than normal turn ownership.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.

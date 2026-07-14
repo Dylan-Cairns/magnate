@@ -20,16 +20,6 @@ describe('ResourceFlightLayer', () => {
             variant: 'tax-loss',
           },
           {
-            id: 'flight-clear',
-            suit: 'Knots',
-            startX: 0,
-            startY: 0,
-            endX: 5,
-            endY: -20,
-            delayMs: 0,
-            variant: 'terminal-clear',
-          },
-          {
             id: 'flight-payment',
             suit: 'Moons',
             startX: 4,
@@ -44,7 +34,6 @@ describe('ResourceFlightLayer', () => {
     );
 
     expect(html).toContain('resource-flight is-tax-loss');
-    expect(html).toContain('resource-flight is-terminal-clear');
     expect(html).toContain('resource-flight is-payment');
     expect(html).toContain('--resource-flight-dx:25px');
     expect(html).toContain('--resource-flight-dy:30px');

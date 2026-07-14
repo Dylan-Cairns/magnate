@@ -16,10 +16,6 @@ import {
   buildTaxLossFlightsFromDom,
   type IncomeFlightToken,
 } from '../animations/flightPlans';
-import {
-  cardFlightSettleMs,
-  resourceFlightSettleMs,
-} from '../animations/timing';
 import type { CardFlight, ResourceFlight } from '../animations/types';
 import {
   deriveAnimationVisualCommands,
@@ -44,8 +40,6 @@ type RunTransitionOptions = {
   nextState: GameState;
   action: GameAction;
   actingPlayerId: PlayerId;
-  resourceFlights: readonly ResourceFlight[];
-  cardFlights: readonly CardFlight[];
   onSettle?: () => void;
 };
 
@@ -299,17 +293,13 @@ export function useGameAnimations({
       nextState,
       action,
       actingPlayerId,
-      resourceFlights: queuedResourceFlights,
-      cardFlights: queuedCardFlights,
       onSettle,
     }: RunTransitionOptions) => {
       const presentationTransaction = buildPresentationTransactionForTransition(
         previousState,
         nextState,
         action,
-        actingPlayerId,
-        queuedResourceFlights,
-        queuedCardFlights
+        actingPlayerId
       );
       const presentationSequence = presentationTransaction
         ? buildAnimationSequence(presentationTransaction)
@@ -327,11 +317,7 @@ export function useGameAnimations({
         setPresentationSnapshot(null);
       }
 
-      const settleMs = Math.max(
-        resourceFlightSettleMs(queuedResourceFlights),
-        cardFlightSettleMs(queuedCardFlights),
-        presentationSequence?.durationMs ?? 0
-      );
+      const settleMs = presentationSequence?.durationMs ?? 0;
       if (settleMs <= 0) {
         setPresentationSnapshot(null);
         setAllowHumanActionsWhileCommitPending(false);
@@ -340,19 +326,6 @@ export function useGameAnimations({
         return;
       }
 
-      const immediateResourceFlights =
-        presentationSequence && action.type === 'choose-income-suit'
-          ? []
-          : queuedResourceFlights;
-      if (immediateResourceFlights.length > 0) {
-        setResourceFlights((existing) => [
-          ...existing,
-          ...immediateResourceFlights,
-        ]);
-      }
-      if (queuedCardFlights.length > 0) {
-        setCardFlights((existing) => [...existing, ...queuedCardFlights]);
-      }
       setAllowHumanActionsWhileCommitPending(false);
       setActionCommitPending(true);
       actionCommitTimers.clearAll();
@@ -459,8 +432,6 @@ export function useGameAnimations({
       presentationOverlays?.activePlayerHighlightOverride ?? null,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
-    makeResourceFlightId,
-    makeCardFlightId,
     clearPendingActionCommit,
     clearAllFlights,
     runTransition,
@@ -471,9 +442,7 @@ function buildPresentationTransactionForTransition(
   previousState: GameState,
   nextState: GameState,
   action: GameAction,
-  actingPlayerId: PlayerId,
-  resourceFlights: readonly ResourceFlight[],
-  cardFlights: readonly CardFlight[]
+  actingPlayerId: PlayerId
 ): GameTransaction | null {
   const events = deriveGamePresentationEvents(
     previousState,
@@ -481,10 +450,7 @@ function buildPresentationTransactionForTransition(
     action,
     actingPlayerId
   );
-  const shouldUseRuntime =
-    events.some(isAnimatedPresentationEvent) ||
-    resourceFlights.length > 0 ||
-    cardFlights.length > 0;
+  const shouldUseRuntime = events.some(isAnimatedPresentationEvent);
   if (!shouldUseRuntime) {
     return null;
   }

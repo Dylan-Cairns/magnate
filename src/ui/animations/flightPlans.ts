@@ -46,14 +46,6 @@ export type IncomeFlightToken = {
       };
 };
 
-export function collectTerminalCleanupFlights(): {
-  resourceFlights: ReadonlyArray<ResourceFlight>;
-  cardFlights: ReadonlyArray<CardFlight>;
-} | null {
-  // Keep terminal board state visible for post-game review.
-  return null;
-}
-
 export function buildTaxLossFlightsFromDom(
   targets: ReadonlyArray<{
     playerId: PlayerId;
@@ -314,7 +306,7 @@ export function createCardFlight(
     perspective?: CardPerspective;
     delayMs?: number;
     durationMs?: number;
-    variant?: 'play' | 'draw' | 'terminal-clear';
+    variant?: 'play' | 'draw';
   },
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight {
@@ -355,7 +347,7 @@ export function createCardFlightToPoint(
     durationMs?: number;
     endWidth?: number;
     endHeight?: number;
-    variant?: 'play' | 'draw' | 'terminal-clear';
+    variant?: 'play' | 'draw';
   },
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight {

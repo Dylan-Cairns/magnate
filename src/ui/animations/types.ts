@@ -11,14 +11,14 @@ export type ResourceFlight = {
   endY: number;
   delayMs: number;
   durationMs?: number;
-  variant?: 'transfer' | 'payment' | 'tax-loss' | 'terminal-clear';
+  variant?: 'transfer' | 'payment' | 'tax-loss';
 };
 
 export type PendingResourceFlight = ResourceFlight;
 
 export type CardFlight = {
   id: string;
-  variant: 'play' | 'draw' | 'terminal-clear';
+  variant: 'play' | 'draw';
   visual: 'face' | 'back';
   cardId?: CardId;
   isDeed: boolean;

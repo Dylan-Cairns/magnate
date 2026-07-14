@@ -152,8 +152,6 @@ export function useGameController({
     activePlayerHighlightOverride,
     actionCommitPending,
     allowHumanActionsWhileCommitPending,
-    makeResourceFlightId,
-    makeCardFlightId,
     clearPendingActionCommit,
     clearAllFlights: clearAnimationFlights,
     runTransition: runAnimationTransition,
@@ -172,10 +170,6 @@ export function useGameController({
       const plan = prepareActionDispatch({
         previousState,
         action,
-        actingPlayerId,
-        animationsEnabled,
-        makeResourceFlightId,
-        makeCardFlightId,
       });
       if (!animationsEnabled) {
         clearAllFlights();
@@ -207,8 +201,6 @@ export function useGameController({
         nextState: plan.nextState,
         action,
         actingPlayerId,
-        resourceFlights: plan.resourceFlights,
-        cardFlights: plan.cardFlights,
       });
       setError(null);
     },
@@ -216,8 +208,6 @@ export function useGameController({
       animationsEnabled,
       clearAllFlights,
       commitTransition,
-      makeCardFlightId,
-      makeResourceFlightId,
       runAnimationTransition,
     ]
   );
@@ -255,8 +245,10 @@ export function useGameController({
   );
   const canResetTurn = useMemo(
     () =>
-      canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor),
-    [activePlayerId, humanPlayerId, state, turnResetAnchor]
+      canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor, {
+        actionCommitPending,
+      }),
+    [actionCommitPending, activePlayerId, humanPlayerId, state, turnResetAnchor]
   );
 
   useEffect(() => {
@@ -486,7 +478,9 @@ export function useGameController({
       return;
     }
     if (
-      !canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor)
+      !canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor, {
+        actionCommitPending,
+      })
     ) {
       return;
     }
@@ -512,6 +506,7 @@ export function useGameController({
     clearAllDeedTokenLayouts();
   }, [
     activePlayerId,
+    actionCommitPending,
     clearAllFlights,
     clearPendingActionCommit,
     humanPlayerId,
