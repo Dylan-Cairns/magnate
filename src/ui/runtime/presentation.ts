@@ -1,4 +1,5 @@
 import type {
+  DistrictStack,
   GameState,
   PlayerId,
   ResourcePool,
@@ -27,6 +28,15 @@ const EMPTY_OVERLAYS: AnimationOverlayState = {
   incomeHighlightCrowns: [],
   activePlayerHighlightOverride: null,
 };
+
+const SUITS: readonly Suit[] = [
+  'Moons',
+  'Suns',
+  'Waves',
+  'Leaves',
+  'Wyrms',
+  'Knots',
+];
 
 export function derivePresentationSnapshotFromSequence({
   transaction,
@@ -80,15 +90,61 @@ function applySequenceStep(
     case 'hold-before-income-flights':
     case 'launch-income-token-flights':
     case 'launch-payment-token-flights':
-    case 'apply-resource-payment':
     case 'launch-card-to-district-flight':
-    case 'place-card-in-district':
     case 'launch-deed-token-flights':
-    case 'apply-deed-progress':
-    case 'reveal-deed-completion':
-    case 'apply-sell-resource-gains':
-    case 'apply-trade-resources':
       return { viewState, overlays };
+    case 'apply-resource-payment':
+      return {
+        viewState: applyResourcePayment(viewState, step.event),
+        overlays,
+      };
+    case 'place-card-in-district':
+      return {
+        viewState: placeCardInDistrict(
+          viewState,
+          transaction.nextState,
+          step.event
+        ),
+        overlays,
+      };
+    case 'apply-deed-progress':
+      return {
+        viewState: applyDeedProgress(viewState, transaction, step.event),
+        overlays,
+      };
+    case 'reveal-deed-completion':
+      return {
+        viewState: revealDeedCompletion(
+          viewState,
+          transaction.nextState,
+          step.event
+        ),
+        overlays,
+      };
+    case 'apply-sell-resource-gains':
+      return {
+        viewState: applyResourceDeltas(
+          viewState,
+          step.gains.map((event) => ({
+            playerId: event.playerId,
+            delta: { [event.suit]: 1 },
+          }))
+        ),
+        overlays,
+      };
+    case 'apply-trade-resources':
+      return {
+        viewState: applyResourceDeltas(viewState, [
+          {
+            playerId: step.event.playerId,
+            delta: {
+              [step.event.give]: -step.event.giveCount,
+              [step.event.receive]: step.event.receiveCount,
+            },
+          },
+        ]),
+        overlays,
+      };
     case 'draw-card-flight':
       if (elapsedMs < step.endMs) {
         return { viewState, overlays };
@@ -208,11 +264,17 @@ function initialOverlays(transaction: GameTransaction): AnimationOverlayState {
 
 function stageSoldCard(viewState: GameState, nextState: GameState): GameState {
   return {
-    ...nextState,
-    deck: {
-      ...nextState.deck,
-      discard: viewState.deck.discard,
-    },
+    ...viewState,
+    phase: nextState.phase,
+    cardPlayedThisTurn: nextState.cardPlayedThisTurn,
+    players: viewState.players.map((player) =>
+      player.id === nextState.players[nextState.activePlayerIndex]?.id
+        ? {
+            ...player,
+            hand: nextState.players[nextState.activePlayerIndex]?.hand ?? [],
+          }
+        : player
+    ),
   };
 }
 
@@ -237,6 +299,104 @@ function revealDrawnCard(
   };
 }
 
+function applyResourcePayment(
+  state: GameState,
+  event: Extract<
+    GameTransaction['events'][number],
+    { type: 'resource-payment-applied' }
+  >
+): GameState {
+  return applyResourceDelta(
+    state,
+    event.playerId,
+    negateResourceDelta(event.payment)
+  );
+}
+
+function placeCardInDistrict(
+  state: GameState,
+  nextState: GameState,
+  event: Extract<
+    GameTransaction['events'][number],
+    { type: 'card-played-to-district' }
+  >
+): GameState {
+  const nextStack = districtStackFor(nextState, event.districtId, event.playerId);
+  if (!nextStack) {
+    return state;
+  }
+
+  return {
+    ...state,
+    phase: nextState.phase,
+    cardPlayedThisTurn: nextState.cardPlayedThisTurn,
+    players: state.players.map((player) =>
+      player.id === event.playerId
+        ? {
+            ...player,
+            hand: player.hand.filter((cardId) => cardId !== event.cardId),
+          }
+        : player
+    ),
+    districts: replaceDistrictStack(
+      state,
+      event.districtId,
+      event.playerId,
+      cloneDistrictStack(nextStack)
+    ),
+  };
+}
+
+function applyDeedProgress(
+  state: GameState,
+  transaction: GameTransaction,
+  event: Extract<
+    GameTransaction['events'][number],
+    { type: 'deed-progress-applied' }
+  >
+): GameState {
+  const currentStack = districtStackFor(state, event.districtId, event.playerId);
+  if (!currentStack?.deed) {
+    return state;
+  }
+
+  return {
+    ...state,
+    districts: replaceDistrictStack(state, event.districtId, event.playerId, {
+      developed: [...currentStack.developed],
+      deed: {
+        cardId: event.cardId,
+        progress: event.nextProgress,
+        tokens: mergeResourceTokens(
+          currentStack.deed.tokens,
+          deedTokenPaymentForEvent(transaction, event)
+        ),
+      },
+    }),
+  };
+}
+
+function revealDeedCompletion(
+  state: GameState,
+  nextState: GameState,
+  event: Extract<GameTransaction['events'][number], { type: 'deed-completed' }>
+): GameState {
+  const nextStack = districtStackFor(nextState, event.districtId, event.playerId);
+  if (!nextStack) {
+    return state;
+  }
+
+  return {
+    ...state,
+    districts: replaceDistrictStack(
+      state,
+      event.districtId,
+      event.playerId,
+      cloneDistrictStack(nextStack)
+    ),
+  };
+}
+
 function revealIncomeRoll(
   viewState: GameState,
   nextState: GameState,
@@ -249,6 +409,83 @@ function revealIncomeRoll(
     lastIncomeRoll: event.roll,
     lastTaxSuit: nextState.lastTaxSuit,
   };
+}
+
+function districtStackFor(
+  state: GameState,
+  districtId: string,
+  playerId: PlayerId
+): DistrictStack | undefined {
+  return state.districts.find((district) => district.id === districtId)?.stacks[
+    playerId
+  ];
+}
+
+function replaceDistrictStack(
+  state: GameState,
+  districtId: string,
+  playerId: PlayerId,
+  stack: DistrictStack
+): GameState['districts'] {
+  return state.districts.map((district) =>
+    district.id === districtId
+      ? {
+          ...district,
+          stacks: {
+            ...district.stacks,
+            [playerId]: stack,
+          },
+        }
+      : district
+  );
+}
+
+function deedTokenPaymentForEvent(
+  transaction: GameTransaction,
+  event: Extract<
+    GameTransaction['events'][number],
+    { type: 'deed-progress-applied' }
+  >
+): Partial<Record<Suit, number>> {
+  const tokens: Partial<Record<Suit, number>> = {};
+  for (const token of transaction.events) {
+    if (
+      token.type !== 'deed-token-paid' ||
+      token.playerId !== event.playerId ||
+      token.districtId !== event.districtId ||
+      token.cardId !== event.cardId
+    ) {
+      continue;
+    }
+    tokens[token.suit] = (tokens[token.suit] ?? 0) + 1;
+  }
+  return tokens;
+}
+
+function negateResourceDelta(
+  resources: Partial<Record<Suit, number>>
+): Partial<Record<Suit, number>> {
+  const delta: Partial<Record<Suit, number>> = {};
+  for (const [suit, count] of Object.entries(resources) as Array<
+    [Suit, number]
+  >) {
+    delta[suit] = -count;
+  }
+  return delta;
+}
+
+function mergeResourceTokens(
+  left: Partial<Record<Suit, number>>,
+  right: Partial<Record<Suit, number>>
+): Partial<Record<Suit, number>> {
+  const merged: Partial<Record<Suit, number>> = {};
+  for (const suit of SUITS) {
+    const count = (left[suit] ?? 0) + (right[suit] ?? 0);
+    if (count > 0) {
+      merged[suit] = count;
+    }
+  }
+  return merged;
 }
 
 function applyResourceDeltas(
