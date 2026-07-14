@@ -1,5 +1,5 @@
 import type { CardId } from '../../engine/cards';
-import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
+import type { PlayerId, Suit } from '../../engine/types';
 import type { CardPerspective } from '../components/CardTile';
 import {
   layoutDeedTokensBySide,
@@ -180,46 +180,24 @@ export function buildPaymentFlightsFromDom(
   return flights;
 }
 
-export function collectDeedResourceFlights(
-  state: GameState,
-  action: GameAction,
-  actingPlayerId: PlayerId,
+export function buildDeedResourceFlightsFromDom(
+  deedTokens: readonly Extract<
+    GamePresentationEvent,
+    { type: 'deed-token-paid' }
+  >[],
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): PendingResourceFlight[] {
-  if (action.type !== 'develop-deed' || !domTargets.isAvailable()) {
+  if (deedTokens.length === 0 || !domTargets.isAvailable()) {
     return [];
   }
 
-  const suitsToAnimate: Suit[] = [];
-  for (const entry of tokenEntries(action.tokens)) {
-    for (let count = 0; count < entry.count; count += 1) {
-      suitsToAnimate.push(entry.suit);
-    }
-  }
-  if (suitsToAnimate.length === 0) {
-    return [];
-  }
+  const firstToken = deedTokens[0];
+  const suitsToAnimate = deedTokens.map((token) => token.suit);
 
-  const cardElement = domTargets.developingCard(action.cardId);
+  const cardElement = domTargets.developingCard(firstToken.cardId);
   if (!cardElement) {
     return [];
-  }
-
-  const district = state.districts.find(
-    (candidate) => candidate.id === action.districtId
-  );
-  const deedBefore = district?.stacks[actingPlayerId]?.deed;
-  if (!deedBefore || deedBefore.cardId !== action.cardId) {
-    return [];
-  }
-
-  const nextDeedTokens: Partial<Record<Suit, number>> = {
-    ...deedBefore.tokens,
-  };
-  for (const entry of tokenEntries(action.tokens)) {
-    nextDeedTokens[entry.suit] =
-      (nextDeedTokens[entry.suit] ?? 0) + entry.count;
   }
 
   const perspective: 'human' | 'bot' = cardElement.classList.contains(
@@ -227,13 +205,13 @@ export function collectDeedResourceFlights(
   )
     ? 'bot'
     : 'human';
-  const deedTokenEntries = tokenEntries(deedBefore.tokens);
+  const deedTokenEntries = tokenEntries(firstToken.previousTokens);
   if (deedTokenEntries.length === 0) {
-    resetDeedTokenLayout(action.cardId, perspective);
+    resetDeedTokenLayout(firstToken.cardId, perspective);
   }
-  const nextTokenEntries = tokenEntries(nextDeedTokens);
+  const nextTokenEntries = tokenEntries(firstToken.nextTokens);
   const nextBySide = layoutDeedTokensBySide(
-    action.cardId,
+    firstToken.cardId,
     perspective,
     nextTokenEntries
   );
@@ -260,7 +238,7 @@ export function collectDeedResourceFlights(
   const tokenSizeBySuit = new Map<Suit, number>();
   for (const suit of new Set(suitsToAnimate)) {
     const sourceElement = domTargets.resourceTokenForDeedTransfer(
-      actingPlayerId,
+      firstToken.playerId,
       suit
     );
     if (!sourceElement) {

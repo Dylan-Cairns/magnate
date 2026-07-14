@@ -8,12 +8,12 @@ import {
 import { browserAnimationDomTargets } from '../animations/domTargets';
 import {
   buildCardToDistrictFlightFromDom,
+  buildDeedResourceFlightsFromDom,
   buildDrawCardFlightFromDom,
   buildIncomeFlightsFromDom,
   buildPaymentFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
-  collectDeedResourceFlights,
   type IncomeFlightToken,
 } from '../animations/flightPlans';
 import {
@@ -143,7 +143,7 @@ export function useGameAnimations({
     [turnCycleVisualTimers]
   );
   const scheduleSequenceVisualCommand = useCallback(
-    (command: AnimationVisualCommand, transaction: GameTransaction) => {
+    (command: AnimationVisualCommand) => {
       const scheduleAt = (atMs: number, callback: () => void) => {
         if (atMs <= 0) {
           callback();
@@ -205,10 +205,8 @@ export function useGameAnimations({
           return;
         case 'launch-deed-token-flights':
           scheduleAt(command.atMs, () => {
-            const flights = collectDeedResourceFlights(
-              transaction.previousState,
-              transaction.action,
-              transaction.actingPlayerId,
+            const flights = buildDeedResourceFlightsFromDom(
+              command.tokens,
               makeResourceFlightId
             );
             if (flights.length === 0) {
@@ -277,7 +275,7 @@ export function useGameAnimations({
       }
 
       for (const command of deriveAnimationVisualCommands(sequence)) {
-        scheduleSequenceVisualCommand(command, transaction);
+        scheduleSequenceVisualCommand(command);
       }
     },
     [clearTurnCycleVisuals, scheduleSequenceVisualCommand]

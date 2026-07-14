@@ -9,12 +9,12 @@ import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import { elementCenter, type AnimationDomTargets } from './domTargets';
 import {
   buildCardToDistrictFlightFromDom,
+  buildDeedResourceFlightsFromDom,
   buildDrawCardFlightFromDom,
   buildIncomeFlightsFromDom,
   buildPaymentFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
-  collectDeedResourceFlights,
   collectTerminalCleanupFlights,
 } from './flightPlans';
 import {
@@ -125,11 +125,6 @@ describe('flightPlans', () => {
   });
 
   it('plans deed transfers against the remembered token-side rail', () => {
-    const state = withDeed(makeGameState(), 'D1', PLAYER_A, {
-      cardId: '6',
-      progress: 0,
-      tokens: {},
-    });
     const source = makeElement({ width: 20, height: 20 });
     const rail = makeElement({ left: 100, top: 100, width: 20, height: 80 });
     const targets = makeTargets({
@@ -139,15 +134,19 @@ describe('flightPlans', () => {
     });
 
     expect(
-      collectDeedResourceFlights(
-        state,
-        {
-          type: 'develop-deed',
-          districtId: 'D1',
-          cardId: '6',
-          tokens: { Moons: 1 },
-        },
-        PLAYER_A,
+      buildDeedResourceFlightsFromDom(
+        [
+          {
+            type: 'deed-token-paid',
+            playerId: PLAYER_A,
+            districtId: 'D1',
+            cardId: '6',
+            suit: 'Moons',
+            tokenIndex: 0,
+            previousTokens: {},
+            nextTokens: { Moons: 1 },
+          },
+        ],
         makeIds('deed'),
         targets
       )

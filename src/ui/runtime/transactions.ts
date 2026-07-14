@@ -215,6 +215,11 @@ function deriveDevelopDeedEvents(
   const previousProgress = previousDeed?.progress ?? 0;
   const nextProgress = nextDeed?.progress ?? targetProgress;
   const completed = !nextDeed && nextProgress >= targetProgress;
+  const previousTokens = { ...(previousDeed?.tokens ?? {}) };
+  const nextTokens: Partial<Record<Suit, number>> = { ...previousTokens };
+  for (const entry of tokenEntries(payment)) {
+    nextTokens[entry.suit] = (nextTokens[entry.suit] ?? 0) + entry.count;
+  }
   const events: GamePresentationEvent[] = [
     {
       type: 'resource-payment-started',
@@ -235,6 +240,8 @@ function deriveDevelopDeedEvents(
         cardId: action.cardId,
         suit: entry.suit,
         tokenIndex,
+        previousTokens,
+        nextTokens,
       });
     }
   }
