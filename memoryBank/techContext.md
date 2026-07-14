@@ -41,6 +41,7 @@
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
+- Strategic position diagnostics: `yarn bot:eval strategic-positions --repetitions 1`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
@@ -83,4 +84,4 @@
 - Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
 - Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
-_Updated: 2026-06-18._
+_Updated: 2026-07-13._

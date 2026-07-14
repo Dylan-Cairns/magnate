@@ -4,6 +4,9 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
+- Characterize strategic blind spots with the information-safe strategic-state
+  summary and deterministic position catalog before introducing heuristic v3
+  or changing TD observations.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
@@ -25,6 +28,22 @@
 - Bridge, direct TypeScript evaluation, replay collection, and TD policy lookahead use a single policy-facing decision actor during simultaneous income: one unsubmitted income-choice owner is exposed at a time in pending-choice order, with observations and masks aligned to that actor.
 - Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
+- Experimental `StrategicStateSummaryV0` exposes player-view-safe score, clock,
+  resource, income-source, deed-feasibility, placement-support, and card-support
+  facts without strategic values or probabilities. Exact ActionWindow deltas
+  remain factual and do not alter heuristic v2, rollout search, TD encoding, or
+  the bridge contract.
+- The strategic-position catalog covers district-portfolio, tiebreak,
+  optionality, deed, clock, and Ace-aware cases. Bot eval compares direct v2,
+  V2 Hard, and the current TD profile with common deterministic root seeds and
+  matched scenario-stream prefixes for stochastic variants. JSON/Markdown
+  diagnostics include information-safe summaries and exact-case fingerprints;
+  catalog preferences are reviewed pairwise hypotheses rather than current-bot
+  golden assertions.
+- The 2026-07-13 one-repetition Step 1 baseline has all three default variants
+  selecting the reviewed preference in four of five assessed comparisons. All
+  three select the declared alternative in `endpoint-optionality`; repeat and
+  deconfound that case before treating it as a stable policy blind spot.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
 - TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
@@ -100,6 +119,10 @@
 
 ## Remaining Work
 
+- Use repeated strategic-position comparisons to separate stable policy blind
+  spots from scenario noise, then scope a narrow whole-state heuristic v3 and
+  confirm it with paired full-game evaluation before considering TD encoding
+  changes.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
 - Continue improving throughput for direct TypeScript TD-root matchups; child-process paired-seed parallelism is available, while individual search decisions remain synchronous in Node.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
@@ -107,10 +130,12 @@
 
 ## Immediate Next Steps
 
-1. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
-2. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
-3. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-4. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
-5. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
+1. Review repeated `yarn bot:eval strategic-positions` results and select the
+   smallest strategic potential needed for a heuristic v3 experiment.
+2. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
+3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
+4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
+5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
+6. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-09._
+_Updated: 2026-07-13._

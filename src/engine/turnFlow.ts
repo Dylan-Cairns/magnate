@@ -1,16 +1,17 @@
-import { CARD_BY_ID } from './cards';
 import type { CardId } from './cards';
 import { legalActions } from './actionBuilders';
 import { drawOne } from './deck';
+import { incomeForResult } from './income';
 import { rngFromSeed } from './rng';
 import { scoreGame } from './scoring';
-import { applyDelta, findProperty } from './stateHelpers';
+import { applyDelta } from './stateHelpers';
 import type {
   GamePhase,
   GameState,
   IncomeChoice,
   IncomeRollResult,
   PlayerId,
+  Rank,
   Suit,
 } from './types';
 
@@ -183,8 +184,7 @@ function resolveCollectIncome(state: GameState): GameState {
 function hasUnsubmittedIncomeChoices(state: GameState): boolean {
   const submitted = state.submittedIncomeChoices ?? [];
   return (state.pendingIncomeChoices ?? []).some(
-    (choice) =>
-      !submitted.some((entry) => incomeChoiceMatches(choice, entry))
+    (choice) => !submitted.some((entry) => incomeChoiceMatches(choice, entry))
   );
 }
 
@@ -198,7 +198,9 @@ function resolveSubmittedIncomeChoices(state: GameState): GameState {
       incomeChoiceMatches(choice, entry)
     );
     if (!submission) {
-      throw new Error('Cannot resolve income choices before all are submitted.');
+      throw new Error(
+        'Cannot resolve income choices before all are submitted.'
+      );
     }
     if (!choice.suits.includes(submission.suit)) {
       throw new Error(
@@ -259,104 +261,12 @@ function incomeDeltaForPlayer(
   delta: Partial<Record<Suit, number>>;
   pendingChoices: IncomeChoice[];
 } {
-  const result = Math.max(roll.die1, roll.die2);
-  const delta: Partial<Record<Suit, number>> = {};
-  const pendingChoices: IncomeChoice[] = [];
-
-  if (result === 10) {
-    awardCrownIncome(state, playerId, delta);
-    return { delta, pendingChoices };
-  }
-
-  if (result === 1) {
-    awardAceIncome(state, playerId, delta);
-    return { delta, pendingChoices };
-  }
-
-  awardRankIncome(state, playerId, result, delta, pendingChoices);
-  return { delta, pendingChoices };
-}
-
-function awardCrownIncome(
-  state: GameState,
-  playerId: PlayerId,
-  delta: Partial<Record<Suit, number>>
-): void {
-  const player = state.players.find((item) => item.id === playerId);
-  if (!player) {
-    return;
-  }
-
-  player.crowns.forEach((cardId) => {
-    const card = CARD_BY_ID[cardId];
-    if (card.kind !== 'Crown') {
-      return;
-    }
-    addSuit(delta, card.suits[0], 1);
-  });
-}
-
-function awardAceIncome(
-  state: GameState,
-  playerId: PlayerId,
-  delta: Partial<Record<Suit, number>>
-): void {
-  state.districts.forEach((district) => {
-    const stack = district.stacks[playerId];
-    stack.developed.forEach((cardId) => {
-      const property = findProperty(cardId);
-      if (!property || property.rank !== 1) {
-        return;
-      }
-      property.suits.forEach((suit) => addSuit(delta, suit, 1));
-    });
-
-    const deed = stack.deed ? findProperty(stack.deed.cardId) : undefined;
-    if (deed && deed.rank === 1) {
-      addSuit(delta, deed.suits[0], 1);
-    }
-  });
-}
-
-function awardRankIncome(
-  state: GameState,
-  playerId: PlayerId,
-  rank: number,
-  delta: Partial<Record<Suit, number>>,
-  pendingChoices: IncomeChoice[]
-): void {
-  state.districts.forEach((district) => {
-    const stack = district.stacks[playerId];
-    stack.developed.forEach((cardId) => {
-      const property = findProperty(cardId);
-      if (!property || property.rank !== rank) {
-        return;
-      }
-      property.suits.forEach((suit) => addSuit(delta, suit, 1));
-    });
-
-    const deed = stack.deed ? findProperty(stack.deed.cardId) : undefined;
-    if (deed && deed.rank === rank) {
-      if (deed.suits.length === 1) {
-        addSuit(delta, deed.suits[0], 1);
-      } else {
-        pendingChoices.push({
-          playerId,
-          districtId: district.id,
-          cardId: deed.id,
-          suits: deed.suits,
-        });
-      }
-    }
-  });
-}
-
-function addSuit(
-  delta: Partial<Record<Suit, number>>,
-  suit: Suit,
-  amount: number
-): void {
-  delta[suit] = (delta[suit] ?? 0) + amount;
+  const result = Math.max(roll.die1, roll.die2) as Rank;
+  const income = incomeForResult(state, playerId, result);
+  return {
+    delta: income.fixedDelta,
+    pendingChoices: [...income.pendingChoices],
+  };
 }
 
 interface RollResult {

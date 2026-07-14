@@ -36,6 +36,12 @@ import {
   type TdReplayShardProgress,
 } from './tdReplayShards';
 import type { RolloutSearchSweepRun } from './types';
+import {
+  createStrategicPositionArtifactV0,
+  defaultStrategicPositionOutputDirectoryV0,
+  writeStrategicPositionArtifactsV0,
+} from './strategicPositionArtifacts';
+import { runStrategicPositionComparisonV0 } from './strategicPositionComparison';
 
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
 
@@ -57,11 +63,54 @@ async function main(): Promise<void> {
     case 'collect-td-replay-sharded':
       await runCollectTdReplayShardedCommand(args);
       return;
+    case 'strategic-positions':
+      await runStrategicPositionsCommand(args);
+      return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] | replay --artifact <path> --game-id <id>'
       );
   }
+}
+
+async function runStrategicPositionsCommand(
+  args: readonly string[]
+): Promise<void> {
+  installLocalPublicFetch();
+  const flags = parseFlags(args);
+  const repetitions = parseOptionalPositiveInteger(flags, '--repetitions') ?? 1;
+  const outputDirectory =
+    flags.get('--out-dir') ?? defaultStrategicPositionOutputDirectoryV0();
+  process.stderr.write(
+    `[strategic-positions] started repetitions=${String(repetitions)}\n`
+  );
+  const run = await runStrategicPositionComparisonV0({
+    repetitions,
+    onProgress(progress) {
+      process.stderr.write(
+        `[strategic-positions] decision ${String(progress.completedDecisions)}/${String(progress.totalDecisions)} position=${progress.positionId} repetition=${String(progress.repetition)} variant=${progress.variantId} selected=${progress.selectedActionKey}\n`
+      );
+    },
+  });
+  const artifact = createStrategicPositionArtifactV0(run);
+  const written = await writeStrategicPositionArtifactsV0(
+    artifact,
+    outputDirectory
+  );
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: 'completed',
+        artifact: path.resolve(written.artifactPath),
+        summary: path.resolve(written.summaryPath),
+        positions: run.positions.length,
+        variants: run.variants.map((variant) => variant.id),
+        repetitions: run.repetitions,
+      },
+      null,
+      2
+    )}\n`
+  );
 }
 
 async function runHeadToHeadCommand(args: readonly string[]): Promise<void> {
