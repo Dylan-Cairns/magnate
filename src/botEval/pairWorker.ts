@@ -8,7 +8,10 @@ import type {
   PairWorkerRequest,
   PairWorkerResponse,
 } from './pairWorkerProtocol';
+import { installLocalPublicFetch } from './localPublicFetch';
 import type { HeadToHeadConfig } from './types';
+
+installLocalPublicFetch();
 
 let config: HeadToHeadConfig | undefined;
 let bots: RuntimePairBots | undefined;
@@ -51,6 +54,13 @@ async function handleRequest(request: PairWorkerRequest): Promise<void> {
             type: 'heartbeat',
             pairIndex: request.job.pairIndex,
             heartbeat,
+          });
+        },
+        onGameCompleted(game) {
+          send({
+            type: 'game-completed',
+            pairIndex: request.job.pairIndex,
+            game,
           });
         },
       });

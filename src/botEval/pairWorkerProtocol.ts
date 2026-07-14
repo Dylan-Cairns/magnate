@@ -1,6 +1,6 @@
 import type { PlayGameHeartbeat } from './playGame';
 import type { PairedSeedJob, PairedSeedResult } from './pair';
-import type { HeadToHeadConfig } from './types';
+import type { HeadToHeadConfig, PlayedGame } from './types';
 
 export type PairWorkerRequest =
   | {
@@ -24,6 +24,11 @@ export type PairWorkerResponse =
       type: 'heartbeat';
       pairIndex: number;
       heartbeat: PlayGameHeartbeat;
+    }
+  | {
+      type: 'game-completed';
+      pairIndex: number;
+      game: PlayedGame;
     }
   | {
       type: 'pair-completed';

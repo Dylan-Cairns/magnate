@@ -6,6 +6,7 @@ export type BotProfileId =
   | 'rollout-search-v2-hard'
   | 'rollout-search-v2-medium'
   | 'td-root-search-v2-medium'
+  | 'td-root-search-v2-medium-heuristic-leaf'
   | 'rollout-search-v2-easy';
 
 export interface BotProfile {
@@ -81,6 +82,31 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         depth: 40,
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
+      },
+    },
+    createPolicy: createWorkerBackedPolicy,
+  }),
+  createBotProfile({
+    id: 'td-root-search-v2-medium-heuristic-leaf',
+    label: 'TD V2 Medium + Heuristic Leaf',
+    description: '',
+    available: true,
+    turnDelayMs: 0,
+    spec: {
+      id: 'td-root-search-v2-medium-heuristic-leaf',
+      kind: 'td-root-search',
+      guidance: {
+        root: 'td',
+        rollout: 'td',
+        leaf: 'heuristic',
+      },
+      config: {
+        worlds: 10,
+        rollouts: 1,
+        depth: 40,
+        maxRootActions: 16,
+        rolloutEpsilon: 0.0,
+        heuristic: 'v2',
       },
     },
     createPolicy: createWorkerBackedPolicy,

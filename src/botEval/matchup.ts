@@ -44,6 +44,17 @@ export type HeadToHeadProgress =
       elapsedMs: number;
     }
   | {
+      type: 'game-completed';
+      candidateId: string;
+      pairNumber: number;
+      workerId: number;
+      completedGames: number;
+      totalGames: number;
+      elapsedMs: number;
+      gamesPerMinute: number;
+      game: PlayedGame;
+    }
+  | {
       type: 'pair-completed';
       candidateId: string;
       pairNumber: number;
@@ -73,6 +84,29 @@ export async function runHeadToHead(
   const jobs = createPairedSeedJobs(config);
   const results: PairedSeedResult[] = [];
   const startedAt = now();
+  let completedGames = 0;
+
+  function reportGameCompleted(
+    workerId: number,
+    pairNumber: number,
+    game: PlayedGame
+  ): void {
+    completedGames += 1;
+    const elapsedMs = now() - startedAt;
+    const totalGames = config.gamesPerSide * 2;
+    dependencies.onProgress?.({
+      type: 'game-completed',
+      candidateId: config.candidate.id,
+      pairNumber,
+      workerId,
+      completedGames,
+      totalGames,
+      elapsedMs,
+      gamesPerMinute:
+        elapsedMs > 0 ? (completedGames * 60_000) / elapsedMs : 0,
+      game,
+    });
+  }
 
   function reportPairCompleted(
     workerId: number,
@@ -120,6 +154,9 @@ export async function runHeadToHead(
             ...heartbeat,
           });
         },
+        onGameCompleted(game) {
+          reportGameCompleted(1, job.pairNumber, game);
+        },
       });
       reportPairCompleted(1, result);
     }
@@ -142,6 +179,9 @@ export async function runHeadToHead(
           workerId,
           ...heartbeat,
         });
+      },
+      onGameCompleted(workerId, pairIndex, game) {
+        reportGameCompleted(workerId, pairIndex + 1, game);
       },
       onPairCompleted: reportPairCompleted,
     });

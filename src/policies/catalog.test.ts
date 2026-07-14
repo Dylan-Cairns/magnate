@@ -15,7 +15,7 @@ describe('bot policy catalog', () => {
   });
 
   it('includes only rollout-search profiles for the active browser catalog', () => {
-    expect(BOT_PROFILES.length).toBe(4);
+    expect(BOT_PROFILES.length).toBe(5);
     expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(
       true
     );
@@ -46,5 +46,29 @@ describe('bot policy catalog', () => {
       throw new Error('Expected rollout-search-v2 to use a search spec.');
     }
     expect(profile.spec.config.heuristic).toBe('v2');
+  });
+
+  it('includes a TD-root profile using heuristic v2 leaf evaluation', () => {
+    const profile = getBotProfile('td-root-search-v2-medium-heuristic-leaf');
+
+    expect(profile.kind).toBe('td-root-search');
+    expect(profile.available).toBe(true);
+    expect(profile.spec.kind).toBe('td-root-search');
+    if (profile.spec.kind !== 'td-root-search') {
+      throw new Error('Expected hybrid TD profile to use a TD-root spec.');
+    }
+    expect(profile.spec.config).toMatchObject({
+      worlds: 10,
+      rollouts: 1,
+      depth: 40,
+      maxRootActions: 16,
+      rolloutEpsilon: 0,
+      heuristic: 'v2',
+    });
+    expect(profile.spec.guidance).toEqual({
+      root: 'td',
+      rollout: 'td',
+      leaf: 'heuristic',
+    });
   });
 });

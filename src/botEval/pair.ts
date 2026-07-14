@@ -34,6 +34,7 @@ export interface PlayPairedSeedOptions {
   now?: () => number;
   progressIntervalMs?: number;
   onHeartbeat?: (heartbeat: PlayGameHeartbeat) => void;
+  onGameCompleted?: (game: PlayedGame) => void;
 }
 
 export function createPairedSeedJobs(config: HeadToHeadConfig): PairedSeedJob[] {
@@ -59,6 +60,7 @@ export async function playPairedSeed({
   now = () => performance.now(),
   progressIntervalMs = 0,
   onHeartbeat,
+  onGameCompleted,
 }: PlayPairedSeedOptions): Promise<PairedSeedResult> {
   const pairId = String(job.pairNumber).padStart(4, '0');
   const candidateAsA = await playGame({
@@ -74,6 +76,7 @@ export async function playPairedSeed({
     progressIntervalMs,
     onHeartbeat,
   });
+  onGameCompleted?.(candidateAsA);
   const candidateAsB = await playGame({
     gameId: `pair-${pairId}-candidate-as-b`,
     seed: job.seed,
@@ -87,6 +90,7 @@ export async function playPairedSeed({
     progressIntervalMs,
     onHeartbeat,
   });
+  onGameCompleted?.(candidateAsB);
   return {
     pairIndex: job.pairIndex,
     games: [candidateAsA, candidateAsB],
