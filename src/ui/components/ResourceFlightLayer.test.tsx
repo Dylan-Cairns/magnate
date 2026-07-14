@@ -29,12 +29,23 @@ describe('ResourceFlightLayer', () => {
             delayMs: 0,
             variant: 'terminal-clear',
           },
+          {
+            id: 'flight-payment',
+            suit: 'Moons',
+            startX: 4,
+            startY: 8,
+            endX: 4,
+            endY: 100,
+            delayMs: 25,
+            variant: 'payment',
+          },
         ]}
       />
     );
 
     expect(html).toContain('resource-flight is-tax-loss');
     expect(html).toContain('resource-flight is-terminal-clear');
+    expect(html).toContain('resource-flight is-payment');
     expect(html).toContain('--resource-flight-dx:25px');
     expect(html).toContain('--resource-flight-dy:30px');
     expect(html).toContain('--resource-flight-delay-ms:75ms');

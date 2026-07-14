@@ -21,6 +21,8 @@ export function ResourceFlightLayer({
         const variantClass =
           flight.variant === 'tax-loss'
             ? ' is-tax-loss'
+            : flight.variant === 'payment'
+              ? ' is-payment'
             : flight.variant === 'terminal-clear'
               ? ' is-terminal-clear'
               : ' is-transfer';

@@ -10,6 +10,7 @@ import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import { elementCenter, type AnimationDomTargets } from './domTargets';
 import {
   buildIncomeFlightsFromDom,
+  buildPaymentFlightsFromDom,
   buildTaxLossFlightsFromDom,
   collectCardPlayFlights,
   collectDeedResourceFlights,
@@ -159,6 +160,55 @@ describe('flightPlans', () => {
         endY: 140,
         delayMs: 0 * RESOURCE_FLIGHT_STAGGER_MS,
         variant: 'transfer',
+      },
+    ]);
+  });
+
+  it('plans payment flights as fading removals from the resource area', () => {
+    const moons = makeElement({ left: 10, top: 20, width: 20, height: 20 });
+    const knots = makeElement({ left: 50, top: 70, width: 20, height: 20 });
+    const targets = makeTargets({
+      resourceToken: (_playerId, suit) =>
+        suit === 'Moons' ? moons : suit === 'Knots' ? knots : null,
+    });
+
+    expect(
+      buildPaymentFlightsFromDom(
+        {
+          type: 'resource-payment-started',
+          reason: 'buy-deed',
+          playerId: PLAYER_A,
+          cardId: '6',
+          districtId: 'D1',
+          payment: { Moons: 1, Knots: 2 },
+        },
+        makeIds('payment'),
+        targets
+      )
+    ).toMatchObject([
+      {
+        id: 'payment-1',
+        suit: 'Moons',
+        startX: 20,
+        startY: 30,
+        endX: 20,
+        endY: 500,
+        delayMs: 0,
+        variant: 'payment',
+      },
+      {
+        id: 'payment-2',
+        suit: 'Knots',
+        delayMs: RESOURCE_FLIGHT_STAGGER_MS,
+        variant: 'payment',
+      },
+      {
+        id: 'payment-3',
+        suit: 'Knots',
+        startX: 60,
+        startY: 80,
+        delayMs: 2 * RESOURCE_FLIGHT_STAGGER_MS,
+        variant: 'payment',
       },
     ]);
   });

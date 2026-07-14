@@ -11,7 +11,7 @@ export type ResourceFlight = {
   endY: number;
   delayMs: number;
   durationMs?: number;
-  variant?: 'transfer' | 'tax-loss' | 'terminal-clear';
+  variant?: 'transfer' | 'payment' | 'tax-loss' | 'terminal-clear';
 };
 
 export type PendingResourceFlight = ResourceFlight;
