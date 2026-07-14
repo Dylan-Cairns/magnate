@@ -45,6 +45,7 @@ describe('deriveAnimationVisualCommands', () => {
     expect(taxFlights).toMatchObject({
       type: 'launch-tax-token-flights',
       atMs: step(sequence, 'launch-tax-token-flights').startMs,
+      durationMs: step(sequence, 'launch-tax-token-flights').durationMs,
     });
   });
 
@@ -57,6 +58,7 @@ describe('deriveAnimationVisualCommands', () => {
     expect(incomeFlights).toMatchObject({
       type: 'launch-income-token-flights',
       atMs: step(sequence, 'launch-income-token-flights').startMs,
+      durationMs: step(sequence, 'launch-income-token-flights').durationMs,
     });
     expect(incomeFlights?.atMs).toBeGreaterThanOrEqual(
       step(sequence, 'pulse-income-die').endMs
@@ -102,6 +104,7 @@ describe('deriveAnimationVisualCommands', () => {
     expect(buyCommands).toContainEqual({
       type: 'launch-payment-token-flights',
       atMs: step(buySequence, 'launch-payment-token-flights').startMs,
+      durationMs: step(buySequence, 'launch-payment-token-flights').durationMs,
       event: step(buySequence, 'launch-payment-token-flights').event,
     });
     expect(buyCommands).toContainEqual({
@@ -114,6 +117,7 @@ describe('deriveAnimationVisualCommands', () => {
     expect(deriveAnimationVisualCommands(deedSequence)).toContainEqual({
       type: 'launch-deed-token-flights',
       atMs: step(deedSequence, 'launch-deed-token-flights').startMs,
+      durationMs: step(deedSequence, 'launch-deed-token-flights').durationMs,
       tokens: step(deedSequence, 'launch-deed-token-flights').tokens,
     });
   });

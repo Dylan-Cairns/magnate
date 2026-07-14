@@ -98,6 +98,11 @@ function applySequenceStep(
         viewState: applyResourcePayment(viewState, step.event),
         overlays,
       };
+    case 'apply-deed-tokens':
+      return {
+        viewState: applyDeedTokens(viewState, step.tokens),
+        overlays,
+      };
     case 'place-card-in-district':
       return {
         viewState: placeCardInDistrict(
@@ -109,7 +114,7 @@ function applySequenceStep(
       };
     case 'apply-deed-progress':
       return {
-        viewState: applyDeedProgress(viewState, transaction, step.event),
+        viewState: applyDeedProgress(viewState, step.event),
         overlays,
       };
     case 'reveal-deed-completion':
@@ -349,7 +354,6 @@ function placeCardInDistrict(
 
 function applyDeedProgress(
   state: GameState,
-  transaction: GameTransaction,
   event: Extract<
     GameTransaction['events'][number],
     { type: 'deed-progress-applied' }
@@ -367,9 +371,42 @@ function applyDeedProgress(
       deed: {
         cardId: event.cardId,
         progress: event.nextProgress,
+        tokens: { ...currentStack.deed.tokens },
+      },
+    }),
+  };
+}
+
+function applyDeedTokens(
+  state: GameState,
+  tokens: readonly Extract<
+    GameTransaction['events'][number],
+    { type: 'deed-token-paid' }
+  >[]
+): GameState {
+  if (tokens.length === 0) {
+    return state;
+  }
+  const first = tokens[0];
+  const currentStack = districtStackFor(
+    state,
+    first.districtId,
+    first.playerId
+  );
+  if (!currentStack?.deed) {
+    return state;
+  }
+
+  return {
+    ...state,
+    districts: replaceDistrictStack(state, first.districtId, first.playerId, {
+      developed: [...currentStack.developed],
+      deed: {
+        cardId: first.cardId,
+        progress: currentStack.deed.progress,
         tokens: mergeResourceTokens(
           currentStack.deed.tokens,
-          deedTokenPaymentForEvent(transaction, event)
+          deedTokenPayment(tokens)
         ),
       },
     }),
@@ -440,23 +477,14 @@ function replaceDistrictStack(
   );
 }
 
-function deedTokenPaymentForEvent(
-  transaction: GameTransaction,
-  event: Extract<
+function deedTokenPayment(
+  deedTokens: readonly Extract<
     GameTransaction['events'][number],
-    { type: 'deed-progress-applied' }
-  >
+    { type: 'deed-token-paid' }
+  >[]
 ): Partial<Record<Suit, number>> {
   const tokens: Partial<Record<Suit, number>> = {};
-  for (const token of transaction.events) {
-    if (
-      token.type !== 'deed-token-paid' ||
-      token.playerId !== event.playerId ||
-      token.districtId !== event.districtId ||
-      token.cardId !== event.cardId
-    ) {
-      continue;
-    }
+  for (const token of deedTokens) {
     tokens[token.suit] = (tokens[token.suit] ?? 0) + 1;
   }
   return tokens;

@@ -125,6 +125,21 @@ export function useGameAnimations({
     turnCycleVisualTimers.clearAll();
     clearTaxPulseElements();
   }, [clearTaxPulseElements, turnCycleVisualTimers]);
+  const appendResourceFlightsWithCleanup = useCallback(
+    (flights: readonly ResourceFlight[], durationMs: number) => {
+      if (flights.length === 0) {
+        return;
+      }
+      setResourceFlights((existing) => [...existing, ...flights]);
+      const flightIds = new Set(flights.map((flight) => flight.id));
+      turnCycleVisualTimers.schedule(durationMs, () => {
+        setResourceFlights((existing) =>
+          existing.filter((flight) => !flightIds.has(flight.id))
+        );
+      });
+    },
+    [turnCycleVisualTimers]
+  );
   const scheduleSequenceVisualCommand = useCallback(
     (command: AnimationVisualCommand, transaction: GameTransaction) => {
       const scheduleAt = (atMs: number, callback: () => void) => {
@@ -162,7 +177,7 @@ export function useGameAnimations({
             if (flights.length === 0) {
               return;
             }
-            setResourceFlights((existing) => [...existing, ...flights]);
+            appendResourceFlightsWithCleanup(flights, command.durationMs);
           });
           return;
         case 'launch-deed-token-flights':
@@ -176,7 +191,7 @@ export function useGameAnimations({
             if (flights.length === 0) {
               return;
             }
-            setResourceFlights((existing) => [...existing, ...flights]);
+            appendResourceFlightsWithCleanup(flights, command.durationMs);
           });
           return;
         case 'pulse-tax-resources':
@@ -199,7 +214,7 @@ export function useGameAnimations({
             if (taxFlights.length === 0) {
               return;
             }
-            setResourceFlights((existing) => [...existing, ...taxFlights]);
+            appendResourceFlightsWithCleanup(taxFlights, command.durationMs);
           });
           return;
         case 'launch-income-token-flights':
@@ -217,12 +232,13 @@ export function useGameAnimations({
             if (incomeFlights.length === 0) {
               return;
             }
-            setResourceFlights((existing) => [...existing, ...incomeFlights]);
+            appendResourceFlightsWithCleanup(incomeFlights, command.durationMs);
           });
           return;
       }
     },
     [
+      appendResourceFlightsWithCleanup,
       applyTaxPulseTargets,
       clearTaxPulseElements,
       makeCardFlightId,
