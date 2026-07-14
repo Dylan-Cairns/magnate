@@ -32,7 +32,8 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context a
 - TypeScript browser-bot head-to-head eval: `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep: `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
 - TypeScript rollout-search TD replay export: `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
-- Override bot-eval heartbeat cadence: append `--progress-interval-seconds 10` (`0` disables heartbeats).
+- Strategic-position characterization: `yarn bot:eval strategic-positions --repetitions 1`
+- Override timed heartbeat cadence for supported bot-eval commands: append `--progress-interval-seconds 10` (`0` disables heartbeats); strategic-position characterization reports per decision instead.
 - Replay one recorded TypeScript bot game: `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
@@ -44,4 +45,5 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context a
 - Current project context: [memoryBank/activeContext.md](memoryBank/activeContext.md)
 - Rules reference: [memoryBank/magnateRules.md](memoryBank/magnateRules.md)
 - Bridge contract: [memoryBank/bridgeInterfaceContract.md](memoryBank/bridgeInterfaceContract.md)
+- Strategic-state design: [docs/design/strategic-state-summary-v0.md](docs/design/strategic-state-summary-v0.md)
 - Runbooks: [docs/runbooks/](docs/runbooks/)

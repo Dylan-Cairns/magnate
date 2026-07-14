@@ -69,6 +69,16 @@ Design expectations:
   rollout playout action choice from opponent/action logits.
 - Heuristic v1 scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Heuristic v2 should remain additive and broad-delta based: score district-local saturated scoring-margin deltas, future suit-access earning deltas, and contextual token-bank deltas without rewarding generic resource hoarding or v1 tactical patchwork constants.
+- Experimental strategic evaluation should begin from one pure, deterministic,
+  player-relative, information-safe factual summary. Keep match-equity forecasts,
+  horizon models, district-security judgments, and action values in separate
+  projection/evaluation layers so objective rule consequences are reusable by
+  heuristic, TD, search, and diagnostics without subjective weights.
+- Strategic-position characterization should use complete deterministic card
+  partitions accepted by rollout determinization, canonical stable action keys,
+  reviewed relational preferences, and common random seeds across bot variants.
+  Existing-bot agreement is diagnostic output rather than a test assertion;
+  generated comparison results belong under ignored evaluation artifacts.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
 - Browser model-backed policies should load from static model-pack artifacts:

@@ -12,10 +12,14 @@
   `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
 - Sharded TD replay export:
   `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers 8 --shard-games 1`
+- Strategic-position characterization:
+  `yarn bot:eval strategic-positions --repetitions 1`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
-- Override heartbeat cadence:
-  append `--progress-interval-seconds 10` (`0` disables timed heartbeats).
+- Override heartbeat cadence for head-to-head, sweep, replay, and replay-export
+  commands: append `--progress-interval-seconds 10` (`0` disables timed
+  heartbeats). Strategic-position characterization reports after each decision
+  and does not use this flag.
 
 ## Head-To-Head Artifacts
 
@@ -27,6 +31,31 @@ Typical outputs:
 - `artifacts/ts-bot-evals/<run>/summary.md`
 
 Config inputs can reference catalog presets with `{ "profileId": "rollout-search-v2-medium" }` or define serializable bot specs directly.
+
+## Strategic Position Characterization
+
+`yarn bot:eval strategic-positions [--repetitions <count>] [--out-dir <path>]`
+runs the typed strategic position catalog against direct heuristic v2, V2 Hard,
+and the current TD V2 Medium profile. All variants receive the same explicit
+random seed for each position/repetition. The command records choices and root
+diagnostics; it does not treat current-bot agreement with the catalog's reviewed
+pairwise preference as a test pass condition. A choice outside the declared
+pair is reported as unassessed rather than as a mismatch. The JSON also records
+the information-safe state summary and a canonical fingerprint for each exact
+catalog case.
+
+This command always includes TD V2 Medium. It requires a valid default model
+pack under `public/model-packs/`, and its TD results depend on the pack currently
+designated as default. Policies run in-process in Node without browser or Web
+Worker wrappers; reported latency is diagnostic for that execution mode.
+
+Typical outputs:
+
+- `artifacts/ts-bot-evals/<run>/positions.json`
+- `artifacts/ts-bot-evals/<run>/summary.md`
+
+See [the v0 design](../design/strategic-state-summary-v0.md) for the factual
+summary contract, catalog scope, and interpretation rules.
 
 ## TD Replay Export
 
@@ -56,6 +85,8 @@ Worker counts above `1` record latency as loaded latency, so those timings are t
 
 Sweep aggregate artifacts are written with `status=running` before compute starts and atomically refreshed after each completed candidate. Automatic sweep resume is not implemented; follow-up runs must be constructed explicitly.
 
-## Current Limitation
+## Model-Pack Runtime
 
-Browser and Web Worker TD-root search load `td-root-search-v1` packs from `public/model-packs`. Direct Node eval of serialized TD-root rollout specs still needs a local model-pack loader outside the browser asset runtime.
+Browser and Web Worker TD-root search load `td-root-search-v1` packs from
+`public/model-packs`. Node bot evaluation installs a local `public/` fetch shim,
+so serialized TD-root specs use those same static model-pack assets.
