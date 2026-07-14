@@ -170,6 +170,10 @@ Design expectations:
   commands. DOM target lookup and flight object construction stay browser-only,
   but the command `atMs`/`startMs` values must come from `AnimationSequence`
   steps rather than a parallel turn-cycle visual timing plan.
+- Sequence-derived card visual commands should execute through command-specific
+  DOM flight builders. A draw, sell, or card-to-district launch command already
+  identifies the visual intent; hook-level execution should not rediscover that
+  intent by diffing the full action and next state.
 - Animation overlays that describe semantic presentation state, including
   income source highlights and active-player visual holdbacks, should be
   emitted by the animation sequence reducer rather than maintained by

@@ -7,10 +7,12 @@ import {
 } from '../animations/animationTimerRegistry';
 import { browserAnimationDomTargets } from '../animations/domTargets';
 import {
+  buildCardToDistrictFlightFromDom,
+  buildDrawCardFlightFromDom,
   buildIncomeFlightsFromDom,
   buildPaymentFlightsFromDom,
+  buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
-  collectCardPlayFlights,
   collectDeedResourceFlights,
   type IncomeFlightToken,
 } from '../animations/flightPlans';
@@ -152,14 +154,35 @@ export function useGameAnimations({
 
       switch (command.type) {
         case 'launch-draw-card-flight':
+          scheduleAt(command.atMs, () => {
+            const flights = buildDrawCardFlightFromDom(
+              command.playerId,
+              command.cardId,
+              makeCardFlightId
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            setCardFlights((existing) => [...existing, ...flights]);
+          });
+          return;
         case 'launch-sold-card-flight':
+          scheduleAt(command.atMs, () => {
+            const flights = buildSoldCardFlightFromDom(
+              command.playerId,
+              command.cardId,
+              makeCardFlightId
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            setCardFlights((existing) => [...existing, ...flights]);
+          });
+          return;
         case 'launch-card-to-district-flight':
           scheduleAt(command.atMs, () => {
-            const flights = collectCardPlayFlights(
-              transaction.previousState,
-              transaction.nextState,
-              transaction.action,
-              transaction.actingPlayerId,
+            const flights = buildCardToDistrictFlightFromDom(
+              command.event,
               makeCardFlightId
             );
             if (flights.length === 0) {
