@@ -4,6 +4,7 @@ import { createWorkerBackedPolicy } from './workerPolicy';
 
 export type BotProfileId =
   | 'rollout-search-v2-hard'
+  | 'rollout-search-v2-medium-hard'
   | 'rollout-search-v2-medium'
   | 'td-root-search-v2-medium'
   | 'td-root-search-v2-medium-heuristic-leaf'
@@ -40,6 +41,26 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         worlds: 50,
         rollouts: 1,
         depth: 270,
+        maxRootActions: 16,
+        rolloutEpsilon: 0.0,
+        heuristic: 'v2',
+      },
+    },
+    createPolicy: createWorkerBackedPolicy,
+  }),
+  createBotProfile({
+    id: 'rollout-search-v2-medium-hard',
+    label: 'Heuristic V2 Medium Hard',
+    description: '',
+    available: true,
+    turnDelayMs: 0,
+    spec: {
+      id: 'rollout-search-v2-medium-hard',
+      kind: 'search',
+      config: {
+        worlds: 40,
+        rollouts: 1,
+        depth: 180,
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
         heuristic: 'v2',
