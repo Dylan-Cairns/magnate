@@ -400,6 +400,8 @@ describe('deriveGamePresentationEvents', () => {
       cardId: '6',
       suit: 'Moons',
       tokenIndex: 0,
+      previousTokens: {},
+      nextTokens: { Moons: 1, Knots: 1 },
     });
     expect(events).toContainEqual({
       type: 'deed-token-paid',
@@ -408,6 +410,8 @@ describe('deriveGamePresentationEvents', () => {
       cardId: '6',
       suit: 'Knots',
       tokenIndex: 0,
+      previousTokens: {},
+      nextTokens: { Moons: 1, Knots: 1 },
     });
     expect(events).toContainEqual({
       type: 'deed-progress-applied',

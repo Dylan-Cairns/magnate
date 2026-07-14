@@ -122,6 +122,8 @@ export type GamePresentationEvent =
       cardId: CardId;
       suit: Suit;
       tokenIndex: number;
+      previousTokens: Partial<Record<Suit, number>>;
+      nextTokens: Partial<Record<Suit, number>>;
     }
   | {
       type: 'deed-progress-applied';

@@ -77,7 +77,11 @@
   income-choice request reveal; those visible mutations are driven by the
   current sequence step payload. Sequence-derived draw, sell, and
   card-to-district visual commands now call command-specific DOM flight builders
-  instead of re-interpreting the whole action/state diff at launch time.
+  instead of re-interpreting the whole action/state diff at launch time. Deed
+  token flight commands now also launch from semantic `deed-token-paid` event
+  payloads that carry the before/after deed token pools needed for target rail
+  layout, so the hook no longer passes action/state diffs into deed flight
+  planning.
   Income-choice bot thinking visibility now keys off bot thinking state during
   visible income choice resolution rather than normal turn ownership.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.

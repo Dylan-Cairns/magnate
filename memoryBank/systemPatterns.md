@@ -174,6 +174,10 @@ Design expectations:
   DOM flight builders. A draw, sell, or card-to-district launch command already
   identifies the visual intent; hook-level execution should not rediscover that
   intent by diffing the full action and next state.
+- Sequence-derived deed token visual commands should carry the before/after
+  deed token pools needed to calculate target rail layout. The DOM builder may
+  resolve geometry, but it should not infer paid tokens or deed state from the
+  canonical action/state diff.
 - Animation overlays that describe semantic presentation state, including
   income source highlights and active-player visual holdbacks, should be
   emitted by the animation sequence reducer rather than maintained by
