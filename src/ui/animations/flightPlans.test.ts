@@ -3,16 +3,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   PLAYER_A,
   makeGameState,
-  makePlayer,
   withDeed,
 } from '../../engine/__tests__/fixtures';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import { elementCenter, type AnimationDomTargets } from './domTargets';
 import {
+  buildCardToDistrictFlightFromDom,
+  buildDrawCardFlightFromDom,
   buildIncomeFlightsFromDom,
   buildPaymentFlightsFromDom,
+  buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
-  collectCardPlayFlights,
   collectDeedResourceFlights,
   collectTerminalCleanupFlights,
 } from './flightPlans';
@@ -255,22 +256,23 @@ describe('flightPlans', () => {
     });
 
     expect(
-      collectCardPlayFlights(
-        makeGameState(),
-        makeGameState(),
-        { type: 'sell-card', cardId: '6' },
+      buildSoldCardFlightFromDom(
         PLAYER_A,
+        '6',
         makeIds('sell'),
         targets
       )
     ).toMatchObject([{ id: 'sell-1', visual: 'face', cardId: '6' }]);
 
     expect(
-      collectCardPlayFlights(
-        makeGameState(),
-        makeGameState(),
-        { type: 'buy-deed', cardId: '6', districtId: 'D1' },
-        PLAYER_A,
+      buildCardToDistrictFlightFromDom(
+        {
+          type: 'card-played-to-district',
+          playerId: PLAYER_A,
+          cardId: '6',
+          districtId: 'D1',
+          placement: 'deed',
+        },
         makeIds('lane'),
         targets
       )
@@ -286,21 +288,10 @@ describe('flightPlans', () => {
       },
     ]);
 
-    const previous = makeGameState({
-      players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer('PlayerB')],
-    });
-    const next = makeGameState({
-      players: [
-        makePlayer(PLAYER_A, { hand: ['6', '7'] }),
-        makePlayer('PlayerB'),
-      ],
-    });
     expect(
-      collectCardPlayFlights(
-        previous,
-        next,
-        { type: 'end-turn' },
+      buildDrawCardFlightFromDom(
         PLAYER_A,
+        '7',
         makeIds('draw'),
         targets
       )

@@ -16,7 +16,6 @@ import {
   type Point,
 } from './domTargets';
 import {
-  CARD_DRAW_FLIGHT_DELAY_MS,
   RESOURCE_FLIGHT_DURATION_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
@@ -326,12 +325,6 @@ export function collectDeedResourceFlights(
   return flights;
 }
 
-function isLaneCardPlayAction(
-  action: GameAction
-): action is Extract<GameAction, { type: 'buy-deed' | 'develop-outright' }> {
-  return action.type === 'buy-deed' || action.type === 'develop-outright';
-}
-
 export function createCardFlight(
   makeFlightId: () => string,
   sourceElement: HTMLElement,
@@ -410,11 +403,9 @@ export function createCardFlightToPoint(
   };
 }
 
-export function collectCardPlayFlights(
-  state: GameState,
-  nextState: GameState,
-  action: GameAction,
-  actingPlayerId: PlayerId,
+export function buildSoldCardFlightFromDom(
+  playerId: PlayerId,
+  cardId: CardId,
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight[] {
@@ -422,121 +413,127 @@ export function collectCardPlayFlights(
     return [];
   }
 
-  const flights: CardFlight[] = [];
+  const sourceElement = domTargets.handSource(playerId, cardId);
+  const targetElement = domTargets.discardTarget();
+  if (!sourceElement || !targetElement) {
+    return [];
+  }
 
-  if (action.type === 'sell-card') {
-    const sourceElement = domTargets.handSource(actingPlayerId, action.cardId);
-    const targetElement = domTargets.discardTarget();
-    if (sourceElement && targetElement) {
-      const sourceSlotKind = sourceElement.getAttribute('data-hand-slot-kind');
-      const visual: 'face' | 'back' =
-        sourceSlotKind === 'occupied' ? 'face' : 'back';
-      const perspective: CardPerspective = sourceElement.classList.contains(
-        'perspective-bot'
-      )
-        ? 'bot'
-        : 'human';
-      flights.push(
-        createCardFlight(
-          makeFlightId,
-          sourceElement,
-          targetElement,
-          visual,
-          {
-            cardId: visual === 'face' ? action.cardId : undefined,
-            isDeed: false,
-            perspective,
-          },
-          domTargets
+  const sourceSlotKind = sourceElement.getAttribute('data-hand-slot-kind');
+  const visual: 'face' | 'back' =
+    sourceSlotKind === 'occupied' ? 'face' : 'back';
+  const perspective: CardPerspective = sourceElement.classList.contains(
+    'perspective-bot'
+  )
+    ? 'bot'
+    : 'human';
+
+  return [
+    createCardFlight(
+      makeFlightId,
+      sourceElement,
+      targetElement,
+      visual,
+      {
+        cardId: visual === 'face' ? cardId : undefined,
+        isDeed: false,
+        perspective,
+      },
+      domTargets
+    ),
+  ];
+}
+
+export function buildCardToDistrictFlightFromDom(
+  event: Extract<GamePresentationEvent, { type: 'card-played-to-district' }>,
+  makeFlightId: () => string,
+  domTargets: AnimationDomTargets = browserAnimationDomTargets
+): CardFlight[] {
+  if (!domTargets.isAvailable()) {
+    return [];
+  }
+
+  const sourceElement = domTargets.handSource(event.playerId, event.cardId);
+  if (!sourceElement) {
+    return [];
+  }
+
+  const laneElement = domTargets.lane(event.playerId, event.districtId);
+  const targetCardSize = laneElement
+    ? domTargets.laneCardSize(laneElement, sourceElement)
+    : null;
+  const districtColumn = domTargets.districtColumn(event.districtId);
+  const fallbackTargetElement =
+    (laneElement ? domTargets.laneFrame(laneElement) : null) ??
+    laneElement ??
+    districtColumn;
+  const targetCenter =
+    (laneElement
+      ? domTargets.laneTargetCenter(
+          laneElement,
+          targetCardSize?.height ?? sourceElement.getBoundingClientRect().height
         )
-      );
-    }
+      : null) ??
+    (fallbackTargetElement
+      ? domTargets.elementCenter(fallbackTargetElement)
+      : null);
+  if (!targetCenter) {
+    return [];
   }
 
-  if (isLaneCardPlayAction(action)) {
-    const sourceElement = domTargets.handSource(actingPlayerId, action.cardId);
-    if (sourceElement) {
-      const laneElement = domTargets.lane(actingPlayerId, action.districtId);
-      const targetCardSize = laneElement
-        ? domTargets.laneCardSize(laneElement, sourceElement)
-        : null;
-      const districtColumn = domTargets.districtColumn(action.districtId);
-      const fallbackTargetElement =
-        (laneElement ? domTargets.laneFrame(laneElement) : null) ??
-        laneElement ??
-        districtColumn;
-      const targetCenter =
-        (laneElement
-          ? domTargets.laneTargetCenter(
-              laneElement,
-              targetCardSize?.height ??
-                sourceElement.getBoundingClientRect().height
-            )
-          : null) ??
-        (fallbackTargetElement
-          ? domTargets.elementCenter(fallbackTargetElement)
-          : null);
-      if (targetCenter) {
-        const perspective: CardPerspective = laneElement
-          ? laneElement.classList.contains('is-bot')
-            ? 'bot'
-            : 'human'
-          : actingPlayerId === BOT_PLAYER
-            ? 'bot'
-            : 'human';
-        flights.push(
-          createCardFlightToPoint(
-            makeFlightId,
-            sourceElement,
-            targetCenter,
-            'face',
-            {
-              cardId: action.cardId,
-              isDeed: action.type === 'buy-deed',
-              perspective,
-              endWidth: targetCardSize?.width,
-              endHeight: targetCardSize?.height,
-            },
-            domTargets
-          )
-        );
-      }
-    }
+  const perspective: CardPerspective = laneElement
+    ? laneElement.classList.contains('is-bot')
+      ? 'bot'
+      : 'human'
+    : event.playerId === BOT_PLAYER
+      ? 'bot'
+      : 'human';
+
+  return [
+    createCardFlightToPoint(
+      makeFlightId,
+      sourceElement,
+      targetCenter,
+      'face',
+      {
+        cardId: event.cardId,
+        isDeed: event.placement === 'deed',
+        perspective,
+        endWidth: targetCardSize?.width,
+        endHeight: targetCardSize?.height,
+      },
+      domTargets
+    ),
+  ];
+}
+
+export function buildDrawCardFlightFromDom(
+  playerId: PlayerId,
+  cardId: CardId,
+  makeFlightId: () => string,
+  domTargets: AnimationDomTargets = browserAnimationDomTargets
+): CardFlight[] {
+  if (!domTargets.isAvailable()) {
+    return [];
   }
 
-  if (action.type === 'end-turn') {
-    const previousPlayer = state.players.find(
-      (player) => player.id === actingPlayerId
-    );
-    const nextPlayer = nextState.players.find(
-      (player) => player.id === actingPlayerId
-    );
-    const drewCard =
-      previousPlayer &&
-      nextPlayer &&
-      nextPlayer.hand.length === previousPlayer.hand.length + 1;
-    if (drewCard) {
-      const drawnCardId = nextPlayer.hand[nextPlayer.hand.length - 1];
-      const sourceElement = domTargets.deckSource();
-      const targetElement = domTargets.handDrawTarget(actingPlayerId);
-      if (sourceElement && targetElement) {
-        flights.push(
-          createCardFlight(
-            makeFlightId,
-            sourceElement,
-            targetElement,
-            'back',
-            {
-              cardId: drawnCardId,
-              delayMs: flights.length > 0 ? CARD_DRAW_FLIGHT_DELAY_MS : 0,
-              variant: 'draw',
-            },
-            domTargets
-          )
-        );
-      }
-    }
+  const sourceElement = domTargets.deckSource();
+  const targetElement = domTargets.handDrawTarget(playerId);
+  if (!sourceElement || !targetElement) {
+    return [];
   }
 
-  return flights;
+  return [
+    createCardFlight(
+      makeFlightId,
+      sourceElement,
+      targetElement,
+      'back',
+      {
+        cardId,
+        variant: 'draw',
+      },
+      domTargets
+    ),
+  ];
 }

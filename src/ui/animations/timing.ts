@@ -3,7 +3,6 @@ import type { CardFlight, ResourceFlight } from './types';
 export const RESOURCE_FLIGHT_DURATION_MS = 280;
 export const RESOURCE_FLIGHT_STAGGER_MS = 75;
 export const CARD_FLIGHT_DURATION_MS = 280;
-export const CARD_DRAW_FLIGHT_DELAY_MS = CARD_FLIGHT_DURATION_MS;
 export const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
 
 // Dice animation settle durations — must match the CSS transition durations.
