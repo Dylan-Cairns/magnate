@@ -26,6 +26,11 @@
   animation-timing-function: linear;
 }
 
+.resource-flight.is-payment {
+  animation-name: payment-chip-loss;
+  animation-timing-function: linear;
+}
+
 .resource-flight.is-terminal-clear {
   animation-name: terminal-clear-resource-flight;
   animation-timing-function: ease-in;
@@ -60,6 +65,21 @@
 }
 
 @keyframes tax-chip-loss {
+  0% {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(
+      calc(-50% + var(--resource-flight-dx)),
+      calc(-50% + var(--resource-flight-dy))
+    );
+    opacity: 0;
+  }
+}
+
+@keyframes payment-chip-loss {
   0% {
     transform: translate(-50%, -50%);
     opacity: 1;

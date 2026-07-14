@@ -174,7 +174,7 @@ export function buildPaymentFlightsFromDom(
       endY: viewportCenterY,
       delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
       durationMs: RESOURCE_FLIGHT_DURATION_MS,
-      variant: 'transfer',
+      variant: 'payment',
     });
   }
 
