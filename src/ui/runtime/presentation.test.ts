@@ -199,7 +199,7 @@ describe('derivePresentationSnapshotFromSequence', () => {
     const previous = makeGameState({
       players: [
         makePlayer(PLAYER_A, {
-          hand: ['6'],
+          hand: ['6', '7'],
           resources: makeResources(),
         }),
         makePlayer(PLAYER_B),
@@ -213,6 +213,8 @@ describe('derivePresentationSnapshotFromSequence', () => {
     const next = makeGameState({
       players: [
         makePlayer(PLAYER_A, {
+          // Deliberately not the legal sell result. The staging step should
+          // remove only the sold card from the current view, not copy this hand.
           hand: [],
           resources: makeResources({ Moons: 1, Knots: 1 }),
         }),
@@ -240,7 +242,7 @@ describe('derivePresentationSnapshotFromSequence', () => {
       sequence,
       elapsedMs: 0,
     });
-    expect(staged.viewState.players[0].hand).toEqual([]);
+    expect(staged.viewState.players[0].hand).toEqual(['7']);
     expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(0);
     expect(staged.viewState.deck.discard).toEqual([]);
 
@@ -259,6 +261,7 @@ describe('derivePresentationSnapshotFromSequence', () => {
       elapsedMs: commit.startMs,
     });
     expect(committed.viewState.deck.discard).toEqual(['6']);
+    expect(committed.viewState.players[0].hand).toEqual([]);
   });
 
   it('applies card-play payment before card placement and does not leak district placement early', () => {
@@ -293,6 +296,61 @@ describe('derivePresentationSnapshotFromSequence', () => {
     }).viewState;
     expect(cardInHand(afterPlacement, PLAYER_A, '6')).toBe(false);
     expect(deedCardInDistrict(afterPlacement, PLAYER_A, 'D1')).toBe('6');
+  });
+
+  it('places developed cards from the placement event without copying unrelated next-state stack changes', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6'],
+          resources: makeResources({ Moons: 2, Knots: 2 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          [PLAYER_A]: { developed: ['8'] },
+        }),
+      ],
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: [],
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          // Deliberately includes an unrelated extra card; the placement step
+          // should not copy it before commit.
+          [PLAYER_A]: { developed: ['8', '6', '7'] },
+        }),
+      ],
+    });
+    const transaction = buildGameTransaction({
+      previousState: previous,
+      action: {
+        type: 'develop-outright',
+        cardId: '6',
+        districtId: 'D1',
+        payment: { Moons: 1, Knots: 1 },
+      },
+      actingPlayerId: PLAYER_A,
+      transactionId: 'tx-place-developed-card',
+      stepToDecision: () => next,
+    });
+    const sequence = delayCommitStep(buildAnimationSequence(transaction));
+    const placeCard = step(sequence, 'place-card-in-district');
+
+    const placed = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: placeCard.startMs,
+    }).viewState;
+
+    expect(developedCards(placed, PLAYER_A, 'D1')).toEqual(['8', '6']);
   });
 
   it('applies deed payment, token landing, progress, then completion reveal', () => {
@@ -355,6 +413,61 @@ describe('derivePresentationSnapshotFromSequence', () => {
     }).viewState;
     expect(deedCardInDistrict(afterCompletion, PLAYER_A, 'D1')).toBeUndefined();
     expect(developedCards(afterCompletion, PLAYER_A, 'D1')).toEqual(['6']);
+  });
+
+  it('reveals deed completion from the completion event without copying unrelated next-state stack changes', () => {
+    const previous = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, {
+          resources: makeResources({ Moons: 1, Knots: 1 }),
+        }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          [PLAYER_A]: {
+            developed: ['8'],
+            deed: { cardId: '6', progress: 0, tokens: {} },
+          },
+        }),
+      ],
+    });
+    const next = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources() }),
+        makePlayer(PLAYER_B),
+      ],
+      districts: [
+        makeDistrict('D1', ['Moons'], {
+          // Deliberately includes an unrelated extra card; completion reveal
+          // should only append the completed deed card.
+          [PLAYER_A]: { developed: ['8', '6', '7'] },
+        }),
+      ],
+    });
+    const transaction = buildGameTransaction({
+      previousState: previous,
+      action: {
+        type: 'develop-deed',
+        cardId: '6',
+        districtId: 'D1',
+        tokens: { Moons: 1, Knots: 1 },
+      },
+      actingPlayerId: PLAYER_A,
+      transactionId: 'tx-complete-deed-no-stack-leak',
+      stepToDecision: () => next,
+    });
+    const sequence = delayCommitStep(buildAnimationSequence(transaction));
+    const revealCompletion = step(sequence, 'reveal-deed-completion');
+
+    const afterCompletion = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: revealCompletion.startMs,
+    }).viewState;
+
+    expect(deedCardInDistrict(afterCompletion, PLAYER_A, 'D1')).toBeUndefined();
+    expect(developedCards(afterCompletion, PLAYER_A, 'D1')).toEqual(['8', '6']);
   });
 
   it('applies trade resources at the trade sequence step', () => {
@@ -638,6 +751,27 @@ function developedCards(
   districtId: string
 ): readonly string[] {
   return stackFor(state, playerId, districtId)?.developed ?? [];
+}
+
+function delayCommitStep(
+  sequence: AnimationSequence,
+  delayMs = 1
+): AnimationSequence {
+  return {
+    ...sequence,
+    durationMs: sequence.durationMs + delayMs,
+    commitMs: sequence.commitMs + delayMs,
+    inputUnlockMs: sequence.inputUnlockMs + delayMs,
+    steps: sequence.steps.map((entry) =>
+      entry.type === 'commit-view-state'
+        ? {
+            ...entry,
+            startMs: entry.startMs + delayMs,
+            endMs: entry.endMs + delayMs,
+          }
+        : entry
+    ),
+  };
 }
 
 function step<TType extends AnimationSequence['steps'][number]['type']>(

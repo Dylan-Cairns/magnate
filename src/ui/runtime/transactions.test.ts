@@ -64,6 +64,7 @@ describe('deriveGamePresentationEvents', () => {
     expect(events).toContainEqual({
       type: 'income-roll',
       playerId: PLAYER_B,
+      turn: 1,
       roll: { die1: 7, die2: 4, rollId: 12 },
       incomeRank: 7,
     });
@@ -505,6 +506,7 @@ describe('deriveGamePresentationEvents', () => {
 
     expect(events).toContainEqual({
       type: 'income-choice-required',
+      returnPlayerId: PLAYER_A,
       choices: [
         {
           playerId: PLAYER_A,

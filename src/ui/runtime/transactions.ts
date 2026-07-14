@@ -325,6 +325,7 @@ function deriveEndTurnEvents(
   events.push({
     type: 'income-roll',
     playerId: cycle.cycleOwner,
+    turn: nextState.turn,
     roll: cycle.roll,
     incomeRank: cycle.incomeRank,
   });
@@ -359,6 +360,7 @@ function deriveEndTurnEvents(
     events.push({
       type: 'income-choice-required',
       choices: cloneIncomeChoices(cycle.pendingChoices),
+      returnPlayerId: nextState.incomeChoiceReturnPlayerId,
     });
   }
 
