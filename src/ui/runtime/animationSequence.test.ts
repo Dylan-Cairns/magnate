@@ -89,15 +89,15 @@ describe('buildAnimationSequence', () => {
     );
   });
 
-  it('sequences card play payment before card placement', () => {
+  it('sequences card placement before card play payment', () => {
     const sequence = buildAnimationSequence(makeBuyDeedTransaction());
 
     expect(stepTypes(sequence)).toEqual([
       'hold-previous-state',
-      'launch-payment-token-flights',
-      'apply-resource-payment',
       'launch-card-to-district-flight',
       'place-card-in-district',
+      'launch-payment-token-flights',
+      'apply-resource-payment',
       'commit-view-state',
     ]);
 
@@ -109,9 +109,10 @@ describe('buildAnimationSequence', () => {
       DEFAULT_ANIMATION_DURATIONS.actionResourceFlightMs +
         DEFAULT_ANIMATION_DURATIONS.actionResourceFlightStaggerMs
     );
-    expect(applyPayment.startMs).toBe(payment.endMs);
-    expect(cardFlight.startMs).toBe(applyPayment.endMs);
+    expect(cardFlight.startMs).toBe(0);
     expect(placement.startMs).toBe(cardFlight.endMs);
+    expect(payment.startMs).toBe(placement.endMs);
+    expect(applyPayment.startMs).toBe(payment.endMs);
   });
 
   it('sequences deed progress and completion after deed-token flights', () => {

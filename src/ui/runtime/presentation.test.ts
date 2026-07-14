@@ -264,11 +264,30 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(committed.viewState.players[0].hand).toEqual([]);
   });
 
-  it('applies card-play payment before card placement and does not leak district placement early', () => {
+  it('places card-play cards before applying payment without leaking either step early', () => {
     const transaction = makeBuyDeedTransaction();
     const sequence = buildAnimationSequence(transaction);
     const applyPayment = step(sequence, 'apply-resource-payment');
     const placeCard = step(sequence, 'place-card-in-district');
+
+    const beforePlacement = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: placeCard.startMs - 1,
+    }).viewState;
+    expect(resourceCount(beforePlacement, PLAYER_A, 'Moons')).toBe(2);
+    expect(cardInHand(beforePlacement, PLAYER_A, '6')).toBe(true);
+    expect(deedCardInDistrict(beforePlacement, PLAYER_A, 'D1')).toBeUndefined();
+
+    const afterPlacement = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: placeCard.startMs,
+    }).viewState;
+    expect(resourceCount(afterPlacement, PLAYER_A, 'Moons')).toBe(2);
+    expect(resourceCount(afterPlacement, PLAYER_A, 'Knots')).toBe(2);
+    expect(cardInHand(afterPlacement, PLAYER_A, '6')).toBe(false);
+    expect(deedCardInDistrict(afterPlacement, PLAYER_A, 'D1')).toBe('6');
 
     const beforePayment = derivePresentationSnapshotFromSequence({
       transaction,
@@ -276,8 +295,9 @@ describe('derivePresentationSnapshotFromSequence', () => {
       elapsedMs: applyPayment.startMs - 1,
     }).viewState;
     expect(resourceCount(beforePayment, PLAYER_A, 'Moons')).toBe(2);
-    expect(cardInHand(beforePayment, PLAYER_A, '6')).toBe(true);
-    expect(deedCardInDistrict(beforePayment, PLAYER_A, 'D1')).toBeUndefined();
+    expect(resourceCount(beforePayment, PLAYER_A, 'Knots')).toBe(2);
+    expect(cardInHand(beforePayment, PLAYER_A, '6')).toBe(false);
+    expect(deedCardInDistrict(beforePayment, PLAYER_A, 'D1')).toBe('6');
 
     const afterPayment = derivePresentationSnapshotFromSequence({
       transaction,
@@ -286,16 +306,8 @@ describe('derivePresentationSnapshotFromSequence', () => {
     }).viewState;
     expect(resourceCount(afterPayment, PLAYER_A, 'Moons')).toBe(1);
     expect(resourceCount(afterPayment, PLAYER_A, 'Knots')).toBe(1);
-    expect(cardInHand(afterPayment, PLAYER_A, '6')).toBe(true);
-    expect(deedCardInDistrict(afterPayment, PLAYER_A, 'D1')).toBeUndefined();
-
-    const afterPlacement = derivePresentationSnapshotFromSequence({
-      transaction,
-      sequence,
-      elapsedMs: placeCard.startMs,
-    }).viewState;
-    expect(cardInHand(afterPlacement, PLAYER_A, '6')).toBe(false);
-    expect(deedCardInDistrict(afterPlacement, PLAYER_A, 'D1')).toBe('6');
+    expect(cardInHand(afterPayment, PLAYER_A, '6')).toBe(false);
+    expect(deedCardInDistrict(afterPayment, PLAYER_A, 'D1')).toBe('6');
   });
 
   it('places developed cards from the placement event without copying unrelated next-state stack changes', () => {
