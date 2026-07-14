@@ -183,9 +183,9 @@ Design expectations:
   emitted by the animation sequence reducer rather than maintained by
   independent hook-local timers.
 - Human and bot browser actions should share `prepareActionDispatch` for
-  engine validation and animation-plan assembly. Validate with
-  `stepToDecision` before DOM-dependent planning so invalid actions cannot
-  mutate UI-only deed-layout memory.
+  engine validation and terminal-entry reporting. Animation planning should
+  stay in the sequence runtime; action dispatch should not return queued DOM
+  flights or participate in visual settle timing.
 - Browser `CollectIncome` controls follow income-choice ownership rather than
   normal turn ownership:
   - human input is available when the human has an unsubmitted

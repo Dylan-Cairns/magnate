@@ -1,5 +1,3 @@
-import type { CardFlight, ResourceFlight } from './types';
-
 export const RESOURCE_FLIGHT_DURATION_MS = 280;
 export const RESOURCE_FLIGHT_STAGGER_MS = 75;
 export const CARD_FLIGHT_DURATION_MS = 280;
@@ -20,33 +18,3 @@ export const TURN_CYCLE_INCOME_FLIGHT_DURATION_MS = 560;
 export const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
 export const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
 export const DEED_PROGRESS_REVEAL_MS = 420;
-export const TERMINAL_CLEANUP_FLIGHT_DURATION_MS = 900;
-export const TERMINAL_CLEANUP_VERTICAL_TRAVEL_PX = 220;
-
-export function resourceFlightSettleMs(
-  flights: readonly ResourceFlight[]
-): number {
-  if (flights.length === 0) {
-    return 0;
-  }
-  const latestEndMs = Math.max(
-    ...flights.map(
-      (flight) =>
-        flight.delayMs + (flight.durationMs ?? RESOURCE_FLIGHT_DURATION_MS)
-    )
-  );
-  return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
-}
-
-export function cardFlightSettleMs(flights: readonly CardFlight[]): number {
-  if (flights.length === 0) {
-    return 0;
-  }
-  const latestEndMs = Math.max(
-    ...flights.map(
-      (flight) =>
-        flight.delayMs + (flight.durationMs ?? CARD_FLIGHT_DURATION_MS)
-    )
-  );
-  return latestEndMs + ACTION_FLIGHT_COMMIT_BUFFER_MS;
-}

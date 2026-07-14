@@ -6,6 +6,10 @@ export interface TurnResetAnchor {
   state: GameState;
 }
 
+export type TurnResetAvailabilityOptions = {
+  actionCommitPending?: boolean;
+};
+
 export function shouldCaptureTurnResetAnchor(
   state: GameState,
   activePlayerId: PlayerId,
@@ -31,8 +35,12 @@ export function canUseTurnReset(
   state: GameState,
   activePlayerId: PlayerId,
   humanPlayerId: PlayerId,
-  anchor: TurnResetAnchor | null
+  anchor: TurnResetAnchor | null,
+  options: TurnResetAvailabilityOptions = {}
 ): boolean {
+  if (options.actionCommitPending) {
+    return false;
+  }
   if (!anchor) {
     return false;
   }

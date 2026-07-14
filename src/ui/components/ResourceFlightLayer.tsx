@@ -23,8 +23,6 @@ export function ResourceFlightLayer({
             ? ' is-tax-loss'
             : flight.variant === 'payment'
               ? ' is-payment'
-            : flight.variant === 'terminal-clear'
-              ? ' is-terminal-clear'
               : ' is-transfer';
         return (
           <div

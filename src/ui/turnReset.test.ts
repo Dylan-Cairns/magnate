@@ -130,6 +130,26 @@ describe('canUseTurnReset', () => {
     expect(canUseTurnReset(current, PLAYER_A, HUMAN_PLAYER, anchor)).toBe(true);
   });
 
+  it('is false while an action commit is pending', () => {
+    const anchorState = makeGameState({
+      phase: 'ActionWindow',
+      activePlayerIndex: 0,
+      cardPlayedThisTurn: false,
+      turn: 6,
+    });
+    const current = {
+      ...anchorState,
+      cardPlayedThisTurn: true,
+    };
+    const anchor = makeAnchor(anchorState, 6, PLAYER_A);
+
+    expect(
+      canUseTurnReset(current, PLAYER_A, HUMAN_PLAYER, anchor, {
+        actionCommitPending: true,
+      })
+    ).toBe(false);
+  });
+
   it('is false for bot turns and phase/turn mismatch', () => {
     const anchorState = makeGameState({
       phase: 'ActionWindow',

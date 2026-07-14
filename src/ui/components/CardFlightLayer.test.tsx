@@ -31,8 +31,8 @@ describe('CardFlightLayer', () => {
           { ...BASE_FLIGHT, variant: 'draw' },
           {
             ...BASE_FLIGHT,
-            id: 'terminal-back',
-            variant: 'terminal-clear',
+            id: 'played-back',
+            variant: 'play',
             visual: 'back',
             cardId: undefined,
           },
@@ -41,7 +41,6 @@ describe('CardFlightLayer', () => {
     );
 
     expect(html).toContain('card-flight is-draw');
-    expect(html).toContain('card-flight is-terminal-clear');
     expect(html).toContain('--card-flight-dx:40px');
     expect(html).toContain('--card-flight-dy:60px');
     expect(html).toContain('--card-flight-scale-x:0.5');
