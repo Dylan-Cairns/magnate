@@ -15,7 +15,7 @@ describe('bot policy catalog', () => {
   });
 
   it('includes only rollout-search profiles for the active browser catalog', () => {
-    expect(BOT_PROFILES.length).toBe(5);
+    expect(BOT_PROFILES.length).toBe(6);
     expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(
       true
     );
@@ -46,6 +46,26 @@ describe('bot policy catalog', () => {
       throw new Error('Expected rollout-search-v2 to use a search spec.');
     }
     expect(profile.spec.config.heuristic).toBe('v2');
+  });
+
+  it('includes the medium-hard heuristic v2 training profile', () => {
+    const profile = getBotProfile('rollout-search-v2-medium-hard');
+
+    expect(profile.label).toBe('Heuristic V2 Medium Hard');
+    expect(profile.kind).toBe('search');
+    expect(profile.available).toBe(true);
+    expect(profile.spec.kind).toBe('search');
+    if (profile.spec.kind !== 'search') {
+      throw new Error('Expected medium-hard v2 profile to use a search spec.');
+    }
+    expect(profile.spec.config).toEqual({
+      worlds: 40,
+      rollouts: 1,
+      depth: 180,
+      maxRootActions: 16,
+      rolloutEpsilon: 0,
+      heuristic: 'v2',
+    });
   });
 
   it('includes a TD-root profile using heuristic v2 leaf evaluation', () => {
