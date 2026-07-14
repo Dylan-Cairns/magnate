@@ -9,6 +9,10 @@ import {
   createTdRootSearchPolicy,
   type TdRootSearchPolicyOptions,
 } from './tdRootSearchPolicy';
+import type {
+  TdRootGuidanceSource,
+  TdRootSearchGuidanceConfig,
+} from './tdRootGuidanceConfig';
 import type { ActionPolicy } from './types';
 
 export type BotKind =
@@ -38,6 +42,7 @@ export interface TdRootSearchBotSpec {
   kind: 'td-root-search';
   config: SearchPolicyConfig;
   modelIndexPath?: string;
+  guidance?: TdRootSearchGuidanceConfig;
 }
 
 export type BotSpec =
@@ -65,6 +70,7 @@ export function createPolicyFromBotSpec(
       return createTdRootSearchPolicy({
         ...spec.config,
         modelIndexPath: spec.modelIndexPath,
+        guidance: spec.guidance,
         loadModel: overrides.tdRootSearchLoadModel,
       });
   }
@@ -87,7 +93,7 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
         config: parseSearchConfig(source.config, `${label}.config`),
       };
     case 'td-root-search':
-      return {
+      return optionalObjectProperties({
         id,
         kind,
         config: parseSearchConfig(source.config, `${label}.config`),
@@ -95,7 +101,11 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
           source.modelIndexPath,
           `${label}.modelIndexPath`
         ),
-      };
+        guidance: parseOptionalTdRootGuidanceConfig(
+          source.guidance,
+          `${label}.guidance`
+        ),
+      });
     default:
       throw new Error(
         `${label}.kind must be random, heuristic, search, or td-root-search.`
@@ -179,4 +189,38 @@ function optionalSearchHeuristic(
     return value;
   }
   throw new Error(`${label} must be v1 or v2.`);
+}
+
+function parseOptionalTdRootGuidanceConfig(
+  value: unknown,
+  label: string
+): TdRootSearchGuidanceConfig | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const source = requiredRecord(value, label);
+  return optionalObjectProperties({
+    root: optionalTdRootGuidanceSource(source.root, `${label}.root`),
+    rollout: optionalTdRootGuidanceSource(source.rollout, `${label}.rollout`),
+    leaf: optionalTdRootGuidanceSource(source.leaf, `${label}.leaf`),
+  });
+}
+
+function optionalTdRootGuidanceSource(
+  value: unknown,
+  label: string
+): TdRootGuidanceSource | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === 'td' || value === 'heuristic') {
+    return value;
+  }
+  throw new Error(`${label} must be td or heuristic.`);
+}
+
+function optionalObjectProperties<T extends object>(value: T): T {
+  return Object.fromEntries(
+    Object.entries(value).filter((_entry): boolean => _entry[1] !== undefined)
+  ) as T;
 }
