@@ -432,6 +432,7 @@ export function useGameAnimations({
     cardFlights,
     incomeHighlightCardIds: presentationOverlays?.incomeHighlightCardIds ?? [],
     incomeHighlightCrowns: presentationOverlays?.incomeHighlightCrowns ?? [],
+    diceVisualState: presentationOverlays?.dice ?? null,
     presentationSnapshot,
     activePlayerHighlightOverride:
       presentationOverlays?.activePlayerHighlightOverride ?? null,

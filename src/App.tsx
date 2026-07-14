@@ -4,7 +4,12 @@ import { recordGame } from './db/gameHistory';
 
 import type { CardId } from './engine/cards';
 import { districtWinnersByPlayer, scoreLive } from './engine/scoring';
-import type { GameAction, PlayerId, Suit } from './engine/types';
+import type {
+  GameAction,
+  IncomeRollResult,
+  PlayerId,
+  Suit,
+} from './engine/types';
 import {
   buildHumanActionList,
   buildTradeSourceGroups,
@@ -50,6 +55,7 @@ import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
 import { useGameController } from './ui/hooks/useGameController';
+import type { DiceVisualState } from './ui/runtime/types';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -160,6 +166,7 @@ export function App() {
       cardFlights,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
+      diceVisualState,
       activePlayerHighlightOverride,
       actionCommitPending,
       allowHumanActionsWhileCommitPending,
@@ -179,7 +186,6 @@ export function App() {
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const closeBugReport = useCallback(() => setBugReportOpen(false), []);
   const closeNewGame = useCallback(() => setNewGameExpanded(false), []);
-  const turnCyclePreludeActive = activePlayerHighlightOverride !== null;
   const visualActivePlayerId = activePlayerHighlightOverride ?? activePlayerId;
   const retryStartupPreload = useCallback(() => {
     setStartupPreloadReady(false);
@@ -238,7 +244,6 @@ export function App() {
   }, [deckMapInteractive]);
 
   const isLastTurn = !terminal && (viewState.finalTurnsRemaining ?? 0) > 0;
-  const holdPreviousRoll = turnCyclePreludeActive || terminal;
   const score = useMemo(
     () => viewState.finalScore ?? scoreLive(viewState),
     [viewState]
@@ -273,6 +278,12 @@ export function App() {
   );
   const botPlayer = humanView.players.find(
     (player) => player.id === BOT_PLAYER
+  );
+  const visibleDiceState = useMemo(
+    () =>
+      diceVisualState ??
+      settledDiceVisualState(humanView.lastIncomeRoll, humanView.lastTaxSuit),
+    [diceVisualState, humanView.lastIncomeRoll, humanView.lastTaxSuit]
   );
   const pendingIncomeChoiceCardIds = useMemo(
     () => (viewState.pendingIncomeChoices ?? []).map((choice) => choice.cardId),
@@ -662,14 +673,8 @@ export function App() {
           <div className="board-top-row">
             <div className="dice-float">
               <RollResult
-                roll={
-                  turnCyclePreludeActive ? undefined : humanView.lastIncomeRoll
-                }
-                taxSuit={
-                  turnCyclePreludeActive ? undefined : humanView.lastTaxSuit
-                }
+                dice={visibleDiceState}
                 gameKey={viewState.seed}
-                holdPrevious={holdPreviousRoll}
                 animationsEnabled={animationsEnabled}
               />
             </div>
@@ -801,6 +806,22 @@ export function App() {
       ) : null}
     </div>
   );
+}
+
+function settledDiceVisualState(
+  incomeRoll: IncomeRollResult | undefined,
+  taxSuit: Suit | undefined
+): DiceVisualState | null {
+  if (!incomeRoll) {
+    return null;
+  }
+
+  return {
+    incomeRoll,
+    taxSuit,
+    incomePhase: 'settled',
+    taxPhase: taxSuit ? 'settled' : 'dimmed',
+  };
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -157,6 +157,11 @@ Design expectations:
   not sticky canonical history fields. For example, `lastTaxSuit` records the
   latest resolved tax for display/history, while only a transaction-level
   `tax-resolved` event means the current sequence should animate tax dice.
+- Dice display phases are presentation overlay state produced by the
+  `AnimationSequence` reducer. Dice renderer components may own CSS transform
+  mechanics, but sequencing decisions such as when the income dice pulse, when
+  the tax die appears, and when the tax die pulses must not be managed by
+  component-local timers.
 - Browser token visual effects should be scheduled from sequence-derived visual
   commands. DOM target lookup and flight object construction stay browser-only,
   but the command `atMs`/`startMs` values must come from `AnimationSequence`

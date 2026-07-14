@@ -6,7 +6,11 @@ import type {
   Suit,
 } from '../../engine/types';
 import type { CardId } from '../../engine/cards';
-import type { AnimationOverlayState, GameTransaction } from './types';
+import type {
+  AnimationOverlayState,
+  DiceVisualState,
+  GameTransaction,
+} from './types';
 import type {
   AnimationSequence,
   ScheduledAnimationStep,
@@ -27,6 +31,7 @@ const EMPTY_OVERLAYS: AnimationOverlayState = {
   incomeHighlightCardIds: [],
   incomeHighlightCrowns: [],
   activePlayerHighlightOverride: null,
+  dice: null,
 };
 
 const SUITS: readonly Suit[] = [
@@ -82,8 +87,6 @@ function applySequenceStep(
 ): PresentationSnapshot {
   switch (step.type) {
     case 'hold-previous-state':
-    case 'pulse-income-die':
-    case 'pulse-tax-die':
     case 'hold-before-tax-flights':
     case 'launch-tax-token-flights':
     case 'stage-gap':
@@ -172,6 +175,27 @@ function applySequenceStep(
         overlays: {
           ...overlays,
           activePlayerHighlightOverride: null,
+          dice: {
+            incomeRoll: step.roll,
+            taxSuit: undefined,
+            incomePhase: 'rolling',
+            taxPhase: 'hidden',
+          },
+        },
+      };
+    case 'pulse-income-die':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          dice: {
+            incomeRoll: step.roll,
+            taxSuit: undefined,
+            incomePhase: 'pulsing',
+            taxPhase: transactionHasTaxResolution(transaction)
+              ? 'hidden'
+              : 'dimmed',
+          },
         },
       };
     case 'roll-tax-die':
@@ -180,7 +204,26 @@ function applySequenceStep(
           ...viewState,
           lastTaxSuit: step.suit,
         },
-        overlays,
+        overlays: {
+          ...overlays,
+          dice: updateDiceVisualState(overlays.dice, {
+            taxSuit: step.suit,
+            incomePhase: 'settled',
+            taxPhase: 'rolling',
+          }),
+        },
+      };
+    case 'pulse-tax-die':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          dice: updateDiceVisualState(overlays.dice, {
+            taxSuit: step.suit,
+            incomePhase: 'settled',
+            taxPhase: 'pulsing',
+          }),
+        },
       };
     case 'apply-tax-losses':
       return {
@@ -265,6 +308,23 @@ function initialOverlays(transaction: GameTransaction): AnimationOverlayState {
     ...EMPTY_OVERLAYS,
     activePlayerHighlightOverride: hasDraw ? transaction.actingPlayerId : null,
   };
+}
+
+function updateDiceVisualState(
+  current: DiceVisualState | null,
+  update: Pick<DiceVisualState, 'taxSuit' | 'incomePhase' | 'taxPhase'>
+): DiceVisualState | null {
+  if (!current) {
+    return null;
+  }
+  return {
+    ...current,
+    ...update,
+  };
+}
+
+function transactionHasTaxResolution(transaction: GameTransaction): boolean {
+  return transaction.events.some((event) => event.type === 'tax-resolved');
 }
 
 function stageSoldCard(viewState: GameState, nextState: GameState): GameState {
@@ -444,7 +504,7 @@ function revealIncomeRoll(
     activePlayerIndex: nextState.activePlayerIndex,
     turn: nextState.turn,
     lastIncomeRoll: event.roll,
-    lastTaxSuit: nextState.lastTaxSuit,
+    lastTaxSuit: undefined,
   };
 }
 
