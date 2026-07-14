@@ -55,14 +55,21 @@
   action payment token flights, deed token flights, tax flights, and income
   flights from step boundaries; action dispatch no longer queues ordinary
   action card/deed flights. The presentation reducer now applies action payment,
-  card placement, deed progress/completion, sell gain, and trade resource
-  mutations at their sequence steps, so those visible state changes no longer
-  depend on generic commit timing. Deed progress visual timing uses the shared
-  animation timing constant instead of component-local requestAnimationFrame
-  state, and action commit/input unlock are derived from `AnimationSequence`
-  `commitMs`/`inputUnlockMs` rather than action-type timing rules. Income-choice
-  bot thinking visibility now keys off bot thinking state during visible income
-  choice resolution rather than normal turn ownership.
+  card placement, deed token landing, deed progress/completion, sell gain, and
+  trade resource mutations at their sequence steps, so those visible state
+  changes no longer depend on generic commit timing. Deed token development now
+  removes player resources at flight start, applies in-card token badges after
+  token flight landing, advances the progress tracker afterward, and reveals
+  completion last. Sequence-launched resource flight visual commands carry
+  their duration from the owning `AnimationSequence` step, and the overlay copy
+  self-removes from that command duration before later sequence steps reveal
+  landed state. The deed progress tracker uses its original explicit SVG arc
+  geometry with local requestAnimationFrame interpolation, but its duration is
+  sourced from the shared animation timing constant. Action commit/input unlock
+  are derived from `AnimationSequence` `commitMs`/`inputUnlockMs` rather than
+  action-type timing rules. Income-choice bot thinking visibility now keys off
+  bot thinking state during visible income choice resolution rather than normal
+  turn ownership.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.

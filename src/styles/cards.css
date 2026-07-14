@@ -294,10 +294,6 @@
 .card-tile.is-in-development .deed-progress-ring-value {
   stroke: rgba(190, 201, 216, 0.82);
   stroke-linecap: butt;
-  transform: rotate(-90deg);
-  transform-origin: center;
-  transition-property: stroke-dashoffset;
-  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-tile.is-in-development .deed-progress-value {

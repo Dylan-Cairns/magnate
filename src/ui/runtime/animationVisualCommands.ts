@@ -27,6 +27,7 @@ export type AnimationVisualCommand =
   | {
       type: 'launch-payment-token-flights';
       atMs: number;
+      durationMs: number;
       event: Extract<
         GamePresentationEvent,
         { type: 'resource-payment-started' }
@@ -35,6 +36,7 @@ export type AnimationVisualCommand =
   | {
       type: 'launch-deed-token-flights';
       atMs: number;
+      durationMs: number;
       tokens: readonly Extract<
         GamePresentationEvent,
         { type: 'deed-token-paid' }
@@ -49,6 +51,7 @@ export type AnimationVisualCommand =
   | {
       type: 'launch-tax-token-flights';
       atMs: number;
+      durationMs: number;
       losses: readonly Extract<
         GamePresentationEvent,
         { type: 'tax-token-lost' }
@@ -57,6 +60,7 @@ export type AnimationVisualCommand =
   | {
       type: 'launch-income-token-flights';
       atMs: number;
+      durationMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
         { type: 'income-token-gained' }
@@ -96,6 +100,7 @@ export function deriveAnimationVisualCommands(
         commands.push({
           type: 'launch-payment-token-flights',
           atMs: step.startMs,
+          durationMs: step.durationMs,
           event: step.event,
         });
         break;
@@ -103,6 +108,7 @@ export function deriveAnimationVisualCommands(
         commands.push({
           type: 'launch-deed-token-flights',
           atMs: step.startMs,
+          durationMs: step.durationMs,
           tokens: step.tokens,
         });
         break;
@@ -127,6 +133,7 @@ export function deriveAnimationVisualCommands(
     commands.push({
       type: 'launch-tax-token-flights',
       atMs: taxFlightStep.startMs,
+      durationMs: taxFlightStep.durationMs,
       losses: taxFlightStep.losses,
     });
   }
@@ -138,6 +145,7 @@ export function deriveAnimationVisualCommands(
     commands.push({
       type: 'launch-income-token-flights',
       atMs: incomeFlightStep.startMs,
+      durationMs: incomeFlightStep.durationMs,
       gains: incomeFlightStep.gains,
     });
   }

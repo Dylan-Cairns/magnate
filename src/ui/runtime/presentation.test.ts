@@ -238,31 +238,46 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(deedCardInDistrict(afterPlacement, PLAYER_A, 'D1')).toBe('6');
   });
 
-  it('applies deed payment, then deed progress, then completion reveal', () => {
+  it('applies deed payment, token landing, progress, then completion reveal', () => {
     const transaction = makeCompleteDeedTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const applyPayment = step(sequence, 'apply-resource-payment');
+    const launchTokens = step(sequence, 'launch-deed-token-flights');
+    const applyTokens = step(sequence, 'apply-deed-tokens');
     const applyProgress = step(sequence, 'apply-deed-progress');
     const revealCompletion = step(sequence, 'reveal-deed-completion');
 
-    const beforePayment = derivePresentationSnapshotFromSequence({
+    const initial = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyPayment.startMs - 1,
+      elapsedMs: 0,
     }).viewState;
-    expect(resourceCount(beforePayment, PLAYER_A, 'Moons')).toBe(1);
-    expect(deedProgress(beforePayment, PLAYER_A, 'D1')).toBe(0);
-    expect(developedCards(beforePayment, PLAYER_A, 'D1')).toEqual([]);
+    expect(resourceCount(initial, PLAYER_A, 'Moons')).toBe(0);
+    expect(resourceCount(initial, PLAYER_A, 'Knots')).toBe(0);
+    expect(deedProgress(initial, PLAYER_A, 'D1')).toBe(0);
+    expect(deedTokens(initial, PLAYER_A, 'D1')).toEqual({});
+    expect(developedCards(initial, PLAYER_A, 'D1')).toEqual([]);
 
-    const afterPayment = derivePresentationSnapshotFromSequence({
+    const duringTokenFlight = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyPayment.startMs,
+      elapsedMs: launchTokens.startMs,
     }).viewState;
-    expect(resourceCount(afterPayment, PLAYER_A, 'Moons')).toBe(0);
-    expect(resourceCount(afterPayment, PLAYER_A, 'Knots')).toBe(0);
-    expect(deedProgress(afterPayment, PLAYER_A, 'D1')).toBe(0);
-    expect(developedCards(afterPayment, PLAYER_A, 'D1')).toEqual([]);
+    expect(resourceCount(duringTokenFlight, PLAYER_A, 'Moons')).toBe(0);
+    expect(resourceCount(duringTokenFlight, PLAYER_A, 'Knots')).toBe(0);
+    expect(deedProgress(duringTokenFlight, PLAYER_A, 'D1')).toBe(0);
+    expect(deedTokens(duringTokenFlight, PLAYER_A, 'D1')).toEqual({});
+
+    const afterTokenLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: applyTokens.startMs,
+    }).viewState;
+    expect(deedProgress(afterTokenLanding, PLAYER_A, 'D1')).toBe(0);
+    expect(deedTokens(afterTokenLanding, PLAYER_A, 'D1')).toEqual({
+      Moons: 1,
+      Knots: 1,
+    });
+    expect(developedCards(afterTokenLanding, PLAYER_A, 'D1')).toEqual([]);
 
     const afterProgress = derivePresentationSnapshotFromSequence({
       transaction,

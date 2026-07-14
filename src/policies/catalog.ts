@@ -76,10 +76,10 @@ export const BOT_PROFILES: readonly BotProfile[] = [
       id: 'td-root-search-v2-medium',
       kind: 'td-root-search',
       config: {
-        worlds: 5,
+        worlds: 10,
         rollouts: 1,
-        depth: 20,
-        maxRootActions: 8,
+        depth: 40,
+        maxRootActions: 10,
         rolloutEpsilon: 0.0,
       },
     },

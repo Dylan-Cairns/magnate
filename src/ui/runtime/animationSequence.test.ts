@@ -119,19 +119,23 @@ describe('buildAnimationSequence', () => {
 
     expect(stepTypes(sequence)).toEqual([
       'hold-previous-state',
-      'launch-deed-token-flights',
       'apply-resource-payment',
+      'launch-deed-token-flights',
+      'apply-deed-tokens',
       'apply-deed-progress',
       'reveal-deed-completion',
       'commit-view-state',
     ]);
 
-    const tokenFlights = step(sequence, 'launch-deed-token-flights');
     const payment = step(sequence, 'apply-resource-payment');
+    const tokenFlights = step(sequence, 'launch-deed-token-flights');
+    const applyTokens = step(sequence, 'apply-deed-tokens');
     const progress = step(sequence, 'apply-deed-progress');
     const completion = step(sequence, 'reveal-deed-completion');
-    expect(payment.startMs).toBe(tokenFlights.endMs);
-    expect(progress.startMs).toBe(payment.endMs);
+    expect(payment.startMs).toBe(0);
+    expect(tokenFlights.startMs).toBe(payment.endMs);
+    expect(applyTokens.startMs).toBe(tokenFlights.endMs);
+    expect(progress.startMs).toBe(applyTokens.endMs);
     expect(completion.startMs).toBe(progress.endMs);
     expect(progress.event.completed).toBe(true);
   });

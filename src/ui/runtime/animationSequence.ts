@@ -134,6 +134,15 @@ export type AnimationStep =
     }
   | {
       id: string;
+      type: 'apply-deed-tokens';
+      durationMs: number;
+      tokens: readonly Extract<
+        GamePresentationEvent,
+        { type: 'deed-token-paid' }
+      >[];
+    }
+  | {
+      id: string;
       type: 'apply-deed-progress';
       durationMs: number;
       event: Extract<
@@ -594,6 +603,25 @@ function appendDeedDevelopmentSteps(
   steps: AnimationStep[],
   durations: AnimationDurations
 ): void {
+  const deedPayment = transaction.events.find(
+    (
+      event
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: 'resource-payment-applied' }
+    > =>
+      event.type === 'resource-payment-applied' &&
+      event.reason === 'develop-deed'
+  );
+  if (deedPayment) {
+    steps.push({
+      id: `apply-resource-payment:${deedPayment.reason}:${deedPayment.playerId}:${deedPayment.cardId}:${deedPayment.districtId}`,
+      type: 'apply-resource-payment',
+      durationMs: 0,
+      event: deedPayment,
+    });
+  }
+
   const deedTokens = transaction.events.filter(
     (
       event
@@ -611,20 +639,15 @@ function appendDeedDevelopmentSteps(
       ),
       tokens: deedTokens,
     });
+    steps.push({
+      id: 'apply-deed-tokens',
+      type: 'apply-deed-tokens',
+      durationMs: durations.commitBufferMs,
+      tokens: deedTokens,
+    });
   }
 
   for (const event of transaction.events) {
-    if (
-      event.type === 'resource-payment-applied' &&
-      event.reason === 'develop-deed'
-    ) {
-      steps.push({
-        id: `apply-resource-payment:${event.reason}:${event.playerId}:${event.cardId}:${event.districtId}`,
-        type: 'apply-resource-payment',
-        durationMs: durations.commitBufferMs,
-        event,
-      });
-    }
     if (event.type === 'deed-progress-applied') {
       steps.push({
         id: `apply-deed-progress:${event.playerId}:${event.cardId}:${event.districtId}`,
