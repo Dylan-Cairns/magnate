@@ -150,6 +150,7 @@ export type GamePresentationEvent =
   | {
       type: 'income-roll';
       playerId: PlayerId;
+      turn: number;
       roll: IncomeRollResult;
       incomeRank: number;
     }
@@ -172,6 +173,7 @@ export type GamePresentationEvent =
   | {
       type: 'income-choice-required';
       choices: readonly IncomeChoice[];
+      returnPlayerId: PlayerId | undefined;
     }
   | {
       type: 'income-choice-submitted';

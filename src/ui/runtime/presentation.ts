@@ -108,11 +108,7 @@ function applySequenceStep(
       };
     case 'place-card-in-district':
       return {
-        viewState: placeCardInDistrict(
-          viewState,
-          transaction.nextState,
-          step.event
-        ),
+        viewState: placeCardInDistrict(viewState, step.event),
         overlays,
       };
     case 'apply-deed-progress':
@@ -122,11 +118,7 @@ function applySequenceStep(
       };
     case 'reveal-deed-completion':
       return {
-        viewState: revealDeedCompletion(
-          viewState,
-          transaction.nextState,
-          step.event
-        ),
+        viewState: revealDeedCompletion(viewState, step.event),
         overlays,
       };
     case 'apply-sell-resource-gains':
@@ -166,12 +158,12 @@ function applySequenceStep(
       };
     case 'stage-sold-card':
       return {
-        viewState: stageSoldCard(viewState, transaction.nextState),
+        viewState: stageSoldCard(viewState, step),
         overlays,
       };
     case 'roll-income-dice':
       return {
-        viewState: revealIncomeRoll(viewState, transaction.nextState, step),
+        viewState: revealIncomeRoll(viewState, step),
         overlays: {
           ...overlays,
           activePlayerHighlightOverride: null,
@@ -271,8 +263,7 @@ function applySequenceStep(
           ...viewState,
           phase: 'CollectIncome',
           pendingIncomeChoices: step.choices,
-          incomeChoiceReturnPlayerId:
-            transaction.nextState.incomeChoiceReturnPlayerId,
+          incomeChoiceReturnPlayerId: step.returnPlayerId,
         },
         overlays,
       };
@@ -327,16 +318,19 @@ function transactionHasTaxResolution(transaction: GameTransaction): boolean {
   return transaction.events.some((event) => event.type === 'tax-resolved');
 }
 
-function stageSoldCard(viewState: GameState, nextState: GameState): GameState {
+function stageSoldCard(
+  viewState: GameState,
+  event: { playerId: PlayerId; cardId: CardId }
+): GameState {
   return {
     ...viewState,
-    phase: nextState.phase,
-    cardPlayedThisTurn: nextState.cardPlayedThisTurn,
+    phase: 'ActionWindow',
+    cardPlayedThisTurn: true,
     players: viewState.players.map((player) =>
-      player.id === nextState.players[nextState.activePlayerIndex]?.id
+      player.id === event.playerId
         ? {
             ...player,
-            hand: nextState.players[nextState.activePlayerIndex]?.hand ?? [],
+            hand: player.hand.filter((cardId) => cardId !== event.cardId),
           }
         : player
     ),
@@ -380,21 +374,40 @@ function applyResourcePayment(
 
 function placeCardInDistrict(
   state: GameState,
-  nextState: GameState,
   event: Extract<
     GameTransaction['events'][number],
     { type: 'card-played-to-district' }
   >
 ): GameState {
-  const nextStack = districtStackFor(nextState, event.districtId, event.playerId);
-  if (!nextStack) {
+  const currentStack = districtStackFor(
+    state,
+    event.districtId,
+    event.playerId
+  );
+  if (!currentStack) {
     return state;
   }
+  const nextStack =
+    event.placement === 'deed'
+      ? {
+          developed: [...currentStack.developed],
+          deed: {
+            cardId: event.cardId,
+            progress: 0,
+            tokens: {},
+          },
+        }
+      : {
+          developed: [...currentStack.developed, event.cardId],
+          deed: currentStack.deed
+            ? { ...currentStack.deed, tokens: { ...currentStack.deed.tokens } }
+            : undefined,
+        };
 
   return {
     ...state,
-    phase: nextState.phase,
-    cardPlayedThisTurn: nextState.cardPlayedThisTurn,
+    phase: 'ActionWindow',
+    cardPlayedThisTurn: true,
     players: state.players.map((player) =>
       player.id === event.playerId
         ? {
@@ -475,11 +488,14 @@ function applyDeedTokens(
 
 function revealDeedCompletion(
   state: GameState,
-  nextState: GameState,
   event: Extract<GameTransaction['events'][number], { type: 'deed-completed' }>
 ): GameState {
-  const nextStack = districtStackFor(nextState, event.districtId, event.playerId);
-  if (!nextStack) {
+  const currentStack = districtStackFor(
+    state,
+    event.districtId,
+    event.playerId
+  );
+  if (!currentStack) {
     return state;
   }
 
@@ -489,23 +505,30 @@ function revealDeedCompletion(
       state,
       event.districtId,
       event.playerId,
-      cloneDistrictStack(nextStack)
+      {
+        developed: [...currentStack.developed, event.cardId],
+        deed: undefined,
+      }
     ),
   };
 }
 
 function revealIncomeRoll(
   viewState: GameState,
-  nextState: GameState,
-  event: { roll: GameState['lastIncomeRoll'] }
+  event: { playerId: PlayerId; turn: number; roll: GameState['lastIncomeRoll'] }
 ): GameState {
   return {
     ...viewState,
-    activePlayerIndex: nextState.activePlayerIndex,
-    turn: nextState.turn,
+    activePlayerIndex: playerIndexFor(viewState, event.playerId),
+    turn: event.turn,
     lastIncomeRoll: event.roll,
     lastTaxSuit: undefined,
   };
+}
+
+function playerIndexFor(state: GameState, playerId: PlayerId): number {
+  const index = state.players.findIndex((player) => player.id === playerId);
+  return index >= 0 ? index : state.activePlayerIndex;
 }
 
 function districtStackFor(

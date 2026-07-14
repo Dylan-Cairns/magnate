@@ -170,6 +170,7 @@ export type AnimationStep =
       type: 'roll-income-dice';
       durationMs: number;
       playerId: PlayerId;
+      turn: number;
       roll: IncomeRollResult;
       incomeRank: number;
     }
@@ -177,6 +178,8 @@ export type AnimationStep =
       id: string;
       type: 'pulse-income-die';
       durationMs: number;
+      playerId: PlayerId;
+      turn: number;
       roll: IncomeRollResult;
       incomeRank: number;
     }
@@ -260,6 +263,7 @@ export type AnimationStep =
       type: 'reveal-income-choice-request';
       durationMs: number;
       choices: readonly IncomeChoice[];
+      returnPlayerId: PlayerId | undefined;
     }
   | {
       id: string;
@@ -347,6 +351,7 @@ export function buildAnimationSequence(
       type: 'roll-income-dice',
       durationMs: durations.dieRollMs,
       playerId: incomeRoll.playerId,
+      turn: incomeRoll.turn,
       roll: incomeRoll.roll,
       incomeRank: incomeRoll.incomeRank,
     });
@@ -354,6 +359,8 @@ export function buildAnimationSequence(
       id: `pulse-income-die:${incomeRoll.roll.rollId ?? `${incomeRoll.roll.die1}-${incomeRoll.roll.die2}`}`,
       type: 'pulse-income-die',
       durationMs: durations.diePulseMs,
+      playerId: incomeRoll.playerId,
+      turn: incomeRoll.turn,
       roll: incomeRoll.roll,
       incomeRank: incomeRoll.incomeRank,
     });
@@ -469,6 +476,7 @@ export function buildAnimationSequence(
         type: 'reveal-income-choice-request',
         durationMs: 0,
         choices: event.choices,
+        returnPlayerId: event.returnPlayerId,
       });
     }
   }

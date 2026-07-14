@@ -153,6 +153,10 @@ Design expectations:
   but canonical-looking resource/card/count mutations belong to explicit
   sequence apply/commit steps so React cannot leak `nextState` before the
   sequence reaches it.
+- Pre-commit presentation reducers should construct visible mutations from the
+  current step/event payload and current presentation snapshot. Copy broad
+  `nextState` structures only at the explicit final commit boundary, or at a
+  narrowly justified reveal step such as draw-card deck state.
 - Animation sequences should be driven by current-transaction semantic events,
   not sticky canonical history fields. For example, `lastTaxSuit` records the
   latest resolved tax for display/history, while only a transaction-level

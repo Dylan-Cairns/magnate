@@ -72,8 +72,12 @@
   history must not create tax animation steps for later non-tax actions.
   Dice visual phases are also derived from the sequence presentation overlay;
   `RollResult` is a render-only component and no longer owns d10/d6 sequencing
-  timers. Income-choice bot thinking visibility now keys off bot thinking state
-  during visible income choice resolution rather than normal turn ownership.
+  timers. Pre-commit presentation snapshots now avoid broad `nextState` copies
+  for sell staging, card placement, deed completion, income roll reveal, and
+  income-choice request reveal; those visible mutations are driven by the
+  current sequence step payload. Income-choice bot thinking visibility now keys
+  off bot thinking state during visible income choice resolution rather than
+  normal turn ownership.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
