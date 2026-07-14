@@ -94,7 +94,7 @@ async function createRuntimeGuidance(
   switch (guidance.kind) {
     case 'td-root': {
       const model = await preloadTdRootBrowserModel(guidance.modelIndexPath);
-      return createTdRootSearchRolloutGuidance({ model });
+      return createTdRootSearchRolloutGuidance({ model, guidance });
     }
   }
 }

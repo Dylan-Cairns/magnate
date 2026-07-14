@@ -22,6 +22,11 @@ import {
   createTdRootSearchRolloutGuidance,
   createTdRootSearchRootGuide,
 } from './tdRootSearchPolicy';
+import {
+  resolveTdRootSearchGuidanceConfig,
+  tdRootGuidanceKind,
+  tdRootGuidanceUsesWorkerModel,
+} from './tdRootGuidanceConfig';
 import type { ActionPolicy, SearchDecisionDiagnostics } from './types';
 import type {
   BotWorkerRequest,
@@ -48,6 +53,7 @@ interface SearchGuidanceFactories {
   createRootGuide?: RolloutSearchRootGuideFactory;
   rolloutGuidance?: RolloutSearchRuntimeGuidance;
   workerGuidance?: RolloutSearchWorkerGuidance;
+  guidanceKind?: SearchDecisionDiagnostics['guidance'];
 }
 
 workerScope.onmessage = (event) => {
@@ -135,9 +141,10 @@ async function selectSearchAction(
     );
   }
   const spec = request.spec;
-  const guidance = await createGuidanceForSpec(spec);
-
   const workerCount = resolveRolloutSearchWorkerCount(request);
+  const guidance = await createGuidanceForSpec(spec, {
+    includeRuntimeGuidance: workerCount <= 1,
+  });
   if (workerCount > 1) {
     const pool = ensureSearchWorkerPool(workerCount);
     try {
@@ -154,7 +161,9 @@ async function selectSearchAction(
         ...(guidance.workerGuidance
           ? { workerGuidance: guidance.workerGuidance }
           : {}),
-        ...(guidance.workerGuidance ? { guidanceKind: 'td-root' } : {}),
+        ...(guidance.guidanceKind
+          ? { guidanceKind: guidance.guidanceKind }
+          : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
         onSearchDiagnostics,
@@ -181,31 +190,60 @@ async function selectSearchAction(
     ...(guidance.rolloutGuidance
       ? { rolloutGuidance: guidance.rolloutGuidance }
       : {}),
-    ...(guidance.rolloutGuidance ? { guidanceKind: 'td-root' } : {}),
+    ...(guidance.guidanceKind ? { guidanceKind: guidance.guidanceKind } : {}),
     onSearchDiagnostics,
   });
 }
 
 async function createGuidanceForSpec(
-  spec: RolloutLikeSearchBotSpec
+  spec: RolloutLikeSearchBotSpec,
+  {
+    includeRuntimeGuidance,
+  }: {
+    includeRuntimeGuidance: boolean;
+  }
 ): Promise<SearchGuidanceFactories> {
   if (spec.kind === 'search') {
     return {};
   }
   const modelIndexPath = spec.modelIndexPath ?? DEFAULT_TD_ROOT_MODEL_INDEX_PATH;
-  const model = await preloadTdRootBrowserModel(modelIndexPath);
+  const guidanceConfig = resolveTdRootSearchGuidanceConfig(spec.guidance);
+  const needsRuntimeModel =
+    guidanceConfig.root === 'td' ||
+    (includeRuntimeGuidance && tdRootGuidanceUsesWorkerModel(guidanceConfig));
+  const model = needsRuntimeModel
+    ? await preloadTdRootBrowserModel(modelIndexPath)
+    : undefined;
   return {
-    createRootGuide(input) {
-      return createTdRootSearchRootGuide({
-        ...input,
-        model,
-      });
-    },
-    rolloutGuidance: createTdRootSearchRolloutGuidance({ model }),
-    workerGuidance: {
-      kind: 'td-root',
-      modelIndexPath,
-    },
+    ...(guidanceConfig.root === 'td' && model
+      ? {
+          createRootGuide(input) {
+            return createTdRootSearchRootGuide({
+              ...input,
+              model,
+            });
+          },
+        }
+      : {}),
+    ...(model && tdRootGuidanceUsesWorkerModel(guidanceConfig)
+      ? {
+          rolloutGuidance: createTdRootSearchRolloutGuidance({
+            model,
+            guidance: guidanceConfig,
+          }),
+        }
+      : {}),
+    ...(tdRootGuidanceUsesWorkerModel(guidanceConfig)
+      ? {
+          workerGuidance: {
+            kind: 'td-root' as const,
+            modelIndexPath,
+            rollout: guidanceConfig.rollout,
+            leaf: guidanceConfig.leaf,
+          },
+        }
+      : {}),
+    guidanceKind: tdRootGuidanceKind(guidanceConfig),
   };
 }
 

@@ -39,6 +39,7 @@ import {
   evaluateSearchLeafState,
   evaluateSearchTerminalState,
 } from './searchStateEvaluator';
+import type { TdRootGuidanceSource } from './tdRootGuidanceConfig';
 import type {
   SearchDecisionDiagnostics,
   SearchRootActionDiagnostics,
@@ -64,6 +65,8 @@ export type RolloutSearchGuidanceKind = 'heuristic' | 'td-root' | 'custom';
 export interface RolloutSearchTdRootWorkerGuidance {
   kind: 'td-root';
   modelIndexPath: string;
+  rollout?: TdRootGuidanceSource;
+  leaf?: TdRootGuidanceSource;
 }
 
 export type RolloutSearchWorkerGuidance = RolloutSearchTdRootWorkerGuidance;

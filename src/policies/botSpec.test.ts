@@ -85,6 +85,65 @@ describe('bot specs', () => {
     });
   });
 
+  it('parses a TD-root rollout-search spec with hybrid guidance', () => {
+    expect(
+      parseBotSpec({
+        id: 'td-root-search-hybrid',
+        kind: 'td-root-search',
+        modelIndexPath: 'model-packs/index.json',
+        guidance: {
+          root: 'td',
+          rollout: 'td',
+          leaf: 'heuristic',
+        },
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          heuristic: 'v2',
+        },
+      })
+    ).toEqual({
+      id: 'td-root-search-hybrid',
+      kind: 'td-root-search',
+      modelIndexPath: 'model-packs/index.json',
+      guidance: {
+        root: 'td',
+        rollout: 'td',
+        leaf: 'heuristic',
+      },
+      config: {
+        worlds: 2,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 3,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
+    });
+  });
+
+  it('rejects unsupported TD-root guidance sources', () => {
+    expect(() =>
+      parseBotSpec({
+        id: 'broken-td-root-search',
+        kind: 'td-root-search',
+        guidance: {
+          leaf: 'value-net',
+        },
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+        },
+      })
+    ).toThrow('guidance.leaf');
+  });
+
   it('constructs policies for deterministic bot kinds', () => {
     expect(
       createPolicyFromBotSpec({ id: 'heuristic-test', kind: 'heuristic' })

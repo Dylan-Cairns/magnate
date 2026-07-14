@@ -26,7 +26,7 @@
 - Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
-- TD-root search is the canonical TD-guided browser rollout path: root ranking/priors use opponent/action logits, rollout playouts use opponent/action logits, and non-terminal leaves use TD value predictions. It loads `td-root-search-v1` static model packs and fails fast when no valid pack is available.
+- TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
   not grow/copy human-readable game logs; real games and exported transcripts
   still use normal logged stepping.
