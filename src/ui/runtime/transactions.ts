@@ -330,6 +330,10 @@ function deriveEndTurnEvents(
   });
 
   if (cycle.tax) {
+    events.push({
+      type: 'tax-resolved',
+      suit: cycle.tax.suit,
+    });
     for (const loss of cycle.tax.lossesByPlayer) {
       for (let tokenIndex = 0; tokenIndex < loss.count; tokenIndex += 1) {
         events.push({

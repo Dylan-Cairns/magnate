@@ -34,6 +34,7 @@ describe('buildGameTransaction', () => {
       'action-started',
       'draw-card',
       'income-roll',
+      'tax-resolved',
       'tax-token-lost',
       'tax-token-lost',
       'income-token-gained',
@@ -65,6 +66,10 @@ describe('deriveGamePresentationEvents', () => {
       playerId: PLAYER_B,
       roll: { die1: 7, die2: 4, rollId: 12 },
       incomeRank: 7,
+    });
+    expect(events).toContainEqual({
+      type: 'tax-resolved',
+      suit: 'Moons',
     });
     expect(events.filter((event) => event.type === 'tax-token-lost')).toEqual([
       {
