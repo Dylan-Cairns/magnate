@@ -586,9 +586,10 @@ Markdown diagnostics under the bot-evaluation artifact directory.
 
 Across 230,000 non-identity comparisons:
 
-- 4,763 of 10,000 decisions changed preferred action under at least one
-  equivalent relabeling;
-- pairwise preferred-action agreement was 80.44%;
+- pairwise preferred-action agreement was 80.44%, meaning one randomly chosen
+  non-identity relabeling changed the preferred action 19.56% of the time;
+- 4,763 of 10,000 decisions changed preferred action under at least one of the
+  23 non-identity relabelings;
 - the mean maximum action-probability change was 0.0618 and the largest was
   0.8262;
 - mean absolute value-estimate change was 0.1036 and the largest was 1.7853;
@@ -617,6 +618,42 @@ shape, and promotion tests. No model, training path, browser default, or bot
 behavior changed during this audit. Detailed results are in the ignored
 `td-symmetry-v2-hard-900-primary` artifact.
 
+## Step 9 Symmetry-Ablation Preflight
+
+The required preflight completed before any training change:
+
+- A raw-state metamorphic test now starts from a genuine canonical game state,
+  relabels the complete state and its real legal actions under every one of the
+  24 Pawn-district permutations, and proves that fresh encoding exactly equals
+  the encoded-vector transformer. It also checks legality, candidate alignment,
+  fixed D3/Excuse placement, and exact inverse restoration.
+- All 900 value-replay shards were copied from the source V2 Hard run beside
+  the already present opponent/action shards. The local value corpus contains
+  163,194 transitions and 427,315,245 bytes; its complete filename/size
+  manifest matches the source, and representative SHA-256 checks match.
+- The deployed July browser pack was converted back into canonical,
+  optimizer-free PyTorch warm-start checkpoints through
+  `scripts.reconstruct_browser_td_root_checkpoints`. The converter validates
+  pack schema, encoding and dimensions, exact tensor keys/shapes, finite float32
+  values, and provenance; reloads both outputs through the normal checkpoint
+  readers; and checks exact tensors plus independent deterministic forward
+  calculations.
+- On the actual July pack, value reconstruction covered 6 tensors/119,041
+  parameters and opponent reconstruction covered 10 tensors/326,401 parameters,
+  with zero internal output difference. On the first real 900-game replay row,
+  reconstructed Python versus deployed TypeScript differed by only
+  `1.2e-7` for value and at most `9.6e-7` across action logits.
+
+The durable reconstructed pair is under ignored
+`artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/`
+as `value-step-0030000.pt` and `opponent-step-0030000.pt`. The source manifest
+SHA-256 is `fd78604bf7f258d9bb73777fbd32c1ad98deb4036413bd8fe6d224e3d981653d`;
+the source weights SHA-256 is
+`7c6605c6b4f366729082f6e57878bfe3349b6e57010a1e39ec730bb3ff76d819`.
+Neither output contains stale optimizer state, so matched control and augmented
+runs must initialize fresh optimizers identically. No training was started and
+no model pack, checkpoint registry, browser default, or bot behavior changed.
+
 ## Invariants Protected by Tests
 
 - complete/disjoint card partition and hidden-world determinization;
@@ -634,7 +671,8 @@ behavior changed during this audit. Detailed results are in the ignored
   metadata;
 - exact D1/D2/D4/D5 observation-block and action-feature permutation with D3
   fixed, deterministic replay sampling, symmetric/biased mock-model detection,
-  and bounded worst-case retention;
+  bounded worst-case retention, and raw-state/re-encoding equivalence across
+  all 24 permutations plus their inverses;
 - forced-root traces reuse one hidden-world sample and one engine/rollout seed
   pair across both roots and both guides, remain terminal, and cannot mutate
   normal search behavior or shared sampled worlds.

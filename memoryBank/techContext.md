@@ -60,6 +60,7 @@
 - Strategic position smoke check: `yarn bot:eval strategic-positions --repetitions 1`
 - Strategic position stability screen: `yarn bot:eval strategic-positions --repetitions 8`
 - Strategic forced-rollout trace: `yarn bot:eval strategic-forced-rollouts --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror --repetitions 0,1`
+- TD district-symmetry audit: `yarn bot:eval td-symmetry --replay-dir <replay-run> --sample-size <n> --sampling-seed <seed>`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
@@ -67,6 +68,7 @@
 - Python typecheck: `.\.venv\Scripts\python -m pyright -p .`
 - Promote/register checkpoint pair: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
 - Export browser TD-root model pack: `.\.venv\Scripts\python -m scripts.export_browser_td_root_pack --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --set-default`
+- Reconstruct optimizer-free trainer checkpoints from a browser TD-root pack: `.\.venv\Scripts\python -m scripts.reconstruct_browser_td_root_checkpoints --manifest <pack-manifest.json> --output-dir <directory>`
 
 ## Python Workflow
 
