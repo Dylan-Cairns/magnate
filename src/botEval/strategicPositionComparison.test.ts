@@ -4,15 +4,64 @@ import { actionStableKey } from '../engine/actionSurface';
 import { legalActionsForDecisionPlayer } from '../engine/decisionActor';
 import type { GameAction } from '../engine/types';
 import { getBotProfile } from '../policies/catalog';
+import { rolloutSearchRootBudget } from '../policies/rolloutSearchCore';
 import type { ActionPolicy } from '../policies/types';
 import { createStrategicPositionCatalogV0 } from './strategicPositionCatalog';
 import {
+  STRATEGIC_TD_800_VISIT_VARIANT_ID,
+  createDefaultStrategicComparisonVariantsV0,
+  createStrategicComparisonVariantCatalogV0,
   runStrategicPositionComparisonV0,
   strategicComparisonSeed,
   type StrategicComparisonVariantV0,
 } from './strategicPositionComparison';
 
 describe('strategic position comparison', () => {
+  it('offers an 800-visit TD diagnostic without changing the default variants', () => {
+    const defaults = createDefaultStrategicComparisonVariantsV0();
+    const catalog = createStrategicComparisonVariantCatalogV0();
+    expect(defaults.map((variant) => variant.descriptor.id)).toEqual([
+      'heuristic-v2-direct',
+      'rollout-search-v2-hard',
+      'td-root-search-v2-medium',
+    ]);
+
+    const medium = catalog.find(
+      (variant) => variant.descriptor.id === 'td-root-search-v2-medium'
+    );
+    const matched = catalog.find(
+      (variant) => variant.descriptor.id === STRATEGIC_TD_800_VISIT_VARIANT_ID
+    );
+    expect(medium?.descriptor.kind).toBe('bot-spec');
+    expect(matched?.descriptor.kind).toBe('bot-spec');
+    if (
+      medium?.descriptor.kind !== 'bot-spec' ||
+      matched?.descriptor.kind !== 'bot-spec' ||
+      medium.descriptor.spec.kind !== 'td-root-search' ||
+      matched.descriptor.spec.kind !== 'td-root-search'
+    ) {
+      throw new Error('Expected TD-root strategic comparison variants.');
+    }
+    expect(medium.descriptor.spec).toEqual(
+      getBotProfile('td-root-search-v2-medium').spec
+    );
+    expect(medium.descriptor.spec.config.worlds).toBe(10);
+    expect(matched.descriptor.spec).toEqual({
+      ...medium.descriptor.spec,
+      id: STRATEGIC_TD_800_VISIT_VARIANT_ID,
+      config: {
+        ...medium.descriptor.spec.config,
+        worlds: 50,
+      },
+    });
+    expect(
+      rolloutSearchRootBudget(
+        matched.descriptor.spec.config,
+        matched.descriptor.spec.config.worlds
+      )
+    ).toBe(800);
+  });
+
   it('uses one common deterministic random seed across variants', async () => {
     const observedSeeds = new Map<string, string[]>();
     const variants = [
@@ -33,12 +82,57 @@ describe('strategic position comparison', () => {
       strategicComparisonSeed(position.id, 1),
     ]);
     expect(observedSeeds.get('last')).toEqual(observedSeeds.get('first'));
+    expect(run.repetitionStart).toBe(0);
     expect(run.positions[0].repetitions).toHaveLength(2);
     expect(
       run.positions[0].repetitions.flatMap((entry) =>
         entry.decisions.map((decision) => decision.latencyMs)
       )
     ).toEqual([0, 0, 0, 0]);
+  });
+
+  it('supports non-overlapping repetition ranges for follow-up screens', async () => {
+    const position = requiredPosition('minimum-winning-coalition');
+    const observedSeeds = new Map<string, string[]>();
+    const run = await runStrategicPositionComparisonV0({
+      positions: [position],
+      variants: [recordingVariant('range', 0, observedSeeds)],
+      repetitionStart: 8,
+      repetitions: 2,
+      now: () => 0,
+    });
+
+    expect(run.repetitionStart).toBe(8);
+    expect(
+      run.positions[0].repetitions.map((entry) => entry.repetition)
+    ).toEqual([8, 9]);
+    expect(observedSeeds.get('range')).toEqual([
+      strategicComparisonSeed(position.id, 8),
+      strategicComparisonSeed(position.id, 9),
+    ]);
+  });
+
+  it('rejects repetition ranges that cannot retain unique safe indices', async () => {
+    const position = requiredPosition('minimum-winning-coalition');
+
+    await expect(
+      runStrategicPositionComparisonV0({
+        positions: [position],
+        variants: [recordingVariant('range', 0, new Map())],
+        repetitionStart: Number.MAX_SAFE_INTEGER,
+        repetitions: 2,
+        now: () => 0,
+      })
+    ).rejects.toThrow('repetition range exceeds safe integers');
+    await expect(
+      runStrategicPositionComparisonV0({
+        positions: [position],
+        variants: [recordingVariant('range', 0, new Map())],
+        repetitionStart: Number.MAX_SAFE_INTEGER + 1,
+        repetitions: 1,
+        now: () => 0,
+      })
+    ).rejects.toThrow('repetitionStart must be a nonnegative safe integer');
   });
 
   it('records legal selections, focus signals, and preference status', async () => {

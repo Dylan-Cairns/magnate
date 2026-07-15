@@ -78,34 +78,102 @@ export function renderStrategicPositionSummaryV0(
 ): string {
   const run = artifact.run;
   const lines = [
-    '# Strategic Position Comparison v0',
+    '# Strategic Position Comparison',
     '',
     `Generated: ${artifact.generatedAtUtc}`,
     '',
-    `Catalog: v${String(run.catalogVersion)}; repetitions: ${String(run.repetitions)}; seed scheme: ${run.seedScheme}`,
+    `Artifact schema: v${String(artifact.schemaVersion)}; catalog: v${String(run.catalogVersion)}; repetitions: ${String(run.repetitions)} starting at ${String(run.repetitionStart ?? 0)}; seed scheme: ${run.seedScheme}`,
     '',
     'This is a diagnostic characterization. An expected preference is a reviewed pairwise strategic thesis, not a passing assertion against current bots.',
     '',
     'Policies execute in-process in Node without browser or Web Worker wrappers. Latency is diagnostic for this execution mode.',
     '',
-    '## Preference Summary',
+    'Repeated seeds characterize policy stability in each fixed position; they are not independent games or proof that a reviewed preference is strategically correct. Direct heuristic v2 is deterministic, so its repeated rows confirm repeatability rather than add evidence.',
     '',
-    '| variant | assessed comparisons | preferred selected | preference rate |',
-    '|:---|---:|---:|---:|',
+    '## Selection Stability',
+    '',
+    '| position | variant | seeds | selection histogram | modal count | preferred | declared alternative | unassessed | observed result |',
+    '|:---|:---|---:|:---|---:|---:|---:|---:|:---|',
   ];
 
-  for (const variant of run.variants) {
-    const decisions = allDecisions(run).filter(
-      (decision) =>
-        decision.variantId === variant.id &&
-        decision.matchesExpectedPreference !== null
+  for (const position of run.positions) {
+    for (const variant of run.variants) {
+      const decisions = decisionsForVariant(position, variant.id);
+      const preferred = decisions.filter(
+        (decision) => decision.matchesExpectedPreference === true
+      ).length;
+      const alternative = decisions.filter(
+        (decision) => decision.matchesExpectedPreference === false
+      ).length;
+      const unassessed = decisions.length - preferred - alternative;
+      const histogram = selectionHistogram(decisions);
+      lines.push(
+        `| ${escapeCell(position.positionId)} | ${escapeCell(variant.label)} | ${String(decisions.length)} | ${escapeCell(histogram.label)} | ${histogram.modalCount === 0 ? '—' : `${String(histogram.modalCount)}/${String(decisions.length)}`} | ${position.expectedPreference ? String(preferred) : '—'} | ${position.expectedPreference ? String(alternative) : '—'} | ${position.expectedPreference ? String(unassessed) : '—'} | ${escapeCell(observedPreferenceResult({ position, preferred, alternative, unassessed }))} |`
+      );
+    }
+  }
+
+  lines.push(
+    '',
+    '## Pairwise Focus Gaps',
+    '',
+    'Positive gaps favor the reviewed preferred focus action. Heuristic scores and search values are only compared within one variant and position; search means use adaptive, potentially unequal visit counts.',
+    '',
+    '| position | rep | variant | preferred | alternative | heuristic gap | search-value gap | preferred visits | alternative visits | search coverage |',
+    '|:---|---:|:---|:---|:---|---:|---:|---:|---:|:---|'
+  );
+  for (const position of run.positions) {
+    const preference = position.expectedPreference;
+    if (!preference) {
+      continue;
+    }
+    for (const repetition of position.repetitions) {
+      for (const decision of repetition.decisions) {
+        const preferredSignal = decision.focusSignals.find(
+          (signal) => signal.focusActionId === preference.preferredFocusActionId
+        );
+        for (const alternativeId of preference.overFocusActionIds) {
+          const alternativeSignal = decision.focusSignals.find(
+            (signal) => signal.focusActionId === alternativeId
+          );
+          lines.push(
+            `| ${escapeCell(position.positionId)} | ${String(repetition.repetition)} | ${escapeCell(decision.variantId)} | ${escapeCell(preference.preferredFocusActionId)} | ${escapeCell(alternativeId)} | ${formatGap(preferredSignal?.heuristicScore, alternativeSignal?.heuristicScore)} | ${formatGap(preferredSignal?.searchMeanValue, alternativeSignal?.searchMeanValue)} | ${integerNullable(preferredSignal?.searchVisits)} | ${integerNullable(alternativeSignal?.searchVisits)} | ${searchCoverage(decision.searchDiagnostics !== null, preferredSignal?.searchVisits, alternativeSignal?.searchVisits)} |`
+          );
+        }
+      }
+    }
+  }
+
+  lines.push(
+    '',
+    '## Counterfactual Groups',
+    '',
+    'Members of each group share repetition seeds. Selection transitions are diagnostic; adaptive search values are not fixed-budget paired estimates.',
+    '',
+    '| group | rep | variant | selections |',
+    '|:---|---:|:---|:---|'
+  );
+  for (const group of counterfactualGroups(run)) {
+    const repetitions = new Set(
+      group.positions.flatMap((position) =>
+        position.repetitions.map((entry) => entry.repetition)
+      )
     );
-    const matched = decisions.filter(
-      (decision) => decision.matchesExpectedPreference
-    ).length;
-    lines.push(
-      `| ${escapeCell(variant.label)} | ${String(decisions.length)} | ${String(matched)} | ${decisions.length === 0 ? '—' : format(matched / decisions.length)} |`
-    );
+    for (const repetition of [...repetitions].sort(
+      (left, right) => left - right
+    )) {
+      for (const variant of run.variants) {
+        const selections = group.positions.map((position) => {
+          const decision = position.repetitions
+            .find((entry) => entry.repetition === repetition)
+            ?.decisions.find((entry) => entry.variantId === variant.id);
+          return `${position.positionId}=${decision ? selectedDecisionLabel(decision) : 'missing'}`;
+        });
+        lines.push(
+          `| ${escapeCell(group.id)} | ${String(repetition)} | ${escapeCell(variant.id)} | ${escapeCell(selections.join('; '))} |`
+        );
+      }
+    }
   }
 
   lines.push(
@@ -161,19 +229,139 @@ export function renderStrategicPositionSummaryV0(
   return `${lines.join('\n')}\n`;
 }
 
-function allDecisions(
-  run: StrategicPositionComparisonRunV0
-): StrategicVariantDecisionV0[] {
-  return run.positions.flatMap((position) =>
-    position.repetitions.flatMap((repetition) => repetition.decisions)
-  );
-}
-
 function formatMatch(value: boolean | null): string {
   if (value === null) {
     return 'not assessed';
   }
   return value ? 'preferred' : 'declared alternative';
+}
+
+function decisionsForVariant(
+  position: StrategicPositionComparisonRunV0['positions'][number],
+  variantId: string
+): StrategicVariantDecisionV0[] {
+  return position.repetitions.flatMap((repetition) =>
+    repetition.decisions.filter((decision) => decision.variantId === variantId)
+  );
+}
+
+function selectedDecisionLabel(decision: StrategicVariantDecisionV0): string {
+  return decision.selectedFocusActionId ?? decision.selectedActionKey;
+}
+
+function selectionHistogram(decisions: readonly StrategicVariantDecisionV0[]): {
+  readonly label: string;
+  readonly modalCount: number;
+} {
+  const counts = new Map<string, number>();
+  for (const decision of decisions) {
+    const label = selectedDecisionLabel(decision);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const entries = [...counts.entries()].sort(
+    ([leftLabel, leftCount], [rightLabel, rightCount]) =>
+      rightCount - leftCount || leftLabel.localeCompare(rightLabel)
+  );
+  return {
+    label:
+      entries.length === 0
+        ? '—'
+        : entries
+            .map(([label, count]) => `${label} × ${String(count)}`)
+            .join('; '),
+    modalCount: entries[0]?.[1] ?? 0,
+  };
+}
+
+function observedPreferenceResult({
+  position,
+  preferred,
+  alternative,
+  unassessed,
+}: {
+  position: StrategicPositionComparisonRunV0['positions'][number];
+  preferred: number;
+  alternative: number;
+  unassessed: number;
+}): string {
+  if (!position.expectedPreference) {
+    return 'factual only';
+  }
+  if (preferred + alternative === 0) {
+    return 'unassessed';
+  }
+  if (preferred > 0 && alternative > 0) {
+    return unassessed > 0
+      ? 'mixed assessed seeds; partially unassessed'
+      : 'mixed assessed seeds';
+  }
+  if (unassessed > 0) {
+    return preferred > 0
+      ? 'all assessed seeds preferred; partially unassessed'
+      : 'all assessed seeds alternative; partially unassessed';
+  }
+  if (alternative === 0) {
+    return 'all assessed seeds preferred';
+  }
+  return 'all assessed seeds alternative';
+}
+
+function formatGap(
+  preferred: number | null | undefined,
+  alternative: number | null | undefined
+): string {
+  if (
+    preferred === null ||
+    preferred === undefined ||
+    alternative === null ||
+    alternative === undefined
+  ) {
+    return '—';
+  }
+  return format(preferred - alternative);
+}
+
+function searchCoverage(
+  hasSearchDiagnostics: boolean,
+  preferredVisits: number | null | undefined,
+  alternativeVisits: number | null | undefined
+): string {
+  if (!hasSearchDiagnostics) {
+    return 'not applicable';
+  }
+  const preferredExpanded =
+    preferredVisits !== null &&
+    preferredVisits !== undefined &&
+    preferredVisits > 0;
+  const alternativeExpanded =
+    alternativeVisits !== null &&
+    alternativeVisits !== undefined &&
+    alternativeVisits > 0;
+  if (preferredExpanded && alternativeExpanded) {
+    return 'both';
+  }
+  if (preferredExpanded || alternativeExpanded) {
+    return 'partial';
+  }
+  return 'none';
+}
+
+function counterfactualGroups(run: StrategicPositionComparisonRunV0): Array<{
+  readonly id: string;
+  readonly positions: StrategicPositionComparisonRunV0['positions'];
+}> {
+  const byId = new Map<
+    string,
+    StrategicPositionComparisonRunV0['positions'][number][]
+  >();
+  for (const position of run.positions) {
+    const positions = byId.get(position.randomGroupId) ?? [];
+    positions.push(position);
+    byId.set(position.randomGroupId, positions);
+  }
+  return [...byId.entries()]
+    .filter((entry) => entry[1].length > 1)
+    .map(([id, positions]) => ({ id, positions }));
 }
 
 function formatNullable(value: number | null | undefined): string {

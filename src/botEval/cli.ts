@@ -41,7 +41,12 @@ import {
   defaultStrategicPositionOutputDirectoryV0,
   writeStrategicPositionArtifactsV0,
 } from './strategicPositionArtifacts';
-import { runStrategicPositionComparisonV0 } from './strategicPositionComparison';
+import { createStrategicPositionCatalogV0 } from './strategicPositionCatalog';
+import {
+  createDefaultStrategicComparisonVariantsV0,
+  createStrategicComparisonVariantCatalogV0,
+  runStrategicPositionComparisonV0,
+} from './strategicPositionComparison';
 
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
 
@@ -68,7 +73,7 @@ async function main(): Promise<void> {
       return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -79,12 +84,32 @@ async function runStrategicPositionsCommand(
   installLocalPublicFetch();
   const flags = parseFlags(args);
   const repetitions = parseOptionalPositiveInteger(flags, '--repetitions') ?? 1;
+  const repetitionStart =
+    parseOptionalNonnegativeInteger(flags, '--start-repetition') ?? 0;
+  const positions = selectStrategicItems(
+    createStrategicPositionCatalogV0(),
+    parseOptionalIds(flags, '--positions'),
+    (position) => position.id,
+    'position'
+  );
+  const requestedVariantIds = parseOptionalIds(flags, '--variants');
+  const variants = selectStrategicItems(
+    requestedVariantIds
+      ? createStrategicComparisonVariantCatalogV0()
+      : createDefaultStrategicComparisonVariantsV0(),
+    requestedVariantIds,
+    (variant) => variant.descriptor.id,
+    'variant'
+  );
   const outputDirectory =
     flags.get('--out-dir') ?? defaultStrategicPositionOutputDirectoryV0();
   process.stderr.write(
-    `[strategic-positions] started repetitions=${String(repetitions)}\n`
+    `[strategic-positions] started repetitions=${String(repetitions)} start=${String(repetitionStart)} positions=${String(positions.length)} variants=${String(variants.length)}\n`
   );
   const run = await runStrategicPositionComparisonV0({
+    positions,
+    variants,
+    repetitionStart,
     repetitions,
     onProgress(progress) {
       process.stderr.write(
@@ -105,6 +130,7 @@ async function runStrategicPositionsCommand(
         summary: path.resolve(written.summaryPath),
         positions: run.positions.length,
         variants: run.variants.map((variant) => variant.id),
+        repetitionStart: run.repetitionStart,
         repetitions: run.repetitions,
       },
       null,
@@ -376,10 +402,62 @@ function parseOptionalPositiveInteger(
     return undefined;
   }
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     throw new Error(`${name} must be a positive integer.`);
   }
   return parsed;
+}
+
+function parseOptionalNonnegativeInteger(
+  flags: ReadonlyMap<string, string>,
+  name: string
+): number | undefined {
+  const value = flags.get(name);
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a nonnegative integer.`);
+  }
+  return parsed;
+}
+
+function parseOptionalIds(
+  flags: ReadonlyMap<string, string>,
+  name: string
+): readonly string[] | undefined {
+  const value = flags.get(name);
+  if (value === undefined) {
+    return undefined;
+  }
+  const ids = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  if (ids.length === 0 || new Set(ids).size !== ids.length) {
+    throw new Error(`${name} must contain unique comma-separated ids.`);
+  }
+  return ids;
+}
+
+function selectStrategicItems<T>(
+  items: readonly T[],
+  requestedIds: readonly string[] | undefined,
+  idForItem: (item: T) => string,
+  label: string
+): T[] {
+  if (!requestedIds) {
+    return [...items];
+  }
+  const byId = new Map(items.map((item) => [idForItem(item), item]));
+  return requestedIds.map((id) => {
+    const item = byId.get(id);
+    if (!item) {
+      throw new Error(`Unknown strategic ${label} id ${id}.`);
+    }
+    return item;
+  });
 }
 
 function logRolloutSearchSweepProgress(

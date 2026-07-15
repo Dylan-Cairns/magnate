@@ -4,7 +4,10 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { ActionPolicy } from '../policies/types';
+import type {
+  ActionPolicy,
+  SearchDecisionDiagnostics,
+} from '../policies/types';
 import { createStrategicPositionCatalogV0 } from './strategicPositionCatalog';
 import {
   createStrategicPositionArtifactV0,
@@ -57,9 +60,140 @@ describe('strategic position artifacts', () => {
       expect(markdown).toBe(renderStrategicPositionSummaryV0(artifact));
       expect(markdown).toContain('diagnostic characterization');
       expect(markdown).toContain('minimum-winning-coalition');
+      expect(markdown).toContain('## Selection Stability');
+      expect(markdown).toContain('## Pairwise Focus Gaps');
+      expect(markdown).toContain('| unassessed |');
+      expect(markdown).toContain('| not applicable |');
     } finally {
       await rm(outputDirectory, { recursive: true, force: true });
     }
+  });
+
+  it('distinguishes mixed, partial, and factual-only characterization rows', async () => {
+    const position = createStrategicPositionCatalogV0().find(
+      (candidate) => candidate.id === 'minimum-winning-coalition'
+    )!;
+    const run = await runStrategicPositionComparisonV0({
+      positions: [position],
+      variants: [
+        {
+          descriptor: {
+            kind: 'custom',
+            id: 'first-legal',
+            label: 'First legal',
+            implementationId: 'test:first-legal-v1',
+          },
+          policy: firstLegalPolicy,
+        },
+      ],
+      now: () => 0,
+    });
+    const comparisonCase = run.positions[0];
+    const baseRepetition = comparisonCase.repetitions[0];
+    const baseDecision = baseRepetition.decisions[0];
+    const preference = comparisonCase.expectedPreference!;
+    const preferred = comparisonCase.focusActions.find(
+      (focus) => focus.id === preference.preferredFocusActionId
+    )!;
+    const alternative = comparisonCase.focusActions.find(
+      (focus) => focus.id === preference.overFocusActionIds[0]
+    )!;
+    const decisions = [
+      {
+        ...baseDecision,
+        selectedActionKey: preferred.actionKey,
+        selectedFocusActionId: preferred.id,
+        matchesExpectedPreference: true,
+      },
+      {
+        ...baseDecision,
+        selectedActionKey: alternative.actionKey,
+        selectedFocusActionId: alternative.id,
+        matchesExpectedPreference: false,
+      },
+      {
+        ...baseDecision,
+        selectedActionKey: 'outside-focus',
+        selectedFocusActionId: null,
+        matchesExpectedPreference: null,
+      },
+    ] as const;
+    const mixedCase = {
+      ...comparisonCase,
+      repetitions: decisions.map((decision, repetition) => ({
+        ...baseRepetition,
+        repetition,
+        sharedRandomSeed: `seed-${String(repetition)}`,
+        decisions: [decision],
+      })),
+    };
+    const mixedRun = {
+      ...run,
+      repetitions: 3,
+      positions: [mixedCase],
+    };
+    const mixedMarkdown = renderStrategicPositionSummaryV0(
+      createStrategicPositionArtifactV0(mixedRun)
+    );
+    expect(mixedMarkdown).toContain(
+      '| 1 | 1 | 1 | mixed assessed seeds; partially unassessed |'
+    );
+
+    const unexpandedSearchRun = {
+      ...run,
+      positions: [
+        {
+          ...comparisonCase,
+          repetitions: [
+            {
+              ...baseRepetition,
+              decisions: [
+                {
+                  ...baseDecision,
+                  selectedActionKey: 'outside-focus',
+                  selectedFocusActionId: null,
+                  matchesExpectedPreference: null,
+                  searchDiagnostics: searchDiagnosticsWithoutFocusActions(),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const unexpandedSearchMarkdown = renderStrategicPositionSummaryV0(
+      createStrategicPositionArtifactV0(unexpandedSearchRun)
+    );
+    expect(unexpandedSearchMarkdown).toContain('| none |');
+
+    const factualRun = {
+      ...run,
+      positions: [
+        {
+          ...comparisonCase,
+          positionId: 'factual-case',
+          expectedPreference: null,
+        },
+      ],
+    };
+    const factualMarkdown = renderStrategicPositionSummaryV0(
+      createStrategicPositionArtifactV0(factualRun)
+    );
+    expect(factualMarkdown).toContain('| — | — | — | factual only |');
+
+    const pairedRun = {
+      ...run,
+      positions: [
+        { ...comparisonCase, positionId: 'pair-a', randomGroupId: 'pair' },
+        { ...comparisonCase, positionId: 'pair-b', randomGroupId: 'pair' },
+      ],
+    };
+    const pairedMarkdown = renderStrategicPositionSummaryV0(
+      createStrategicPositionArtifactV0(pairedRun)
+    );
+    expect(pairedMarkdown).toContain('| pair | 0 | first-legal |');
+    expect(pairedMarkdown).toContain('pair-a=');
+    expect(pairedMarkdown).toContain('pair-b=');
   });
 });
 
@@ -68,3 +202,32 @@ const firstLegalPolicy: ActionPolicy = {
     return context.legalActions[0];
   },
 };
+
+function searchDiagnosticsWithoutFocusActions(): SearchDecisionDiagnostics {
+  return {
+    kind: 'search',
+    legalRootActions: 1,
+    expandedRootActions: 1,
+    rootVisitBudget: 1,
+    configProxyCost: 1,
+    maxSimulatedActionSteps: 1,
+    simulatedActionSteps: 1,
+    terminalRollouts: 0,
+    terminalRate: 0,
+    selectedActionKey: 'outside-focus',
+    selectedActionVisits: 1,
+    selectedActionMeanValue: 0,
+    selectedActionTerminalRollouts: 0,
+    selectedActionTerminalRate: 0,
+    rootActions: [
+      {
+        actionKey: 'outside-focus',
+        visits: 1,
+        meanValue: 0,
+        terminalRollouts: 0,
+        terminalRate: 0,
+        prior: 1,
+      },
+    ],
+  };
+}
