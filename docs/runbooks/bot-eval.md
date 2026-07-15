@@ -15,7 +15,7 @@
 - Strategic-position characterization:
   `yarn bot:eval strategic-positions --repetitions 8`
 - Matched forced-root rollout tracing:
-  `yarn bot:eval strategic-forced-rollouts --repetitions 7 --positions known-hand-optionality-original,known-hand-optionality-mirror`
+  `yarn bot:eval strategic-forced-rollouts --repetitions 0 --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Override heartbeat cadence for head-to-head, sweep, replay, and replay-export
@@ -113,9 +113,10 @@ played to terminal once by TD rollout guidance and once by heuristic v2.
 
 The trace also records both guides' proposed action at every encountered
 non-root state without consuming the live rollout RNG. This makes it possible
-to distinguish an unavailable Author/Penitent play from a legal play the guide
+to distinguish an unavailable continuation card from a legal play the guide
 declined, and to locate an earlier resource or lane choice that removed the
-continuation. The command uses the 800-visit diagnostic's rollout settings
+continuation. Current catalog targets are Author, Penitent, Origin, and Market.
+The command uses the 800-visit diagnostic's rollout settings
 (`worlds=50`, depth 40, epsilon 0, heuristic v2) and current default TD model
 pack. It fails if a trace reaches the depth limit, because a non-terminal leaf
 would make the claimed terminal comparison invalid.
@@ -123,19 +124,19 @@ would make the claimed terminal comparison invalid.
 `--repetitions` is an explicit ID list, not a count. `--scenarios` likewise
 selects action-local scenario indices and defaults to `0` through `49`, one
 complete cycle of the 50 sampled hidden worlds. Omitting `--positions` selects
-the known-hand and unknown-pool optionality mirrors only. Example diagnostic
-runs:
+all catalog positions carrying optionality-trace metadata: both original mirror
+pairs and both independent holdout mirror pairs. Example diagnostic runs:
 
 ```powershell
 yarn bot:eval strategic-forced-rollouts `
-  --positions known-hand-optionality-original,known-hand-optionality-mirror `
-  --repetitions 7,10,14,17,18 `
-  --out-dir artifacts/ts-bot-evals/known-optionality-forced
+  --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror `
+  --repetitions 0,1 `
+  --out-dir artifacts/ts-bot-evals/known-optionality-holdout-forced
 
 yarn bot:eval strategic-forced-rollouts `
-  --positions unknown-pool-optionality-original,unknown-pool-optionality-mirror `
-  --repetitions 1,6 `
-  --out-dir artifacts/ts-bot-evals/unknown-optionality-forced
+  --positions unknown-pool-optionality-holdout-original,unknown-pool-optionality-holdout-mirror `
+  --repetitions 0,1 `
+  --out-dir artifacts/ts-bot-evals/unknown-optionality-holdout-forced
 ```
 
 Typical outputs:

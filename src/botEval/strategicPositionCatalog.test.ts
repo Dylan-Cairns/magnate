@@ -19,6 +19,7 @@ import {
 import {
   STRATEGIC_POSITION_CATALOG_VERSION,
   createStrategicPositionCatalogV0,
+  isStrategicOptionalityPositionV0,
 } from './strategicPositionCatalog';
 
 describe('strategic position catalog v1', () => {
@@ -250,6 +251,371 @@ describe('strategic position catalog v1', () => {
           summaryAfterFocus(mirror, 'overwrite-option')
         )
       );
+    }
+  });
+
+  it('isolates independent optionality holdouts with new cards, payments, and lanes', () => {
+    const families = [
+      {
+        prefix: 'known-hand-optionality-holdout',
+        family: 'known-hand',
+        rootCardId: '7',
+        targetCardId: '8',
+        originalValuableDistrictId: 'D0',
+        originalAlternativeDistrictId: 'D3',
+        payment: { Suns: 1, Wyrms: 1 },
+        developedRankMarginDelta: 2,
+        resourceMarginDelta: -2,
+        stableOwnHandCardIds: ['1'] as const,
+        stableUnknownCardIds: ['12', '15', '16', '17', '23', '24'] as const,
+      },
+      {
+        prefix: 'unknown-pool-optionality-holdout',
+        family: 'unknown-pool',
+        rootCardId: '13',
+        targetCardId: '19',
+        originalValuableDistrictId: 'D2',
+        originalAlternativeDistrictId: 'D3',
+        payment: { Moons: 2, Suns: 2 },
+        developedRankMarginDelta: 4,
+        resourceMarginDelta: -4,
+        stableOwnHandCardIds: ['17', '24'] as const,
+        stableUnknownCardIds: ['8', '14', '26'] as const,
+      },
+    ] as const;
+
+    expect(
+      createStrategicPositionCatalogV0()
+        .filter(isStrategicOptionalityPositionV0)
+        .map((position) => position.id)
+    ).toEqual([
+      'known-hand-optionality-original',
+      'known-hand-optionality-mirror',
+      'unknown-pool-optionality-original',
+      'unknown-pool-optionality-mirror',
+      'known-hand-optionality-holdout-original',
+      'known-hand-optionality-holdout-mirror',
+      'unknown-pool-optionality-holdout-original',
+      'unknown-pool-optionality-holdout-mirror',
+    ]);
+
+    for (const family of families) {
+      const original = requiredPosition(`${family.prefix}-original`);
+      const mirror = requiredPosition(`${family.prefix}-mirror`);
+      expect(normalizeDistrictPermutation(summary(original))).toEqual(
+        normalizeDistrictPermutation(summary(mirror))
+      );
+
+      for (const [position, valuableDistrictId, alternativeDistrictId] of [
+        [
+          original,
+          family.originalValuableDistrictId,
+          family.originalAlternativeDistrictId,
+        ],
+        [
+          mirror,
+          family.originalAlternativeDistrictId,
+          family.originalValuableDistrictId,
+        ],
+      ] as const) {
+        expect(position.optionalityTrace).toEqual({
+          family: family.family,
+          targetCardId: family.targetCardId,
+          valuableDistrictId,
+          alternativeDistrictId,
+          preserveFocusActionId: 'preserve-option',
+          overwriteFocusActionId: 'overwrite-option',
+        });
+
+        const rootDevelopments = legalActionsForDecisionPlayer(
+          position.state,
+          'PlayerA'
+        ).filter(
+          (
+            action
+          ): action is Extract<GameAction, { type: 'develop-outright' }> =>
+            action.type === 'develop-outright' &&
+            action.cardId === family.rootCardId
+        );
+        expect(rootDevelopments).toHaveLength(2);
+        expect(
+          new Set(rootDevelopments.map((action) => action.districtId))
+        ).toEqual(new Set([valuableDistrictId, alternativeDistrictId]));
+        expect(actionForFocus(position, 'preserve-option')).toMatchObject({
+          type: 'develop-outright',
+          cardId: family.rootCardId,
+          districtId: alternativeDistrictId,
+          payment: family.payment,
+        });
+        expect(actionForFocus(position, 'overwrite-option')).toMatchObject({
+          type: 'develop-outright',
+          cardId: family.rootCardId,
+          districtId: valuableDistrictId,
+          payment: family.payment,
+        });
+
+        const deltas = strategicActionDeltasV0(position.state, 'PlayerA');
+        const preserveDelta = delta(position, deltas, 'preserve-option');
+        const overwriteDelta = delta(position, deltas, 'overwrite-option');
+        const expectedImmediateDelta = {
+          districtPointMarginDelta: 2,
+          developedRankMarginDelta: family.developedRankMarginDelta,
+          resourceMarginDelta: family.resourceMarginDelta,
+          targetDistrictScoreMarginDelta: family.developedRankMarginDelta,
+          currentOutcomeBefore: 'behind',
+          currentOutcomeAfter: 'behind',
+          playedCardDestination: 'developed',
+        } as const;
+        expect(preserveDelta).toMatchObject(expectedImmediateDelta);
+        expect(overwriteDelta).toMatchObject(expectedImmediateDelta);
+
+        const preserveAfter = summaryAfterFocus(position, 'preserve-option');
+        const overwriteAfter = summaryAfterFocus(position, 'overwrite-option');
+        expect(preserveAfter.players).toEqual(overwriteAfter.players);
+        expect(preserveAfter.cards).toEqual(overwriteAfter.cards);
+        expect(preserveAfter.score).toEqual(overwriteAfter.score);
+        expect(developedCardMultiset(preserveAfter)).toEqual(
+          developedCardMultiset(overwriteAfter)
+        );
+
+        const targetSupportField =
+          family.family === 'known-hand'
+            ? 'ownHandForSelf'
+            : 'unknownPoolForSelf';
+        expect(
+          supportOccurrences(
+            preserveAfter,
+            family.targetCardId,
+            targetSupportField,
+            [valuableDistrictId, alternativeDistrictId]
+          )
+        ).toBe(1);
+        expect(
+          supportOccurrences(
+            overwriteAfter,
+            family.targetCardId,
+            targetSupportField,
+            [valuableDistrictId, alternativeDistrictId]
+          )
+        ).toBe(0);
+        expect(
+          supportByDistrict(
+            preserveAfter,
+            family.targetCardId,
+            targetSupportField,
+            valuableDistrictId
+          )
+        ).toBe(true);
+        expect(
+          supportByDistrict(
+            preserveAfter,
+            family.targetCardId,
+            targetSupportField,
+            alternativeDistrictId
+          )
+        ).toBe(false);
+        expect(
+          [valuableDistrictId, alternativeDistrictId].map((districtId) =>
+            supportByDistrict(
+              overwriteAfter,
+              family.targetCardId,
+              targetSupportField,
+              districtId
+            )
+          )
+        ).toEqual([false, false]);
+
+        for (const cardId of family.stableOwnHandCardIds) {
+          const preserveSupport = [
+            valuableDistrictId,
+            alternativeDistrictId,
+          ].map((districtId) =>
+            supportByDistrict(
+              preserveAfter,
+              cardId,
+              'ownHandForSelf',
+              districtId
+            )
+          );
+          const overwriteSupport = [
+            valuableDistrictId,
+            alternativeDistrictId,
+          ].map((districtId) =>
+            supportByDistrict(
+              overwriteAfter,
+              cardId,
+              'ownHandForSelf',
+              districtId
+            )
+          );
+          if (family.family === 'unknown-pool') {
+            expect(preserveSupport).toEqual([true, false]);
+            expect(overwriteSupport).toEqual([false, true]);
+          } else {
+            expect(preserveSupport).toEqual(overwriteSupport);
+          }
+        }
+        for (const cardId of family.stableUnknownCardIds) {
+          for (const field of [
+            'unknownPoolForSelf',
+            'unknownPoolForOpponent',
+          ] as const) {
+            expect(
+              supportOccurrences(preserveAfter, cardId, field, [
+                valuableDistrictId,
+                alternativeDistrictId,
+              ])
+            ).toBe(
+              supportOccurrences(overwriteAfter, cardId, field, [
+                valuableDistrictId,
+                alternativeDistrictId,
+              ])
+            );
+            expect(
+              [valuableDistrictId, alternativeDistrictId].map((districtId) =>
+                supportByDistrict(preserveAfter, cardId, field, districtId)
+              )
+            ).toEqual(
+              [valuableDistrictId, alternativeDistrictId].map((districtId) =>
+                supportByDistrict(overwriteAfter, cardId, field, districtId)
+              )
+            );
+            for (const after of [preserveAfter, overwriteAfter]) {
+              const laneSupport = [
+                valuableDistrictId,
+                alternativeDistrictId,
+              ].map((districtId) =>
+                supportByDistrict(after, cardId, field, districtId)
+              );
+              expect(laneSupport[0]).toBe(laneSupport[1]);
+            }
+          }
+        }
+        if (family.family === 'unknown-pool') {
+          expect(
+            supportOccurrences(
+              preserveAfter,
+              family.targetCardId,
+              'unknownPoolForOpponent',
+              [valuableDistrictId, alternativeDistrictId]
+            )
+          ).toBe(2);
+          expect(
+            supportOccurrences(
+              overwriteAfter,
+              family.targetCardId,
+              'unknownPoolForOpponent',
+              [valuableDistrictId, alternativeDistrictId]
+            )
+          ).toBe(2);
+          for (const after of [preserveAfter, overwriteAfter]) {
+            expect(
+              [valuableDistrictId, alternativeDistrictId].map((districtId) =>
+                supportByDistrict(
+                  after,
+                  family.targetCardId,
+                  'unknownPoolForOpponent',
+                  districtId
+                )
+              )
+            ).toEqual([true, true]);
+          }
+        }
+      }
+
+      expect(
+        normalizeDistrictPermutation(
+          summaryAfterFocus(original, 'preserve-option')
+        )
+      ).toEqual(
+        normalizeDistrictPermutation(
+          summaryAfterFocus(mirror, 'preserve-option')
+        )
+      );
+      expect(
+        normalizeDistrictPermutation(
+          summaryAfterFocus(original, 'overwrite-option')
+        )
+      ).toEqual(
+        normalizeDistrictPermutation(
+          summaryAfterFocus(mirror, 'overwrite-option')
+        )
+      );
+    }
+  });
+
+  it('keeps each holdout continuation executable before terminal scoring', () => {
+    for (const mirrored of [false, true]) {
+      const role = mirrored ? 'mirror' : 'original';
+
+      for (const focusActionId of ['preserve-option', 'overwrite-option']) {
+        const known = requiredPosition(
+          `known-hand-optionality-holdout-${role}`
+        );
+        const knownValuableDistrictId =
+          known.optionalityTrace?.valuableDistrictId;
+        if (!knownValuableDistrictId) {
+          throw new Error(`Missing optionality metadata for ${known.id}.`);
+        }
+        let knownState = stateAfterFocusTurn(known, focusActionId);
+        knownState = playSaleTurn(knownState);
+        knownState = playSaleTurn(knownState, '1');
+        knownState = playSaleTurn(knownState);
+        expect(decisionPlayerIdForState(knownState)).toBe('PlayerA');
+        expect(knownState.phase).toBe('ActionWindow');
+        expect(knownState.finalTurnsRemaining).toBe(2);
+        expect(knownState.players[0].resources.Waves).toBeGreaterThanOrEqual(1);
+        expect(knownState.players[0].resources.Leaves).toBeGreaterThanOrEqual(
+          1
+        );
+        const originDevelopments = targetDevelopments(knownState, '8');
+        if (focusActionId === 'preserve-option') {
+          expect(originDevelopments.length).toBeGreaterThan(0);
+          expect(
+            new Set(originDevelopments.map((action) => action.districtId))
+          ).toEqual(new Set([knownValuableDistrictId]));
+          expect(
+            summaryAfterAction(knownState, originDevelopments[0]).score
+          ).toMatchObject({
+            districts: { self: 3, opponent: 1 },
+            currentLexicographicOutcome: 'ahead',
+          });
+        } else {
+          expect(originDevelopments).toHaveLength(0);
+        }
+
+        const unknown = requiredPosition(
+          `unknown-pool-optionality-holdout-${role}`
+        );
+        const unknownValuableDistrictId =
+          unknown.optionalityTrace?.valuableDistrictId;
+        if (!unknownValuableDistrictId) {
+          throw new Error(`Missing optionality metadata for ${unknown.id}.`);
+        }
+        let unknownState = stateAfterFocusTurn(unknown, focusActionId);
+        expect(unknownState.players[0].hand).toContain('19');
+        unknownState = playSaleTurn(unknownState);
+        expect(decisionPlayerIdForState(unknownState)).toBe('PlayerA');
+        expect(unknownState.phase).toBe('ActionWindow');
+        expect(unknownState.finalTurnsRemaining).toBe(2);
+        expect(unknownState.players[0].resources.Leaves).toBe(5);
+        expect(unknownState.players[0].resources.Knots).toBe(5);
+        const marketDevelopments = targetDevelopments(unknownState, '19');
+        if (focusActionId === 'preserve-option') {
+          expect(marketDevelopments.length).toBeGreaterThan(0);
+          expect(
+            new Set(marketDevelopments.map((action) => action.districtId))
+          ).toEqual(new Set([unknownValuableDistrictId]));
+          expect(
+            summaryAfterAction(unknownState, marketDevelopments[0]).score
+          ).toMatchObject({
+            districts: { self: 3, opponent: 1 },
+            currentLexicographicOutcome: 'ahead',
+          });
+        } else {
+          expect(marketDevelopments).toHaveLength(0);
+        }
+      }
     }
   });
 
@@ -559,11 +925,35 @@ function developedCardMultiset(
 function supportOccurrences(
   summary: ReturnType<typeof strategicStateSummaryV0>,
   cardId: CardId,
-  field: 'ownHandForSelf' | 'unknownPoolForSelf' | 'unknownPoolForOpponent'
+  field: 'ownHandForSelf' | 'unknownPoolForSelf' | 'unknownPoolForOpponent',
+  districtIds: readonly string[] = ['D1', 'D4']
 ): number {
   return summary.districts
-    .filter((entry) => entry.districtId === 'D1' || entry.districtId === 'D4')
+    .filter((entry) => districtIds.includes(entry.districtId))
     .filter((entry) => entry.placementSupport[field].includes(cardId)).length;
+}
+
+function supportByDistrict(
+  summary: ReturnType<typeof strategicStateSummaryV0>,
+  cardId: CardId,
+  field: 'ownHandForSelf' | 'unknownPoolForSelf' | 'unknownPoolForOpponent',
+  districtId: string
+): boolean {
+  return district(summary, districtId).placementSupport[field].includes(cardId);
+}
+
+function targetDevelopments(state: GameState, cardId: CardId) {
+  return legalActionsForDecisionPlayer(state, 'PlayerA').filter(
+    (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
+      action.type === 'develop-outright' && action.cardId === cardId
+  );
+}
+
+function summaryAfterAction(state: GameState, action: GameAction) {
+  return strategicStateSummaryV0(
+    applyKnownLegalAction(state, action, { recordLog: false }),
+    'PlayerA'
+  );
 }
 
 function requiredProperty(cardId: CardId) {

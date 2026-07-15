@@ -20,6 +20,14 @@ import {
 } from './strategicPositionComparison';
 
 describe('strategic position comparison', () => {
+  it('keeps the legacy catalog seed namespace stable', () => {
+    expect(
+      strategicComparisonSeed('known-hand-optionality-mirror-pair', 7)
+    ).toBe(
+      'strategic-position-common-random-v1:catalog:1:group:known-hand-optionality-mirror-pair:repetition:7'
+    );
+  });
+
   it('offers 800-visit TD guidance diagnostics without changing the defaults', () => {
     const defaults = createDefaultStrategicComparisonVariantsV0();
     const catalog = createStrategicComparisonVariantCatalogV0();

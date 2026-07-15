@@ -38,6 +38,8 @@ import {
 import {
   STRATEGIC_POSITION_CATALOG_VERSION,
   createStrategicPositionCatalogV0,
+  isStrategicOptionalityPositionV0,
+  type StrategicOptionalityFamilyV0,
   type StrategicPositionV0,
 } from './strategicPositionCatalog';
 import {
@@ -50,7 +52,7 @@ import {
 export const STRATEGIC_FORCED_ROLLOUT_TRACE_SCHEMA_VERSION = 1 as const;
 
 export type StrategicForcedRolloutGuideV0 = 'td' | 'heuristic-v2';
-export type StrategicOptionalityFamilyV0 = 'known-hand' | 'unknown-pool';
+export type { StrategicOptionalityFamilyV0 } from './strategicPositionCatalog';
 
 export interface StrategicForcedRolloutProposalV0 {
   readonly actionKey: string;
@@ -168,13 +170,6 @@ export interface StrategicForcedRolloutTraceOptionsV0 {
   ) => void;
 }
 
-const DEFAULT_OPTIONALITY_POSITION_IDS = new Set([
-  'known-hand-optionality-original',
-  'known-hand-optionality-mirror',
-  'unknown-pool-optionality-original',
-  'unknown-pool-optionality-mirror',
-]);
-
 const TRACE_GUIDES: readonly StrategicForcedRolloutGuideV0[] = [
   'td',
   'heuristic-v2',
@@ -186,9 +181,7 @@ export async function runStrategicForcedRolloutTraceV0(
   const defaults = defaultTraceRuntime();
   const positions =
     options.positions ??
-    createStrategicPositionCatalogV0().filter((position) =>
-      DEFAULT_OPTIONALITY_POSITION_IDS.has(position.id)
-    );
+    createStrategicPositionCatalogV0().filter(isStrategicOptionalityPositionV0);
   const repetitionIds = validateIndices(
     options.repetitionIds ?? [0],
     'repetition'
@@ -356,18 +349,17 @@ function optionalityContext(position: StrategicPositionV0): OptionalityContext {
       `Optionality trace ${position.id} must use the PlayerA catalog perspective.`
     );
   }
-  const family: StrategicOptionalityFamilyV0 = position.id.startsWith(
-    'known-hand-optionality-'
-  )
-    ? 'known-hand'
-    : position.id.startsWith('unknown-pool-optionality-')
-      ? 'unknown-pool'
-      : fail(`Position ${position.id} is not an endpoint optionality case.`);
+  const trace = position.optionalityTrace;
+  if (!trace) {
+    throw new Error(
+      `Position ${position.id} is not an endpoint optionality case.`
+    );
+  }
   const focusById = new Map(
     position.focusActions.map((focus) => [focus.id, focus])
   );
-  const preserve = focusById.get('preserve-option');
-  const overwrite = focusById.get('overwrite-option');
+  const preserve = focusById.get(trace.preserveFocusActionId);
+  const overwrite = focusById.get(trace.overwriteFocusActionId);
   if (!preserve || !overwrite) {
     throw new Error(
       `Optionality position ${position.id} must define preserve-option and overwrite-option.`
@@ -387,12 +379,20 @@ function optionalityContext(position: StrategicPositionV0): OptionalityContext {
       `Optionality position ${position.id} focus actions must be outright developments.`
     );
   }
+  if (
+    preserveAction.districtId !== trace.alternativeDistrictId ||
+    overwriteAction.districtId !== trace.valuableDistrictId ||
+    trace.valuableDistrictId === trace.alternativeDistrictId
+  ) {
+    throw new Error(
+      `Optionality position ${position.id} trace metadata does not match its focus lanes.`
+    );
+  }
   return {
-    family,
-    targetCardId: family === 'known-hand' ? '6' : '20',
-    // Playing Sailor into the overwrite district destroys the valuable endpoint.
-    valuableDistrictId: overwriteAction.districtId,
-    alternativeDistrictId: preserveAction.districtId,
+    family: trace.family,
+    targetCardId: trace.targetCardId,
+    valuableDistrictId: trace.valuableDistrictId,
+    alternativeDistrictId: trace.alternativeDistrictId,
     focusActions: [
       { id: 'preserve-option', actionKey: preserve.actionKey },
       { id: 'overwrite-option', actionKey: overwrite.actionKey },
@@ -860,8 +860,4 @@ function validateIndices(values: readonly number[], label: string): number[] {
     );
   }
   return [...values];
-}
-
-function fail(message: string): never {
-  throw new Error(message);
 }

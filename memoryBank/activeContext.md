@@ -4,10 +4,10 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
-- Validate the forced-rollout findings on a new mirrored optionality holdout:
-  TD has a physical-lane/multi-turn preparation bias, while heuristic v2 can
-  spend the resources supporting a plausible hidden draw. Do not promote a
-  diagnostic hybrid from the current catalog alone.
+- Use the independent optionality holdout to guide the next narrow TD
+  experiment: remove learned physical-district bias through exact
+  district-permutation symmetry, while keeping the resource-option mechanism
+  as a separate diagnostic. Repetitions 24-47 remain reserved.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
@@ -74,6 +74,21 @@
   won all 20; heuristic v2 traded away Wyrms/Suns before the draw, realized it
   zero times, and won zero. Detailed traces remain in ignored
   `strategic-position-step5-*-forced-rollouts` artifacts.
+- The 2026-07-14 Step 6 independent holdout replaced the cards, suits, target
+  lanes, and district stacks. Across 96 decisions per variant, destructive
+  overwrites were 14 for TD Medium, 1 for all-TD at 800 visits, 0 for direct
+  heuristic v2 and V2 Hard, 0 for heuristic-root/TD-rollout, 18 for
+  TD-root/heuristic-rollout, and 0 for heuristic-root/heuristic-rollout. In the
+  sole all-TD failure, the root prior followed physical D3 across the mirror;
+  matched forced roots showed TD actually favored preserve in both
+  orientations (`+0.294` and `+0.318`). In the hidden Market case, TD preserve
+  retained the payment and realized all 29 reachable draws per orientation,
+  while heuristic-v2 preserve realized only 2 and valued preserve and
+  overwrite alike after trading away Leaves/Knots. This generalizes the
+  district-location and uncertain-resource mechanisms, rejects heuristic
+  rollout substitution as a general remedy, and leaves repetitions 24-47
+  untouched. Detailed rows remain in ignored
+  `strategic-position-holdout-*` artifacts.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
 - TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
@@ -154,11 +169,15 @@
 
 ## Remaining Work
 
-- Add a distinct mirrored optionality family as a holdout before interpreting a
-  search hybrid or training change as general.
-- Use the untouched holdout before promoting the diagnosed lane-symmetry or
-  hidden-option relationship into a bot change or claiming match-equity
-  improvement.
+- Design and evaluate district-permutation augmentation (or a
+  permutation-aware encoding) as the next narrow TD change. It should remap
+  observations and action targets exactly, without subjective strategic
+  bonuses.
+- Evaluate a trained candidate first on reserved holdout repetitions 24-47,
+  then through full-game promotion tests before claiming a strength gain.
+- Keep uncertain-draw resource preservation as a separate diagnostic; the
+  holdout rejects heuristic-v2 rollout substitution but does not yet identify
+  a safe general training feature or target for that mechanism.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
 - Continue improving throughput for direct TypeScript TD-root matchups; child-process paired-seed parallelism is available, while individual search decisions remain synchronous in Node.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
@@ -166,13 +185,14 @@
 
 ## Immediate Next Steps
 
-1. Add a mirrored optionality holdout with different cards, payment suits, and
-   districts, then test whether it reproduces the TD lane/preparation bias and
-   heuristic hidden-draw resource loss.
+1. Specify a matched district-permutation training ablation, including exact
+   observation/action remapping and an unaugmented control.
 2. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
-3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
-4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
-6. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
+3. Test any resulting candidate on reserved optionality repetitions 24-47,
+   then run the normal full-game promotion evaluation.
+4. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
+5. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
+6. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
+7. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
 _Updated: 2026-07-14._
