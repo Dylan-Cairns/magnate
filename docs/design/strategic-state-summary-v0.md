@@ -212,6 +212,16 @@ giving it 800 root visits while retaining depth 40, the same default model-pack
 selection, and TD guidance at root, rollout, and leaf. This matches V2 Hard's
 root-visit count, not its search configuration or total computation.
 
+Three additional opt-in variants form a per-hook guidance matrix. Each retains
+the 800-visit configuration and TD leaf setting, uses heuristic v2 for any
+heuristic hook, and remains excluded from defaults:
+
+| ID                                                    | root         | rollout      | leaf |
+| :---------------------------------------------------- | :----------- | :----------- | :--- |
+| `td-root-search-v2-800-visits-heuristic-root`         | heuristic v2 | TD           | TD   |
+| `td-root-search-v2-800-visits-heuristic-rollout`      | TD           | heuristic v2 | TD   |
+| `td-root-search-v2-800-visits-heuristic-root-rollout` | heuristic v2 | heuristic v2 | TD   |
+
 Each `(position, repetition)` supplies the same explicit random seed to every
 variant, independent of bot ID. Positions in a declared counterfactual group,
 including the optionality mirrors, deed-affordability pair, and reshuffle
@@ -300,11 +310,55 @@ unchanged physical-lane prior, but did not eliminate the bias: all five
 remaining harmful choices occur in the known-hand original, versus none in its
 mirror.
 
-The next useful diagnostic is therefore narrow: on the known-hand pair and the
-remaining failure seeds, switch TD root, rollout, and leaf guidance separately
-to identify which hook carries the asymmetry. An encoding-collision holdout is
-useful only after that localization. No heuristic, observation, or training
-change is yet justified by this experiment alone.
+This motivated a narrow root-versus-rollout guidance ablation on the known-hand
+pair. Leaf guidance was held fixed because terminal simulations never invoke
+the non-terminal leaf estimator.
+
+## Step 4 Guidance-Ablation Outcome
+
+The 2026-07-14 diagnostic used the default model pack
+`td-two-stage-imported-20260706-hard-step-30000`, 800 root visits, and the same
+positions, seeds, legal actions, and action consequences. A fresh all-TD rerun
+on the five failure seeds reproduced every prior choice, focus signal, and
+search diagnostic exactly.
+
+On known-hand seeds 7, 10, 14, 17, and 18 and their mirrors, destructive
+overwrites were:
+
+| root         | rollout      | harmful decisions (of 10) |
+| :----------- | :----------- | ------------------------: |
+| TD           | TD           |                         5 |
+| heuristic v2 | TD           |                         5 |
+| TD           | heuristic v2 |                         0 |
+| heuristic v2 | heuristic v2 |                         0 |
+
+Changing only root priorities removed none of the five failures. Changing only
+rollout play removed all five harmful overwrites, despite retaining the same TD
+root priors. The rollout-only variant then produced no harmful overwrite across
+all known-hand seeds 0–47: 96 mirrored decisions including the fresh 24–47
+holdout.
+
+The broader optionality check ruled out treating that result as a ready-made
+hybrid bot:
+
+- Across all four optionality cases and seeds 0–23, all-TD at 800 visits made 5
+  harmful choices in 96 decisions.
+- TD root plus heuristic-v2 rollout made 24 harmful choices, all in the
+  unknown-pool mirror. Its TD root prior strongly favored the same physical D4
+  lane, and heuristic rollout did not overcome that allocation.
+- Heuristic-v2 root plus heuristic-v2 rollout made 1 harmful choice in 96. It
+  occurred in unknown-pool original seed 10, where preserve and overwrite each
+  received 299 visits and their terminal means differed by about `0.000025`.
+- Heuristic-v2 root plus TD rollout made no harmful unknown-pool choice, but it
+  fixed none of the five selected known-hand failures.
+
+Every new decision used exactly 800 visits, expanded every legal root action,
+and had terminal rate 1. Leaf guidance is therefore ruled out for these
+fixtures. The known-hand residual is localized to TD rollout play, while the
+unknown-pool result exposes a separate root/rollout interaction. No single-hook
+substitution is a general remedy, and the nearly all-heuristic combined variant
+is effectively another heuristic-search diagnostic rather than evidence for a
+TD improvement.
 
 ## Invariants Protected by Tests
 
@@ -328,9 +382,10 @@ or the bridge contract. It also does not attempt the horizon distribution,
 district outcome kernels, shared future-action allocation, or calibrated match
 equity model discussed for later work.
 
-The immediate next step is the narrow 800-visit TD guidance ablation described
-above, not heuristic v3. Only a concept that survives repeated characterization
-should become a bot change. The catalog is characterization, not proof of
-strategic correctness; a surviving candidate still needs controlled
-continuation outcomes, holdout position families, and paired full-game
-evaluation.
+The immediate next step is matched forced-root continuation tracing: force
+preserve and overwrite through identical future scenarios, then compare the TD
+and heuristic rollout action sequences. This should reveal where TD misses the
+guaranteed Author continuation and where the heuristic/TD-root combination
+loses the uncertain Penitent option. A new mirrored optionality family should
+then serve as a position holdout. Only after those checks should any training,
+hybrid-search, or heuristic change proceed to paired full-game evaluation.

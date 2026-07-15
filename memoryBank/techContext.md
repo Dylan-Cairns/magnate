@@ -39,6 +39,10 @@
 - Opt-in strategic variant `td-root-search-v2-800-visits` clones TD V2 Medium
   and changes only sampled worlds from 10 to 50. It provides 800 root visits
   without joining the default variant set.
+- Opt-in suffixes `-heuristic-root`, `-heuristic-rollout`, and
+  `-heuristic-root-rollout` select heuristic-v2 guidance for the named hooks at
+  the same 800-visit budget. Leaf remains TD-guided; when terminal rate is 1 it
+  is not invoked.
 
 ## Core Commands
 
