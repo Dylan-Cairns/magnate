@@ -47,6 +47,12 @@ import {
   createStrategicComparisonVariantCatalogV0,
   runStrategicPositionComparisonV0,
 } from './strategicPositionComparison';
+import { runStrategicForcedRolloutTraceV0 } from './strategicForcedRolloutTrace';
+import {
+  createStrategicForcedRolloutTraceArtifactV0,
+  defaultStrategicForcedRolloutTraceOutputDirectoryV0,
+  writeStrategicForcedRolloutTraceArtifactsV0,
+} from './strategicForcedRolloutTraceArtifacts';
 
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
 
@@ -71,11 +77,88 @@ async function main(): Promise<void> {
     case 'strategic-positions':
       await runStrategicPositionsCommand(args);
       return;
+    case 'strategic-forced-rollouts':
+      await runStrategicForcedRolloutsCommand(args);
+      return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | replay --artifact <path> --game-id <id>'
       );
   }
+}
+
+async function runStrategicForcedRolloutsCommand(
+  args: readonly string[]
+): Promise<void> {
+  installLocalPublicFetch();
+  const flags = parseFlags(args);
+  const catalog = createStrategicPositionCatalogV0();
+  const requestedPositionIds = parseOptionalIds(flags, '--positions');
+  const positions = requestedPositionIds
+    ? selectStrategicItems(
+        catalog,
+        requestedPositionIds,
+        (position) => position.id,
+        'position'
+      )
+    : catalog.filter(
+        (position) =>
+          position.id.startsWith('known-hand-optionality-') ||
+          position.id.startsWith('unknown-pool-optionality-')
+      );
+  const repetitionIds = parseOptionalNonnegativeIntegerIds(
+    flags,
+    '--repetitions'
+  ) ?? [0];
+  const scenarioIndices =
+    parseOptionalNonnegativeIntegerIds(flags, '--scenarios') ??
+    Array.from({ length: 50 }, (_unused, index) => index);
+  const outputDirectory =
+    flags.get('--out-dir') ??
+    defaultStrategicForcedRolloutTraceOutputDirectoryV0();
+  const totalTraces =
+    positions.length * repetitionIds.length * scenarioIndices.length * 4;
+  const progressTraceInterval = Math.max(4, Math.floor(totalTraces / 80) * 4);
+  process.stderr.write(
+    `[strategic-forced-rollouts] started positions=${String(positions.length)} repetitions=${String(repetitionIds.length)} scenarios=${String(scenarioIndices.length)} traces=${String(totalTraces)}\n`
+  );
+  const run = await runStrategicForcedRolloutTraceV0({
+    positions,
+    repetitionIds,
+    scenarioIndices,
+    onProgress(progress) {
+      if (
+        progress.rootFocusActionId === 'overwrite-option' &&
+        progress.guide === 'heuristic-v2' &&
+        (progress.completedTraces === totalTraces ||
+          progress.completedTraces % progressTraceInterval === 0)
+      ) {
+        process.stderr.write(
+          `[strategic-forced-rollouts] scenario ${String(progress.completedTraces)}/${String(progress.totalTraces)} position=${progress.positionId} repetition=${String(progress.repetition)} scenario=${String(progress.scenarioIndex)}\n`
+        );
+      }
+    },
+  });
+  const artifact = createStrategicForcedRolloutTraceArtifactV0(run);
+  const written = await writeStrategicForcedRolloutTraceArtifactsV0(
+    artifact,
+    outputDirectory
+  );
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: 'completed',
+        artifact: path.resolve(written.artifactPath),
+        summary: path.resolve(written.summaryPath),
+        positions: run.positions.length,
+        repetitions: run.repetitionIds,
+        scenarios: run.scenarioIndices,
+        traces: totalTraces,
+      },
+      null,
+      2
+    )}\n`
+  );
 }
 
 async function runStrategicPositionsCommand(
@@ -439,6 +522,26 @@ function parseOptionalIds(
     throw new Error(`${name} must contain unique comma-separated ids.`);
   }
   return ids;
+}
+
+function parseOptionalNonnegativeIntegerIds(
+  flags: ReadonlyMap<string, string>,
+  name: string
+): readonly number[] | undefined {
+  const values = parseOptionalIds(flags, name);
+  if (!values) {
+    return undefined;
+  }
+  const parsed = values.map(Number);
+  if (
+    parsed.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+    new Set(parsed).size !== parsed.length
+  ) {
+    throw new Error(
+      `${name} must contain unique comma-separated nonnegative integers.`
+    );
+  }
+  return parsed;
 }
 
 function selectStrategicItems<T>(

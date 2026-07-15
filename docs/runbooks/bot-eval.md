@@ -14,6 +14,8 @@
   `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers 8 --shard-games 1`
 - Strategic-position characterization:
   `yarn bot:eval strategic-positions --repetitions 8`
+- Matched forced-root rollout tracing:
+  `yarn bot:eval strategic-forced-rollouts --repetitions 7 --positions known-hand-optionality-original,known-hand-optionality-mirror`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Override heartbeat cadence for head-to-head, sweep, replay, and replay-export
@@ -98,6 +100,53 @@ Typical outputs:
 
 See [the summary-v0/catalog-v1 design](../design/strategic-state-summary-v0.md)
 for the factual summary contract, catalog scope, and interpretation rules.
+
+## Strategic Forced-Rollout Tracing
+
+`yarn bot:eval strategic-forced-rollouts [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] [--out-dir <path>]`
+is the continuation-level diagnostic for the mirrored optionality cases. It
+does not let root search choose or allocate visits. For every requested
+position, repetition, and action-local scenario index, it samples one hidden
+world and forces both `preserve-option` and `overwrite-option` through that
+same world, simulated engine seed, and rollout seed. Each forced root is then
+played to terminal once by TD rollout guidance and once by heuristic v2.
+
+The trace also records both guides' proposed action at every encountered
+non-root state without consuming the live rollout RNG. This makes it possible
+to distinguish an unavailable Author/Penitent play from a legal play the guide
+declined, and to locate an earlier resource or lane choice that removed the
+continuation. The command uses the 800-visit diagnostic's rollout settings
+(`worlds=50`, depth 40, epsilon 0, heuristic v2) and current default TD model
+pack. It fails if a trace reaches the depth limit, because a non-terminal leaf
+would make the claimed terminal comparison invalid.
+
+`--repetitions` is an explicit ID list, not a count. `--scenarios` likewise
+selects action-local scenario indices and defaults to `0` through `49`, one
+complete cycle of the 50 sampled hidden worlds. Omitting `--positions` selects
+the known-hand and unknown-pool optionality mirrors only. Example diagnostic
+runs:
+
+```powershell
+yarn bot:eval strategic-forced-rollouts `
+  --positions known-hand-optionality-original,known-hand-optionality-mirror `
+  --repetitions 7,10,14,17,18 `
+  --out-dir artifacts/ts-bot-evals/known-optionality-forced
+
+yarn bot:eval strategic-forced-rollouts `
+  --positions unknown-pool-optionality-original,unknown-pool-optionality-mirror `
+  --repetitions 1,6 `
+  --out-dir artifacts/ts-bot-evals/unknown-optionality-forced
+```
+
+Typical outputs:
+
+- `artifacts/ts-bot-evals/<run>/traces.json`
+- `artifacts/ts-bot-evals/<run>/summary.md`
+
+The JSON deliberately contains compact action-by-action traces and can be
+large. The Markdown summary aggregates terminal scores, wins, continuation
+outcomes, and strategically relevant TD-versus-heuristic proposal differences.
+These are controlled fixture diagnostics, not full-game strength estimates.
 
 ## TD Replay Export
 

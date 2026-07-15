@@ -90,6 +90,14 @@ Design expectations:
   and inactive hooks; verify terminal coverage before claiming that leaf
   guidance participated, and check a second position family before treating a
   localized fix as a general policy improvement.
+- Forced-root continuation attribution should bypass UCB allocation by building
+  evaluation-only rollout tasks directly. Sample hidden worlds once per
+  position/repetition, reuse the same action-local world index plus engine and
+  rollout seeds across forced actions and guides, and keep the trace observer
+  out of worker/policy protocols. Observer snapshots must be detached so
+  diagnostics cannot alter search. Record both guides' proposals from each
+  encountered state without consuming the live RNG, and require terminal
+  completion before interpreting fixed-root score differences.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
 - Browser model-backed policies should load from static model-pack artifacts:

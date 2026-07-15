@@ -360,6 +360,79 @@ substitution is a general remedy, and the nearly all-heuristic combined variant
 is effectively another heuristic-search diagnostic rather than evidence for a
 TD improvement.
 
+## Step 5 Matched Forced-Rollout Outcome
+
+The 2026-07-14 follow-up removed root selection and adaptive visit allocation
+from the comparison. For each action-local scenario index, it sampled the
+hidden world once, then forced preserve and overwrite through the same hidden
+assignment, engine seed, and rollout seed under both TD and heuristic-v2
+rollout play. Every trace reached terminal scoring before depth 40, so the TD
+leaf evaluator was again inactive.
+
+The known-hand artifact contains 2,000 terminal traces: both mirrors, failure
+seeds 7, 10, 14, 17, and 18, 50 matched scenarios per seed, two forced roots,
+and two rollout guides. Its aggregate results were:
+
+| position | rollout      | preserve mean | overwrite mean | preserve minus overwrite |
+| :------- | :----------- | ------------: | -------------: | -----------------------: |
+| original | TD           |        -0.214 |         -0.109 |                   -0.105 |
+| mirror   | TD           |         0.461 |         -0.670 |                    1.132 |
+| original | heuristic v2 |         0.007 |         -0.330 |                    0.337 |
+| mirror   | heuristic v2 |         0.013 |         -0.330 |                    0.343 |
+
+Heuristic-v2 rollout play valued preserve consistently in both lane
+orientations. TD rollout play instead changed by more than a full score unit
+when the two complete lanes were swapped. Across the five individual seeds,
+the TD preserve-minus-overwrite gap was negative in four original cases and
+strongly positive in all five mirrors. After normalizing D1/D4 to valuable and
+alternative lane roles, the Player A preserve trajectory matched across the
+mirror in only 109 of 250 TD scenarios, versus 229 of 250 heuristic scenarios.
+The most common first TD mismatch, in 53 scenarios, played The Journey into
+the same physical D4: that was the alternative lane in the original and the
+valuable lane in the mirror.
+
+The Author is not simply invisible to TD at the final decision. On TD-driven
+preserve trajectories it was developed in the valuable lane in 128 of 250
+original scenarios and 140 of 250 mirrors. TD also declined it after it became
+legal in 50 original and 40 mirror scenarios; in another 72 and 70 scenarios,
+respectively, its valuable-lane play never became legal. Recurring earlier
+losses included selling The Diplomat or The Mill instead of the setup Ace of
+Knots, developing another card or deed into a pivotal lane, and using the last
+card play on another development. On states reached by heuristic rollout play,
+TD would often choose The Author too. The central TD blind spot is therefore
+the multi-turn preparation and lane-role consistency needed to preserve the
+continuation, not merely the final Author action score.
+
+The unknown-pool artifact contains 800 terminal traces over repetitions 1 and
+6, their mirrors, and the same 50-scenario cycle. The Penitent was the next
+Player A draw in 20 of the 100 sampled scenarios and was assigned to the
+opponent in the other 80. The following continuation and win counts held in
+each mirror orientation when restricted to those 20 reachable draws:
+
+| forced root and rollout  | Penitent realized | Player A wins |
+| :----------------------- | ----------------: | ------------: |
+| preserve + TD            |             19/20 |         20/20 |
+| overwrite + TD           |              0/20 |          1/20 |
+| preserve + heuristic v2  |              0/20 |          0/20 |
+| overwrite + heuristic v2 |              0/20 |          0/20 |
+
+In every reachable-draw scenario, the first Player A disagreement was the
+same. TD ended the Sailor turn and retained Suns/Wyrms; heuristic v2 traded a
+Wyrms token for Moons and then traded Suns for Moons before drawing. The
+Penitent consequently reached the heuristic trajectory's hand with its
+payment gone and was never legal in the valuable lane. Heuristic-v2 rollout
+gave preserve and overwrite essentially identical terminal means, because it
+discarded the option's token support before learning whether the card would be
+drawn. TD preserve exceeded overwrite in both mirrors and missed the Penitent
+only once after it was legal.
+
+Together with Step 4, this explains the unknown-pool interaction. TD root
+guidance has a physical D4 prior. Heuristic rollout removes the future
+Penitent value that could counter that prior, so the physical-location bias is
+left to decide the root. This is a fixture-level causal diagnosis of the
+recorded search behavior, not evidence that either rollout guide is generally
+stronger in full games.
+
 ## Invariants Protected by Tests
 
 - complete/disjoint card partition and hidden-world determinization;
@@ -373,7 +446,10 @@ TD improvement.
 - deterministic repetition offsets and explicit comparison subsets;
 - per-position/variant stability, focus-gap, and counterfactual reporting;
 - deterministic comparison output apart from measured latency and artifact
-  metadata.
+  metadata;
+- forced-root traces reuse one hidden-world sample and one engine/rollout seed
+  pair across both roots and both guides, remain terminal, and cannot mutate
+  normal search behavior or shared sampled worlds.
 
 ## Non-Goals and Next Step
 
@@ -382,10 +458,9 @@ or the bridge contract. It also does not attempt the horizon distribution,
 district outcome kernels, shared future-action allocation, or calibrated match
 equity model discussed for later work.
 
-The immediate next step is matched forced-root continuation tracing: force
-preserve and overwrite through identical future scenarios, then compare the TD
-and heuristic rollout action sequences. This should reveal where TD misses the
-guaranteed Author continuation and where the heuristic/TD-root combination
-loses the uncertain Penitent option. A new mirrored optionality family should
-then serve as a position holdout. Only after those checks should any training,
-hybrid-search, or heuristic change proceed to paired full-game evaluation.
+The immediate next step is a new mirrored optionality family with different
+cards, payment suits, and districts. It should be treated as a holdout for the
+two mechanisms found here: TD's physical-lane/multi-turn preparation bias and
+heuristic v2's failure to retain resources for a plausible hidden draw. Only
+after that holdout should a training-data change, feature change, search
+hybrid, or narrow heuristic potential proceed to paired full-game evaluation.
