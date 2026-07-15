@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "district-s4-ablation-pilot-v1",
+  "status": "review-required",
+  "launchAuthorized": false,
+  "purpose": "Measure whether exact Pawn-district permutation augmentation removes invalid location dependence without reducing playing strength.",
+  "permutationScheme": "pawn-district-s4-d3-fixed-v1",
+  "provenance": {
+    "implementationFiles": [
+      "scripts/train_td.py",
+      "trainer/encoding.py",
+      "trainer/td/__init__.py",
+      "trainer/td/ablation_manifest.py",
+      "trainer/td/checkpoint.py",
+      "trainer/td/holdout.py",
+      "trainer/td/io.py",
+      "trainer/td/models.py",
+      "trainer/td/replay.py",
+      "trainer/td/self_play.py",
+      "trainer/td/symmetry_augmentation.py",
+      "trainer/td/targets.py",
+      "trainer/td/train.py",
+      "trainer/td/types.py",
+      "trainer/types.py"
+    ],
+    "expectedImplementationSha256": "16cf8487999b3812ccd34acace909195138842d2e1b04e32211b701e4b8e5635"
+  },
+  "replay": {
+    "shardsDirectory": "artifacts/td_replay/20260619T135628Z-v2-hard-laptop-900/shards",
+    "expectedShards": 900,
+    "expectedValueRows": 163194,
+    "expectedOpponentRows": 163194,
+    "expectedValueBytes": 427315245,
+    "expectedOpponentBytes": 304153169,
+    "expectedInventorySha256": "92196621f10535ffbb2dafcd003350db9f48db74c4d2018fb027bfdfeecba403",
+    "expectedContentSha256": {
+      "value": "f1310b0ce4d0af995da89acc14c063d0ef142642f576543fcb4de7869942e6b8",
+      "opponent": "c6334866d0877ed4868728a682b46073cade1b9ac82117ec8d101f4b5ec3a6ee"
+    },
+    "split": {
+      "scheme": "sha256-ranked-holdout-v1",
+      "salt": "magnate-district-s4-pilot-v1",
+      "trainingShards": 800,
+      "validationShards": 100,
+      "expectedMembershipSha256": "7ae87c8e6c2d2c666b51b6644dc4b27c358827a643fe350f16e9581b02413370",
+      "expectedTrainingContentSha256": {
+        "value": "cb4f426f8b74a82265920d0e36331da4f57db8e6e350ab152ef6112913459c6c",
+        "opponent": "7e34483740ea67f9f7da476abac2eed3bc56b9b08d81cfc34a3f074799853b84"
+      },
+      "expectedValidationContentSha256": {
+        "value": "b5727d22c165fae86f6874506573e7e1111617dfa74de896bc5ad83121d66e80",
+        "opponent": "7247361e6d9dfc61ce1f344115b9db52cf1189a32ad5ed01d17990f56d0dda80"
+      }
+    },
+    "validationQualification": "Held out from this continuation-training pilot only; the warm-start model may have previously encountered these games."
+  },
+  "warmStart": {
+    "optimizerState": "fresh-in-both-arms",
+    "value": {
+      "path": "artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/value-step-0030000.pt",
+      "sha256": "9111a88fb4257f20518437283e4a35d418f536ad3b7985ec3eb5e8d9e8d55630"
+    },
+    "opponent": {
+      "path": "artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/opponent-step-0030000.pt",
+      "sha256": "590897272389dc600bb371b6b4bc82ae4b7c24d148a93e91655b19069dbd0937"
+    }
+  },
+  "arms": [
+    {
+      "id": "continued-control",
+      "districtAugmentation": "none"
+    },
+    {
+      "id": "s4-augmented",
+      "districtAugmentation": "s4"
+    }
+  ],
+  "seeds": [
+    {
+      "id": "pilot-a",
+      "trainingSeed": 2026071501,
+      "augmentationSeed": 2026071502,
+      "promotionEligibility": true
+    },
+    {
+      "id": "pilot-b",
+      "trainingSeed": 2026071601,
+      "augmentationSeed": 2026071602,
+      "promotionEligibility": false
+    }
+  ],
+  "training": {
+    "valueUpdates": 5000,
+    "opponentUpdates": 5000,
+    "valueBatchSize": 128,
+    "opponentBatchSize": 64,
+    "gamma": 0.995,
+    "valueLearningRate": 0.0003,
+    "valueWeightDecay": 0.00001,
+    "opponentLearningRate": 0.0003,
+    "opponentWeightDecay": 0.00001,
+    "maxGradNorm": 1.0,
+    "targetSyncInterval": 200,
+    "valueTargetMode": "td-lambda",
+    "tdLambda": 0.7,
+    "valueLoss": "huber",
+    "saveEverySteps": 1000,
+    "progressEverySteps": 50,
+    "numThreads": 8,
+    "numInteropThreads": 1
+  },
+  "outputs": {
+    "trainingInputDirectory": "artifacts/training_inputs/district-s4-ablation-pilot-v1",
+    "checkpointDirectory": "artifacts/td_checkpoints/district-s4-ablation-pilot-v1",
+    "resolvedManifest": "artifacts/training_inputs/district-s4-ablation-pilot-v1/resolved-manifest.json",
+    "evaluationInputDirectory": "artifacts/training_inputs/district-s4-ablation-pilot-v1/post-training-evaluation",
+    "evaluationArtifactDirectory": "artifacts/td_ablation_evals/district-s4-ablation-pilot-v1"
+  },
+  "selection": {
+    "checkpointStep": 5000,
+    "intermediateCheckpointSelectionAllowed": false,
+    "primarySeedId": "pilot-a",
+    "replicationSeedId": "pilot-b",
+    "primaryCandidate": "pilot-a/s4-augmented value + opponent",
+    "candidateMustBeFrozenBeforeReservedStrategicEvaluation": true,
+    "crossComponentPacksAreDiagnosticOnly": true,
+    "replicationCanReplacePrimaryCandidate": false,
+    "contradictoryReplicationBlocksPromotion": true
+  },
+  "experimentalPacks": {
+    "outputRoot": "public/model-packs-experiments/district-s4-ablation-pilot-v1",
+    "manifestPathPrefix": "model-packs-experiments/district-s4-ablation-pilot-v1",
+    "modelIndexPath": "model-packs-experiments/district-s4-ablation-pilot-v1/index.json",
+    "setDefault": false,
+    "deployedIndexMustRemainUnchanged": "public/model-packs/index.json",
+    "packIds": {
+      "incumbent": "district-s4-incumbent-july",
+      "pilotAControl": "district-s4-pilot-a-control",
+      "pilotAAugmented": "district-s4-pilot-a-augmented",
+      "pilotAControlValueAugmentedOpponent": "district-s4-pilot-a-control-value-augmented-opponent",
+      "pilotAAugmentedValueControlOpponent": "district-s4-pilot-a-augmented-value-control-opponent",
+      "pilotBControl": "district-s4-pilot-b-control",
+      "pilotBAugmented": "district-s4-pilot-b-augmented"
+    }
+  },
+  "diagnosticPacks": [
+    "incumbent-unchanged",
+    "control-value-control-opponent",
+    "augmented-value-augmented-opponent",
+    "control-value-augmented-opponent",
+    "augmented-value-control-opponent"
+  ],
+  "evaluation": {
+    "heldoutReplay": {
+      "usesAllValidationShards": true,
+      "sampling": "none",
+      "gamma": 0.995,
+      "valueMetrics": ["monteCarloMse", "monteCarloMae", "meanPredictionBias"],
+      "opponentMetrics": [
+        "softTargetCrossEntropy",
+        "softTargetKl",
+        "teacherTopActionAgreement",
+        "selectedActionAccuracy"
+      ],
+      "noninferiorityVsMatchedControl": {
+        "maximumValueMseRatio": 1.05,
+        "maximumOpponentCrossEntropyIncrease": 0.01
+      }
+    },
+    "directSymmetry": {
+      "source": "all 100 validation opponent shards",
+      "sampleSize": 10000,
+      "samplingSeed": "district-s4-ablation-pilot-v1-heldout-symmetry-v1",
+      "allPermutations": true,
+      "minimumPairwiseTopActionAgreement": 0.95,
+      "minimumProbabilityDriftReductionVsControl": 0.5,
+      "minimumValueDriftReductionVsControl": 0.5,
+      "promotionRole": "diagnostic-required-but-not-sufficient"
+    },
+    "strategicDevelopment": {
+      "repetitionsInclusive": [0, 23],
+      "mayInformCandidateSelection": true
+    },
+    "strategicReserved": {
+      "repetitionsInclusive": [24, 47],
+      "mayInformCandidateSelection": false,
+      "candidateMustBeFrozenFirst": true
+    },
+    "fullGames": {
+      "gamesPerSide": 100,
+      "totalGamesPerComparison": 200,
+      "workers": 4,
+      "seedPrefix": "district-s4-ablation-pilot-v1-full-game-v1",
+      "pairedSeeds": true,
+      "seatSwappedByHarness": true,
+      "botSpec": {
+        "kind": "td-root-search",
+        "worlds": 10,
+        "rollouts": 1,
+        "depth": 40,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0.0,
+        "guidance": {
+          "root": "td",
+          "rollout": "td",
+          "leaf": "td"
+        },
+        "maximumRootVisitBudget": 160
+      },
+      "comparisons": [
+        "augmented-vs-equally-trained-control",
+        "augmented-vs-unchanged-incumbent",
+        "equally-trained-control-vs-unchanged-incumbent-diagnostic"
+      ],
+      "decisionRules": {
+        "augmentedVsControl": {
+          "minimumPointWinRate": 0.5,
+          "minimumWilson95LowerBound": 0.45
+        },
+        "augmentedVsIncumbent": {
+          "minimumPointWinRate": 0.52,
+          "minimumWilson95LowerBound": 0.45
+        },
+        "maximumSeatWinRateGap": 0.1,
+        "drawsCountAsNonWinsInWilsonInterval": true
+      }
+    }
+  },
+  "guardrails": [
+    "Do not launch until this manifest and its resolved form are reviewed.",
+    "Do not change public/model-packs/index.json or any bot default.",
+    "Do not tune against reserved strategic repetitions 24-47.",
+    "Do not combine this intervention with encoding, architecture, reward, replay-mixture, or heuristic changes.",
+    "Symmetry improvement alone is not sufficient for promotion."
+  ]
+}

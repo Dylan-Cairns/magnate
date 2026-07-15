@@ -1,5 +1,14 @@
 """TD/Keldon training primitives for Magnate."""
 
+from .ablation_manifest import (
+    FrozenReplaySplit,
+    count_jsonl_rows,
+    named_files_content_sha256,
+    replay_content_sha256,
+    resolve_frozen_replay_split,
+    sha256_file,
+    write_replay_path_lists,
+)
 from .checkpoint import (
     TD_OPPONENT_CHECKPOINT_TYPE,
     TD_VALUE_CHECKPOINT_TYPE,
@@ -8,6 +17,7 @@ from .checkpoint import (
     save_opponent_checkpoint,
     save_value_checkpoint,
 )
+from .holdout import evaluate_opponent_holdout, evaluate_value_holdout
 from .io import (
     read_opponent_samples_jsonl,
     read_opponent_samples_jsonl_many,
@@ -25,6 +35,20 @@ from .self_play import (
     collect_self_play_games,
     flatten_opponent_samples,
     flatten_value_transitions,
+)
+from .symmetry_augmentation import (
+    DISTRICT_AUGMENTATION_MODES,
+    DISTRICT_AUGMENTATION_NONE,
+    DISTRICT_AUGMENTATION_S4,
+    PAWN_DISTRICT_PERMUTATIONS,
+    PawnDistrictPermutation,
+    ValueAugmentationBatch,
+    augment_opponent_training_batch,
+    augment_value_training_batch,
+    derive_augmentation_stream_seed,
+    inverse_pawn_district_permutation,
+    permute_encoded_action_features,
+    permute_encoded_observation,
 )
 from .targets import n_step_bootstrap_targets, td_lambda_targets
 from .train import (
@@ -46,6 +70,13 @@ from .train import (
 from .types import OpponentSample, ValueTransition
 
 __all__ = [
+    "FrozenReplaySplit",
+    "count_jsonl_rows",
+    "named_files_content_sha256",
+    "replay_content_sha256",
+    "resolve_frozen_replay_split",
+    "sha256_file",
+    "write_replay_path_lists",
     "OpponentModel",
     "ValueNet",
     "OpponentReplayBuffer",
@@ -56,6 +87,8 @@ __all__ = [
     "read_opponent_samples_jsonl",
     "read_opponent_samples_jsonl_many",
     "write_opponent_samples_jsonl",
+    "evaluate_opponent_holdout",
+    "evaluate_value_holdout",
     "SelfPlayEpisode",
     "SelfPlayProgressCallback",
     "collect_self_play_episode",
@@ -64,6 +97,18 @@ __all__ = [
     "flatten_value_transitions",
     "n_step_bootstrap_targets",
     "td_lambda_targets",
+    "DISTRICT_AUGMENTATION_MODES",
+    "DISTRICT_AUGMENTATION_NONE",
+    "DISTRICT_AUGMENTATION_S4",
+    "PAWN_DISTRICT_PERMUTATIONS",
+    "PawnDistrictPermutation",
+    "ValueAugmentationBatch",
+    "augment_opponent_training_batch",
+    "augment_value_training_batch",
+    "derive_augmentation_stream_seed",
+    "inverse_pawn_district_permutation",
+    "permute_encoded_action_features",
+    "permute_encoded_observation",
     "TDTrainConfig",
     "TDTrainStepSummary",
     "TD_VALUE_TARGET_MODE",

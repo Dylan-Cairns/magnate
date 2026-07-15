@@ -10,6 +10,7 @@ __pycache__/
 .npm-cache/
 .yarn-cache/
 artifacts/
+public/model-packs-experiments/
 *.pyc
 *.pyo
 *.pyd

@@ -36,7 +36,7 @@ Config inputs can reference catalog presets with `{ "profileId": "rollout-search
 
 ## Strategic Position Characterization
 
-`yarn bot:eval strategic-positions [--repetitions <count>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] [--out-dir <path>]`
+`yarn bot:eval strategic-positions [--repetitions <count>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] [--model-index-path <path> --pack-id <id>] [--out-dir <path>]`
 by default runs the typed strategic position catalog against direct heuristic
 v2, V2 Hard, and the current TD V2 Medium profile. All variants receive the same
 explicit random seed for each position/repetition. The command records choices
@@ -69,6 +69,10 @@ V2 Medium and changes only sampled worlds from 10 to 50 while retaining depth
 budget, use heuristic v2 for each named heuristic hook, and retain TD leaf
 guidance. They match V2 Hard's root-visit count, not its deeper search or total
 computation, and none joins the default variant set.
+For a frozen experimental TD pack, pass both `--model-index-path` and
+`--pack-id`. The selector is applied only to TD variants; heuristic variants
+remain unchanged. The same pair is accepted by `strategic-forced-rollouts`.
+This avoids changing the deployed default while comparing candidate packs.
 `--positions` likewise accepts unique catalog position IDs, and unknown or
 duplicate IDs fail fast. `--start-repetition` changes the
 deterministic repetition/seed index for a targeted extension. It does not resume
@@ -148,6 +152,25 @@ The JSON deliberately contains compact action-by-action traces and can be
 large. The Markdown summary aggregates terminal scores, wins, continuation
 outcomes, and strategically relevant TD-versus-heuristic proposal differences.
 These are controlled fixture diagnostics, not full-game strength estimates.
+
+## TD District-Symmetry Audit
+
+```powershell
+yarn bot:eval td-symmetry `
+  --replay-list artifacts/training_inputs/<experiment>/validation.opponent.paths.txt `
+  --sample-size 10000 `
+  --sampling-seed <frozen-seed> `
+  --model-index-path model-packs-experiments/<experiment>/index.json `
+  --pack-id <frozen-pack-id> `
+  --out-dir artifacts/ts-bot-evals/<run>
+```
+
+Provide exactly one of `--replay-dir` or `--replay-list`. A path list is the
+preferred form for a frozen holdout because it prevents training shards in the
+same source directory from entering the audit. Sampling is deterministic over
+the sorted explicit file set. The audit applies all 24 D1/D2/D4/D5
+permutations with D3 fixed and reports action-probability and value drift; it
+does not measure playing strength.
 
 ## TD Replay Export
 

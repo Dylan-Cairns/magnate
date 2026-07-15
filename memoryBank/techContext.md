@@ -60,7 +60,7 @@
 - Strategic position smoke check: `yarn bot:eval strategic-positions --repetitions 1`
 - Strategic position stability screen: `yarn bot:eval strategic-positions --repetitions 8`
 - Strategic forced-rollout trace: `yarn bot:eval strategic-forced-rollouts --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror --repetitions 0,1`
-- TD district-symmetry audit: `yarn bot:eval td-symmetry --replay-dir <replay-run> --sample-size <n> --sampling-seed <seed>`
+- TD district-symmetry audit: `yarn bot:eval td-symmetry (--replay-dir <replay-run> | --replay-list <paths.txt>) --sample-size <n> --sampling-seed <seed>`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
@@ -69,6 +69,9 @@
 - Promote/register checkpoint pair: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
 - Export browser TD-root model pack: `.\.venv\Scripts\python -m scripts.export_browser_td_root_pack --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --set-default`
 - Reconstruct optimizer-free trainer checkpoints from a browser TD-root pack: `.\.venv\Scripts\python -m scripts.reconstruct_browser_td_root_checkpoints --manifest <pack-manifest.json> --output-dir <directory>`
+- Validate and resolve the non-launching district-S4 pilot: `.\.venv\Scripts\python -m scripts.prepare_td_district_symmetry_ablation`
+- Prepare the non-launching final-checkpoint evaluation plan after all pilot runs finish: `.\.venv\Scripts\python -m scripts.prepare_td_district_symmetry_evaluation`
+- Evaluate a final value/opponent pair on the complete replay holdout: `.\.venv\Scripts\python -m scripts.evaluate_td_replay_holdout --help`
 
 ## Python Workflow
 
@@ -97,6 +100,12 @@
 - Rule semantics stay in TS unless explicitly re-approved.
 - Python training scripts are fail-fast and expect the active project virtualenv.
 - `scripts.train_td` enforces Python 3.12+ and active `.venv` at startup.
+- `scripts.train_td` accepts ordered replay path-list files and opt-in
+  `--district-augmentation none|s4`; S4 requires an explicit independent seed.
+- Frozen pilot commands also verify content-level replay, warm-start,
+  source-manifest, and implementation hashes before training. Experimental
+  candidate packs live under ignored `public/model-packs-experiments/` with a
+  separate index.
 
 ## Known Gaps
 
@@ -104,4 +113,4 @@
 - Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
 - Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
-_Updated: 2026-07-14._
+_Updated: 2026-07-15._

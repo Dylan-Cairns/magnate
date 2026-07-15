@@ -14,14 +14,29 @@ def _sample_items(
     batch_size: int,
     rng: random.Random,
 ) -> list[T]:
+    _indices, sampled = _sample_items_with_indices(
+        items=items,
+        batch_size=batch_size,
+        rng=rng,
+    )
+    return sampled
+
+
+def _sample_items_with_indices(
+    *,
+    items: Sequence[T],
+    batch_size: int,
+    rng: random.Random,
+) -> tuple[list[int], list[T]]:
     if batch_size <= 0:
         raise ValueError("batch_size must be > 0.")
     if len(items) == 0:
         raise ValueError("Cannot sample from an empty replay buffer.")
     if batch_size >= len(items):
-        return list(items)
-    indices = rng.sample(range(len(items)), k=batch_size)
-    return [items[index] for index in indices]
+        indices = list(range(len(items)))
+    else:
+        indices = rng.sample(range(len(items)), k=batch_size)
+    return indices, [items[index] for index in indices]
 
 
 class ValueReplayBuffer:
@@ -49,6 +64,15 @@ class ValueReplayBuffer:
 
     def sample(self, *, batch_size: int, rng: random.Random) -> list[ValueTransition]:
         return _sample_items(items=self._items, batch_size=batch_size, rng=rng)
+
+    def sample_with_indices(
+        self, *, batch_size: int, rng: random.Random
+    ) -> tuple[list[int], list[ValueTransition]]:
+        return _sample_items_with_indices(
+            items=self._items,
+            batch_size=batch_size,
+            rng=rng,
+        )
 
     def as_list(self) -> List[ValueTransition]:
         return list(self._items)
@@ -79,6 +103,15 @@ class OpponentReplayBuffer:
 
     def sample(self, *, batch_size: int, rng: random.Random) -> list[OpponentSample]:
         return _sample_items(items=self._items, batch_size=batch_size, rng=rng)
+
+    def sample_with_indices(
+        self, *, batch_size: int, rng: random.Random
+    ) -> tuple[list[int], list[OpponentSample]]:
+        return _sample_items_with_indices(
+            items=self._items,
+            batch_size=batch_size,
+            rng=rng,
+        )
 
     def as_list(self) -> List[OpponentSample]:
         return list(self._items)

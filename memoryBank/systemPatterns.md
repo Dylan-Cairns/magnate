@@ -312,6 +312,24 @@ Design expectations:
   - rejected chunks are not eligible for accepted-source replay windows, but can be included by the recent-source learner window.
 - Per-chunk durability lives in `chunks/chunk-XXX/chunk.summary.json`; block generator decisions live in `blocks/block-XXX/block.summary.json`. Resume requires the current chunk-summary schema, including checkpoint-selection metadata, reconstructs learner/generator checkpoints separately, restores accepted and recent replay histories, and carries any trailing non-boundary chunk candidates into the next block gate.
 - Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
+- Controlled district-symmetry training experiments use one exact S4 action on
+  D1/D2/D4/D5 with D3 fixed. Transform complete observation blocks and every
+  district-bearing action candidate, preserve action targets/order, and apply
+  one permutation to the complete `(episodeId, playerId)` trajectory used by a
+  TD-lambda target. Augmentation randomness is independent of replay sampling;
+  control mode is a no-op, and matched runs record raw sampling-index traces.
+- Frozen ablation runs bind byte-level replay content, warm-start checkpoint,
+  source-manifest, and ordered implementation-file fingerprints into both run
+  summaries and checkpoints. Final evaluation rejects any mismatch and also
+  rejects unequal raw sampling traces between matched control/augmentation
+  arms. Training/validation membership, path-list hashes, and full-content
+  hashes are separate so a same-size replay mutation cannot pass preflight.
+- District-symmetry candidate selection uses only the predeclared final
+  checkpoint. The primary seed is frozen before reserved strategic repetitions;
+  the second seed is replication, cannot replace the primary, and contradictory
+  replication blocks promotion. Cross-component value/opponent packs remain
+  diagnostic. Experimental browser packs use an ignored, independent index and
+  never modify the deployed pack index or default.
 - TD checkpoint registry is source-controlled:
   - `models/td_checkpoints/manifest.json` schema v2 is the canonical source for `defaultWarmStart` and `opponentPool`.
   - referenced promoted checkpoint files live under `models/td_checkpoints/<key>/` so they move with the repo; ignored `artifacts/td_loops/*/loop.summary.json` files are fallback/history only.
