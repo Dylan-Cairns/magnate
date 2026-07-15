@@ -159,11 +159,20 @@ const directHeuristicV2Policy: ActionPolicy = {
   },
 };
 
-export function createStrategicComparisonVariantCatalogV0(): StrategicComparisonVariantV0[] {
+export interface StrategicVariantCatalogOptionsV0 {
+  readonly tdModelIndexPath?: string;
+}
+
+export function createStrategicComparisonVariantCatalogV0(
+  options: StrategicVariantCatalogOptionsV0 = {}
+): StrategicComparisonVariantV0[] {
   const hard = structuredClone(getBotProfile('rollout-search-v2-hard').spec);
   const td = structuredClone(getBotProfile('td-root-search-v2-medium').spec);
   if (td.kind !== 'td-root-search') {
     throw new Error('TD V2 Medium must use a TD-root-search bot spec.');
+  }
+  if (options.tdModelIndexPath !== undefined) {
+    td.modelIndexPath = options.tdModelIndexPath;
   }
   const td800 = {
     ...structuredClone(td),
@@ -260,8 +269,10 @@ export function createStrategicComparisonVariantCatalogV0(): StrategicComparison
   ];
 }
 
-export function createDefaultStrategicComparisonVariantsV0(): StrategicComparisonVariantV0[] {
-  return createStrategicComparisonVariantCatalogV0().filter(
+export function createDefaultStrategicComparisonVariantsV0(
+  options: StrategicVariantCatalogOptionsV0 = {}
+): StrategicComparisonVariantV0[] {
+  return createStrategicComparisonVariantCatalogV0(options).filter(
     (variant) => !STRATEGIC_DIAGNOSTIC_VARIANT_IDS.has(variant.descriptor.id)
   );
 }

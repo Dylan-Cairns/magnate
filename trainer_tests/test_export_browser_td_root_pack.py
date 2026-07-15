@@ -40,6 +40,7 @@ class ExportBrowserTdRootPackTests(unittest.TestCase):
                 value_checkpoint_path=value_checkpoint,
                 opponent_checkpoint_path=opponent_checkpoint,
                 output_root=output_root,
+                manifest_path_prefix="model-packs-experiments/test-run",
                 pack_id="td-root-test-pack",
                 label="TD Root Test",
                 set_default=False,
@@ -57,7 +58,11 @@ class ExportBrowserTdRootPackTests(unittest.TestCase):
             self.assertIn("obs_encoder.0.weight", weights["opponentTensors"])
 
             index = json.loads(Path(result["index"]).read_text(encoding="utf-8"))
-            self.assertTrue(any(pack["id"] == "td-root-test-pack" for pack in index["packs"]))
+            entry = next(pack for pack in index["packs"] if pack["id"] == "td-root-test-pack")
+            self.assertEqual(
+                entry["manifestPath"],
+                "model-packs-experiments/test-run/td-root-test-pack/manifest.json",
+            )
 
     def test_resolve_latest_promoted_pair_from_loop_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

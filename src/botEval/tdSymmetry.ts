@@ -262,6 +262,22 @@ export async function sampleOpponentReplayDirectory(
   sampleSize: number,
   samplingSeed: string
 ): Promise<SymmetryReplaySampleSet> {
+  const files = (await listOpponentReplayFiles(replayDirectory)).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  if (files.length === 0) {
+    throw new Error(
+      `TD symmetry audit found no *.opponent.jsonl files under ${replayDirectory}.`
+    );
+  }
+  return sampleOpponentReplayFiles(files, sampleSize, samplingSeed);
+}
+
+export async function sampleOpponentReplayFiles(
+  replayFiles: readonly string[],
+  sampleSize: number,
+  samplingSeed: string
+): Promise<SymmetryReplaySampleSet> {
   if (!Number.isSafeInteger(sampleSize) || sampleSize <= 0) {
     throw new Error(
       'TD symmetry audit sample size must be a positive integer.'
@@ -270,12 +286,17 @@ export async function sampleOpponentReplayDirectory(
   if (samplingSeed.trim() === '') {
     throw new Error('TD symmetry audit sampling seed must be non-empty.');
   }
-  const files = (await listOpponentReplayFiles(replayDirectory)).sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const files = [...replayFiles].sort((a, b) => a.localeCompare(b));
   if (files.length === 0) {
+    throw new Error('TD symmetry audit replay file list must not be empty.');
+  }
+  if (new Set(files).size !== files.length) {
+    throw new Error('TD symmetry audit replay file list contains duplicates.');
+  }
+  const invalid = files.find((file) => !file.endsWith('.opponent.jsonl'));
+  if (invalid) {
     throw new Error(
-      `TD symmetry audit found no *.opponent.jsonl files under ${replayDirectory}.`
+      `TD symmetry audit replay file must end in .opponent.jsonl: ${invalid}`
     );
   }
   const random = rngFromSeed(samplingSeed);

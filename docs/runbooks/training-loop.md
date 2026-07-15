@@ -15,6 +15,73 @@ Use the project `.venv` for all Python commands in this repo.
 - `python -m scripts.train_td --value-replay artifacts/td_replay/<run>.value.jsonl --opponent-replay artifacts/td_replay/<run>.opponent.jsonl --steps 2000 --run-label td-v1`
   TD training primitive over replay files.
 
+`scripts.train_td` also accepts `--value-replay-list` and
+`--opponent-replay-list`, each pointing to a UTF-8 file with one replay path per
+line. This avoids platform command-length limits for large frozen shard sets.
+
+## District-Symmetry Pilot Preparation
+
+```powershell
+python -m scripts.prepare_td_district_symmetry_ablation
+```
+
+This validates the checked-in
+`configs/td-training/district-s4-ablation-pilot-v1.json`, verifies replay and
+warm-start hashes, computes byte-level content fingerprints for the full
+replay and both sides of the deterministic 800/100 shard split, verifies the
+frozen training implementation, and writes hashed path lists plus eight exact
+commands to the ignored resolved manifest. It also prepares four one-update,
+full-800-shard guardrail smoke commands. The preparer never launches training.
+The source and resolved manifests must both remain
+`review-required` with `launchAuthorized=false` until explicit review.
+
+The training primitive's intervention flags are
+`--district-augmentation none|s4` and
+`--district-augmentation-seed <integer>`. S4 requires the explicit seed;
+control mode is an exact no-op. Training summaries include raw sampling-trace
+hashes and checkpoints embed the replay, warm-start, source-manifest, and
+implementation fingerprints. A run fails before loading/training if a frozen
+fingerprint differs. Raw sampling hashes must match between each
+control/candidate pair before results are interpreted.
+
+The guardrail pass completed all four prepared one-update smokes against the
+full 800-shard lists with eight threads. Each path loaded 145,014 rows. The
+control and S4 value traces both hashed to
+`412d7f3de1755d52bc49410281a9a89e20f3da028e03c419052f6d633f628214`;
+the opponent traces both hashed to
+`8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`.
+These checks do not authorize or substitute for the 5,000-update runs.
+
+After all eight training summaries exist, prepare—but do not execute—the exact
+post-training evaluation plan:
+
+```powershell
+python -m scripts.prepare_td_district_symmetry_evaluation
+```
+
+This command rejects intermediate checkpoints, provenance mismatches, and
+unequal paired sampling traces. It freezes step 5,000 from `pilot-a` as the
+only promotion-eligible candidate before reserved repetitions are used. It
+then prepares:
+
+- all-100-shard heldout value and opponent metrics through
+  `scripts.evaluate_td_replay_holdout`;
+- deterministic 10,000-row, all-24-permutation symmetry audits from the
+  validation opponent path list;
+- exposed strategic runs for both seeds and the reserved 24-47 run for the
+  already-frozen primary candidate;
+- paired, seat-swapped full-game configs at the frozen TD V2 Medium search
+  budget; and
+- candidate/control/cross-component browser packs under ignored
+  `public/model-packs-experiments/`, with their own index and explicit
+  `--no-set-default` exports.
+
+The deployed `public/model-packs/index.json`, checkpoint registry, and bot
+defaults are outside this experiment. Symmetry improvement is a required
+diagnostic, not a sufficient promotion condition; heldout noninferiority,
+replication direction, strategic behavior, and full-game strength remain
+separate gates.
+
 ## Evaluation
 
 - `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`

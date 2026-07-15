@@ -59,6 +59,7 @@ import {
 import {
   runTdSymmetryAudit,
   sampleOpponentReplayDirectory,
+  sampleOpponentReplayFiles,
 } from './tdSymmetry';
 import {
   createTdSymmetryArtifact,
@@ -101,7 +102,7 @@ async function main(): Promise<void> {
       return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry --replay-dir <path> [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry (--replay-dir <path> | --replay-list <path>) [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -109,7 +110,11 @@ async function main(): Promise<void> {
 async function runTdSymmetryCommand(args: readonly string[]): Promise<void> {
   installLocalPublicFetch();
   const flags = parseFlags(args);
-  const replayDirectory = requiredFlag(flags, '--replay-dir');
+  const replayDirectory = flags.get('--replay-dir');
+  const replayList = flags.get('--replay-list');
+  if ((replayDirectory === undefined) === (replayList === undefined)) {
+    throw new Error('Provide exactly one of --replay-dir or --replay-list.');
+  }
   const sampleSize =
     parseOptionalPositiveInteger(flags, '--sample-size') ?? 10_000;
   const samplingSeed =
@@ -138,13 +143,19 @@ async function runTdSymmetryCommand(args: readonly string[]): Promise<void> {
   const progressIntervalMs = parseProgressIntervalMs(flags);
 
   process.stderr.write(
-    `[td-symmetry] scanning replay=${path.resolve(replayDirectory)} requestedSample=${String(sampleSize)} seed=${samplingSeed}\n`
+    `[td-symmetry] scanning replay=${path.resolve(replayDirectory ?? replayList!)} requestedSample=${String(sampleSize)} seed=${samplingSeed}\n`
   );
-  const sampleSet = await sampleOpponentReplayDirectory(
-    replayDirectory,
-    sampleSize,
-    samplingSeed
-  );
+  const sampleSet = replayDirectory
+    ? await sampleOpponentReplayDirectory(
+        replayDirectory,
+        sampleSize,
+        samplingSeed
+      )
+    : await sampleOpponentReplayFiles(
+        await readReplayPathList(replayList!),
+        sampleSize,
+        samplingSeed
+      );
   process.stderr.write(
     `[td-symmetry] sampled=${String(sampleSet.samples.length)} rowsScanned=${String(sampleSet.rowsScanned)} files=${String(sampleSet.files.length)} loadingPack=${modelPackId}\n`
   );
@@ -199,6 +210,7 @@ async function runStrategicForcedRolloutsCommand(
 ): Promise<void> {
   installLocalPublicFetch();
   const flags = parseFlags(args);
+  const tdModelIndexPath = selectedTdModelIndexPath(flags);
   const catalog = createStrategicPositionCatalogV0();
   const requestedPositionIds = parseOptionalIds(flags, '--positions');
   const positions = requestedPositionIds
@@ -229,6 +241,9 @@ async function runStrategicForcedRolloutsCommand(
     positions,
     repetitionIds,
     scenarioIndices,
+    ...(tdModelIndexPath === undefined
+      ? {}
+      : { modelIndexPath: tdModelIndexPath }),
     onProgress(progress) {
       if (
         progress.rootFocusActionId === 'overwrite-option' &&
@@ -269,6 +284,7 @@ async function runStrategicPositionsCommand(
 ): Promise<void> {
   installLocalPublicFetch();
   const flags = parseFlags(args);
+  const tdModelIndexPath = selectedTdModelIndexPath(flags);
   const repetitions = parseOptionalPositiveInteger(flags, '--repetitions') ?? 1;
   const repetitionStart =
     parseOptionalNonnegativeInteger(flags, '--start-repetition') ?? 0;
@@ -281,8 +297,12 @@ async function runStrategicPositionsCommand(
   const requestedVariantIds = parseOptionalIds(flags, '--variants');
   const variants = selectStrategicItems(
     requestedVariantIds
-      ? createStrategicComparisonVariantCatalogV0()
-      : createDefaultStrategicComparisonVariantsV0(),
+      ? createStrategicComparisonVariantCatalogV0(
+          tdModelIndexPath === undefined ? {} : { tdModelIndexPath }
+        )
+      : createDefaultStrategicComparisonVariantsV0(
+          tdModelIndexPath === undefined ? {} : { tdModelIndexPath }
+        ),
     requestedVariantIds,
     (variant) => variant.descriptor.id,
     'variant'
@@ -664,6 +684,57 @@ function selectStrategicItems<T>(
     }
     return item;
   });
+}
+
+async function readReplayPathList(listPath: string): Promise<string[]> {
+  const absoluteListPath = path.resolve(listPath);
+  const baseDirectory = path.dirname(absoluteListPath);
+  const entries = (await readFile(absoluteListPath, 'utf8'))
+    .split(/\r?\n/u)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && !entry.startsWith('#'))
+    .map((entry) =>
+      path.isAbsolute(entry)
+        ? path.resolve(entry)
+        : path.resolve(baseDirectory, entry)
+    );
+  if (entries.length === 0) {
+    throw new Error(`TD symmetry replay list is empty: ${absoluteListPath}`);
+  }
+  if (new Set(entries).size !== entries.length) {
+    throw new Error(
+      `TD symmetry replay list contains duplicates: ${absoluteListPath}`
+    );
+  }
+  return entries;
+}
+
+function selectedTdModelIndexPath(
+  flags: ReadonlyMap<string, string>
+): string | undefined {
+  const modelIndexPath = flags.get('--model-index-path');
+  const packId = flags.get('--pack-id');
+  if (packId !== undefined && modelIndexPath === undefined) {
+    throw new Error('--pack-id requires --model-index-path.');
+  }
+  if (modelIndexPath === undefined) {
+    return undefined;
+  }
+  if (modelIndexPath.trim() === '') {
+    throw new Error('--model-index-path must be non-empty.');
+  }
+  if (packId === undefined) {
+    return modelIndexPath;
+  }
+  if (packId.trim() === '') {
+    throw new Error('--pack-id must be non-empty.');
+  }
+  if (modelIndexPath.includes('?')) {
+    throw new Error(
+      '--model-index-path must not contain a query when --pack-id is provided.'
+    );
+  }
+  return `${modelIndexPath}?tdPackId=${encodeURIComponent(packId)}`;
 }
 
 function logRolloutSearchSweepProgress(

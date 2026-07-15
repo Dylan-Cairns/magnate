@@ -81,6 +81,35 @@
   Python/TypeScript differences below `1e-6`. The optimizer-free warm starts are
   in ignored
   `artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/`.
+- Matched S4 augmentation plumbing is complete without launching the pilot.
+  The Python transformer covers all 24 D1/D2/D4/D5 permutations with fixed D3,
+  remaps observations and action candidates, and transforms complete
+  TD-lambda player trajectories coherently. Replay sampling and augmentation
+  have independent RNG streams; run summaries hash raw sampled indices so
+  control/candidate batch equality is directly checkable. Control mode is an
+  exact no-op. The frozen checked-in pilot manifest resolves to an 800/100
+  shard split and eight commands but remains `review-required` with
+  `launchAuthorized=false`.
+- The prelaunch guardrail pass is complete. Full, training, and validation
+  replay contents now have byte-level fingerprints in addition to inventory
+  and membership hashes; each prepared training command verifies replay,
+  warm-start, source-manifest, and implementation fingerprints, then embeds
+  them in summaries and checkpoints. Four one-update smokes each loaded the
+  complete 800-shard/145,014-row training side with eight threads. Control and
+  S4 used identical raw samples: value trace
+  `412d7f3de1755d52bc49410281a9a89e20f3da028e03c419052f6d633f628214`
+  and opponent trace
+  `8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`.
+  The deployed model-pack index remained unchanged.
+- Post-training selection/evaluation is frozen but not launched. Only step
+  5,000 is eligible; `pilot-a` is the primary candidate and must be frozen
+  before reserved repetitions 24-47, while `pilot-b` is replication and cannot
+  replace it. Contradictory replication blocks promotion. The evaluation
+  preparer requires matched traces and provenance, uses all 100 validation
+  shards for direct value/opponent metrics, prepares deterministic heldout
+  symmetry and strategic commands, and writes exact paired full-game configs.
+  Candidate/control/cross-component packs use an ignored experimental index;
+  no deployed default or checkpoint registry is changed.
 - Matched forced traces still show a separate heuristic-v2 blind spot:
   heuristic rollout can trade away resources needed for a valuable uncertain
   draw, while TD preserved and realized those continuations. Replacing TD
@@ -167,10 +196,9 @@
 
 ## Remaining Work
 
-- Specify and run a controlled district-permutation augmentation ablation with
-  an unaugmented control. Keep training inputs, seeds, steps, model shape, and
-  evaluation gates matched; the audit justifies the experiment but does not
-  pre-approve promotion.
+- Review, then optionally run, the frozen district-permutation pilot with its
+  unaugmented control. The audit and completed plumbing justify the experiment
+  but do not authorize launch or pre-approve promotion.
 - Keep repetitions 24-47 reserved for evaluating a future candidate selected
   on independent evidence, followed by full-game promotion tests.
 - Keep uncertain-draw resource preservation as a separate diagnostic; the
@@ -183,19 +211,23 @@
 
 ## Immediate Next Steps
 
-1. Implement the matched district-permutation training ablation without
-   launching it; include exact observation/action/target remapping, coherent
-   TD-lambda sequence transformation, independent augmentation RNG, and an
-   exact unaugmented control.
-2. Freeze and review the run manifest (warm starts, replay split, seeds, update
-   count, optimizer settings, checkpoints, and stop gates) before starting
-   control or augmented training.
-3. Evaluate any candidate on the direct symmetry audit, reserved catalog-v2
-   repetitions 24-47, and normal full-game promotion gates before adoption.
-4. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
-5. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
-6. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-7. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
-8. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
+1. Review the guardrail-complete source and resolved pilot manifests, including
+   byte-level replay/code provenance, 800/100 split, two matched seeds,
+   5,000-update budget, final-only selection, evaluation rules, and explicit
+   non-launch status.
+2. Only after explicit approval, launch the eight prepared value/opponent
+   control/augmented commands and require matching sampling-trace hashes for
+   each paired arm before interpreting results.
+3. After all eight summaries exist, run
+   `scripts.prepare_td_district_symmetry_evaluation`; it must reject any trace,
+   provenance, or final-step mismatch before candidate evaluation is allowed.
+4. Evaluate the frozen primary on complete heldout metrics, direct symmetry,
+   reserved catalog-v2 repetitions 24-47, replication consistency, and paired
+   full games before adoption. Symmetry improvement alone is insufficient.
+5. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
+6. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
+7. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
+8. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
+9. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-14._
+_Updated: 2026-07-15._

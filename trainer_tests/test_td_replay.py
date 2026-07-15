@@ -72,6 +72,28 @@ class TDReplayBufferTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             replay.sample(batch_size=1, rng=random.Random(0))
 
+    def test_sample_with_indices_matches_ordinary_sampling(self) -> None:
+        replay = ValueReplayBuffer(capacity=8)
+        for index in range(8):
+            replay.add(
+                ValueTransition(
+                    observation=[float(index)],
+                    reward=0.0,
+                    done=True,
+                    next_observation=None,
+                    player_id="PlayerA",
+                )
+            )
+        ordinary = replay.sample(batch_size=4, rng=random.Random(91))
+        indices, indexed = replay.sample_with_indices(
+            batch_size=4, rng=random.Random(91)
+        )
+        self.assertEqual(indexed, ordinary)
+        self.assertEqual(
+            indexed,
+            [replay.as_list()[index] for index in indices],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

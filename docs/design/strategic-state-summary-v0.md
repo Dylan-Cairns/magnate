@@ -654,6 +654,35 @@ Neither output contains stale optimizer state, so matched control and augmented
 runs must initialize fresh optimizers identically. No training was started and
 no model pack, checkpoint registry, browser default, or bot behavior changed.
 
+## Step 10 Matched Augmentation Implementation
+
+The opt-in training intervention is implemented without launching the pilot.
+`scripts.train_td` accepts `--district-augmentation none|s4` plus an explicit,
+independent augmentation seed. S4 moves complete 28-feature blocks for D1, D2,
+D4, and D5, keeps D3 fixed, and remaps the corresponding district feature in
+every action candidate without changing candidate order, selected indices, or
+policy targets. Value rows transform current and next observations together.
+For TD-lambda, every sampled `(episodeId, playerId)` receives one permutation
+and the complete trajectory used to calculate its target receives that same
+permutation.
+
+Replay-row selection and augmentation use separate RNG streams. Training
+summaries record a SHA-256 trace of the raw sampled row indices, allowing
+control and candidate runs to prove that batch membership and ordering matched.
+Control mode returns the original rows and sequence index without consuming the
+augmentation RNG. Four one-step smoke runs covered control/augmented value and
+opponent training; all checkpoints reloaded, preserved augmentation provenance,
+and the control/candidate sampling traces matched exactly.
+
+The checked-in pilot specification is
+`configs/td-training/district-s4-ablation-pilot-v1.json`. Its preparation tool
+validates all replay counts, sizes, split membership, warm-start hashes, and
+guardrails; writes 800-shard train and 100-shard validation path lists; and
+prepares eight exact commands for two arms, two models, and two seeds. The
+resolved artifact explicitly remains `review-required` with
+`launchAuthorized=false`; the tool has no training-execution path. No public
+model pack, checkpoint registry, or bot default changed.
+
 ## Invariants Protected by Tests
 
 - complete/disjoint card partition and hidden-world determinization;
@@ -673,6 +702,9 @@ no model pack, checkpoint registry, browser default, or bot behavior changed.
   fixed, deterministic replay sampling, symmetric/biased mock-model detection,
   bounded worst-case retention, and raw-state/re-encoding equivalence across
   all 24 permutations plus their inverses;
+- S4 training augmentation preserves targets and candidate order, transforms
+  TD-lambda trajectories coherently, uses RNG streams independent of replay
+  sampling, records matched sampling traces, and leaves control mode untouched;
 - forced-root traces reuse one hidden-world sample and one engine/rollout seed
   pair across both roots and both guides, remain terminal, and cannot mutate
   normal search behavior or shared sampled worlds.

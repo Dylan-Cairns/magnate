@@ -88,6 +88,15 @@ def parse_args() -> argparse.Namespace:
         help="Output root for browser model packs.",
     )
     parser.add_argument(
+        "--manifest-path-prefix",
+        type=str,
+        default="model-packs",
+        help=(
+            "Public-relative directory prefix written into index manifestPath "
+            "entries (default: model-packs)."
+        ),
+    )
+    parser.add_argument(
         "--pack-id",
         type=str,
         default=None,
@@ -135,6 +144,7 @@ def main() -> int:
         value_checkpoint_path=resolution["valueCheckpointPath"],
         opponent_checkpoint_path=resolution["opponentCheckpointPath"],
         output_root=args.output_root,
+        manifest_path_prefix=args.manifest_path_prefix,
         pack_id=args.pack_id,
         label=args.label,
         overwrite=args.overwrite,
@@ -151,6 +161,7 @@ def export_td_root_checkpoint_pack(
     value_checkpoint_path: Path,
     opponent_checkpoint_path: Path,
     output_root: Path,
+    manifest_path_prefix: str = "model-packs",
     pack_id: str | None = None,
     label: str | None = None,
     overwrite: bool = False,
@@ -161,6 +172,7 @@ def export_td_root_checkpoint_pack(
         raise SystemExit(f"Value checkpoint not found: {value_checkpoint_path}")
     if not opponent_checkpoint_path.exists():
         raise SystemExit(f"Opponent checkpoint not found: {opponent_checkpoint_path}")
+    normalized_manifest_prefix = _validate_manifest_path_prefix(manifest_path_prefix)
 
     value_model, value_payload = load_value_checkpoint(path=value_checkpoint_path)
     opponent_model, opponent_payload = load_opponent_checkpoint(path=opponent_checkpoint_path)
@@ -230,7 +242,7 @@ def export_td_root_checkpoint_pack(
             "id": normalized_pack_id,
             "label": pack_label,
             "modelType": MODEL_TYPE,
-            "manifestPath": f"model-packs/{normalized_pack_id}/manifest.json",
+            "manifestPath": (f"{normalized_manifest_prefix}/{normalized_pack_id}/manifest.json"),
             "createdAtUtc": created_at,
             "sourceRunId": source_run_id,
             "sourceValueCheckpoint": str(value_checkpoint_path),
@@ -248,6 +260,7 @@ def export_td_root_checkpoint_pack(
         "manifest": str(manifest_path),
         "weights": str(weights_path),
         "index": str(index_path),
+        "manifestPathPrefix": normalized_manifest_prefix,
         "defaultPackId": index_payload.get("defaultPackId"),
         "sourceRunId": source_run_id,
         "sourceValueCheckpoint": str(value_checkpoint_path),
@@ -276,8 +289,7 @@ def resolve_checkpoints(
 
     if not latest_promoted:
         raise SystemExit(
-            "Provide --value-checkpoint + --opponent-checkpoint "
-            "or use --latest-promoted."
+            "Provide --value-checkpoint + --opponent-checkpoint or use --latest-promoted."
         )
     return _latest_promoted_checkpoint_pair(artifact_root=artifact_root)
 
@@ -341,18 +353,26 @@ def _latest_promoted_checkpoint_pair(*, artifact_root: Path) -> Dict[str, Any]:
 def _validate_args(args: argparse.Namespace) -> None:
     using_explicit = args.value_checkpoint is not None or args.opponent_checkpoint is not None
     if using_explicit and args.latest_promoted:
-        raise SystemExit(
-            "Use explicit checkpoint paths or --latest-promoted, not both."
-        )
+        raise SystemExit("Use explicit checkpoint paths or --latest-promoted, not both.")
     if not using_explicit and not bool(args.latest_promoted):
         raise SystemExit(
-            "Provide --value-checkpoint + --opponent-checkpoint "
-            "or use --latest-promoted."
+            "Provide --value-checkpoint + --opponent-checkpoint or use --latest-promoted."
         )
     if args.pack_id is not None and not args.pack_id.strip():
         raise SystemExit("--pack-id must be non-empty when provided.")
     if args.label is not None and not args.label.strip():
         raise SystemExit("--label must be non-empty when provided.")
+    _validate_manifest_path_prefix(args.manifest_path_prefix)
+
+
+def _validate_manifest_path_prefix(value: str) -> str:
+    normalized = value.strip().replace("\\", "/").strip("/")
+    if not normalized:
+        raise SystemExit("--manifest-path-prefix must be non-empty.")
+    parts = normalized.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise SystemExit("--manifest-path-prefix must be a normalized public-relative path.")
+    return normalized
 
 
 def _validate_value_checkpoint(
@@ -463,9 +483,7 @@ def _manifest_payload(
     step_value = None
     if isinstance(value_metadata, Mapping) and isinstance(value_metadata.get("step"), int):
         step_value = int(value_metadata.get("step"))
-    elif isinstance(opponent_metadata, Mapping) and isinstance(
-        opponent_metadata.get("step"), int
-    ):
+    elif isinstance(opponent_metadata, Mapping) and isinstance(opponent_metadata.get("step"), int):
         step_value = int(opponent_metadata.get("step"))
 
     return {
@@ -519,8 +537,7 @@ def _read_or_init_index(*, index_path: Path) -> Dict[str, Any]:
     payload = _read_json(path=index_path, label=f"model-pack index {index_path}")
     if int(payload.get("schemaVersion", -1)) != INDEX_SCHEMA_VERSION:
         raise SystemExit(
-            f"Unsupported index schema version in {index_path}: "
-            f"{payload.get('schemaVersion')}"
+            f"Unsupported index schema version in {index_path}: {payload.get('schemaVersion')}"
         )
     packs = payload.get("packs")
     if not isinstance(packs, list):

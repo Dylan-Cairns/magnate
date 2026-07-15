@@ -29,6 +29,7 @@ import {
   permuteEncodedObservation,
   runTdSymmetryAudit,
   sampleOpponentReplayDirectory,
+  sampleOpponentReplayFiles,
 } from './tdSymmetry';
 
 describe('TD district symmetry', () => {
@@ -225,6 +226,26 @@ describe('TD district symmetry', () => {
       ).toEqual(
         second.samples.map((sample) => [sample.sourcePath, sample.sourceLine])
       );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('samples only explicitly listed holdout replay files', async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), 'magnate-symmetry-list-')
+    );
+    try {
+      const included = path.join(directory, 'included.opponent.jsonl');
+      const excluded = path.join(directory, 'excluded.opponent.jsonl');
+      await writeFile(included, `${JSON.stringify(makeRow())}\n`, 'utf8');
+      await writeFile(excluded, `${JSON.stringify(makeRow())}\n`, 'utf8');
+
+      const sample = await sampleOpponentReplayFiles([included], 10, 'seed');
+
+      expect(sample.rowsScanned).toBe(1);
+      expect(sample.files).toEqual([included]);
+      expect(sample.samples[0]?.sourcePath).toBe(included);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
