@@ -4,9 +4,9 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
-- Characterize strategic blind spots with the information-safe strategic-state
-  summary and deterministic position catalog before introducing heuristic v3
-  or changing TD observations.
+- Localize the remaining known-hand TD optionality asymmetry with 800-root-visit
+  per-hook guidance ablations before changing the TD observation or training
+  path. The current catalog does not justify heuristic v3.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
@@ -33,17 +33,36 @@
   facts without strategic values or probabilities. Exact ActionWindow deltas
   remain factual and do not alter heuristic v2, rollout search, TD encoding, or
   the bridge contract.
-- The strategic-position catalog covers district-portfolio, tiebreak,
-  optionality, deed, clock, and Ace-aware cases. Bot eval compares direct v2,
-  V2 Hard, and the current TD profile with common deterministic root seeds and
-  matched scenario-stream prefixes for stochastic variants. JSON/Markdown
-  diagnostics include information-safe summaries and exact-case fingerprints;
-  catalog preferences are reviewed pairwise hypotheses rather than current-bot
-  golden assertions.
-- The 2026-07-13 one-repetition Step 1 baseline has all three default variants
-  selecting the reviewed preference in four of five assessed comparisons. All
-  three select the declared alternative in `endpoint-optionality`; repeat and
-  deconfound that case before treating it as a stable policy blind spot.
+- Strategic-position catalog v1 covers district portfolio, tiebreak,
+  known-hand and unknown-pool optionality mirrors, deed feasibility, clock, and
+  Ace-aware cases. Bot eval supports filtered variants/positions and
+  non-overlapping repetition ranges. JSON/Markdown diagnostics report
+  information-safe summaries, full case-payload fingerprints, selection
+  stability,
+  preferred/alternative/unassessed counts, pairwise focus gaps and visits, and
+  counterfactual transitions. Catalog preferences remain reviewed hypotheses,
+  not current-bot golden assertions.
+- The 2026-07-13 Step 2 characterization found no current basis for heuristic
+  v3: direct heuristic v2 selected all eight reviewed comparisons, and V2 Hard
+  avoided the destructive optionality overwrite in 95 of 96 mirrored decisions
+  across 24 seeds (the exception was an exact visit tie). Current TD V2 Medium
+  instead retained a strong mirror asymmetry: known-hand original/mirror chose
+  preserve 14/24 versus 24/24, and unknown-pool original/mirror chose preserve
+  21/24 versus 7/24. TD Medium's smaller search budget motivated a controlled
+  root-visit comparison. Detailed rows remain in
+  ignored `artifacts/ts-bot-evals/strategic-position-step2-*` artifacts.
+- The 2026-07-13 Step 3 comparison added an opt-in TD diagnostic that changes
+  only sampled worlds from 10 to 50, increasing root visits from 160 to 800.
+  Across the same 96 optionality decisions, destructive overwrites fell from
+  17 to 5: the seven unknown-pool mirror failures disappeared, known-hand
+  original failures fell from ten to five, and both other cases remained at
+  zero. Thirteen harmful choices became safe, one safe choice became harmful,
+  and four remained harmful. Sell/trade deferrals that preserve both endpoints
+  count as safe. Executable inputs and root priors matched; two unknown-pool
+  fingerprints differed only because descriptive metadata was reworded. All
+  simulations were terminal at both budgets, so extra simulations—not extra
+  depth—produced the improvement. Detailed rows remain in ignored
+  `artifacts/ts-bot-evals/strategic-position-step3-*` artifacts.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
 - TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
@@ -119,10 +138,12 @@
 
 ## Remaining Work
 
-- Use repeated strategic-position comparisons to separate stable policy blind
-  spots from scenario noise, then scope a narrow whole-state heuristic v3 and
-  confirm it with paired full-game evaluation before considering TD encoding
-  changes.
+- Diagnose the five remaining known-hand-original overwrites with 800-visit
+  root, rollout, and leaf-guidance ablations; use an encoding-collision holdout
+  afterward if needed to distinguish representation from data or search.
+- Use controlled forced-root terminal comparisons and untouched holdout
+  position families before promoting any catalog relationship into a bot
+  change or claiming match-equity improvement.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
 - Continue improving throughput for direct TypeScript TD-root matchups; child-process paired-seed parallelism is available, while individual search decisions remain synchronous in Node.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
@@ -130,8 +151,10 @@
 
 ## Immediate Next Steps
 
-1. Review repeated `yarn bot:eval strategic-positions` results and select the
-   smallest strategic potential needed for a heuristic v3 experiment.
+1. Design the 800-visit TD guidance-ablation matrix for the known-hand mirror
+   pair, emphasizing the five remaining failure seeds, then test whether the
+   physical-district asymmetry follows root priors, rollout guidance, or leaf
+   evaluation.
 2. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
 3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
 4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.

@@ -231,7 +231,7 @@ describe('strategic state summary v0', () => {
   });
 
   it('aligns action delta keys with canonical legal actions', () => {
-    const position = requiredPosition('endpoint-optionality');
+    const position = requiredPosition('known-hand-optionality-original');
     const legalKeys = legalActionsForDecisionPlayer(
       position.state,
       'PlayerA'

@@ -12,7 +12,7 @@ import type {
   Suit,
 } from '../engine/types';
 
-export const STRATEGIC_POSITION_CATALOG_VERSION = 0 as const;
+export const STRATEGIC_POSITION_CATALOG_VERSION = 1 as const;
 
 export type StrategicPositionThemeV0 =
   | 'global-district-portfolio'
@@ -239,50 +239,7 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
           'District count remains tied, so the otherwise secondary developed-rank total is the live winning condition.',
       },
     },
-    {
-      id: 'endpoint-optionality',
-      title: 'Equal immediate score, unequal continuation support',
-      theme: 'placement-optionality',
-      thesis:
-        'Two rank-2 cards both win the fifth district now, but The Author preserves a compatible card in hand and matches much more of the public unknown-card support.',
-      expectedFacts: [
-        'Both focus actions have identical immediate district, rank, and resource deltas.',
-        'After The Author, D4 is compatible with The Journey and every configured unknown card; after The Desert it is not.',
-      ],
-      state: positionState({
-        id: 'endpoint-optionality',
-        turn: 31,
-        ownHand: ['6', '7', '9'],
-        selfResources: { Moons: 1, Knots: 1, Suns: 1, Wyrms: 1 },
-        unknownCardIds: ['0', '2', '16', '18', '19', '23', '28', '29'],
-        drawCount: 5,
-        districts: [
-          district('D0', ['Waves', 'Leaves', 'Wyrms'], ['14']),
-          district('D1', ['Moons', 'Suns', 'Leaves'], ['26']),
-          district('D2', ['Suns', 'Waves', 'Knots'], ['8'], ['13']),
-          district('D3', ['Moons', 'Wyrms', 'Knots'], ['11', '1'], ['24']),
-          district('D4', []),
-        ],
-      }),
-      focusActions: [
-        focus('flexible-endpoint', 'Develop The Author in D4', {
-          type: 'develop-outright',
-          cardId: '6',
-          districtId: 'D4',
-        }),
-        focus('dead-endpoint', 'Develop The Desert in D4', {
-          type: 'develop-outright',
-          cardId: '7',
-          districtId: 'D4',
-        }),
-      ],
-      expectedPreference: {
-        preferredFocusActionId: 'flexible-endpoint',
-        overFocusActionIds: ['dead-endpoint'],
-        rationale:
-          'Immediate match facts are equal, so preserving responses to future draws is the distinguishing strategic consideration.',
-      },
-    },
+    ...endpointOptionalityRecipes(),
     {
       id: 'deed-fork-affordable',
       title: 'Affordable deed completion creates a two-front turn',
@@ -374,6 +331,158 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         }),
       ],
     },
+  ];
+}
+
+function endpointOptionalityRecipes(): StrategicPositionRecipe[] {
+  return [
+    ...endpointOptionalityMirrorPair('known-hand'),
+    ...endpointOptionalityMirrorPair('unknown-pool'),
+  ];
+}
+
+function endpointOptionalityMirrorPair(
+  family: 'known-hand' | 'unknown-pool'
+): StrategicPositionRecipe[] {
+  const knownHand = family === 'known-hand';
+  const idPrefix = `${family}-optionality`;
+  const titlePrefix = knownHand ? 'Known-hand option' : 'Unknown-pool option';
+  const thesis = knownHand
+    ? "The same Sailor development has identical immediate consequences in two lanes, but preserving The Forest keeps a tax-safe Author denial reachable on Player A's final turn."
+    : 'The same Sailor development has identical immediate consequences in two lanes, but preserving The Discovery keeps a possible Penitent draw playable for a terminal district swing.';
+  const expectedFacts = knownHand
+    ? [
+        'Both focus actions play the same card with the same payment and have identical immediate score, rank, resource, hand, and income consequences.',
+        'The Author has one legal target lane only when The Forest survives; selling the Ace of Knots leaves a tax-safe final-turn payment, while every configured unknown card has equal support and cannot reinforce either opponent target.',
+        'The Author changes the remaining target from 5-7 to 7-7, turning a provisional 2-2 rank loss into a 2-1 district win.',
+      ]
+    : [
+        'Both focus actions play the same card with the same payment and have identical immediate score, rank, resource, hand, and income consequences.',
+        'Known-hand placement support is equal; The Penitent has one legal target lane only when The Discovery survives, while every other configured unknown card has equal support.',
+        "In the canonical continuation, The Penitent is drawn, retains its Suns-Wyrms payment through taxation, and changes the remaining target from 5-7 to 11-7 on Player A's final turn.",
+      ];
+  const ownHand: readonly CardId[] = knownHand
+    ? ['14', '6', '0']
+    : ['14', '25', '29'];
+  const selfResources: Partial<Record<Suit, number>> = knownHand
+    ? { Waves: 2, Leaves: 2, Moons: 1 }
+    : { Waves: 2, Leaves: 2, Suns: 5, Wyrms: 5 };
+  const unknownCardIds: readonly CardId[] = knownHand
+    ? ['8', '26', '9', '18', '13', '25']
+    : ['8', '26', '18', '20'];
+  const drawCount = knownHand ? 3 : 1;
+
+  return [false, true].map((mirrored) => {
+    const role = mirrored ? 'mirror' : 'original';
+    const preserveDistrictId = mirrored ? 'D1' : 'D4';
+    const overwriteDistrictId = mirrored ? 'D4' : 'D1';
+    const id = `${idPrefix}-${role}`;
+    return {
+      id,
+      title: `${titlePrefix}, ${role}`,
+      theme: 'placement-optionality',
+      thesis,
+      expectedFacts: [
+        ...expectedFacts,
+        `The mirrored case swaps the complete ${knownHand ? 'Forest' : 'Discovery'} and ${knownHand ? 'Discovery' : 'Forest'} lanes, including marker and opponent stack, so the preferred district must reverse with the preserved endpoint.`,
+      ],
+      pairId: `${idPrefix}-mirror-pair`,
+      state: positionState({
+        id,
+        turn: 31,
+        ownHand,
+        selfResources,
+        unknownCardIds,
+        opponentHandCount: 3,
+        drawCount,
+        reshuffles: 1,
+        districts: endpointOptionalityDistricts(family, mirrored),
+      }),
+      focusActions: [
+        focus(
+          'preserve-option',
+          `Develop The Sailor in ${preserveDistrictId}`,
+          {
+            type: 'develop-outright',
+            cardId: '14',
+            districtId: preserveDistrictId,
+          }
+        ),
+        focus(
+          'overwrite-option',
+          `Develop The Sailor in ${overwriteDistrictId}`,
+          {
+            type: 'develop-outright',
+            cardId: '14',
+            districtId: overwriteDistrictId,
+          }
+        ),
+      ],
+      expectedPreference: {
+        preferredFocusActionId: 'preserve-option',
+        overFocusActionIds: ['overwrite-option'],
+        rationale:
+          'The immediate outcomes are equal, while only the preserved option endpoint supports the reachable match-changing continuation.',
+      },
+    } satisfies StrategicPositionRecipe;
+  });
+}
+
+function endpointOptionalityDistricts(
+  family: 'known-hand' | 'unknown-pool',
+  mirrored: boolean
+): readonly DistrictState[] {
+  const valuableCardId: CardId = family === 'known-hand' ? '16' : '15';
+  const alternativeCardId: CardId = family === 'known-hand' ? '15' : '16';
+  const valuableLane = {
+    markerSuitMask: ['Moons', 'Suns', 'Leaves'] as const,
+    playerADeveloped: [valuableCardId] as const,
+    playerBDeveloped: ['10', '12'] as const,
+  };
+  const alternativeLane = {
+    markerSuitMask: [] as const,
+    playerADeveloped: [alternativeCardId] as const,
+    playerBDeveloped: ['7', '17'] as const,
+  };
+  const d1Lane = mirrored ? alternativeLane : valuableLane;
+  const d4Lane = mirrored ? valuableLane : alternativeLane;
+
+  if (family === 'known-hand') {
+    return [
+      district('D0', ['Waves', 'Leaves', 'Wyrms'], ['5']),
+      district(
+        'D1',
+        d1Lane.markerSuitMask,
+        d1Lane.playerADeveloped,
+        d1Lane.playerBDeveloped
+      ),
+      district('D2', ['Suns', 'Waves', 'Knots'], ['3'], ['27']),
+      district('D3', ['Moons', 'Wyrms', 'Knots'], ['20'], ['19']),
+      district(
+        'D4',
+        d4Lane.markerSuitMask,
+        d4Lane.playerADeveloped,
+        d4Lane.playerBDeveloped
+      ),
+    ];
+  }
+
+  return [
+    district('D0', ['Waves', 'Leaves', 'Wyrms'], ['9', '6']),
+    district(
+      'D1',
+      d1Lane.markerSuitMask,
+      d1Lane.playerADeveloped,
+      d1Lane.playerBDeveloped
+    ),
+    district('D2', ['Suns', 'Waves', 'Knots'], ['0'], ['24']),
+    district('D3', ['Moons', 'Wyrms', 'Knots'], ['2'], ['5']),
+    district(
+      'D4',
+      d4Lane.markerSuitMask,
+      d4Lane.playerADeveloped,
+      d4Lane.playerBDeveloped
+    ),
   ];
 }
 

@@ -36,6 +36,8 @@ export const STRATEGIC_POSITION_COMPARISON_SEED_SCHEME =
   'strategic-position-common-random-v1' as const;
 export const STRATEGIC_POSITION_FINGERPRINT_SCHEME =
   'sha256-canonical-json-v1' as const;
+export const STRATEGIC_TD_800_VISIT_VARIANT_ID =
+  'td-root-search-v2-800-visits' as const;
 
 export type StrategicVariantDescriptorV0 =
   | {
@@ -112,6 +114,7 @@ export interface StrategicPositionComparisonRunV0 {
   readonly seedScheme: typeof STRATEGIC_POSITION_COMPARISON_SEED_SCHEME;
   readonly positionFingerprintScheme: typeof STRATEGIC_POSITION_FINGERPRINT_SCHEME;
   readonly policyRandomSchemeVersion: string;
+  readonly repetitionStart: number;
   readonly repetitions: number;
   readonly variants: readonly StrategicVariantDescriptorV0[];
   readonly positions: readonly StrategicPositionComparisonCaseV0[];
@@ -129,6 +132,7 @@ export interface StrategicPositionComparisonProgressV0 {
 export interface StrategicPositionComparisonOptionsV0 {
   readonly positions?: readonly StrategicPositionV0[];
   readonly variants?: readonly StrategicComparisonVariantV0[];
+  readonly repetitionStart?: number;
   readonly repetitions?: number;
   readonly now?: () => number;
   readonly onProgress?: (
@@ -142,9 +146,20 @@ const directHeuristicV2Policy: ActionPolicy = {
   },
 };
 
-export function createDefaultStrategicComparisonVariantsV0(): StrategicComparisonVariantV0[] {
+export function createStrategicComparisonVariantCatalogV0(): StrategicComparisonVariantV0[] {
   const hard = structuredClone(getBotProfile('rollout-search-v2-hard').spec);
   const td = structuredClone(getBotProfile('td-root-search-v2-medium').spec);
+  if (td.kind !== 'td-root-search') {
+    throw new Error('TD V2 Medium must use a TD-root-search bot spec.');
+  }
+  const td800 = {
+    ...structuredClone(td),
+    id: STRATEGIC_TD_800_VISIT_VARIANT_ID,
+    config: {
+      ...structuredClone(td.config),
+      worlds: 50,
+    },
+  };
   return [
     {
       descriptor: {
@@ -170,7 +185,21 @@ export function createDefaultStrategicComparisonVariantsV0(): StrategicCompariso
         spec: td,
       },
     },
+    {
+      descriptor: {
+        kind: 'bot-spec',
+        id: td800.id,
+        label: 'Current TD V2, 800 root visits',
+        spec: td800,
+      },
+    },
   ];
+}
+
+export function createDefaultStrategicComparisonVariantsV0(): StrategicComparisonVariantV0[] {
+  return createStrategicComparisonVariantCatalogV0().filter(
+    (variant) => variant.descriptor.id !== STRATEGIC_TD_800_VISIT_VARIANT_ID
+  );
 }
 
 export async function runStrategicPositionComparisonV0(
@@ -180,10 +209,21 @@ export async function runStrategicPositionComparisonV0(
   const variants =
     options.variants ?? createDefaultStrategicComparisonVariantsV0();
   const repetitions = options.repetitions ?? 1;
+  const repetitionStart = options.repetitionStart ?? 0;
   const now = options.now ?? (() => performance.now());
-  if (!Number.isInteger(repetitions) || repetitions <= 0) {
+  if (!Number.isSafeInteger(repetitions) || repetitions <= 0) {
     throw new Error(
-      'Strategic comparison repetitions must be a positive integer.'
+      'Strategic comparison repetitions must be a positive safe integer.'
+    );
+  }
+  if (!Number.isSafeInteger(repetitionStart) || repetitionStart < 0) {
+    throw new Error(
+      'Strategic comparison repetitionStart must be a nonnegative safe integer.'
+    );
+  }
+  if (repetitionStart > Number.MAX_SAFE_INTEGER - (repetitions - 1)) {
+    throw new Error(
+      'Strategic comparison repetition range exceeds safe integers.'
     );
   }
   if (positions.length === 0 || variants.length === 0) {
@@ -225,7 +265,8 @@ export async function runStrategicPositionComparisonV0(
     });
     const caseRepetitions: StrategicPositionRepetitionV0[] = [];
 
-    for (let repetition = 0; repetition < repetitions; repetition += 1) {
+    for (let offset = 0; offset < repetitions; offset += 1) {
+      const repetition = repetitionStart + offset;
       const sharedRandomSeed = strategicComparisonSeed(
         position.pairId ?? position.id,
         repetition
@@ -278,6 +319,7 @@ export async function runStrategicPositionComparisonV0(
     seedScheme: STRATEGIC_POSITION_COMPARISON_SEED_SCHEME,
     positionFingerprintScheme: STRATEGIC_POSITION_FINGERPRINT_SCHEME,
     policyRandomSchemeVersion: POLICY_RANDOM_SCHEME_VERSION,
+    repetitionStart,
     repetitions,
     variants: variants.map((variant) => structuredClone(variant.descriptor)),
     positions: cases,

@@ -32,6 +32,13 @@
 - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`.
 - Checked-in pyright scope covers `trainer/` plus trainer-side tests in `trainer_tests/`; some `scripts/` orchestration remains outside checked-in pyright scope.
 - TypeScript bridge output is canonical. Python models the consumed subset in `trainer/bridge_payloads.py`.
+- Strategic-position diagnostics support `--positions`, `--variants`, and
+  `--start-repetition` for targeted seed extensions. The command does not
+  resume or merge prior output; targeted extensions should use a separate
+  output directory because reusing one overwrites its files.
+- Opt-in strategic variant `td-root-search-v2-800-visits` clones TD V2 Medium
+  and changes only sampled worlds from 10 to 50. It provides 800 root visits
+  without joining the default variant set.
 
 ## Core Commands
 
@@ -41,7 +48,8 @@
 - Test: `yarn test`
 - Lint + typecheck: `yarn lint`
 - Format: `yarn format`
-- Strategic position diagnostics: `yarn bot:eval strategic-positions --repetitions 1`
+- Strategic position smoke check: `yarn bot:eval strategic-positions --repetitions 1`
+- Strategic position stability screen: `yarn bot:eval strategic-positions --repetitions 8`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`

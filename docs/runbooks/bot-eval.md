@@ -13,7 +13,7 @@
 - Sharded TD replay export:
   `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers 8 --shard-games 1`
 - Strategic-position characterization:
-  `yarn bot:eval strategic-positions --repetitions 1`
+  `yarn bot:eval strategic-positions --repetitions 8`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Override heartbeat cadence for head-to-head, sweep, replay, and replay-export
@@ -34,28 +34,62 @@ Config inputs can reference catalog presets with `{ "profileId": "rollout-search
 
 ## Strategic Position Characterization
 
-`yarn bot:eval strategic-positions [--repetitions <count>] [--out-dir <path>]`
-runs the typed strategic position catalog against direct heuristic v2, V2 Hard,
-and the current TD V2 Medium profile. All variants receive the same explicit
-random seed for each position/repetition. The command records choices and root
-diagnostics; it does not treat current-bot agreement with the catalog's reviewed
-pairwise preference as a test pass condition. A choice outside the declared
-pair is reported as unassessed rather than as a mismatch. The JSON also records
-the information-safe state summary and a canonical fingerprint for each exact
-catalog case.
+`yarn bot:eval strategic-positions [--repetitions <count>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] [--out-dir <path>]`
+by default runs the typed strategic position catalog against direct heuristic
+v2, V2 Hard, and the current TD V2 Medium profile. All variants receive the same
+explicit random seed for each position/repetition. The command records choices
+and root diagnostics; it does not treat current-bot agreement with the catalog's
+reviewed pairwise preference as a test pass condition. A choice outside the
+declared pair is reported as unassessed rather than as a mismatch. The JSON also
+records the information-safe state summary and a canonical fingerprint of each
+full catalog-case payload, including descriptive metadata. Compare the recorded
+state, legal actions, and action consequences when checking executable equality
+across artifacts; metadata-only wording changes also change the fingerprint.
 
-This command always includes TD V2 Medium. It requires a valid default model
-pack under `public/model-packs/`, and its TD results depend on the pack currently
-designated as default. Policies run in-process in Node without browser or Web
-Worker wrappers; reported latency is diagnostic for that execution mode.
+One repetition is useful as a smoke check; eight is the initial fixed-position
+stability screen. Repetitions reveal seed sensitivity in stochastic policies,
+not independent strategic evidence. Direct heuristic v2 is deterministic in
+these cases, so repeating it only confirms repeatability.
+
+The default selection includes all three variants. `--variants` can select any
+unique comma-separated subset of `heuristic-v2-direct`,
+`rollout-search-v2-hard`, `td-root-search-v2-medium`, and the opt-in diagnostic
+`td-root-search-v2-800-visits`; a valid default model pack under
+`public/model-packs/` is required only when a TD variant is selected. The
+800-visit variant clones current TD V2 Medium and changes only sampled worlds
+from 10 to 50, producing 800 root visits while retaining depth 40, the same
+default model-pack selection, and TD guidance at root, rollout, and leaf. It
+matches V2 Hard's root-visit count, not its deeper search or total computation.
+`--positions` likewise accepts unique catalog position IDs, and unknown or
+duplicate IDs fail fast. `--start-repetition` changes the
+deterministic repetition/seed index for a targeted extension. It does not resume
+or merge an earlier run, so use a separate output directory and combine results
+externally if needed. For example:
+
+```powershell
+yarn bot:eval strategic-positions `
+  --positions known-hand-optionality-original,known-hand-optionality-mirror,unknown-pool-optionality-original,unknown-pool-optionality-mirror `
+  --variants td-root-search-v2-800-visits `
+  --repetitions 24 `
+  --out-dir artifacts/ts-bot-evals/optionality-td800
+```
+
+The Markdown summary begins with per-position/variant selection histograms,
+modal counts, and preferred/alternative/unassessed results. It then reports
+within-position focus-score/value gaps with visits and expansion coverage,
+matched counterfactual selection transitions, raw decisions, and focus-action
+signals. Search means come from adaptive, potentially unequal visits; treat
+their gaps as diagnostics within one position and variant, not fixed-budget
+paired estimates. Policies run in-process in Node without browser or Web Worker
+wrappers, so reported latency is diagnostic for that execution mode.
 
 Typical outputs:
 
 - `artifacts/ts-bot-evals/<run>/positions.json`
 - `artifacts/ts-bot-evals/<run>/summary.md`
 
-See [the v0 design](../design/strategic-state-summary-v0.md) for the factual
-summary contract, catalog scope, and interpretation rules.
+See [the summary-v0/catalog-v1 design](../design/strategic-state-summary-v0.md)
+for the factual summary contract, catalog scope, and interpretation rules.
 
 ## TD Replay Export
 

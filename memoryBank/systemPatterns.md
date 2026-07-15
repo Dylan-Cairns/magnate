@@ -75,10 +75,17 @@ Design expectations:
   projection/evaluation layers so objective rule consequences are reusable by
   heuristic, TD, search, and diagnostics without subjective weights.
 - Strategic-position characterization should use complete deterministic card
-  partitions accepted by rollout determinization, canonical stable action keys,
-  reviewed relational preferences, and common random seeds across bot variants.
-  Existing-bot agreement is diagnostic output rather than a test assertion;
-  generated comparison results belong under ignored evaluation artifacts.
+  partitions accepted by rollout determinization, full case-payload fingerprints,
+  canonical stable action keys, catalog-versioned pairwise preferences, and
+  mirrored counterfactuals when isolating placement optionality. Variants and
+  declared counterfactual groups receive bot-ID-independent common-random
+  seeds. Report repeated results per position/variant with
+  preferred/alternative/unassessed separation; deterministic direct-policy
+  repeats do not increase evidence. Heuristic/search gaps are comparable only
+  within one position and variant, and adaptive root means with unequal visit
+  counts are not fixed-budget paired estimates. Existing-bot agreement is
+  diagnostic output rather than a test assertion; generated comparison results
+  belong under ignored evaluation artifacts.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
 - Browser model-backed policies should load from static model-pack artifacts:
@@ -93,7 +100,9 @@ Design expectations:
 - Browser bot evaluation should run the actual TypeScript `ActionPolicy`
   implementations directly through `src/botEval/`, using serializable `BotSpec`
   definitions and the same versioned state-derived policy RNG helper as browser
-  play.
+  play. Strategic-position comparison is the deliberate exception: its
+  versioned bot-ID-independent seed lets variants and paired cases begin from a
+  common random scenario stream.
 - TypeScript head-to-head bot evaluation should use paired seeds with swapped
   policy seats, record stable action-key transcripts, write JSON plus Markdown
   artifacts, and support exact-game replay checks.
