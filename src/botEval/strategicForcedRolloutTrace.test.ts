@@ -134,6 +134,76 @@ describe('strategic forced rollout trace', () => {
       })
     ).rejects.toThrow('rollouts=1');
   });
+
+  it('reads holdout targets and semantic lanes from catalog metadata', async () => {
+    const positions = createStrategicPositionCatalogV0().filter((position) =>
+      [
+        'known-hand-optionality-holdout-original',
+        'known-hand-optionality-holdout-mirror',
+        'unknown-pool-optionality-holdout-original',
+        'unknown-pool-optionality-holdout-mirror',
+      ].includes(position.id)
+    );
+    const run = await runStrategicForcedRolloutTraceV0({
+      positions,
+      repetitionIds: [0],
+      scenarioIndices: [0],
+      config: TEST_CONFIG,
+      modelIndexPath: 'test-model-index.json',
+      loadModel: async () => tieBreakingModel(),
+    });
+
+    expect(
+      run.positions.map((position) => ({
+        positionId: position.positionId,
+        family: position.family,
+        targetCardId: position.targetCardId,
+        valuableDistrictId: position.valuableDistrictId,
+        alternativeDistrictId: position.alternativeDistrictId,
+      }))
+    ).toEqual([
+      {
+        positionId: 'known-hand-optionality-holdout-original',
+        family: 'known-hand',
+        targetCardId: '8',
+        valuableDistrictId: 'D0',
+        alternativeDistrictId: 'D3',
+      },
+      {
+        positionId: 'known-hand-optionality-holdout-mirror',
+        family: 'known-hand',
+        targetCardId: '8',
+        valuableDistrictId: 'D3',
+        alternativeDistrictId: 'D0',
+      },
+      {
+        positionId: 'unknown-pool-optionality-holdout-original',
+        family: 'unknown-pool',
+        targetCardId: '19',
+        valuableDistrictId: 'D2',
+        alternativeDistrictId: 'D3',
+      },
+      {
+        positionId: 'unknown-pool-optionality-holdout-mirror',
+        family: 'unknown-pool',
+        targetCardId: '19',
+        valuableDistrictId: 'D3',
+        alternativeDistrictId: 'D2',
+      },
+    ]);
+    for (const [leftIndex, rightIndex] of [
+      [0, 1],
+      [2, 3],
+    ] as const) {
+      const left = run.positions[leftIndex].repetitions[0].scenarios[0];
+      const right = run.positions[rightIndex].repetitions[0].scenarios[0];
+      expect(right.engineSeed).toBe(left.engineSeed);
+      expect(right.rolloutRandomSeed).toBe(left.rolloutRandomSeed);
+      expect(right.hiddenAssignmentFingerprint).toBe(
+        left.hiddenAssignmentFingerprint
+      );
+    }
+  });
 });
 
 function tieBreakingModel(): LoadedTdGuidanceModel {

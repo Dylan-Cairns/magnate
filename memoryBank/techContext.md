@@ -59,7 +59,7 @@
 - Format: `yarn format`
 - Strategic position smoke check: `yarn bot:eval strategic-positions --repetitions 1`
 - Strategic position stability screen: `yarn bot:eval strategic-positions --repetitions 8`
-- Strategic forced-rollout trace: `yarn bot:eval strategic-forced-rollouts --positions known-hand-optionality-original,known-hand-optionality-mirror --repetitions 7,10,14,17,18`
+- Strategic forced-rollout trace: `yarn bot:eval strategic-forced-rollouts --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror --repetitions 0,1`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`

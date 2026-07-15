@@ -139,24 +139,34 @@ The executable catalog is
 - states a strategic thesis and expected factual relationships;
 - may name a qualitative preferred focus action.
 
-Catalog v1 contains 12 positions:
+Catalog v1 contains 16 positions. The catalog version remains `1` for this
+additive holdout extension so the legacy comparison seed namespace stays
+stable; fresh pair IDs give the holdouts independent random groups.
+Adding machine-readable trace metadata intentionally changes the full-payload
+fingerprints of the four pre-existing optionality positions once. Unrelated
+position fingerprints stay stable because absent metadata is omitted from the
+fingerprint payload.
 
-| ID                                  | concept                                                   |
-| :---------------------------------- | :-------------------------------------------------------- |
-| `minimum-winning-coalition`         | pivotal fifth district versus fortress reinforcement      |
-| `tie-denial-restores-match`         | loss-to-tie denial and the global district count          |
-| `rank-tiebreak-conversion`          | conditional value of developed rank at 2–2                |
-| `known-hand-optionality-original`   | preserving a guaranteed hand continuation                 |
-| `known-hand-optionality-mirror`     | the same known-hand option with district roles reversed   |
-| `unknown-pool-optionality-original` | preserving placement support for possible future draws    |
-| `unknown-pool-optionality-mirror`   | the same unknown-pool option with district roles reversed |
-| `deed-fork-affordable`              | immediate completion plus a remaining card play           |
-| `deed-fork-inaccessible`            | identical progress with different current feasibility     |
-| `sale-before-first-reshuffle`       | sale remains in future draw circulation                   |
-| `sale-after-first-reshuffle`        | the same sale goes to a dead discard                      |
-| `ace-aware-control`                 | Ace bonuses reverse the raw-rank district comparison      |
+| ID                                          | concept                                                   |
+| :------------------------------------------ | :-------------------------------------------------------- |
+| `minimum-winning-coalition`                 | pivotal fifth district versus fortress reinforcement      |
+| `tie-denial-restores-match`                 | loss-to-tie denial and the global district count          |
+| `rank-tiebreak-conversion`                  | conditional value of developed rank at 2–2                |
+| `known-hand-optionality-original`           | preserving a guaranteed hand continuation                 |
+| `known-hand-optionality-mirror`             | the same known-hand option with district roles reversed   |
+| `unknown-pool-optionality-original`         | preserving placement support for possible future draws    |
+| `unknown-pool-optionality-mirror`           | the same unknown-pool option with district roles reversed |
+| `known-hand-optionality-holdout-original`   | independent guaranteed-continuation holdout               |
+| `known-hand-optionality-holdout-mirror`     | the Cave/Castle holdout with district roles reversed      |
+| `unknown-pool-optionality-holdout-original` | independent hidden-draw resource holdout                  |
+| `unknown-pool-optionality-holdout-mirror`   | the Painter/Desert holdout with district roles reversed   |
+| `deed-fork-affordable`                      | immediate completion plus a remaining card play           |
+| `deed-fork-inaccessible`                    | identical progress with different current feasibility     |
+| `sale-before-first-reshuffle`               | sale remains in future draw circulation                   |
+| `sale-after-first-reshuffle`                | the same sale goes to a dead discard                      |
+| `ace-aware-control`                         | Ace bonuses reverse the raw-rank district comparison      |
 
-The four optionality cases replace the confounded catalog-v0 endpoint case.
+The first four optionality cases replace the confounded catalog-v0 endpoint case.
 Both focus actions now play The Sailor with the same payment and identical
 immediate score, rank, resource, hand, card-knowledge, and income consequences.
 In the known-hand family, preserving The Forest keeps a tax-safe Author play
@@ -170,6 +180,19 @@ corresponding district to 11-7 and the match to 3-1. Each mirror swaps both
 complete target lanes, including their marker masks and both players' stacks,
 so a policy that values the preserved option must reverse its physical district
 choice rather than follow stable district or action ordering.
+
+The four holdout cases repeat those relationships without reusing the original
+mechanism. The known-hand holdout plays The Desert with a Suns-Wyrms payment
+across complete Cave/Castle lanes in D0/D3. Preserving The Cave keeps a
+tax-safe Origin play reachable after selling the Ace of Leaves; it flips the
+remaining 7-8 district to 9-8 and the match to 3-1. The unknown-pool holdout
+plays The Mountain with a Moons-Suns payment across complete Painter/Desert
+lanes in D2/D3. Only a preserved Painter can receive a possible Market draw;
+the configured hidden distractors have equal support, and the controlled
+continuation changes the target from 3-5 to 9-5 and the match to 3-1. These
+positions carry explicit optionality-trace metadata naming their source type,
+target card, semantic lanes, and focus actions. The tracer consumes that
+metadata rather than inferring cards or lanes from position IDs.
 
 The catalog’s preferred action is a reviewed strategic hypothesis. Tests assert
 that the setup and stated factual relationships are correct; they do not force
@@ -336,7 +359,7 @@ Changing only root priorities removed none of the five failures. Changing only
 rollout play removed all five harmful overwrites, despite retaining the same TD
 root priors. The rollout-only variant then produced no harmful overwrite across
 all known-hand seeds 0–47: 96 mirrored decisions including the fresh 24–47
-holdout.
+seed extension.
 
 The broader optionality check ruled out treating that result as a ready-made
 hybrid bot:
@@ -433,6 +456,80 @@ left to decide the root. This is a fixture-level causal diagnosis of the
 recorded search behavior, not evidence that either rollout guide is generally
 stronger in full games.
 
+## Step 6 Independent Holdout Outcome
+
+The 2026-07-14 holdout repeated both optionality mechanisms with different
+cards, payment suits, lane pairs, and district stacks. Repetitions 0-23 covered
+four positions and seven variants, for 672 root decisions. A destructive
+overwrite means playing the root card into the only lane that can receive the
+valuable continuation. Sales and trades outside the two focus actions remain
+unassessed rather than being treated automatically as either correct or
+harmful.
+
+The characterization and unknown-pool trace artifacts were generated before
+one Market expected-fact sentence was corrected to remove an inaccurate
+reference to taxation. Expected facts participate in the case fingerprint, so
+those saved descriptive fingerprints differ from a fresh run. The executable
+state, legal actions, random seeds, and measured results are unchanged; the
+continuation test now explicitly confirms that Leaves and Knots both remain at
+five through the intervening opponent turn.
+
+| variant                               | preserve | destructive overwrite | unassessed other |
+| :------------------------------------ | -------: | --------------------: | ---------------: |
+| direct heuristic v2                   |       96 |                     0 |                0 |
+| V2 Hard                               |       72 |                     0 |               24 |
+| TD V2 Medium, 160 visits              |       69 |                    14 |               13 |
+| all-TD, 800 visits                    |       73 |                     1 |               22 |
+| heuristic root + TD rollout           |       82 |                     0 |               14 |
+| TD root + heuristic-v2 rollout        |       44 |                    18 |               34 |
+| heuristic root + heuristic-v2 rollout |       72 |                     0 |               24 |
+
+The extra TD search reduced harmful choices from 14 to one. The sole all-TD
+failure was known-hand mirror repetition 13. In that matched pair the model's
+root prior heavily favored physical D3 in both orientations: D3 was the
+preserve action in the original and the overwrite action in the mirror. The
+search consequently gave the mirror's overwrite 789 visits and its preserve
+only six.
+
+A 400-trace forced-root check on that repetition showed that TD rollout did
+not actually prefer destroying the Origin option. Preserve beat overwrite by
+`+0.294` in the original and `+0.318` in the mirror. Heuristic-v2 rollout's
+corresponding gaps were `+0.382` and `+0.379`. TD realized Origin in 37 of 50
+original preserve traces and 40 of 50 mirror preserve traces; every overwrite
+made Origin permanently illegal. The old Author fixture's severe
+orientation-dependent rollout valuation therefore did not reproduce. Recurring physical
+D4 placements and longer setup choices remain visible inside the traces, but
+this holdout's one 800-visit failure is primarily a root-prior and
+under-exploration failure.
+
+The hidden-draw mechanism did reproduce. Across 100 matched scenarios per
+orientation, Market was assigned to Player A 29 times. TD preserve retained
+its payment and realized Market in all 29 in both orientations. Under
+heuristic-v2 rollout, preserve realized it only twice and was never able to
+make it legal in the other 27. The first disagreement was consistently that
+heuristic v2 traded Leaves for Wyrms while TD ended the turn; a later trade
+spent more of the Knots reserve. As a result, heuristic-v2 rollout gave
+preserve and overwrite effectively identical outcomes even though its overall
+play won more of these particular traces. This isolates an optionality blind
+spot rather than claiming that the guide is generally weak.
+
+The holdout therefore supports three conclusions:
+
+- TD has a learned physical-district bias that more visits reduce but do not
+  remove.
+- Heuristic v2 does not consistently protect resources for an uncertain but
+  valuable hidden draw.
+- Replacing TD rollout play with heuristic-v2 rollout is not a general fix: it
+  increased harmful holdout choices from one to 18 at the 800-visit budget.
+
+The narrowest justified TD experiment is district-permutation augmentation (or
+an equivalent permutation-aware encoding), because it teaches an exact game
+symmetry without assigning subjective strategic bonuses. A trained candidate
+should first be checked on untouched repetitions 24-47, then in full games.
+The resource-option mechanism should remain a separate diagnostic; these
+traces do not justify hand-authoring a heuristic-v3 bonus or adopting the
+failed rollout hybrid.
+
 ## Invariants Protected by Tests
 
 - complete/disjoint card partition and hidden-world determinization;
@@ -440,8 +537,8 @@ stronger in full games.
 - canonical score, Ace bonus, deed, placement, tax, and income consistency;
 - stable ordering and JSON-safe plain data;
 - focus actions remain canonical and legal;
-- exact global-district, tiebreak, mirrored known-hand/unknown-pool optionality,
-  deed, and reshuffle relationships;
+- exact global-district, tiebreak, both mirrored known-hand/unknown-pool
+  optionality families, deed, and reshuffle relationships;
 - common random seeds across comparator variants and counterfactual groups;
 - deterministic repetition offsets and explicit comparison subsets;
 - per-position/variant stability, focus-gap, and counterfactual reporting;
@@ -451,16 +548,15 @@ stronger in full games.
   pair across both roots and both guides, remain terminal, and cannot mutate
   normal search behavior or shared sampled worlds.
 
-## Non-Goals and Next Step
+## Non-Goals and Reserved Follow-Up
 
 V0 does not change heuristic v2, rollout backup, TD encoding, model dimensions,
 or the bridge contract. It also does not attempt the horizon distribution,
 district outcome kernels, shared future-action allocation, or calibrated match
 equity model discussed for later work.
 
-The immediate next step is a new mirrored optionality family with different
-cards, payment suits, and districts. It should be treated as a holdout for the
-two mechanisms found here: TD's physical-lane/multi-turn preparation bias and
-heuristic v2's failure to retain resources for a plausible hidden draw. Only
-after that holdout should a training-data change, feature change, search
-hybrid, or narrow heuristic potential proceed to paired full-game evaluation.
+The distinct mirrored holdout is now part of the catalog. Repetitions 0-23 were
+consumed by the characterization screen; 24-47 remain untouched for evaluating
+the next bot change. No training-data change, feature change, search hybrid, or
+narrow heuristic potential is a promotion candidate without that reserved
+screen and full-game evaluation.

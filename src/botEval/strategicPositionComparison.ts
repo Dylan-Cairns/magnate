@@ -578,6 +578,9 @@ function strategicPositionFingerprint({
     state: position.state,
     focusActions: position.focusActions,
     expectedPreference: position.expectedPreference,
+    ...(position.optionalityTrace
+      ? { optionalityTrace: position.optionalityTrace }
+      : {}),
     legalActionKeys,
     focusActionDeltas,
   });

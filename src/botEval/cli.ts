@@ -41,7 +41,10 @@ import {
   defaultStrategicPositionOutputDirectoryV0,
   writeStrategicPositionArtifactsV0,
 } from './strategicPositionArtifacts';
-import { createStrategicPositionCatalogV0 } from './strategicPositionCatalog';
+import {
+  createStrategicPositionCatalogV0,
+  isStrategicOptionalityPositionV0,
+} from './strategicPositionCatalog';
 import {
   createDefaultStrategicComparisonVariantsV0,
   createStrategicComparisonVariantCatalogV0,
@@ -101,11 +104,7 @@ async function runStrategicForcedRolloutsCommand(
         (position) => position.id,
         'position'
       )
-    : catalog.filter(
-        (position) =>
-          position.id.startsWith('known-hand-optionality-') ||
-          position.id.startsWith('unknown-pool-optionality-')
-      );
+    : catalog.filter(isStrategicOptionalityPositionV0);
   const repetitionIds = parseOptionalNonnegativeIntegerIds(
     flags,
     '--repetitions'

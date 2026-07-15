@@ -22,6 +22,17 @@ export type StrategicPositionThemeV0 =
   | 'game-clock'
   | 'ace-scoring';
 
+export type StrategicOptionalityFamilyV0 = 'known-hand' | 'unknown-pool';
+
+export interface StrategicOptionalityTraceV0 {
+  readonly family: StrategicOptionalityFamilyV0;
+  readonly targetCardId: CardId;
+  readonly valuableDistrictId: string;
+  readonly alternativeDistrictId: string;
+  readonly preserveFocusActionId: 'preserve-option';
+  readonly overwriteFocusActionId: 'overwrite-option';
+}
+
 export interface StrategicFocusActionV0 {
   readonly id: string;
   readonly label: string;
@@ -46,7 +57,12 @@ export interface StrategicPositionV0 {
   readonly state: GameState;
   readonly focusActions: readonly StrategicFocusActionV0[];
   readonly expectedPreference: StrategicPreferenceV0 | null;
+  readonly optionalityTrace: StrategicOptionalityTraceV0 | null;
 }
+
+export type StrategicOptionalityPositionV0 = StrategicPositionV0 & {
+  readonly optionalityTrace: StrategicOptionalityTraceV0;
+};
 
 interface FocusActionRecipe {
   readonly id: string;
@@ -64,6 +80,7 @@ interface StrategicPositionRecipe {
   readonly state: GameState;
   readonly focusActions: readonly FocusActionRecipe[];
   readonly expectedPreference?: StrategicPreferenceV0;
+  readonly optionalityTrace?: StrategicOptionalityTraceV0;
 }
 
 interface ActionSelector {
@@ -88,6 +105,12 @@ interface PositionStateRecipe {
 
 export function createStrategicPositionCatalogV0(): StrategicPositionV0[] {
   return strategicPositionRecipes().map(resolvePositionRecipe);
+}
+
+export function isStrategicOptionalityPositionV0(
+  position: StrategicPositionV0
+): position is StrategicOptionalityPositionV0 {
+  return position.optionalityTrace !== null;
 }
 
 function strategicPositionRecipes(): StrategicPositionRecipe[] {
@@ -338,6 +361,8 @@ function endpointOptionalityRecipes(): StrategicPositionRecipe[] {
   return [
     ...endpointOptionalityMirrorPair('known-hand'),
     ...endpointOptionalityMirrorPair('unknown-pool'),
+    ...knownHandOptionalityHoldoutMirrorPair(),
+    ...unknownPoolOptionalityHoldoutMirrorPair(),
   ];
 }
 
@@ -387,6 +412,12 @@ function endpointOptionalityMirrorPair(
         `The mirrored case swaps the complete ${knownHand ? 'Forest' : 'Discovery'} and ${knownHand ? 'Discovery' : 'Forest'} lanes, including marker and opponent stack, so the preferred district must reverse with the preserved endpoint.`,
       ],
       pairId: `${idPrefix}-mirror-pair`,
+      optionalityTrace: optionalityTrace({
+        family,
+        targetCardId: knownHand ? '6' : '20',
+        valuableDistrictId: overwriteDistrictId,
+        alternativeDistrictId: preserveDistrictId,
+      }),
       state: positionState({
         id,
         turn: 31,
@@ -426,6 +457,220 @@ function endpointOptionalityMirrorPair(
       },
     } satisfies StrategicPositionRecipe;
   });
+}
+
+function knownHandOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
+  return [false, true].map((mirrored) => {
+    const role = mirrored ? 'mirror' : 'original';
+    const id = `known-hand-optionality-holdout-${role}`;
+    const valuableDistrictId = mirrored ? 'D3' : 'D0';
+    const alternativeDistrictId = mirrored ? 'D0' : 'D3';
+    return {
+      id,
+      title: `Known-hand option holdout, ${role}`,
+      theme: 'placement-optionality',
+      thesis:
+        'The same Desert development wins either threatened lane immediately, but preserving The Cave keeps a tax-safe Origin continuation for the final turn.',
+      expectedFacts: [
+        'Both focus actions play The Desert with the same Suns-Wyrms payment and have identical immediate score, rank, resource, hand, and income consequences.',
+        'The Origin has one legal lane only when The Cave survives; selling the Ace of Leaves leaves a tax-safe Waves-Leaves payment, while every configured unknown card has equal support in both target lanes.',
+        'The Origin changes the remaining target from 7-8 to 9-8, turning a provisional 2-2 resource loss into a 3-1 district win.',
+        'The mirror swaps the complete Cave and Castle lanes, including marker and opponent stack, so the preferred physical district reverses.',
+      ],
+      pairId: 'known-hand-optionality-holdout-mirror-pair',
+      optionalityTrace: optionalityTrace({
+        family: 'known-hand',
+        targetCardId: '8',
+        valuableDistrictId,
+        alternativeDistrictId,
+      }),
+      state: positionState({
+        id,
+        turn: 31,
+        ownHand: ['7', '8', '1'],
+        selfResources: { Suns: 1, Wyrms: 1, Waves: 1 },
+        opponentResources: { Moons: 2 },
+        unknownCardIds: ['12', '15', '16', '17', '23', '24'],
+        opponentHandCount: 3,
+        drawCount: 3,
+        reshuffles: 1,
+        districts: knownHandOptionalityHoldoutDistricts(mirrored),
+      }),
+      focusActions: [
+        focus(
+          'preserve-option',
+          `Develop The Desert in ${alternativeDistrictId}`,
+          {
+            type: 'develop-outright',
+            cardId: '7',
+            districtId: alternativeDistrictId,
+          }
+        ),
+        focus(
+          'overwrite-option',
+          `Develop The Desert in ${valuableDistrictId}`,
+          {
+            type: 'develop-outright',
+            cardId: '7',
+            districtId: valuableDistrictId,
+          }
+        ),
+      ],
+      expectedPreference: {
+        preferredFocusActionId: 'preserve-option',
+        overFocusActionIds: ['overwrite-option'],
+        rationale:
+          'The immediate outcomes are equal, while only preserving The Cave keeps the reachable match-winning Origin continuation.',
+      },
+    } satisfies StrategicPositionRecipe;
+  });
+}
+
+function knownHandOptionalityHoldoutDistricts(
+  mirrored: boolean
+): readonly DistrictState[] {
+  const valuableLane = {
+    markerSuitMask: ['Waves', 'Leaves', 'Wyrms'] as const,
+    playerADeveloped: ['22'] as const,
+    playerBDeveloped: ['26'] as const,
+  };
+  const alternativeLane = {
+    markerSuitMask: ['Moons', 'Wyrms', 'Knots'] as const,
+    playerADeveloped: ['21'] as const,
+    playerBDeveloped: ['25'] as const,
+  };
+  const d0Lane = mirrored ? alternativeLane : valuableLane;
+  const d3Lane = mirrored ? valuableLane : alternativeLane;
+  return [
+    district(
+      'D0',
+      d0Lane.markerSuitMask,
+      d0Lane.playerADeveloped,
+      d0Lane.playerBDeveloped
+    ),
+    district('D1', ['Moons', 'Suns', 'Leaves'], ['2']),
+    district('D2', ['Suns', 'Waves', 'Knots'], ['0'], ['3']),
+    district(
+      'D3',
+      d3Lane.markerSuitMask,
+      d3Lane.playerADeveloped,
+      d3Lane.playerBDeveloped
+    ),
+    district('D4', [], ['6'], ['10']),
+  ];
+}
+
+function unknownPoolOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
+  return [false, true].map((mirrored) => {
+    const role = mirrored ? 'mirror' : 'original';
+    const id = `unknown-pool-optionality-holdout-${role}`;
+    const valuableDistrictId = mirrored ? 'D3' : 'D2';
+    const alternativeDistrictId = mirrored ? 'D2' : 'D3';
+    return {
+      id,
+      title: `Unknown-pool option holdout, ${role}`,
+      theme: 'placement-optionality',
+      thesis:
+        'The same Mountain development wins either threatened lane immediately, but preserving The Painter keeps a possible Market draw playable for a terminal district swing.',
+      expectedFacts: [
+        'Both focus actions play The Mountain with the same Moons-Suns payment and have identical immediate score, rank, resource, hand, and income consequences.',
+        'Known-hand placement support is equal; The Market has one legal target lane only when The Painter survives, while every other configured unknown card has equal support.',
+        "In the canonical continuation, The Market is drawn, retains its Leaves-Knots payment through the intervening opponent turn, and changes the remaining target from 3-5 to 9-5 on Player A's final turn.",
+        'The mirror swaps the complete Painter and Desert lanes, including marker and opponent stack, so the preferred physical district reverses.',
+      ],
+      pairId: 'unknown-pool-optionality-holdout-mirror-pair',
+      optionalityTrace: optionalityTrace({
+        family: 'unknown-pool',
+        targetCardId: '19',
+        valuableDistrictId,
+        alternativeDistrictId,
+      }),
+      state: positionState({
+        id,
+        turn: 31,
+        ownHand: ['13', '17', '24'],
+        selfResources: { Moons: 2, Suns: 2, Leaves: 5, Knots: 5 },
+        unknownCardIds: ['8', '14', '26', '19'],
+        opponentHandCount: 3,
+        drawCount: 1,
+        reshuffles: 1,
+        districts: unknownPoolOptionalityHoldoutDistricts(mirrored),
+      }),
+      focusActions: [
+        focus(
+          'preserve-option',
+          `Develop The Mountain in ${alternativeDistrictId}`,
+          {
+            type: 'develop-outright',
+            cardId: '13',
+            districtId: alternativeDistrictId,
+          }
+        ),
+        focus(
+          'overwrite-option',
+          `Develop The Mountain in ${valuableDistrictId}`,
+          {
+            type: 'develop-outright',
+            cardId: '13',
+            districtId: valuableDistrictId,
+          }
+        ),
+      ],
+      expectedPreference: {
+        preferredFocusActionId: 'preserve-option',
+        overFocusActionIds: ['overwrite-option'],
+        rationale:
+          'The immediate outcomes are equal, while only preserving The Painter keeps the possible match-winning Market continuation.',
+      },
+    } satisfies StrategicPositionRecipe;
+  });
+}
+
+function unknownPoolOptionalityHoldoutDistricts(
+  mirrored: boolean
+): readonly DistrictState[] {
+  const valuableLane = {
+    markerSuitMask: ['Suns', 'Waves', 'Knots'] as const,
+    playerADeveloped: ['10'] as const,
+    playerBDeveloped: ['9', '6'] as const,
+  };
+  const alternativeLane = {
+    markerSuitMask: ['Moons', 'Wyrms', 'Knots'] as const,
+    playerADeveloped: ['7'] as const,
+    playerBDeveloped: ['12'] as const,
+  };
+  const d2Lane = mirrored ? alternativeLane : valuableLane;
+  const d3Lane = mirrored ? valuableLane : alternativeLane;
+  return [
+    district('D0', ['Waves', 'Leaves', 'Wyrms'], ['27'], ['11', '16']),
+    district('D1', ['Moons', 'Suns', 'Leaves'], ['15', '22'], ['25', '29']),
+    district(
+      'D2',
+      d2Lane.markerSuitMask,
+      d2Lane.playerADeveloped,
+      d2Lane.playerBDeveloped
+    ),
+    district(
+      'D3',
+      d3Lane.markerSuitMask,
+      d3Lane.playerADeveloped,
+      d3Lane.playerBDeveloped
+    ),
+    district('D4', [], ['4'], ['5']),
+  ];
+}
+
+function optionalityTrace(
+  input: Omit<
+    StrategicOptionalityTraceV0,
+    'preserveFocusActionId' | 'overwriteFocusActionId'
+  >
+): StrategicOptionalityTraceV0 {
+  return {
+    ...input,
+    preserveFocusActionId: 'preserve-option',
+    overwriteFocusActionId: 'overwrite-option',
+  };
 }
 
 function endpointOptionalityDistricts(
@@ -578,6 +823,9 @@ function resolvePositionRecipe(
       `Strategic position ${recipe.id} preference references an unknown focus action.`
     );
   }
+  if (recipe.optionalityTrace) {
+    validateOptionalityTrace(recipe, focusActions);
+  }
   return {
     catalogVersion: STRATEGIC_POSITION_CATALOG_VERSION,
     id: recipe.id,
@@ -590,7 +838,72 @@ function resolvePositionRecipe(
     state: structuredClone(recipe.state),
     focusActions,
     expectedPreference: preference ? structuredClone(preference) : null,
+    optionalityTrace: recipe.optionalityTrace
+      ? structuredClone(recipe.optionalityTrace)
+      : null,
   };
+}
+
+function validateOptionalityTrace(
+  recipe: StrategicPositionRecipe,
+  focusActions: readonly StrategicFocusActionV0[]
+): void {
+  const trace = recipe.optionalityTrace;
+  if (!trace) {
+    return;
+  }
+  if (trace.valuableDistrictId === trace.alternativeDistrictId) {
+    throw new Error(
+      `Strategic optionality position ${recipe.id} must use distinct valuable and alternative districts.`
+    );
+  }
+  const districtIds = new Set(recipe.state.districts.map((entry) => entry.id));
+  if (
+    !districtIds.has(trace.valuableDistrictId) ||
+    !districtIds.has(trace.alternativeDistrictId)
+  ) {
+    throw new Error(
+      `Strategic optionality position ${recipe.id} references an unknown district.`
+    );
+  }
+  const legalActions = legalActionsForDecisionPlayer(recipe.state, 'PlayerA');
+  for (const [focusActionId, expectedDistrictId] of [
+    [trace.preserveFocusActionId, trace.alternativeDistrictId],
+    [trace.overwriteFocusActionId, trace.valuableDistrictId],
+  ] as const) {
+    const focusAction = focusActions.find(
+      (candidate) => candidate.id === focusActionId
+    );
+    const action = focusAction
+      ? legalActions.find(
+          (candidate) => actionStableKey(candidate) === focusAction.actionKey
+        )
+      : undefined;
+    if (action?.type !== 'develop-outright') {
+      throw new Error(
+        `Strategic optionality position ${recipe.id} requires an outright-development focus ${focusActionId}.`
+      );
+    }
+    if (action.districtId !== expectedDistrictId) {
+      throw new Error(
+        `Strategic optionality position ${recipe.id} focus ${focusActionId} must target ${expectedDistrictId}.`
+      );
+    }
+  }
+  const playerA = recipe.state.players.find((entry) => entry.id === 'PlayerA');
+  const playerB = recipe.state.players.find((entry) => entry.id === 'PlayerB');
+  const targetInOwnHand = playerA?.hand.includes(trace.targetCardId) ?? false;
+  const targetIsUnknown =
+    (playerB?.hand.includes(trace.targetCardId) ?? false) ||
+    recipe.state.deck.draw.includes(trace.targetCardId);
+  if (
+    (trace.family === 'known-hand' && !targetInOwnHand) ||
+    (trace.family === 'unknown-pool' && !targetIsUnknown)
+  ) {
+    throw new Error(
+      `Strategic optionality position ${recipe.id} target ${trace.targetCardId} does not match its ${trace.family} family.`
+    );
+  }
 }
 
 function focus(

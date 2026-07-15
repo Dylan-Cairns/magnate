@@ -98,6 +98,10 @@ Design expectations:
   diagnostics cannot alter search. Record both guides' proposals from each
   encountered state without consuming the live RNG, and require terminal
   completion before interpreting fixed-root score differences.
+- Optionality fixtures should declare trace metadata in the catalog: source
+  family, continuation card, semantic valuable/alternative lanes, and the two
+  focus IDs. Trace defaults and CLI selection consume that metadata; do not
+  infer targets from naming prefixes or hard-code card IDs in the tracer.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
 - Browser model-backed policies should load from static model-pack artifacts:
