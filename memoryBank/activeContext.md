@@ -4,10 +4,9 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
-- Use the independent optionality holdout to guide the next narrow TD
-  experiment: remove learned physical-district bias through exact
-  district-permutation symmetry, while keeping the resource-option mechanism
-  as a separate diagnostic. Repetitions 24-47 remain reserved.
+- Keep optionality repetitions 24-47 reserved while designing a controlled
+  district-permutation training ablation. The motivation is the replay-wide
+  direct symmetry audit, not the invalid catalog-v1 coordinates.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
@@ -34,61 +33,48 @@
   facts without strategic values or probabilities. Exact ActionWindow deltas
   remain factual and do not alter heuristic v2, rollout search, TD encoding, or
   the bridge contract.
-- Strategic-position catalog v1 covers district portfolio, tiebreak,
+- Strategic-position catalog v2 covers district portfolio, tiebreak,
   known-hand and unknown-pool optionality mirrors, deed feasibility, clock, and
   Ace-aware cases. Bot eval supports filtered variants/positions and
   non-overlapping repetition ranges. JSON/Markdown diagnostics report
   information-safe summaries, full case-payload fingerprints, selection
   stability, preferred/alternative/unassessed counts, pairwise focus gaps and
   visits, and counterfactual transitions. Catalog preferences remain reviewed
-  hypotheses, not current-bot golden assertions.
-- The 2026-07-13 Step 2 characterization found no current basis for heuristic
-  v3: direct heuristic v2 selected all eight reviewed comparisons, and V2 Hard
-  avoided the destructive optionality overwrite in 95 of 96 mirrored decisions
-  across 24 seeds (the exception was an exact visit tie). Current TD V2 Medium
-  instead retained a strong mirror asymmetry: known-hand original/mirror chose
-  preserve 14/24 versus 24/24, and unknown-pool original/mirror chose preserve
-  21/24 versus 7/24. TD Medium's smaller search budget motivated a controlled
-  root-visit comparison. Detailed rows remain in
-  ignored `artifacts/ts-bot-evals/strategic-position-step2-*` artifacts.
-- The 2026-07-13/14 Step 3 and Step 4 diagnostics first increased TD root visits
-  from 160 to 800, reducing destructive optionality overwrites from 17/96 to
-  5/96, then crossed TD versus heuristic-v2 root and rollout guidance. On the
-  five remaining known-hand failure seeds, heuristic root fixed 0/5 while
-  heuristic rollout fixed 5/5; rollout-only remained safe across all 96
-  known-hand decisions for seeds 0–47. It was not a general solution: with TD
-  root it caused 24/24 unknown-mirror overwrites. Heuristic root plus heuristic
-  rollout reduced the four-case screen to 1/96 harmful choices, while all-TD
-  had 5/96, but that diagnostic is effectively heuristic search and is not a
-  promotion candidate without holdouts and full-game evaluation. All searches
-  were terminal, ruling out leaf guidance. Detailed rows remain in ignored
-  `artifacts/ts-bot-evals/strategic-position-step3-*` and
-  `strategic-position-step4-*` artifacts. Step 5 then forced both roots through
-  matched terminal scenarios. On the five known-hand failure seeds, fixed TD
-  rollout values favored overwrite in the original aggregate but strongly
-  favored preserve after the full lanes were mirrored; heuristic-v2 rollout
-  favored preserve in both. TD often recognized The Author once its play was
-  available, but its earlier sales, developments, and physical-D4 preference
-  failed to prepare the continuation consistently. In 20 sampled worlds where
-  The Penitent was the next Player A draw, TD preserve realized it 19 times and
-  won all 20; heuristic v2 traded away Wyrms/Suns before the draw, realized it
-  zero times, and won zero. Detailed traces remain in ignored
-  `strategic-position-step5-*-forced-rollouts` artifacts.
-- The 2026-07-14 Step 6 independent holdout replaced the cards, suits, target
-  lanes, and district stacks. Across 96 decisions per variant, destructive
-  overwrites were 14 for TD Medium, 1 for all-TD at 800 visits, 0 for direct
-  heuristic v2 and V2 Hard, 0 for heuristic-root/TD-rollout, 18 for
-  TD-root/heuristic-rollout, and 0 for heuristic-root/heuristic-rollout. In the
-  sole all-TD failure, the root prior followed physical D3 across the mirror;
-  matched forced roots showed TD actually favored preserve in both
-  orientations (`+0.294` and `+0.318`). In the hidden Market case, TD preserve
-  retained the payment and realized all 29 reachable draws per orientation,
-  while heuristic-v2 preserve realized only 2 and valued preserve and
-  overwrite alike after trading away Leaves/Knots. This generalizes the
-  district-location and uncertain-resource mechanisms, rejects heuristic
-  rollout substitution as a general remedy, and leaves repetitions 24-47
-  untouched. Detailed rows remain in ignored
-  `strategic-position-holdout-*` artifacts.
+  hypotheses, not current-bot golden assertions. Catalog validation now
+  requires real-game coordinates `D1`-`D5` and the sole Excuse at `D3`; the
+  optionality mirrors swap only complete Pawn lanes.
+- The original 2026-07-13/14 catalog-v1 optionality work found useful
+  continuation and resource-preservation mechanisms, but its TD
+  physical-location attribution was invalid: v1 used `D0`-`D4`, shifting the
+  observation/action association from normal training, and some mirrors moved
+  the Excuse away from its normal fixed `D3` slot. Those artifacts remain
+  historical diagnostics, not evidence for permutation training.
+- The 2026-07-14 catalog-v2 audit reran all eight optionality positions at 160
+  and 800 visits over exposed repetitions 0-23. Destructive overwrites dropped
+  from the v1 totals of 44/192 and 6/192 to 8/192 and 0/192. The eight 160-visit
+  failures split exactly 4-4 across physical orientations, while every assessed
+  800-visit focus choice preserved the continuation. Corrected final choices
+  therefore reject catalog v1's orientation-dependent failure, but do not prove
+  model symmetry: corrected root priors still showed local D5 preference, and
+  deeper search compensated. Detailed rows are in ignored
+  `strategic-position-canonical-v2-exposed` artifacts.
+- A replay-wide direct symmetry audit now provides valid broad evidence. It
+  scanned all 163,194 decisions from the complete 900-game V2 Hard replay and
+  evaluated a deterministic 10,000-row sample under all 24 exact permutations
+  of D1, D2, D4, and D5 with D3 fixed. For the deployed July pack, 4,763 sampled
+  decisions changed preferred action under at least one relabeling; pairwise
+  agreement was 80.44%, mean maximum probability change was 0.0618, and mean
+  absolute value change was 0.1036. High-margin choices also changed. Balanced
+  slot means favored D4 most broadly (uniquely highest in 462/900 shards), then
+  D5 (272), rather than showing one universal D5 rule. This is meaningful
+  violation of an exact game symmetry and justifies a controlled permutation
+  training ablation; it does not itself prove a strength gain. Results are in
+  ignored `td-symmetry-v2-hard-900-primary` artifacts.
+- Matched forced traces still show a separate heuristic-v2 blind spot:
+  heuristic rollout can trade away resources needed for a valuable uncertain
+  draw, while TD preserved and realized those continuations. Replacing TD
+  rollout with heuristic-v2 rollout increased harmful choices in the v1
+  holdout, so that hybrid is not a general remedy.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
 - TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
@@ -96,8 +82,9 @@
   still use normal logged stepping.
 - Direct TypeScript bot evaluation lives under `src/botEval/` and can run
   head-to-head evals, rollout-search sweeps, strategic comparisons, matched
-  forced-rollout traces, replay checks, and serial or sharded rollout-search TD
-  replay exports. Node bot-eval installs a local `public/` fetch shim so
+  forced-rollout traces, direct TD district-symmetry audits, replay checks, and
+  serial or sharded rollout-search TD replay exports. Node bot-eval installs a
+  local `public/` fetch shim so
   serialized TD-root model-pack specs can run in the parent process and
   child-process matchup workers.
 - `scripts/calibrate_bot_latency.ts` samples representative decision states and times bot specs on identical states, producing JSON/CSV/Markdown latency calibration artifacts for matching TD and heuristic configs before expensive full-game evals.
@@ -169,12 +156,12 @@
 
 ## Remaining Work
 
-- Design and evaluate district-permutation augmentation (or a
-  permutation-aware encoding) as the next narrow TD change. It should remap
-  observations and action targets exactly, without subjective strategic
-  bonuses.
-- Evaluate a trained candidate first on reserved holdout repetitions 24-47,
-  then through full-game promotion tests before claiming a strength gain.
+- Specify and run a controlled district-permutation augmentation ablation with
+  an unaugmented control. Keep training inputs, seeds, steps, model shape, and
+  evaluation gates matched; the audit justifies the experiment but does not
+  pre-approve promotion.
+- Keep repetitions 24-47 reserved for evaluating a future candidate selected
+  on independent evidence, followed by full-game promotion tests.
 - Keep uncertain-draw resource preservation as a separate diagnostic; the
   holdout rejects heuristic-v2 rollout substitution but does not yet identify
   a safe general training feature or target for that mechanism.
@@ -185,11 +172,12 @@
 
 ## Immediate Next Steps
 
-1. Specify a matched district-permutation training ablation, including exact
-   observation/action remapping and an unaugmented control.
-2. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
-3. Test any resulting candidate on reserved optionality repetitions 24-47,
-   then run the normal full-game promotion evaluation.
+1. Design the matched district-permutation training ablation before starting
+   training; include exact observation/action/target remapping and an
+   unaugmented control.
+2. Evaluate any candidate on the direct symmetry audit, reserved catalog-v2
+   repetitions 24-47, and normal full-game promotion gates before adoption.
+3. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
 4. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
 5. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
 6. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.

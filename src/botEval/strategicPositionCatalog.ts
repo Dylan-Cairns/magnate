@@ -12,7 +12,26 @@ import type {
   Suit,
 } from '../engine/types';
 
-export const STRATEGIC_POSITION_CATALOG_VERSION = 1 as const;
+export const STRATEGIC_POSITION_CATALOG_VERSION = 2 as const;
+
+const CANONICAL_DISTRICT_IDS = ['D1', 'D2', 'D3', 'D4', 'D5'] as const;
+// The original hand-authored recipes used D0-D4. Catalog v2 translates those
+// private recipe coordinates before resolving actions so every exposed state
+// matches the engine/training layout: D1-D5 with the Excuse fixed at D3.
+const STANDARD_RECIPE_DISTRICT_MAP = {
+  D0: 'D1',
+  D1: 'D2',
+  D2: 'D4',
+  D3: 'D5',
+  D4: 'D3',
+} as const;
+const ENDPOINT_OPTIONALITY_RECIPE_DISTRICT_MAP = {
+  D0: 'D1',
+  D1: 'D2',
+  D2: 'D4',
+  D3: 'D3',
+  D4: 'D5',
+} as const;
 
 export type StrategicPositionThemeV0 =
   | 'global-district-portfolio'
@@ -685,7 +704,7 @@ function endpointOptionalityDistricts(
     playerBDeveloped: ['10', '12'] as const,
   };
   const alternativeLane = {
-    markerSuitMask: [] as const,
+    markerSuitMask: ['Moons', 'Wyrms', 'Knots'] as const,
     playerADeveloped: [alternativeCardId] as const,
     playerBDeveloped: ['7', '17'] as const,
   };
@@ -702,7 +721,7 @@ function endpointOptionalityDistricts(
         d1Lane.playerBDeveloped
       ),
       district('D2', ['Suns', 'Waves', 'Knots'], ['3'], ['27']),
-      district('D3', ['Moons', 'Wyrms', 'Knots'], ['20'], ['19']),
+      district('D3', [], ['20'], ['19']),
       district(
         'D4',
         d4Lane.markerSuitMask,
@@ -721,7 +740,7 @@ function endpointOptionalityDistricts(
       d1Lane.playerBDeveloped
     ),
     district('D2', ['Suns', 'Waves', 'Knots'], ['0'], ['24']),
-    district('D3', ['Moons', 'Wyrms', 'Knots'], ['2'], ['5']),
+    district('D3', [], ['2'], ['5']),
     district(
       'D4',
       d4Lane.markerSuitMask,
@@ -799,49 +818,146 @@ function clockBoundaryRecipes(): StrategicPositionRecipe[] {
 function resolvePositionRecipe(
   recipe: StrategicPositionRecipe
 ): StrategicPositionV0 {
-  const focusActions = recipe.focusActions.map((focusAction) => ({
+  const canonicalRecipe = canonicalizePositionRecipe(recipe);
+  const focusActions = canonicalRecipe.focusActions.map((focusAction) => ({
     id: focusAction.id,
     label: focusAction.label,
-    actionKey: resolveActionKey(recipe.state, focusAction.selector),
+    actionKey: resolveActionKey(canonicalRecipe.state, focusAction.selector),
   }));
   if (
     new Set(focusActions.map((action) => action.id)).size !==
     focusActions.length
   ) {
     throw new Error(
-      `Strategic position ${recipe.id} has duplicate focus action ids.`
+      `Strategic position ${canonicalRecipe.id} has duplicate focus action ids.`
     );
   }
   const focusIds = new Set(focusActions.map((action) => action.id));
-  const preference = recipe.expectedPreference;
+  const preference = canonicalRecipe.expectedPreference;
   if (
     preference &&
     (!focusIds.has(preference.preferredFocusActionId) ||
       preference.overFocusActionIds.some((id) => !focusIds.has(id)))
   ) {
     throw new Error(
-      `Strategic position ${recipe.id} preference references an unknown focus action.`
+      `Strategic position ${canonicalRecipe.id} preference references an unknown focus action.`
     );
   }
-  if (recipe.optionalityTrace) {
-    validateOptionalityTrace(recipe, focusActions);
+  if (canonicalRecipe.optionalityTrace) {
+    validateOptionalityTrace(canonicalRecipe, focusActions);
   }
+  validateCanonicalDistrictLayout(canonicalRecipe);
   return {
     catalogVersion: STRATEGIC_POSITION_CATALOG_VERSION,
-    id: recipe.id,
-    title: recipe.title,
-    theme: recipe.theme,
+    id: canonicalRecipe.id,
+    title: canonicalRecipe.title,
+    theme: canonicalRecipe.theme,
     perspectivePlayerId: 'PlayerA',
-    thesis: recipe.thesis,
-    expectedFacts: [...recipe.expectedFacts],
-    pairId: recipe.pairId ?? null,
-    state: structuredClone(recipe.state),
+    thesis: canonicalRecipe.thesis,
+    expectedFacts: [...canonicalRecipe.expectedFacts],
+    pairId: canonicalRecipe.pairId ?? null,
+    state: structuredClone(canonicalRecipe.state),
     focusActions,
     expectedPreference: preference ? structuredClone(preference) : null,
-    optionalityTrace: recipe.optionalityTrace
-      ? structuredClone(recipe.optionalityTrace)
+    optionalityTrace: canonicalRecipe.optionalityTrace
+      ? structuredClone(canonicalRecipe.optionalityTrace)
       : null,
   };
+}
+
+function canonicalizePositionRecipe(
+  recipe: StrategicPositionRecipe
+): StrategicPositionRecipe {
+  const districtMap =
+    recipe.id.startsWith('known-hand-optionality-') ||
+    recipe.id.startsWith('unknown-pool-optionality-')
+      ? recipe.id.includes('-holdout-')
+        ? STANDARD_RECIPE_DISTRICT_MAP
+        : ENDPOINT_OPTIONALITY_RECIPE_DISTRICT_MAP
+      : STANDARD_RECIPE_DISTRICT_MAP;
+  const mapDistrictId = (districtId: string): string => {
+    const mapped = districtMap[districtId as keyof typeof districtMap];
+    if (!mapped) {
+      throw new Error(
+        `Strategic position ${recipe.id} uses unsupported recipe district ${districtId}.`
+      );
+    }
+    return mapped;
+  };
+  const rewriteDistrictReferences = (value: string): string =>
+    value.replace(/\bD[0-4]\b/g, mapDistrictId);
+
+  return {
+    ...recipe,
+    title: rewriteDistrictReferences(recipe.title),
+    thesis: rewriteDistrictReferences(recipe.thesis),
+    expectedFacts: recipe.expectedFacts.map(rewriteDistrictReferences),
+    state: {
+      ...recipe.state,
+      seed: `strategic-v2:${recipe.id}`,
+      districts: recipe.state.districts.map((entry) => ({
+        ...structuredClone(entry),
+        id: mapDistrictId(entry.id),
+      })),
+    },
+    focusActions: recipe.focusActions.map((entry) => ({
+      ...entry,
+      label: rewriteDistrictReferences(entry.label),
+      selector: {
+        ...entry.selector,
+        ...(entry.selector.districtId
+          ? { districtId: mapDistrictId(entry.selector.districtId) }
+          : {}),
+      },
+    })),
+    ...(recipe.expectedPreference
+      ? {
+          expectedPreference: {
+            ...recipe.expectedPreference,
+            rationale: rewriteDistrictReferences(
+              recipe.expectedPreference.rationale
+            ),
+          },
+        }
+      : {}),
+    ...(recipe.optionalityTrace
+      ? {
+          optionalityTrace: {
+            ...recipe.optionalityTrace,
+            valuableDistrictId: mapDistrictId(
+              recipe.optionalityTrace.valuableDistrictId
+            ),
+            alternativeDistrictId: mapDistrictId(
+              recipe.optionalityTrace.alternativeDistrictId
+            ),
+          },
+        }
+      : {}),
+  };
+}
+
+function validateCanonicalDistrictLayout(
+  recipe: StrategicPositionRecipe
+): void {
+  const districts = [...recipe.state.districts].sort((left, right) =>
+    left.id.localeCompare(right.id)
+  );
+  if (
+    districts.map((entry) => entry.id).join(',') !==
+    CANONICAL_DISTRICT_IDS.join(',')
+  ) {
+    throw new Error(
+      `Strategic position ${recipe.id} must expose canonical districts D1-D5.`
+    );
+  }
+  for (const districtState of districts) {
+    const shouldBeExcuse = districtState.id === 'D3';
+    if ((districtState.markerSuitMask.length === 0) !== shouldBeExcuse) {
+      throw new Error(
+        `Strategic position ${recipe.id} must keep the Excuse marker at D3.`
+      );
+    }
+  }
 }
 
 function validateOptionalityTrace(

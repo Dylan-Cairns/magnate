@@ -31,7 +31,7 @@ describe('strategic state summary v0', () => {
         ?.choiceSources
     ).toEqual([
       {
-        districtId: 'D4',
+        districtId: 'D3',
         cardId: '29',
         allowedSuits: ['Moons', 'Suns'],
       },
@@ -49,7 +49,7 @@ describe('strategic state summary v0', () => {
     });
 
     const deed = summary.districts.find(
-      (district) => district.districtId === 'D4'
+      (district) => district.districtId === 'D3'
     )?.self.deed;
     expect(deed).toMatchObject({
       cardId: '29',
@@ -94,10 +94,10 @@ describe('strategic state summary v0', () => {
     const invalidDeed = structuredClone(
       requiredPosition('deed-fork-affordable').state
     );
-    const deed = invalidDeed.districts.find((district) => district.id === 'D4')
+    const deed = invalidDeed.districts.find((district) => district.id === 'D3')
       ?.stacks.PlayerA.deed;
     if (!deed) {
-      throw new Error('Missing expected D4 deed.');
+      throw new Error('Missing expected D3 deed.');
     }
     deed.progress = 8.5;
     expect(() => strategicStateSummaryV0(invalidDeed, 'PlayerA')).toThrow(
@@ -172,7 +172,7 @@ describe('strategic state summary v0', () => {
       'PlayerA'
     );
     const district = summary.districts.find(
-      (candidate) => candidate.districtId === 'D4'
+      (candidate) => candidate.districtId === 'D3'
     );
 
     expect(district?.self).toMatchObject({
