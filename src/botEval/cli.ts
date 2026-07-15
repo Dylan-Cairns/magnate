@@ -13,7 +13,7 @@ import {
   parseRolloutSearchSweepConfig,
   parseTdReplayConfig,
 } from './config';
-import { installLocalPublicFetch } from './localPublicFetch';
+import { installLocalPublicFetch, localPublicUrl } from './localPublicFetch';
 import { resolveEvaluationExecution } from './execution';
 import { runHeadToHead, type HeadToHeadProgress } from './matchup';
 import { replayArtifactGame } from './replay';
@@ -56,6 +56,19 @@ import {
   defaultStrategicForcedRolloutTraceOutputDirectoryV0,
   writeStrategicForcedRolloutTraceArtifactsV0,
 } from './strategicForcedRolloutTraceArtifacts';
+import {
+  runTdSymmetryAudit,
+  sampleOpponentReplayDirectory,
+} from './tdSymmetry';
+import {
+  createTdSymmetryArtifact,
+  defaultTdSymmetryOutputDirectory,
+  writeTdSymmetryArtifacts,
+} from './tdSymmetryArtifacts';
+import {
+  loadTdRootModelFromIndexUrl,
+  parseTdRootModelPackIndex,
+} from '../policies/tdRootModelPack';
 
 const DEFAULT_PROGRESS_INTERVAL_SECONDS = 30;
 
@@ -83,11 +96,102 @@ async function main(): Promise<void> {
     case 'strategic-forced-rollouts':
       await runStrategicForcedRolloutsCommand(args);
       return;
+    case 'td-symmetry':
+      await runTdSymmetryCommand(args);
+      return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry --replay-dir <path> [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
       );
   }
+}
+
+async function runTdSymmetryCommand(args: readonly string[]): Promise<void> {
+  installLocalPublicFetch();
+  const flags = parseFlags(args);
+  const replayDirectory = requiredFlag(flags, '--replay-dir');
+  const sampleSize =
+    parseOptionalPositiveInteger(flags, '--sample-size') ?? 10_000;
+  const samplingSeed =
+    flags.get('--sampling-seed') ?? 'td-symmetry-v2-hard-900-v1';
+  if (samplingSeed.trim() === '') {
+    throw new Error('--sampling-seed must be non-empty.');
+  }
+  const modelIndexPath =
+    flags.get('--model-index-path') ?? 'model-packs/index.json';
+  const indexPayload = JSON.parse(
+    await readFile(path.join(process.cwd(), 'public', modelIndexPath), 'utf8')
+  ) as unknown;
+  const index = parseTdRootModelPackIndex(indexPayload);
+  const modelPackId = flags.get('--pack-id') ?? index.defaultPackId;
+  if (!modelPackId) {
+    throw new Error(
+      'The TD model index has no default pack; provide --pack-id explicitly.'
+    );
+  }
+  const modelIndexUrl = new URL(localPublicUrl(modelIndexPath));
+  modelIndexUrl.searchParams.set('tdPackId', modelPackId);
+  const outputDirectory =
+    flags.get('--out-dir') ?? defaultTdSymmetryOutputDirectory();
+  const worstCaseLimit =
+    parseOptionalNonnegativeInteger(flags, '--worst-case-limit') ?? 25;
+  const progressIntervalMs = parseProgressIntervalMs(flags);
+
+  process.stderr.write(
+    `[td-symmetry] scanning replay=${path.resolve(replayDirectory)} requestedSample=${String(sampleSize)} seed=${samplingSeed}\n`
+  );
+  const sampleSet = await sampleOpponentReplayDirectory(
+    replayDirectory,
+    sampleSize,
+    samplingSeed
+  );
+  process.stderr.write(
+    `[td-symmetry] sampled=${String(sampleSet.samples.length)} rowsScanned=${String(sampleSet.rowsScanned)} files=${String(sampleSet.files.length)} loadingPack=${modelPackId}\n`
+  );
+  const model = await loadTdRootModelFromIndexUrl(modelIndexUrl.toString());
+  const startedAt = Date.now();
+  let lastProgressAt = startedAt;
+  const run = runTdSymmetryAudit({
+    samples: sampleSet.samples,
+    rowsScanned: sampleSet.rowsScanned,
+    sourceFiles: sampleSet.files,
+    samplingSeed,
+    requestedSampleSize: sampleSize,
+    modelPackId,
+    modelIndexPath,
+    model,
+    worstCaseLimit,
+    onProgress(progress) {
+      const now = Date.now();
+      if (
+        progress.completedSamples === progress.totalSamples ||
+        progressIntervalMs === 0 ||
+        now - lastProgressAt >= progressIntervalMs
+      ) {
+        lastProgressAt = now;
+        process.stderr.write(
+          `[td-symmetry] decision ${String(progress.completedSamples)}/${String(progress.totalSamples)} elapsed=${formatDuration(now - startedAt)}\n`
+        );
+      }
+    },
+  });
+  const artifact = createTdSymmetryArtifact(run);
+  const written = await writeTdSymmetryArtifacts(artifact, outputDirectory);
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        status: 'completed',
+        artifact: path.resolve(written.artifactPath),
+        summary: path.resolve(written.summaryPath),
+        sampledRows: run.aggregate.samples,
+        rowsScanned: run.replay.rowsScanned,
+        topActionMatchRate: run.aggregate.topActionMatchRate,
+        samplesWithAnyTopActionFlip: run.aggregate.samplesWithAnyTopActionFlip,
+      },
+      null,
+      2
+    )}\n`
+  );
 }
 
 async function runStrategicForcedRolloutsCommand(

@@ -513,26 +513,114 @@ preserve and overwrite effectively identical outcomes even though its overall
 play won more of these particular traces. This isolates an optionality blind
 spot rather than claiming that the guide is generally weak.
 
-The holdout therefore supports three conclusions:
+These catalog-v1 results initially suggested three conclusions: a learned
+physical-district bias, an uncertain-draw resource blind spot in heuristic v2,
+and failure of heuristic-v2 rollout substitution as a general fix. Catalog v1
+could not support the first conclusion because its coordinates were invalid.
+The resource trace and the failed rollout hybrid remain informative because
+they come from matched continuations rather than the model's district encoding.
 
-- TD has a learned physical-district bias that more visits reduce but do not
-  remove.
-- Heuristic v2 does not consistently protect resources for an uncertain but
-  valuable hidden draw.
-- Replacing TD rollout play with heuristic-v2 rollout is not a general fix: it
-  increased harmful holdout choices from one to 18 at the 800-visit budget.
+## Step 7 Canonical-Coordinate Audit
 
-The narrowest justified TD experiment is district-permutation augmentation (or
-an equivalent permutation-aware encoding), because it teaches an exact game
-symmetry without assigning subjective strategic bonuses. A trained candidate
-should first be checked on untouched repetitions 24-47, then in full games.
-The resource-option mechanism should remain a separate diagnostic; these
-traces do not justify hand-authoring a heuristic-v3 bonus or adopting the
-failed rollout hybrid.
+The catalog-v1 states used district IDs `D0`-`D4`, while normal games and TD
+training use `D1`-`D5`. Encoding v2 sorts five 28-feature district blocks by ID
+and also encodes the numeric district suffix on each action. Catalog v1
+therefore introduced an unseen `D0` action and shifted every action-to-board
+block association. Some mirrors also moved the empty Excuse lane even though
+normal setup always fixes the Excuse at `D3`. The apparent physical-location
+bias was consequently confounded with out-of-distribution input.
+
+Catalog v2 corrects that mismatch without changing bot behavior:
+
+- every exposed state has exactly `D1`-`D5`;
+- `D3` is always the only Excuse district;
+- optionality mirrors swap two complete Pawn lanes, not the Excuse;
+- catalog validation rejects noncanonical layouts;
+- state and comparison seeds use the fresh catalog-v2 namespace.
+
+The corrected 2026-07-14 rerun used all eight optionality positions,
+repetitions 0-23, and current all-TD search at 160 and 800 visits. It produced
+384 decisions:
+
+| budget     | preserve | destructive overwrite | unassessed other |
+| :--------- | -------: | --------------------: | ---------------: |
+| 160 visits |      168 |                     8 |               16 |
+| 800 visits |      167 |                     0 |               25 |
+
+For comparison, catalog v1 recorded 44 destructive overwrites at 160 visits
+and six at 800 across the same number of optionality decisions. More
+importantly, the eight remaining catalog-v2 overwrites at 160 visits split
+exactly 4-4 across the two physical orientations. At 800 visits every assessed
+focus choice preferred preserving the continuation in every original and
+mirror position. Non-focus sales and trades remain unassessed, so this does not
+claim perfect strategic play.
+
+The corrected final choices therefore do not reproduce catalog v1's apparent
+orientation-dependent failure. Normal 160-visit search still made eight harmful
+focus choices, but they split evenly across orientations, and at 800 visits
+every assessed focus choice preserved the continuation. This shows that deeper
+search can compensate in these fixtures; it does not prove that the underlying
+TD model is district-symmetric. Corrected root priors still favored physical D5
+in both orientations of several optionality pairs, so the stronger question
+required ordinary full-game states rather than another hand-built fixture.
+
+The heuristic-v2 uncertain-resource blind spot and rejection of heuristic
+rollout substitution remain separate findings. Repetitions 24-47 remain
+untouched for evaluating a future candidate.
+
+## Step 8 Replay-Wide Direct Symmetry Audit
+
+The 2026-07-14 direct audit used the deployed July model pack
+`td-two-stage-imported-20260706-hard-step-30000` and the complete 900-game V2
+Hard teacher replay. That replay contains 163,194 decisions produced with 50
+worlds and depth 270. A seeded reservoir selected 10,000 decisions across all
+900 game shards. Each selected row was evaluated under all 24 permutations of
+the four Pawn districts D1, D2, D4, and D5 while D3 remained fixed. The audit
+moved each complete 28-feature district block and every corresponding action
+district feature together. This is an exact game symmetry, not a subjective
+strategic preference.
+
+The reproducible command surface is `yarn bot:eval td-symmetry --replay-dir
+<path> --sample-size <n> --sampling-seed <seed>`; it writes bounded JSON and
+Markdown diagnostics under the bot-evaluation artifact directory.
+
+Across 230,000 non-identity comparisons:
+
+- 4,763 of 10,000 decisions changed preferred action under at least one
+  equivalent relabeling;
+- pairwise preferred-action agreement was 80.44%;
+- the mean maximum action-probability change was 0.0618 and the largest was
+  0.8262;
+- mean absolute value-estimate change was 0.1036 and the largest was 1.7853;
+- even when the baseline top action led the runner-up by at least 0.10,
+  7,874 of 137,195 relabelings changed the preferred action (94.26% agreement);
+- the largest recorded reversal began with a baseline probability margin of
+  0.8944, so the effect is not confined to near-ties.
+
+The balanced slot comparison found a replay-wide physical preference, but not
+a universal D5 preference. Mean centered action logits were D1 `0.4984`, D2
+`0.5318`, D4 `0.6451`, and D5 `0.5971`. D4 had the uniquely highest per-game
+mean in 462 of 900 shards, followed by D5 in 272, D1 in 111, and D2 in 55.
+Preferred-action agreement was 42% for buy-deed roots, 59% for
+develop-outright, 84% for develop-deed, and 71% for choose-income-suit. The D5
+prior seen in the optionality fixtures was therefore a real local asymmetry,
+but it was not a complete description of the broader learned slot effect.
+
+This audit does not show that every changed choice is strategically worse, and
+the replay is not a held-out playing-strength evaluation. It does establish
+that the fixed value and action models violate an exact rules symmetry by
+meaningful amounts across ordinary game states. A controlled
+district-permutation training ablation is therefore justified by direct broad
+evidence, independently of the invalid catalog-v1 diagnosis. The ablation must
+retain an unaugmented control and unchanged training data, seeds, steps, model
+shape, and promotion tests. No model, training path, browser default, or bot
+behavior changed during this audit. Detailed results are in the ignored
+`td-symmetry-v2-hard-900-primary` artifact.
 
 ## Invariants Protected by Tests
 
 - complete/disjoint card partition and hidden-world determinization;
+- canonical `D1`-`D5` coordinates with the sole Excuse fixed at `D3`;
 - hidden-assignment invariance;
 - canonical score, Ace bonus, deed, placement, tax, and income consistency;
 - stable ordering and JSON-safe plain data;
@@ -544,6 +632,9 @@ failed rollout hybrid.
 - per-position/variant stability, focus-gap, and counterfactual reporting;
 - deterministic comparison output apart from measured latency and artifact
   metadata;
+- exact D1/D2/D4/D5 observation-block and action-feature permutation with D3
+  fixed, deterministic replay sampling, symmetric/biased mock-model detection,
+  and bounded worst-case retention;
 - forced-root traces reuse one hidden-world sample and one engine/rollout seed
   pair across both roots and both guides, remain terminal, and cannot mutate
   normal search behavior or shared sampled worlds.

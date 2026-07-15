@@ -64,6 +64,11 @@ const MAX_TOKEN_COUNT = 9.0;
 export const ENCODING_VERSION = 2;
 export const OBSERVATION_DIM = 206;
 export const ACTION_FEATURE_DIM = 40;
+export const OBSERVATION_GLOBAL_FEATURE_DIM = 66;
+export const OBSERVATION_DISTRICT_COUNT = 5;
+export const OBSERVATION_DISTRICT_FEATURE_DIM = 28;
+export const ACTION_DISTRICT_ID_FEATURE_INDEX = 9;
+export const ACTION_HAS_DISTRICT_FEATURE_INDEX = 38;
 
 const PROPERTY_SUITS_BY_CARD_ID: Readonly<Record<string, readonly Suit[]>> = {
   '0': ['Knots'],
@@ -193,7 +198,10 @@ export function encodeActionInto(
   vector[8] = norm(cardRank, 10.0);
 
   const districtId = asString(payload.districtId);
-  vector[9] = norm(districtIndex(districtId), 5.0);
+  vector[ACTION_DISTRICT_ID_FEATURE_INDEX] = norm(
+    districtIndex(districtId),
+    OBSERVATION_DISTRICT_COUNT
+  );
 
   const playerId = payload.playerId;
   const playerIndex =
@@ -212,7 +220,7 @@ export function encodeActionInto(
   vector[36] = norm(sumResourceMap(tokenMap), MAX_TOKEN_COUNT);
 
   vector[37] = cardId ? 1.0 : 0.0;
-  vector[38] = districtId ? 1.0 : 0.0;
+  vector[ACTION_HAS_DISTRICT_FEATURE_INDEX] = districtId ? 1.0 : 0.0;
   vector[39] = isPropertyCard(cardId) ? 1.0 : 0.0;
 }
 

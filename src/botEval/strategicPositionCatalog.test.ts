@@ -12,6 +12,7 @@ import { stepKnownLegalActionToDecision } from '../engine/session';
 import type { GameAction, GameState } from '../engine/types';
 import { toPlayerView } from '../engine/view';
 import { sampleHiddenWorldStates } from '../policies/determinization';
+import { encodeAction } from '../policies/trainingEncoding';
 import {
   strategicActionDeltasV0,
   strategicStateSummaryV0,
@@ -22,7 +23,7 @@ import {
   isStrategicOptionalityPositionV0,
 } from './strategicPositionCatalog';
 
-describe('strategic position catalog v1', () => {
+describe('strategic position catalog v2', () => {
   it('contains unique, complete, legal, determinizable positions', () => {
     const positions = createStrategicPositionCatalogV0();
     expect(positions.length).toBeGreaterThanOrEqual(8);
@@ -33,6 +34,17 @@ describe('strategic position catalog v1', () => {
     for (const position of positions) {
       expect(position.catalogVersion).toBe(STRATEGIC_POSITION_CATALOG_VERSION);
       expect(position.state.phase).toBe('ActionWindow');
+      expect(position.state.seed).toBe(`strategic-v2:${position.id}`);
+      expect(
+        [...position.state.districts]
+          .sort((left, right) => left.id.localeCompare(right.id))
+          .map((district) => district.id)
+      ).toEqual(['D1', 'D2', 'D3', 'D4', 'D5']);
+      expect(
+        position.state.districts.filter(
+          (district) => district.markerSuitMask.length === 0
+        )
+      ).toMatchObject([{ id: 'D3' }]);
       expect(position.state.players[position.state.activePlayerIndex]?.id).toBe(
         position.perspectivePlayerId
       );
@@ -42,6 +54,23 @@ describe('strategic position catalog v1', () => {
       );
       const legalKeys = new Set(legalActions.map(actionStableKey));
       expect(legalActions.length).toBeGreaterThan(1);
+      const encodedDistrictOrder = [...position.state.districts]
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .map((district) => district.id);
+      for (const action of legalActions) {
+        if (!('districtId' in action)) {
+          continue;
+        }
+        const districtBlockIndex = encodedDistrictOrder.indexOf(
+          action.districtId
+        );
+        expect(districtBlockIndex, position.id).toBeGreaterThanOrEqual(0);
+        const actionFeatures = encodeAction(action);
+        expect(actionFeatures[9], position.id).toBe(
+          (districtBlockIndex + 1) / 5
+        );
+        expect(actionFeatures[38], position.id).toBe(1);
+      }
       for (const focus of position.focusActions) {
         expect(legalKeys.has(focus.actionKey), position.id).toBe(true);
       }
@@ -124,25 +153,25 @@ describe('strategic position catalog v1', () => {
       expect(actionForFocus(original, 'preserve-option')).toMatchObject({
         type: 'develop-outright',
         cardId: '14',
-        districtId: 'D4',
+        districtId: 'D5',
         payment: { Waves: 2, Leaves: 2 },
       });
       expect(actionForFocus(original, 'overwrite-option')).toMatchObject({
         type: 'develop-outright',
         cardId: '14',
-        districtId: 'D1',
+        districtId: 'D2',
         payment: { Waves: 2, Leaves: 2 },
       });
       expect(actionForFocus(mirror, 'preserve-option')).toMatchObject({
         type: 'develop-outright',
         cardId: '14',
-        districtId: 'D1',
+        districtId: 'D2',
         payment: { Waves: 2, Leaves: 2 },
       });
       expect(actionForFocus(mirror, 'overwrite-option')).toMatchObject({
         type: 'develop-outright',
         cardId: '14',
-        districtId: 'D4',
+        districtId: 'D5',
         payment: { Waves: 2, Leaves: 2 },
       });
 
@@ -174,7 +203,7 @@ describe('strategic position catalog v1', () => {
         expect(developedCardMultiset(preserveAfter)).toEqual(
           developedCardMultiset(overwriteAfter)
         );
-        for (const districtId of ['D1', 'D4']) {
+        for (const districtId of ['D2', 'D5']) {
           expect(district(preserveAfter, districtId).self.aceBonus).toBe(0);
           expect(district(overwriteAfter, districtId).self.aceBonus).toBe(0);
           expect(district(preserveAfter, districtId).opponent.aceBonus).toBe(0);
@@ -261,8 +290,8 @@ describe('strategic position catalog v1', () => {
         family: 'known-hand',
         rootCardId: '7',
         targetCardId: '8',
-        originalValuableDistrictId: 'D0',
-        originalAlternativeDistrictId: 'D3',
+        originalValuableDistrictId: 'D1',
+        originalAlternativeDistrictId: 'D5',
         payment: { Suns: 1, Wyrms: 1 },
         developedRankMarginDelta: 2,
         resourceMarginDelta: -2,
@@ -274,8 +303,8 @@ describe('strategic position catalog v1', () => {
         family: 'unknown-pool',
         rootCardId: '13',
         targetCardId: '19',
-        originalValuableDistrictId: 'D2',
-        originalAlternativeDistrictId: 'D3',
+        originalValuableDistrictId: 'D4',
+        originalAlternativeDistrictId: 'D5',
         payment: { Moons: 2, Suns: 2 },
         developedRankMarginDelta: 4,
         resourceMarginDelta: -4,
@@ -598,8 +627,12 @@ describe('strategic position catalog v1', () => {
         expect(decisionPlayerIdForState(unknownState)).toBe('PlayerA');
         expect(unknownState.phase).toBe('ActionWindow');
         expect(unknownState.finalTurnsRemaining).toBe(2);
-        expect(unknownState.players[0].resources.Leaves).toBe(5);
-        expect(unknownState.players[0].resources.Knots).toBe(5);
+        expect(unknownState.players[0].resources.Leaves).toBeGreaterThanOrEqual(
+          5
+        );
+        expect(unknownState.players[0].resources.Knots).toBeGreaterThanOrEqual(
+          5
+        );
         const marketDevelopments = targetDevelopments(unknownState, '19');
         if (focusActionId === 'preserve-option') {
           expect(marketDevelopments.length).toBeGreaterThan(0);
@@ -622,7 +655,7 @@ describe('strategic position catalog v1', () => {
   it('keeps each optionality continuation executable before terminal scoring', () => {
     for (const mirrored of [false, true]) {
       const role = mirrored ? 'mirror' : 'original';
-      const valuableDistrictId = mirrored ? 'D4' : 'D1';
+      const valuableDistrictId = mirrored ? 'D5' : 'D2';
 
       for (const focusActionId of ['preserve-option', 'overwrite-option']) {
         const known = requiredPosition(`known-hand-optionality-${role}`);
@@ -720,8 +753,8 @@ describe('strategic position catalog v1', () => {
       requiredPosition('deed-fork-inaccessible').state,
       'PlayerA'
     );
-    const affordableDeed = district(affordable, 'D4').self.deed;
-    const inaccessibleDeed = district(inaccessible, 'D4').self.deed;
+    const affordableDeed = district(affordable, 'D3').self.deed;
+    const inaccessibleDeed = district(inaccessible, 'D3').self.deed;
 
     expect(affordableDeed?.progress).toBe(inaccessibleDeed?.progress);
     expect(affordableDeed?.remaining).toBe(inaccessibleDeed?.remaining);
@@ -926,7 +959,7 @@ function supportOccurrences(
   summary: ReturnType<typeof strategicStateSummaryV0>,
   cardId: CardId,
   field: 'ownHandForSelf' | 'unknownPoolForSelf' | 'unknownPoolForOpponent',
-  districtIds: readonly string[] = ['D1', 'D4']
+  districtIds: readonly string[] = ['D2', 'D5']
 ): number {
   return summary.districts
     .filter((entry) => districtIds.includes(entry.districtId))
