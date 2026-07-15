@@ -1,4 +1,8 @@
-import { toKeyedActions, type KeyedAction } from '../engine/actionSurface';
+import {
+  actionStableKey,
+  toKeyedActions,
+  type KeyedAction,
+} from '../engine/actionSurface';
 import {
   decisionPlayerIdForState,
   legalActionsForDecisionPlayer,
@@ -46,10 +50,7 @@ import type {
 } from './types';
 
 export interface RolloutSearchRuntimeGuidance {
-  evaluateLeaf?: (input: {
-    state: GameState;
-    rootPlayer: PlayerId;
-  }) => number;
+  evaluateLeaf?: (input: { state: GameState; rootPlayer: PlayerId }) => number;
   chooseRolloutAction?: (input: {
     state: GameState;
     actions: readonly GameAction[];
@@ -123,6 +124,29 @@ export interface RolloutSearchVisitResult {
   score: number;
   simulatedActionSteps: number;
   terminatedBeforeDepthLimit: boolean;
+}
+
+/**
+ * Evaluation-only view of one action taken inside a rollout. Trace observers
+ * receive detached snapshots so they cannot affect search behavior.
+ */
+export interface RolloutSearchTraceStep {
+  readonly stepIndex: number;
+  readonly decisionPlayer: PlayerId;
+  readonly stateBefore: GameState;
+  readonly legalActionKeys: readonly string[];
+  readonly action: GameAction;
+  readonly actionKey: string;
+  readonly stateAfter: GameState;
+}
+
+export interface RolloutSearchTaskTraceOptions {
+  readonly onStep: (step: RolloutSearchTraceStep) => void;
+}
+
+export interface RolloutSearchScenarioSeeds {
+  readonly engineSeed: string;
+  readonly rolloutRandomSeed: string;
 }
 
 export interface RolloutSearchRankedRootAction {
@@ -267,7 +291,8 @@ export function runRolloutSearchTask(
   task: RolloutSearchWorkerTask,
   worldStates: readonly GameState[],
   fallbackRandom?: RandomFn,
-  guidance?: RolloutSearchRuntimeGuidance
+  guidance?: RolloutSearchRuntimeGuidance,
+  trace?: RolloutSearchTaskTraceOptions
 ): RolloutSearchVisitResult {
   const random = task.randomSeed
     ? rngFromSeed(task.randomSeed)
@@ -294,7 +319,8 @@ export function runRolloutSearchTask(
     task.rootAction,
     task.config,
     random,
-    guidance
+    guidance,
+    trace
   );
   return {
     kind: 'rollout-search',
@@ -363,7 +389,8 @@ function createRolloutSearchSession({
     rolloutGuidance,
     workerGuidance,
     guidanceKind:
-      guidanceKind ?? (createRootGuide || rolloutGuidance ? 'custom' : 'heuristic'),
+      guidanceKind ??
+      (createRootGuide || rolloutGuidance ? 'custom' : 'heuristic'),
     rootRandomSeed: randomSeedForSession({ random, randomSeed }),
   });
 }
@@ -373,10 +400,7 @@ export function createHeuristicRolloutSearchRootGuide({
   view,
   candidateActions,
   heuristic = 'v1',
-}: Pick<
-  RolloutSearchSelectionInput,
-  'state' | 'view' | 'candidateActions'
-> & {
+}: Pick<RolloutSearchSelectionInput, 'state' | 'view' | 'candidateActions'> & {
   heuristic?: SearchHeuristicVersion;
 }): RolloutSearchRootGuide {
   const heuristicContext = { state, view };
@@ -541,11 +565,7 @@ class RolloutSearchSession {
       (this.pendingVisits.get(actionKey) ?? 0);
     const scenarioIndex = actionVisitIndex;
     const worldIndex = scenarioIndex % this.worldStates.length;
-    const engineSeed = engineSeedForScenario(
-      this.rootRandomSeed,
-      scenarioIndex
-    );
-    const rolloutRandomSeed = rolloutRandomSeedForScenario(
+    const { engineSeed, rolloutRandomSeed } = rolloutSearchScenarioSeeds(
       this.rootRandomSeed,
       scenarioIndex
     );
@@ -695,16 +715,28 @@ function runRollout(
   rootAction: GameAction,
   config: SearchPolicyConfig,
   random: RandomFn,
-  guidance?: RolloutSearchRuntimeGuidance
+  guidance?: RolloutSearchRuntimeGuidance,
+  trace?: RolloutSearchTaskTraceOptions
 ): {
   score: number;
   simulatedActionSteps: number;
   terminatedBeforeDepthLimit: boolean;
 } {
+  const rootLegalActions = trace
+    ? legalActionsForDecisionPlayer(initialState, rootPlayer)
+    : [];
   let state = stepKnownLegalActionToDecisionForSimulation(
     initialState,
     rootAction
   );
+  traceRolloutStep(trace, {
+    stepIndex: 0,
+    decisionPlayer: rootPlayer,
+    stateBefore: initialState,
+    legalActions: rootLegalActions,
+    action: rootAction,
+    stateAfter: state,
+  });
   let depth = 0;
   let simulatedActionSteps = 1;
 
@@ -726,9 +758,18 @@ function runRollout(
       config,
       guidance
     );
+    const stateBefore = state;
     state = stepKnownLegalActionToDecisionForSimulation(state, nextAction);
     depth += 1;
     simulatedActionSteps += 1;
+    traceRolloutStep(trace, {
+      stepIndex: simulatedActionSteps - 1,
+      decisionPlayer,
+      stateBefore,
+      legalActions: actions,
+      action: nextAction,
+      stateAfter: state,
+    });
   }
 
   const terminatedBeforeDepthLimit = isTerminal(state) && depth < config.depth;
@@ -831,18 +872,46 @@ function randomSeedForSession({
   return `rollout-search-session:${first}:${second}`;
 }
 
-function engineSeedForScenario(
+export function rolloutSearchScenarioSeeds(
   rootRandomSeed: string,
   scenarioIndex: number
-): string {
-  return `${rootRandomSeed}:engine-scenario:${String(scenarioIndex)}`;
+): RolloutSearchScenarioSeeds {
+  if (!Number.isSafeInteger(scenarioIndex) || scenarioIndex < 0) {
+    throw new Error(
+      `Rollout search scenario index must be a nonnegative safe integer; received ${String(scenarioIndex)}.`
+    );
+  }
+  return {
+    engineSeed: `${rootRandomSeed}:engine-scenario:${String(scenarioIndex)}`,
+    rolloutRandomSeed: `${rootRandomSeed}:rollout-scenario:${String(scenarioIndex)}`,
+  };
 }
 
-function rolloutRandomSeedForScenario(
-  rootRandomSeed: string,
-  scenarioIndex: number
-): string {
-  return `${rootRandomSeed}:rollout-scenario:${String(scenarioIndex)}`;
+function traceRolloutStep(
+  trace: RolloutSearchTaskTraceOptions | undefined,
+  input: {
+    stepIndex: number;
+    decisionPlayer: PlayerId;
+    stateBefore: GameState;
+    legalActions: readonly GameAction[];
+    action: GameAction;
+    stateAfter: GameState;
+  }
+): void {
+  if (!trace) {
+    return;
+  }
+  trace.onStep({
+    stepIndex: input.stepIndex,
+    decisionPlayer: input.decisionPlayer,
+    stateBefore: structuredClone(input.stateBefore),
+    legalActionKeys: toKeyedActions(input.legalActions).map(
+      (candidate) => candidate.actionKey
+    ),
+    action: structuredClone(input.action),
+    actionKey: actionStableKey(input.action),
+    stateAfter: structuredClone(input.stateAfter),
+  });
 }
 
 function rolloutSearchWorkerContextId(randomSeed: string): string {

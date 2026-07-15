@@ -4,10 +4,10 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
-- Trace matched forced-root continuations to explain why TD rollout play misses
-  the known-hand option and why TD-root plus heuristic-rollout guidance loses
-  the unknown-pool mirror. Do not promote a diagnostic hybrid from the current
-  catalog alone.
+- Validate the forced-rollout findings on a new mirrored optionality holdout:
+  TD has a physical-lane/multi-turn preparation bias, while heuristic v2 can
+  spend the resources supporting a plausible hidden draw. Do not promote a
+  diagnostic hybrid from the current catalog alone.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
@@ -63,13 +63,28 @@
   promotion candidate without holdouts and full-game evaluation. All searches
   were terminal, ruling out leaf guidance. Detailed rows remain in ignored
   `artifacts/ts-bot-evals/strategic-position-step3-*` and
-  `strategic-position-step4-*` artifacts.
+  `strategic-position-step4-*` artifacts. Step 5 then forced both roots through
+  matched terminal scenarios. On the five known-hand failure seeds, fixed TD
+  rollout values favored overwrite in the original aggregate but strongly
+  favored preserve after the full lanes were mirrored; heuristic-v2 rollout
+  favored preserve in both. TD often recognized The Author once its play was
+  available, but its earlier sales, developments, and physical-D4 preference
+  failed to prepare the continuation consistently. In 20 sampled worlds where
+  The Penitent was the next Player A draw, TD preserve realized it 19 times and
+  won all 20; heuristic v2 traded away Wyrms/Suns before the draw, realized it
+  zero times, and won zero. Detailed traces remain in ignored
+  `strategic-position-step5-*-forced-rollouts` artifacts.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
 - TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
   not grow/copy human-readable game logs; real games and exported transcripts
   still use normal logged stepping.
-- Direct TypeScript bot evaluation lives under `src/botEval/` and can run head-to-head evals, rollout-search sweeps, replay checks, and serial or sharded rollout-search TD replay exports. Node bot-eval installs a local `public/` fetch shim so serialized TD-root model-pack specs can run in the parent process and child-process matchup workers.
+- Direct TypeScript bot evaluation lives under `src/botEval/` and can run
+  head-to-head evals, rollout-search sweeps, strategic comparisons, matched
+  forced-rollout traces, replay checks, and serial or sharded rollout-search TD
+  replay exports. Node bot-eval installs a local `public/` fetch shim so
+  serialized TD-root model-pack specs can run in the parent process and
+  child-process matchup workers.
 - `scripts/calibrate_bot_latency.ts` samples representative decision states and times bot specs on identical states, producing JSON/CSV/Markdown latency calibration artifacts for matching TD and heuristic configs before expensive full-game evals.
 - TypeScript TD replay action rows include required `actionProbs` targets:
   search policies derive them from root visit counts, and Python opponent/action
@@ -139,14 +154,11 @@
 
 ## Remaining Work
 
-- Force preserve and overwrite through matched future scenarios and capture TD
-  versus heuristic rollout choices to locate the first strategically meaningful
-  divergence in the known-hand and unknown-pool cases.
 - Add a distinct mirrored optionality family as a holdout before interpreting a
   search hybrid or training change as general.
-- Use controlled forced-root terminal comparisons and untouched holdout
-  position families before promoting any catalog relationship into a bot
-  change or claiming match-equity improvement.
+- Use the untouched holdout before promoting the diagnosed lane-symmetry or
+  hidden-option relationship into a bot change or claiming match-equity
+  improvement.
 - Calibrate self-play loop cadence, replay-window settings, and promotion thresholds from repeated runs.
 - Continue improving throughput for direct TypeScript TD-root matchups; child-process paired-seed parallelism is available, while individual search decisions remain synchronous in Node.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as those surfaces are touched.
@@ -154,9 +166,9 @@
 
 ## Immediate Next Steps
 
-1. Design matched forced-root continuation tracing for the known-hand Author
-   and unknown-pool Penitent cases, recording the first TD-versus-heuristic
-   rollout divergence under identical scenarios.
+1. Add a mirrored optionality holdout with different cards, payment suits, and
+   districts, then test whether it reproduces the TD lane/preparation bias and
+   heuristic hidden-draw resource loss.
 2. Before long training runs, confirm `models/td_checkpoints/manifest.json` and referenced checkpoint files are present and committed.
 3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
 4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.

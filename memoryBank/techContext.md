@@ -43,6 +43,11 @@
   `-heuristic-root-rollout` select heuristic-v2 guidance for the named hooks at
   the same 800-visit budget. Leaf remains TD-guided; when terminal rate is 1 it
   is not invoked.
+- `strategic-forced-rollouts` accepts explicit position, repetition-ID, and
+  action-local scenario-ID lists. It forces preserve/overwrite through one
+  shared hidden-world/seed schedule under TD and heuristic-v2 rollout play,
+  requires terminal completion, and writes detailed JSON plus an aggregate
+  Markdown summary under ignored bot-eval artifacts.
 
 ## Core Commands
 
@@ -54,6 +59,7 @@
 - Format: `yarn format`
 - Strategic position smoke check: `yarn bot:eval strategic-positions --repetitions 1`
 - Strategic position stability screen: `yarn bot:eval strategic-positions --repetitions 8`
+- Strategic forced-rollout trace: `yarn bot:eval strategic-forced-rollouts --positions known-hand-optionality-original,known-hand-optionality-mirror --repetitions 7,10,14,17,18`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
@@ -96,4 +102,4 @@
 - Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
 - Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
-_Updated: 2026-07-13._
+_Updated: 2026-07-14._

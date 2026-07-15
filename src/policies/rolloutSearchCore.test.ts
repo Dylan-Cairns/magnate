@@ -12,9 +12,11 @@ import {
 import { toPlayerView } from '../engine/view';
 import { rankHeuristicV2Actions } from './heuristicScorerV2';
 import {
+  rolloutSearchScenarioSeeds,
   runRolloutSearchTask,
   selectRolloutSearchActionParallel,
   selectRolloutSearchActionSync,
+  type RolloutSearchTraceStep,
   type RolloutSearchVisitResult,
   type RolloutSearchWorkerContext,
   type RolloutSearchWorkerTask,
@@ -31,6 +33,16 @@ const TEST_CONFIG: SearchPolicyConfig = {
 };
 
 describe('rollout search core', () => {
+  it('exposes the exact deterministic seed pair for a common scenario', () => {
+    expect(rolloutSearchScenarioSeeds('shared-root', 12)).toEqual({
+      engineSeed: 'shared-root:engine-scenario:12',
+      rolloutRandomSeed: 'shared-root:rollout-scenario:12',
+    });
+    expect(() => rolloutSearchScenarioSeeds('shared-root', -1)).toThrow(
+      'nonnegative safe integer'
+    );
+  });
+
   it('matches the seeded serial planner when parallel batch size is one', async () => {
     const fixture = selectionFixture('rollout-core-seeded-serial');
     const randomSeed = 'rollout-core-seeded-rng';
@@ -410,7 +422,9 @@ describe('rollout search core', () => {
       secondActionTasks[0].randomSeed
     );
 
-    const laterScenario = capturedTasks.find((task) => task.scenarioIndex === 1);
+    const laterScenario = capturedTasks.find(
+      (task) => task.scenarioIndex === 1
+    );
     expect(laterScenario).toMatchObject({
       actionVisitIndex: 1,
       worldIndex: 1,
@@ -512,6 +526,64 @@ describe('rollout search core', () => {
     const noisyResult = runRolloutSearchTask(baseTask, [noisyWorld]);
 
     expect(noisyResult).toEqual(cleanResult);
+  });
+
+  it('traces a rollout without changing its result or shared source world', () => {
+    const fixture = selectionFixture('rollout-core-trace');
+    const rootAction = toKeyedActions(fixture.candidateActions)[0];
+    const sourceWorld = structuredClone(fixture.state);
+    const task: RolloutSearchWorkerTask = {
+      kind: 'rollout-search',
+      contextId: 'rollout-core-trace-context',
+      visitIndex: 0,
+      actionVisitIndex: 0,
+      scenarioIndex: 0,
+      worldIndex: 0,
+      engineSeed: 'rollout-core-trace-engine',
+      rootPlayer: fixture.view.activePlayerId,
+      rootAction: rootAction.action,
+      rootActionKey: rootAction.actionKey,
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 1,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+      },
+      randomSeed: 'rollout-core-trace-playout',
+    };
+    const clean = runRolloutSearchTask(task, [fixture.state]);
+    const steps: RolloutSearchTraceStep[] = [];
+    const traced = runRolloutSearchTask(
+      task,
+      [fixture.state],
+      undefined,
+      undefined,
+      {
+        onStep(step) {
+          steps.push(structuredClone(step));
+          // Detached snapshots keep diagnostic consumers behavior-neutral.
+          step.stateAfter.seed = 'trace-only-mutation';
+        },
+      }
+    );
+
+    expect(traced).toEqual(clean);
+    expect(fixture.state).toEqual(sourceWorld);
+    expect(steps).toHaveLength(traced.simulatedActionSteps);
+    expect(steps[0]).toMatchObject({
+      stepIndex: 0,
+      decisionPlayer: fixture.view.activePlayerId,
+      actionKey: rootAction.actionKey,
+    });
+    for (const [index, step] of steps.entries()) {
+      expect(step.stepIndex).toBe(index);
+      expect(step.legalActionKeys).toContain(step.actionKey);
+      if (index > 0) {
+        expect(step.stateBefore).toEqual(steps[index - 1].stateAfter);
+      }
+    }
   });
 });
 
