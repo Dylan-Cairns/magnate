@@ -61,15 +61,26 @@
 - A replay-wide direct symmetry audit now provides valid broad evidence. It
   scanned all 163,194 decisions from the complete 900-game V2 Hard replay and
   evaluated a deterministic 10,000-row sample under all 24 exact permutations
-  of D1, D2, D4, and D5 with D3 fixed. For the deployed July pack, 4,763 sampled
-  decisions changed preferred action under at least one relabeling; pairwise
-  agreement was 80.44%, mean maximum probability change was 0.0618, and mean
-  absolute value change was 0.1036. High-margin choices also changed. Balanced
+  of D1, D2, D4, and D5 with D3 fixed. For the deployed July pack, pairwise
+  agreement was 80.44% (a 19.56% flip rate per non-identity relabeling), while
+  4,763 sampled decisions changed under at least one of 23 relabelings. Mean
+  maximum probability change was 0.0618 and mean absolute value change was
+  0.1036; high-margin choices also changed. Balanced
   slot means favored D4 most broadly (uniquely highest in 462/900 shards), then
-  D5 (272), rather than showing one universal D5 rule. This is meaningful
+  D5 (272), rather than showing one universal D5 rule. This is a meaningful
   violation of an exact game symmetry and justifies a controlled permutation
   training ablation; it does not itself prove a strength gain. Results are in
   ignored `td-symmetry-v2-hard-900-primary` artifacts.
+- Symmetry-ablation preflight is complete without starting training. A
+  raw-state metamorphic test proves all 24 fixed-D3 transformations match fresh
+  encoding of genuinely relabeled legal states/actions and invert exactly. The
+  complete 900-game value replay is now local (900 shards, 163,194 rows) beside
+  the opponent replay. The missing deployed-July `.pt` pair was reconstructed
+  from the checked-in browser pack with strict schema/tensor/provenance checks,
+  canonical checkpoint reload, zero internal parity difference, and real-row
+  Python/TypeScript differences below `1e-6`. The optimizer-free warm starts are
+  in ignored
+  `artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/`.
 - Matched forced traces still show a separate heuristic-v2 blind spot:
   heuristic rollout can trade away resources needed for a valuable uncertain
   draw, while TD preserved and realized those continuations. Replacing TD
@@ -172,15 +183,19 @@
 
 ## Immediate Next Steps
 
-1. Design the matched district-permutation training ablation before starting
-   training; include exact observation/action/target remapping and an
-   unaugmented control.
-2. Evaluate any candidate on the direct symmetry audit, reserved catalog-v2
+1. Implement the matched district-permutation training ablation without
+   launching it; include exact observation/action/target remapping, coherent
+   TD-lambda sequence transformation, independent augmentation RNG, and an
+   exact unaugmented control.
+2. Freeze and review the run manifest (warm starts, replay split, seeds, update
+   count, optimizer settings, checkpoints, and stop gates) before starting
+   control or augmented training.
+3. Evaluate any candidate on the direct symmetry audit, reserved catalog-v2
    repetitions 24-47, and normal full-game promotion gates before adoption.
-3. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
-4. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
-5. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-6. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
-7. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
+4. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
+5. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
+6. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
+7. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
+8. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
 _Updated: 2026-07-14._

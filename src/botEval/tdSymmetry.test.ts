@@ -4,11 +4,18 @@ import path from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { legalActions } from '../engine/actionBuilders';
+import { actionStableKey } from '../engine/actionSurface';
+import { createSession } from '../engine/session';
+import type { GameAction, GameState } from '../engine/types';
+import { toPlayerView } from '../engine/view';
 import type { LoadedTdGuidanceModel } from '../policies/tdGuidanceModel';
 import {
   ACTION_DISTRICT_ID_FEATURE_INDEX,
   ACTION_FEATURE_DIM,
   ACTION_HAS_DISTRICT_FEATURE_INDEX,
+  encodeActionCandidates,
+  encodeObservation,
   OBSERVATION_DIM,
   OBSERVATION_DISTRICT_FEATURE_DIM,
   OBSERVATION_GLOBAL_FEATURE_DIM,
@@ -16,6 +23,8 @@ import {
 import type { TdReplayOpponentSamplePayload } from './types';
 import {
   createPawnDistrictPermutations,
+  inversePawnDistrictPermutation,
+  type PawnDistrictPermutation,
   permuteEncodedActionFeatures,
   permuteEncodedObservation,
   runTdSymmetryAudit,
@@ -65,6 +74,75 @@ describe('TD district symmetry', () => {
     expect(permuteEncodedActionFeatures(nonDistrictAction, swapD1D5!)).toEqual(
       nonDistrictAction
     );
+  });
+
+  it('matches every encoded permutation to a raw canonical state and its legal actions', () => {
+    const state = createSession('td-symmetry-preflight-4', 'PlayerA');
+    const viewerId = state.players[state.activePlayerIndex].id;
+    const view = toPlayerView(state, viewerId);
+    const actions = legalActions(state);
+    const districtActionIds = actions
+      .flatMap((action) => ('districtId' in action ? [action.districtId] : []))
+      .sort((left, right) => left.localeCompare(right));
+
+    expect(view.districts.map((district) => district.id)).toEqual([
+      'D1',
+      'D2',
+      'D3',
+      'D4',
+      'D5',
+    ]);
+    expect(
+      view.districts.find((district) => district.id === 'D3')?.markerSuitMask
+    ).toEqual([]);
+    expect([...new Set(districtActionIds)]).toEqual([
+      'D1',
+      'D2',
+      'D3',
+      'D4',
+      'D5',
+    ]);
+
+    const encodedObservation = encodeObservation(view);
+    const encodedActions = encodeActionCandidates(actions);
+
+    for (const permutation of createPawnDistrictPermutations()) {
+      const relabeledState = relabelGameState(state, permutation);
+      const relabeledView = toPlayerView(relabeledState, viewerId);
+      const relabeledActions = actions.map((action) =>
+        relabelAction(action, permutation)
+      );
+      const relabeledLegalKeys = legalActions(relabeledState)
+        .map(actionStableKey)
+        .sort((left, right) => left.localeCompare(right));
+
+      expect(
+        relabeledActions
+          .map(actionStableKey)
+          .sort((left, right) => left.localeCompare(right)),
+        permutation.id
+      ).toEqual(relabeledLegalKeys);
+      expect(encodeObservation(relabeledView), permutation.id).toEqual(
+        permuteEncodedObservation(encodedObservation, permutation)
+      );
+      expect(encodeActionCandidates(relabeledActions), permutation.id).toEqual(
+        encodedActions.map((features) =>
+          permuteEncodedActionFeatures(features, permutation)
+        )
+      );
+
+      const inverse = inversePawnDistrictPermutation(permutation);
+      expect(
+        permuteEncodedObservation(encodeObservation(relabeledView), inverse),
+        permutation.id
+      ).toEqual(encodedObservation);
+      expect(
+        encodeActionCandidates(relabeledActions).map((features) =>
+          permuteEncodedActionFeatures(features, inverse)
+        ),
+        permutation.id
+      ).toEqual(encodedActions);
+    }
   });
 
   it('reports zero drift for a symmetric model', () => {
@@ -159,6 +237,53 @@ function makeReplaySample() {
     sourceLine: 1,
     row: makeRow(),
   };
+}
+
+function relabelGameState(
+  state: GameState,
+  permutation: PawnDistrictPermutation
+): GameState {
+  const relabeled = structuredClone(state);
+  return {
+    ...relabeled,
+    districts: relabeled.districts
+      .map((district) => ({
+        ...district,
+        id: relabelDistrictId(district.id, permutation),
+      }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+    pendingIncomeChoices: relabeled.pendingIncomeChoices?.map((choice) => ({
+      ...choice,
+      districtId: relabelDistrictId(choice.districtId, permutation),
+    })),
+    submittedIncomeChoices: relabeled.submittedIncomeChoices?.map((choice) => ({
+      ...choice,
+      districtId: relabelDistrictId(choice.districtId, permutation),
+    })),
+  };
+}
+
+function relabelAction(
+  action: GameAction,
+  permutation: PawnDistrictPermutation
+): GameAction {
+  const relabeled = structuredClone(action);
+  if ('districtId' in relabeled) {
+    relabeled.districtId = relabelDistrictId(relabeled.districtId, permutation);
+  }
+  return relabeled;
+}
+
+function relabelDistrictId(
+  districtId: string,
+  permutation: PawnDistrictPermutation
+): string {
+  const match = /^D([1-5])$/.exec(districtId);
+  if (!match) {
+    throw new Error(`Expected canonical district ID, received ${districtId}.`);
+  }
+  const source = Number(match[1]);
+  return `D${String(permutation.destinationBySource[source])}`;
 }
 
 function makeRow(): TdReplayOpponentSamplePayload {
