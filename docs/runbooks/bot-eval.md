@@ -52,14 +52,21 @@ not independent strategic evidence. Direct heuristic v2 is deterministic in
 these cases, so repeating it only confirms repeatability.
 
 The default selection includes all three variants. `--variants` can select any
-unique comma-separated subset of `heuristic-v2-direct`,
-`rollout-search-v2-hard`, `td-root-search-v2-medium`, and the opt-in diagnostic
-`td-root-search-v2-800-visits`; a valid default model pack under
-`public/model-packs/` is required only when a TD variant is selected. The
-800-visit variant clones current TD V2 Medium and changes only sampled worlds
-from 10 to 50, producing 800 root visits while retaining depth 40, the same
-default model-pack selection, and TD guidance at root, rollout, and leaf. It
-matches V2 Hard's root-visit count, not its deeper search or total computation.
+unique comma-separated subset of the three defaults and these opt-in
+diagnostics:
+
+- `td-root-search-v2-800-visits`;
+- `td-root-search-v2-800-visits-heuristic-root`;
+- `td-root-search-v2-800-visits-heuristic-rollout`;
+- `td-root-search-v2-800-visits-heuristic-root-rollout`.
+
+A valid default model pack under `public/model-packs/` is required when any
+selected hook remains TD-guided. The base 800-visit variant clones current TD
+V2 Medium and changes only sampled worlds from 10 to 50 while retaining depth
+40 and the same default model-pack selection. The three ablations keep that
+budget, use heuristic v2 for each named heuristic hook, and retain TD leaf
+guidance. They match V2 Hard's root-visit count, not its deeper search or total
+computation, and none joins the default variant set.
 `--positions` likewise accepts unique catalog position IDs, and unknown or
 duplicate IDs fail fast. `--start-repetition` changes the
 deterministic repetition/seed index for a targeted extension. It does not resume
@@ -68,10 +75,11 @@ externally if needed. For example:
 
 ```powershell
 yarn bot:eval strategic-positions `
-  --positions known-hand-optionality-original,known-hand-optionality-mirror,unknown-pool-optionality-original,unknown-pool-optionality-mirror `
-  --variants td-root-search-v2-800-visits `
-  --repetitions 24 `
-  --out-dir artifacts/ts-bot-evals/optionality-td800
+  --positions known-hand-optionality-original,known-hand-optionality-mirror `
+  --variants td-root-search-v2-800-visits,td-root-search-v2-800-visits-heuristic-root,td-root-search-v2-800-visits-heuristic-rollout,td-root-search-v2-800-visits-heuristic-root-rollout `
+  --start-repetition 7 `
+  --repetitions 1 `
+  --out-dir artifacts/ts-bot-evals/optionality-guidance-seed-7
 ```
 
 The Markdown summary begins with per-position/variant selection histograms,

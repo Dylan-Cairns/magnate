@@ -8,6 +8,9 @@ import { rolloutSearchRootBudget } from '../policies/rolloutSearchCore';
 import type { ActionPolicy } from '../policies/types';
 import { createStrategicPositionCatalogV0 } from './strategicPositionCatalog';
 import {
+  STRATEGIC_TD_800_HEURISTIC_ROLLOUT_VARIANT_ID,
+  STRATEGIC_TD_800_HEURISTIC_ROOT_ROLLOUT_VARIANT_ID,
+  STRATEGIC_TD_800_HEURISTIC_ROOT_VARIANT_ID,
   STRATEGIC_TD_800_VISIT_VARIANT_ID,
   createDefaultStrategicComparisonVariantsV0,
   createStrategicComparisonVariantCatalogV0,
@@ -17,7 +20,7 @@ import {
 } from './strategicPositionComparison';
 
 describe('strategic position comparison', () => {
-  it('offers an 800-visit TD diagnostic without changing the default variants', () => {
+  it('offers 800-visit TD guidance diagnostics without changing the defaults', () => {
     const defaults = createDefaultStrategicComparisonVariantsV0();
     const catalog = createStrategicComparisonVariantCatalogV0();
     expect(defaults.map((variant) => variant.descriptor.id)).toEqual([
@@ -60,6 +63,48 @@ describe('strategic position comparison', () => {
         matched.descriptor.spec.config.worlds
       )
     ).toBe(800);
+
+    const ablations = [
+      {
+        id: STRATEGIC_TD_800_HEURISTIC_ROOT_VARIANT_ID,
+        guidance: { root: 'heuristic', rollout: 'td', leaf: 'td' },
+      },
+      {
+        id: STRATEGIC_TD_800_HEURISTIC_ROLLOUT_VARIANT_ID,
+        guidance: { root: 'td', rollout: 'heuristic', leaf: 'td' },
+      },
+      {
+        id: STRATEGIC_TD_800_HEURISTIC_ROOT_ROLLOUT_VARIANT_ID,
+        guidance: { root: 'heuristic', rollout: 'heuristic', leaf: 'td' },
+      },
+    ] as const;
+    for (const ablation of ablations) {
+      const variant = catalog.find(
+        (candidate) => candidate.descriptor.id === ablation.id
+      );
+      expect(variant?.descriptor.kind).toBe('bot-spec');
+      if (
+        variant?.descriptor.kind !== 'bot-spec' ||
+        variant.descriptor.spec.kind !== 'td-root-search'
+      ) {
+        throw new Error(`Expected TD-root ablation ${ablation.id}.`);
+      }
+      expect(variant.descriptor.spec).toEqual({
+        ...matched.descriptor.spec,
+        id: ablation.id,
+        guidance: ablation.guidance,
+        config: {
+          ...matched.descriptor.spec.config,
+          heuristic: 'v2',
+        },
+      });
+      expect(
+        rolloutSearchRootBudget(
+          variant.descriptor.spec.config,
+          variant.descriptor.spec.config.worlds
+        )
+      ).toBe(800);
+    }
   });
 
   it('uses one common deterministic random seed across variants', async () => {

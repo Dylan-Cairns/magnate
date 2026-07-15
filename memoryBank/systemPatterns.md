@@ -85,7 +85,11 @@ Design expectations:
   within one position and variant, and adaptive root means with unequal visit
   counts are not fixed-budget paired estimates. Existing-bot agreement is
   diagnostic output rather than a test assertion; generated comparison results
-  belong under ignored evaluation artifacts.
+  belong under ignored evaluation artifacts. Per-hook attribution should use a
+  small factorial of opt-in variants with unchanged budgets, seeds, model pack,
+  and inactive hooks; verify terminal coverage before claiming that leaf
+  guidance participated, and check a second position family before treating a
+  localized fix as a general policy improvement.
 - Heuristic district-potential scoring must include newly bought deeds, while opponent deed defense pressure should scale with completion progress rather than full card rank from zero progress.
 - Non-completing deed progress should not receive full new-control-path credit; spending a last suit token on partial deed progress should usually lose to ending the turn, while completion and surplus-token progress can still be rewarded.
 - Browser model-backed policies should load from static model-pack artifacts:
