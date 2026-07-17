@@ -217,15 +217,11 @@ function applySequenceStep(
           }),
         },
       };
-    case 'apply-tax-losses':
+    case 'apply-tax-token-loss':
       return {
-        viewState: applyResourceDeltas(
-          viewState,
-          step.losses.map((event) => ({
-            playerId: event.playerId,
-            delta: { [event.suit]: -1 },
-          }))
-        ),
+        viewState: applyResourceDelta(viewState, step.loss.playerId, {
+          [step.loss.suit]: -1,
+        }),
         overlays,
       };
     case 'highlight-income-sources':
