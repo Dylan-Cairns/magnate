@@ -4,9 +4,10 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
-- Keep optionality repetitions 24-47 reserved while running the controlled
-  opponent-only complete-S4-orbit follow-up. The motivation is the replay-wide
-  direct symmetry audit, not the invalid catalog-v1 coordinates.
+- Keep optionality repetitions 24-47 reserved after both controlled
+  district-symmetry training interventions failed the required action-symmetry
+  gates. The motivation remains the replay-wide direct audit, not the invalid
+  catalog-v1 coordinates.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
@@ -133,20 +134,20 @@
   the 50% requirement. The S4 candidate therefore fails the predeclared
   required symmetry diagnostic despite clear improvement; reserved strategic
   repetitions and multi-day promotion games remain unspent.
-- The opponent-only complete-orbit follow-up is implemented and frozen. Its
-  control samples one random fixed-D3 S4 permutation per raw opponent row; its
-  treatment averages ordinary soft-target cross-entropy over all 24
-  permutations, with no new loss coefficient. It retrains no value model and
-  instead fixes the successful first-pilot augmented value checkpoint per
-  seed. The exact prior 800/100 replay split, July opponent warm start, two
-  seeds, 5,000 updates, raw batch size 64, and four-thread profile are bound by
-  content and implementation fingerprints. Two full-800-shard one-update
-  smokes passed: both loaded 145,014 opponent rows and had the identical raw
-  sampling trace
-  `8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`;
-  the treatment recorded 24 copies per raw sample and effective batch 1,536.
-  The resumable PowerShell launcher dry-run passes; the four long jobs have not
-  been launched.
+- The opponent-only complete-orbit follow-up completed both 5,000-update seeds
+  with exact matched raw sampling traces. Its control sampled one random
+  fixed-D3 S4 permutation per raw row; its treatment averaged ordinary
+  soft-target cross-entropy over all 24 permutations and kept the successful
+  first-pilot augmented value checkpoint fixed per seed. Both treatments
+  passed heldout noninferiority and slightly improved opponent cross-entropy.
+  Direct all-24-permutation audits nevertheless missed both required gates:
+  primary top-action agreement rose only 82.85% -> 86.36% and probability
+  drift fell 25.0%; replication rose 83.03% -> 86.09% and drift fell 25.2%,
+  versus requirements of 95% agreement and 50% reduction. This reproducible
+  partial improvement is not promotion-eligible. Reserved strategic and
+  full-game tests remain unspent. The result favors an opponent model whose
+  district symmetry is enforced by architecture rather than more augmentation
+  weighting or subjective action boosts.
 - Matched forced traces still show a separate heuristic-v2 blind spot:
   heuristic rollout can trade away resources needed for a valuable uncertain
   draw, while TD preserved and realized those continuations. Replacing TD
@@ -233,9 +234,10 @@
 
 ## Remaining Work
 
-- Run and evaluate the frozen opponent-only complete-orbit pilot. Do not spend
-  reserved/full-game promotion tests unless both heldout opponent
-  noninferiority and the predeclared direct action-symmetry gates pass.
+- Design a district-equivariant opponent/action model intervention. Both
+  random-S4 and complete-orbit continuation training improved but failed the
+  required action-symmetry gates; do not spend reserved/full-game promotion
+  tests on either candidate.
 - Keep repetitions 24-47 reserved for evaluating a future candidate selected
   on independent evidence, followed by full-game promotion tests.
 - Keep uncertain-draw resource preservation as a separate diagnostic; the
@@ -248,13 +250,13 @@
 
 ## Immediate Next Steps
 
-1. Launch the four frozen opponent-orbit training commands sequentially with
-   `.\scripts\run_td_opponent_orbit_pilot.ps1`, then prepare the heldout and
-   direct-symmetry evaluation without using reserved repetitions.
+1. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
+   in the opponent/action architecture, while preserving the existing replay,
+   checkpoint, and browser-export contracts where practical.
 2. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
 3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
 4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
 5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 6. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-16._
+_Updated: 2026-07-17._
