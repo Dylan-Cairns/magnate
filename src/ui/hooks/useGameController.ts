@@ -25,6 +25,7 @@ import { prepareCanonicalActionDispatch } from '../canonicalActionDispatcher';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import {
   activePlayerIdForState,
+  botDecisionResultIsCurrent,
   botRandomForState,
   botRandomSeedForState,
   createBrowserSession,
@@ -33,6 +34,7 @@ import {
   incomeChoiceActionsForPlayer,
   makeBrowserSessionSeed,
   shouldScheduleBotAction,
+  transitionOpensHumanDecisionWindow,
   withSeedLogPrefix,
 } from '../gameControllerModel';
 import {
@@ -111,6 +113,9 @@ export function useGameController({
     ReadonlyArray<BugReportActionEntry>
   >([]);
   const [botThinking, setBotThinking] = useState<boolean>(false);
+  const [humanInputBarrierOrdinal, setHumanInputBarrierOrdinal] = useState<
+    number | null
+  >(null);
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(
     DEFAULT_BOT_PROFILE_ID
   );
@@ -123,6 +128,8 @@ export function useGameController({
   const stateRef = useRef(state);
   const nextActionOrdinalRef = useRef(0);
   const canonicalDispatchInProgressRef = useRef(false);
+  const humanInputBarrierOrdinalRef = useRef<number | null>(null);
+  const botDecisionGenerationRef = useRef(0);
   const deferredIncomeLogContextRef = useRef<DeferredIncomeLogContext | null>(
     null
   );
@@ -152,16 +159,27 @@ export function useGameController({
     incomeHighlightCrowns,
     diceVisualState,
     presentationSnapshot,
+    presentedState,
     activePlayerHighlightOverride,
-    actionCommitPending,
-    allowHumanActionsWhileCommitPending,
-    clearPendingActionCommit,
+    presentationPending,
+    clearPresentationQueue,
     clearAllFlights: clearAnimationFlights,
-    runTransition: runAnimationTransition,
+    enqueueTransition: enqueueAnimationTransition,
   } = useGameAnimations();
   const clearAllFlights = useCallback(() => {
     clearAnimationFlights();
   }, [clearAnimationFlights]);
+  const clearHumanInputBarrier = useCallback(() => {
+    humanInputBarrierOrdinalRef.current = null;
+    setHumanInputBarrierOrdinal(null);
+  }, []);
+  const releaseHumanInputBarrier = useCallback((actionOrdinal: number) => {
+    if (humanInputBarrierOrdinalRef.current !== actionOrdinal) {
+      return;
+    }
+    humanInputBarrierOrdinalRef.current = null;
+    setHumanInputBarrierOrdinal(null);
+  }, []);
   const dispatchAction = useCallback(
     (sourceState: GameState, action: GameAction, actingPlayerId: PlayerId) => {
       if (canonicalDispatchInProgressRef.current) {
@@ -178,6 +196,15 @@ export function useGameController({
           actionOrdinal: nextActionOrdinalRef.current,
         });
         nextActionOrdinalRef.current += 1;
+        const opensHumanDecisionWindow = transitionOpensHumanDecisionWindow(
+          plan.previousState,
+          plan.nextState,
+          humanPlayerId
+        );
+        if (animationsEnabled && opensHumanDecisionWindow) {
+          humanInputBarrierOrdinalRef.current = plan.actionOrdinal;
+          setHumanInputBarrierOrdinal(plan.actionOrdinal);
+        }
         setActionHistory((existing) => [
           ...existing,
           {
@@ -195,13 +222,22 @@ export function useGameController({
           return;
         }
 
-        runAnimationTransition({
-          transactionId: plan.transactionId,
-          previousState: plan.previousState,
-          nextState: plan.nextState,
-          action,
-          actingPlayerId,
-        });
+        try {
+          enqueueAnimationTransition({
+            transactionId: plan.transactionId,
+            previousState: plan.previousState,
+            nextState: plan.nextState,
+            action,
+            actingPlayerId,
+            onInputUnlock: () => {
+              releaseHumanInputBarrier(plan.actionOrdinal);
+            },
+          });
+        } catch (err) {
+          clearPresentationQueue();
+          clearHumanInputBarrier();
+          throw err;
+        }
         setError(null);
       } finally {
         canonicalDispatchInProgressRef.current = false;
@@ -210,15 +246,21 @@ export function useGameController({
     [
       animationsEnabled,
       clearAllFlights,
+      clearHumanInputBarrier,
+      clearPresentationQueue,
       commitCanonicalTransition,
-      runAnimationTransition,
+      enqueueAnimationTransition,
+      humanPlayerId,
+      releaseHumanInputBarrier,
     ]
   );
 
-  const viewState = presentationSnapshot?.viewState ?? state;
+  const viewState = presentationSnapshot?.viewState ?? presentedState ?? state;
   const terminal = isTerminal(state);
   const viewTerminal = isTerminal(viewState);
   const activePlayerId = activePlayerIdForState(state, humanPlayerId);
+  const viewActivePlayerId = activePlayerIdForState(viewState, humanPlayerId);
+  const humanInputReady = humanInputBarrierOrdinal === null;
   const humanView = useMemo(
     () => toPlayerView(viewState, humanPlayerId),
     [humanPlayerId, viewState]
@@ -232,15 +274,9 @@ export function useGameController({
       humanActionsAcceptingInputForState({
         state,
         humanPlayerId,
-        actionCommitPending,
-        allowHumanActionsWhileCommitPending,
+        humanInputReady,
       }),
-    [
-      actionCommitPending,
-      allowHumanActionsWhileCommitPending,
-      humanPlayerId,
-      state,
-    ]
+    [humanInputReady, humanPlayerId, state]
   );
   const botIncomeActions = useMemo(
     () => incomeChoiceActionsForPlayer(legalActions(state), botPlayerId),
@@ -249,9 +285,9 @@ export function useGameController({
   const canResetTurn = useMemo(
     () =>
       canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor, {
-        actionCommitPending,
+        humanInputReady,
       }),
-    [actionCommitPending, activePlayerId, humanPlayerId, state, turnResetAnchor]
+    [activePlayerId, humanInputReady, humanPlayerId, state, turnResetAnchor]
   );
 
   useEffect(() => {
@@ -280,8 +316,6 @@ export function useGameController({
     activePlayerId,
     botPlayerId,
     isIncomeChoicePhase: state.phase === 'CollectIncome',
-    actionCommitPending,
-    allowIncomeChoiceWhileCommitPending: allowHumanActionsWhileCommitPending,
     botIncomeActionCount: botIncomeActions.length,
     startupPreloadReady,
   });
@@ -293,19 +327,9 @@ export function useGameController({
   }
 
   useEffect(() => {
-    if (
-      !shouldScheduleBotAction({
-        terminal,
-        activePlayerId,
-        botPlayerId,
-        isIncomeChoicePhase: state.phase === 'CollectIncome',
-        actionCommitPending,
-        allowIncomeChoiceWhileCommitPending:
-          allowHumanActionsWhileCommitPending,
-        botIncomeActionCount: botIncomeActions.length,
-        startupPreloadReady,
-      })
-    ) {
+    const decisionGeneration = botDecisionGenerationRef.current + 1;
+    botDecisionGenerationRef.current = decisionGeneration;
+    if (!shouldRunBot) {
       return;
     }
 
@@ -324,12 +348,15 @@ export function useGameController({
         const isCurrentIncomeChoicePhase = current.phase === 'CollectIncome';
         if (
           cancelled ||
+          botDecisionGenerationRef.current !== decisionGeneration ||
           isTerminal(current) ||
           (isCurrentIncomeChoicePhase
             ? currentBotIncomeActions.length === 0
             : currentActive !== botPlayerId)
         ) {
-          setBotThinking(false);
+          if (botDecisionGenerationRef.current === decisionGeneration) {
+            setBotThinking(false);
+          }
           return;
         }
 
@@ -342,11 +369,12 @@ export function useGameController({
           return;
         }
 
+        let choice: GameAction | null | undefined;
         try {
           const botView = isCurrentIncomeChoicePhase
             ? toDecisionPlayerView(current, botPlayerId)
             : toPlayerView(current, botPlayerId);
-          const choice = await resolvedBotProfile.policy.selectAction({
+          choice = await resolvedBotProfile.policy.selectAction({
             state: current,
             view: botView,
             legalActions: actions,
@@ -357,15 +385,40 @@ export function useGameController({
             ),
             onSearchDiagnostics: logBotSearchDiagnostics,
           });
-
-          if (cancelled) {
-            return;
+        } catch (err) {
+          if (
+            botDecisionResultIsCurrent({
+              cancelled,
+              decisionGeneration,
+              currentGeneration: botDecisionGenerationRef.current,
+              decisionState: current,
+              currentState: stateRef.current,
+            })
+          ) {
+            setError(`Bot action failed: ${errorMessage(err)}`);
+            setBotThinking(false);
           }
-          if (!choice) {
-            setError('Bot policy could not select an action.');
-            return;
-          }
+          return;
+        }
 
+        if (
+          !botDecisionResultIsCurrent({
+            cancelled,
+            decisionGeneration,
+            currentGeneration: botDecisionGenerationRef.current,
+            decisionState: current,
+            currentState: stateRef.current,
+          })
+        ) {
+          return;
+        }
+        if (!choice) {
+          setError('Bot policy could not select an action.');
+          setBotThinking(false);
+          return;
+        }
+
+        try {
           dispatchAction(
             current,
             choice,
@@ -374,11 +427,18 @@ export function useGameController({
               : (currentActive ?? botPlayerId)
           );
         } catch (err) {
-          if (!cancelled) {
+          if (
+            !cancelled &&
+            botDecisionGenerationRef.current === decisionGeneration
+          ) {
             setError(`Bot action failed: ${errorMessage(err)}`);
           }
         } finally {
-          if (!cancelled) {
+          if (
+            !cancelled &&
+            botDecisionGenerationRef.current === decisionGeneration &&
+            stateRef.current === current
+          ) {
             setBotThinking(false);
           }
         }
@@ -390,13 +450,12 @@ export function useGameController({
       window.clearTimeout(timerId);
     };
   }, [
-    actionCommitPending,
     activePlayerId,
     botPlayerId,
     botIncomeActions.length,
     dispatchAction,
-    allowHumanActionsWhileCommitPending,
     resolvedBotProfile,
+    shouldRunBot,
     state,
     startupPreloadReady,
     terminal,
@@ -409,17 +468,10 @@ export function useGameController({
         action.playerId === humanPlayerId;
       if (
         terminal ||
+        !humanInputReady ||
         (activePlayerId !== humanPlayerId && !isHumanIncomeChoice)
       ) {
         return;
-      }
-      if (actionCommitPending) {
-        const canActDuringCommit =
-          allowHumanActionsWhileCommitPending &&
-          action.type === 'choose-income-suit';
-        if (!canActDuringCommit) {
-          return;
-        }
       }
 
       try {
@@ -435,10 +487,9 @@ export function useGameController({
       }
     },
     [
-      actionCommitPending,
       activePlayerId,
-      allowHumanActionsWhileCommitPending,
       dispatchAction,
+      humanInputReady,
       humanPlayerId,
       state,
       terminal,
@@ -452,7 +503,10 @@ export function useGameController({
       setTurnResetTimelineAnchor(null);
       setTurnResetActionHistoryAnchor(null);
       deferredIncomeLogContextRef.current = null;
-      clearPendingActionCommit();
+      humanInputBarrierOrdinalRef.current = null;
+      setHumanInputBarrierOrdinal(null);
+      botDecisionGenerationRef.current += 1;
+      clearPresentationQueue();
       clearAllFlights();
       clearAllDeedTokenLayouts();
 
@@ -476,7 +530,7 @@ export function useGameController({
         setError(`Failed to start game: ${errorMessage(err)}`);
       }
     },
-    [clearAllFlights, clearPendingActionCommit, humanPlayerId]
+    [clearAllFlights, clearPresentationQueue, humanPlayerId]
   );
 
   const resetTurn = useCallback(() => {
@@ -485,13 +539,16 @@ export function useGameController({
     }
     if (
       !canUseTurnReset(state, activePlayerId, humanPlayerId, turnResetAnchor, {
-        actionCommitPending,
+        humanInputReady,
       })
     ) {
       return;
     }
 
-    clearPendingActionCommit();
+    humanInputBarrierOrdinalRef.current = null;
+    setHumanInputBarrierOrdinal(null);
+    botDecisionGenerationRef.current += 1;
+    clearPresentationQueue();
     deferredIncomeLogContextRef.current = null;
     stateRef.current = turnResetAnchor.state;
     canonicalDispatchInProgressRef.current = false;
@@ -514,9 +571,9 @@ export function useGameController({
     clearAllDeedTokenLayouts();
   }, [
     activePlayerId,
-    actionCommitPending,
     clearAllFlights,
-    clearPendingActionCommit,
+    clearPresentationQueue,
+    humanInputReady,
     humanPlayerId,
     state,
     turnResetAnchor,
@@ -533,11 +590,13 @@ export function useGameController({
     error,
     terminal: viewTerminal,
     activePlayerId,
+    viewActivePlayerId,
     botThinking,
     botProfileId,
     botStatusText: resolvedBotProfile.statusText,
     setBotProfileId,
     humanActionsAcceptingInput,
+    humanInputBlockedByPresentation: !humanInputReady,
     canResetTurn,
     performHumanAction,
     resetSession,
@@ -551,8 +610,7 @@ export function useGameController({
       incomeHighlightCrowns,
       diceVisualState,
       activePlayerHighlightOverride,
-      actionCommitPending,
-      allowHumanActionsWhileCommitPending,
+      presentationPending,
     },
   };
 }

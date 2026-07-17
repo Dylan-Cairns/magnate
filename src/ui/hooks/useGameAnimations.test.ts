@@ -43,7 +43,9 @@ const reactHookHarness = vi.hoisted(() => {
 
 vi.mock('react', () => ({
   useCallback: <T>(callback: T) => callback,
-  useEffect: () => undefined,
+  useEffect: (run: () => void | (() => void)) => {
+    run();
+  },
   useRef: reactHookHarness.useRef,
   useState: reactHookHarness.useState,
 }));
@@ -86,7 +88,7 @@ describe('useGameAnimations scheduling helpers', () => {
   it('does not schedule a presentation snapshot at the final commit/unlock boundary', () => {
     const transaction = makeBuyDeedTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const finalBoundaryMs = Math.min(sequence.commitMs, sequence.inputUnlockMs);
+    const finalBoundaryMs = sequence.commitMs;
 
     const updateTimes = sequencePresentationSnapshotUpdateTimes(
       sequence,
@@ -99,65 +101,141 @@ describe('useGameAnimations scheduling helpers', () => {
     expect(updateTimes.every((atMs) => atMs < finalBoundaryMs)).toBe(true);
   });
 
-  it('holds presentation state and input lock until the sequence commit boundary', () => {
+  it('unlocks input at the sequence boundary while presentation remains active through settle', () => {
     const transaction = makeBuyDeedTransaction();
     const sequence = buildAnimationSequence(transaction);
+    const onInputUnlock = vi.fn();
     const onSettle = vi.fn();
     let animations = AnimationHarness();
 
-    animations.runTransition({
+    animations.enqueueTransition({
       transactionId: transaction.id,
       previousState: transaction.previousState,
       nextState: transaction.nextState,
       action: transaction.action,
       actingPlayerId: transaction.actingPlayerId,
+      onInputUnlock,
       onSettle,
     });
     animations = AnimationHarness();
 
-    expect(animations.actionCommitPending).toBe(true);
+    expect(animations.presentationPending).toBe(true);
     expect(animations.presentationSnapshot?.viewState).not.toBe(
       transaction.nextState
     );
 
-    vi.advanceTimersByTime(sequence.commitMs - 1);
+    vi.advanceTimersByTime(sequence.inputUnlockMs - 1);
     animations = AnimationHarness();
-    expect(animations.actionCommitPending).toBe(true);
+    expect(animations.presentationPending).toBe(true);
     expect(animations.presentationSnapshot).not.toBeNull();
+    expect(onInputUnlock).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1);
     animations = AnimationHarness();
-    expect(animations.actionCommitPending).toBe(false);
-    expect(animations.presentationSnapshot).toBeNull();
+    expect(onInputUnlock).toHaveBeenCalledOnce();
+    expect(animations.presentationPending).toBe(true);
+    expect(animations.presentedState).toBe(transaction.nextState);
 
-    vi.advanceTimersByTime(sequence.durationMs - sequence.commitMs);
+    vi.advanceTimersByTime(sequence.durationMs - sequence.inputUnlockMs);
+    animations = AnimationHarness();
+    expect(animations.presentationPending).toBe(false);
+    expect(animations.presentationSnapshot).toBeNull();
+    expect(animations.presentedState).toBeNull();
     expect(onSettle).toHaveBeenCalledOnce();
   });
 
-  it('cancels pending presentation work when reset cleanup runs', () => {
+  it('presents queued transitions in order without replacing the active sequence', () => {
+    const first = makeBuyDeedTransaction();
+    const second = makeTradeTransaction(first.nextState);
+    const firstSequence = buildAnimationSequence(first);
+    const secondSequence = buildAnimationSequence(second);
+    const lifecycle: string[] = [];
+    let animations = AnimationHarness();
+
+    animations.enqueueTransition({
+      transactionId: first.id,
+      previousState: first.previousState,
+      nextState: first.nextState,
+      action: first.action,
+      actingPlayerId: first.actingPlayerId,
+      onInputUnlock: () => lifecycle.push('first-unlock'),
+      onSettle: () => lifecycle.push('first-settle'),
+    });
+    animations.enqueueTransition({
+      transactionId: second.id,
+      previousState: second.previousState,
+      nextState: second.nextState,
+      action: second.action,
+      actingPlayerId: second.actingPlayerId,
+      onInputUnlock: () => lifecycle.push('second-unlock'),
+      onSettle: () => lifecycle.push('second-settle'),
+    });
+
+    vi.advanceTimersByTime(firstSequence.inputUnlockMs);
+    animations = AnimationHarness();
+    expect(lifecycle).toEqual(['first-unlock']);
+    expect(animations.presentationPending).toBe(true);
+    expect(animations.presentedState).toBe(first.nextState);
+
+    vi.advanceTimersByTime(
+      firstSequence.durationMs - firstSequence.inputUnlockMs
+    );
+    animations = AnimationHarness();
+    expect(lifecycle).toEqual(['first-unlock', 'first-settle']);
+    expect(animations.presentationPending).toBe(true);
+    expect(animations.presentationSnapshot?.viewState).not.toBe(
+      second.nextState
+    );
+
+    vi.advanceTimersByTime(secondSequence.durationMs);
+    vi.runAllTimers();
+    animations = AnimationHarness();
+    expect(lifecycle).toEqual([
+      'first-unlock',
+      'first-settle',
+      'second-unlock',
+      'second-settle',
+    ]);
+    expect(animations.presentationPending).toBe(false);
+  });
+
+  it('cancels the active transition and backlog without firing lifecycle callbacks', () => {
     const transaction = makeBuyDeedTransaction();
+    const queuedTransaction = makeTradeTransaction(transaction.nextState);
     const sequence = buildAnimationSequence(transaction);
+    const onInputUnlock = vi.fn();
     const onSettle = vi.fn();
     let animations = AnimationHarness();
 
-    animations.runTransition({
+    animations.enqueueTransition({
       transactionId: transaction.id,
       previousState: transaction.previousState,
       nextState: transaction.nextState,
       action: transaction.action,
       actingPlayerId: transaction.actingPlayerId,
+      onInputUnlock,
+      onSettle,
+    });
+    animations.enqueueTransition({
+      transactionId: queuedTransaction.id,
+      previousState: queuedTransaction.previousState,
+      nextState: queuedTransaction.nextState,
+      action: queuedTransaction.action,
+      actingPlayerId: queuedTransaction.actingPlayerId,
+      onInputUnlock,
       onSettle,
     });
     animations = AnimationHarness();
-    expect(animations.actionCommitPending).toBe(true);
+    expect(animations.presentationPending).toBe(true);
 
-    animations.clearPendingActionCommit();
-    animations.clearAllFlights();
+    animations.clearPresentationQueue();
     vi.advanceTimersByTime(sequence.durationMs);
+    vi.runAllTimers();
     animations = AnimationHarness();
 
+    expect(onInputUnlock).not.toHaveBeenCalled();
     expect(onSettle).not.toHaveBeenCalled();
-    expect(animations.actionCommitPending).toBe(false);
+    expect(animations.presentationPending).toBe(false);
     expect(animations.presentationSnapshot).toBeNull();
     expect(animations.cardFlights).toEqual([]);
     expect(animations.resourceFlights).toEqual([]);
@@ -171,6 +249,42 @@ describe('useGameAnimations scheduling helpers', () => {
     animations = AnimationHarness();
 
     expect(animations.enabled).toBe(false);
+  });
+
+  it('finishes the active transition and backlog when animations are disabled', () => {
+    const first = makeBuyDeedTransaction();
+    const second = makeTradeTransaction(first.nextState);
+    const lifecycle: string[] = [];
+    let animations = AnimationHarness();
+
+    for (const [label, transaction] of [
+      ['first', first],
+      ['second', second],
+    ] as const) {
+      animations.enqueueTransition({
+        transactionId: transaction.id,
+        previousState: transaction.previousState,
+        nextState: transaction.nextState,
+        action: transaction.action,
+        actingPlayerId: transaction.actingPlayerId,
+        onInputUnlock: () => lifecycle.push(`${label}-unlock`),
+        onSettle: () => lifecycle.push(`${label}-settle`),
+      });
+    }
+
+    vi.advanceTimersByTime(buildAnimationSequence(first).inputUnlockMs);
+    animations.setEnabled(false);
+    animations = AnimationHarness();
+
+    expect(lifecycle).toEqual([
+      'first-unlock',
+      'first-settle',
+      'second-unlock',
+      'second-settle',
+    ]);
+    expect(animations.enabled).toBe(false);
+    expect(animations.presentationPending).toBe(false);
+    expect(animations.presentationSnapshot).toBeNull();
   });
 });
 
@@ -210,6 +324,26 @@ function makeBuyDeedTransaction() {
             },
           }),
         ],
+      }),
+  });
+}
+
+function makeTradeTransaction(previousState: ReturnType<typeof makeGameState>) {
+  return buildGameTransaction({
+    previousState,
+    action: { type: 'trade', give: 'Moons', receive: 'Suns' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-trade-after-buy',
+    stepToDecision: () =>
+      makeGameState({
+        players: [
+          makePlayer(PLAYER_A, {
+            hand: [],
+            resources: makeResources({ Knots: 1, Suns: 1 }),
+          }),
+          makePlayer(PLAYER_B),
+        ],
+        districts: [...previousState.districts],
       }),
   });
 }

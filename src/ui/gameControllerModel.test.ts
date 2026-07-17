@@ -9,12 +9,15 @@ import {
 } from '../engine/__tests__/fixtures';
 import type { GameLogEntry } from '../engine/types';
 import {
+  botDecisionResultIsCurrent,
   botRandomForState,
   createBrowserSession,
   errorMessage,
   humanActionsAcceptingInputForState,
+  humanDecisionWindowKeyForState,
   makeBrowserSessionSeed,
   shouldScheduleBotAction,
+  transitionOpensHumanDecisionWindow,
   withSeedLogPrefix,
 } from './gameControllerModel';
 
@@ -95,10 +98,10 @@ describe('gameControllerModel', () => {
     ).toBe(false);
   });
 
-  it('blocks ordinary actions during commit settle but allows income choices when enabled', () => {
+  it('blocks actions only until the current human decision window is presentation-ready', () => {
     expect(
       actionsFor(makeGameState(), {
-        actionCommitPending: true,
+        humanInputReady: false,
       })
     ).toEqual([]);
 
@@ -115,10 +118,56 @@ describe('gameControllerModel', () => {
     });
     expect(
       actionsFor(incomeChoiceState, {
-        actionCommitPending: true,
-        allowHumanActionsWhileCommitPending: true,
+        humanInputReady: true,
       }).map((action) => action.type)
     ).toEqual(['choose-income-suit', 'choose-income-suit']);
+  });
+
+  it('keeps a stable decision-window key across actions and changes it at human input boundaries', () => {
+    const firstHumanState = makeGameState({ turn: 4 });
+    const laterHumanState = {
+      ...firstHumanState,
+      cardPlayedThisTurn: true,
+    };
+    const botState = makeGameState({ turn: 5, activePlayerIndex: 1 });
+    const nextHumanState = makeGameState({ turn: 5 });
+    const incomeState = makeGameState({
+      turn: 5,
+      phase: 'CollectIncome',
+      activePlayerIndex: 1,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suits: ['Moons', 'Suns'],
+        },
+      ],
+    });
+
+    expect(humanDecisionWindowKeyForState(firstHumanState, PLAYER_A)).toBe(
+      'action:4:PlayerA'
+    );
+    expect(humanDecisionWindowKeyForState(laterHumanState, PLAYER_A)).toBe(
+      'action:4:PlayerA'
+    );
+    expect(humanDecisionWindowKeyForState(botState, PLAYER_A)).toBeNull();
+    expect(humanDecisionWindowKeyForState(incomeState, PLAYER_A)).toBe(
+      'income:5:PlayerA'
+    );
+    expect(
+      transitionOpensHumanDecisionWindow(
+        firstHumanState,
+        laterHumanState,
+        PLAYER_A
+      )
+    ).toBe(false);
+    expect(
+      transitionOpensHumanDecisionWindow(botState, nextHumanState, PLAYER_A)
+    ).toBe(true);
+    expect(
+      transitionOpensHumanDecisionWindow(botState, incomeState, PLAYER_A)
+    ).toBe(true);
   });
 
   it('exposes human income choices even when the bot owns the main turn', () => {
@@ -159,7 +208,7 @@ describe('gameControllerModel', () => {
     ]);
   });
 
-  it('schedules bot work only for a ready, unlocked bot turn', () => {
+  it('schedules bot work from canonical turn ownership and readiness', () => {
     const schedulingAllowed = (
       overrides: Partial<Parameters<typeof shouldScheduleBotAction>[0]> = {}
     ) =>
@@ -168,8 +217,6 @@ describe('gameControllerModel', () => {
         activePlayerId: 'PlayerB',
         botPlayerId: 'PlayerB',
         isIncomeChoicePhase: false,
-        actionCommitPending: false,
-        allowIncomeChoiceWhileCommitPending: false,
         botIncomeActionCount: 0,
         startupPreloadReady: true,
         ...overrides,
@@ -178,19 +225,10 @@ describe('gameControllerModel', () => {
     expect(schedulingAllowed()).toBe(true);
     expect(schedulingAllowed({ terminal: true })).toBe(false);
     expect(schedulingAllowed({ activePlayerId: 'PlayerA' })).toBe(false);
-    expect(schedulingAllowed({ actionCommitPending: true })).toBe(false);
     expect(schedulingAllowed({ startupPreloadReady: false })).toBe(false);
     expect(
       schedulingAllowed({
         activePlayerId: 'PlayerA',
-        botIncomeActionCount: 2,
-        isIncomeChoicePhase: true,
-      })
-    ).toBe(true);
-    expect(
-      schedulingAllowed({
-        actionCommitPending: true,
-        allowIncomeChoiceWhileCommitPending: true,
         botIncomeActionCount: 2,
         isIncomeChoicePhase: true,
       })
@@ -203,6 +241,26 @@ describe('gameControllerModel', () => {
     ).toBe(false);
   });
 
+  it('accepts an async bot result only for its unchanged canonical decision state', () => {
+    const decisionState = makeGameState();
+    const resultIsCurrent = (
+      overrides: Partial<Parameters<typeof botDecisionResultIsCurrent>[0]> = {}
+    ) =>
+      botDecisionResultIsCurrent({
+        cancelled: false,
+        decisionGeneration: 3,
+        currentGeneration: 3,
+        decisionState,
+        currentState: decisionState,
+        ...overrides,
+      });
+
+    expect(resultIsCurrent()).toBe(true);
+    expect(resultIsCurrent({ cancelled: true })).toBe(false);
+    expect(resultIsCurrent({ currentGeneration: 4 })).toBe(false);
+    expect(resultIsCurrent({ currentState: makeGameState() })).toBe(false);
+  });
+
   it('formats Error instances and unknown thrown values', () => {
     expect(errorMessage(new Error('failed'))).toBe('failed');
     expect(errorMessage('failed')).toBe('failed');
@@ -212,15 +270,12 @@ describe('gameControllerModel', () => {
 function actionsFor(
   state: ReturnType<typeof makeGameState>,
   overrides: {
-    actionCommitPending?: boolean;
-    allowHumanActionsWhileCommitPending?: boolean;
+    humanInputReady?: boolean;
   } = {}
 ) {
   return humanActionsAcceptingInputForState({
     state,
     humanPlayerId: PLAYER_A,
-    actionCommitPending: overrides.actionCommitPending ?? false,
-    allowHumanActionsWhileCommitPending:
-      overrides.allowHumanActionsWhileCommitPending ?? false,
+    humanInputReady: overrides.humanInputReady ?? true,
   });
 }

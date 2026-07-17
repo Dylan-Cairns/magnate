@@ -1,8 +1,5 @@
 import { legalActions } from '../engine/actionBuilders';
-import {
-  createDevFixtureSession,
-  type DevFixtureId,
-} from '../dev/fixtures';
+import { createDevFixtureSession, type DevFixtureId } from '../dev/fixtures';
 import { createSession } from '../engine/session';
 import { isTerminal } from '../engine/scoring';
 import type {
@@ -62,36 +59,58 @@ export function activePlayerIdForState(
 export function humanActionsAcceptingInputForState({
   state,
   humanPlayerId,
-  actionCommitPending,
-  allowHumanActionsWhileCommitPending,
+  humanInputReady,
 }: {
   state: GameState;
   humanPlayerId: PlayerId;
-  actionCommitPending: boolean;
-  allowHumanActionsWhileCommitPending: boolean;
+  humanInputReady: boolean;
 }): readonly GameAction[] {
-  if (isTerminal(state)) {
+  if (isTerminal(state) || !humanInputReady) {
     return [];
   }
 
   const actions = legalActions(state);
   if (state.phase === 'CollectIncome') {
-    if (actionCommitPending && !allowHumanActionsWhileCommitPending) {
-      return [];
-    }
     return incomeChoiceActionsForPlayer(actions, humanPlayerId);
   }
 
   if (activePlayerIdForState(state, humanPlayerId) !== humanPlayerId) {
     return [];
   }
-  if (!actionCommitPending) {
-    return actions;
+  return actions;
+}
+
+export function humanDecisionWindowKeyForState(
+  state: GameState,
+  humanPlayerId: PlayerId
+): string | null {
+  if (isTerminal(state)) {
+    return null;
   }
-  if (!allowHumanActionsWhileCommitPending) {
-    return [];
+
+  const actions = legalActions(state);
+  if (state.phase === 'CollectIncome') {
+    return incomeChoiceActionsForPlayer(actions, humanPlayerId).length > 0
+      ? `income:${String(state.turn)}:${humanPlayerId}`
+      : null;
   }
-  return actions.filter((action) => action.type === 'choose-income-suit');
+  return activePlayerIdForState(state, humanPlayerId) === humanPlayerId &&
+    actions.length > 0
+    ? `action:${String(state.turn)}:${humanPlayerId}`
+    : null;
+}
+
+export function transitionOpensHumanDecisionWindow(
+  previousState: GameState,
+  nextState: GameState,
+  humanPlayerId: PlayerId
+): boolean {
+  const previousWindow = humanDecisionWindowKeyForState(
+    previousState,
+    humanPlayerId
+  );
+  const nextWindow = humanDecisionWindowKeyForState(nextState, humanPlayerId);
+  return nextWindow !== null && nextWindow !== previousWindow;
 }
 
 export function incomeChoiceActionsForPlayer(
@@ -99,9 +118,7 @@ export function incomeChoiceActionsForPlayer(
   playerId: PlayerId
 ): readonly Extract<GameAction, { type: 'choose-income-suit' }>[] {
   return actions.filter(
-    (
-      action
-    ): action is Extract<GameAction, { type: 'choose-income-suit' }> =>
+    (action): action is Extract<GameAction, { type: 'choose-income-suit' }> =>
       action.type === 'choose-income-suit' && action.playerId === playerId
   );
 }
@@ -111,8 +128,6 @@ export function shouldScheduleBotAction({
   activePlayerId,
   botPlayerId,
   isIncomeChoicePhase,
-  actionCommitPending,
-  allowIncomeChoiceWhileCommitPending,
   botIncomeActionCount,
   startupPreloadReady,
 }: {
@@ -120,8 +135,6 @@ export function shouldScheduleBotAction({
   activePlayerId: PlayerId;
   botPlayerId: PlayerId;
   isIncomeChoicePhase: boolean;
-  actionCommitPending: boolean;
-  allowIncomeChoiceWhileCommitPending: boolean;
   botIncomeActionCount: number;
   startupPreloadReady: boolean;
 }): boolean {
@@ -129,16 +142,30 @@ export function shouldScheduleBotAction({
   if (terminal || !startupPreloadReady) {
     return false;
   }
-  if (
-    actionCommitPending &&
-    !(allowIncomeChoiceWhileCommitPending && hasBotIncomeAction)
-  ) {
-    return false;
-  }
   if (isIncomeChoicePhase) {
     return hasBotIncomeAction;
   }
   return activePlayerId === botPlayerId;
+}
+
+export function botDecisionResultIsCurrent({
+  cancelled,
+  decisionGeneration,
+  currentGeneration,
+  decisionState,
+  currentState,
+}: {
+  cancelled: boolean;
+  decisionGeneration: number;
+  currentGeneration: number;
+  decisionState: GameState;
+  currentState: GameState;
+}): boolean {
+  return (
+    !cancelled &&
+    decisionGeneration === currentGeneration &&
+    decisionState === currentState
+  );
 }
 
 export function errorMessage(error: unknown): string {

@@ -184,7 +184,11 @@
   unique per-session transaction ordinal before presentation begins. Ordinary
   visual flights and visible mutation timing remain derived from the animation
   sequence. Canonical state drives legality, bot scheduling, bug reports, and
-  persistence; `useGameAnimations` no longer owns canonical commits.
+  persistence; `useGameAnimations` no longer owns canonical commits. Every
+  accepted canonical transition is enqueued for presentation in transaction
+  ordinal order. The hook runs one sequence at a time and retains the last
+  presented engine state between sequences, so a canonical state that has run
+  ahead cannot leak through a temporary null presentation snapshot.
 - Presentation event derivation now emits semantic coverage for all canonical
   action families: card placement, action resource payments, deed token/progress
   and completion, sell-card resource gains, and trades. These new events are
@@ -206,10 +210,17 @@
   geometry with local requestAnimationFrame interpolation, but its duration is
   sourced from the shared animation timing constant. Presentation finalization
   and input unlock are derived from `AnimationSequence`
-  `commitMs`/`inputUnlockMs` rather than action-type timing rules. In the current
-  Phase 2 boundary, input and bot scheduling still remain locked behind the
-  single active presentation sequence; an ordered presentation backlog is not
-  yet wired. Turn-cycle tax animation is driven by an explicit
+  `commitMs`/`inputUnlockMs` rather than action-type timing rules. Human input is
+  blocked only when a transition opens a new human decision window; the barrier
+  clears when that specific queued transaction reaches its ordered input-unlock
+  boundary. Further actions within the same human action or income-choice
+  window use canonical legality immediately and may enqueue while presentation
+  is still active. Bot policy selection also follows canonical state without
+  waiting for presentation; generation and state-identity checks discard stale
+  async policy results before dispatch. Reset cancels the active sequence and
+  backlog, while disabling animations finishes queued unlock/settle callbacks
+  in order and snaps rendering to canonical state. Turn-cycle tax animation is
+  driven by an explicit
   transaction `tax-resolved` semantic event; sticky canonical `lastTaxSuit`
   history must not create tax animation steps for later non-tax actions.
   Dice visual phases are also derived from the sequence presentation overlay;
