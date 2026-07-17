@@ -21,7 +21,7 @@ import {
 } from '../../policies/catalog';
 import type { SearchDecisionDiagnostics } from '../../policies/types';
 import type { BugReportActionEntry } from '../bugReport';
-import { prepareActionDispatch } from '../actionDispatcher';
+import { prepareCanonicalActionDispatch } from '../canonicalActionDispatcher';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import {
   activePlayerIdForState,
@@ -121,10 +121,12 @@ export function useGameController({
   const [turnResetActionHistoryAnchor, setTurnResetActionHistoryAnchor] =
     useState<ReadonlyArray<BugReportActionEntry> | null>(null);
   const stateRef = useRef(state);
+  const nextActionOrdinalRef = useRef(0);
+  const canonicalDispatchInProgressRef = useRef(false);
   const deferredIncomeLogContextRef = useRef<DeferredIncomeLogContext | null>(
     null
   );
-  const commitTransition = useCallback(
+  const commitCanonicalTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
       const timelineUpdate = transitionLogUpdate(
         previousState,
@@ -136,6 +138,7 @@ export function useGameController({
       deferredIncomeLogContextRef.current =
         timelineUpdate.deferredIncomeLogContext;
       setTimelineLog((existing) => [...existing, ...timelineUpdate.entries]);
+      stateRef.current = nextState;
       setState(nextState);
     },
     [humanPlayerId]
@@ -155,59 +158,59 @@ export function useGameController({
     clearPendingActionCommit,
     clearAllFlights: clearAnimationFlights,
     runTransition: runAnimationTransition,
-  } = useGameAnimations({
-    onCommitTransition: commitTransition,
-  });
+  } = useGameAnimations();
   const clearAllFlights = useCallback(() => {
     clearAnimationFlights();
   }, [clearAnimationFlights]);
   const dispatchAction = useCallback(
-    (
-      previousState: GameState,
-      action: GameAction,
-      actingPlayerId: PlayerId
-    ) => {
-      const plan = prepareActionDispatch({
-        previousState,
-        action,
-      });
-      if (!animationsEnabled) {
-        clearAllFlights();
+    (sourceState: GameState, action: GameAction, actingPlayerId: PlayerId) => {
+      if (canonicalDispatchInProgressRef.current) {
+        throw new Error('A canonical action dispatch is already in progress.');
+      }
+
+      canonicalDispatchInProgressRef.current = true;
+      try {
+        const plan = prepareCanonicalActionDispatch({
+          currentState: stateRef.current,
+          sourceState,
+          action,
+          actingPlayerId,
+          actionOrdinal: nextActionOrdinalRef.current,
+        });
+        nextActionOrdinalRef.current += 1;
         setActionHistory((existing) => [
           ...existing,
           {
-            turn: previousState.turn,
-            phase: previousState.phase,
+            turn: plan.previousState.turn,
+            phase: plan.previousState.phase,
             actingPlayerId,
             action,
           },
         ]);
-        commitTransition(previousState, plan.nextState, action);
-        setError(null);
-        return;
-      }
+        commitCanonicalTransition(plan.previousState, plan.nextState, action);
 
-      setActionHistory((existing) => [
-        ...existing,
-        {
-          turn: previousState.turn,
-          phase: previousState.phase,
-          actingPlayerId,
+        if (!animationsEnabled) {
+          clearAllFlights();
+          setError(null);
+          return;
+        }
+
+        runAnimationTransition({
+          transactionId: plan.transactionId,
+          previousState: plan.previousState,
+          nextState: plan.nextState,
           action,
-        },
-      ]);
-      runAnimationTransition({
-        previousState,
-        nextState: plan.nextState,
-        action,
-        actingPlayerId,
-      });
-      setError(null);
+          actingPlayerId,
+        });
+        setError(null);
+      } finally {
+        canonicalDispatchInProgressRef.current = false;
+      }
     },
     [
       animationsEnabled,
       clearAllFlights,
-      commitTransition,
+      commitCanonicalTransition,
       runAnimationTransition,
     ]
   );
@@ -459,6 +462,9 @@ export function useGameController({
           humanPlayerId,
           devFixtureIdFromBrowserLocation()
         );
+        stateRef.current = initialState;
+        nextActionOrdinalRef.current = 0;
+        canonicalDispatchInProgressRef.current = false;
         setState(initialState);
         setTimelineLog(
           withSeedLogPrefix(initialState, initialState.log, humanPlayerId)
@@ -487,6 +493,8 @@ export function useGameController({
 
     clearPendingActionCommit();
     deferredIncomeLogContextRef.current = null;
+    stateRef.current = turnResetAnchor.state;
+    canonicalDispatchInProgressRef.current = false;
     setState(turnResetAnchor.state);
     setTimelineLog(
       turnResetTimelineAnchor

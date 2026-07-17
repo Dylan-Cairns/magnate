@@ -99,68 +99,64 @@ describe('useGameAnimations scheduling helpers', () => {
     expect(updateTimes.every((atMs) => atMs < finalBoundaryMs)).toBe(true);
   });
 
-  it('holds canonical commit and input lock until the sequence commit boundary', () => {
+  it('holds presentation state and input lock until the sequence commit boundary', () => {
     const transaction = makeBuyDeedTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const onCommitTransition = vi.fn();
     const onSettle = vi.fn();
-    let animations = AnimationHarness(onCommitTransition);
+    let animations = AnimationHarness();
 
     animations.runTransition({
+      transactionId: transaction.id,
       previousState: transaction.previousState,
       nextState: transaction.nextState,
       action: transaction.action,
       actingPlayerId: transaction.actingPlayerId,
       onSettle,
     });
-    animations = AnimationHarness(onCommitTransition);
+    animations = AnimationHarness();
 
     expect(animations.actionCommitPending).toBe(true);
     expect(animations.presentationSnapshot?.viewState).not.toBe(
       transaction.nextState
     );
-    expect(onCommitTransition).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(sequence.commitMs - 1);
-    expect(onCommitTransition).not.toHaveBeenCalled();
+    animations = AnimationHarness();
+    expect(animations.actionCommitPending).toBe(true);
+    expect(animations.presentationSnapshot).not.toBeNull();
 
     vi.advanceTimersByTime(1);
-    animations = AnimationHarness(onCommitTransition);
-    expect(onCommitTransition).toHaveBeenCalledOnce();
-    expect(onCommitTransition).toHaveBeenCalledWith(
-      transaction.previousState,
-      transaction.nextState,
-      transaction.action
-    );
+    animations = AnimationHarness();
     expect(animations.actionCommitPending).toBe(false);
     expect(animations.presentationSnapshot).toBeNull();
 
     vi.advanceTimersByTime(sequence.durationMs - sequence.commitMs);
-    expect(onCommitTransition).toHaveBeenCalledOnce();
     expect(onSettle).toHaveBeenCalledOnce();
   });
 
-  it('cancels a pending transition without committing when reset cleanup runs', () => {
+  it('cancels pending presentation work when reset cleanup runs', () => {
     const transaction = makeBuyDeedTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const onCommitTransition = vi.fn();
-    let animations = AnimationHarness(onCommitTransition);
+    const onSettle = vi.fn();
+    let animations = AnimationHarness();
 
     animations.runTransition({
+      transactionId: transaction.id,
       previousState: transaction.previousState,
       nextState: transaction.nextState,
       action: transaction.action,
       actingPlayerId: transaction.actingPlayerId,
+      onSettle,
     });
-    animations = AnimationHarness(onCommitTransition);
+    animations = AnimationHarness();
     expect(animations.actionCommitPending).toBe(true);
 
     animations.clearPendingActionCommit();
     animations.clearAllFlights();
     vi.advanceTimersByTime(sequence.durationMs);
-    animations = AnimationHarness(onCommitTransition);
+    animations = AnimationHarness();
 
-    expect(onCommitTransition).not.toHaveBeenCalled();
+    expect(onSettle).not.toHaveBeenCalled();
     expect(animations.actionCommitPending).toBe(false);
     expect(animations.presentationSnapshot).toBeNull();
     expect(animations.cardFlights).toEqual([]);
@@ -168,20 +164,19 @@ describe('useGameAnimations scheduling helpers', () => {
   });
 
   it('tracks the animation preference consumed by controller dispatch', () => {
-    const onCommitTransition = vi.fn();
-    let animations = AnimationHarness(onCommitTransition);
+    let animations = AnimationHarness();
 
     expect(animations.enabled).toBe(true);
     animations.setEnabled(false);
-    animations = AnimationHarness(onCommitTransition);
+    animations = AnimationHarness();
 
     expect(animations.enabled).toBe(false);
   });
 });
 
-function AnimationHarness(onCommitTransition: ReturnType<typeof vi.fn>) {
+function AnimationHarness() {
   reactHookHarness.beginRender();
-  return useGameAnimations({ onCommitTransition });
+  return useGameAnimations();
 }
 
 function makeBuyDeedTransaction() {
