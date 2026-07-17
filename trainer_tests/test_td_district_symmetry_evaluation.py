@@ -6,9 +6,17 @@ from dataclasses import replace
 from pathlib import Path
 
 from scripts import prepare_td_district_symmetry_evaluation as evaluation
+from trainer.td import DISTRICT_AUGMENTATION_S4
 
 
 class TDDistrictSymmetryEvaluationTests(unittest.TestCase):
+    def test_manifest_s4_shorthand_matches_canonical_training_summary_mode(self) -> None:
+        self.assertEqual(
+            evaluation._canonical_augmentation_mode("s4"),
+            DISTRICT_AUGMENTATION_S4,
+        )
+        self.assertEqual(evaluation._canonical_augmentation_mode("none"), "none")
+
     def test_matched_sampling_traces_are_required_across_arms(self) -> None:
         control = self._run("pilot-a", "continued-control")
         augmented = self._run("pilot-a", "s4-augmented")

@@ -4,8 +4,8 @@
 
 - Keep TypeScript rules deterministic and canonical.
 - Improve TD policy quality through the staged training loop: collect, train, gate, promote.
-- Keep optionality repetitions 24-47 reserved while designing a controlled
-  district-permutation training ablation. The motivation is the replay-wide
+- Keep optionality repetitions 24-47 reserved while running the controlled
+  opponent-only complete-S4-orbit follow-up. The motivation is the replay-wide
   direct symmetry audit, not the invalid catalog-v1 coordinates.
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
@@ -81,35 +81,72 @@
   Python/TypeScript differences below `1e-6`. The optimizer-free warm starts are
   in ignored
   `artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/`.
-- Matched S4 augmentation plumbing is complete without launching the pilot.
+- Matched S4 augmentation plumbing and training are complete.
   The Python transformer covers all 24 D1/D2/D4/D5 permutations with fixed D3,
   remaps observations and action candidates, and transforms complete
   TD-lambda player trajectories coherently. Replay sampling and augmentation
   have independent RNG streams; run summaries hash raw sampled indices so
   control/candidate batch equality is directly checkable. Control mode is an
   exact no-op. The frozen checked-in pilot manifest resolves to an 800/100
-  shard split and eight commands but remains `review-required` with
-  `launchAuthorized=false`.
+  shard split and eight commands, each capped at four PyTorch threads and
+  intended for sequential execution. The PowerShell pilot launcher validates
+  that profile, resumes from completed summaries, prevents duplicate trainers,
+  and logs each command. All eight sequential four-thread commands completed
+  5,000 updates on 2026-07-16 and produced their final checkpoints; the source
+  manifest remains `review-required` with `launchAuthorized=false` as required
+  by its non-launching preparation contract.
 - The prelaunch guardrail pass is complete. Full, training, and validation
   replay contents now have byte-level fingerprints in addition to inventory
   and membership hashes; each prepared training command verifies replay,
   warm-start, source-manifest, and implementation fingerprints, then embeds
   them in summaries and checkpoints. Four one-update smokes each loaded the
-  complete 800-shard/145,014-row training side with eight threads. Control and
+  complete 800-shard/145,014-row training side with four threads. Control and
   S4 used identical raw samples: value trace
   `412d7f3de1755d52bc49410281a9a89e20f3da028e03c419052f6d633f628214`
   and opponent trace
   `8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`.
   The deployed model-pack index remained unchanged.
-- Post-training selection/evaluation is frozen but not launched. Only step
-  5,000 is eligible; `pilot-a` is the primary candidate and must be frozen
-  before reserved repetitions 24-47, while `pilot-b` is replication and cannot
-  replace it. Contradictory replication blocks promotion. The evaluation
-  preparer requires matched traces and provenance, uses all 100 validation
-  shards for direct value/opponent metrics, prepares deterministic heldout
-  symmetry and strategic commands, and writes exact paired full-game configs.
-  Candidate/control/cross-component packs use an ignored experimental index;
-  no deployed default or checkpoint registry is changed.
+- Post-training selection is frozen and stage-one evaluation is complete. The
+  preparer passed all trace, provenance, and final-step checks and froze only
+  the `pilot-a` S4 step-5,000 pair as the primary candidate before reserved
+  repetitions 24-47. `pilot-b` remains replication and cannot replace it;
+  contradictory replication blocks promotion. The plan uses all 100
+  validation shards for direct value/opponent metrics and prepares
+  deterministic heldout symmetry, strategic, and paired full-game commands.
+  Candidate/control/cross-component packs remain export commands targeting an
+  ignored experimental index; no deployed default or checkpoint registry was
+  changed.
+- A dedicated stage-one PowerShell launcher completed the seven isolated
+  pack exports, four complete heldout checks, and four direct symmetry audits.
+  It runs sequentially, caps heldout inference at four threads, validates
+  resumable outputs, and does not include strategic or full-game evaluation.
+- Completed pilot summaries passed the hard consistency audit: all used the
+  frozen replay, warm starts, source manifest, and implementation fingerprint;
+  all four control/S4 pairs had identical raw sampling traces. Training alone
+  did not by itself establish symmetry improvement or playing strength.
+- Stage-one results show a reproducible partial intervention, not a
+  promotion-eligible candidate. Both seeds passed heldout noninferiority and
+  modestly improved value MSE and opponent cross-entropy. Mean value drift
+  under district relabeling fell 69.5% and 64.6%, passing its 50% gate, but
+  preferred-action agreement reached only 82.88% and 83.38% versus the 95%
+  requirement, while mean probability drift fell only 23.1% and 22.7% versus
+  the 50% requirement. The S4 candidate therefore fails the predeclared
+  required symmetry diagnostic despite clear improvement; reserved strategic
+  repetitions and multi-day promotion games remain unspent.
+- The opponent-only complete-orbit follow-up is implemented and frozen. Its
+  control samples one random fixed-D3 S4 permutation per raw opponent row; its
+  treatment averages ordinary soft-target cross-entropy over all 24
+  permutations, with no new loss coefficient. It retrains no value model and
+  instead fixes the successful first-pilot augmented value checkpoint per
+  seed. The exact prior 800/100 replay split, July opponent warm start, two
+  seeds, 5,000 updates, raw batch size 64, and four-thread profile are bound by
+  content and implementation fingerprints. Two full-800-shard one-update
+  smokes passed: both loaded 145,014 opponent rows and had the identical raw
+  sampling trace
+  `8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`;
+  the treatment recorded 24 copies per raw sample and effective batch 1,536.
+  The resumable PowerShell launcher dry-run passes; the four long jobs have not
+  been launched.
 - Matched forced traces still show a separate heuristic-v2 blind spot:
   heuristic rollout can trade away resources needed for a valuable uncertain
   draw, while TD preserved and realized those continuations. Replacing TD
@@ -196,9 +233,9 @@
 
 ## Remaining Work
 
-- Review, then optionally run, the frozen district-permutation pilot with its
-  unaugmented control. The audit and completed plumbing justify the experiment
-  but do not authorize launch or pre-approve promotion.
+- Run and evaluate the frozen opponent-only complete-orbit pilot. Do not spend
+  reserved/full-game promotion tests unless both heldout opponent
+  noninferiority and the predeclared direct action-symmetry gates pass.
 - Keep repetitions 24-47 reserved for evaluating a future candidate selected
   on independent evidence, followed by full-game promotion tests.
 - Keep uncertain-draw resource preservation as a separate diagnostic; the
@@ -211,23 +248,13 @@
 
 ## Immediate Next Steps
 
-1. Review the guardrail-complete source and resolved pilot manifests, including
-   byte-level replay/code provenance, 800/100 split, two matched seeds,
-   5,000-update budget, final-only selection, evaluation rules, and explicit
-   non-launch status.
-2. Only after explicit approval, launch the eight prepared value/opponent
-   control/augmented commands and require matching sampling-trace hashes for
-   each paired arm before interpreting results.
-3. After all eight summaries exist, run
-   `scripts.prepare_td_district_symmetry_evaluation`; it must reject any trace,
-   provenance, or final-step mismatch before candidate evaluation is allowed.
-4. Evaluate the frozen primary on complete heldout metrics, direct symmetry,
-   reserved catalog-v2 repetitions 24-47, replication consistency, and paired
-   full games before adoption. Symmetry improvement alone is insufficient.
-5. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
-6. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
-7. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-8. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
-9. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
+1. Launch the four frozen opponent-orbit training commands sequentially with
+   `.\scripts\run_td_opponent_orbit_pilot.ps1`, then prepare the heldout and
+   direct-symmetry evaluation without using reserved repetitions.
+2. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
+3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
+4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
+5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
+6. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-15._
+_Updated: 2026-07-16._

@@ -70,7 +70,11 @@
 - Export browser TD-root model pack: `.\.venv\Scripts\python -m scripts.export_browser_td_root_pack --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --set-default`
 - Reconstruct optimizer-free trainer checkpoints from a browser TD-root pack: `.\.venv\Scripts\python -m scripts.reconstruct_browser_td_root_checkpoints --manifest <pack-manifest.json> --output-dir <directory>`
 - Validate and resolve the non-launching district-S4 pilot: `.\.venv\Scripts\python -m scripts.prepare_td_district_symmetry_ablation`
+- Launch or resume the frozen district-S4 pilot sequentially at four threads: `.\scripts\run_td_district_symmetry_pilot.ps1`
 - Prepare the non-launching final-checkpoint evaluation plan after all pilot runs finish: `.\.venv\Scripts\python -m scripts.prepare_td_district_symmetry_evaluation`
+- Launch or resume first-stage district-S4 evaluation sequentially: `.\scripts\run_td_district_symmetry_evaluation_stage1.ps1`
+- Validate and resolve the opponent-only complete-S4-orbit follow-up: `.\.venv\Scripts\python -m scripts.prepare_td_opponent_orbit_ablation`
+- Launch or resume the four opponent-orbit jobs sequentially at four threads: `.\scripts\run_td_opponent_orbit_pilot.ps1`
 - Evaluate a final value/opponent pair on the complete replay holdout: `.\.venv\Scripts\python -m scripts.evaluate_td_replay_holdout --help`
 
 ## Python Workflow
@@ -101,7 +105,9 @@
 - Python training scripts are fail-fast and expect the active project virtualenv.
 - `scripts.train_td` enforces Python 3.12+ and active `.venv` at startup.
 - `scripts.train_td` accepts ordered replay path-list files and opt-in
-  `--district-augmentation none|s4`; S4 requires an explicit independent seed.
+  `--district-augmentation none|s4|s4-orbit`; `s4-orbit` is opponent-only and
+  deterministically expands each raw row to all 24 fixed-D3 permutations.
+  Enabled augmentation modes require an explicit experiment seed.
 - Frozen pilot commands also verify content-level replay, warm-start,
   source-manifest, and implementation hashes before training. Experimental
   candidate packs live under ignored `public/model-packs-experiments/` with a
@@ -113,4 +119,4 @@
 - Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
 - Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
-_Updated: 2026-07-15._
+_Updated: 2026-07-16._
