@@ -299,6 +299,19 @@ export function buildAnimationSequence(
     { id: 'hold-previous-state', type: 'hold-previous-state', durationMs: 0 },
   ];
   const drawEvent = firstEvent(transaction, 'draw-card');
+  const incomeChoiceSubmissions = transaction.events.filter(
+    (
+      event
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: 'income-choice-submitted' }
+    > => event.type === 'income-choice-submitted'
+  );
+  const deferIncomeChoiceSubmission = transaction.events.some(
+    (event) =>
+      event.type === 'income-token-gained' &&
+      event.source.kind === 'income-choice'
+  );
   if (drawEvent) {
     steps.push({
       id: `draw-card-flight:${drawEvent.playerId}:${drawEvent.cardId}`,
@@ -327,13 +340,11 @@ export function buildAnimationSequence(
         event,
       });
     }
-    if (event.type === 'income-choice-submitted') {
-      steps.push({
-        id: `reveal-income-choice-submission:${event.playerId}:${event.districtId}:${event.cardId}`,
-        type: 'reveal-income-choice-submission',
-        durationMs: 0,
-        event,
-      });
+    if (
+      event.type === 'income-choice-submitted' &&
+      !deferIncomeChoiceSubmission
+    ) {
+      appendIncomeChoiceSubmissionStep(steps, event);
     }
   }
 
@@ -442,6 +453,11 @@ export function buildAnimationSequence(
       type: 'hold-before-income-flights',
       durationMs: durations.incomePreFlightHoldMs,
     });
+    if (deferIncomeChoiceSubmission) {
+      for (const submission of incomeChoiceSubmissions) {
+        appendIncomeChoiceSubmissionStep(steps, submission);
+      }
+    }
     if (targets.cardIds.length > 0 || targets.crowns.length > 0) {
       steps.push({
         id: 'highlight-income-sources',
@@ -740,6 +756,9 @@ function highlightTargetsForIncomeEvents(
   const seenCardIds = new Set<CardId>();
   const seenCrowns = new Set<string>();
   for (const event of incomeEvents) {
+    if (event.source.kind === 'income-choice') {
+      continue;
+    }
     if (event.source.kind === 'crown') {
       const key = `${event.playerId}:${event.suit}`;
       if (!seenCrowns.has(key)) {
@@ -754,4 +773,16 @@ function highlightTargetsForIncomeEvents(
     }
   }
   return { cardIds, crowns: crownTargets };
+}
+
+function appendIncomeChoiceSubmissionStep(
+  steps: AnimationStep[],
+  event: Extract<GamePresentationEvent, { type: 'income-choice-submitted' }>
+): void {
+  steps.push({
+    id: `reveal-income-choice-submission:${event.playerId}:${event.districtId}:${event.cardId}`,
+    type: 'reveal-income-choice-submission',
+    durationMs: 0,
+    event,
+  });
 }
