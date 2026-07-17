@@ -16,6 +16,7 @@ from trainer.encoding import ACTION_FEATURE_DIM, OBSERVATION_DIM
 from trainer.td import (
     DISTRICT_AUGMENTATION_NONE,
     DISTRICT_AUGMENTATION_S4,
+    DISTRICT_AUGMENTATION_S4_ORBIT,
     TD_VALUE_TARGET_MODE,
     TD_VALUE_TARGET_MODE_TD_LAMBDA,
     TD_VALUE_TARGET_MODES,
@@ -34,6 +35,7 @@ from trainer.td import (
     load_opponent_checkpoint,
     load_value_checkpoint,
     named_files_content_sha256,
+    opponent_augmentation_copies_per_sample,
     read_opponent_samples_jsonl_many,
     read_value_transitions_jsonl_many,
     replay_content_sha256,
@@ -103,15 +105,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--district-augmentation",
-        choices=("none", "s4"),
+        choices=("none", "s4", "s4-orbit"),
         default="none",
-        help="Optional exact D1/D2/D4/D5 permutation augmentation; D3 remains fixed.",
+        help=(
+            "Optional exact D1/D2/D4/D5 permutation augmentation; D3 remains fixed. "
+            "s4 samples one permutation per row; s4-orbit expands each opponent row "
+            "to all 24 permutations."
+        ),
     )
     parser.add_argument(
         "--district-augmentation-seed",
         type=int,
         default=None,
-        help="Required independent RNG seed when --district-augmentation=s4.",
+        help="Required experiment seed when district augmentation is enabled.",
     )
     parser.add_argument("--hidden-dim", type=int, default=256)
     parser.add_argument("--gamma", type=float, default=0.995)
@@ -265,11 +271,11 @@ def main() -> int:
     rng = torch.Generator().manual_seed(args.seed)
     del rng  # Reserved for future direct torch sampling paths.
 
-    district_augmentation_mode = (
-        DISTRICT_AUGMENTATION_S4
-        if args.district_augmentation == "s4"
-        else DISTRICT_AUGMENTATION_NONE
-    )
+    district_augmentation_mode = {
+        "none": DISTRICT_AUGMENTATION_NONE,
+        "s4": DISTRICT_AUGMENTATION_S4,
+        "s4-orbit": DISTRICT_AUGMENTATION_S4_ORBIT,
+    }[args.district_augmentation]
     value_augmentation_stream_seed = (
         derive_augmentation_stream_seed(
             base_seed=args.district_augmentation_seed,
@@ -305,6 +311,17 @@ def main() -> int:
 
     train_value = not args.disable_value
     train_opponent = not args.disable_opponent
+    opponent_augmentation_copies = opponent_augmentation_copies_per_sample(
+        mode=district_augmentation_mode
+    )
+    if train_opponent:
+        print(
+            "[td-train] opponent augmentation "
+            f"copiesPerRawSample={opponent_augmentation_copies} "
+            f"effectiveBatchSize={args.opponent_batch_size * opponent_augmentation_copies}",
+            file=sys.stderr,
+            flush=True,
+        )
 
     value_replay = ValueReplayBuffer(capacity=max(1, 10_000_000))
     opponent_replay = OpponentReplayBuffer(capacity=max(1, 10_000_000))
@@ -528,6 +545,9 @@ def main() -> int:
                     "districtAugmentationSeed": args.district_augmentation_seed,
                     "valueAugmentationStreamSeed": value_augmentation_stream_seed,
                     "opponentAugmentationStreamSeed": opponent_augmentation_stream_seed,
+                    "opponentAugmentationCopiesPerRawSample": (
+                        opponent_augmentation_copies if train_opponent else None
+                    ),
                     "valueSamplingTraceSha256": (
                         value_sampling_trace.hexdigest() if train_value else None
                     ),
@@ -553,6 +573,9 @@ def main() -> int:
             "districtAugmentationSeed": args.district_augmentation_seed,
             "valueAugmentationStreamSeed": value_augmentation_stream_seed,
             "opponentAugmentationStreamSeed": opponent_augmentation_stream_seed,
+            "opponentAugmentationCopiesPerRawSample": (
+                opponent_augmentation_copies if train_opponent else None
+            ),
             "trainValue": train_value,
             "trainOpponent": train_opponent,
             "valueReplay": (
@@ -583,6 +606,9 @@ def main() -> int:
             ),
             "valueBatchSize": args.value_batch_size,
             "opponentBatchSize": args.opponent_batch_size,
+            "opponentEffectiveBatchSize": (
+                args.opponent_batch_size * opponent_augmentation_copies if train_opponent else None
+            ),
             "hiddenDim": args.hidden_dim,
             "gamma": args.gamma,
             "valueLearningRate": args.value_learning_rate,
@@ -706,9 +732,9 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--num-threads must be > 0 when provided.")
     if args.num_interop_threads is not None and args.num_interop_threads <= 0:
         raise SystemExit("--num-interop-threads must be > 0 when provided.")
-    if args.district_augmentation == "s4" and args.district_augmentation_seed is None:
+    if args.district_augmentation != "none" and args.district_augmentation_seed is None:
         raise SystemExit(
-            "--district-augmentation-seed is required when --district-augmentation=s4."
+            "--district-augmentation-seed is required when district augmentation is enabled."
         )
     if args.value_target_mode == TD_VALUE_TARGET_MODE_TD_LAMBDA and args.value_replay_max_lines > 0:
         raise SystemExit(
@@ -756,6 +782,8 @@ def _validate_args(args: argparse.Namespace) -> None:
     train_opponent = not args.disable_opponent
     if not train_value and not train_opponent:
         raise SystemExit("At least one of value/opponent training must be enabled.")
+    if args.district_augmentation == "s4-orbit" and train_value:
+        raise SystemExit("--district-augmentation=s4-orbit is opponent-only; use --disable-value.")
 
     if train_value:
         if args.value_replay is None or not args.value_replay:

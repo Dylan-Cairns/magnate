@@ -312,12 +312,15 @@ Design expectations:
   - rejected chunks are not eligible for accepted-source replay windows, but can be included by the recent-source learner window.
 - Per-chunk durability lives in `chunks/chunk-XXX/chunk.summary.json`; block generator decisions live in `blocks/block-XXX/block.summary.json`. Resume requires the current chunk-summary schema, including checkpoint-selection metadata, reconstructs learner/generator checkpoints separately, restores accepted and recent replay histories, and carries any trailing non-boundary chunk candidates into the next block gate.
 - Replay regime in loop orchestration is explicit `chunk-local` for bootstrap and `chunk-local-selfplay-mixed` for the self-play loop.
-- Controlled district-symmetry training experiments use one exact S4 action on
-  D1/D2/D4/D5 with D3 fixed. Transform complete observation blocks and every
-  district-bearing action candidate, preserve action targets/order, and apply
-  one permutation to the complete `(episodeId, playerId)` trajectory used by a
-  TD-lambda target. Augmentation randomness is independent of replay sampling;
-  control mode is a no-op, and matched runs record raw sampling-index traces.
+- Controlled district-symmetry training experiments use exact S4 actions on
+  D1/D2/D4/D5 with D3 fixed. Random-S4 mode transforms each sampled row (or one
+  complete `(episodeId, playerId)` TD-lambda trajectory) once; opponent-only
+  complete-orbit mode deterministically expands each raw opponent row over all
+  24 permutations and averages the ordinary per-row loss. Transform complete
+  observation blocks and every district-bearing action candidate while
+  preserving action targets/order. Augmentation randomness is independent of
+  replay sampling; control mode is a no-op, and matched runs record raw
+  sampling-index traces.
 - Frozen ablation runs bind byte-level replay content, warm-start checkpoint,
   source-manifest, and ordered implementation-file fingerprints into both run
   summaries and checkpoints. Final evaluation rejects any mismatch and also

@@ -137,7 +137,9 @@ class TDTrainTests(unittest.TestCase):
 
         self.assertGreaterEqual(loss, 0.0)
         self.assertNotEqual(prediction_mean, target_mean)
-        changed = any(not torch.allclose(before[index], after[index]) for index in range(len(before)))
+        changed = any(
+            not torch.allclose(before[index], after[index]) for index in range(len(before))
+        )
         self.assertTrue(changed)
 
     def test_td_value_trainer_syncs_on_interval(self) -> None:
@@ -181,7 +183,9 @@ class TDTrainTests(unittest.TestCase):
         self.assertGreaterEqual(loss, 0.0)
         self.assertGreaterEqual(accuracy, 0.0)
         self.assertLessEqual(accuracy, 1.0)
-        changed = any(not torch.allclose(before[index], after[index]) for index in range(len(before)))
+        changed = any(
+            not torch.allclose(before[index], after[index]) for index in range(len(before))
+        )
         self.assertTrue(changed)
 
     def test_train_opponent_batch_rejects_mismatched_action_probs(self) -> None:
@@ -204,6 +208,35 @@ class TDTrainTests(unittest.TestCase):
                 samples=samples,
                 max_grad_norm=1.0,
             )
+
+    def test_train_opponent_batch_averages_over_expanded_rows(self) -> None:
+        torch.manual_seed(77)
+        single_model = OpponentModel(observation_dim=4, action_feature_dim=2, hidden_dim=16)
+        expanded_model = OpponentModel(
+            observation_dim=4,
+            action_feature_dim=2,
+            hidden_dim=16,
+        )
+        expanded_model.load_state_dict(single_model.state_dict())
+        single_optimizer = torch.optim.Adam(single_model.parameters(), lr=0.0)
+        expanded_optimizer = torch.optim.Adam(expanded_model.parameters(), lr=0.0)
+        sample = _sample_opponent_samples()[0]
+
+        single_loss, single_accuracy = train_opponent_batch(
+            model=single_model,
+            optimizer=single_optimizer,
+            samples=[sample],
+            max_grad_norm=1.0,
+        )
+        expanded_loss, expanded_accuracy = train_opponent_batch(
+            model=expanded_model,
+            optimizer=expanded_optimizer,
+            samples=[sample] * 24,
+            max_grad_norm=1.0,
+        )
+
+        self.assertAlmostEqual(expanded_loss, single_loss, places=6)
+        self.assertAlmostEqual(expanded_accuracy, single_accuracy, places=6)
 
     def test_td_opponent_trainer_tracks_steps(self) -> None:
         model = OpponentModel(observation_dim=4, action_feature_dim=2, hidden_dim=16)

@@ -106,7 +106,7 @@
     "valueLoss": "huber",
     "saveEverySteps": 1000,
     "progressEverySteps": 50,
-    "numThreads": 8,
+    "numThreads": 4,
     "numInteropThreads": 1
   },
   "outputs": {

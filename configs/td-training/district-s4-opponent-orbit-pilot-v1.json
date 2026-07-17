@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "district-s4-opponent-orbit-pilot-v1",
+  "status": "review-required",
+  "launchAuthorized": false,
+  "purpose": "Test whether averaging opponent/action training over the complete fixed-D3 S4 orbit removes the residual district-location bias left by random single-permutation augmentation.",
+  "permutationScheme": "pawn-district-s4-orbit-d3-fixed-v1",
+  "intervention": {
+    "model": "opponent-only",
+    "loss": "ordinary soft-target cross-entropy averaged over transformed rows",
+    "newLossCoefficient": false,
+    "valueModelsRetrained": false
+  },
+  "provenance": {
+    "implementationFiles": [
+      "scripts/train_td.py",
+      "trainer/encoding.py",
+      "trainer/td/__init__.py",
+      "trainer/td/ablation_manifest.py",
+      "trainer/td/checkpoint.py",
+      "trainer/td/holdout.py",
+      "trainer/td/io.py",
+      "trainer/td/models.py",
+      "trainer/td/replay.py",
+      "trainer/td/self_play.py",
+      "trainer/td/symmetry_augmentation.py",
+      "trainer/td/targets.py",
+      "trainer/td/train.py",
+      "trainer/td/types.py",
+      "trainer/types.py"
+    ],
+    "expectedImplementationSha256": "d3b8bb5f5c8e15591fbe615b90cc8a9e2b700cad3b5dfc94c75e9f8913ac9636"
+  },
+  "replay": {
+    "shardsDirectory": "artifacts/td_replay/20260619T135628Z-v2-hard-laptop-900/shards",
+    "expectedShards": 900,
+    "expectedValueRows": 163194,
+    "expectedOpponentRows": 163194,
+    "expectedValueBytes": 427315245,
+    "expectedOpponentBytes": 304153169,
+    "expectedInventorySha256": "92196621f10535ffbb2dafcd003350db9f48db74c4d2018fb027bfdfeecba403",
+    "expectedContentSha256": {
+      "value": "f1310b0ce4d0af995da89acc14c063d0ef142642f576543fcb4de7869942e6b8",
+      "opponent": "c6334866d0877ed4868728a682b46073cade1b9ac82117ec8d101f4b5ec3a6ee"
+    },
+    "split": {
+      "scheme": "sha256-ranked-holdout-v1",
+      "salt": "magnate-district-s4-pilot-v1",
+      "trainingShards": 800,
+      "validationShards": 100,
+      "expectedMembershipSha256": "7ae87c8e6c2d2c666b51b6644dc4b27c358827a643fe350f16e9581b02413370",
+      "expectedTrainingContentSha256": {
+        "value": "cb4f426f8b74a82265920d0e36331da4f57db8e6e350ab152ef6112913459c6c",
+        "opponent": "7e34483740ea67f9f7da476abac2eed3bc56b9b08d81cfc34a3f074799853b84"
+      },
+      "expectedValidationContentSha256": {
+        "value": "b5727d22c165fae86f6874506573e7e1111617dfa74de896bc5ad83121d66e80",
+        "opponent": "7247361e6d9dfc61ce1f344115b9db52cf1189a32ad5ed01d17990f56d0dda80"
+      }
+    },
+    "validationQualification": "Held out from both district-symmetry continuation-training pilots only; the warm-start model may have previously encountered these games."
+  },
+  "warmStartOpponent": {
+    "optimizerState": "fresh-in-both-arms",
+    "path": "artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/opponent-step-0030000.pt",
+    "sha256": "590897272389dc600bb371b6b4bc82ae4b7c24d148a93e91655b19069dbd0937"
+  },
+  "fixedValueBySeed": [
+    {
+      "seedId": "pilot-a",
+      "path": "artifacts/td_checkpoints/district-s4-ablation-pilot-v1/pilot-a/s4-augmented/20260716-150311Z-district-s4-ablation-pilot-v1-pilot-a-s4-augmented-value/value-step-0005000.pt",
+      "sha256": "fe31690b85aaf9a4aa6bcb0340411cd30a09b868f714497b5b86c5993ff0228c"
+    },
+    {
+      "seedId": "pilot-b",
+      "path": "artifacts/td_checkpoints/district-s4-ablation-pilot-v1/pilot-b/s4-augmented/20260716-172025Z-district-s4-ablation-pilot-v1-pilot-b-s4-augmented-value/value-step-0005000.pt",
+      "sha256": "191042bbcb7908256e9211b58bc2e500eb26cc73fb21a342ff36fcfc4fb759c6"
+    }
+  ],
+  "arms": [
+    {
+      "id": "random-s4-control",
+      "districtAugmentation": "s4",
+      "copiesPerRawSample": 1
+    },
+    {
+      "id": "complete-s4-orbit",
+      "districtAugmentation": "s4-orbit",
+      "copiesPerRawSample": 24
+    }
+  ],
+  "seeds": [
+    {
+      "id": "pilot-a",
+      "trainingSeed": 2026071501,
+      "augmentationSeed": 2026071502,
+      "promotionEligibility": true
+    },
+    {
+      "id": "pilot-b",
+      "trainingSeed": 2026071601,
+      "augmentationSeed": 2026071602,
+      "promotionEligibility": false
+    }
+  ],
+  "training": {
+    "opponentUpdates": 5000,
+    "opponentBatchSize": 64,
+    "opponentLearningRate": 0.0003,
+    "opponentWeightDecay": 0.00001,
+    "maxGradNorm": 1.0,
+    "saveEverySteps": 1000,
+    "progressEverySteps": 50,
+    "numThreads": 4,
+    "numInteropThreads": 1
+  },
+  "outputs": {
+    "trainingInputDirectory": "artifacts/training_inputs/district-s4-opponent-orbit-pilot-v1",
+    "checkpointDirectory": "artifacts/td_checkpoints/district-s4-opponent-orbit-pilot-v1",
+    "resolvedManifest": "artifacts/training_inputs/district-s4-opponent-orbit-pilot-v1/resolved-manifest.json",
+    "evaluationInputDirectory": "artifacts/training_inputs/district-s4-opponent-orbit-pilot-v1/post-training-evaluation",
+    "evaluationArtifactDirectory": "artifacts/td_ablation_evals/district-s4-opponent-orbit-pilot-v1"
+  },
+  "selection": {
+    "checkpointStep": 5000,
+    "intermediateCheckpointSelectionAllowed": false,
+    "primarySeedId": "pilot-a",
+    "replicationSeedId": "pilot-b",
+    "primaryCandidate": "pilot-a fixed augmented value + complete-orbit opponent",
+    "replicationCanReplacePrimaryCandidate": false,
+    "contradictoryReplicationBlocksPromotion": true
+  },
+  "evaluation": {
+    "heldoutReplay": {
+      "usesAllValidationShards": true,
+      "sampling": "none",
+      "opponentMetrics": [
+        "softTargetCrossEntropy",
+        "softTargetKl",
+        "teacherTopActionAgreement",
+        "selectedActionAccuracy"
+      ],
+      "noninferiorityVsMatchedControl": {
+        "maximumOpponentCrossEntropyIncrease": 0.01
+      }
+    },
+    "directSymmetry": {
+      "source": "all 100 validation opponent shards",
+      "sampleSize": 10000,
+      "samplingSeed": "district-s4-opponent-orbit-pilot-v1-heldout-symmetry-v1",
+      "allPermutations": true,
+      "minimumPairwiseTopActionAgreement": 0.95,
+      "minimumProbabilityDriftReductionVsControl": 0.5,
+      "promotionRole": "diagnostic-required-but-not-sufficient"
+    },
+    "nextStage": {
+      "reservedStrategicRepetitionsInclusive": [24, 47],
+      "fullGamesRemainBlockedUntilHeldoutAndDirectSymmetryPass": true
+    }
+  },
+  "guardrails": [
+    "Run only opponent training; keep the successful first-pilot augmented value checkpoint fixed per seed.",
+    "Use identical raw opponent samples in each matched arm and verify their sampling traces.",
+    "Do not change public/model-packs/index.json or any bot default.",
+    "Do not spend reserved strategic repetitions 24-47 or full-game evaluation unless the predeclared heldout and direct-symmetry gates pass.",
+    "If complete-orbit training still fails the symmetry gate, investigate an equivariant opponent architecture rather than adding subjective action boosts."
+  ]
+}

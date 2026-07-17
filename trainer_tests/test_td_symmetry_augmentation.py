@@ -19,11 +19,13 @@ from trainer.encoding import (
 from trainer.td.symmetry_augmentation import (
     DISTRICT_AUGMENTATION_NONE,
     DISTRICT_AUGMENTATION_S4,
+    DISTRICT_AUGMENTATION_S4_ORBIT,
     PAWN_DISTRICT_PERMUTATIONS,
     augment_opponent_training_batch,
     augment_value_training_batch,
     derive_augmentation_stream_seed,
     inverse_pawn_district_permutation,
+    opponent_augmentation_copies_per_sample,
     permute_encoded_action_features,
     permute_encoded_observation,
     permute_opponent_sample,
@@ -38,8 +40,7 @@ def _observation(*, offset: float = 0.0) -> list[float]:
     values = [offset + (index / 1000.0) for index in range(OBSERVATION_GLOBAL_FEATURE_DIM)]
     for district in range(1, OBSERVATION_DISTRICT_COUNT + 1):
         values.extend(
-            offset + district + (index / 100.0)
-            for index in range(OBSERVATION_DISTRICT_FEATURE_DIM)
+            offset + district + (index / 100.0) for index in range(OBSERVATION_DISTRICT_FEATURE_DIM)
         )
     assert len(values) == OBSERVATION_DIM
     return values
@@ -96,9 +97,7 @@ class TDSymmetryAugmentationTests(unittest.TestCase):
 
     def test_all_24_permutations_are_unique_and_keep_d3_fixed(self) -> None:
         self.assertEqual(len(PAWN_DISTRICT_PERMUTATIONS), 24)
-        mappings = {
-            permutation.destination_by_source for permutation in PAWN_DISTRICT_PERMUTATIONS
-        }
+        mappings = {permutation.destination_by_source for permutation in PAWN_DISTRICT_PERMUTATIONS}
         self.assertEqual(len(mappings), 24)
         self.assertIn((0, 1, 2, 3, 4, 5), mappings)
         for permutation in PAWN_DISTRICT_PERMUTATIONS:
@@ -124,8 +123,7 @@ class TDSymmetryAugmentationTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     transformed[
-                        destination_start : destination_start
-                        + OBSERVATION_DISTRICT_FEATURE_DIM
+                        destination_start : destination_start + OBSERVATION_DISTRICT_FEATURE_DIM
                     ],
                     original[source_start : source_start + OBSERVATION_DISTRICT_FEATURE_DIM],
                 )
@@ -145,8 +143,7 @@ class TDSymmetryAugmentationTests(unittest.TestCase):
                 transformed = permute_encoded_action_features(original, permutation)
                 expected = list(original)
                 expected[ACTION_DISTRICT_ID_FEATURE_INDEX] = (
-                    permutation.destination_by_source[source]
-                    / OBSERVATION_DISTRICT_COUNT
+                    permutation.destination_by_source[source] / OBSERVATION_DISTRICT_COUNT
                 )
                 self.assertEqual(transformed, expected)
 
@@ -251,9 +248,7 @@ class TDSymmetryAugmentationTests(unittest.TestCase):
         self.assertEqual(transformed.action_index, 2)
         self.assertIs(transformed.action_probs, action_probs)
         self.assertEqual(transformed.player_id, "PlayerB")
-        self.assertEqual(
-            transformed.action_features[1], sample.action_features[1]
-        )
+        self.assertEqual(transformed.action_features[1], sample.action_features[1])
         self.assertEqual(
             transformed.action_features[0],
             permute_encoded_action_features(sample.action_features[0], permutation),
@@ -262,6 +257,61 @@ class TDSymmetryAugmentationTests(unittest.TestCase):
             transformed.action_features[2],
             permute_encoded_action_features(sample.action_features[2], permutation),
         )
+
+    def test_complete_opponent_orbit_uses_every_permutation_in_fixed_order(self) -> None:
+        first = OpponentSample(
+            observation=_observation(),
+            action_features=[
+                _action_features(district=1),
+                _action_features(district=None),
+            ],
+            action_index=1,
+            action_probs=[0.25, 0.75],
+            player_id="PlayerA",
+        )
+        second = OpponentSample(
+            observation=_observation(offset=10.0),
+            action_features=[_action_features(district=5)],
+            action_index=0,
+            action_probs=[1.0],
+            player_id="PlayerB",
+        )
+        rng = random.Random(1234)
+        before = rng.getstate()
+
+        result = augment_opponent_training_batch(
+            mode=DISTRICT_AUGMENTATION_S4_ORBIT,
+            samples=[first, second],
+            rng=rng,
+        )
+
+        self.assertEqual(len(result), 2 * len(PAWN_DISTRICT_PERMUTATIONS))
+        self.assertEqual(rng.getstate(), before)
+        for sample_index, source in enumerate((first, second)):
+            start = sample_index * len(PAWN_DISTRICT_PERMUTATIONS)
+            orbit = result[start : start + len(PAWN_DISTRICT_PERMUTATIONS)]
+            expected = [
+                permute_opponent_sample(source, permutation)
+                for permutation in PAWN_DISTRICT_PERMUTATIONS
+            ]
+            self.assertEqual(orbit, expected)
+            for transformed in orbit:
+                self.assertEqual(transformed.action_index, source.action_index)
+                self.assertIs(transformed.action_probs, source.action_probs)
+
+        self.assertEqual(
+            opponent_augmentation_copies_per_sample(mode=DISTRICT_AUGMENTATION_S4_ORBIT),
+            24,
+        )
+
+    def test_complete_orbit_is_rejected_for_value_training(self) -> None:
+        with self.assertRaisesRegex(ValueError, "opponent-only"):
+            augment_value_training_batch(
+                mode=DISTRICT_AUGMENTATION_S4_ORBIT,
+                transitions=_sequence("value-orbit"),
+                sequence_index=None,
+                rng=None,
+            )
 
     def test_control_mode_is_an_exact_noop_and_consumes_no_rng(self) -> None:
         transitions = _sequence("control")

@@ -36,21 +36,40 @@ The source and resolved manifests must both remain
 `review-required` with `launchAuthorized=false` until explicit review.
 
 The training primitive's intervention flags are
-`--district-augmentation none|s4` and
-`--district-augmentation-seed <integer>`. S4 requires the explicit seed;
-control mode is an exact no-op. Training summaries include raw sampling-trace
+`--district-augmentation none|s4|s4-orbit` and
+`--district-augmentation-seed <integer>`. Both S4 modes require the explicit
+experiment seed; `s4` samples one permutation per row, while the opponent-only
+`s4-orbit` mode expands each raw row to all 24 fixed-D3 permutations. Control
+mode is an exact no-op. Training summaries include raw sampling-trace
 hashes and checkpoints embed the replay, warm-start, source-manifest, and
 implementation fingerprints. A run fails before loading/training if a frozen
 fingerprint differs. Raw sampling hashes must match between each
 control/candidate pair before results are interpreted.
 
 The guardrail pass completed all four prepared one-update smokes against the
-full 800-shard lists with eight threads. Each path loaded 145,014 rows. The
+full 800-shard lists with four threads. Each path loaded 145,014 rows. The
 control and S4 value traces both hashed to
 `412d7f3de1755d52bc49410281a9a89e20f3da028e03c419052f6d633f628214`;
 the opponent traces both hashed to
 `8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`.
 These checks do not authorize or substitute for the 5,000-update runs.
+
+Run the eight prepared training commands sequentially: keep at most one
+trainer active at a time. Each command caps PyTorch at four intra-op threads
+and one interop thread; launching multiple commands concurrently would exceed
+the laptop-oriented CPU budget.
+
+Launch or resume the complete training phase from PowerShell with one command:
+
+```powershell
+.\scripts\run_td_district_symmetry_pilot.ps1
+```
+
+The launcher validates the frozen command profile, refuses a duplicate pilot
+trainer, skips only commands with a readable 5,000-update summary, writes one
+log per command, stops on the first failure, and writes a completion marker
+only after all eight summaries exist. Use `-DryRun` to validate and list the
+pending commands without starting training.
 
 After all eight training summaries exist, prepare—but do not execute—the exact
 post-training evaluation plan:
@@ -58,6 +77,21 @@ post-training evaluation plan:
 ```powershell
 python -m scripts.prepare_td_district_symmetry_evaluation
 ```
+
+Launch or resume only the first evaluation stage—experimental pack exports,
+complete heldout replay metrics, and direct symmetry audits—from PowerShell:
+
+```powershell
+.\scripts\run_td_district_symmetry_evaluation_stage1.ps1
+```
+
+The stage-one launcher validates the prepared plan, executes sequentially,
+caps heldout PyTorch work at four threads, regenerates isolated experimental
+packs from their frozen checkpoints, skips only validated heldout/symmetry
+results, logs every command, and refuses duplicate evaluation processes. It
+also verifies that the deployed model-pack index and checkpoint registry did
+not change before writing its completion marker. Use `-DryRun` to list pending
+work without exporting packs or starting evaluation.
 
 This command rejects intermediate checkpoints, provenance mismatches, and
 unequal paired sampling traces. It freezes step 5,000 from `pilot-a` as the
@@ -81,6 +115,50 @@ defaults are outside this experiment. Symmetry improvement is a required
 diagnostic, not a sufficient promotion condition; heldout noninferiority,
 replication direction, strategic behavior, and full-game strength remain
 separate gates.
+
+## Opponent-Only Complete-Orbit Follow-up
+
+The first pilot improved opponent symmetry but missed its action-symmetry
+gates. The controlled follow-up changes only opponent/action training. Its
+matched control continues to sample one random S4 permutation per raw row; the
+treatment averages the ordinary soft-target cross-entropy over all 24
+permutations of every sampled row. It introduces no additional loss weight.
+The successful first-pilot augmented value checkpoint remains fixed per seed.
+
+Validate and resolve its frozen inputs without launching training:
+
+```powershell
+python -m scripts.prepare_td_opponent_orbit_ablation
+```
+
+The checked-in manifest is
+`configs/td-training/district-s4-opponent-orbit-pilot-v1.json`. It reuses the
+exact prior 800/100 split, July opponent warm start, two training seeds, raw
+batch size 64, 5,000 updates, and four-thread laptop profile. The preparer
+verifies full replay content, warm-start, fixed value, source-manifest, and
+training-code fingerprints, then writes four opponent-only training commands
+and two one-update guardrail commands.
+
+The guardrail smokes completed against all 800 training shards. Both arms
+loaded 145,014 opponent rows and produced the same raw sampling trace:
+`8c9ab989480de4306a5cad78ac952861a419905bd03f699fcf4916c254a3fc34`.
+The random-S4 control used one transformed copy per raw row; the complete-orbit
+treatment used 24 copies, for effective batch sizes 64 and 1,536 respectively.
+
+Launch or resume the four long jobs sequentially with:
+
+```powershell
+.\scripts\run_td_opponent_orbit_pilot.ps1
+```
+
+The launcher reruns the non-launching preflight, caps native and PyTorch work
+at four threads, refuses duplicate trainers, validates any existing summary
+before skipping it, logs each command, and verifies equal control/treatment
+raw-sampling traces per seed before writing its completion marker. Use
+`-DryRun` to revalidate everything and list the four jobs without starting
+training. Do not run reserved strategic repetitions or full-game promotion
+tests until heldout opponent noninferiority and the predeclared direct action-
+symmetry gates both pass.
 
 ## Evaluation
 

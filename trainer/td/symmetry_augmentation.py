@@ -23,8 +23,13 @@ from .types import OpponentSample, ValueTransition
 
 DISTRICT_AUGMENTATION_NONE = "none"
 DISTRICT_AUGMENTATION_S4 = "pawn-district-s4-d3-fixed-v1"
+DISTRICT_AUGMENTATION_S4_ORBIT = "pawn-district-s4-orbit-d3-fixed-v1"
 DISTRICT_AUGMENTATION_MODES = frozenset(
-    (DISTRICT_AUGMENTATION_NONE, DISTRICT_AUGMENTATION_S4)
+    (
+        DISTRICT_AUGMENTATION_NONE,
+        DISTRICT_AUGMENTATION_S4,
+        DISTRICT_AUGMENTATION_S4_ORBIT,
+    )
 )
 PAWN_DISTRICT_NUMBERS = (1, 2, 4, 5)
 _IDENTITY_DESTINATION_BY_SOURCE = (0, 1, 2, 3, 4, 5)
@@ -55,9 +60,7 @@ def create_pawn_district_permutations() -> tuple[PawnDistrictPermutation, ...]:
         mapping = tuple(destination_by_source)
         out.append(
             PawnDistrictPermutation(
-                id=",".join(
-                    f"D{source}>D{mapping[source]}" for source in PAWN_DISTRICT_NUMBERS
-                ),
+                id=",".join(f"D{source}>D{mapping[source]}" for source in PAWN_DISTRICT_NUMBERS),
                 destination_by_source=mapping,
             )
         )
@@ -96,9 +99,9 @@ def permute_encoded_observation(
         destination_offset = OBSERVATION_GLOBAL_FEATURE_DIM + (
             (destination - 1) * OBSERVATION_DISTRICT_FEATURE_DIM
         )
-        result[
-            destination_offset : destination_offset + OBSERVATION_DISTRICT_FEATURE_DIM
-        ] = observation[source_offset : source_offset + OBSERVATION_DISTRICT_FEATURE_DIM]
+        result[destination_offset : destination_offset + OBSERVATION_DISTRICT_FEATURE_DIM] = (
+            observation[source_offset : source_offset + OBSERVATION_DISTRICT_FEATURE_DIM]
+        )
     return result
 
 
@@ -188,6 +191,8 @@ def augment_value_training_batch(
             sequence_index=sequence_index,
             permutation_ids=(),
         )
+    if mode == DISTRICT_AUGMENTATION_S4_ORBIT:
+        raise ValueError("Complete S4 orbit augmentation is opponent-only.")
     augmentation_rng = _require_rng(rng)
 
     transformed_transitions: list[ValueTransition] = []
@@ -218,20 +223,14 @@ def augment_value_training_batch(
             if transition.timestep < 0 or transition.timestep >= len(sequence):
                 raise ValueError("Augmented value transition timestep is out of range.")
             if sequence[transition.timestep] != transition:
-                raise ValueError(
-                    "Sampled value transition does not match its sequence-index row."
-                )
+                raise ValueError("Sampled value transition does not match its sequence-index row.")
             if sequence_key not in transformed_sequences:
                 transformed_sequences[sequence_key] = tuple(
                     permute_value_transition(item, permutation) for item in sequence
                 )
-            transformed_transitions.append(
-                transformed_sequences[sequence_key][transition.timestep]
-            )
+            transformed_transitions.append(transformed_sequences[sequence_key][transition.timestep])
         else:
-            transformed_transitions.append(
-                permute_value_transition(transition, permutation)
-            )
+            transformed_transitions.append(permute_value_transition(transition, permutation))
 
     return ValueAugmentationBatch(
         transitions=transformed_transitions,
@@ -249,6 +248,12 @@ def augment_opponent_training_batch(
     _validate_mode(mode)
     if mode == DISTRICT_AUGMENTATION_NONE:
         return samples
+    if mode == DISTRICT_AUGMENTATION_S4_ORBIT:
+        return [
+            permute_opponent_sample(sample, permutation)
+            for sample in samples
+            for permutation in PAWN_DISTRICT_PERMUTATIONS
+        ]
     augmentation_rng = _require_rng(rng)
     return [
         permute_opponent_sample(
@@ -257,6 +262,13 @@ def augment_opponent_training_batch(
         )
         for sample in samples
     ]
+
+
+def opponent_augmentation_copies_per_sample(*, mode: str) -> int:
+    _validate_mode(mode)
+    if mode == DISTRICT_AUGMENTATION_S4_ORBIT:
+        return len(PAWN_DISTRICT_PERMUTATIONS)
+    return 1
 
 
 def derive_augmentation_stream_seed(*, base_seed: int, stream: str) -> int:

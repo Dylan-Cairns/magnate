@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from trainer.td import (
+    DISTRICT_AUGMENTATION_S4,
     load_opponent_checkpoint,
     load_value_checkpoint,
     sha256_file,
@@ -89,7 +90,9 @@ def main() -> int:
 
     runs: dict[tuple[str, str], FinalRunArtifacts] = {}
     arm_modes = {
-        _require_str(arm, "id"): _require_str(arm, "districtAugmentation")
+        _require_str(arm, "id"): _canonical_augmentation_mode(
+            _require_str(arm, "districtAugmentation")
+        )
         for arm in _require_object_list(manifest, "arms")
     }
     for seed in _require_object_list(manifest, "seeds"):
@@ -209,6 +212,12 @@ def main() -> int:
         )
     )
     return 0
+
+
+def _canonical_augmentation_mode(mode: str) -> str:
+    if mode == "s4":
+        return DISTRICT_AUGMENTATION_S4
+    return mode
 
 
 def _load_final_run(
