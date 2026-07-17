@@ -160,6 +160,26 @@ training. Do not run reserved strategic repetitions or full-game promotion
 tests until heldout opponent noninferiority and the predeclared direct action-
 symmetry gates both pass.
 
+The four training runs and stage-one diagnostics completed on 2026-07-17.
+Both complete-orbit checkpoints slightly improved heldout opponent
+cross-entropy and passed the `+0.01` noninferiority gate. The direct symmetry
+gates failed reproducibly:
+
+| Seed | Top-action agreement, control -> orbit | Mean probability drift reduction |
+| --- | ---: | ---: |
+| `pilot-a` | 82.85% -> 86.36% | 25.0% |
+| `pilot-b` | 83.03% -> 86.09% | 25.2% |
+
+The required thresholds were at least 95% orbit agreement and at least 50%
+drift reduction versus the matched control. Complete-orbit augmentation is
+therefore a real but insufficient correction; the candidate is not eligible
+for reserved strategic or full-game promotion tests. The next intervention
+should enforce fixed-D3 S4 symmetry in the opponent/action architecture rather
+than add augmentation weights or action-specific heuristic boosts. Stage-one
+artifacts are under ignored
+`artifacts/td_ablation_evals/district-s4-opponent-orbit-pilot-v1/`; the
+deployed model index and checkpoint registry remained unchanged.
+
 ## Evaluation
 
 - `python -m scripts.eval_suite --mode certify --games-per-side 200 --workers 2 --candidate-policy search --opponent-policy heuristic`
