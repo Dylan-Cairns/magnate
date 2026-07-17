@@ -36,6 +36,7 @@ import type { GameTransaction } from '../runtime/types';
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
 
 type RunTransitionOptions = {
+  transactionId: string;
   previousState: GameState;
   nextState: GameState;
   action: GameAction;
@@ -43,17 +44,7 @@ type RunTransitionOptions = {
   onSettle?: () => void;
 };
 
-type UseGameAnimationsOptions = {
-  onCommitTransition: (
-    previousState: GameState,
-    nextState: GameState,
-    action: GameAction
-  ) => void;
-};
-
-export function useGameAnimations({
-  onCommitTransition,
-}: UseGameAnimationsOptions) {
+export function useGameAnimations() {
   const [enabled, setEnabled] = useState<boolean>(() =>
     readAnimationsEnabledPreference()
   );
@@ -278,7 +269,10 @@ export function useGameAnimations({
     ]
   );
   const scheduleSequenceVisuals = useCallback(
-    (transaction: GameTransaction | null, sequence: AnimationSequence | null) => {
+    (
+      transaction: GameTransaction | null,
+      sequence: AnimationSequence | null
+    ) => {
       clearTurnCycleVisuals();
       if (!transaction || !sequence) {
         return;
@@ -305,6 +299,7 @@ export function useGameAnimations({
   }, [clearTurnCycleVisuals]);
   const runTransition = useCallback(
     ({
+      transactionId,
       previousState,
       nextState,
       action,
@@ -312,6 +307,7 @@ export function useGameAnimations({
       onSettle,
     }: RunTransitionOptions) => {
       const presentationTransaction = buildPresentationTransactionForTransition(
+        transactionId,
         previousState,
         nextState,
         action,
@@ -337,7 +333,6 @@ export function useGameAnimations({
       if (settleMs <= 0) {
         setPresentationSnapshot(null);
         setAllowHumanActionsWhileCommitPending(false);
-        onCommitTransition(previousState, nextState, action);
         onSettle?.();
         return;
       }
@@ -358,52 +353,38 @@ export function useGameAnimations({
           setPresentationSnapshot
         );
       }
-      let committed = false;
-      const commitTransition = () => {
-        if (committed) {
-          return;
-        }
-        committed = true;
-        onCommitTransition(previousState, nextState, action);
-      };
       const commitMs = presentationSequence?.commitMs ?? settleMs;
       const inputUnlockMs = presentationSequence?.inputUnlockMs ?? commitMs;
-      if (
-        commitMs === inputUnlockMs &&
-        commitMs > 0 &&
-        commitMs < settleMs
-      ) {
+      if (commitMs === inputUnlockMs && commitMs > 0 && commitMs < settleMs) {
         // Commit and unlock are one user-visible boundary. Keep them in one
         // timer so React cannot paint a settled board while input is still
         // locked because an equal-time unlock callback has not run yet.
         actionCommitTimers.schedule(commitMs, () => {
-          commitTransition();
           setPresentationSnapshot(null);
           setAllowHumanActionsWhileCommitPending(false);
           setActionCommitPending(false);
         });
       } else if (commitMs <= 0) {
-        commitTransition();
+        setPresentationSnapshot(null);
       } else if (commitMs < settleMs) {
-        actionCommitTimers.schedule(commitMs, commitTransition);
+        actionCommitTimers.schedule(commitMs, () => {
+          setPresentationSnapshot(null);
+        });
       }
       if (commitMs === inputUnlockMs && inputUnlockMs > 0) {
         // Handled by the combined boundary above, or by the settle callback
         // when the boundary coincides with final cleanup.
       } else if (inputUnlockMs <= 0) {
-        commitTransition();
         setPresentationSnapshot(null);
         setActionCommitPending(false);
       } else if (inputUnlockMs < settleMs) {
         actionCommitTimers.schedule(inputUnlockMs, () => {
-          commitTransition();
           setPresentationSnapshot(null);
           setAllowHumanActionsWhileCommitPending(false);
           setActionCommitPending(false);
         });
       }
       actionCommitTimers.schedule(settleMs, () => {
-        commitTransition();
         setResourceFlights([]);
         setCardFlights([]);
         setAllowHumanActionsWhileCommitPending(false);
@@ -413,12 +394,7 @@ export function useGameAnimations({
         setActionCommitPending(false);
       });
     },
-    [
-      actionCommitTimers,
-      clearTurnCycleVisuals,
-      onCommitTransition,
-      scheduleSequenceVisuals,
-    ]
+    [actionCommitTimers, clearTurnCycleVisuals, scheduleSequenceVisuals]
   );
 
   useEffect(() => {
@@ -455,6 +431,7 @@ export function useGameAnimations({
 }
 
 function buildPresentationTransactionForTransition(
+  transactionId: string,
   previousState: GameState,
   nextState: GameState,
   action: GameAction,
@@ -472,7 +449,7 @@ function buildPresentationTransactionForTransition(
   }
 
   return {
-    id: `${previousState.seed}:${previousState.turn}:${previousState.phase}:${action.type}`,
+    id: transactionId,
     previousState,
     nextState,
     action,

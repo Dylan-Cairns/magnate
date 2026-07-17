@@ -165,8 +165,10 @@ Design expectations:
   browser-only DOM target resolution, and flight object construction separate;
   browser DOM access remains outside the engine and isolated in `domTargets.ts`.
 - UI animation lifecycle state, timer cleanup, presentation snapshot scheduling,
-  and delayed commit coordination should live in `useGameAnimations`; canonical
-  state transitions and timeline logging remain injected controller callbacks.
+  and input-unlock timing should live in `useGameAnimations`. Canonical state
+  transitions and timeline logging are controller-owned and advance
+  synchronously before presentation begins; the animation hook must not own or
+  delay canonical commits.
 - UI animation runtime lives under `src/ui/runtime/`: action dispatch provides
   previous/next engine states and action context, runtime code derives semantic
   `GameTransaction` events, `AnimationSequence` steps, coherent render-only
@@ -217,10 +219,11 @@ Design expectations:
   income source highlights and active-player visual holdbacks, should be
   emitted by the animation sequence reducer rather than maintained by
   independent hook-local timers.
-- Human and bot browser actions should share `prepareActionDispatch` for
-  engine validation and terminal-entry reporting. Animation planning should
-  stay in the sequence runtime; action dispatch should not return queued DOM
-  flights or participate in visual settle timing.
+- Human and bot browser actions should share `prepareCanonicalActionDispatch`
+  for stale-source and actor validation, engine transition planning, and unique
+  transaction ordinals. Animation planning should stay in the sequence runtime;
+  action dispatch should not return queued DOM flights or participate in visual
+  settle timing.
 - Browser `CollectIncome` controls follow income-choice ownership rather than
   normal turn ownership:
   - human input is available when the human has an unsubmitted
@@ -235,9 +238,9 @@ Design expectations:
   shared action dispatch, and animation-hook composition should live in
   `useGameController`; `App.tsx` should retain UI-local menu, picker, preload,
   and rendering concerns.
-- Characterization tests should protect UI commit timing, tax-resource previews,
-  composite picker resolution/invalidation, and log presentation while
-  `App.tsx` is decomposed.
+- Characterization tests should protect serialized canonical dispatch,
+  presentation/input-unlock timing, tax-resource previews, composite picker
+  resolution/invalidation, and log presentation while `App.tsx` is decomposed.
 - Stateless browser rendering blocks should live under `src/ui/components/`
   and receive derived data plus callbacks from `App.tsx`; selector-bearing
   classes, IDs, and `data-*` animation anchors are compatibility surfaces.

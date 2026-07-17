@@ -174,13 +174,17 @@
   `GameTransaction`. `useGameAnimations` builds that sequence and schedules
   render-only `viewState` snapshots plus sequence-derived visual commands for
   tax pulses, tax-token flights, and income-token flights from sequence step
-  boundaries, so resource counts, visual launches, and commits follow the
+  boundaries, so visible resource counts, visual launches, and presentation
+  commits follow the
   central sequence timing. The old presentation timeline, turn-cycle visual
   timing plan, eager income-choice flight planner, and hook-level turn-cycle
-  plan contract have been removed. Action dispatch now only validates/applies
-  the engine transition and reports terminal entry; ordinary visual flights and
-  commit timing are derived from the animation sequence. Canonical state still
-  drives legality, bot scheduling, bug reports, and persistence.
+  plan contract have been removed. Actor-neutral canonical action dispatch now
+  rejects stale source states and actor mismatches, validates/applies one engine
+  transition synchronously, advances timeline state immediately, and assigns a
+  unique per-session transaction ordinal before presentation begins. Ordinary
+  visual flights and visible mutation timing remain derived from the animation
+  sequence. Canonical state drives legality, bot scheduling, bug reports, and
+  persistence; `useGameAnimations` no longer owns canonical commits.
 - Presentation event derivation now emits semantic coverage for all canonical
   action families: card placement, action resource payments, deed token/progress
   and completion, sell-card resource gains, and trades. These new events are
@@ -200,9 +204,12 @@
   self-removes from that command duration before later sequence steps reveal
   landed state. The deed progress tracker uses its original explicit SVG arc
   geometry with local requestAnimationFrame interpolation, but its duration is
-  sourced from the shared animation timing constant. Action commit/input unlock
-  are derived from `AnimationSequence` `commitMs`/`inputUnlockMs` rather than
-  action-type timing rules. Turn-cycle tax animation is driven by an explicit
+  sourced from the shared animation timing constant. Presentation finalization
+  and input unlock are derived from `AnimationSequence`
+  `commitMs`/`inputUnlockMs` rather than action-type timing rules. In the current
+  Phase 2 boundary, input and bot scheduling still remain locked behind the
+  single active presentation sequence; an ordered presentation backlog is not
+  yet wired. Turn-cycle tax animation is driven by an explicit
   transaction `tax-resolved` semantic event; sticky canonical `lastTaxSuit`
   history must not create tax animation steps for later non-tax actions.
   Dice visual phases are also derived from the sequence presentation overlay;
