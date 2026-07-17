@@ -19,6 +19,7 @@ export type AnimationVisualCommand =
   | {
       type: 'launch-card-to-district-flight';
       atMs: number;
+      durationMs: number;
       event: Extract<
         GamePresentationEvent,
         { type: 'card-played-to-district' }
@@ -93,6 +94,7 @@ export function deriveAnimationVisualCommands(
         commands.push({
           type: 'launch-card-to-district-flight',
           atMs: step.startMs,
+          durationMs: step.durationMs,
           event: step.event,
         });
         break;

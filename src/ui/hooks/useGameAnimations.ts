@@ -136,6 +136,21 @@ export function useGameAnimations({
     },
     [turnCycleVisualTimers]
   );
+  const appendCardFlightsWithCleanup = useCallback(
+    (flights: readonly CardFlight[], durationMs: number) => {
+      if (flights.length === 0) {
+        return;
+      }
+      setCardFlights((existing) => [...existing, ...flights]);
+      const flightIds = new Set(flights.map((flight) => flight.id));
+      turnCycleVisualTimers.schedule(durationMs, () => {
+        setCardFlights((existing) =>
+          existing.filter((flight) => !flightIds.has(flight.id))
+        );
+      });
+    },
+    [turnCycleVisualTimers]
+  );
   const scheduleSequenceVisualCommand = useCallback(
     (command: AnimationVisualCommand) => {
       const scheduleAt = (atMs: number, callback: () => void) => {
@@ -182,7 +197,7 @@ export function useGameAnimations({
             if (flights.length === 0) {
               return;
             }
-            setCardFlights((existing) => [...existing, ...flights]);
+            appendCardFlightsWithCleanup(flights, command.durationMs);
           });
           return;
         case 'launch-payment-token-flights':
@@ -253,6 +268,7 @@ export function useGameAnimations({
       }
     },
     [
+      appendCardFlightsWithCleanup,
       appendResourceFlightsWithCleanup,
       applyTaxPulseTargets,
       clearTaxPulseElements,

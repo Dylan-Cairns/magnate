@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { makeGameState, PLAYER_A, PLAYER_B } from '../engine/__tests__/fixtures';
+import {
+  makeGameState,
+  makePlayer,
+  makeResources,
+  PLAYER_A,
+  PLAYER_B,
+} from '../engine/__tests__/fixtures';
 import type { GameLogEntry } from '../engine/types';
 import {
   botRandomForState,
+  createBrowserSession,
   errorMessage,
   humanActionsAcceptingInputForState,
   makeBrowserSessionSeed,
@@ -14,6 +21,13 @@ import {
 describe('gameControllerModel', () => {
   it('builds browser seeds from the supplied timestamp', () => {
     expect(makeBrowserSessionSeed(1234)).toBe('seed-1234');
+  });
+
+  it('creates an ordinary browser session with the requested seed and first player', () => {
+    const session = createBrowserSession('session-characterization', PLAYER_B);
+
+    expect(session.seed).toBe('session-characterization');
+    expect(session.players[session.activePlayerIndex]?.id).toBe(PLAYER_B);
   });
 
   it('prefixes timeline logs with the seed exactly once', () => {
@@ -53,6 +67,32 @@ describe('gameControllerModel', () => {
     expect(normal.length).toBeGreaterThan(0);
     expect(botTurn).toEqual([]);
     expect(terminal).toEqual([]);
+  });
+
+  it('derives the action menu from the supplied canonical resource state', () => {
+    const beforeTrade = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
+        makePlayer(PLAYER_B),
+      ],
+    });
+    const afterTrade = makeGameState({
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Suns: 1 }) }),
+        makePlayer(PLAYER_B),
+      ],
+    });
+
+    expect(
+      actionsFor(beforeTrade).some(
+        (action) => action.type === 'trade' && action.give === 'Moons'
+      )
+    ).toBe(true);
+    expect(
+      actionsFor(afterTrade).some(
+        (action) => action.type === 'trade' && action.give === 'Moons'
+      )
+    ).toBe(false);
   });
 
   it('blocks ordinary actions during commit settle but allows income choices when enabled', () => {
