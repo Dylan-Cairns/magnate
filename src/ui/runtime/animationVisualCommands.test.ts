@@ -110,6 +110,8 @@ describe('deriveAnimationVisualCommands', () => {
     expect(buyCommands).toContainEqual({
       type: 'launch-card-to-district-flight',
       atMs: step(buySequence, 'launch-card-to-district-flight').startMs,
+      durationMs: step(buySequence, 'launch-card-to-district-flight')
+        .durationMs,
       event: step(buySequence, 'launch-card-to-district-flight').event,
     });
 

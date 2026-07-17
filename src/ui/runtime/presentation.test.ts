@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { GameState, PlayerId, Suit } from '../../engine/types';
+import { scoreLive } from '../../engine/scoring';
 import {
   PLAYER_A,
   PLAYER_B,
@@ -138,6 +139,28 @@ describe('derivePresentationSnapshotFromSequence', () => {
     });
   });
 
+  it('holds the visible active player through the draw and changes it when income rolling begins', () => {
+    const { transaction } = makeEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const incomeRoll = step(sequence, 'roll-income-dice');
+
+    const duringDraw = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeRoll.startMs - 1,
+    });
+    expect(duringDraw.viewState.activePlayerIndex).toBe(0);
+    expect(duringDraw.overlays.activePlayerHighlightOverride).toBe(PLAYER_A);
+
+    const duringIncomeRoll = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeRoll.startMs,
+    });
+    expect(duringIncomeRoll.viewState.activePlayerIndex).toBe(1);
+    expect(duringIncomeRoll.overlays.activePlayerHighlightOverride).toBeNull();
+  });
+
   it('commits to nextState at the sequence commit step', () => {
     const { transaction } = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
@@ -157,6 +180,41 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(beforeCommit.viewState).not.toBe(transaction.nextState);
     expect(atCommit.viewState).toBe(transaction.nextState);
     expect(atCommit.overlays.incomeHighlightCardIds).toEqual([]);
+  });
+
+  it('keeps terminal state hidden until the presentation commit step', () => {
+    const previous = makeGameState({
+      players: [makePlayer(PLAYER_A, { hand: ['6'] }), makePlayer(PLAYER_B)],
+    });
+    const next = makeGameState({
+      phase: 'GameOver',
+      players: [makePlayer(PLAYER_A), makePlayer(PLAYER_B)],
+      deck: { draw: [], discard: ['6'], reshuffles: 0 },
+    });
+    const transaction = buildGameTransaction({
+      previousState: previous,
+      action: { type: 'sell-card', cardId: '6' },
+      actingPlayerId: PLAYER_A,
+      transactionId: 'tx-terminal-sell',
+      stepToDecision: () => next,
+    });
+    const sequence = buildAnimationSequence(transaction);
+    const commit = step(sequence, 'commit-view-state');
+
+    const beforeCommit = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: commit.startMs - 1,
+    });
+    const atCommit = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: commit.startMs,
+    });
+
+    expect(beforeCommit.viewState.phase).toBe('ActionWindow');
+    expect(atCommit.viewState.phase).toBe('GameOver');
+    expect(atCommit.viewState).toBe(next);
   });
 
   it('stages final income-choice reveal and waits for the sequence gain step', () => {
@@ -356,6 +414,12 @@ describe('derivePresentationSnapshotFromSequence', () => {
     const sequence = delayCommitStep(buildAnimationSequence(transaction));
     const placeCard = step(sequence, 'place-card-in-district');
 
+    const beforePlacement = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: placeCard.startMs - 1,
+    }).viewState;
+
     const placed = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
@@ -363,6 +427,12 @@ describe('derivePresentationSnapshotFromSequence', () => {
     }).viewState;
 
     expect(developedCards(placed, PLAYER_A, 'D1')).toEqual(['8', '6']);
+    expect(scoreLive(placed).rankTotals[PLAYER_A]).toBeGreaterThan(
+      scoreLive(beforePlacement).rankTotals[PLAYER_A]
+    );
+    expect(scoreLive(placed).rankTotals[PLAYER_A]).toBeLessThan(
+      scoreLive(next).rankTotals[PLAYER_A]
+    );
   });
 
   it('applies deed payment, token landing, progress, then completion reveal', () => {
@@ -721,9 +791,9 @@ function cardInHand(
   cardId: string
 ): boolean {
   return (
-    state.players.find((player) => player.id === playerId)?.hand.includes(
-      cardId
-    ) ?? false
+    state.players
+      .find((player) => player.id === playerId)
+      ?.hand.includes(cardId) ?? false
   );
 }
 
