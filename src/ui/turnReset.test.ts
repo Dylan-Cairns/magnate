@@ -130,7 +130,7 @@ describe('canUseTurnReset', () => {
     expect(canUseTurnReset(current, PLAYER_A, HUMAN_PLAYER, anchor)).toBe(true);
   });
 
-  it('is false while an action commit is pending', () => {
+  it('is false until the human decision window is presentation-ready', () => {
     const anchorState = makeGameState({
       phase: 'ActionWindow',
       activePlayerIndex: 0,
@@ -145,7 +145,7 @@ describe('canUseTurnReset', () => {
 
     expect(
       canUseTurnReset(current, PLAYER_A, HUMAN_PLAYER, anchor, {
-        actionCommitPending: true,
+        humanInputReady: false,
       })
     ).toBe(false);
   });

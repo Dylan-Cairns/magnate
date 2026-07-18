@@ -8,10 +8,7 @@ import {
   incomeChoiceActionsForPlayer,
 } from '../ui/gameControllerModel';
 import { buildHumanActionList } from '../ui/actionPresentation';
-import {
-  createDevFixtureSession,
-  devFixtureIdFromSearch,
-} from './fixtures';
+import { createDevFixtureSession, devFixtureIdFromSearch } from './fixtures';
 
 describe('dev fixtures', () => {
   it('derives multiple partial-income choices from real CollectIncome resolution', () => {
@@ -24,9 +21,9 @@ describe('dev fixtures', () => {
       '7',
       '8',
     ]);
-    expect(state.pendingIncomeChoices?.map((choice) => choice.playerId)).toEqual(
-      ['PlayerA', 'PlayerA', 'PlayerB']
-    );
+    expect(
+      state.pendingIncomeChoices?.map((choice) => choice.playerId)
+    ).toEqual(['PlayerA', 'PlayerA', 'PlayerB']);
     expect(
       state.pendingIncomeChoices?.every((choice) => choice.suits.length === 2)
     ).toBe(true);
@@ -37,8 +34,7 @@ describe('dev fixtures', () => {
     const actions = humanActionsAcceptingInputForState({
       state,
       humanPlayerId: 'PlayerA',
-      actionCommitPending: false,
-      allowHumanActionsWhileCommitPending: false,
+      humanInputReady: true,
     });
     const grouped = buildHumanActionList(actions);
 

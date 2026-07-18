@@ -169,6 +169,25 @@ Design expectations:
   transitions and timeline logging are controller-owned and advance
   synchronously before presentation begins; the animation hook must not own or
   delay canonical commits.
+- Accepted transitions should enter one FIFO presentation backlog keyed by the
+  canonical transaction ordinal. Only the head sequence may schedule snapshots,
+  overlays, DOM commands, or flights. Between queued sequences, rendering must
+  retain the last presented engine state instead of falling through to a newer
+  canonical state.
+- Human input should be gated by a transaction-specific decision-window barrier,
+  not by whether any presentation is pending. A transition that opens a new
+  human `ActionWindow` or owned `CollectIncome` window blocks input until that
+  transaction reaches its ordered `inputUnlockMs`; subsequent actions in the
+  same window derive legality from canonical state and may run ahead of visuals.
+- Bot scheduling should derive only from canonical terminal/turn/income state
+  and startup readiness, never presentation backlog depth. Async bot results
+  must match both their decision generation and exact canonical source-state
+  identity before dispatch so stale work is discarded rather than surfaced as
+  an engine error.
+- Session/turn reset should cancel active and queued presentation without firing
+  lifecycle callbacks, clear human input barriers, and snap to restored state.
+  Disabling animations should instead complete queued unlock/settle callbacks
+  in FIFO order before snapping to canonical state.
 - UI animation runtime lives under `src/ui/runtime/`: action dispatch provides
   previous/next engine states and action context, runtime code derives semantic
   `GameTransaction` events, `AnimationSequence` steps, coherent render-only
@@ -238,8 +257,9 @@ Design expectations:
   shared action dispatch, and animation-hook composition should live in
   `useGameController`; `App.tsx` should retain UI-local menu, picker, preload,
   and rendering concerns.
-- Characterization tests should protect serialized canonical dispatch,
-  presentation/input-unlock timing, tax-resource previews, composite picker
+- Characterization tests should protect serialized canonical dispatch, FIFO
+  presentation order and cancellation, decision-window input unlock, stale bot
+  result rejection, tax-resource previews, composite picker
   resolution/invalidation, and log presentation while `App.tsx` is decomposed.
 - Stateless browser rendering blocks should live under `src/ui/components/`
   and receive derived data plus callbacks from `App.tsx`; selector-bearing

@@ -150,11 +150,13 @@ export function App() {
     error,
     terminal,
     activePlayerId,
+    viewActivePlayerId,
     botThinking,
     botProfileId,
     botStatusText,
     setBotProfileId,
     humanActionsAcceptingInput,
+    humanInputBlockedByPresentation,
     canResetTurn,
     performHumanAction,
     resetSession,
@@ -168,8 +170,7 @@ export function App() {
       incomeHighlightCrowns,
       diceVisualState,
       activePlayerHighlightOverride,
-      actionCommitPending,
-      allowHumanActionsWhileCommitPending,
+      presentationPending,
     },
   } = useGameController({
     humanPlayerId: HUMAN_PLAYER,
@@ -186,7 +187,8 @@ export function App() {
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
   const closeBugReport = useCallback(() => setBugReportOpen(false), []);
   const closeNewGame = useCallback(() => setNewGameExpanded(false), []);
-  const visualActivePlayerId = activePlayerHighlightOverride ?? activePlayerId;
+  const visualActivePlayerId =
+    activePlayerHighlightOverride ?? viewActivePlayerId;
   const retryStartupPreload = useCallback(() => {
     setStartupPreloadReady(false);
     setStartupPreloadError(null);
@@ -293,9 +295,13 @@ export function App() {
     () =>
       new Set([
         ...incomeHighlightCardIds,
-        ...(actionCommitPending ? [] : pendingIncomeChoiceCardIds),
+        ...(humanInputBlockedByPresentation ? [] : pendingIncomeChoiceCardIds),
       ]),
-    [actionCommitPending, incomeHighlightCardIds, pendingIncomeChoiceCardIds]
+    [
+      humanInputBlockedByPresentation,
+      incomeHighlightCardIds,
+      pendingIncomeChoiceCardIds,
+    ]
   );
   const incomeHighlightCrownSuitsByPlayer = useMemo(() => {
     const byPlayer = new Map<PlayerId, Set<Suit>>([
@@ -332,8 +338,7 @@ export function App() {
     );
   }, [firstTradeGroupIndex, hasMultipleTradeSources, humanActionItems]);
 
-  const isTurnCycleAnimationLock =
-    actionCommitPending && allowHumanActionsWhileCommitPending;
+  const isTurnCycleAnimationLock = presentationPending;
   const hideBotWaitMessageDuringTurnCycleLock =
     shouldHideBotWaitMessageDuringAnimationLock({
       isAnimationLock: isTurnCycleAnimationLock,
@@ -341,9 +346,7 @@ export function App() {
       botThinking,
     });
   const humanActionUiBlockedByAnimation =
-    activePlayerId === HUMAN_PLAYER &&
-    actionCommitPending &&
-    humanActionsAcceptingInput.length === 0;
+    humanInputBlockedByPresentation && humanActionsAcceptingInput.length === 0;
   const humanActionUiBlockedByTurnCycleAnimation =
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
 

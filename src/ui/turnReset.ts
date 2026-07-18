@@ -7,7 +7,7 @@ export interface TurnResetAnchor {
 }
 
 export type TurnResetAvailabilityOptions = {
-  actionCommitPending?: boolean;
+  humanInputReady?: boolean;
 };
 
 export function shouldCaptureTurnResetAnchor(
@@ -38,7 +38,7 @@ export function canUseTurnReset(
   anchor: TurnResetAnchor | null,
   options: TurnResetAvailabilityOptions = {}
 ): boolean {
-  if (options.actionCommitPending) {
+  if (options.humanInputReady === false) {
     return false;
   }
   if (!anchor) {
