@@ -41,7 +41,14 @@ type RunTransitionOptions = {
   nextState: GameState;
   action: GameAction;
   actingPlayerId: PlayerId;
+  onInputUnlock?: () => void;
   onSettle?: () => void;
+};
+
+type ActivePresentationTransition = {
+  options: RunTransitionOptions;
+  inputUnlocked: boolean;
+  settled: boolean;
 };
 
 export function useGameAnimations() {
@@ -54,13 +61,10 @@ export function useGameAnimations() {
   const [cardFlights, setCardFlights] = useState<ReadonlyArray<CardFlight>>([]);
   const [presentationSnapshot, setPresentationSnapshot] =
     useState<PresentationSnapshot | null>(null);
-  const [actionCommitPending, setActionCommitPending] =
+  const [presentedState, setPresentedState] = useState<GameState | null>(null);
+  const [presentationPending, setPresentationPending] =
     useState<boolean>(false);
-  const [
-    allowHumanActionsWhileCommitPending,
-    setAllowHumanActionsWhileCommitPending,
-  ] = useState<boolean>(false);
-  const [actionCommitTimers] = useState<AnimationTimerRegistry>(() =>
+  const [presentationTimers] = useState<AnimationTimerRegistry>(() =>
     createAnimationTimerRegistry()
   );
   const [turnCycleVisualTimers] = useState<AnimationTimerRegistry>(() =>
@@ -69,6 +73,9 @@ export function useGameAnimations() {
   const taxPulseElementsRef = useRef<HTMLElement[]>([]);
   const nextResourceFlightId = useRef(0);
   const nextCardFlightId = useRef(0);
+  const queuedTransitionsRef = useRef<RunTransitionOptions[]>([]);
+  const activeTransitionRef = useRef<ActivePresentationTransition | null>(null);
+  const startNextTransitionRef = useRef<() => void>(() => undefined);
 
   const makeResourceFlightId = useCallback(() => {
     nextResourceFlightId.current += 1;
@@ -284,28 +291,58 @@ export function useGameAnimations() {
     },
     [clearTurnCycleVisuals, scheduleSequenceVisualCommand]
   );
-  const clearPendingActionCommit = useCallback(() => {
-    actionCommitTimers.clearAll();
-    setActionCommitPending(false);
-    setAllowHumanActionsWhileCommitPending(false);
-    setPresentationSnapshot(null);
-  }, [actionCommitTimers]);
   const clearAllFlights = useCallback(() => {
     setResourceFlights([]);
     setCardFlights([]);
-    setAllowHumanActionsWhileCommitPending(false);
-    setPresentationSnapshot(null);
     clearTurnCycleVisuals();
   }, [clearTurnCycleVisuals]);
-  const runTransition = useCallback(
-    ({
-      transactionId,
-      previousState,
-      nextState,
-      action,
-      actingPlayerId,
-      onSettle,
-    }: RunTransitionOptions) => {
+  const clearPresentationQueue = useCallback(() => {
+    presentationTimers.clearAll();
+    queuedTransitionsRef.current = [];
+    activeTransitionRef.current = null;
+    setPresentationPending(false);
+    setPresentationSnapshot(null);
+    setPresentedState(null);
+    clearAllFlights();
+  }, [clearAllFlights, presentationTimers]);
+  const finishPresentationQueue = useCallback(() => {
+    presentationTimers.clearAll();
+    const activeTransition = activeTransitionRef.current;
+    const queuedTransitions = queuedTransitionsRef.current;
+    queuedTransitionsRef.current = [];
+    activeTransitionRef.current = null;
+
+    if (activeTransition) {
+      unlockPresentationTransition(activeTransition);
+      settlePresentationTransition(activeTransition);
+    }
+    for (const queuedTransition of queuedTransitions) {
+      queuedTransition.onInputUnlock?.();
+      queuedTransition.onSettle?.();
+    }
+
+    setPresentationPending(false);
+    setPresentationSnapshot(null);
+    setPresentedState(null);
+    clearAllFlights();
+  }, [clearAllFlights, presentationTimers]);
+  const startNextTransition = useCallback(() => {
+    if (activeTransitionRef.current) {
+      return;
+    }
+
+    while (queuedTransitionsRef.current.length > 0) {
+      const options = queuedTransitionsRef.current.shift();
+      if (!options) {
+        continue;
+      }
+      const {
+        transactionId,
+        previousState,
+        nextState,
+        action,
+        actingPlayerId,
+      } = options;
       const presentationTransaction = buildPresentationTransactionForTransition(
         transactionId,
         previousState,
@@ -316,85 +353,110 @@ export function useGameAnimations() {
       const presentationSequence = presentationTransaction
         ? buildAnimationSequence(presentationTransaction)
         : null;
-      scheduleSequenceVisuals(presentationTransaction, presentationSequence);
-      if (presentationTransaction && presentationSequence) {
-        setPresentationSnapshot(
-          derivePresentationSnapshotFromSequence({
-            transaction: presentationTransaction,
-            sequence: presentationSequence,
-            elapsedMs: 0,
-          })
-        );
-      } else {
-        setPresentationSnapshot(null);
-      }
-
       const settleMs = presentationSequence?.durationMs ?? 0;
-      if (settleMs <= 0) {
-        setPresentationSnapshot(null);
-        setAllowHumanActionsWhileCommitPending(false);
-        onSettle?.();
-        return;
+      if (!presentationTransaction || !presentationSequence || settleMs <= 0) {
+        setPresentedState(nextState);
+        options.onInputUnlock?.();
+        options.onSettle?.();
+        continue;
       }
 
-      setAllowHumanActionsWhileCommitPending(false);
-      setActionCommitPending(true);
-      actionCommitTimers.clearAll();
-      if (presentationTransaction && presentationSequence) {
-        scheduleSequencePresentationSnapshots(
-          presentationTransaction,
-          presentationSequence,
-          settleMs,
-          Math.min(
-            presentationSequence.commitMs,
-            presentationSequence.inputUnlockMs
-          ),
-          actionCommitTimers,
-          setPresentationSnapshot
-        );
-      }
-      const commitMs = presentationSequence?.commitMs ?? settleMs;
-      const inputUnlockMs = presentationSequence?.inputUnlockMs ?? commitMs;
-      if (commitMs === inputUnlockMs && commitMs > 0 && commitMs < settleMs) {
-        // Commit and unlock are one user-visible boundary. Keep them in one
-        // timer so React cannot paint a settled board while input is still
-        // locked because an equal-time unlock callback has not run yet.
-        actionCommitTimers.schedule(commitMs, () => {
-          setPresentationSnapshot(null);
-          setAllowHumanActionsWhileCommitPending(false);
-          setActionCommitPending(false);
-        });
-      } else if (commitMs <= 0) {
+      const activeTransition: ActivePresentationTransition = {
+        options,
+        inputUnlocked: false,
+        settled: false,
+      };
+      activeTransitionRef.current = activeTransition;
+      setPresentationPending(true);
+      setPresentedState(previousState);
+      presentationTimers.clearAll();
+      scheduleSequenceVisuals(presentationTransaction, presentationSequence);
+      setPresentationSnapshot(
+        derivePresentationSnapshotFromSequence({
+          transaction: presentationTransaction,
+          sequence: presentationSequence,
+          elapsedMs: 0,
+        })
+      );
+
+      const commitMs = presentationSequence.commitMs;
+      const inputUnlockMs = presentationSequence.inputUnlockMs;
+      scheduleSequencePresentationSnapshots(
+        presentationTransaction,
+        presentationSequence,
+        settleMs,
+        commitMs,
+        presentationTimers,
+        setPresentationSnapshot
+      );
+      const applyVisibleCommit = () => {
+        if (activeTransitionRef.current !== activeTransition) {
+          return;
+        }
+        setPresentedState(nextState);
         setPresentationSnapshot(null);
+      };
+      if (commitMs <= 0) {
+        applyVisibleCommit();
       } else if (commitMs < settleMs) {
-        actionCommitTimers.schedule(commitMs, () => {
-          setPresentationSnapshot(null);
-        });
+        presentationTimers.schedule(commitMs, applyVisibleCommit);
       }
-      if (commitMs === inputUnlockMs && inputUnlockMs > 0) {
-        // Handled by the combined boundary above, or by the settle callback
-        // when the boundary coincides with final cleanup.
-      } else if (inputUnlockMs <= 0) {
-        setPresentationSnapshot(null);
-        setActionCommitPending(false);
+      if (inputUnlockMs <= 0) {
+        unlockPresentationTransition(activeTransition);
       } else if (inputUnlockMs < settleMs) {
-        actionCommitTimers.schedule(inputUnlockMs, () => {
-          setPresentationSnapshot(null);
-          setAllowHumanActionsWhileCommitPending(false);
-          setActionCommitPending(false);
+        presentationTimers.schedule(inputUnlockMs, () => {
+          if (activeTransitionRef.current === activeTransition) {
+            unlockPresentationTransition(activeTransition);
+          }
         });
       }
-      actionCommitTimers.schedule(settleMs, () => {
+      presentationTimers.schedule(settleMs, () => {
+        if (activeTransitionRef.current !== activeTransition) {
+          return;
+        }
+        applyVisibleCommit();
+        unlockPresentationTransition(activeTransition);
         setResourceFlights([]);
         setCardFlights([]);
-        setAllowHumanActionsWhileCommitPending(false);
         setPresentationSnapshot(null);
         clearTurnCycleVisuals();
-        onSettle?.();
-        setActionCommitPending(false);
+        settlePresentationTransition(activeTransition);
+        activeTransitionRef.current = null;
+
+        if (queuedTransitionsRef.current.length === 0) {
+          setPresentationPending(false);
+          setPresentedState(null);
+          return;
+        }
+        presentationTimers.schedule(0, () => {
+          startNextTransitionRef.current();
+        });
       });
+      return;
+    }
+
+    setPresentationPending(false);
+    setPresentationSnapshot(null);
+    setPresentedState(null);
+  }, [clearTurnCycleVisuals, presentationTimers, scheduleSequenceVisuals]);
+  useEffect(() => {
+    startNextTransitionRef.current = startNextTransition;
+  }, [startNextTransition]);
+  const enqueueTransition = useCallback((options: RunTransitionOptions) => {
+    queuedTransitionsRef.current.push(options);
+    setPresentationPending(true);
+    if (!activeTransitionRef.current) {
+      startNextTransitionRef.current();
+    }
+  }, []);
+  const setAnimationsEnabled = useCallback(
+    (nextEnabled: boolean) => {
+      if (!nextEnabled) {
+        finishPresentationQueue();
+      }
+      setEnabled(nextEnabled);
     },
-    [actionCommitTimers, clearTurnCycleVisuals, scheduleSequenceVisuals]
+    [finishPresentationQueue]
   );
 
   useEffect(() => {
@@ -403,31 +465,53 @@ export function useGameAnimations() {
 
   useEffect(() => {
     return () => {
-      actionCommitTimers.clearAll();
+      presentationTimers.clearAll();
       turnCycleVisualTimers.clearAll();
       clearTaxPulseElements();
+      queuedTransitionsRef.current = [];
+      activeTransitionRef.current = null;
     };
-  }, [actionCommitTimers, clearTaxPulseElements, turnCycleVisualTimers]);
+  }, [clearTaxPulseElements, presentationTimers, turnCycleVisualTimers]);
 
   const presentationOverlays = presentationSnapshot?.overlays;
 
   return {
     enabled,
-    setEnabled,
+    setEnabled: setAnimationsEnabled,
     resourceFlights,
     cardFlights,
     incomeHighlightCardIds: presentationOverlays?.incomeHighlightCardIds ?? [],
     incomeHighlightCrowns: presentationOverlays?.incomeHighlightCrowns ?? [],
     diceVisualState: presentationOverlays?.dice ?? null,
     presentationSnapshot,
+    presentedState,
     activePlayerHighlightOverride:
       presentationOverlays?.activePlayerHighlightOverride ?? null,
-    actionCommitPending,
-    allowHumanActionsWhileCommitPending,
-    clearPendingActionCommit,
+    presentationPending,
+    clearPresentationQueue,
     clearAllFlights,
-    runTransition,
+    enqueueTransition,
   };
+}
+
+function unlockPresentationTransition(
+  transition: ActivePresentationTransition
+): void {
+  if (transition.inputUnlocked) {
+    return;
+  }
+  transition.inputUnlocked = true;
+  transition.options.onInputUnlock?.();
+}
+
+function settlePresentationTransition(
+  transition: ActivePresentationTransition
+): void {
+  if (transition.settled) {
+    return;
+  }
+  transition.settled = true;
+  transition.options.onSettle?.();
 }
 
 function buildPresentationTransactionForTransition(
