@@ -124,14 +124,18 @@ export function deriveAnimationVisualCommands(
   const taxFlightStep = sequence.steps.find(
     (step) => step.type === 'launch-tax-token-flights'
   );
-  const taxPulseStep = sequence.steps.find(
-    (step) => step.type === 'pulse-tax-die'
+  const taxPreFlightHoldStep = sequence.steps.find(
+    (step) => step.type === 'hold-before-tax-flights'
   );
-  if (taxPulseStep && taxFlightStep && taxFlightStep.losses.length > 0) {
+  if (
+    taxPreFlightHoldStep &&
+    taxFlightStep &&
+    taxFlightStep.losses.length > 0
+  ) {
     commands.push({
       type: 'pulse-tax-resources',
-      startMs: taxPulseStep.startMs,
-      endMs: taxPulseStep.endMs,
+      startMs: taxPreFlightHoldStep.startMs,
+      endMs: taxPreFlightHoldStep.endMs,
       targets: taxPulseTargets(taxFlightStep.losses),
     });
   }

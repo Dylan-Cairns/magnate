@@ -11,6 +11,12 @@
   margin-left: 23px;
 }
 
+.die-scene-d10.is-glowing,
+.die-scene-d6.is-glowing {
+  filter: drop-shadow(0 0 3px var(--active-ring))
+    drop-shadow(0 0 7px var(--active-glow-outer));
+}
+
 @keyframes die-dim {
   from {
     filter: brightness(1);
@@ -86,23 +92,4 @@
 .die-roll-bounce-wrap.is-rolling-b {
   animation: die-roll-bounce-b 1000ms ease-out 1;
   will-change: top;
-}
-
-@keyframes die-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 3px var(--active-ring))
-      drop-shadow(0 0 7px var(--active-glow-outer));
-  }
-  50% {
-    transform: scale(1.04);
-    filter: drop-shadow(0 0 5px var(--active-ring))
-      drop-shadow(0 0 14px var(--active-glow-outer));
-  }
-}
-
-.die-scene-d10.is-pulsing,
-.die-scene-d6.is-pulsing {
-  animation: die-pulse 900ms ease-in-out 1 forwards;
 }
