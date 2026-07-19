@@ -147,12 +147,6 @@ export function buildPaymentFlightsFromDom(
   domTargets: AnimationDomTargets = browserAnimationDomTargets,
   timing: PaymentFlightTiming = DEFAULT_PAYMENT_FLIGHT_TIMING
 ): ResourceFlight[] {
-  if (!domTargets.isAvailable()) {
-    return [];
-  }
-
-  const viewportCenterY = domTargets.viewportCenterY();
-  const flights: ResourceFlight[] = [];
   const suitsToAnimate: Suit[] = [];
   for (const entry of tokenEntries(event.payment)) {
     for (let count = 0; count < entry.count; count += 1) {
@@ -160,10 +154,47 @@ export function buildPaymentFlightsFromDom(
     }
   }
 
-  for (const [index, suit] of suitsToAnimate.entries()) {
+  return buildRemovalFlightsFromDom(
+    event.playerId,
+    suitsToAnimate,
+    makeFlightId,
+    domTargets,
+    timing
+  );
+}
+
+export function buildTradeFlightsFromDom(
+  event: Extract<GamePresentationEvent, { type: 'trade-resources-applied' }>,
+  makeFlightId: () => string,
+  domTargets: AnimationDomTargets = browserAnimationDomTargets,
+  timing: PaymentFlightTiming = DEFAULT_PAYMENT_FLIGHT_TIMING
+): ResourceFlight[] {
+  return buildRemovalFlightsFromDom(
+    event.playerId,
+    Array.from({ length: event.giveCount }, () => event.give),
+    makeFlightId,
+    domTargets,
+    timing
+  );
+}
+
+function buildRemovalFlightsFromDom(
+  playerId: PlayerId,
+  suits: readonly Suit[],
+  makeFlightId: () => string,
+  domTargets: AnimationDomTargets,
+  timing: PaymentFlightTiming
+): ResourceFlight[] {
+  if (!domTargets.isAvailable()) {
+    return [];
+  }
+
+  const viewportCenterY = domTargets.viewportCenterY();
+  const flights: ResourceFlight[] = [];
+  for (const [index, suit] of suits.entries()) {
     const sourceElement =
-      domTargets.resourceTokenForDeedTransfer(event.playerId, suit) ??
-      domTargets.resourceToken(event.playerId, suit);
+      domTargets.resourceTokenForDeedTransfer(playerId, suit) ??
+      domTargets.resourceToken(playerId, suit);
     if (!sourceElement) {
       continue;
     }

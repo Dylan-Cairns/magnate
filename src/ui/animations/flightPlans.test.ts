@@ -11,6 +11,7 @@ import {
   buildPaymentFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
+  buildTradeFlightsFromDom,
 } from './flightPlans';
 import {
   PAYMENT_FLIGHT_DURATION_MS,
@@ -206,6 +207,54 @@ describe('flightPlans', () => {
         suit: 'Knots',
         startX: 60,
         startY: 80,
+        delayMs: 2 * PAYMENT_FLIGHT_STAGGER_MS,
+        durationMs: PAYMENT_FLIGHT_DURATION_MS,
+        variant: 'payment',
+      },
+    ]);
+  });
+
+  it('plans three staggered trade removals from the given resource', () => {
+    const moons = makeElement({ left: 10, top: 20, width: 20, height: 20 });
+    const targets = makeTargets({
+      resourceToken: (_playerId, suit) => (suit === 'Moons' ? moons : null),
+    });
+
+    expect(
+      buildTradeFlightsFromDom(
+        {
+          type: 'trade-resources-applied',
+          playerId: PLAYER_A,
+          give: 'Moons',
+          receive: 'Suns',
+          giveCount: 3,
+          receiveCount: 1,
+        },
+        makeIds('trade'),
+        targets
+      )
+    ).toMatchObject([
+      {
+        id: 'trade-1',
+        suit: 'Moons',
+        startX: 20,
+        startY: 30,
+        endX: 20,
+        endY: 500,
+        delayMs: 0,
+        durationMs: PAYMENT_FLIGHT_DURATION_MS,
+        variant: 'payment',
+      },
+      {
+        id: 'trade-2',
+        suit: 'Moons',
+        delayMs: PAYMENT_FLIGHT_STAGGER_MS,
+        durationMs: PAYMENT_FLIGHT_DURATION_MS,
+        variant: 'payment',
+      },
+      {
+        id: 'trade-3',
+        suit: 'Moons',
         delayMs: 2 * PAYMENT_FLIGHT_STAGGER_MS,
         durationMs: PAYMENT_FLIGHT_DURATION_MS,
         variant: 'payment',
