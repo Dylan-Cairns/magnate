@@ -14,6 +14,7 @@ import {
   buildPaymentFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
+  buildTradeFlightsFromDom,
   type IncomeFlightToken,
 } from '../animations/flightPlans';
 import type { CardFlight, ResourceFlight } from '../animations/types';
@@ -201,6 +202,23 @@ export function useGameAnimations() {
         case 'launch-payment-token-flights':
           scheduleAt(command.atMs, () => {
             const flights = buildPaymentFlightsFromDom(
+              command.event,
+              makeResourceFlightId,
+              browserAnimationDomTargets,
+              {
+                durationMs: command.flightDurationMs,
+                staggerMs: command.flightStaggerMs,
+              }
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            appendResourceFlightsWithCleanup(flights, command.durationMs);
+          });
+          return;
+        case 'launch-trade-token-flights':
+          scheduleAt(command.atMs, () => {
+            const flights = buildTradeFlightsFromDom(
               command.event,
               makeResourceFlightId,
               browserAnimationDomTargets,

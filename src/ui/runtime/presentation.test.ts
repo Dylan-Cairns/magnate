@@ -585,18 +585,32 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(developedCards(afterCompletion, PLAYER_A, 'D1')).toEqual(['8', '6']);
   });
 
-  it('applies trade resources at the trade sequence step', () => {
+  it('takes trade tokens one at a time before incrementing the received suit', () => {
     const transaction = makeTradeTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const tradeStep = step(sequence, 'apply-trade-resources');
+    const tradeLosses = sequence.steps.filter(
+      (candidate) => candidate.type === 'apply-trade-token-loss'
+    );
+    const tradeGain = step(sequence, 'apply-trade-token-gain');
 
-    const afterTrade = derivePresentationSnapshotFromSequence({
+    tradeLosses.slice(0, 2).forEach((loss, index) => {
+      const afterLoss = derivePresentationSnapshotFromSequence({
+        transaction,
+        sequence,
+        elapsedMs: loss.startMs,
+      }).viewState;
+      expect(resourceCount(afterLoss, PLAYER_A, 'Moons')).toBe(2 - index);
+      expect(resourceCount(afterLoss, PLAYER_A, 'Suns')).toBe(0);
+    });
+
+    const atThirdRemovalLaunch = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: tradeStep.startMs,
+      elapsedMs: tradeGain.startMs,
     }).viewState;
-    expect(resourceCount(afterTrade, PLAYER_A, 'Moons')).toBe(0);
-    expect(resourceCount(afterTrade, PLAYER_A, 'Suns')).toBe(1);
+    expect(tradeGain.startMs).toBe(tradeLosses[2].startMs);
+    expect(resourceCount(atThirdRemovalLaunch, PLAYER_A, 'Moons')).toBe(0);
+    expect(resourceCount(atThirdRemovalLaunch, PLAYER_A, 'Suns')).toBe(1);
   });
 });
 

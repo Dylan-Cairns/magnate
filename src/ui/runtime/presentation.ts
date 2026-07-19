@@ -92,6 +92,7 @@ function applySequenceStep(
     case 'hold-before-income-flights':
     case 'launch-income-token-flights':
     case 'launch-payment-token-flights':
+    case 'launch-trade-token-flights':
     case 'launch-card-to-district-flight':
     case 'launch-deed-token-flights':
       return { viewState, overlays };
@@ -138,17 +139,18 @@ function applySequenceStep(
         ),
         overlays,
       };
-    case 'apply-trade-resources':
+    case 'apply-trade-token-loss':
       return {
-        viewState: applyResourceDeltas(viewState, [
-          {
-            playerId: step.event.playerId,
-            delta: {
-              [step.event.give]: -step.event.giveCount,
-              [step.event.receive]: step.event.receiveCount,
-            },
-          },
-        ]),
+        viewState: applyResourceDelta(viewState, step.playerId, {
+          [step.suit]: -1,
+        }),
+        overlays,
+      };
+    case 'apply-trade-token-gain':
+      return {
+        viewState: applyResourceDelta(viewState, step.event.playerId, {
+          [step.event.receive]: step.event.receiveCount,
+        }),
         overlays,
       };
     case 'draw-card-flight':

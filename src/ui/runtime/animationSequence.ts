@@ -171,7 +171,26 @@ export type AnimationStep =
     }
   | {
       id: string;
-      type: 'apply-trade-resources';
+      type: 'launch-trade-token-flights';
+      durationMs: number;
+      flightSequenceDurationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'trade-resources-applied' }
+      >;
+    }
+  | {
+      id: string;
+      type: 'apply-trade-token-loss';
+      durationMs: number;
+      playerId: PlayerId;
+      suit: Suit;
+    }
+  | {
+      id: string;
+      type: 'apply-trade-token-gain';
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
@@ -330,14 +349,6 @@ export function buildAnimationSequence(
         cardId: event.cardId,
       });
     }
-    if (event.type === 'trade-resources-applied') {
-      steps.push({
-        id: `apply-trade-resources:${event.playerId}:${event.give}:${event.receive}`,
-        type: 'apply-trade-resources',
-        durationMs: 0,
-        event,
-      });
-    }
     if (
       event.type === 'income-choice-submitted' &&
       !deferIncomeChoiceSubmission
@@ -348,6 +359,7 @@ export function buildAnimationSequence(
 
   appendCardPlacementSteps(transaction, steps, durations);
   appendActionResourcePaymentSteps(transaction, steps, durations);
+  appendTradeSteps(transaction, steps, durations);
   appendDeedDevelopmentSteps(transaction, steps, durations);
   appendSellGainSteps(transaction, steps, durations);
 
@@ -591,6 +603,47 @@ function appendActionResourcePaymentSteps(
       });
     }
   }
+}
+
+function appendTradeSteps(
+  transaction: GameTransaction,
+  steps: AnimationStep[],
+  durations: AnimationDurations
+): void {
+  const trade = firstEvent(transaction, 'trade-resources-applied');
+  if (!trade) {
+    return;
+  }
+
+  steps.push({
+    id: `launch-trade-token-flights:${trade.playerId}:${trade.give}:${trade.receive}`,
+    type: 'launch-trade-token-flights',
+    durationMs: 0,
+    flightSequenceDurationMs: staggeredDuration(
+      trade.giveCount,
+      durations.paymentFlightMs,
+      durations.paymentFlightStaggerMs
+    ),
+    flightDurationMs: durations.paymentFlightMs,
+    flightStaggerMs: durations.paymentFlightStaggerMs,
+    event: trade,
+  });
+  for (let index = 0; index < trade.giveCount; index += 1) {
+    const isLastToken = index === trade.giveCount - 1;
+    steps.push({
+      id: `apply-trade-token-loss:${trade.playerId}:${trade.give}:${String(index)}`,
+      type: 'apply-trade-token-loss',
+      durationMs: isLastToken ? 0 : durations.paymentFlightStaggerMs,
+      playerId: trade.playerId,
+      suit: trade.give,
+    });
+  }
+  steps.push({
+    id: `apply-trade-token-gain:${trade.playerId}:${trade.receive}`,
+    type: 'apply-trade-token-gain',
+    durationMs: durations.paymentFlightMs + durations.commitBufferMs,
+    event: trade,
+  });
 }
 
 function appendCardPlacementSteps(
