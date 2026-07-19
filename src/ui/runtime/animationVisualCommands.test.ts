@@ -45,7 +45,8 @@ describe('deriveAnimationVisualCommands', () => {
     expect(taxFlights).toMatchObject({
       type: 'launch-tax-token-flights',
       atMs: step(sequence, 'launch-tax-token-flights').startMs,
-      durationMs: step(sequence, 'launch-tax-token-flights').durationMs,
+      durationMs: step(sequence, 'launch-tax-token-flights')
+        .flightSequenceDurationMs,
     });
   });
 

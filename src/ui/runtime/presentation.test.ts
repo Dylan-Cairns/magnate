@@ -62,24 +62,51 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(resourceCount(afterIncomeGain.viewState, PLAYER_B, 'Knots')).toBe(1);
   });
 
-  it('applies tax losses only at the sequence tax-loss step', () => {
+  it('applies each tax loss when its staggered token flight launches', () => {
     const { transaction } = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const applyTax = step(sequence, 'apply-tax-losses');
+    const applyTaxSteps = sequence.steps.filter(
+      (candidate) => candidate.type === 'apply-tax-token-loss'
+    );
+    const firstTaxLoss = applyTaxSteps[0];
+    const secondTaxLoss = applyTaxSteps[1];
+    if (!firstTaxLoss || !secondTaxLoss) {
+      throw new Error('Expected two staggered tax loss steps.');
+    }
 
-    const beforeTaxLoss = derivePresentationSnapshotFromSequence({
+    const beforeFirstTaxLoss = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyTax.startMs - 1,
+      elapsedMs: firstTaxLoss.startMs - 1,
     });
-    const afterTaxLoss = derivePresentationSnapshotFromSequence({
+    const afterFirstTaxLoss = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyTax.startMs,
+      elapsedMs: firstTaxLoss.startMs,
+    });
+    const beforeSecondTaxLoss = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: secondTaxLoss.startMs - 1,
+    });
+    const afterSecondTaxLoss = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: secondTaxLoss.startMs,
     });
 
-    expect(resourceCount(beforeTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(3);
-    expect(resourceCount(afterTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(1);
+    expect(resourceCount(beforeFirstTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(
+      3
+    );
+    expect(resourceCount(afterFirstTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(
+      2
+    );
+    expect(
+      resourceCount(beforeSecondTaxLoss.viewState, PLAYER_A, 'Moons')
+    ).toBe(2);
+    expect(resourceCount(afterSecondTaxLoss.viewState, PLAYER_A, 'Moons')).toBe(
+      1
+    );
   });
 
   it('derives dice visual state from sequence boundaries without leaking tax early', () => {

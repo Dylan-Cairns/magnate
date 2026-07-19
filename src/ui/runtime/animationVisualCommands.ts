@@ -135,7 +135,7 @@ export function deriveAnimationVisualCommands(
     commands.push({
       type: 'launch-tax-token-flights',
       atMs: taxFlightStep.startMs,
-      durationMs: taxFlightStep.durationMs,
+      durationMs: taxFlightStep.flightSequenceDurationMs,
       losses: taxFlightStep.losses,
     });
   }
