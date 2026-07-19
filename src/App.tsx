@@ -4,12 +4,7 @@ import { recordGame } from './db/gameHistory';
 
 import type { CardId } from './engine/cards';
 import { districtWinnersByPlayer, scoreLive } from './engine/scoring';
-import type {
-  GameAction,
-  IncomeRollResult,
-  PlayerId,
-  Suit,
-} from './engine/types';
+import type { GameAction, PlayerId, Suit } from './engine/types';
 import {
   buildHumanActionList,
   buildTradeSourceGroups,
@@ -55,7 +50,7 @@ import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
 import { useGameController } from './ui/hooks/useGameController';
-import type { DiceVisualState } from './ui/runtime/types';
+import { useVisibleDiceState } from './ui/hooks/useVisibleDiceState';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
 const BOT_PLAYER: PlayerId = 'PlayerB';
@@ -281,12 +276,13 @@ export function App() {
   const botPlayer = humanView.players.find(
     (player) => player.id === BOT_PLAYER
   );
-  const visibleDiceState = useMemo(
-    () =>
-      diceVisualState ??
-      settledDiceVisualState(humanView.lastIncomeRoll, humanView.lastTaxSuit),
-    [diceVisualState, humanView.lastIncomeRoll, humanView.lastTaxSuit]
-  );
+  const visibleDiceState = useVisibleDiceState({
+    animationDice: diceVisualState,
+    gameKey: viewState.seed,
+    incomeRoll: humanView.lastIncomeRoll,
+    taxSuit: humanView.lastTaxSuit,
+    terminal,
+  });
   const pendingIncomeChoiceCardIds = useMemo(
     () => (viewState.pendingIncomeChoices ?? []).map((choice) => choice.cardId),
     [viewState.pendingIncomeChoices]
@@ -809,22 +805,6 @@ export function App() {
       ) : null}
     </div>
   );
-}
-
-function settledDiceVisualState(
-  incomeRoll: IncomeRollResult | undefined,
-  taxSuit: Suit | undefined
-): DiceVisualState | null {
-  if (!incomeRoll) {
-    return null;
-  }
-
-  return {
-    incomeRoll,
-    taxSuit,
-    incomePhase: 'settled',
-    taxPhase: taxSuit ? 'settled' : 'dimmed',
-  };
 }
 
 function clamp(value: number, min: number, max: number): number {
