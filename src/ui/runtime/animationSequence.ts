@@ -204,6 +204,7 @@ export type AnimationStep =
       id: string;
       type: 'launch-tax-token-flights';
       durationMs: number;
+      flightSequenceDurationMs: number;
       losses: readonly Extract<
         GamePresentationEvent,
         { type: 'tax-token-lost' }
@@ -211,12 +212,9 @@ export type AnimationStep =
     }
   | {
       id: string;
-      type: 'apply-tax-losses';
+      type: 'apply-tax-token-loss';
       durationMs: number;
-      losses: readonly Extract<
-        GamePresentationEvent,
-        { type: 'tax-token-lost' }
-      >[];
+      loss: Extract<GamePresentationEvent, { type: 'tax-token-lost' }>;
     }
   | {
       id: string;
@@ -389,6 +387,11 @@ export function buildAnimationSequence(
     });
   }
   if (taxLosses.length > 0) {
+    const flightSequenceDurationMs = staggeredDuration(
+      taxLosses.length,
+      durations.taxFlightMs,
+      durations.taxFlightStaggerMs
+    );
     steps.push({
       id: 'hold-before-tax-flights',
       type: 'hold-before-tax-flights',
@@ -397,18 +400,20 @@ export function buildAnimationSequence(
     steps.push({
       id: 'launch-tax-token-flights',
       type: 'launch-tax-token-flights',
-      durationMs: staggeredDuration(
-        taxLosses.length,
-        durations.taxFlightMs,
-        durations.taxFlightStaggerMs
-      ),
+      durationMs: 0,
+      flightSequenceDurationMs,
       losses: taxLosses,
     });
-    steps.push({
-      id: 'apply-tax-losses',
-      type: 'apply-tax-losses',
-      durationMs: 0,
-      losses: taxLosses,
+    taxLosses.forEach((loss, index) => {
+      const isLastLoss = index === taxLosses.length - 1;
+      steps.push({
+        id: `apply-tax-token-loss:${loss.playerId}:${loss.suit}:${String(loss.tokenIndex)}`,
+        type: 'apply-tax-token-loss',
+        durationMs: isLastLoss
+          ? durations.taxFlightMs
+          : durations.taxFlightStaggerMs,
+        loss,
+      });
     });
   }
 

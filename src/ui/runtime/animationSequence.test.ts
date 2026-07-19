@@ -30,7 +30,8 @@ describe('buildAnimationSequence', () => {
       'pulse-tax-die',
       'hold-before-tax-flights',
       'launch-tax-token-flights',
-      'apply-tax-losses',
+      'apply-tax-token-loss',
+      'apply-tax-token-loss',
       'stage-gap',
       'hold-before-income-flights',
       'highlight-income-sources',
@@ -52,6 +53,27 @@ describe('buildAnimationSequence', () => {
     const incomeFlights = step(sequence, 'launch-income-token-flights');
     expect(incomePulse.startMs).toBe(incomeRoll.endMs);
     expect(incomeFlights.startMs).toBeGreaterThanOrEqual(incomePulse.endMs);
+  });
+
+  it('applies staggered tax losses when each token flight launches', () => {
+    const sequence = buildAnimationSequence(makeEndTurnTransaction());
+    const taxFlights = step(sequence, 'launch-tax-token-flights');
+    const taxLosses = sequence.steps.filter(
+      (candidate) => candidate.type === 'apply-tax-token-loss'
+    );
+
+    expect(taxFlights.durationMs).toBe(0);
+    expect(taxFlights.flightSequenceDurationMs).toBe(
+      DEFAULT_ANIMATION_DURATIONS.taxFlightMs +
+        DEFAULT_ANIMATION_DURATIONS.taxFlightStaggerMs
+    );
+    expect(taxLosses.map((candidate) => candidate.startMs)).toEqual([
+      taxFlights.startMs,
+      taxFlights.startMs + DEFAULT_ANIMATION_DURATIONS.taxFlightStaggerMs,
+    ]);
+    expect(taxLosses.at(-1)?.endMs).toBe(
+      taxFlights.startMs + taxFlights.flightSequenceDurationMs
+    );
   });
 
   it('uses the step duration as the single source for staggered income flight length', () => {
