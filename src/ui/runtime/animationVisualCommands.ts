@@ -29,6 +29,8 @@ export type AnimationVisualCommand =
       type: 'launch-payment-token-flights';
       atMs: number;
       durationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
       event: Extract<
         GamePresentationEvent,
         { type: 'resource-payment-started' }
@@ -102,7 +104,9 @@ export function deriveAnimationVisualCommands(
         commands.push({
           type: 'launch-payment-token-flights',
           atMs: step.startMs,
-          durationMs: step.durationMs,
+          durationMs: step.flightSequenceDurationMs,
+          flightDurationMs: step.flightDurationMs,
+          flightStaggerMs: step.flightStaggerMs,
           event: step.event,
         });
         break;
