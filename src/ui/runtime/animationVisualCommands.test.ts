@@ -105,7 +105,12 @@ describe('deriveAnimationVisualCommands', () => {
     expect(buyCommands).toContainEqual({
       type: 'launch-payment-token-flights',
       atMs: step(buySequence, 'launch-payment-token-flights').startMs,
-      durationMs: step(buySequence, 'launch-payment-token-flights').durationMs,
+      durationMs: step(buySequence, 'launch-payment-token-flights')
+        .flightSequenceDurationMs,
+      flightDurationMs: step(buySequence, 'launch-payment-token-flights')
+        .flightDurationMs,
+      flightStaggerMs: step(buySequence, 'launch-payment-token-flights')
+        .flightStaggerMs,
       event: step(buySequence, 'launch-payment-token-flights').event,
     });
     expect(buyCommands).toContainEqual({
