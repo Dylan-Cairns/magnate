@@ -87,7 +87,6 @@ function applySequenceStep(
 ): PresentationSnapshot {
   switch (step.type) {
     case 'hold-previous-state':
-    case 'hold-before-tax-flights':
     case 'launch-tax-token-flights':
     case 'stage-gap':
     case 'hold-before-income-flights':
@@ -182,21 +181,6 @@ function applySequenceStep(
           },
         },
       };
-    case 'pulse-income-die':
-      return {
-        viewState,
-        overlays: {
-          ...overlays,
-          dice: {
-            incomeRoll: step.roll,
-            taxSuit: undefined,
-            incomePhase: 'pulsing',
-            taxPhase: transactionHasTaxResolution(transaction)
-              ? 'hidden'
-              : 'dimmed',
-          },
-        },
-      };
     case 'roll-tax-die':
       return {
         viewState: {
@@ -212,15 +196,15 @@ function applySequenceStep(
           }),
         },
       };
-    case 'pulse-tax-die':
+    case 'hold-before-tax-flights':
       return {
         viewState,
         overlays: {
           ...overlays,
           dice: updateDiceVisualState(overlays.dice, {
-            taxSuit: step.suit,
+            taxSuit: overlays.dice?.taxSuit,
             incomePhase: 'settled',
-            taxPhase: 'pulsing',
+            taxPhase: 'settled',
           }),
         },
       };
@@ -315,10 +299,6 @@ function updateDiceVisualState(
     ...current,
     ...update,
   };
-}
-
-function transactionHasTaxResolution(transaction: GameTransaction): boolean {
-  return transaction.events.some((event) => event.type === 'tax-resolved');
 }
 
 function stageSoldCard(

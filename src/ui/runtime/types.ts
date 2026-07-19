@@ -26,11 +26,10 @@ export type AnimationOverlayState = {
   dice: DiceVisualState | null;
 };
 
-export type IncomeDicePhase = 'rolling' | 'pulsing' | 'settled';
+export type IncomeDicePhase = 'rolling' | 'settled';
 export type TaxDicePhase =
   | 'hidden'
   | 'rolling'
-  | 'pulsing'
   | 'settled'
   | 'dimmed';
 

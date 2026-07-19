@@ -21,38 +21,33 @@ export function RollResult({
     gameKey !== undefined ? `${gameKey}:${rollIdentity}` : rollIdentity;
   const die1Wins = dice.incomeRoll.die1 >= dice.incomeRoll.die2;
   const die2Wins = dice.incomeRoll.die2 > dice.incomeRoll.die1;
-  const incomeSettled =
-    dice.incomePhase === 'settled' || dice.incomePhase === 'pulsing';
+  const incomeSettled = dice.incomePhase === 'settled';
+  const taxSettled = dice.taxPhase === 'settled';
+  const taxDimmed = dice.taxPhase === 'hidden' || dice.taxPhase === 'dimmed';
   const taxSuit =
-    dice.taxPhase === 'hidden' || dice.taxPhase === 'dimmed'
-      ? undefined
-      : dice.taxSuit;
+    taxDimmed ? undefined : dice.taxSuit;
 
   return (
     <div className="roll-value" aria-label="Roll result">
       <D10Die
         result={dice.incomeRoll.die1}
         rollKey={visibleRollKey}
-        pulsing={
-          animationsEnabled && dice.incomePhase === 'pulsing' && die1Wins
-        }
+        glowing={incomeSettled && die1Wins}
         dimmed={incomeSettled && !die1Wins}
         animationsEnabled={animationsEnabled}
       />
       <D10Die
         result={dice.incomeRoll.die2}
         rollKey={visibleRollKey}
-        pulsing={
-          animationsEnabled && dice.incomePhase === 'pulsing' && die2Wins
-        }
+        glowing={incomeSettled && die2Wins}
         dimmed={incomeSettled && !die2Wins}
         animationsEnabled={animationsEnabled}
       />
       <D6Die
         suit={taxSuit}
         rollKey={visibleRollKey}
-        pulsing={animationsEnabled && dice.taxPhase === 'pulsing'}
-        dimmed={dice.taxPhase === 'dimmed'}
+        glowing={taxSettled && taxSuit !== undefined}
+        dimmed={taxDimmed}
         animationsEnabled={animationsEnabled}
       />
     </div>

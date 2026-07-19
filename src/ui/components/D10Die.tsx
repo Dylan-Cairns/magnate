@@ -22,7 +22,7 @@ const INITIAL_ROT = { x: -TILT, y: 0 };
 export function D10Die({
   result,
   rollKey,
-  pulsing,
+  glowing,
   dimmed,
   animationsEnabled = true,
 }: {
@@ -30,7 +30,7 @@ export function D10Die({
   // Changing rollKey triggers animation even when result is the same number.
   // Uses rollId from IncomeRollResult — increments with rngCursor on each real roll.
   rollKey?: number | string;
-  pulsing?: boolean;
+  glowing?: boolean;
   dimmed?: boolean;
   animationsEnabled?: boolean;
 }) {
@@ -68,7 +68,7 @@ export function D10Die({
 
   return (
     <div
-      className={`die-scene-d10${pulsing ? ' is-pulsing' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      className={`die-scene-d10${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
       aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
     >
       <div className={`die-roll-bounce-wrap${bounceClass}`}>

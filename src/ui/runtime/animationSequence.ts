@@ -29,9 +29,7 @@ export type AnimationDurations = {
   paymentFlightMs: number;
   paymentFlightStaggerMs: number;
   dieRollMs: number;
-  diePulseMs: number;
   taxDieRollMs: number;
-  taxPulseMs: number;
   taxPreFlightHoldMs: number;
   taxFlightMs: number;
   taxFlightStaggerMs: number;
@@ -51,9 +49,7 @@ export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
   paymentFlightMs: PAYMENT_FLIGHT_DURATION_MS,
   paymentFlightStaggerMs: PAYMENT_FLIGHT_STAGGER_MS,
   dieRollMs: 1000,
-  diePulseMs: 900,
   taxDieRollMs: 1000,
-  taxPulseMs: 900,
   taxPreFlightHoldMs: 550,
   taxFlightMs: TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
   taxFlightStaggerMs: TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
@@ -193,22 +189,7 @@ export type AnimationStep =
     }
   | {
       id: string;
-      type: 'pulse-income-die';
-      durationMs: number;
-      playerId: PlayerId;
-      turn: number;
-      roll: IncomeRollResult;
-      incomeRank: number;
-    }
-  | {
-      id: string;
       type: 'roll-tax-die';
-      durationMs: number;
-      suit: Suit;
-    }
-  | {
-      id: string;
-      type: 'pulse-tax-die';
       durationMs: number;
       suit: Suit;
     }
@@ -381,15 +362,6 @@ export function buildAnimationSequence(
       roll: incomeRoll.roll,
       incomeRank: incomeRoll.incomeRank,
     });
-    steps.push({
-      id: `pulse-income-die:${incomeRoll.roll.rollId ?? `${incomeRoll.roll.die1}-${incomeRoll.roll.die2}`}`,
-      type: 'pulse-income-die',
-      durationMs: durations.diePulseMs,
-      playerId: incomeRoll.playerId,
-      turn: incomeRoll.turn,
-      roll: incomeRoll.roll,
-      incomeRank: incomeRoll.incomeRank,
-    });
   }
 
   const taxLosses = transaction.events.filter(
@@ -405,12 +377,6 @@ export function buildAnimationSequence(
       id: `roll-tax-die:${taxSuit}`,
       type: 'roll-tax-die',
       durationMs: durations.taxDieRollMs,
-      suit: taxSuit,
-    });
-    steps.push({
-      id: `pulse-tax-die:${taxSuit}`,
-      type: 'pulse-tax-die',
-      durationMs: durations.taxPulseMs,
       suit: taxSuit,
     });
   }

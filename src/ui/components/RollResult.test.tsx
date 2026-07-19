@@ -18,37 +18,67 @@ describe('RollResult', () => {
     );
   });
 
-  it('renders pulsing and dimmed d10 state from explicit dice phase', () => {
+  it('renders the winning d10 with a steady glow and dims the loser', () => {
     const html = renderToStaticMarkup(
-      <RollResult
-        dice={{
-          ...BASE_DICE,
-          incomePhase: 'pulsing',
-        }}
-        gameKey="seed"
-      />
+      <RollResult dice={BASE_DICE} gameKey="seed" />
     );
 
     expect(html).toContain('aria-label="d10: 4"');
     expect(html).toContain('aria-label="d10: 7"');
     expect(html).toContain('die-scene-d10 is-dimmed');
-    expect(html).toContain('die-scene-d10 is-pulsing');
+    expect(html).toContain('die-scene-d10 is-glowing');
+    expect(html).not.toContain('is-pulsing');
     expect(html).toContain('die-scene-d6 is-dimmed');
   });
 
-  it('renders tax die visibility and pulse from explicit tax phase', () => {
+  it('renders a settled tax die with a steady glow', () => {
     const html = renderToStaticMarkup(
       <RollResult
         dice={{
           ...BASE_DICE,
           taxSuit: 'Moons',
-          taxPhase: 'pulsing',
+          taxPhase: 'settled',
         }}
         gameKey="seed"
       />
     );
 
     expect(html).toContain('aria-label="d6: Moons"');
-    expect(html).toContain('die-scene-d6 is-pulsing');
+    expect(html).toContain('die-scene-d6 is-glowing');
+    expect(html).not.toContain('is-pulsing');
+  });
+
+  it('keeps the tax die dimmed while only the income dice are rolling', () => {
+    const html = renderToStaticMarkup(
+      <RollResult
+        dice={{
+          ...BASE_DICE,
+          incomePhase: 'rolling',
+          taxPhase: 'hidden',
+        }}
+        gameKey="seed"
+      />
+    );
+
+    expect(html).toContain('die-scene-d6 is-dimmed');
+    expect(html).not.toContain('die-scene-d6 is-glowing');
+  });
+
+  it('undims the tax die when its own roll begins', () => {
+    const html = renderToStaticMarkup(
+      <RollResult
+        dice={{
+          ...BASE_DICE,
+          taxSuit: 'Moons',
+          taxPhase: 'rolling',
+        }}
+        gameKey="seed"
+      />
+    );
+
+    expect(html).toContain('aria-label="d6: Moons"');
+    expect(html).toContain('class="die-scene-d6"');
+    expect(html).not.toContain('die-scene-d6 is-dimmed');
+    expect(html).not.toContain('die-scene-d6 is-glowing');
   });
 });
