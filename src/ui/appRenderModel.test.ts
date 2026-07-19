@@ -6,12 +6,43 @@ import {
   PLAYER_A,
 } from '../engine/__tests__/fixtures';
 import {
+  awaitingIncomeChoiceCardIds,
   buildDeckMapDimming,
   isVisibleIncomeChoicePhase,
   shouldHideBotWaitMessageDuringAnimationLock,
 } from './appRenderModel';
 
 describe('app render model', () => {
+  it('highlights only deed income choices that are still awaiting input', () => {
+    const viewState = makeGameState({
+      phase: 'CollectIncome',
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suits: ['Moons', 'Suns'],
+        },
+        {
+          playerId: 'PlayerB',
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+      submittedIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suit: 'Moons',
+        },
+      ],
+    });
+
+    expect(awaitingIncomeChoiceCardIds(viewState)).toEqual(['8']);
+  });
+
   it('uses the visible state, not a canonical pending phase, for income-choice display', () => {
     const visibleActionWindow = makeGameState({ phase: 'ActionWindow' });
     const visibleIncomeChoice = makeGameState({

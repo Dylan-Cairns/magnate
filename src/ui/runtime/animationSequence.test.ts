@@ -98,9 +98,8 @@ describe('buildAnimationSequence', () => {
 
     expect(stepTypes(sequence)).toEqual([
       'hold-previous-state',
-      'reveal-income-choice-submission',
       'hold-before-income-flights',
-      'highlight-income-sources',
+      'reveal-income-choice-submission',
       'launch-income-token-flights',
       'apply-income-gains',
       'post-income-hold',
@@ -108,6 +107,9 @@ describe('buildAnimationSequence', () => {
     ]);
     expect(step(sequence, 'launch-income-token-flights').startMs).toBe(
       DEFAULT_ANIMATION_DURATIONS.incomePreFlightHoldMs
+    );
+    expect(step(sequence, 'reveal-income-choice-submission').startMs).toBe(
+      step(sequence, 'launch-income-token-flights').startMs
     );
   });
 

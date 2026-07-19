@@ -247,7 +247,23 @@ describe('derivePresentationSnapshotFromSequence', () => {
   it('stages final income-choice reveal and waits for the sequence gain step', () => {
     const transaction = makeIncomeChoiceTransaction();
     const sequence = buildAnimationSequence(transaction);
+    const revealSubmission = step(
+      sequence,
+      'reveal-income-choice-submission'
+    );
+    const launchIncome = step(sequence, 'launch-income-token-flights');
     const applyIncome = step(sequence, 'apply-income-gains');
+
+    const beforeLaunch = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: launchIncome.startMs - 1,
+    });
+    const atLaunch = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: launchIncome.startMs,
+    });
 
     const beforeLanding = derivePresentationSnapshotFromSequence({
       transaction,
@@ -260,7 +276,16 @@ describe('derivePresentationSnapshotFromSequence', () => {
       elapsedMs: applyIncome.startMs,
     });
 
-    expect(beforeLanding.viewState.submittedIncomeChoices).toEqual([
+    expect(revealSubmission.startMs).toBe(launchIncome.startMs);
+    expect(beforeLaunch.viewState.submittedIncomeChoices).toEqual([
+      {
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        suit: 'Knots',
+      },
+    ]);
+    expect(atLaunch.viewState.submittedIncomeChoices).toEqual([
       {
         playerId: PLAYER_A,
         districtId: 'D1',
@@ -274,6 +299,8 @@ describe('derivePresentationSnapshotFromSequence', () => {
         suit: 'Leaves',
       },
     ]);
+    expect(atLaunch.overlays.incomeHighlightCardIds).toEqual([]);
+    expect(beforeLanding.overlays.incomeHighlightCardIds).toEqual([]);
     expect(resourceCount(beforeLanding.viewState, PLAYER_A, 'Knots')).toBe(0);
     expect(resourceCount(beforeLanding.viewState, PLAYER_B, 'Leaves')).toBe(0);
     expect(resourceCount(afterLanding.viewState, PLAYER_A, 'Knots')).toBe(1);

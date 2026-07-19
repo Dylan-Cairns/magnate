@@ -25,6 +25,23 @@ export type DeckMapDimming = {
   dimmedSuits: Set<Suit>;
 };
 
+export function awaitingIncomeChoiceCardIds(
+  viewState: GameState
+): readonly CardId[] {
+  const submissions = viewState.submittedIncomeChoices ?? [];
+  return (viewState.pendingIncomeChoices ?? [])
+    .filter(
+      (choice) =>
+        !submissions.some(
+          (submission) =>
+            submission.playerId === choice.playerId &&
+            submission.districtId === choice.districtId &&
+            submission.cardId === choice.cardId
+        )
+    )
+    .map((choice) => choice.cardId);
+}
+
 export function isVisibleIncomeChoicePhase(viewState: GameState): boolean {
   return (
     viewState.phase === 'CollectIncome' &&

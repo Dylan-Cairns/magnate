@@ -23,6 +23,7 @@ import {
   downloadBugReport,
 } from './ui/bugReport';
 import {
+  awaitingIncomeChoiceCardIds,
   buildDeckMapDimming,
   isVisibleIncomeChoicePhase,
   shouldHideBotWaitMessageDuringAnimationLock,
@@ -283,21 +284,14 @@ export function App() {
     taxSuit: humanView.lastTaxSuit,
     terminal,
   });
-  const pendingIncomeChoiceCardIds = useMemo(
-    () => (viewState.pendingIncomeChoices ?? []).map((choice) => choice.cardId),
-    [viewState.pendingIncomeChoices]
+  const awaitingIncomeChoiceCardIdList = useMemo(
+    () => awaitingIncomeChoiceCardIds(viewState),
+    [viewState]
   );
   const incomeHighlightCardIdSet = useMemo(
     () =>
-      new Set([
-        ...incomeHighlightCardIds,
-        ...(humanInputBlockedByPresentation ? [] : pendingIncomeChoiceCardIds),
-      ]),
-    [
-      humanInputBlockedByPresentation,
-      incomeHighlightCardIds,
-      pendingIncomeChoiceCardIds,
-    ]
+      new Set([...incomeHighlightCardIds, ...awaitingIncomeChoiceCardIdList]),
+    [awaitingIncomeChoiceCardIdList, incomeHighlightCardIds]
   );
   const incomeHighlightCrownSuitsByPlayer = useMemo(() => {
     const byPlayer = new Map<PlayerId, Set<Suit>>([
