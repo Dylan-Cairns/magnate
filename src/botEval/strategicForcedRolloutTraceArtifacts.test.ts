@@ -33,7 +33,7 @@ describe('strategic forced-rollout trace artifacts', () => {
         {
           generatedAtUtc: '2026-07-14T01:02:03.000Z',
           git: { commit: 'test-commit', dirty: false },
-          nodeVersion: 'v20.19.0',
+          nodeVersion: 'v22.23.1',
         }
       );
       const written = await writeStrategicForcedRolloutTraceArtifactsV0(
@@ -49,7 +49,7 @@ describe('strategic forced-rollout trace artifacts', () => {
       expect(json).toMatchObject({
         schemaVersion: 1,
         artifactType: 'ts-strategic-forced-rollout-trace',
-        runtime: { nodeVersion: 'v20.19.0' },
+        runtime: { nodeVersion: 'v22.23.1' },
         git: { commit: 'test-commit', dirty: false },
       });
       expect(markdown).toBe(
