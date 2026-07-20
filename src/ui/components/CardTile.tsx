@@ -9,6 +9,7 @@ import { TokenChip, tokenEntries } from './TokenComponents';
 import {
   buildDeedProgressArcPath,
   canonicalDeedProgressRatio,
+  clampAnimatedDeedProgressRatio,
   DEED_PROGRESS_RING_RADIUS,
   shouldAnimateDeedProgress,
   tweenAnimatedDeedProgressRatio,
@@ -16,7 +17,6 @@ import {
 import { layoutDeedTokensBySide } from './deedTokenLayout';
 
 export type CardPerspective = 'human' | 'bot';
-const LAST_DEED_PROGRESS_RATIO_BY_CARD = new Map<CardId, number>();
 
 export function CardTile({
   cardId,
@@ -146,9 +146,7 @@ function CardTileCard({
     progressTarget
   );
   const [animatedDeedProgressRatio, setAnimatedDeedProgressRatio] =
-    useState<number>(
-      () => LAST_DEED_PROGRESS_RATIO_BY_CARD.get(cardId) ?? deedProgressRatio
-    );
+    useState<number>(deedProgressRatio);
   const animatedRatioRef = useRef(animatedDeedProgressRatio);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -168,7 +166,6 @@ function CardTileCard({
       !shouldAnimateDeedProgress(animatedDeedProgressRatio, deedProgressRatio)
     ) {
       setAnimatedDeedProgressRatio(deedProgressRatio);
-      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, deedProgressRatio);
     }
   }
 
@@ -205,7 +202,6 @@ function CardTileCard({
       );
       animatedRatioRef.current = nextRatio;
       setAnimatedDeedProgressRatio(nextRatio);
-      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, nextRatio);
 
       if (elapsed < DEED_PROGRESS_REVEAL_MS) {
         animationFrameRef.current = window.requestAnimationFrame(tick);
@@ -214,7 +210,6 @@ function CardTileCard({
 
       animatedRatioRef.current = deedProgressRatio;
       setAnimatedDeedProgressRatio(deedProgressRatio);
-      LAST_DEED_PROGRESS_RATIO_BY_CARD.set(cardId, deedProgressRatio);
       animationFrameRef.current = null;
     };
 
@@ -228,7 +223,10 @@ function CardTileCard({
   }, [animateDeedProgress, cardId, deedProgressRatio]);
 
   const displayedDeedProgressRatio = hasDeedProgress
-    ? animatedDeedProgressRatio
+    ? clampAnimatedDeedProgressRatio(
+        animatedDeedProgressRatio,
+        deedProgressRatio
+      )
     : deedProgressRatio;
   const deedProgressArcPath = buildDeedProgressArcPath(
     displayedDeedProgressRatio
