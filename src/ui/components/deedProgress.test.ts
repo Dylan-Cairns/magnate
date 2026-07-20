@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDeedProgressArcPath,
   canonicalDeedProgressRatio,
+  clampAnimatedDeedProgressRatio,
   shouldAnimateDeedProgress,
   tweenAnimatedDeedProgressRatio,
 } from './deedProgress';
@@ -34,6 +35,13 @@ describe('deedProgress helpers', () => {
     expect(shouldAnimateDeedProgress(5 / 6, 1)).toBe(true);
     expect(shouldAnimateDeedProgress(0.5, 1 / 6)).toBe(false);
     expect(shouldAnimateDeedProgress(0.5, 0.5)).toBe(false);
+  });
+
+  it('never displays animated progress beyond the presented snapshot', () => {
+    expect(clampAnimatedDeedProgressRatio(2 / 9, 0)).toBe(0);
+    expect(clampAnimatedDeedProgressRatio(2 / 9, 1 / 9)).toBe(1 / 9);
+    expect(clampAnimatedDeedProgressRatio(1 / 18, 1 / 9)).toBe(1 / 18);
+    expect(clampAnimatedDeedProgressRatio(-1 / 9, 1 / 9)).toBe(0);
   });
 
   it('tween lands exactly on target at duration end', () => {
