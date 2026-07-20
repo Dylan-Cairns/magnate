@@ -154,6 +154,14 @@ function laneCardSize(
   laneElement: HTMLElement,
   fallbackElement?: HTMLElement
 ): Size | null {
+  const explicitTarget = laneElement.querySelector<HTMLElement>(
+    '.lane-card-animation-target'
+  );
+  const explicitRect = explicitTarget?.getBoundingClientRect();
+  if (explicitRect && explicitRect.width > 0 && explicitRect.height > 0) {
+    return { width: explicitRect.width, height: explicitRect.height };
+  }
+
   const fallbackRect = fallbackElement?.getBoundingClientRect();
   const fallbackWidth = fallbackRect?.width ?? 0;
   const fallbackHeight = fallbackRect?.height ?? 0;
@@ -229,6 +237,16 @@ function laneTargetCenter(
   laneElement: HTMLElement,
   cardHeightPx: number
 ): Point | null {
+  const explicitTarget = laneElement.querySelector<HTMLElement>(
+    '.lane-card-animation-target'
+  );
+  if (explicitTarget) {
+    const targetRect = explicitTarget.getBoundingClientRect();
+    if (targetRect.width > 0 && targetRect.height > 0) {
+      return elementCenter(explicitTarget);
+    }
+  }
+
   const isBotLane = laneElement.classList.contains('is-bot');
   const topCard = laneElement.querySelector<HTMLElement>(
     '.lane-stack-card:last-child .card-tile'

@@ -316,10 +316,14 @@ describe('flightPlans', () => {
         id: 'lane-1',
         isDeed: true,
         perspective: 'bot',
+        startWidth: 80,
+        startHeight: 120,
         endX: 400,
         endY: 500,
         endWidth: 96,
         endHeight: 140,
+        renderWidth: 96,
+        renderHeight: 140,
       },
     ]);
 
