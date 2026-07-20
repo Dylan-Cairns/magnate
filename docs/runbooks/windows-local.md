@@ -4,9 +4,9 @@
 
 From repo root:
 
-1. Install or use Node `20.19.0` with `nvm`:
-   `nvm install 20.19.0`
-   `nvm use 20.19.0`
+1. Install or use Node `22.23.1` (the version pinned in `.nvmrc`) with `nvm`:
+   `nvm install 22.23.1`
+   `nvm use 22.23.1`
 2. Install Yarn classic if needed:
    `npm install -g yarn`
 3. Install JS deps:
@@ -28,7 +28,7 @@ Use the PowerShell wrappers so laptop-safe worker and thread settings stay separ
 
 Wrapper behavior:
 
-- requires Node `20.19.0+`, `yarn install`, and a populated `.venv`
+- requires Node `22.12.0+` within the Node 22 line, `yarn install`, and a populated `.venv`
 - sets repo-local temp and cache dirs plus BLAS and OpenMP thread caps
 - auto-sizes CPU budget from logical core count
 - defaults to `-CpuTargetPercent 60 -ReserveLogicalCores 2`

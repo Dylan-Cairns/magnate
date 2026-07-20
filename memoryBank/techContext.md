@@ -2,7 +2,7 @@
 
 ## Stack
 
-- Node.js 20.19.0+
+- Node.js 22.12.0+ within the Node 22 line; `.nvmrc` pins the project runtime to 22.23.1
 - TypeScript strict
 - React + Vite
 - Vitest
@@ -28,7 +28,7 @@
 
 - Package manager: Yarn classic.
 - JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
-- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` gates deployment on `yarn test`, `yarn lint`, then `yarn build` with Node `20.19.0`.
+- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` reads the Node `22.23.1` pin from `.nvmrc`, then gates deployment on `yarn test`, `yarn lint`, and `yarn build`.
 - VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`.
 - Checked-in pyright scope covers `trainer/` plus trainer-side tests in `trainer_tests/`; some `scripts/` orchestration remains outside checked-in pyright scope.
 - TypeScript bridge output is canonical. Python models the consumed subset in `trainer/bridge_payloads.py`.
