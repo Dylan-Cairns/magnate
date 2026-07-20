@@ -89,7 +89,6 @@ function applySequenceStep(
     case 'hold-previous-state':
     case 'launch-tax-token-flights':
     case 'stage-gap':
-    case 'hold-before-income-flights':
     case 'launch-income-token-flights':
     case 'launch-payment-token-flights':
     case 'launch-trade-token-flights':
@@ -207,6 +206,18 @@ function applySequenceStep(
             taxSuit: overlays.dice?.taxSuit,
             incomePhase: 'settled',
             taxPhase: 'settled',
+          }),
+        },
+      };
+    case 'hold-before-income-flights':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          dice: updateDiceVisualState(overlays.dice, {
+            taxSuit: overlays.dice?.taxSuit,
+            incomePhase: 'settled',
+            taxPhase: overlays.dice?.taxPhase ?? 'hidden',
           }),
         },
       };

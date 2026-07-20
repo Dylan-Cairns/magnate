@@ -153,6 +153,48 @@ describe('derivePresentationSnapshotFromSequence', () => {
     });
   });
 
+  it('settles a rank-10 income roll before its income animation begins', () => {
+    const transaction = makeCrownIncomeEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const incomeHold = step(sequence, 'hold-before-income-flights');
+    const incomeFlights = step(sequence, 'launch-income-token-flights');
+
+    expect(sequence.steps.some((entry) => entry.type === 'roll-tax-die')).toBe(
+      false
+    );
+
+    const beforeIncomeHold = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeHold.startMs - 1,
+    });
+    expect(beforeIncomeHold.overlays.dice).toMatchObject({
+      incomeRoll: { die1: 10, die2: 4 },
+      incomePhase: 'rolling',
+      taxPhase: 'hidden',
+    });
+
+    const duringIncomeHold = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeHold.startMs,
+    });
+    expect(duringIncomeHold.overlays.dice).toMatchObject({
+      incomeRoll: { die1: 10, die2: 4 },
+      incomePhase: 'settled',
+      taxPhase: 'hidden',
+    });
+
+    const whenIncomeFlightsStart = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: incomeFlights.startMs,
+    });
+    expect(whenIncomeFlightsStart.overlays.dice).toMatchObject({
+      incomePhase: 'settled',
+    });
+  });
+
   it('holds the visible active player through the draw and changes it when income rolling begins', () => {
     const { transaction } = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
@@ -666,6 +708,37 @@ function makeEndTurnTransaction(): {
   return {
     transaction,
   };
+}
+
+function makeCrownIncomeEndTurnTransaction(): GameTransaction {
+  const previous = makeGameState({
+    phase: 'ActionWindow',
+    activePlayerIndex: 0,
+    players: [
+      makePlayer(PLAYER_A, { crowns: ['30'] }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    phase: 'ActionWindow',
+    activePlayerIndex: 1,
+    players: [
+      makePlayer(PLAYER_A, {
+        crowns: ['30'],
+        resources: makeResources({ Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    lastIncomeRoll: { die1: 10, die2: 4, rollId: 13 },
+  });
+
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'end-turn' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-crown-income-end-turn',
+    stepToDecision: () => next,
+  });
 }
 
 function makeIncomeChoiceTransaction(): GameTransaction {

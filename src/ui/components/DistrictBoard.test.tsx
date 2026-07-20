@@ -106,6 +106,8 @@ describe('DistrictColumn', () => {
     expect(html).toContain('data-card-id="6"');
     expect(html).toContain('data-in-development="true"');
     expect(html).toContain('data-token-suit="Waves"');
+    expect(html).toContain('data-card-flight-target="true"');
+    expect(html).toContain('--stack-position:1');
   });
 
   it('applies income highlight class to developed cards', () => {

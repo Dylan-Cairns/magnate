@@ -122,7 +122,11 @@
 
 @keyframes played-card-flight {
   0% {
-    transform: translate(-50%, -50%) scale(1, 1);
+    transform: translate(-50%, -50%)
+      scale(
+        var(--card-flight-start-scale-x, 1),
+        var(--card-flight-start-scale-y, 1)
+      );
   }
 
   100% {
@@ -130,13 +134,20 @@
         calc(-50% + var(--card-flight-dx)),
         calc(-50% + var(--card-flight-dy))
       )
-      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+      scale(
+        var(--card-flight-end-scale-x, 1),
+        var(--card-flight-end-scale-y, 1)
+      );
   }
 }
 
 @keyframes draw-card-flight {
   0% {
-    transform: translate(-50%, -50%) scale(1, 1);
+    transform: translate(-50%, -50%)
+      scale(
+        var(--card-flight-start-scale-x, 1),
+        var(--card-flight-start-scale-y, 1)
+      );
     opacity: 1;
   }
 
@@ -145,7 +156,10 @@
         calc(-50% + var(--card-flight-dx)),
         calc(-50% + var(--card-flight-dy))
       )
-      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+      scale(
+        var(--card-flight-end-scale-x, 1),
+        var(--card-flight-end-scale-y, 1)
+      );
     opacity: 1;
   }
 
@@ -154,7 +168,10 @@
         calc(-50% + var(--card-flight-dx)),
         calc(-50% + var(--card-flight-dy))
       )
-      scale(var(--card-flight-scale-x, 1), var(--card-flight-scale-y, 1));
+      scale(
+        var(--card-flight-end-scale-x, 1),
+        var(--card-flight-end-scale-y, 1)
+      );
     opacity: 0;
   }
 }

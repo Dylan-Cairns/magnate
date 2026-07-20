@@ -15,10 +15,12 @@ const BASE_FLIGHT: CardFlight = {
   startY: 20,
   endX: 50,
   endY: 80,
-  startWidth: 100,
-  startHeight: 200,
-  endWidth: 50,
-  endHeight: 100,
+  startWidth: 50,
+  startHeight: 100,
+  endWidth: 100,
+  endHeight: 200,
+  renderWidth: 100,
+  renderHeight: 200,
   delayMs: 25,
 };
 
@@ -43,8 +45,12 @@ describe('CardFlightLayer', () => {
     expect(html).toContain('card-flight is-draw');
     expect(html).toContain('--card-flight-dx:40px');
     expect(html).toContain('--card-flight-dy:60px');
-    expect(html).toContain('--card-flight-scale-x:0.5');
-    expect(html).toContain('--card-flight-scale-y:0.5');
+    expect(html).toContain('--card-flight-start-scale-x:0.5');
+    expect(html).toContain('--card-flight-start-scale-y:0.5');
+    expect(html).toContain('--card-flight-end-scale-x:1');
+    expect(html).toContain('--card-flight-end-scale-y:1');
+    expect(html).toContain('width:100px');
+    expect(html).toContain('height:200px');
     expect(html).toContain('data-card-id="6"');
     expect(html).toContain('card-tile card-back');
   });

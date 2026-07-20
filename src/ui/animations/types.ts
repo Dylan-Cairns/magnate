@@ -31,6 +31,8 @@ export type CardFlight = {
   startHeight: number;
   endWidth: number;
   endHeight: number;
+  renderWidth?: number;
+  renderHeight?: number;
   delayMs: number;
   durationMs?: number;
 };

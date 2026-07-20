@@ -20,13 +20,29 @@ export function CardFlightLayer({
       {flights.map((flight) => {
         const dx = flight.endX - flight.startX;
         const dy = flight.endY - flight.startY;
-        const scaleX =
-          flight.startWidth > 0 && Number.isFinite(flight.endWidth)
-            ? flight.endWidth / flight.startWidth
+        const renderWidth =
+          flight.renderWidth && flight.renderWidth > 0
+            ? flight.renderWidth
+            : flight.startWidth;
+        const renderHeight =
+          flight.renderHeight && flight.renderHeight > 0
+            ? flight.renderHeight
+            : flight.startHeight;
+        const startScaleX =
+          renderWidth > 0 && Number.isFinite(flight.startWidth)
+            ? flight.startWidth / renderWidth
             : 1;
-        const scaleY =
-          flight.startHeight > 0 && Number.isFinite(flight.endHeight)
-            ? flight.endHeight / flight.startHeight
+        const startScaleY =
+          renderHeight > 0 && Number.isFinite(flight.startHeight)
+            ? flight.startHeight / renderHeight
+            : 1;
+        const endScaleX =
+          renderWidth > 0 && Number.isFinite(flight.endWidth)
+            ? flight.endWidth / renderWidth
+            : 1;
+        const endScaleY =
+          renderHeight > 0 && Number.isFinite(flight.endHeight)
+            ? flight.endHeight / renderHeight
             : 1;
         return (
           <div
@@ -40,10 +56,12 @@ export function CardFlightLayer({
                 '--card-flight-dy': `${dy}px`,
                 '--card-flight-delay-ms': `${flight.delayMs}ms`,
                 '--card-flight-duration-ms': `${flight.durationMs ?? CARD_FLIGHT_DURATION_MS}ms`,
-                '--card-flight-scale-x': `${Number.isFinite(scaleX) ? scaleX : 1}`,
-                '--card-flight-scale-y': `${Number.isFinite(scaleY) ? scaleY : 1}`,
-                width: `${flight.startWidth}px`,
-                height: `${flight.startHeight}px`,
+                '--card-flight-start-scale-x': `${Number.isFinite(startScaleX) ? startScaleX : 1}`,
+                '--card-flight-start-scale-y': `${Number.isFinite(startScaleY) ? startScaleY : 1}`,
+                '--card-flight-end-scale-x': `${Number.isFinite(endScaleX) ? endScaleX : 1}`,
+                '--card-flight-end-scale-y': `${Number.isFinite(endScaleY) ? endScaleY : 1}`,
+                width: `${renderWidth}px`,
+                height: `${renderHeight}px`,
               } as CSSProperties
             }
           >

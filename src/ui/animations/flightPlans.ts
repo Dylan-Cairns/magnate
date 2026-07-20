@@ -411,6 +411,8 @@ export function createCardFlightToPoint(
     startHeight: sourceRect.height,
     endWidth: options?.endWidth ?? sourceRect.width,
     endHeight: options?.endHeight ?? sourceRect.height,
+    renderWidth: options?.endWidth ?? sourceRect.width,
+    renderHeight: options?.endHeight ?? sourceRect.height,
     delayMs: options?.delayMs ?? 0,
     durationMs: options?.durationMs,
   };

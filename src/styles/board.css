@@ -388,6 +388,24 @@
   align-items: flex-end;
 }
 
+.lane-card-animation-target {
+  position: absolute;
+  left: 50%;
+  width: var(--card-width);
+  height: var(--card-height);
+  pointer-events: none;
+  visibility: hidden;
+  transform: translateX(-50%);
+}
+
+.district-lane.is-human .lane-card-animation-target {
+  top: calc(var(--stack-position) * var(--card-stack-step));
+}
+
+.district-lane.is-bot .lane-card-animation-target {
+  bottom: calc(var(--stack-position) * var(--card-stack-step));
+}
+
 .lane-stack {
   position: relative;
   width: var(--card-width);
