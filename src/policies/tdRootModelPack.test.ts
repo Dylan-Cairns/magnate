@@ -157,6 +157,51 @@ describe('td root model pack', () => {
       expect(fromActions[index]).toBeCloseTo(fromFeatures[index], 6);
     }
   });
+
+  it('keeps paired raw-action logits bit-identical to scalar scoring', () => {
+    const model = makeFullActionOpponentNetwork();
+    const observationA = new Array<number>(OBSERVATION_DIM).fill(0);
+    observationA[0] = 0.5;
+    observationA[1] = 0.25;
+    const observationB = new Array<number>(OBSERVATION_DIM).fill(0);
+    observationB[0] = -0.125;
+    observationB[1] = 0.75;
+    const stateA = createSession('td-root-pair-a', 'PlayerA');
+    const stateB = createSession('td-root-pair-b', 'PlayerB');
+    const actionsA = legalActions(stateA);
+    const actionsB = legalActions(stateB).slice(0, 2);
+
+    const scalarA = model.logitsForActions(observationA, actionsA);
+    const scalarB = model.logitsForActions(observationB, actionsB);
+    const [pairedA, pairedB] = model.logitsForActionPair(
+      observationA,
+      actionsA,
+      observationB,
+      actionsB
+    );
+
+    expect(Array.from(pairedA)).toEqual(Array.from(scalarA));
+    expect(Array.from(pairedB)).toEqual(Array.from(scalarB));
+  });
+
+  it('falls back safely when one paired action list is empty', () => {
+    const model = makeFullActionOpponentNetwork();
+    const observationA = new Array<number>(OBSERVATION_DIM).fill(0.25);
+    const observationB = new Array<number>(OBSERVATION_DIM).fill(-0.25);
+    const state = createSession('td-root-pair-empty', 'PlayerA');
+    const actions = legalActions(state);
+
+    const scalar = model.logitsForActions(observationA, actions);
+    const [pairedA, pairedB] = model.logitsForActionPair(
+      observationA,
+      actions,
+      observationB,
+      []
+    );
+
+    expect(Array.from(pairedA)).toEqual(Array.from(scalar));
+    expect(pairedB).toHaveLength(0);
+  });
 });
 
 function makeTinyOpponentNetwork(): TdRootOpponentNetwork {

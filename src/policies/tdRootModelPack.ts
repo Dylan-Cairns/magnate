@@ -128,6 +128,20 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
   private readonly interactionEmbedding: Float32Array;
   private readonly observationHeadBase: Float32Array;
   private readonly policyHidden: Float32Array;
+  private readonly pairObservationHidden1A: Float32Array;
+  private readonly pairObservationHidden1B: Float32Array;
+  private readonly pairObservationHidden2A: Float32Array;
+  private readonly pairObservationHidden2B: Float32Array;
+  private readonly pairActionEmbeddingA: Float32Array;
+  private readonly pairActionEmbeddingB: Float32Array;
+  private readonly pairActionFeatureScratchA: Float32Array;
+  private readonly pairActionFeatureScratchB: Float32Array;
+  private readonly pairInteractionEmbeddingA: Float32Array;
+  private readonly pairInteractionEmbeddingB: Float32Array;
+  private readonly pairObservationHeadBaseA: Float32Array;
+  private readonly pairObservationHeadBaseB: Float32Array;
+  private readonly pairPolicyHiddenA: Float32Array;
+  private readonly pairPolicyHiddenB: Float32Array;
 
   constructor(tensors: TdRootOpponentNetworkTensors) {
     this.observationDim = tensors.observationDim;
@@ -150,6 +164,20 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     this.interactionEmbedding = new Float32Array(this.hiddenDim);
     this.observationHeadBase = new Float32Array(this.hiddenDim);
     this.policyHidden = new Float32Array(this.hiddenDim);
+    this.pairObservationHidden1A = new Float32Array(this.hiddenDim);
+    this.pairObservationHidden1B = new Float32Array(this.hiddenDim);
+    this.pairObservationHidden2A = new Float32Array(this.hiddenDim);
+    this.pairObservationHidden2B = new Float32Array(this.hiddenDim);
+    this.pairActionEmbeddingA = new Float32Array(this.hiddenDim);
+    this.pairActionEmbeddingB = new Float32Array(this.hiddenDim);
+    this.pairActionFeatureScratchA = new Float32Array(this.actionFeatureDim);
+    this.pairActionFeatureScratchB = new Float32Array(this.actionFeatureDim);
+    this.pairInteractionEmbeddingA = new Float32Array(this.hiddenDim);
+    this.pairInteractionEmbeddingB = new Float32Array(this.hiddenDim);
+    this.pairObservationHeadBaseA = new Float32Array(this.hiddenDim);
+    this.pairObservationHeadBaseB = new Float32Array(this.hiddenDim);
+    this.pairPolicyHiddenA = new Float32Array(this.hiddenDim);
+    this.pairPolicyHiddenB = new Float32Array(this.hiddenDim);
   }
 
   logits(
@@ -207,6 +235,83 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     return logits;
   }
 
+  /**
+   * Benchmark candidate for the browser's natural two-rollout worker chunk.
+   *
+   * This method deliberately keeps each lane's arithmetic in the same order as
+   * logitsForActions while interleaving the lanes so weight reads can be shared
+   * by the JavaScript engine. It is not wired into production search scheduling.
+   */
+  logitsForActionPair(
+    observationA: readonly number[],
+    actionsA: readonly GameAction[],
+    observationB: readonly number[],
+    actionsB: readonly GameAction[]
+  ): readonly [Float32Array, Float32Array] {
+    this.validateObservation(observationA);
+    this.validateObservation(observationB);
+    if (actionsA.length === 0 || actionsB.length === 0) {
+      return [
+        this.logitsForActions(observationA, actionsA),
+        this.logitsForActions(observationB, actionsB),
+      ];
+    }
+
+    this.encodeObservationPair(observationA, observationB);
+    this.encodeObservationHeadBasePair();
+
+    const logitsA = new Float32Array(actionsA.length);
+    const logitsB = new Float32Array(actionsB.length);
+    const sharedCount = Math.min(actionsA.length, actionsB.length);
+    for (let index = 0; index < sharedCount; index += 1) {
+      encodeActionInto(actionsA[index], this.pairActionFeatureScratchA);
+      encodeActionInto(actionsB[index], this.pairActionFeatureScratchB);
+      this.encodeActionPair();
+      this.encodeInteractionPair();
+      const [logitA, logitB] = this.policyLogitPair();
+      logitsA[index] = logitA;
+      logitsB[index] = logitB;
+    }
+
+    for (let index = sharedCount; index < actionsA.length; index += 1) {
+      encodeActionInto(actionsA[index], this.pairActionFeatureScratchA);
+      this.encodeActionLane(
+        this.pairActionFeatureScratchA,
+        this.pairActionEmbeddingA
+      );
+      this.encodeInteractionLane(
+        this.pairObservationHidden2A,
+        this.pairActionEmbeddingA,
+        this.pairInteractionEmbeddingA
+      );
+      logitsA[index] = this.policyLogitLane(
+        this.pairObservationHeadBaseA,
+        this.pairActionEmbeddingA,
+        this.pairInteractionEmbeddingA,
+        this.pairPolicyHiddenA
+      );
+    }
+    for (let index = sharedCount; index < actionsB.length; index += 1) {
+      encodeActionInto(actionsB[index], this.pairActionFeatureScratchB);
+      this.encodeActionLane(
+        this.pairActionFeatureScratchB,
+        this.pairActionEmbeddingB
+      );
+      this.encodeInteractionLane(
+        this.pairObservationHidden2B,
+        this.pairActionEmbeddingB,
+        this.pairInteractionEmbeddingB
+      );
+      logitsB[index] = this.policyLogitLane(
+        this.pairObservationHeadBaseB,
+        this.pairActionEmbeddingB,
+        this.pairInteractionEmbeddingB,
+        this.pairPolicyHiddenB
+      );
+    }
+    return [logitsA, logitsB];
+  }
+
   private validateObservation(observation: readonly number[]): void {
     if (observation.length !== this.observationDim) {
       throw new Error(
@@ -238,6 +343,41 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     return hidden2;
   }
 
+  private encodeObservationPair(
+    observationA: readonly number[],
+    observationB: readonly number[]
+  ): void {
+    const hidden1A = this.pairObservationHidden1A;
+    const hidden1B = this.pairObservationHidden1B;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sumA = this.obsB1[row];
+      let sumB = this.obsB1[row];
+      const offset = row * this.observationDim;
+      for (let col = 0; col < this.observationDim; col += 1) {
+        const weight = this.obsW1[offset + col];
+        sumA += weight * observationA[col];
+        sumB += weight * observationB[col];
+      }
+      hidden1A[row] = Math.tanh(sumA);
+      hidden1B[row] = Math.tanh(sumB);
+    }
+
+    const hidden2A = this.pairObservationHidden2A;
+    const hidden2B = this.pairObservationHidden2B;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sumA = this.obsB2[row];
+      let sumB = this.obsB2[row];
+      const offset = row * this.hiddenDim;
+      for (let col = 0; col < this.hiddenDim; col += 1) {
+        const weight = this.obsW2[offset + col];
+        sumA += weight * hidden1A[col];
+        sumB += weight * hidden1B[col];
+      }
+      hidden2A[row] = Math.tanh(sumA);
+      hidden2B[row] = Math.tanh(sumB);
+    }
+  }
+
   private encodeAction(actionFeatures: ArrayLike<number>): Float32Array {
     const embedding = this.actionEmbedding;
     for (let row = 0; row < this.hiddenDim; row += 1) {
@@ -251,6 +391,37 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     return embedding;
   }
 
+  private encodeActionPair(): void {
+    const embeddingA = this.pairActionEmbeddingA;
+    const embeddingB = this.pairActionEmbeddingB;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sumA = this.actionB[row];
+      let sumB = this.actionB[row];
+      const offset = row * this.actionFeatureDim;
+      for (let col = 0; col < this.actionFeatureDim; col += 1) {
+        const weight = this.actionW[offset + col];
+        sumA += weight * this.pairActionFeatureScratchA[col];
+        sumB += weight * this.pairActionFeatureScratchB[col];
+      }
+      embeddingA[row] = Math.tanh(sumA);
+      embeddingB[row] = Math.tanh(sumB);
+    }
+  }
+
+  private encodeActionLane(
+    actionFeatures: ArrayLike<number>,
+    embedding: Float32Array
+  ): void {
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sum = this.actionB[row];
+      const offset = row * this.actionFeatureDim;
+      for (let col = 0; col < this.actionFeatureDim; col += 1) {
+        sum += this.actionW[offset + col] * actionFeatures[col];
+      }
+      embedding[row] = Math.tanh(sum);
+    }
+  }
+
   private encodeInteraction(
     observationEmbedding: Float32Array,
     actionEmbedding: Float32Array
@@ -260,6 +431,26 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
       interaction[index] = observationEmbedding[index] * actionEmbedding[index];
     }
     return interaction;
+  }
+
+  private encodeInteractionPair(): void {
+    for (let index = 0; index < this.hiddenDim; index += 1) {
+      this.pairInteractionEmbeddingA[index] =
+        this.pairObservationHidden2A[index] * this.pairActionEmbeddingA[index];
+      this.pairInteractionEmbeddingB[index] =
+        this.pairObservationHidden2B[index] * this.pairActionEmbeddingB[index];
+    }
+  }
+
+  private encodeInteractionLane(
+    observationEmbedding: Float32Array,
+    actionEmbedding: Float32Array,
+    interactionEmbedding: Float32Array
+  ): void {
+    for (let index = 0; index < this.hiddenDim; index += 1) {
+      interactionEmbedding[index] =
+        observationEmbedding[index] * actionEmbedding[index];
+    }
   }
 
   private encodeObservationHeadBase(
@@ -276,6 +467,22 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
       headBase[row] = sum;
     }
     return headBase;
+  }
+
+  private encodeObservationHeadBasePair(): void {
+    const width = this.hiddenDim * 3;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sumA = this.headB1[row];
+      let sumB = this.headB1[row];
+      const offset = row * width;
+      for (let col = 0; col < this.hiddenDim; col += 1) {
+        const weight = this.headW1[offset + col];
+        sumA += weight * this.pairObservationHidden2A[col];
+        sumB += weight * this.pairObservationHidden2B[col];
+      }
+      this.pairObservationHeadBaseA[row] = sumA;
+      this.pairObservationHeadBaseB[row] = sumB;
+    }
   }
 
   private policyLogit(
@@ -299,6 +506,62 @@ export class TdRootOpponentNetwork implements TdGuidanceActionScorer {
     let output = this.headB2[0];
     for (let col = 0; col < this.hiddenDim; col += 1) {
       output += this.headW2[col] * hidden[col];
+    }
+    return output;
+  }
+
+  private policyLogitPair(): readonly [number, number] {
+    const width = this.hiddenDim * 3;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sumA = this.pairObservationHeadBaseA[row];
+      let sumB = this.pairObservationHeadBaseB[row];
+      const offset = row * width;
+      const actionOffset = offset + this.hiddenDim;
+      const productOffset = actionOffset + this.hiddenDim;
+      for (let col = 0; col < this.hiddenDim; col += 1) {
+        const actionWeight = this.headW1[actionOffset + col];
+        const productWeight = this.headW1[productOffset + col];
+        sumA += actionWeight * this.pairActionEmbeddingA[col];
+        sumA += productWeight * this.pairInteractionEmbeddingA[col];
+        sumB += actionWeight * this.pairActionEmbeddingB[col];
+        sumB += productWeight * this.pairInteractionEmbeddingB[col];
+      }
+      this.pairPolicyHiddenA[row] = Math.tanh(sumA);
+      this.pairPolicyHiddenB[row] = Math.tanh(sumB);
+    }
+
+    let outputA = this.headB2[0];
+    let outputB = this.headB2[0];
+    for (let col = 0; col < this.hiddenDim; col += 1) {
+      const weight = this.headW2[col];
+      outputA += weight * this.pairPolicyHiddenA[col];
+      outputB += weight * this.pairPolicyHiddenB[col];
+    }
+    return [outputA, outputB];
+  }
+
+  private policyLogitLane(
+    observationHeadBase: Float32Array,
+    actionEmbedding: Float32Array,
+    interactionEmbedding: Float32Array,
+    policyHidden: Float32Array
+  ): number {
+    const width = this.hiddenDim * 3;
+    for (let row = 0; row < this.hiddenDim; row += 1) {
+      let sum = observationHeadBase[row];
+      const offset = row * width;
+      const actionOffset = offset + this.hiddenDim;
+      const productOffset = actionOffset + this.hiddenDim;
+      for (let col = 0; col < this.hiddenDim; col += 1) {
+        sum += this.headW1[actionOffset + col] * actionEmbedding[col];
+        sum += this.headW1[productOffset + col] * interactionEmbedding[col];
+      }
+      policyHidden[row] = Math.tanh(sum);
+    }
+
+    let output = this.headB2[0];
+    for (let col = 0; col < this.hiddenDim; col += 1) {
+      output += this.headW2[col] * policyHidden[col];
     }
     return output;
   }
