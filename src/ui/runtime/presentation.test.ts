@@ -12,6 +12,7 @@ import {
 } from '../../engine/__tests__/fixtures';
 import {
   buildAnimationSequence,
+  DEFAULT_ANIMATION_DURATIONS,
   type AnimationSequence,
 } from './animationSequence';
 import { buildGameTransaction } from './transactions';
@@ -19,11 +20,18 @@ import type { GameTransaction } from './types';
 import { derivePresentationSnapshotFromSequence } from './presentation';
 
 describe('derivePresentationSnapshotFromSequence', () => {
-  it('keeps income resources hidden until the sequence reaches the income gain step', () => {
+  it('reveals each income resource when its individual token lands', () => {
     const { transaction } = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
     const incomeFlights = step(sequence, 'launch-income-token-flights');
-    const applyIncome = step(sequence, 'apply-income-gains');
+    const landings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-income-token'
+    );
+    const firstLanding = landings[0];
+    const secondLanding = landings[1];
+    if (!firstLanding || !secondLanding) {
+      throw new Error('Expected two staggered income landings.');
+    }
 
     const duringIncomeFlights = derivePresentationSnapshotFromSequence({
       transaction,
@@ -43,23 +51,39 @@ describe('derivePresentationSnapshotFromSequence', () => {
       resourceCount(duringIncomeFlights.viewState, PLAYER_B, 'Knots')
     ).toBe(0);
 
-    const beforeIncomeGain = derivePresentationSnapshotFromSequence({
+    const beforeFirstLanding = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyIncome.startMs - 1,
+      elapsedMs: firstLanding.endMs - 1,
     });
-    expect(resourceCount(beforeIncomeGain.viewState, PLAYER_B, 'Suns')).toBe(1);
-    expect(resourceCount(beforeIncomeGain.viewState, PLAYER_B, 'Knots')).toBe(
-      0
-    );
+    const afterFirstLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: firstLanding.endMs,
+    });
+    const beforeSecondLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: secondLanding.endMs - 1,
+    });
+    const afterSecondLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: secondLanding.endMs,
+    });
 
-    const afterIncomeGain = derivePresentationSnapshotFromSequence({
-      transaction,
-      sequence,
-      elapsedMs: applyIncome.startMs,
-    });
-    expect(resourceCount(afterIncomeGain.viewState, PLAYER_B, 'Suns')).toBe(2);
-    expect(resourceCount(afterIncomeGain.viewState, PLAYER_B, 'Knots')).toBe(1);
+    expect(resourceCount(beforeFirstLanding.viewState, PLAYER_B, 'Suns')).toBe(
+      1
+    );
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_B, 'Suns')).toBe(
+      2
+    );
+    expect(
+      resourceCount(beforeSecondLanding.viewState, PLAYER_B, 'Knots')
+    ).toBe(0);
+    expect(resourceCount(afterSecondLanding.viewState, PLAYER_B, 'Knots')).toBe(
+      1
+    );
   });
 
   it('applies each tax loss when its staggered token flight launches', () => {
@@ -158,6 +182,9 @@ describe('derivePresentationSnapshotFromSequence', () => {
     const sequence = buildAnimationSequence(transaction);
     const incomeHold = step(sequence, 'hold-before-income-flights');
     const incomeFlights = step(sequence, 'launch-income-token-flights');
+    const landings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-income-token'
+    );
 
     expect(sequence.steps.some((entry) => entry.type === 'roll-tax-die')).toBe(
       false
@@ -193,6 +220,35 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(whenIncomeFlightsStart.overlays.dice).toMatchObject({
       incomePhase: 'settled',
     });
+    expect(landings).toHaveLength(6);
+    expect(landings[0]?.endMs).toBe(
+      incomeFlights.startMs + DEFAULT_ANIMATION_DURATIONS.incomeFlightMs
+    );
+    expect(landings.at(-1)?.endMs).toBe(
+      incomeFlights.startMs +
+        DEFAULT_ANIMATION_DURATIONS.incomeFlightMs +
+        5 * DEFAULT_ANIMATION_DURATIONS.incomeFlightStaggerMs
+    );
+
+    const afterFirstLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: landings[0]?.endMs ?? 0,
+    });
+    const afterLastLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: landings.at(-1)?.endMs ?? 0,
+    });
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_A, 'Moons')).toBe(
+      1
+    );
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_B, 'Waves')).toBe(
+      0
+    );
+    expect(resourceCount(afterLastLanding.viewState, PLAYER_B, 'Waves')).toBe(
+      1
+    );
   });
 
   it('holds the visible active player through the draw and changes it when income rolling begins', () => {
@@ -281,7 +337,14 @@ describe('derivePresentationSnapshotFromSequence', () => {
       'reveal-income-choice-submission'
     );
     const launchIncome = step(sequence, 'launch-income-token-flights');
-    const applyIncome = step(sequence, 'apply-income-gains');
+    const landings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-income-token'
+    );
+    const firstLanding = landings[0];
+    const secondLanding = landings[1];
+    if (!firstLanding || !secondLanding) {
+      throw new Error('Expected two staggered income-choice landings.');
+    }
 
     const beforeLaunch = derivePresentationSnapshotFromSequence({
       transaction,
@@ -297,12 +360,17 @@ describe('derivePresentationSnapshotFromSequence', () => {
     const beforeLanding = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyIncome.startMs - 1,
+      elapsedMs: firstLanding.endMs - 1,
     });
-    const afterLanding = derivePresentationSnapshotFromSequence({
+    const afterFirstLanding = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: applyIncome.startMs,
+      elapsedMs: firstLanding.endMs,
+    });
+    const afterSecondLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: secondLanding.endMs,
     });
 
     expect(revealSubmission.startMs).toBe(launchIncome.startMs);
@@ -332,8 +400,15 @@ describe('derivePresentationSnapshotFromSequence', () => {
     expect(beforeLanding.overlays.incomeHighlightCardIds).toEqual([]);
     expect(resourceCount(beforeLanding.viewState, PLAYER_A, 'Knots')).toBe(0);
     expect(resourceCount(beforeLanding.viewState, PLAYER_B, 'Leaves')).toBe(0);
-    expect(resourceCount(afterLanding.viewState, PLAYER_A, 'Knots')).toBe(1);
-    expect(resourceCount(afterLanding.viewState, PLAYER_B, 'Leaves')).toBe(1);
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_A, 'Knots')).toBe(
+      1
+    );
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_B, 'Leaves')).toBe(
+      0
+    );
+    expect(
+      resourceCount(afterSecondLanding.viewState, PLAYER_B, 'Leaves')
+    ).toBe(1);
   });
 
   it('stages sold-card state without leaking resources or discard before their steps', () => {
@@ -715,8 +790,8 @@ function makeCrownIncomeEndTurnTransaction(): GameTransaction {
     phase: 'ActionWindow',
     activePlayerIndex: 0,
     players: [
-      makePlayer(PLAYER_A, { crowns: ['30'] }),
-      makePlayer(PLAYER_B),
+      makePlayer(PLAYER_A, { crowns: ['32', '35', '33'] }),
+      makePlayer(PLAYER_B, { crowns: ['31', '30', '34'] }),
     ],
   });
   const next = makeGameState({
@@ -724,10 +799,13 @@ function makeCrownIncomeEndTurnTransaction(): GameTransaction {
     activePlayerIndex: 1,
     players: [
       makePlayer(PLAYER_A, {
-        crowns: ['30'],
-        resources: makeResources({ Knots: 1 }),
+        crowns: ['32', '35', '33'],
+        resources: makeResources({ Moons: 1, Wyrms: 1, Suns: 1 }),
       }),
-      makePlayer(PLAYER_B),
+      makePlayer(PLAYER_B, {
+        crowns: ['31', '30', '34'],
+        resources: makeResources({ Leaves: 1, Knots: 1, Waves: 1 }),
+      }),
     ],
     lastIncomeRoll: { die1: 10, die2: 4, rollId: 13 },
   });

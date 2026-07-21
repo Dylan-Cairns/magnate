@@ -59,7 +59,12 @@ describe('deriveAnimationVisualCommands', () => {
     expect(incomeFlights).toMatchObject({
       type: 'launch-income-token-flights',
       atMs: step(sequence, 'launch-income-token-flights').startMs,
-      durationMs: step(sequence, 'launch-income-token-flights').durationMs,
+      durationMs: step(sequence, 'launch-income-token-flights')
+        .flightSequenceDurationMs,
+      flightDurationMs: step(sequence, 'launch-income-token-flights')
+        .flightDurationMs,
+      flightStaggerMs: step(sequence, 'launch-income-token-flights')
+        .flightStaggerMs,
     });
     expect(incomeFlights?.atMs).toBeGreaterThanOrEqual(
       step(sequence, 'roll-tax-die').endMs
