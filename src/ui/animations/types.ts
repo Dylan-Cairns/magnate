@@ -11,6 +11,7 @@ export type ResourceFlight = {
   endY: number;
   delayMs: number;
   durationMs?: number;
+  presentationLandingMs?: number;
   variant?: 'transfer' | 'payment' | 'tax-loss';
 };
 

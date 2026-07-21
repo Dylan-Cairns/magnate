@@ -254,6 +254,9 @@ export type AnimationStep =
       id: string;
       type: 'launch-income-token-flights';
       durationMs: number;
+      flightSequenceDurationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
         { type: 'income-token-gained' }
@@ -261,12 +264,9 @@ export type AnimationStep =
     }
   | {
       id: string;
-      type: 'apply-income-gains';
+      type: 'land-income-token';
       durationMs: number;
-      gains: readonly Extract<
-        GamePresentationEvent,
-        { type: 'income-token-gained' }
-      >[];
+      gain: Extract<GamePresentationEvent, { type: 'income-token-gained' }>;
     }
   | {
       id: string;
@@ -443,6 +443,11 @@ export function buildAnimationSequence(
   }
   if (incomeGains.length > 0) {
     const targets = highlightTargetsForIncomeEvents(incomeGains);
+    const flightSequenceDurationMs = staggeredDuration(
+      incomeGains.length,
+      durations.incomeFlightMs,
+      durations.incomeFlightStaggerMs
+    );
     steps.push({
       id: 'hold-before-income-flights',
       type: 'hold-before-income-flights',
@@ -465,18 +470,22 @@ export function buildAnimationSequence(
     steps.push({
       id: 'launch-income-token-flights',
       type: 'launch-income-token-flights',
-      durationMs: staggeredDuration(
-        incomeGains.length,
-        durations.incomeFlightMs,
-        durations.incomeFlightStaggerMs
-      ),
+      durationMs: 0,
+      flightSequenceDurationMs,
+      flightDurationMs: durations.incomeFlightMs,
+      flightStaggerMs: durations.incomeFlightStaggerMs,
       gains: incomeGains,
     });
-    steps.push({
-      id: 'apply-income-gains',
-      type: 'apply-income-gains',
-      durationMs: 0,
-      gains: incomeGains,
+    incomeGains.forEach((gain, index) => {
+      steps.push({
+        id: `land-income-token:${gain.playerId}:${gain.suit}:${String(index)}`,
+        type: 'land-income-token',
+        durationMs:
+          index === 0
+            ? durations.incomeFlightMs
+            : durations.incomeFlightStaggerMs,
+        gain,
+      });
     });
     steps.push({
       id: 'post-income-hold',

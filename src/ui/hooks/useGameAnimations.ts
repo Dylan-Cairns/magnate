@@ -278,12 +278,25 @@ export function useGameAnimations() {
                   source: gain.source,
                 })
               ),
-              makeResourceFlightId
+              makeResourceFlightId,
+              browserAnimationDomTargets,
+              {
+                durationMs: command.flightDurationMs,
+                staggerMs: command.flightStaggerMs,
+              }
             );
             if (incomeFlights.length === 0) {
               return;
             }
-            appendResourceFlightsWithCleanup(incomeFlights, command.durationMs);
+            const flightsWithLandingTimes = incomeFlights.map((flight) => ({
+              ...flight,
+              presentationLandingMs:
+                command.atMs + flight.delayMs + command.flightDurationMs,
+            }));
+            setResourceFlights((existing) => [
+              ...existing,
+              ...flightsWithLandingTimes,
+            ]);
           });
           return;
       }
@@ -410,7 +423,12 @@ export function useGameAnimations() {
         settleMs,
         commitMs,
         presentationTimers,
-        setPresentationSnapshot
+        (atMs, snapshot) => {
+          setResourceFlights((existing) =>
+            resourceFlightsAfterPresentationTime(existing, atMs)
+          );
+          setPresentationSnapshot(snapshot);
+        }
       );
       const applyVisibleCommit = () => {
         if (activeTransitionRef.current !== activeTransition) {
@@ -594,7 +612,7 @@ function scheduleSequencePresentationSnapshots(
   settleMs: number,
   finalBoundaryMs: number,
   timers: AnimationTimerRegistry,
-  setSnapshot: (snapshot: PresentationSnapshot | null) => void
+  applySnapshot: (atMs: number, snapshot: PresentationSnapshot) => void
 ): void {
   const updateTimes = sequencePresentationSnapshotUpdateTimes(
     sequence,
@@ -603,7 +621,8 @@ function scheduleSequencePresentationSnapshots(
   );
   for (const atMs of updateTimes) {
     timers.schedule(atMs, () => {
-      setSnapshot(
+      applySnapshot(
+        atMs,
         derivePresentationSnapshotFromSequence({
           transaction,
           sequence,
@@ -612,6 +631,17 @@ function scheduleSequencePresentationSnapshots(
       );
     });
   }
+}
+
+export function resourceFlightsAfterPresentationTime(
+  flights: readonly ResourceFlight[],
+  elapsedMs: number
+): readonly ResourceFlight[] {
+  return flights.filter(
+    (flight) =>
+      flight.presentationLandingMs === undefined ||
+      flight.presentationLandingMs > elapsedMs
+  );
 }
 
 export function sequencePresentationSnapshotUpdateTimes(
