@@ -14,6 +14,7 @@ import { rankHeuristicV2Actions } from './heuristicScorerV2';
 import {
   rolloutSearchScenarioSeeds,
   runRolloutSearchTask,
+  runRolloutSearchTaskResumable,
   selectRolloutSearchActionParallel,
   selectRolloutSearchActionSync,
   type RolloutSearchTraceStep,
@@ -584,6 +585,60 @@ describe('rollout search core', () => {
         expect(step.stateBefore).toEqual(steps[index - 1].stateAfter);
       }
     }
+  });
+
+  it('keeps resumable scalar results and traces identical to the legacy task oracle', () => {
+    const fixture = selectionFixture('rollout-core-resumable-parity');
+    const rootAction = rootActionWithFollowup(fixture);
+    const task: RolloutSearchWorkerTask = {
+      kind: 'rollout-search',
+      contextId: 'rollout-core-resumable-parity-context',
+      visitIndex: 7,
+      actionVisitIndex: 3,
+      scenarioIndex: 3,
+      worldIndex: 0,
+      engineSeed: 'rollout-core-resumable-parity-engine',
+      rootPlayer: fixture.view.activePlayerId,
+      rootAction: rootAction.action,
+      rootActionKey: rootAction.actionKey,
+      config: {
+        worlds: 1,
+        rollouts: 1,
+        depth: 7,
+        maxRootActions: 1,
+        rolloutEpsilon: 0.25,
+        heuristic: 'v2',
+      },
+      randomSeed: 'rollout-core-resumable-parity-playout',
+    };
+    const guidance = {
+      chooseRolloutAction({ actions }: { actions: readonly unknown[] }) {
+        return actions[actions.length - 1] as (typeof task)['rootAction'];
+      },
+      evaluateLeaf() {
+        return 0.321;
+      },
+    };
+    const legacyTrace: RolloutSearchTraceStep[] = [];
+    const resumableTrace: RolloutSearchTraceStep[] = [];
+
+    const legacy = runRolloutSearchTask(
+      task,
+      [fixture.state],
+      undefined,
+      guidance,
+      { onStep: (step) => legacyTrace.push(step) }
+    );
+    const resumable = runRolloutSearchTaskResumable(
+      task,
+      [fixture.state],
+      undefined,
+      guidance,
+      { onStep: (step) => resumableTrace.push(step) }
+    );
+
+    expect(resumable).toEqual(legacy);
+    expect(resumableTrace).toEqual(legacyTrace);
   });
 });
 

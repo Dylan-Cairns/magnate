@@ -186,7 +186,11 @@ export function createTdRootSearchRolloutGuidance({
       tdLeafValue({ state, rootPlayer, model });
   }
   if (resolved.rollout === 'td') {
-    runtimeGuidance.chooseRolloutAction = ({ state, actions, decisionPlayer }) =>
+    runtimeGuidance.chooseRolloutAction = ({
+      state,
+      actions,
+      decisionPlayer,
+    }) =>
       chooseTdRolloutAction({
         state,
         actions,
@@ -241,6 +245,30 @@ function chooseTdRolloutAction({
     model,
     label: 'rollout',
   });
+  return tdRolloutActionFromLogits(
+    keyed.map((candidate) => candidate.action),
+    logits
+  );
+}
+
+/** Shared by the scalar TD rollout guide and the benchmark-only paired driver. */
+export function tdRolloutActionFromLogits(
+  actions: readonly GameAction[],
+  logits: ArrayLike<number>
+): GameAction {
+  const keyed = toKeyedActions(actions);
+  if (logits.length !== keyed.length) {
+    throw new Error(
+      `TD root search rollout logits length mismatch. logits=${String(logits.length)} actions=${String(keyed.length)}.`
+    );
+  }
+  for (let index = 0; index < logits.length; index += 1) {
+    if (!Number.isFinite(logits[index])) {
+      throw new Error(
+        `TD root search rollout logit is not finite: ${String(logits[index])}.`
+      );
+    }
+  }
   return keyed[argmaxLogitsIndex(logits, keyed)].action;
 }
 

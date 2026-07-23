@@ -30,11 +30,33 @@
 - Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
 - A benchmark-only browser TD two-lane inference spike now provides a dedicated
   worker harness, deterministic legal-position corpus, model-pack SHA-256,
-  alternating scalar/paired timing, and exact-logit/argmax gates. The initial
-  eight-position smoke passed with zero differences across 41 logits; its
-  single-round timing is not decision evidence. Production search remains
-  unchanged, and the quiet-machine full command in
-  `docs/runbooks/td-two-lane-browser-benchmark.md` is pending.
+  alternating scalar/paired timing, and exact-logit/argmax gates. The
+  quiet-machine full run passed with zero exact-logit or argmax mismatches and
+  measured a 1.313x kernel speedup, motivating the end-to-end search spike.
+  Production search remains unchanged.
+- The inference spike's 1.313x full result justified an end-to-end browser
+  search spike. A benchmark-only resumable rollout-visit runner and paired TD
+  worker executor now sit behind explicit worker-pool modes; normal browser
+  play still omits the mode and uses the unchanged legacy task runner. The
+  paired executor preserves the existing rollout wave, UCB scheduling, task
+  seeds, root merge order, checkpoint, and TD Medium policy semantics. A
+  three-lane browser harness compares legacy, resumable-scalar, and
+  resumable-paired execution on complete searches, including selected actions,
+  full root diagnostics, model SHA-256, alternating timing, and an overnight
+  full-game transcript audit. Its validated one-state smoke found zero action,
+  diagnostics, and scalar-machine mismatches and a non-decisional 1.321x
+  speedup. An earlier smoke correctly caught raw-versus-stable-key action order
+  at the paired model boundary; the executor now sorts each lane exactly as the
+  scalar TD rollout policy does, with regression coverage. The quiet-machine
+  full run completed on 2026-07-22 with the deployed July checkpoint: all 72
+  repeated decisions matched in selected action and full root diagnostics,
+  resumable-scalar matched legacy throughout, and a 163-decision complete game
+  matched in action transcript, diagnostics, and final state. Mean decision
+  latency fell from 2,747 ms to 2,194 ms (1.252x speedup); p50 fell from 2,572
+  ms to 2,101 ms and p95 from 3,456 ms to 3,009 ms. This passes the predeclared
+  1.2x end-to-end gate and warrants production shadow validation, not immediate
+  activation. The run is documented in
+  `docs/runbooks/td-two-lane-search-browser-benchmark.md`.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Experimental `StrategicStateSummaryV0` exposes player-view-safe score, clock,
   resource, income-source, deed-feasibility, placement-support, and card-support
