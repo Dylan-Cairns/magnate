@@ -101,6 +101,41 @@ describe('search worker pool', () => {
     await expect(second).resolves.toEqual([result(1)]);
   });
 
+  it('forwards an evaluation execution mode to every worker chunk', async () => {
+    const workers: FakeSearchWorker[] = [];
+    const pool = createSearchWorkerPool({
+      workerCount: 2,
+      executionMode: 'resumable-paired-td',
+      createWorker: () => pushWorker(workers),
+    });
+
+    const run = pool.runBatch([task(0), task(1)], TEST_CONTEXT);
+    for (const worker of workers) {
+      worker.emit({
+        type: 'initialized',
+        requestId: initRequest(worker.messages[0]).requestId,
+      });
+    }
+    await flushAsyncWork();
+
+    for (const worker of workers) {
+      expect(runBatchRequest(worker.messages[1]).executionMode).toBe(
+        'resumable-paired-td'
+      );
+    }
+    workers[0].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[0].messages[1]).requestId,
+      results: [result(0)],
+    });
+    workers[1].emit({
+      type: 'batch-result',
+      requestId: runBatchRequest(workers[1].messages[1]).requestId,
+      results: [result(1)],
+    });
+    await expect(run).resolves.toEqual([result(0), result(1)]);
+  });
+
   it('reinitializes rollout search worlds when the same context id carries new worlds', async () => {
     const workers: FakeSearchWorker[] = [];
     const pool = createSearchWorkerPool({
@@ -109,7 +144,9 @@ describe('search worker pool', () => {
     });
     const nextContext = {
       contextId: TEST_CONTEXT.contextId,
-      worldStates: [createSession('search-worker-pool-next-context', 'PlayerA')],
+      worldStates: [
+        createSession('search-worker-pool-next-context', 'PlayerA'),
+      ],
     };
 
     const first = pool.runBatch([task(0)], TEST_CONTEXT);

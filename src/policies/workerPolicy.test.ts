@@ -12,10 +12,7 @@ import {
   createWorkerBackedPolicy,
   type WorkerBackedPolicyWorker,
 } from './workerPolicy';
-import type {
-  BotWorkerRequest,
-  BotWorkerResponse,
-} from './workerBotProtocol';
+import type { BotWorkerRequest, BotWorkerResponse } from './workerBotProtocol';
 
 describe('worker-backed policy', () => {
   it('returns single legal actions without creating a worker', async () => {
@@ -98,6 +95,7 @@ describe('worker-backed policy', () => {
       spec,
       randomSeed: policyRandomSeedForState(state, spec.id),
     });
+    expect(request).not.toHaveProperty('searchExecutionMode');
 
     workers[0].emit({
       type: 'selected-action',
@@ -108,6 +106,29 @@ describe('worker-backed policy', () => {
 
     await expect(selectedPromise).resolves.toBe(selectedAction);
     expect(emittedDiagnostics).toEqual([diagnostics]);
+  });
+
+  it('forwards an explicitly requested evaluation search executor', async () => {
+    const workers: FakeWorker[] = [];
+    const { context, actions } = selectionFixture();
+    const policy = createWorkerBackedPolicy(tdSearchSpec(), {
+      createWorker: () => pushWorker(workers),
+      searchExecutionMode: 'resumable-paired-td',
+    });
+
+    const selectedPromise = Promise.resolve(policy.selectAction(context));
+    const request = workers[0].messages[0];
+
+    expect(request).toMatchObject({
+      type: 'select-action',
+      searchExecutionMode: 'resumable-paired-td',
+    });
+    workers[0].emit({
+      type: 'selected-action',
+      requestId: request.requestId,
+      actionKey: actionStableKey(actions[0]),
+    });
+    await expect(selectedPromise).resolves.toBe(actions[0]);
   });
 
   it('rejects worker-selected action keys outside the current legal set', async () => {
@@ -198,6 +219,20 @@ function searchSpec(): BotSpec {
   };
 }
 
+function tdSearchSpec(): BotSpec {
+  return {
+    id: 'worker-td-search',
+    kind: 'td-root-search',
+    config: {
+      worlds: 1,
+      rollouts: 1,
+      depth: 2,
+      maxRootActions: 2,
+      rolloutEpsilon: 0,
+    },
+  };
+}
+
 function selectionFixture(): {
   state: ReturnType<typeof createSession>;
   actions: ReturnType<typeof legalActions>;
@@ -206,7 +241,9 @@ function selectionFixture(): {
   const state = createSession('worker-policy-test', 'PlayerB');
   const actions = legalActions(state);
   if (actions.length < 2) {
-    throw new Error('workerPolicy test fixture requires multiple legal actions.');
+    throw new Error(
+      'workerPolicy test fixture requires multiple legal actions.'
+    );
   }
   return {
     state,

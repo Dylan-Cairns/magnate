@@ -3,6 +3,7 @@ import type { GameAction } from '../engine/types';
 import type { BotSpec } from './botSpec';
 import { policyRandomSeedForState } from './policyRandom';
 import type { ActionPolicy, ActionSelectionContext } from './types';
+import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 import type { BotWorkerRequest, BotWorkerResponse } from './workerBotProtocol';
 
 export interface WorkerBackedPolicyWorker {
@@ -18,6 +19,11 @@ export interface WorkerBackedPolicyOptions {
     context: ActionSelectionContext,
     spec: BotSpec
   ) => string;
+  /**
+   * Evaluation-only worker executor override. Catalog policies omit this and
+   * retain the legacy search executor.
+   */
+  searchExecutionMode?: SearchWorkerExecutionMode;
 }
 
 export interface WorkerBackedActionPolicy extends ActionPolicy {
@@ -161,6 +167,9 @@ export function createWorkerBackedPolicy(
             view: context.view,
             legalActions: [...context.legalActions],
             randomSeed: randomSeedForContext(context, spec),
+            ...(options.searchExecutionMode
+              ? { searchExecutionMode: options.searchExecutionMode }
+              : {}),
           });
         } catch (error) {
           pendingByRequestId.delete(requestId);
