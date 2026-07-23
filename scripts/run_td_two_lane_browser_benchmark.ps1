@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('inference', 'search')]
+    [ValidateSet('inference', 'search', 'outer-shadow')]
     [string]$Benchmark = 'inference',
     [ValidateSet('smoke', 'full')]
     [string]$Mode = 'full',
@@ -19,21 +19,27 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($States -le 0) {
-    $States = if ($Benchmark -eq 'search') {
+    $States = if ($Benchmark -eq 'outer-shadow') {
+        if ($Mode -eq 'smoke') { 1 } else { 64 }
+    } elseif ($Benchmark -eq 'search') {
         if ($Mode -eq 'smoke') { 1 } else { 24 }
     } else {
         if ($Mode -eq 'smoke') { 8 } else { 128 }
     }
 }
 if ($Rounds -le 0) {
-    $Rounds = if ($Benchmark -eq 'search') {
+    $Rounds = if ($Benchmark -eq 'outer-shadow') {
+        if ($Mode -eq 'smoke') { 1 } else { 2 }
+    } elseif ($Benchmark -eq 'search') {
         if ($Mode -eq 'smoke') { 1 } else { 3 }
     } else {
         if ($Mode -eq 'smoke') { 1 } else { 500 }
     }
 }
 if ($WarmupRounds -le 0) {
-    $WarmupRounds = if ($Benchmark -eq 'search') {
+    $WarmupRounds = if ($Benchmark -eq 'outer-shadow') {
+        if ($Mode -eq 'smoke') { 1 } else { 2 }
+    } elseif ($Benchmark -eq 'search') {
         if ($Mode -eq 'smoke') { 1 } else { 2 }
     } else {
         if ($Mode -eq 'smoke') { 1 } else { 5 }
@@ -46,7 +52,13 @@ if ($Workers -le 0) {
     $Workers = if ($Benchmark -eq 'search' -and $Mode -eq 'smoke') { 2 } else { 8 }
 }
 if ($TranscriptGames -lt 0) {
-    $TranscriptGames = if ($Benchmark -eq 'search' -and $Mode -eq 'full') { 1 } else { 0 }
+    $TranscriptGames = if ($Benchmark -eq 'outer-shadow' -and $Mode -eq 'full') {
+        4
+    } elseif ($Benchmark -eq 'search' -and $Mode -eq 'full') {
+        1
+    } else {
+        0
+    }
 }
 if ($MinimumSpeedup -le 0) {
     throw '-MinimumSpeedup must be greater than zero.'
@@ -64,7 +76,9 @@ $debugPort = $Port + 1
 
 if ([string]::IsNullOrWhiteSpace($OutDir)) {
     $timestamp = Get-Date -Format 'yyyyMMddTHHmmssZ'
-    $artifactName = if ($Benchmark -eq 'search') {
+    $artifactName = if ($Benchmark -eq 'outer-shadow') {
+        "td-outer-worker-shadow-browser-$timestamp"
+    } elseif ($Benchmark -eq 'search') {
         "td-two-lane-search-browser-$timestamp"
     } else {
         "td-two-lane-browser-$timestamp"
@@ -135,7 +149,13 @@ $browserStdout = Join-Path $OutDir 'browser.stdout.log'
 $browserStderr = Join-Path $OutDir 'browser.stderr.log'
 $envelopePath = Join-Path $OutDir 'browser-result-envelope.json'
 $jsonPath = Join-Path $OutDir 'result.json'
-$profilePrefix = if ($Benchmark -eq 'search') { 'magnate-td-two-lane-search-' } else { 'magnate-td-two-lane-' }
+$profilePrefix = if ($Benchmark -eq 'outer-shadow') {
+    'magnate-td-outer-shadow-'
+} elseif ($Benchmark -eq 'search') {
+    'magnate-td-two-lane-search-'
+} else {
+    'magnate-td-two-lane-'
+}
 $browserProfile = Join-Path ([IO.Path]::GetTempPath()) "$profilePrefix$PID-$([guid]::NewGuid().ToString('N'))"
 [void](New-Item -ItemType Directory -Path $browserProfile)
 
@@ -153,7 +173,9 @@ try {
     }
     $viteProcess = Start-Process @viteArguments
 
-    $benchmarkPage = if ($Benchmark -eq 'search') {
+    $benchmarkPage = if ($Benchmark -eq 'outer-shadow') {
+        '/benchmarks/td-two-lane-outer-shadow.html'
+    } elseif ($Benchmark -eq 'search') {
         '/benchmarks/td-two-lane-search.html'
     } else {
         '/benchmarks/td-two-lane.html'
@@ -178,7 +200,16 @@ try {
         throw "Timed out waiting for Vite. See $viteStderr"
     }
 
-    $query = if ($Benchmark -eq 'search') {
+    $query = if ($Benchmark -eq 'outer-shadow') {
+        @(
+            "mode=$Mode",
+            "states=$States",
+            "repetitions=$Rounds",
+            "warmupDecisions=$WarmupRounds",
+            "shadowGames=$TranscriptGames",
+            "minimumSpeedup=$MinimumSpeedup"
+        ) -join '&'
+    } elseif ($Benchmark -eq 'search') {
         @(
             "mode=$Mode",
             "states=$States",
@@ -237,7 +268,13 @@ try {
 
     $result = $payload | ConvertFrom-Json
     Write-Host "Result: $jsonPath"
-    if ($Benchmark -eq 'search') {
+    if ($Benchmark -eq 'outer-shadow') {
+        Write-Host ("Corpus action mismatches: {0}" -f $result.correctness.selectedActionMismatchCount)
+        Write-Host ("Corpus diagnostics mismatches: {0}" -f $result.correctness.diagnosticsMismatchCount)
+        Write-Host ("Shadow action mismatches: {0}" -f $result.correctness.shadow.actionMismatchCount)
+        Write-Host ("Shadow diagnostics mismatches: {0}" -f $result.correctness.shadow.diagnosticsMismatchCount)
+        Write-Host ("Outer-worker speedup: {0:N3}x" -f $result.timing.speedup)
+    } elseif ($Benchmark -eq 'search') {
         Write-Host ("Selected-action mismatches: {0}" -f $result.correctness.selectedActionMismatchCount)
         Write-Host ("Diagnostics mismatches: {0}" -f $result.correctness.diagnosticsMismatchCount)
         Write-Host ("Transcript mismatches: {0}" -f $result.correctness.transcripts.mismatchGames)

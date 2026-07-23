@@ -57,6 +57,21 @@
   1.2x end-to-end gate and warrants production shadow validation, not immediate
   activation. The run is documented in
   `docs/runbooks/td-two-lane-search-browser-benchmark.md`.
+- Production-stack shadow infrastructure is now prepared without changing the
+  catalog default. Worker-backed policies can include an evaluation-only search
+  execution mode; ordinary catalog policies omit it, and the outer bot worker
+  fails fast unless non-legacy execution is parallel TD-root search with TD
+  rollout guidance. Nested search-worker pools are cached by both worker count
+  and execution mode. A legacy-authoritative browser harness drives the full
+  outer bot-worker and nested search-worker stack: candidate actions are always
+  discarded, while exact actions, full root diagnostics/teacher targets,
+  checkpoint and corpus fingerprints, actual worker/batch/budget metadata, and
+  timing are recorded. The full quiet workload is frozen at 64 positions from
+  eight new deterministic source games, two repetitions, and four shadow
+  games. Its one-position daytime smoke passed exact action/diagnostics parity
+  and observed the intended eight workers, batch size 16, root budget 160, and
+  deployed checkpoint SHA. The full command in
+  `docs/runbooks/td-outer-worker-shadow-benchmark.md` remains pending.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Experimental `StrategicStateSummaryV0` exposes player-view-safe score, clock,
   resource, income-source, deed-feasibility, placement-support, and card-support

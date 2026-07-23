@@ -19,6 +19,11 @@ import {
   type SearchWorkerPool,
 } from './searchWorkerPool';
 import {
+  searchWorkerPoolConfigurationMatches,
+  validateSearchExecutionMode,
+} from './searchExecutionMode';
+import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
+import {
   createTdRootSearchRolloutGuidance,
   createTdRootSearchRootGuide,
 } from './tdRootSearchPolicy';
@@ -44,6 +49,7 @@ const policyBySpecKey = new Map<string, ActionPolicy>();
 const cancelledRequestIds = new Set<number>();
 let searchWorkerPool: SearchWorkerPool | null = null;
 let searchWorkerPoolSize = 0;
+let searchWorkerPoolExecutionMode: SearchWorkerExecutionMode | undefined;
 
 type RolloutLikeSearchBotSpec =
   | Extract<BotSpec, { kind: 'search' }>
@@ -142,11 +148,15 @@ async function selectSearchAction(
   }
   const spec = request.spec;
   const workerCount = resolveRolloutSearchWorkerCount(request);
+  validateSearchExecutionMode(spec, request.searchExecutionMode, workerCount);
   const guidance = await createGuidanceForSpec(spec, {
     includeRuntimeGuidance: workerCount <= 1,
   });
   if (workerCount > 1) {
-    const pool = ensureSearchWorkerPool(workerCount);
+    const pool = ensureSearchWorkerPool(
+      workerCount,
+      request.searchExecutionMode
+    );
     try {
       return await selectRolloutSearchActionParallel({
         state: request.state,
@@ -206,7 +216,8 @@ async function createGuidanceForSpec(
   if (spec.kind === 'search') {
     return {};
   }
-  const modelIndexPath = spec.modelIndexPath ?? DEFAULT_TD_ROOT_MODEL_INDEX_PATH;
+  const modelIndexPath =
+    spec.modelIndexPath ?? DEFAULT_TD_ROOT_MODEL_INDEX_PATH;
   const guidanceConfig = resolveTdRootSearchGuidanceConfig(spec.guidance);
   const needsRuntimeModel =
     guidanceConfig.root === 'td' ||
@@ -258,13 +269,28 @@ function policyForSpec(request: BotWorkerSelectActionRequest): ActionPolicy {
   return created;
 }
 
-function ensureSearchWorkerPool(workerCount: number): SearchWorkerPool {
-  if (searchWorkerPool && searchWorkerPoolSize === workerCount) {
+function ensureSearchWorkerPool(
+  workerCount: number,
+  executionMode: SearchWorkerExecutionMode | undefined
+): SearchWorkerPool {
+  if (
+    searchWorkerPool &&
+    searchWorkerPoolConfigurationMatches(
+      searchWorkerPoolSize,
+      searchWorkerPoolExecutionMode,
+      workerCount,
+      executionMode
+    )
+  ) {
     return searchWorkerPool;
   }
   closeSearchWorkerPool();
-  searchWorkerPool = createSearchWorkerPool({ workerCount });
+  searchWorkerPool = createSearchWorkerPool({
+    workerCount,
+    ...(executionMode ? { executionMode } : {}),
+  });
   searchWorkerPoolSize = workerCount;
+  searchWorkerPoolExecutionMode = executionMode;
   return searchWorkerPool;
 }
 
@@ -272,6 +298,7 @@ function closeSearchWorkerPool(): void {
   searchWorkerPool?.close();
   searchWorkerPool = null;
   searchWorkerPoolSize = 0;
+  searchWorkerPoolExecutionMode = undefined;
 }
 
 function resolveRolloutSearchWorkerCount(
