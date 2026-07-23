@@ -6,6 +6,8 @@ import {
 import type { GameState } from '../engine/types';
 import { preloadTdRootBrowserModel } from './modelRuntimeCache';
 import { createTdRootSearchRolloutGuidance } from './tdRootSearchPolicy';
+import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
+import { runRolloutSearchTaskBatchResumable } from './rolloutSearchPairedTd';
 import type {
   SearchWorkerRequest,
   SearchWorkerResponse,
@@ -23,6 +25,8 @@ const workerScope = globalThis as unknown as SearchWorkerGlobalScope;
 let rolloutSearchContextId: string | null = null;
 let rolloutSearchWorldStates: readonly GameState[] = [];
 let rolloutSearchGuidance: RolloutSearchRuntimeGuidance | undefined;
+let rolloutSearchModel: LoadedTdGuidanceModel | undefined;
+let rolloutSearchPairTdActions = false;
 
 workerScope.onmessage = (event) => {
   void handleRequest(event.data).catch((error: unknown) => {
@@ -54,7 +58,10 @@ async function initializeRolloutSearch(
 ): Promise<void> {
   rolloutSearchContextId = request.context.contextId;
   rolloutSearchWorldStates = request.context.worldStates;
-  rolloutSearchGuidance = await createRuntimeGuidance(request.context.guidance);
+  const runtime = await createRuntimeGuidance(request.context.guidance);
+  rolloutSearchGuidance = runtime.guidance;
+  rolloutSearchModel = runtime.model;
+  rolloutSearchPairTdActions = runtime.pairTdActions;
   workerScope.postMessage({
     type: 'initialized',
     requestId: request.requestId,
@@ -62,39 +69,61 @@ async function initializeRolloutSearch(
 }
 
 function runBatch(request: SearchWorkerRunBatchRequest): void {
-  const results = request.tasks.map((task) => {
-    switch (task.kind) {
-      case 'rollout-search':
-        if (task.contextId !== rolloutSearchContextId) {
-          throw new Error(
-            `Rollout search worker missing context ${task.contextId}.`
-          );
-        }
-        return runRolloutSearchTask(
-          task,
-          rolloutSearchWorldStates,
-          undefined,
-          rolloutSearchGuidance
-        );
+  for (const task of request.tasks) {
+    if (task.contextId !== rolloutSearchContextId) {
+      throw new Error(
+        `Rollout search worker missing context ${task.contextId}.`
+      );
     }
-  });
+  }
+  const results =
+    request.executionMode === 'resumable-paired-td' ||
+    request.executionMode === 'resumable-scalar'
+      ? runRolloutSearchTaskBatchResumable(
+          request.tasks,
+          rolloutSearchWorldStates,
+          rolloutSearchGuidance,
+          rolloutSearchModel,
+          request.executionMode === 'resumable-paired-td' &&
+            rolloutSearchPairTdActions
+        ).results
+      : request.tasks.map((task) =>
+          runRolloutSearchTask(
+            task,
+            rolloutSearchWorldStates,
+            undefined,
+            rolloutSearchGuidance
+          )
+        );
   workerScope.postMessage({
     type: 'batch-result',
     requestId: request.requestId,
-    results,
+    results: [...results],
   });
 }
 
 async function createRuntimeGuidance(
   guidance: RolloutSearchWorkerGuidance | undefined
-): Promise<RolloutSearchRuntimeGuidance | undefined> {
+): Promise<{
+  guidance: RolloutSearchRuntimeGuidance | undefined;
+  model: LoadedTdGuidanceModel | undefined;
+  pairTdActions: boolean;
+}> {
   if (!guidance) {
-    return undefined;
+    return {
+      guidance: undefined,
+      model: undefined,
+      pairTdActions: false,
+    };
   }
   switch (guidance.kind) {
     case 'td-root': {
       const model = await preloadTdRootBrowserModel(guidance.modelIndexPath);
-      return createTdRootSearchRolloutGuidance({ model, guidance });
+      return {
+        guidance: createTdRootSearchRolloutGuidance({ model, guidance }),
+        model,
+        pairTdActions: (guidance.rollout ?? 'td') === 'td',
+      };
     }
   }
 }

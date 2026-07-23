@@ -12,6 +12,8 @@
     "bot:eval": "tsx src/botEval/cli.ts",
     "benchmark:td-two-lane": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_td_two_lane_browser_benchmark.ps1 -Mode full",
     "benchmark:td-two-lane:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_td_two_lane_browser_benchmark.ps1 -Mode smoke",
+    "benchmark:td-two-lane-search": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_td_two_lane_browser_benchmark.ps1 -Benchmark search -Mode full -MinimumSpeedup 1.2",
+    "benchmark:td-two-lane-search:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_td_two_lane_browser_benchmark.ps1 -Benchmark search -Mode smoke -MinimumSpeedup 1.2",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint . && yarn typecheck",

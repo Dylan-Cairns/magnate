@@ -1,10 +1,14 @@
 [CmdletBinding()]
 param(
+    [ValidateSet('inference', 'search')]
+    [string]$Benchmark = 'inference',
     [ValidateSet('smoke', 'full')]
     [string]$Mode = 'full',
     [int]$States = 0,
     [int]$Rounds = 0,
     [int]$WarmupRounds = 0,
+    [int]$Workers = 0,
+    [int]$TranscriptGames = -1,
     [double]$MinimumSpeedup = 1.3,
     [int]$TimeoutMinutes = 0,
     [int]$Port = 4187,
@@ -15,16 +19,34 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($States -le 0) {
-    $States = if ($Mode -eq 'smoke') { 8 } else { 128 }
+    $States = if ($Benchmark -eq 'search') {
+        if ($Mode -eq 'smoke') { 1 } else { 24 }
+    } else {
+        if ($Mode -eq 'smoke') { 8 } else { 128 }
+    }
 }
 if ($Rounds -le 0) {
-    $Rounds = if ($Mode -eq 'smoke') { 1 } else { 500 }
+    $Rounds = if ($Benchmark -eq 'search') {
+        if ($Mode -eq 'smoke') { 1 } else { 3 }
+    } else {
+        if ($Mode -eq 'smoke') { 1 } else { 500 }
+    }
 }
 if ($WarmupRounds -le 0) {
-    $WarmupRounds = if ($Mode -eq 'smoke') { 1 } else { 5 }
+    $WarmupRounds = if ($Benchmark -eq 'search') {
+        if ($Mode -eq 'smoke') { 1 } else { 2 }
+    } else {
+        if ($Mode -eq 'smoke') { 1 } else { 5 }
+    }
 }
-if ($States % 2 -ne 0) {
+if ($Benchmark -eq 'inference' -and $States % 2 -ne 0) {
     throw '-States must be even.'
+}
+if ($Workers -le 0) {
+    $Workers = if ($Benchmark -eq 'search' -and $Mode -eq 'smoke') { 2 } else { 8 }
+}
+if ($TranscriptGames -lt 0) {
+    $TranscriptGames = if ($Benchmark -eq 'search' -and $Mode -eq 'full') { 1 } else { 0 }
 }
 if ($MinimumSpeedup -le 0) {
     throw '-MinimumSpeedup must be greater than zero.'
@@ -42,7 +64,12 @@ $debugPort = $Port + 1
 
 if ([string]::IsNullOrWhiteSpace($OutDir)) {
     $timestamp = Get-Date -Format 'yyyyMMddTHHmmssZ'
-    $OutDir = Join-Path $repoRoot "artifacts/benchmarks/td-two-lane-browser-$timestamp"
+    $artifactName = if ($Benchmark -eq 'search') {
+        "td-two-lane-search-browser-$timestamp"
+    } else {
+        "td-two-lane-browser-$timestamp"
+    }
+    $OutDir = Join-Path $repoRoot "artifacts/benchmarks/$artifactName"
 } elseif (-not [IO.Path]::IsPathRooted($OutDir)) {
     $OutDir = Join-Path $repoRoot $OutDir
 }
@@ -108,7 +135,8 @@ $browserStdout = Join-Path $OutDir 'browser.stdout.log'
 $browserStderr = Join-Path $OutDir 'browser.stderr.log'
 $envelopePath = Join-Path $OutDir 'browser-result-envelope.json'
 $jsonPath = Join-Path $OutDir 'result.json'
-$browserProfile = Join-Path ([IO.Path]::GetTempPath()) "magnate-td-two-lane-$PID-$([guid]::NewGuid().ToString('N'))"
+$profilePrefix = if ($Benchmark -eq 'search') { 'magnate-td-two-lane-search-' } else { 'magnate-td-two-lane-' }
+$browserProfile = Join-Path ([IO.Path]::GetTempPath()) "$profilePrefix$PID-$([guid]::NewGuid().ToString('N'))"
 [void](New-Item -ItemType Directory -Path $browserProfile)
 
 $viteProcess = $null
@@ -125,7 +153,12 @@ try {
     }
     $viteProcess = Start-Process @viteArguments
 
-    $benchmarkBaseUrl = "http://127.0.0.1:$Port/benchmarks/td-two-lane.html"
+    $benchmarkPage = if ($Benchmark -eq 'search') {
+        '/benchmarks/td-two-lane-search.html'
+    } else {
+        '/benchmarks/td-two-lane.html'
+    }
+    $benchmarkBaseUrl = "http://127.0.0.1:$Port$benchmarkPage"
     $serverReady = $false
     for ($attempt = 0; $attempt -lt 80; $attempt += 1) {
         if ($viteProcess.HasExited) {
@@ -145,15 +178,27 @@ try {
         throw "Timed out waiting for Vite. See $viteStderr"
     }
 
-    $query = @(
-        "mode=$Mode",
-        "states=$States",
-        "rounds=$Rounds",
-        "warmupRounds=$WarmupRounds",
-        "minimumSpeedup=$MinimumSpeedup"
-    ) -join '&'
+    $query = if ($Benchmark -eq 'search') {
+        @(
+            "mode=$Mode",
+            "states=$States",
+            "repetitions=$Rounds",
+            "warmupDecisions=$WarmupRounds",
+            "workers=$Workers",
+            "transcriptGames=$TranscriptGames",
+            "minimumSpeedup=$MinimumSpeedup"
+        ) -join '&'
+    } else {
+        @(
+            "mode=$Mode",
+            "states=$States",
+            "rounds=$Rounds",
+            "warmupRounds=$WarmupRounds",
+            "minimumSpeedup=$MinimumSpeedup"
+        ) -join '&'
+    }
     $benchmarkUrl = "$benchmarkBaseUrl`?$query"
-    Write-Host "Running TD two-lane browser benchmark in $resolvedBrowser"
+    Write-Host "Running TD two-lane $Benchmark browser benchmark in $resolvedBrowser"
     Write-Host "URL: $benchmarkUrl"
 
     $browserArguments = @(
@@ -178,7 +223,7 @@ try {
     $browserProcess = Start-Process @browserLaunch
     $waitHelper = Join-Path $repoRoot 'scripts/wait_for_td_two_lane_browser_result.mjs'
     $timeoutMs = $TimeoutMinutes * 60 * 1000
-    & $nodeExecutable $waitHelper '--port' "$debugPort" '--timeout-ms' "$timeoutMs" '--out' $envelopePath
+    & $nodeExecutable $waitHelper '--port' "$debugPort" '--timeout-ms' "$timeoutMs" '--out' $envelopePath '--page-path' $benchmarkPage
     if ($LASTEXITCODE -ne 0) {
         throw "Browser result waiter exited with code $LASTEXITCODE. See $browserStderr"
     }
@@ -192,9 +237,16 @@ try {
 
     $result = $payload | ConvertFrom-Json
     Write-Host "Result: $jsonPath"
-    Write-Host ("Exact mismatches: {0}" -f $result.correctness.exactMismatchCount)
-    Write-Host ("Argmax mismatches: {0}" -f $result.correctness.argmaxMismatchCount)
-    Write-Host ("Two-lane speedup: {0:N3}x" -f $result.timing.speedup)
+    if ($Benchmark -eq 'search') {
+        Write-Host ("Selected-action mismatches: {0}" -f $result.correctness.selectedActionMismatchCount)
+        Write-Host ("Diagnostics mismatches: {0}" -f $result.correctness.diagnosticsMismatchCount)
+        Write-Host ("Transcript mismatches: {0}" -f $result.correctness.transcripts.mismatchGames)
+        Write-Host ("End-to-end search speedup: {0:N3}x" -f $result.timing.speedup)
+    } else {
+        Write-Host ("Exact mismatches: {0}" -f $result.correctness.exactMismatchCount)
+        Write-Host ("Argmax mismatches: {0}" -f $result.correctness.argmaxMismatchCount)
+        Write-Host ("Two-lane speedup: {0:N3}x" -f $result.timing.speedup)
+    }
     Write-Host ("Recommendation: {0}" -f $result.gate.recommendation)
 } finally {
     if ($null -ne $browserProcess -and -not $browserProcess.HasExited) {
@@ -209,7 +261,7 @@ try {
     $resolvedProfile = [IO.Path]::GetFullPath($browserProfile)
     if (
         $resolvedProfile.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase) -and
-        [IO.Path]::GetFileName($resolvedProfile).StartsWith('magnate-td-two-lane-', [StringComparison]::Ordinal)
+        [IO.Path]::GetFileName($resolvedProfile).StartsWith($profilePrefix, [StringComparison]::Ordinal)
     ) {
         Remove-Item -LiteralPath $resolvedProfile -Recurse -Force -ErrorAction SilentlyContinue
     }
