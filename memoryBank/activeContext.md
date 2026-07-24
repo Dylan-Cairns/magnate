@@ -28,50 +28,31 @@
 - Vite dev builds support `?fixture=multi-income` for multiple partial-income choices and `?fixture=late-game` for a heuristic-rollout late-game board.
 - Bridge, direct TypeScript evaluation, replay collection, and TD policy lookahead use a single policy-facing decision actor during simultaneous income: one unsubmitted income-choice owner is exposed at a time in pending-choice order, with observations and masks aligned to that actor.
 - Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
-- A benchmark-only browser TD two-lane inference spike now provides a dedicated
-  worker harness, deterministic legal-position corpus, model-pack SHA-256,
-  alternating scalar/paired timing, and exact-logit/argmax gates. The
-  quiet-machine full run passed with zero exact-logit or argmax mismatches and
-  measured a 1.313x kernel speedup, motivating the end-to-end search spike.
-  Production search remains unchanged.
-- The inference spike's 1.313x full result justified an end-to-end browser
-  search spike. A benchmark-only resumable rollout-visit runner and paired TD
-  worker executor now sit behind explicit worker-pool modes; normal browser
-  play still omits the mode and uses the unchanged legacy task runner. The
-  paired executor preserves the existing rollout wave, UCB scheduling, task
-  seeds, root merge order, checkpoint, and TD Medium policy semantics. A
-  three-lane browser harness compares legacy, resumable-scalar, and
-  resumable-paired execution on complete searches, including selected actions,
-  full root diagnostics, model SHA-256, alternating timing, and an overnight
-  full-game transcript audit. Its validated one-state smoke found zero action,
-  diagnostics, and scalar-machine mismatches and a non-decisional 1.321x
-  speedup. An earlier smoke correctly caught raw-versus-stable-key action order
-  at the paired model boundary; the executor now sorts each lane exactly as the
-  scalar TD rollout policy does, with regression coverage. The quiet-machine
-  full run completed on 2026-07-22 with the deployed July checkpoint: all 72
-  repeated decisions matched in selected action and full root diagnostics,
-  resumable-scalar matched legacy throughout, and a 163-decision complete game
-  matched in action transcript, diagnostics, and final state. Mean decision
-  latency fell from 2,747 ms to 2,194 ms (1.252x speedup); p50 fell from 2,572
-  ms to 2,101 ms and p95 from 3,456 ms to 3,009 ms. This passes the predeclared
-  1.2x end-to-end gate and warrants production shadow validation, not immediate
-  activation. The run is documented in
-  `docs/runbooks/td-two-lane-search-browser-benchmark.md`.
-- Production-stack shadow infrastructure is now prepared without changing the
-  catalog default. Worker-backed policies can include an evaluation-only search
-  execution mode; ordinary catalog policies omit it, and the outer bot worker
-  fails fast unless non-legacy execution is parallel TD-root search with TD
-  rollout guidance. Nested search-worker pools are cached by both worker count
-  and execution mode. A legacy-authoritative browser harness drives the full
-  outer bot-worker and nested search-worker stack: candidate actions are always
-  discarded, while exact actions, full root diagnostics/teacher targets,
-  checkpoint and corpus fingerprints, actual worker/batch/budget metadata, and
-  timing are recorded. The full quiet workload is frozen at 64 positions from
-  eight new deterministic source games, two repetitions, and four shadow
-  games. Its one-position daytime smoke passed exact action/diagnostics parity
-  and observed the intended eight workers, batch size 16, root budget 160, and
-  deployed checkpoint SHA. The full command in
-  `docs/runbooks/td-outer-worker-shadow-benchmark.md` remains pending.
+- Paired TD rollout inference passed three increasingly realistic browser
+  evaluations on the deployed July checkpoint: exact scalar/paired logits and
+  argmax with a 1.313x kernel speedup; exact selected actions, root diagnostics,
+  and a complete-game transcript with a 1.252x direct-search speedup; and the
+  full outer-worker production stack with exact parity over 128 corpus
+  decisions plus 599 searched decisions in four complete shadow games. The
+  outer-worker run observed eight workers, batch size 16, root budget 160, no
+  p95 regression, and a 1.289x total speedup. The complete evidence and artifact
+  location are documented in
+  `docs/runbooks/td-outer-worker-shadow-benchmark.md`.
+- Eligible parallel browser TD-root searches with TD rollout guidance now
+  resolve omitted execution mode to the paired lockstep executor. Synchronous,
+  ordinary search, and heuristic-rollout paths remain unchanged. The browser
+  query `tdSearchExecutor=legacy` is the session rollback;
+  `tdSearchExecutor=paired` is an explicit diagnostic selection, and invalid
+  values fail rather than falling back. The paired worker path verifies that
+  its loaded action scorer exposes the paired kernel before executing.
+  Effective executor mode is returned as outer-worker response metadata,
+  separate from search diagnostics/teacher targets. The legacy-authoritative
+  outer shadow harness now omits the candidate override and verifies that the
+  production default reports `resumable-paired-td`. Its 2026-07-24 browser
+  activation smoke passed: the omitted candidate mode resolved to paired, the
+  rollback lane resolved to legacy, action and full diagnostics matched exactly,
+  and the expected eight workers, batch size 16, root budget 160, and deployed
+  checkpoint SHA were observed.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Experimental `StrategicStateSummaryV0` exposes player-view-safe score, clock,
   resource, income-source, deed-feasibility, placement-support, and card-support
@@ -321,9 +302,16 @@
    in the opponent/action architecture, while preserving the existing replay,
    checkpoint, and browser-export contracts where practical.
 2. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
-3. Continue self-play iterations with promoted manifest warm starts, `td-lambda` value targets, checkpoint selection, replay windows, and generator gating.
-4. Track checkpoint-selection winners, block-selection winners, generator-gate outcomes, final promotion outcomes, and side-gap stability in artifacts, not Memory Bank prose.
-5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
-6. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
+3. Continue self-play iterations with promoted manifest warm starts,
+   `td-lambda` value targets, checkpoint selection, replay windows, and
+   generator gating.
+4. Track checkpoint-selection winners, block-selection winners, generator-gate
+   outcomes, final promotion outcomes, and side-gap stability in artifacts, not
+   Memory Bank prose.
+5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>`
+   for large TypeScript teacher replay exports; use `collect-td-replay` for
+   serial debugging.
+6. Keep docs aligned by replacing stale Memory Bank bullets rather than
+   appending task history.
 
-_Updated: 2026-07-19._
+_Updated: 2026-07-24._

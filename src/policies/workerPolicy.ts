@@ -3,6 +3,7 @@ import type { GameAction } from '../engine/types';
 import type { BotSpec } from './botSpec';
 import { policyRandomSeedForState } from './policyRandom';
 import type { ActionPolicy, ActionSelectionContext } from './types';
+import { browserSearchExecutionModeOverride } from './searchExecutionRuntime';
 import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 import type { BotWorkerRequest, BotWorkerResponse } from './workerBotProtocol';
 
@@ -20,10 +21,13 @@ export interface WorkerBackedPolicyOptions {
     spec: BotSpec
   ) => string;
   /**
-   * Evaluation-only worker executor override. Catalog policies omit this and
-   * retain the legacy search executor.
+   * Explicit worker executor override. When omitted, a browser URL override is
+   * forwarded if present and the bot worker resolves the eligible default.
    */
   searchExecutionMode?: SearchWorkerExecutionMode;
+  onSearchExecutionMode?: (
+    mode: SearchWorkerExecutionMode | 'synchronous'
+  ) => void;
 }
 
 export interface WorkerBackedActionPolicy extends ActionPolicy {
@@ -50,6 +54,8 @@ export function createWorkerBackedPolicy(
     ((context: ActionSelectionContext, policySpec: BotSpec) =>
       context.randomSeed ??
       policyRandomSeedForState(context.state, policySpec.id));
+  const searchExecutionMode =
+    options.searchExecutionMode ?? browserSearchExecutionModeOverride();
 
   function ensureWorker(): WorkerBackedPolicyWorker {
     if (worker) {
@@ -99,6 +105,9 @@ export function createWorkerBackedPolicy(
 
     if (response.diagnostics) {
       pending.onSearchDiagnostics?.(structuredClone(response.diagnostics));
+    }
+    if (response.searchExecutionMode) {
+      options.onSearchExecutionMode?.(response.searchExecutionMode);
     }
     if (!response.actionKey) {
       pending.resolve(undefined);
@@ -167,9 +176,7 @@ export function createWorkerBackedPolicy(
             view: context.view,
             legalActions: [...context.legalActions],
             randomSeed: randomSeedForContext(context, spec),
-            ...(options.searchExecutionMode
-              ? { searchExecutionMode: options.searchExecutionMode }
-              : {}),
+            ...(searchExecutionMode ? { searchExecutionMode } : {}),
           });
         } catch (error) {
           pendingByRequestId.delete(requestId);

@@ -7,7 +7,10 @@ import type { GameState } from '../engine/types';
 import { preloadTdRootBrowserModel } from './modelRuntimeCache';
 import { createTdRootSearchRolloutGuidance } from './tdRootSearchPolicy';
 import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
-import { runRolloutSearchTaskBatchResumable } from './rolloutSearchPairedTd';
+import {
+  assertPairedTdRolloutAvailable,
+  runRolloutSearchTaskBatchResumable,
+} from './rolloutSearchPairedTd';
 import type {
   SearchWorkerRequest,
   SearchWorkerResponse,
@@ -75,6 +78,12 @@ function runBatch(request: SearchWorkerRunBatchRequest): void {
         `Rollout search worker missing context ${task.contextId}.`
       );
     }
+  }
+  if (request.executionMode === 'resumable-paired-td') {
+    assertPairedTdRolloutAvailable(
+      rolloutSearchModel,
+      rolloutSearchPairTdActions
+    );
   }
   const results =
     request.executionMode === 'resumable-paired-td' ||

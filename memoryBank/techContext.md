@@ -97,6 +97,8 @@
 - RunPod/Linux CPU setup: `docs/runbooks/runpod-linux.md`
 - Python training and evaluation loops: `docs/runbooks/training-loop.md`
 - TypeScript browser-bot evaluation: `docs/runbooks/bot-eval.md`
+- Paired TD outer-worker validation and browser rollback:
+  `docs/runbooks/td-outer-worker-shadow-benchmark.md`
 
 ## Constraints
 

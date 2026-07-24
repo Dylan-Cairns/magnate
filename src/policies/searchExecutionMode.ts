@@ -36,6 +36,22 @@ export function validateSearchExecutionMode(
   }
 }
 
+export function resolveEffectiveSearchExecutionMode(
+  spec: BotSpec,
+  requestedMode: unknown,
+  workerCount: number
+): SearchWorkerExecutionMode | undefined {
+  validateSearchExecutionMode(spec, requestedMode, workerCount);
+  if (requestedMode !== undefined) {
+    return requestedMode;
+  }
+  if (spec.kind !== 'td-root-search' || workerCount <= 1) {
+    return undefined;
+  }
+  const guidance = resolveTdRootSearchGuidanceConfig(spec.guidance);
+  return guidance.rollout === 'td' ? 'resumable-paired-td' : undefined;
+}
+
 export function searchWorkerPoolConfigurationMatches(
   currentWorkerCount: number,
   currentMode: SearchWorkerExecutionMode | undefined,

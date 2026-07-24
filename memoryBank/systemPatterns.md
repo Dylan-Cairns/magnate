@@ -53,6 +53,13 @@ Design expectations:
   - the UI/controller still awaits one async policy decision;
   - the worker-backed bot may coordinate nested browser search workers for
     deterministic root-visit batches;
+  - eligible parallel TD-root search with TD rollout guidance defaults to the
+    paired lockstep worker executor, while a `tdSearchExecutor=legacy` browser
+    query parameter provides a session-scoped rollback;
+  - executor selection must preserve rollout waves, UCB scheduling, visit
+    budgets, RNG streams, ordered result merging, diagnostics/teacher targets,
+    and selected-action semantics, and the outer worker reports its effective
+    mode separately from policy diagnostics;
   - seeded per-visit RNG and ordered result merging must make worker response
     timing irrelevant;
   - worker-count resolution may choose an explicit serial path, but unexpected

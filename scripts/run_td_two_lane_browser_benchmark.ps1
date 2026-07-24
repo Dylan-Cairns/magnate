@@ -273,6 +273,8 @@ try {
         Write-Host ("Corpus diagnostics mismatches: {0}" -f $result.correctness.diagnosticsMismatchCount)
         Write-Host ("Shadow action mismatches: {0}" -f $result.correctness.shadow.actionMismatchCount)
         Write-Host ("Shadow diagnostics mismatches: {0}" -f $result.correctness.shadow.diagnosticsMismatchCount)
+        Write-Host ("Legacy executor observed: {0}" -f ($result.execution.modeRouting.observedLegacy -join ', '))
+        Write-Host ("Default executor observed: {0}" -f ($result.execution.modeRouting.observedCandidate -join ', '))
         Write-Host ("Outer-worker speedup: {0:N3}x" -f $result.timing.speedup)
     } elseif ($Benchmark -eq 'search') {
         Write-Host ("Selected-action mismatches: {0}" -f $result.correctness.selectedActionMismatchCount)
@@ -285,6 +287,9 @@ try {
         Write-Host ("Two-lane speedup: {0:N3}x" -f $result.timing.speedup)
     }
     Write-Host ("Recommendation: {0}" -f $result.gate.recommendation)
+    if ($Benchmark -eq 'outer-shadow' -and -not [bool]$result.gate.activationPassed) {
+        throw 'Outer-worker executor activation check failed; see the saved result.'
+    }
 } finally {
     if ($null -ne $browserProcess -and -not $browserProcess.HasExited) {
         Stop-Process -Id $browserProcess.Id -Force

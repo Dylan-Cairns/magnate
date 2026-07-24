@@ -19,6 +19,7 @@ import {
   policyRandomForState,
   policyRandomSeedForState,
 } from '../policies/policyRandom';
+import type { SearchWorkerExecutionMode } from '../policies/searchWorkerProtocol';
 import type { SearchDecisionDiagnostics } from '../policies/types';
 import {
   createWorkerBackedPolicy,
@@ -62,6 +63,8 @@ interface MismatchSample {
   pairedRootActions: SearchDecisionDiagnostics['rootActions'];
 }
 
+type EffectiveSearchExecutionMode = SearchWorkerExecutionMode | 'synchronous';
+
 self.onmessage = (event: MessageEvent<OuterShadowOptions>) => {
   void runBenchmark(event.data)
     .then((result) => self.postMessage({ ok: true, result }))
@@ -86,11 +89,19 @@ async function runBenchmark(options: OuterShadowOptions) {
     loadModelProvenance(),
     collectDecisionStates(options.states),
   ]);
+  const observedLegacyExecutionModes = new Set<EffectiveSearchExecutionMode>();
+  const observedCandidateExecutionModes =
+    new Set<EffectiveSearchExecutionMode>();
   const legacy = createWorkerBackedPolicy(spec, {
     searchExecutionMode: 'legacy',
+    onSearchExecutionMode(mode) {
+      observedLegacyExecutionModes.add(mode);
+    },
   });
   const paired = createWorkerBackedPolicy(spec, {
-    searchExecutionMode: 'resumable-paired-td',
+    onSearchExecutionMode(mode) {
+      observedCandidateExecutionModes.add(mode);
+    },
   });
 
   try {
@@ -189,6 +200,15 @@ async function runBenchmark(options: OuterShadowOptions) {
       shadowDiagnosticsMismatchCount === 0;
     const speedupPassed = speedup >= options.minimumSpeedup;
     const p95NonRegression = pairedTiming.p95Ms <= legacyTiming.p95Ms;
+    const executionModeRouting = {
+      requestedLegacyOverride: 'legacy',
+      requestedCandidateOverride: null,
+      observedLegacy: [...observedLegacyExecutionModes].sort(),
+      observedCandidate: [...observedCandidateExecutionModes].sort(),
+      passed:
+        setContainsOnly(observedLegacyExecutionModes, 'legacy') &&
+        setContainsOnly(observedCandidateExecutionModes, 'resumable-paired-td'),
+    };
 
     return {
       schemaVersion: 1,
@@ -206,9 +226,11 @@ async function runBenchmark(options: OuterShadowOptions) {
         spec,
         legacyExecutionMode: 'legacy',
         candidateExecutionMode: 'resumable-paired-td',
+        candidateExecutionModeRequest: 'omitted-production-default',
         authority: 'legacy',
       },
       execution: {
+        modeRouting: executionModeRouting,
         parallelWorkers: [...parallelWorkers].sort(
           (left, right) => left - right
         ),
@@ -256,12 +278,18 @@ async function runBenchmark(options: OuterShadowOptions) {
       },
       gate: {
         exactParity,
+        activationPassed: executionModeRouting.passed,
         speedupThreshold: options.minimumSpeedup,
         speedupPassed,
         p95NonRegression,
-        passed: exactParity && speedupPassed && p95NonRegression,
-        recommendation:
-          options.mode === 'smoke'
+        passed:
+          executionModeRouting.passed &&
+          exactParity &&
+          speedupPassed &&
+          p95NonRegression,
+        recommendation: !executionModeRouting.passed
+          ? 'retain-legacy-execution-mode-routing-failed'
+          : options.mode === 'smoke'
             ? 'smoke-only-no-performance-decision'
             : exactParity && speedupPassed && p95NonRegression
               ? 'prepare-separate-default-enable-change'
@@ -523,6 +551,10 @@ function maybeRecordMismatch(
 
 function exactJsonEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function setContainsOnly<T>(values: ReadonlySet<T>, expected: T): boolean {
+  return values.size === 1 && values.has(expected);
 }
 
 function countStrings(values: readonly string[]): Record<string, number> {

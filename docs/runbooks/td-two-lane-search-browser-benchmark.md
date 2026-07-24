@@ -1,14 +1,16 @@
 # TD two-lane browser search benchmark
 
-This is the end-to-end follow-up to the isolated two-lane opponent-network
-kernel benchmark. It compares the current browser worker search with an
-evaluation-only lockstep executor that pairs the two rollout visits already
-assigned to each worker.
+This was the end-to-end follow-up to the isolated two-lane opponent-network
+kernel benchmark. It compares explicit legacy execution with the lockstep
+executor that pairs the two rollout visits already assigned to each worker.
 
-Production browser play remains on the legacy executor. The benchmark does not
-change the checkpoint, TD Medium search configuration, visit scheduling, UCB
-allocation, seeds, merge order, root policy, rollout policy, leaf policy, or
-selected-action rule.
+The paired executor subsequently passed outer-worker shadow validation and is
+now the eligible browser default; see
+`docs/runbooks/td-outer-worker-shadow-benchmark.md` for the current behavior and
+legacy rollback. This benchmark still makes both lane selections explicitly
+and does not change the checkpoint, TD Medium search configuration, visit
+scheduling, UCB allocation, seeds, merge order, root policy, rollout policy,
+leaf policy, or selected-action rule.
 
 ## What the full run does
 
@@ -68,9 +70,9 @@ The competitiveness requirement passes only when all of these are zero:
 decision differs. `gate.exactParity` summarizes the required parity checks.
 
 `timing.speedup` is total legacy decision time divided by total paired decision
-time. The current recommendation threshold is 1.2x, but it is applied only
-after the complete run and never stops work early. A passing result recommends
-production shadow validation, not immediate rollout.
+time. The recommendation threshold is 1.2x, but it is applied only after the
+complete run and never stops work early. The completed passing result was the
+evidence used to proceed to production-stack shadow validation.
 
 ## Smoke command
 
