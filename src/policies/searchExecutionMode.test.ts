@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { BotSpec } from './botSpec';
 import {
+  resolveEffectiveSearchExecutionMode,
   searchWorkerPoolConfigurationMatches,
   validateSearchExecutionMode,
 } from './searchExecutionMode';
@@ -58,6 +59,38 @@ describe('search execution mode validation', () => {
     expect(() =>
       validateSearchExecutionMode(TD_SPEC, 'future-mode', 2)
     ).toThrow('Unsupported search execution mode');
+  });
+
+  it('defaults eligible parallel TD rollout search to paired execution', () => {
+    expect(resolveEffectiveSearchExecutionMode(TD_SPEC, undefined, 2)).toBe(
+      'resumable-paired-td'
+    );
+  });
+
+  it('honors an explicit legacy rollback for eligible search', () => {
+    expect(resolveEffectiveSearchExecutionMode(TD_SPEC, 'legacy', 2)).toBe(
+      'legacy'
+    );
+  });
+
+  it('leaves ineligible and synchronous search behavior unchanged', () => {
+    expect(
+      resolveEffectiveSearchExecutionMode(
+        { ...TD_SPEC, guidance: { rollout: 'heuristic' } },
+        undefined,
+        2
+      )
+    ).toBeUndefined();
+    expect(
+      resolveEffectiveSearchExecutionMode(
+        { ...TD_SPEC, kind: 'search' },
+        undefined,
+        2
+      )
+    ).toBeUndefined();
+    expect(
+      resolveEffectiveSearchExecutionMode(TD_SPEC, undefined, 1)
+    ).toBeUndefined();
   });
 
   it('requires pool recreation when worker count or execution mode changes', () => {

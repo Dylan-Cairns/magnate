@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey } from '../engine/actionSurface';
@@ -111,9 +111,13 @@ describe('worker-backed policy', () => {
   it('forwards an explicitly requested evaluation search executor', async () => {
     const workers: FakeWorker[] = [];
     const { context, actions } = selectionFixture();
+    const observedExecutionModes: string[] = [];
     const policy = createWorkerBackedPolicy(tdSearchSpec(), {
       createWorker: () => pushWorker(workers),
       searchExecutionMode: 'resumable-paired-td',
+      onSearchExecutionMode(mode) {
+        observedExecutionModes.push(mode);
+      },
     });
 
     const selectedPromise = Promise.resolve(policy.selectAction(context));
@@ -127,8 +131,31 @@ describe('worker-backed policy', () => {
       type: 'selected-action',
       requestId: request.requestId,
       actionKey: actionStableKey(actions[0]),
+      searchExecutionMode: 'resumable-paired-td',
     });
     await expect(selectedPromise).resolves.toBe(actions[0]);
+    expect(observedExecutionModes).toEqual(['resumable-paired-td']);
+  });
+
+  it('forwards the browser URL legacy rollback override', () => {
+    const workers: FakeWorker[] = [];
+    const { context } = selectionFixture();
+    vi.stubGlobal('location', { search: '?tdSearchExecutor=legacy' });
+    try {
+      const policy = createWorkerBackedPolicy(tdSearchSpec(), {
+        createWorker: () => pushWorker(workers),
+      });
+
+      void policy.selectAction(context);
+
+      expect(workers[0].messages[0]).toMatchObject({
+        type: 'select-action',
+        searchExecutionMode: 'legacy',
+      });
+      policy.close();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('rejects worker-selected action keys outside the current legal set', async () => {

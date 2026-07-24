@@ -25,11 +25,27 @@ interface RunnerState {
   step: IteratorResult<RolloutSearchVisitRequest, RolloutSearchVisitResult>;
 }
 
+export function assertPairedTdRolloutAvailable(
+  model: LoadedTdGuidanceModel | undefined,
+  pairTdActions: boolean
+): void {
+  if (!pairTdActions) {
+    throw new Error(
+      'Paired TD rollout execution requires TD rollout guidance.'
+    );
+  }
+  if (!model?.opponentScorer.logitsForActionPair) {
+    throw new Error(
+      'Paired TD rollout execution requires a paired opponent scorer.'
+    );
+  }
+}
+
 /**
- * Benchmark-only lockstep executor. It never changes task creation, visit
- * scheduling, UCB allocation, merge order, or RNG streams; it only pauses the
- * two visits already assigned to one worker and evaluates coincident TD action
- * requests through the paired kernel.
+ * Lockstep executor that preserves task creation, visit scheduling, UCB
+ * allocation, merge order, and RNG streams. It only pauses the two visits
+ * already assigned to one worker and evaluates coincident TD action requests
+ * through the paired kernel.
  */
 export function runRolloutSearchTaskBatchResumable(
   tasks: readonly RolloutSearchWorkerTask[],
