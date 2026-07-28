@@ -44,7 +44,7 @@ describe('strategic position artifacts', () => {
       const artifact = createStrategicPositionArtifactV0(run, {
         generatedAtUtc: '2026-07-13T00:00:00.000Z',
         git: { commit: 'test', dirty: false },
-        nodeVersion: 'v20.19.0',
+        nodeVersion: 'v22.23.1',
       });
       const written = await writeStrategicPositionArtifactsV0(
         artifact,
