@@ -230,6 +230,10 @@ Design expectations:
   commands. DOM target lookup and flight object construction stay browser-only,
   but the command `atMs`/`startMs` values must come from `AnimationSequence`
   steps rather than a parallel turn-cycle visual timing plan.
+- Income-token presentation should land one token at a time. Each staggered
+  flight gets an explicit sequence landing boundary where its visible resource
+  count is incremented and its overlay copy is removed in the same scheduled
+  React update; do not hold completed income overlays for a later batch apply.
 - Sequence-derived card visual commands should execute through command-specific
   DOM flight builders. A draw, sell, or card-to-district launch command already
   identifies the visual intent; hook-level execution should not rediscover that

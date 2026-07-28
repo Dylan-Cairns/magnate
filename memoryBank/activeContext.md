@@ -211,12 +211,14 @@
   removes player resources at flight start, applies in-card token badges after
   token flight landing, advances the progress tracker afterward, and reveals
   completion last. Sequence-launched resource flight visual commands carry
-  their duration from the owning `AnimationSequence` step, and the overlay copy
-  self-removes from that command duration before later sequence steps reveal
-  landed state. The deed progress tracker uses its original explicit SVG arc
-  geometry with local requestAnimationFrame interpolation, but its duration is
-  sourced from the shared animation timing constant. Its interpolated ratio is
-  scoped to the mounted card, initialized and bounded by the current
+  their duration from the owning `AnimationSequence` step. Staggered income
+  flights now have individual sequence landing steps; each step increments the
+  corresponding visible resource count and removes that flight overlay in the
+  same scheduled React update, so completed overlays no longer wait for a
+  batch income apply. The deed progress tracker uses its original explicit SVG
+  arc geometry with local requestAnimationFrame interpolation, but its duration
+  is sourced from the shared animation timing constant. Its interpolated ratio
+  is scoped to the mounted card, initialized and bounded by the current
   presentation snapshot, and does not persist across deed placements or game
   sessions. Presentation finalization and input unlock are derived from
   `AnimationSequence`

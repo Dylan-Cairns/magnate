@@ -61,6 +61,7 @@ import {
 import { buildAnimationSequence } from '../runtime/animationSequence';
 import { buildGameTransaction } from '../runtime/transactions';
 import {
+  resourceFlightsAfterPresentationTime,
   sequencePresentationSnapshotUpdateTimes,
   useGameAnimations,
 } from './useGameAnimations';
@@ -85,6 +86,38 @@ afterEach(() => {
 });
 
 describe('useGameAnimations scheduling helpers', () => {
+  it('removes only the income overlays whose presentation landing has arrived', () => {
+    const baseFlight = {
+      suit: 'Moons' as const,
+      startX: 0,
+      startY: 0,
+      endX: 10,
+      endY: 10,
+      delayMs: 0,
+    };
+    const flights = [
+      { ...baseFlight, id: 'first', presentationLandingMs: 100 },
+      { ...baseFlight, id: 'second', presentationLandingMs: 195 },
+      { ...baseFlight, id: 'unrelated' },
+    ];
+
+    expect(
+      resourceFlightsAfterPresentationTime(flights, 99).map(
+        (flight) => flight.id
+      )
+    ).toEqual(['first', 'second', 'unrelated']);
+    expect(
+      resourceFlightsAfterPresentationTime(flights, 100).map(
+        (flight) => flight.id
+      )
+    ).toEqual(['second', 'unrelated']);
+    expect(
+      resourceFlightsAfterPresentationTime(flights, 195).map(
+        (flight) => flight.id
+      )
+    ).toEqual(['unrelated']);
+  });
+
   it('does not schedule a presentation snapshot at the final commit/unlock boundary', () => {
     const transaction = makeBuyDeedTransaction();
     const sequence = buildAnimationSequence(transaction);

@@ -34,7 +34,8 @@ describe('buildAnimationSequence', () => {
       'hold-before-income-flights',
       'highlight-income-sources',
       'launch-income-token-flights',
-      'apply-income-gains',
+      'land-income-token',
+      'land-income-token',
       'post-income-hold',
       'commit-view-state',
     ]);
@@ -74,17 +75,26 @@ describe('buildAnimationSequence', () => {
     );
   });
 
-  it('uses the step duration as the single source for staggered income flight length', () => {
+  it('lands staggered income tokens at their individual flight endpoints', () => {
     const sequence = buildAnimationSequence(makeEndTurnTransaction());
     const incomeFlights = step(sequence, 'launch-income-token-flights');
+    const landings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-income-token'
+    );
 
-    expect(incomeFlights.durationMs).toBe(
+    expect(incomeFlights.durationMs).toBe(0);
+    expect(incomeFlights.flightSequenceDurationMs).toBe(
       DEFAULT_ANIMATION_DURATIONS.incomeFlightMs +
         DEFAULT_ANIMATION_DURATIONS.incomeFlightStaggerMs
     );
-    expect(step(sequence, 'apply-income-gains').startMs).toBe(
-      incomeFlights.endMs
-    );
+    expect(landings.map((landing) => landing.endMs)).toEqual([
+      incomeFlights.startMs + DEFAULT_ANIMATION_DURATIONS.incomeFlightMs,
+      incomeFlights.startMs + incomeFlights.flightSequenceDurationMs,
+    ]);
+    expect(landings.map((landing) => landing.gain.suit)).toEqual([
+      'Suns',
+      'Knots',
+    ]);
     expect(sequence.commitMs).toBe(step(sequence, 'commit-view-state').startMs);
     expect(sequence.inputUnlockMs).toBe(
       step(sequence, 'commit-view-state').startMs
@@ -99,7 +109,8 @@ describe('buildAnimationSequence', () => {
       'hold-before-income-flights',
       'reveal-income-choice-submission',
       'launch-income-token-flights',
-      'apply-income-gains',
+      'land-income-token',
+      'land-income-token',
       'post-income-hold',
       'commit-view-state',
     ]);

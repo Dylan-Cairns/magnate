@@ -47,6 +47,11 @@ export type IncomeFlightToken = {
       };
 };
 
+export type IncomeFlightTiming = {
+  durationMs: number;
+  staggerMs: number;
+};
+
 export type PaymentFlightTiming = {
   durationMs: number;
   staggerMs: number;
@@ -55,6 +60,11 @@ export type PaymentFlightTiming = {
 const DEFAULT_PAYMENT_FLIGHT_TIMING: PaymentFlightTiming = {
   durationMs: PAYMENT_FLIGHT_DURATION_MS,
   staggerMs: PAYMENT_FLIGHT_STAGGER_MS,
+};
+
+const DEFAULT_INCOME_FLIGHT_TIMING: IncomeFlightTiming = {
+  durationMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
+  staggerMs: TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
 };
 
 export function buildTaxLossFlightsFromDom(
@@ -99,7 +109,8 @@ export function buildTaxLossFlightsFromDom(
 export function buildIncomeFlightsFromDom(
   tokens: ReadonlyArray<IncomeFlightToken>,
   makeFlightId: () => string,
-  domTargets: AnimationDomTargets = browserAnimationDomTargets
+  domTargets: AnimationDomTargets = browserAnimationDomTargets,
+  timing: IncomeFlightTiming = DEFAULT_INCOME_FLIGHT_TIMING
 ): ResourceFlight[] {
   if (!domTargets.isAvailable() || tokens.length === 0) {
     return [];
@@ -132,8 +143,8 @@ export function buildIncomeFlightsFromDom(
       startY: source.y,
       endX: target.x,
       endY: target.y,
-      delayMs: index * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
-      durationMs: TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
+      delayMs: index * timing.staggerMs,
+      durationMs: timing.durationMs,
       variant: 'transfer',
     });
   }

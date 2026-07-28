@@ -75,6 +75,8 @@ export type AnimationVisualCommand =
       type: 'launch-income-token-flights';
       atMs: number;
       durationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
         { type: 'income-token-gained' }
@@ -176,7 +178,9 @@ export function deriveAnimationVisualCommands(
     commands.push({
       type: 'launch-income-token-flights',
       atMs: incomeFlightStep.startMs,
-      durationMs: incomeFlightStep.durationMs,
+      durationMs: incomeFlightStep.flightSequenceDurationMs,
+      flightDurationMs: incomeFlightStep.flightDurationMs,
+      flightStaggerMs: incomeFlightStep.flightStaggerMs,
       gains: incomeFlightStep.gains,
     });
   }

@@ -17,7 +17,6 @@ import {
   PAYMENT_FLIGHT_DURATION_MS,
   PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
-  TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
 } from './timing';
 
@@ -96,7 +95,8 @@ describe('flightPlans', () => {
           },
         ],
         makeIds('income'),
-        targets
+        targets,
+        { durationMs: 321, staggerMs: 17 }
       )
     ).toMatchObject([
       {
@@ -106,18 +106,21 @@ describe('flightPlans', () => {
         endX: 20,
         endY: 30,
         delayMs: 0,
+        durationMs: 321,
       },
       {
         id: 'income-2',
         startX: 310,
         startY: 50,
-        delayMs: TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
+        delayMs: 17,
+        durationMs: 321,
       },
       {
         id: 'income-3',
         startX: 140,
         startY: 260,
-        delayMs: 2 * TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
+        delayMs: 34,
+        durationMs: 321,
       },
     ]);
   });

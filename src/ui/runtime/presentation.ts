@@ -237,15 +237,14 @@ function applySequenceStep(
           incomeHighlightCrowns: step.crowns,
         },
       };
-    case 'apply-income-gains':
+    case 'land-income-token':
+      if (elapsedMs < step.endMs) {
+        return { viewState, overlays };
+      }
       return {
-        viewState: applyResourceDeltas(
-          viewState,
-          step.gains.map((event) => ({
-            playerId: event.playerId,
-            delta: { [event.suit]: 1 },
-          }))
-        ),
+        viewState: applyResourceDelta(viewState, step.gain.playerId, {
+          [step.gain.suit]: 1,
+        }),
         overlays,
       };
     case 'post-income-hold':
