@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "bridge": "tsx src/bridge/cli.ts",
     "bot:eval": "tsx src/botEval/cli.ts",
+    "benchmark:td-two-lane": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_td_two_lane_browser_benchmark.ps1 -Mode full",
+    "benchmark:td-two-lane:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_td_two_lane_browser_benchmark.ps1 -Mode smoke",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint . && yarn typecheck",

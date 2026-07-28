@@ -28,6 +28,13 @@
 - Vite dev builds support `?fixture=multi-income` for multiple partial-income choices and `?fixture=late-game` for a heuristic-rollout late-game board.
 - Bridge, direct TypeScript evaluation, replay collection, and TD policy lookahead use a single policy-facing decision actor during simultaneous income: one unsubmitted income-choice owner is exposed at a time in pending-choice order, with observations and masks aligned to that actor.
 - Browser rollout search and TD-root search share deterministic policy plumbing where appropriate; the old standalone browser `td-search` policy path has been retired.
+- A benchmark-only browser TD two-lane inference spike now provides a dedicated
+  worker harness, deterministic legal-position corpus, model-pack SHA-256,
+  alternating scalar/paired timing, and exact-logit/argmax gates. The initial
+  eight-position smoke passed with zero differences across 41 logits; its
+  single-round timing is not decision evidence. Production search remains
+  unchanged, and the quiet-machine full command in
+  `docs/runbooks/td-two-lane-browser-benchmark.md` is pending.
 - Rollout-search includes an additive v2 heuristic profile/config path with contextual token-bank valuation; omitted heuristic config preserves v1 root and playout behavior.
 - Experimental `StrategicStateSummaryV0` exposes player-view-safe score, clock,
   resource, income-source, deed-feasibility, placement-support, and card-support
