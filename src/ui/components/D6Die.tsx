@@ -39,13 +39,13 @@ const INITIAL_ROT = FACE_OFFSET[1];
 export function D6Die({
   suit,
   rollKey,
-  pulsing,
+  glowing,
   dimmed,
   animationsEnabled = true,
 }: {
   suit: Suit | undefined;
   rollKey?: number | string;
-  pulsing?: boolean;
+  glowing?: boolean;
   dimmed?: boolean;
   animationsEnabled?: boolean;
 }) {
@@ -82,7 +82,7 @@ export function D6Die({
 
   return (
     <div
-      className={`die-scene-d6${pulsing ? ' is-pulsing' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      className={`die-scene-d6${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
       aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
     >
       <div className={`die-roll-bounce-wrap${bounceClass}`}>

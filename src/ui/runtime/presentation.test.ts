@@ -113,9 +113,8 @@ describe('derivePresentationSnapshotFromSequence', () => {
     const { transaction } = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
     const incomeRoll = step(sequence, 'roll-income-dice');
-    const incomePulse = step(sequence, 'pulse-income-die');
     const taxRoll = step(sequence, 'roll-tax-die');
-    const taxPulse = step(sequence, 'pulse-tax-die');
+    const taxHold = step(sequence, 'hold-before-tax-flights');
 
     const duringIncomeRoll = derivePresentationSnapshotFromSequence({
       transaction,
@@ -130,18 +129,6 @@ describe('derivePresentationSnapshotFromSequence', () => {
     });
     expect(duringIncomeRoll.viewState.lastTaxSuit).toBeUndefined();
 
-    const duringIncomePulse = derivePresentationSnapshotFromSequence({
-      transaction,
-      sequence,
-      elapsedMs: incomePulse.startMs,
-    });
-    expect(duringIncomePulse.overlays.dice).toMatchObject({
-      incomePhase: 'pulsing',
-      taxSuit: undefined,
-      taxPhase: 'hidden',
-    });
-    expect(duringIncomePulse.viewState.lastTaxSuit).toBeUndefined();
-
     const duringTaxRoll = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
@@ -154,15 +141,15 @@ describe('derivePresentationSnapshotFromSequence', () => {
     });
     expect(duringTaxRoll.viewState.lastTaxSuit).toBe('Moons');
 
-    const duringTaxPulse = derivePresentationSnapshotFromSequence({
+    const duringTaxHold = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: taxPulse.startMs,
+      elapsedMs: taxHold.startMs,
     });
-    expect(duringTaxPulse.overlays.dice).toMatchObject({
+    expect(duringTaxHold.overlays.dice).toMatchObject({
       incomePhase: 'settled',
       taxSuit: 'Moons',
-      taxPhase: 'pulsing',
+      taxPhase: 'settled',
     });
   });
 

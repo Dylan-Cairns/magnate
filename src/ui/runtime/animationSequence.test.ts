@@ -17,7 +17,7 @@ import {
 } from './animationSequence';
 
 describe('buildAnimationSequence', () => {
-  it('builds a single ordered turn-cycle sequence where income flights wait for dice roll and pulse', () => {
+  it('builds a single ordered turn-cycle sequence without post-roll pulse stages', () => {
     const transaction = makeEndTurnTransaction();
     const sequence = buildAnimationSequence(transaction);
 
@@ -25,9 +25,7 @@ describe('buildAnimationSequence', () => {
       'hold-previous-state',
       'draw-card-flight',
       'roll-income-dice',
-      'pulse-income-die',
       'roll-tax-die',
-      'pulse-tax-die',
       'hold-before-tax-flights',
       'launch-tax-token-flights',
       'apply-tax-token-loss',
@@ -49,10 +47,10 @@ describe('buildAnimationSequence', () => {
     );
 
     const incomeRoll = step(sequence, 'roll-income-dice');
-    const incomePulse = step(sequence, 'pulse-income-die');
-    const incomeFlights = step(sequence, 'launch-income-token-flights');
-    expect(incomePulse.startMs).toBe(incomeRoll.endMs);
-    expect(incomeFlights.startMs).toBeGreaterThanOrEqual(incomePulse.endMs);
+    const taxRoll = step(sequence, 'roll-tax-die');
+    const taxHold = step(sequence, 'hold-before-tax-flights');
+    expect(taxRoll.startMs).toBe(incomeRoll.endMs);
+    expect(taxHold.startMs).toBe(taxRoll.endMs);
   });
 
   it('applies staggered tax losses when each token flight launches', () => {
@@ -229,9 +227,7 @@ describe('buildAnimationSequence', () => {
       'hold-previous-state',
       'draw-card-flight',
       'roll-income-dice',
-      'pulse-income-die',
       'roll-tax-die',
-      'pulse-tax-die',
       'commit-view-state',
     ]);
   });

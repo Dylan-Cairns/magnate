@@ -17,7 +17,7 @@ import { deriveAnimationVisualCommands } from './animationVisualCommands';
 import { buildGameTransaction } from './transactions';
 
 describe('deriveAnimationVisualCommands', () => {
-  it('derives tax pulses and resource flights from sequence step boundaries', () => {
+  it('highlights taxed resources during the pre-flight hold', () => {
     const sequence = buildAnimationSequence(makeEndTurnTransaction());
     const commands = deriveAnimationVisualCommands(sequence);
     const drawFlight = commands.find(
@@ -38,8 +38,8 @@ describe('deriveAnimationVisualCommands', () => {
     });
     expect(taxPulse).toEqual({
       type: 'pulse-tax-resources',
-      startMs: step(sequence, 'pulse-tax-die').startMs,
-      endMs: step(sequence, 'pulse-tax-die').endMs,
+      startMs: step(sequence, 'hold-before-tax-flights').startMs,
+      endMs: step(sequence, 'hold-before-tax-flights').endMs,
       targets: [{ playerId: PLAYER_A, suit: 'Moons' }],
     });
     expect(taxFlights).toMatchObject({
@@ -50,7 +50,7 @@ describe('deriveAnimationVisualCommands', () => {
     });
   });
 
-  it('schedules income flights after the income dice roll and pulse complete', () => {
+  it('schedules income flights after both dice rolls complete', () => {
     const sequence = buildAnimationSequence(makeEndTurnTransaction());
     const incomeFlights = deriveAnimationVisualCommands(sequence).find(
       (command) => command.type === 'launch-income-token-flights'
@@ -62,7 +62,7 @@ describe('deriveAnimationVisualCommands', () => {
       durationMs: step(sequence, 'launch-income-token-flights').durationMs,
     });
     expect(incomeFlights?.atMs).toBeGreaterThanOrEqual(
-      step(sequence, 'pulse-income-die').endMs
+      step(sequence, 'roll-tax-die').endMs
     );
   });
 
