@@ -101,6 +101,13 @@ function applySequenceStep(
         viewState: applyResourcePayment(viewState, step.event),
         overlays,
       };
+    case 'apply-resource-payment-token':
+      return {
+        viewState: applyResourceDelta(viewState, step.playerId, {
+          [step.suit]: -1,
+        }),
+        overlays,
+      };
     case 'apply-deed-tokens':
       return {
         viewState: applyDeedTokens(viewState, step.tokens),

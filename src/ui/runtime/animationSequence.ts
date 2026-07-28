@@ -1,4 +1,5 @@
 import type { CardId } from '../../engine/cards';
+import { SUITS } from '../../engine/stateHelpers';
 import type {
   IncomeChoice,
   IncomeRollResult,
@@ -9,6 +10,8 @@ import {
   ACTION_FLIGHT_COMMIT_BUFFER_MS,
   CARD_FLIGHT_DURATION_MS,
   DEED_PROGRESS_REVEAL_MS,
+  PAYMENT_FLIGHT_DURATION_MS,
+  PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_DURATION_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
@@ -23,6 +26,8 @@ export type AnimationDurations = {
   commitBufferMs: number;
   actionResourceFlightMs: number;
   actionResourceFlightStaggerMs: number;
+  paymentFlightMs: number;
+  paymentFlightStaggerMs: number;
   dieRollMs: number;
   diePulseMs: number;
   taxDieRollMs: number;
@@ -43,6 +48,8 @@ export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
   commitBufferMs: ACTION_FLIGHT_COMMIT_BUFFER_MS,
   actionResourceFlightMs: RESOURCE_FLIGHT_DURATION_MS,
   actionResourceFlightStaggerMs: RESOURCE_FLIGHT_STAGGER_MS,
+  paymentFlightMs: PAYMENT_FLIGHT_DURATION_MS,
+  paymentFlightStaggerMs: PAYMENT_FLIGHT_STAGGER_MS,
   dieRollMs: 1000,
   diePulseMs: 900,
   taxDieRollMs: 1000,
@@ -91,10 +98,20 @@ export type AnimationStep =
       id: string;
       type: 'launch-payment-token-flights';
       durationMs: number;
+      flightSequenceDurationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
       event: Extract<
         GamePresentationEvent,
         { type: 'resource-payment-started' }
       >;
+    }
+  | {
+      id: string;
+      type: 'apply-resource-payment-token';
+      durationMs: number;
+      playerId: PlayerId;
+      suit: Suit;
     }
   | {
       id: string;
@@ -563,14 +580,21 @@ function appendActionResourcePaymentSteps(
       event.reason !== 'develop-deed'
   );
   for (const start of starts) {
+    const paymentTokens = SUITS.flatMap((suit) =>
+      Array.from({ length: start.payment[suit] ?? 0 }, () => suit)
+    );
+    const flightSequenceDurationMs = staggeredDuration(
+      paymentTokens.length,
+      durations.paymentFlightMs,
+      durations.paymentFlightStaggerMs
+    );
     steps.push({
       id: `launch-payment-token-flights:${start.reason}:${start.playerId}:${start.cardId}:${start.districtId}`,
       type: 'launch-payment-token-flights',
-      durationMs: staggeredDuration(
-        tokenCount(start.payment),
-        durations.actionResourceFlightMs,
-        durations.actionResourceFlightStaggerMs
-      ),
+      durationMs: 0,
+      flightSequenceDurationMs,
+      flightDurationMs: durations.paymentFlightMs,
+      flightStaggerMs: durations.paymentFlightStaggerMs,
       event: start,
     });
     const apply = transaction.events.find(
@@ -587,11 +611,17 @@ function appendActionResourcePaymentSteps(
         event.districtId === start.districtId
     );
     if (apply) {
-      steps.push({
-        id: `apply-resource-payment:${apply.reason}:${apply.playerId}:${apply.cardId}:${apply.districtId}`,
-        type: 'apply-resource-payment',
-        durationMs: durations.commitBufferMs,
-        event: apply,
+      paymentTokens.forEach((suit, index) => {
+        const isLastToken = index === paymentTokens.length - 1;
+        steps.push({
+          id: `apply-resource-payment-token:${apply.reason}:${apply.playerId}:${apply.cardId}:${apply.districtId}:${suit}:${String(index)}`,
+          type: 'apply-resource-payment-token',
+          durationMs: isLastToken
+            ? durations.paymentFlightMs + durations.commitBufferMs
+            : durations.paymentFlightStaggerMs,
+          playerId: apply.playerId,
+          suit,
+        });
       });
     }
   }
@@ -719,10 +749,6 @@ function appendSellGainSteps(
     durationMs: durations.commitBufferMs,
     gains,
   });
-}
-
-function tokenCount(tokens: Partial<Record<Suit, number>>): number {
-  return Object.values(tokens).reduce((total, count) => total + (count ?? 0), 0);
 }
 
 function firstEvent<TType extends GamePresentationEvent['type']>(

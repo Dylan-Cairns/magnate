@@ -16,7 +16,8 @@ import {
   type Point,
 } from './domTargets';
 import {
-  RESOURCE_FLIGHT_DURATION_MS,
+  PAYMENT_FLIGHT_DURATION_MS,
+  PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
@@ -44,6 +45,16 @@ export type IncomeFlightToken = {
         cardId: CardId;
         districtId: string;
       };
+};
+
+export type PaymentFlightTiming = {
+  durationMs: number;
+  staggerMs: number;
+};
+
+const DEFAULT_PAYMENT_FLIGHT_TIMING: PaymentFlightTiming = {
+  durationMs: PAYMENT_FLIGHT_DURATION_MS,
+  staggerMs: PAYMENT_FLIGHT_STAGGER_MS,
 };
 
 export function buildTaxLossFlightsFromDom(
@@ -133,7 +144,8 @@ export function buildIncomeFlightsFromDom(
 export function buildPaymentFlightsFromDom(
   event: Extract<GamePresentationEvent, { type: 'resource-payment-started' }>,
   makeFlightId: () => string,
-  domTargets: AnimationDomTargets = browserAnimationDomTargets
+  domTargets: AnimationDomTargets = browserAnimationDomTargets,
+  timing: PaymentFlightTiming = DEFAULT_PAYMENT_FLIGHT_TIMING
 ): ResourceFlight[] {
   if (!domTargets.isAvailable()) {
     return [];
@@ -163,8 +175,8 @@ export function buildPaymentFlightsFromDom(
       startY: source.y,
       endX: source.x,
       endY: viewportCenterY,
-      delayMs: index * RESOURCE_FLIGHT_STAGGER_MS,
-      durationMs: RESOURCE_FLIGHT_DURATION_MS,
+      delayMs: index * timing.staggerMs,
+      durationMs: timing.durationMs,
       variant: 'payment',
     });
   }

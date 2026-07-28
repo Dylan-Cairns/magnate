@@ -202,7 +202,12 @@ export function useGameAnimations() {
           scheduleAt(command.atMs, () => {
             const flights = buildPaymentFlightsFromDom(
               command.event,
-              makeResourceFlightId
+              makeResourceFlightId,
+              browserAnimationDomTargets,
+              {
+                durationMs: command.flightDurationMs,
+                staggerMs: command.flightStaggerMs,
+              }
             );
             if (flights.length === 0) {
               return;

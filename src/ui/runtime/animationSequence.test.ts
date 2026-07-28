@@ -121,22 +121,59 @@ describe('buildAnimationSequence', () => {
       'launch-card-to-district-flight',
       'place-card-in-district',
       'launch-payment-token-flights',
-      'apply-resource-payment',
+      'apply-resource-payment-token',
+      'apply-resource-payment-token',
       'commit-view-state',
     ]);
 
     const payment = step(sequence, 'launch-payment-token-flights');
-    const applyPayment = step(sequence, 'apply-resource-payment');
+    const applyPayments = sequence.steps.filter(
+      (entry) => entry.type === 'apply-resource-payment-token'
+    );
     const cardFlight = step(sequence, 'launch-card-to-district-flight');
     const placement = step(sequence, 'place-card-in-district');
-    expect(payment.durationMs).toBe(
-      DEFAULT_ANIMATION_DURATIONS.actionResourceFlightMs +
-        DEFAULT_ANIMATION_DURATIONS.actionResourceFlightStaggerMs
+    expect(payment.durationMs).toBe(0);
+    expect(payment.flightSequenceDurationMs).toBe(
+      DEFAULT_ANIMATION_DURATIONS.paymentFlightMs +
+        DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs
     );
     expect(cardFlight.startMs).toBe(0);
     expect(placement.startMs).toBe(cardFlight.endMs);
     expect(payment.startMs).toBe(placement.endMs);
-    expect(applyPayment.startMs).toBe(payment.endMs);
+    expect(applyPayments.map((entry) => entry.suit)).toEqual([
+      'Moons',
+      'Knots',
+    ]);
+    expect(applyPayments[0].startMs).toBe(payment.startMs);
+    expect(applyPayments[1].startMs).toBe(
+      payment.startMs + DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs
+    );
+    expect(step(sequence, 'commit-view-state').startMs).toBe(
+      payment.startMs +
+        payment.flightSequenceDurationMs +
+        DEFAULT_ANIMATION_DURATIONS.commitBufferMs
+    );
+  });
+
+  it('extends outright payment animation for every token paid', () => {
+    const sequence = buildAnimationSequence(makeOutrightTransaction());
+    const payment = step(sequence, 'launch-payment-token-flights');
+    const applyPayments = sequence.steps.filter(
+      (entry) => entry.type === 'apply-resource-payment-token'
+    );
+
+    expect(applyPayments).toHaveLength(5);
+    expect(payment.flightSequenceDurationMs).toBe(
+      DEFAULT_ANIMATION_DURATIONS.paymentFlightMs +
+        4 * DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs
+    );
+    expect(applyPayments.map((entry) => entry.startMs)).toEqual(
+      [0, 1, 2, 3, 4].map(
+        (index) =>
+          payment.startMs +
+          index * DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs
+      )
+    );
   });
 
   it('sequences deed progress and completion after deed-token flights', () => {
@@ -347,6 +384,41 @@ function makeBuyDeedTransaction() {
     action: { type: 'buy-deed', cardId: '6', districtId: 'D1' },
     actingPlayerId: PLAYER_A,
     transactionId: 'tx-buy-deed',
+    stepToDecision: () => next,
+  });
+}
+
+function makeOutrightTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources({ Moons: 3, Knots: 2 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, { hand: [], resources: makeResources() }),
+      makePlayer(PLAYER_B),
+    ],
+    districts: [
+      makeDistrict('D1', ['Moons'], {
+        [PLAYER_A]: { developed: ['6'] },
+      }),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: {
+      type: 'develop-outright',
+      cardId: '6',
+      districtId: 'D1',
+      payment: { Moons: 3, Knots: 2 },
+    },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-develop-outright',
     stepToDecision: () => next,
   });
 }

@@ -13,6 +13,8 @@ import {
   buildTaxLossFlightsFromDom,
 } from './flightPlans';
 import {
+  PAYMENT_FLIGHT_DURATION_MS,
+  PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
@@ -189,12 +191,14 @@ describe('flightPlans', () => {
         endX: 20,
         endY: 500,
         delayMs: 0,
+        durationMs: PAYMENT_FLIGHT_DURATION_MS,
         variant: 'payment',
       },
       {
         id: 'payment-2',
         suit: 'Knots',
-        delayMs: RESOURCE_FLIGHT_STAGGER_MS,
+        delayMs: PAYMENT_FLIGHT_STAGGER_MS,
+        durationMs: PAYMENT_FLIGHT_DURATION_MS,
         variant: 'payment',
       },
       {
@@ -202,7 +206,8 @@ describe('flightPlans', () => {
         suit: 'Knots',
         startX: 60,
         startY: 80,
-        delayMs: 2 * RESOURCE_FLIGHT_STAGGER_MS,
+        delayMs: 2 * PAYMENT_FLIGHT_STAGGER_MS,
+        durationMs: PAYMENT_FLIGHT_DURATION_MS,
         variant: 'payment',
       },
     ]);
