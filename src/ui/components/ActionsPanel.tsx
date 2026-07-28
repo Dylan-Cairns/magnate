@@ -147,17 +147,17 @@ export function ActionsPanel({
                 <p className="empty-note">Resolving income and taxation...</p>
               ) : humanActionUiBlockedByAnimation ? null : visibleActionItems.length ===
                 0 ? (
-                <p className="empty-note">
-                  {isIncomeChoicePhase ? (
-                    botThinking ? (
+                // An empty input list can reflect canonical play advancing ahead
+                // of the displayed phase; it does not mean no legal moves exist.
+                botThinking ? (
+                  hideBotWaitMessageDuringTurnCycleLock ? null : (
+                    <p className="empty-note">
                       <BotThinkingText />
-                    ) : (
-                      'Resolving income choices...'
-                    )
-                  ) : (
-                    'No legal actions.'
-                  )}
-                </p>
+                    </p>
+                  )
+                ) : isIncomeChoicePhase ? (
+                  <p className="empty-note">Resolving income choices...</p>
+                ) : null
               ) : (
                 <div className="action-list">
                   {visibleActionItems.map((item, index) => {

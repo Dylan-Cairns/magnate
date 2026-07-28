@@ -182,6 +182,32 @@ describe('ActionsPanel', () => {
     expect(html).not.toContain('No legal actions.');
   });
 
+  it.each([false, true])(
+    'handles bot income thinking before the displayed phase catches up (hidden: %s)',
+    (hideBotWaitMessageDuringTurnCycleLock) => {
+      const html = renderPanel({
+        activePlayerId: 'PlayerA',
+        isIncomeChoicePhase: false,
+        visibleActionItems: [],
+        botThinking: true,
+        hideBotWaitMessageDuringTurnCycleLock,
+      });
+
+      expect(html).not.toContain('No legal actions.');
+      expect(html.includes('Bot is thinking...')).toBe(
+        !hideBotWaitMessageDuringTurnCycleLock
+      );
+    }
+  );
+
+  it('leaves an empty action panel blank between decisions', () => {
+    const html = renderPanel({ visibleActionItems: [] });
+
+    expect(html).not.toContain('No legal actions.');
+    expect(html).not.toContain('Bot is thinking...');
+    expect(html).not.toContain('Resolving income choices...');
+  });
+
   it('shows bot thinking after the human has submitted income choices while bot income remains', () => {
     const html = renderPanel({
       isIncomeChoicePhase: true,
