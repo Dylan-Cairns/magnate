@@ -129,6 +129,20 @@ describe('deriveAnimationVisualCommands', () => {
       tokens: step(deedSequence, 'launch-deed-token-flights').tokens,
     });
   });
+
+  it('derives trade removal flights from the trade sequence', () => {
+    const sequence = buildAnimationSequence(makeTradeTransaction());
+    const flightStep = step(sequence, 'launch-trade-token-flights');
+
+    expect(deriveAnimationVisualCommands(sequence)).toContainEqual({
+      type: 'launch-trade-token-flights',
+      atMs: flightStep.startMs,
+      durationMs: flightStep.flightSequenceDurationMs,
+      flightDurationMs: flightStep.flightDurationMs,
+      flightStaggerMs: flightStep.flightStaggerMs,
+      event: flightStep.event,
+    });
+  });
 });
 
 function makeEndTurnTransaction() {
@@ -262,6 +276,28 @@ function makeBuyDeedTransaction() {
     action: { type: 'buy-deed', cardId: '6', districtId: 'D1' },
     actingPlayerId: PLAYER_A,
     transactionId: 'tx-buy-deed',
+    stepToDecision: () => next,
+  });
+}
+
+function makeTradeTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, { resources: makeResources({ Moons: 3 }) }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, { resources: makeResources({ Suns: 1 }) }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'trade', give: 'Moons', receive: 'Suns' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-trade',
     stepToDecision: () => next,
   });
 }

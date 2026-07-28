@@ -37,6 +37,17 @@ export type AnimationVisualCommand =
       >;
     }
   | {
+      type: 'launch-trade-token-flights';
+      atMs: number;
+      durationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'trade-resources-applied' }
+      >;
+    }
+  | {
       type: 'launch-deed-token-flights';
       atMs: number;
       durationMs: number;
@@ -103,6 +114,16 @@ export function deriveAnimationVisualCommands(
       case 'launch-payment-token-flights':
         commands.push({
           type: 'launch-payment-token-flights',
+          atMs: step.startMs,
+          durationMs: step.flightSequenceDurationMs,
+          flightDurationMs: step.flightDurationMs,
+          flightStaggerMs: step.flightStaggerMs,
+          event: step.event,
+        });
+        break;
+      case 'launch-trade-token-flights':
+        commands.push({
+          type: 'launch-trade-token-flights',
           atMs: step.startMs,
           durationMs: step.flightSequenceDurationMs,
           flightDurationMs: step.flightDurationMs,
