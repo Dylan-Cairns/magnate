@@ -14,7 +14,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## Quickstart
 
-1. Install Node `22.23.1` (the version pinned in `.nvmrc`) and Yarn classic.
+1. Install [Volta](https://volta.sh/) (`choco install volta` on Windows with Chocolatey). The project pin in `package.json` automatically selects Node `22.23.1` and Yarn `1.22.22`; `.nvmrc` provides the same Node pin for other version managers and CI.
 2. `yarn install`
 3. `yarn dev`
 4. `yarn test`
