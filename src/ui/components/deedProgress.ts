@@ -56,6 +56,13 @@ export function shouldAnimateDeedProgress(
   return targetRatio > currentRatio + DEED_PROGRESS_EPSILON;
 }
 
+export function clampAnimatedDeedProgressRatio(
+  animatedRatio: number,
+  presentedRatio: number
+): number {
+  return Math.max(0, Math.min(animatedRatio, presentedRatio));
+}
+
 export function tweenAnimatedDeedProgressRatio(
   fromRatio: number,
   targetRatio: number,

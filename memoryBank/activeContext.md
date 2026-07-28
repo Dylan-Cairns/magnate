@@ -208,8 +208,11 @@
   self-removes from that command duration before later sequence steps reveal
   landed state. The deed progress tracker uses its original explicit SVG arc
   geometry with local requestAnimationFrame interpolation, but its duration is
-  sourced from the shared animation timing constant. Presentation finalization
-  and input unlock are derived from `AnimationSequence`
+  sourced from the shared animation timing constant. Its interpolated ratio is
+  scoped to the mounted card, initialized and bounded by the current
+  presentation snapshot, and does not persist across deed placements or game
+  sessions. Presentation finalization and input unlock are derived from
+  `AnimationSequence`
   `commitMs`/`inputUnlockMs` rather than action-type timing rules. Human input is
   blocked only when a transition opens a new human decision window; the barrier
   clears when that specific queued transaction reaches its ordered input-unlock
@@ -277,4 +280,4 @@
 5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>` for large TypeScript teacher replay exports; use `collect-td-replay` for serial debugging.
 6. Keep docs aligned by replacing stale Memory Bank bullets rather than appending task history.
 
-_Updated: 2026-07-17._
+_Updated: 2026-07-19._

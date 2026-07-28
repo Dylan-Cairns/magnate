@@ -209,6 +209,10 @@ Design expectations:
   but canonical-looking resource/card/count mutations belong to explicit
   sequence apply/commit steps so React cannot leak `nextState` before the
   sequence reaches it.
+- Leaf animation interpolation must be scoped to the mounted visual instance
+  and bounded by the current presentation snapshot. Deed progress continuity
+  must not use module-global card-ID caches that survive a placement, reset, or
+  game session.
 - Pre-commit presentation reducers should construct visible mutations from the
   current step/event payload and current presentation snapshot. Copy broad
   `nextState` structures only at the explicit final commit boundary, or at a
