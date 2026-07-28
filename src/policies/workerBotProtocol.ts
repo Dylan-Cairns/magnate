@@ -1,5 +1,6 @@
 import type { GameAction, GameState, PlayerView } from '../engine/types';
 import type { BotSpec } from './botSpec';
+import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 import type { SearchDecisionDiagnostics } from './types';
 
 export interface BotWorkerSelectActionRequest {
@@ -10,6 +11,7 @@ export interface BotWorkerSelectActionRequest {
   view: PlayerView;
   legalActions: GameAction[];
   randomSeed: string;
+  searchExecutionMode?: SearchWorkerExecutionMode;
 }
 
 export interface BotWorkerCancelRequest {
