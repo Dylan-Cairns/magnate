@@ -10,6 +10,8 @@ from typing import Any
 
 import torch
 from trainer.td import (
+    REPLAY_KEY_MODE_BASENAME,
+    REPLAY_KEY_MODES,
     evaluate_opponent_holdout,
     evaluate_value_holdout,
     load_opponent_checkpoint,
@@ -34,6 +36,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--opponent-replay-list", type=Path, required=True)
     parser.add_argument("--expected-value-replay-content-sha256", required=True)
     parser.add_argument("--expected-opponent-replay-content-sha256", required=True)
+    parser.add_argument(
+        "--replay-key-mode",
+        choices=sorted(REPLAY_KEY_MODES),
+        default=REPLAY_KEY_MODE_BASENAME,
+    )
     parser.add_argument("--expected-value-checkpoint-sha256", required=True)
     parser.add_argument("--expected-opponent-checkpoint-sha256", required=True)
     parser.add_argument("--expected-checkpoint-step", type=int, required=True)
@@ -52,8 +59,11 @@ def main() -> int:
 
     value_paths = _read_path_list(args.value_replay_list, label="value")
     opponent_paths = _read_path_list(args.opponent_replay_list, label="opponent")
-    value_replay_sha = replay_content_sha256(value_paths)
-    opponent_replay_sha = replay_content_sha256(opponent_paths)
+    value_replay_sha = replay_content_sha256(value_paths, key_mode=args.replay_key_mode)
+    opponent_replay_sha = replay_content_sha256(
+        opponent_paths,
+        key_mode=args.replay_key_mode,
+    )
     _expect_sha256(
         label="value replay content",
         actual=value_replay_sha,
@@ -105,6 +115,7 @@ def main() -> int:
             "valueReplayContentSha256": value_replay_sha,
             "opponentReplayList": str(args.opponent_replay_list.resolve()),
             "opponentReplayContentSha256": opponent_replay_sha,
+            "replayKeyMode": args.replay_key_mode,
             "gamma": args.gamma,
             "pythonVersion": sys.version,
             "torchVersion": torch.__version__,

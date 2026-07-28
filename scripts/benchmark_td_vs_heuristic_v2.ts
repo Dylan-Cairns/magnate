@@ -1,3 +1,12 @@
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -9,9 +18,9 @@ import {
 import {
   installLocalPublicFetch,
   localPublicUrl,
-  tdModelIndexPath,
 } from '../src/botEval/localPublicFetch';
 import { runHeadToHead } from '../src/botEval/matchup';
+import type { PairedSeedResult } from '../src/botEval/pair';
 import type { HeadToHeadConfig, PlayedGame } from '../src/botEval/types';
 import type { PlayerId } from '../src/engine/types';
 import type { BotSpec } from '../src/policies/botSpec';
@@ -38,9 +47,13 @@ interface Options {
   tdLeaf: TdRootGuidanceSource;
   opponent: 'heuristic-v2' | 'td';
   tdPackId?: string;
+  tdModelIndexPath: string;
   workers: number;
   maxDecisionsPerGame: number;
   outDir?: string;
+  resume: boolean;
+  resumeKey?: string;
+  dryRun: boolean;
 }
 
 const DEFAULT_OPTIONS: Options = {
@@ -54,14 +67,33 @@ const DEFAULT_OPTIONS: Options = {
   tdRollout: 'td',
   tdLeaf: 'td',
   opponent: 'heuristic-v2',
+  tdModelIndexPath: 'model-packs/index.json',
   workers: 1,
   maxDecisionsPerGame: 260,
+  resume: false,
+  dryRun: false,
 };
+
+interface PairCheckpoint {
+  schemaVersion: 1;
+  runFingerprint: string;
+  pairIndex: number;
+  result: PairedSeedResult;
+}
+
+interface ResumeState {
+  schemaVersion: 1;
+  runFingerprint: string;
+  elapsedMs: number;
+  completedPairs: number;
+}
 
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   if (options.games % 2 !== 0) {
-    throw new Error('--games must be even because this benchmark side-swaps paired seeds.');
+    throw new Error(
+      '--games must be even because this benchmark side-swaps paired seeds.'
+    );
   }
 
   installLocalPublicFetch();
@@ -69,13 +101,33 @@ async function main(): Promise<void> {
   const config = benchmarkConfig(options);
   const outDir =
     options.outDir ?? defaultHeadToHeadOutputDirectory(config.runLabel);
+  const resume = prepareResume(options, config, outDir);
   process.stderr.write(
-    `[td-vs-v2] games=${String(options.games)} workers=${String(options.workers)} worlds=${String(options.worlds)} depth=${String(options.depth)} maxRootActions=${String(options.maxRootActions)} tdRoot=${options.tdRoot} tdRollout=${options.tdRollout} tdLeaf=${options.tdLeaf} tdManifest=${manifestUrl}\n`
+    `[td-vs-v2] games=${String(options.games)} workers=${String(options.workers)} worlds=${String(options.worlds)} depth=${String(options.depth)} maxRootActions=${String(options.maxRootActions)} tdRoot=${options.tdRoot} tdRollout=${options.tdRollout} tdLeaf=${options.tdLeaf} tdManifest=${manifestUrl} resumedPairs=${String(resume.results.length)}\n`
   );
+  if (options.dryRun) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          status: 'ready',
+          dryRun: true,
+          outDir: path.resolve(outDir),
+          manifestUrl,
+          resumedPairs: resume.results.length,
+          config,
+        },
+        null,
+        2
+      )}\n`
+    );
+    return;
+  }
 
   const run = await runHeadToHead(config, {
     workers: options.workers,
     progressIntervalMs: 30_000,
+    initialResults: resume.results,
+    initialElapsedMs: resume.elapsedMs,
     onProgress(progress) {
       if (progress.type === 'game-heartbeat') {
         process.stderr.write(
@@ -86,6 +138,15 @@ async function main(): Promise<void> {
           `${formatGameResult(progress.game, config)} completed=${String(progress.completedGames)}/${String(progress.totalGames)} rate=${progress.gamesPerMinute.toFixed(2)} games/min\n`
         );
       } else if (progress.type === 'pair-completed') {
+        if (options.resume) {
+          writePairCheckpoint(outDir, resume.runFingerprint, progress.result);
+          writeResumeState(outDir, {
+            schemaVersion: 1,
+            runFingerprint: resume.runFingerprint,
+            elapsedMs: progress.elapsedMs,
+            completedPairs: progress.completedPairs,
+          });
+        }
         process.stderr.write(
           `[td-vs-v2] completed ${String(progress.completedGames)}/${String(progress.totalGames)} games rate=${progress.gamesPerMinute.toFixed(2)} games/min\n`
         );
@@ -126,7 +187,7 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
       ? ({
           id: 'td-root-medium-root-td-rollout-td-leaf-td',
           kind: 'td-root-search',
-          modelIndexPath: tdModelIndexPath(options.tdPackId),
+          modelIndexPath: selectedTdModelIndexPath(options),
           config: searchConfig,
           guidance: {
             root: 'td' as const,
@@ -148,7 +209,7 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
     candidate: {
       id: `td-root-medium-${guidanceLabel}`,
       kind: 'td-root-search',
-      modelIndexPath: tdModelIndexPath(options.tdPackId),
+      modelIndexPath: selectedTdModelIndexPath(options),
       config: searchConfig,
       guidance: {
         root: options.tdRoot,
@@ -160,10 +221,7 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
   };
 }
 
-function formatGameResult(
-  game: PlayedGame,
-  config: HeadToHeadConfig
-): string {
+function formatGameResult(game: PlayedGame, config: HeadToHeadConfig): string {
   const candidateSeat = seatForBot(game, config.candidate.id);
   const opponentSeat = seatForBot(game, config.opponent.id);
   const candidateResult =
@@ -208,19 +266,39 @@ function formatSeconds(elapsedMs: number): string {
 }
 
 async function resolveTdManifestUrl(options: Options): Promise<string> {
-  const indexPath = path.join(process.cwd(), 'public', 'model-packs', 'index.json');
+  const publicRoot = path.resolve(process.cwd(), 'public');
+  const indexPath = path.resolve(publicRoot, options.tdModelIndexPath);
+  if (
+    indexPath !== publicRoot &&
+    !indexPath.startsWith(`${publicRoot}${path.sep}`)
+  ) {
+    throw new Error('--td-model-index-path must stay under public/.');
+  }
   const index = JSON.parse(await readFile(indexPath, 'utf8')) as ModelPackIndex;
   const selectedPackId = options.tdPackId ?? index.defaultPackId;
   if (!selectedPackId) {
-    throw new Error('No TD pack id was provided and public/model-packs/index.json has no defaultPackId.');
+    throw new Error(
+      'No TD pack id was provided and public/model-packs/index.json has no defaultPackId.'
+    );
   }
   const selected = index.packs.find(
-    (pack) => pack.id === selectedPackId && pack.modelType === 'td-root-search-v1'
+    (pack) =>
+      pack.id === selectedPackId && pack.modelType === 'td-root-search-v1'
   );
   if (!selected) {
-    throw new Error(`Could not find td-root-search-v1 pack id=${selectedPackId}.`);
+    throw new Error(
+      `Could not find td-root-search-v1 pack id=${selectedPackId}.`
+    );
   }
   return localPublicUrl(selected.manifestPath);
+}
+
+function selectedTdModelIndexPath(options: Options): string {
+  if (!options.tdPackId) {
+    return options.tdModelIndexPath;
+  }
+  const separator = options.tdModelIndexPath.includes('?') ? '&' : '?';
+  return `${options.tdModelIndexPath}${separator}tdPackId=${encodeURIComponent(options.tdPackId)}`;
 }
 
 function parseOptions(args: readonly string[]): Options {
@@ -265,6 +343,8 @@ function parseOptions(args: readonly string[]): Options {
       DEFAULT_OPTIONS.tdLeaf
     ),
     opponent: optionalOpponent(flags, '--opponent', DEFAULT_OPTIONS.opponent),
+    tdModelIndexPath:
+      flags.get('--td-model-index-path') ?? DEFAULT_OPTIONS.tdModelIndexPath,
     workers: optionalInt(flags, '--workers', DEFAULT_OPTIONS.workers),
     maxDecisionsPerGame: optionalInt(
       flags,
@@ -273,7 +353,103 @@ function parseOptions(args: readonly string[]): Options {
     ),
     tdPackId: flags.get('--td-pack-id'),
     outDir: flags.get('--out-dir'),
+    resume: optionalBoolean(flags, '--resume', DEFAULT_OPTIONS.resume),
+    resumeKey: flags.get('--resume-key'),
+    dryRun: optionalBoolean(flags, '--dry-run', DEFAULT_OPTIONS.dryRun),
   };
+}
+
+function prepareResume(
+  options: Options,
+  config: HeadToHeadConfig,
+  outDir: string
+): { runFingerprint: string; results: PairedSeedResult[]; elapsedMs: number } {
+  if (!options.resume) {
+    return { runFingerprint: '', results: [], elapsedMs: 0 };
+  }
+  if (!options.resumeKey?.trim()) {
+    throw new Error('--resume-key is required when --resume true.');
+  }
+  const runFingerprint = createHash('sha256')
+    .update(
+      JSON.stringify({
+        config,
+        resumeKey: options.resumeKey,
+      })
+    )
+    .digest('hex');
+  const checkpointRoot = pairCheckpointRoot(outDir);
+  mkdirSync(checkpointRoot, { recursive: true });
+  const results = readdirSync(checkpointRoot)
+    .filter((name) => /^pair-\d{4}\.json$/.test(name))
+    .map((name) => {
+      const checkpoint = JSON.parse(
+        readFileSync(path.join(checkpointRoot, name), 'utf8')
+      ) as PairCheckpoint;
+      if (
+        checkpoint.schemaVersion !== 1 ||
+        checkpoint.runFingerprint !== runFingerprint ||
+        checkpoint.pairIndex !== checkpoint.result.pairIndex
+      ) {
+        throw new Error(`Invalid or stale pair checkpoint: ${name}.`);
+      }
+      return checkpoint.result;
+    });
+  const statePath = resumeStatePath(outDir);
+  let elapsedMs = 0;
+  if (existsSync(statePath)) {
+    const state = JSON.parse(readFileSync(statePath, 'utf8')) as ResumeState;
+    if (
+      state.schemaVersion !== 1 ||
+      state.runFingerprint !== runFingerprint ||
+      !Number.isFinite(state.elapsedMs) ||
+      state.elapsedMs < 0 ||
+      !Number.isInteger(state.completedPairs) ||
+      state.completedPairs < 0 ||
+      state.completedPairs > results.length
+    ) {
+      throw new Error('Invalid or stale resume-state.json.');
+    }
+    elapsedMs = state.elapsedMs;
+  }
+  return { runFingerprint, results, elapsedMs };
+}
+
+function writePairCheckpoint(
+  outDir: string,
+  runFingerprint: string,
+  result: PairedSeedResult
+): void {
+  const pairNumber = result.pairIndex + 1;
+  const target = path.join(
+    pairCheckpointRoot(outDir),
+    `pair-${String(pairNumber).padStart(4, '0')}.json`
+  );
+  writeJsonAtomic(target, {
+    schemaVersion: 1,
+    runFingerprint,
+    pairIndex: result.pairIndex,
+    result,
+  } satisfies PairCheckpoint);
+}
+
+function writeResumeState(outDir: string, state: ResumeState): void {
+  writeJsonAtomic(resumeStatePath(outDir), state);
+}
+
+function writeJsonAtomic(target: string, payload: unknown): void {
+  mkdirSync(path.dirname(target), { recursive: true });
+  const temporary = `${target}.${String(process.pid)}.tmp`;
+  writeFileSync(temporary, `${JSON.stringify(payload)}\n`, 'utf8');
+  renameSync(temporary, target);
+}
+
+function pairCheckpointRoot(outDir: string): string {
+  return path.join(outDir, 'pair-checkpoints');
+}
+
+function resumeStatePath(outDir: string): string {
+  return path.join(outDir, 'resume-state.json');
 }
 
 function optionalInt(
@@ -306,6 +482,24 @@ function optionalNumber(
     throw new Error(`${name} must be a finite number >= 0.`);
   }
   return parsed;
+}
+
+function optionalBoolean(
+  flags: ReadonlyMap<string, string>,
+  name: string,
+  fallback: boolean
+): boolean {
+  const raw = flags.get(name);
+  if (raw === undefined) {
+    return fallback;
+  }
+  if (raw === 'true') {
+    return true;
+  }
+  if (raw === 'false') {
+    return false;
+  }
+  throw new Error(`${name} must be true or false.`);
 }
 
 function optionalTdRootGuidanceSource(

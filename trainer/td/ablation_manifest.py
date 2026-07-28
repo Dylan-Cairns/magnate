@@ -5,6 +5,15 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+REPLAY_KEY_MODE_BASENAME = "basename-canonical-v1"
+REPLAY_KEY_MODE_RUN_QUALIFIED = "run-qualified-canonical-v1"
+REPLAY_KEY_MODES = frozenset(
+    {
+        REPLAY_KEY_MODE_BASENAME,
+        REPLAY_KEY_MODE_RUN_QUALIFIED,
+    }
+)
+
 
 @dataclass(frozen=True)
 class FrozenReplaySplit:
@@ -134,13 +143,21 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def replay_content_sha256(paths: tuple[Path, ...] | list[Path]) -> str:
+def replay_content_sha256(
+    paths: tuple[Path, ...] | list[Path],
+    *,
+    key_mode: str = REPLAY_KEY_MODE_BASENAME,
+) -> str:
     """Fingerprint ordered replay shard contents without binding absolute paths."""
     if not paths:
         raise ValueError("Replay content fingerprint requires at least one path.")
+    if key_mode not in REPLAY_KEY_MODES:
+        raise ValueError(
+            f"Unsupported replay key mode {key_mode!r}; expected one of {sorted(REPLAY_KEY_MODES)}."
+        )
     keyed_paths: list[tuple[str, Path]] = []
     for path in paths:
-        key = _replay_key(path)
+        key = _replay_key(path, key_mode=key_mode)
         keyed_paths.append((key, path))
     keys = [key for key, _path in keyed_paths]
     if len(set(keys)) != len(keys):
@@ -227,10 +244,21 @@ def _replay_content_sha256(
     return _canonical_sha256([{"key": key, "sha256": file_sha256[key]} for key in keys])
 
 
-def _replay_key(path: Path) -> str:
+def _replay_key(path: Path, *, key_mode: str) -> str:
     for suffix in (".value.jsonl", ".opponent.jsonl"):
         if path.name.endswith(suffix):
-            return path.name.removesuffix(suffix)
+            shard_key = path.name.removesuffix(suffix)
+            if key_mode == REPLAY_KEY_MODE_BASENAME:
+                return shard_key
+            if path.parent.name != "shards":
+                raise ValueError(
+                    "Run-qualified replay paths must be located directly inside a "
+                    f"'shards' directory: {path}"
+                )
+            run_key = path.parent.parent.name
+            if not run_key:
+                raise ValueError(f"Unable to derive replay run key from path: {path}")
+            return f"{run_key}/{shard_key}"
     raise ValueError(
         f"Replay content fingerprint paths must end in .value.jsonl or .opponent.jsonl: {path}"
     )

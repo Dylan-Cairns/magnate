@@ -14,11 +14,13 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## Quickstart
 
-1. Install [Volta](https://volta.sh/) (`choco install volta` on Windows with Chocolatey). The project pin in `package.json` automatically selects Node `22.23.1` and Yarn `1.22.22`; `.nvmrc` provides the same Node pin for other version managers and CI.
-2. `yarn install`
-3. `yarn dev`
-4. `yarn test`
-5. Set up Python with `.\scripts\setup_python_env.ps1` on Windows, or create `.venv` manually on macOS or Linux.
+1. Install [fnm](https://github.com/Schniz/fnm) and enable its shell integration.
+2. From the repo root, run `fnm install` and `fnm use`. The checked-in `.nvmrc` selects Node `22.23.1`.
+3. Run `corepack enable` and `corepack install` to activate the `package.json` Yarn `1.22.22` pin.
+4. `yarn install`
+5. `yarn dev`
+6. `yarn test`
+7. Set up Python with `.\scripts\setup_python_env.ps1` on Windows, or create `.venv` manually on macOS or Linux.
 
 Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context and links to runbooks.
 
