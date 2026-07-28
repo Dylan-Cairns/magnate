@@ -1,13 +1,38 @@
 # TD outer-worker shadow benchmark
 
-This is the production-stack validation for the two-lane TD rollout executor.
-It runs the normal worker-backed TD Medium policy through the outer bot worker
-and its nested search-worker pool.
+This is the production-stack validation for the paired TD rollout executor. It
+runs the normal worker-backed TD Medium policy through the outer bot worker and
+its nested search-worker pool.
 
-The legacy executor is authoritative. The paired executor receives the same
-state, legal actions, checkpoint, search configuration, and seed, but its
-selected action is discarded. Catalog-created browser bots omit the
-experimental executor field and continue to use legacy execution.
+The legacy executor remains authoritative inside this benchmark. The candidate
+policy omits an executor override, just like normal browser play, and therefore
+exercises the production default. Each result records the effective modes
+reported by the outer workers, so the harness fails its activation gate unless
+the authoritative lane reports `legacy` and the default lane reports
+`resumable-paired-td`.
+
+## Browser default and rollback
+
+Parallel `td-root-search` policies with TD rollout guidance now use paired
+execution by default. Synchronous search, ordinary rollout search, and
+TD-root policies with heuristic rollout guidance retain their prior execution
+paths.
+
+To roll an affected browser session back to the legacy executor, add:
+
+```text
+?tdSearchExecutor=legacy
+```
+
+Use `&tdSearchExecutor=legacy` if the URL already has query parameters. Remove
+the parameter to restore the paired default. `tdSearchExecutor=paired` is also
+accepted as an explicit diagnostic selection. Any other value is a hard error
+rather than a silent fallback.
+
+The executor selection does not change the checkpoint, root-search budget,
+rollout waves, UCB allocation, seeds, ordered result merge, diagnostics, or
+selected-action policy. Effective executor mode is returned as worker response
+metadata and is not inserted into search diagnostics or teacher targets.
 
 ## Full quiet-machine workload
 
@@ -58,6 +83,12 @@ Competitiveness parity requires all four counters to be zero:
 Also verify:
 
 - `policy.authority` is `legacy`;
+- `policy.candidateExecutionModeRequest` is
+  `omitted-production-default`;
+- `execution.modeRouting.observedLegacy` contains only `legacy`;
+- `execution.modeRouting.observedCandidate` contains only
+  `resumable-paired-td`;
+- `gate.activationPassed` is true;
 - `execution.parallelWorkers`, `parallelBatchSizes`, and `rootVisitBudgets`
   contain the expected production values;
 - `model.weightsSha256` matches the deployed checkpoint;
@@ -65,8 +96,16 @@ Also verify:
 
 The performance gate requires at least 1.2x total speedup and no p95 latency
 regression. These gates only determine the final recommendation; they never
-terminate the run early. A fully passing run recommends preparing a separate
-default-enable change with a legacy rollback switch.
+terminate the run early.
+
+The completed quiet-machine run from 2026-07-23 is stored at
+`artifacts/benchmarks/td-outer-worker-shadow-browser-20260723T225606Z/`.
+It compared 128 corpus decisions and 599 searched decisions across four
+complete shadow games with zero selected-action, diagnostics/teacher-target, or
+transcript mismatches. It observed eight workers, batch size 16, root budget
+160, no p95 regression, and a 1.289x total speedup on the deployed checkpoint.
+That is the performance and competitiveness evidence for enabling the paired
+default; a new overnight run is not required for the activation change.
 
 ## Daytime smoke
 
@@ -77,7 +116,17 @@ npm run benchmark:td-outer-shadow:smoke
 ```
 
 Smoke mode uses one position, one repetition, one warmup decision, and no
-shadow game. Its timing is not performance evidence. The validated 2026-07-23
-smoke passed exact action and diagnostics parity, observed eight workers, batch
-size 16 and root budget 160, and used checkpoint SHA-256
+shadow game. Its timing is not performance evidence. It is the activation
+check: verify the console reports `Legacy executor observed: legacy` and
+`Default executor observed: resumable-paired-td`, and that the saved result has
+`gate.activationPassed: true`, exact action/diagnostics parity, eight workers,
+batch size 16, and root budget 160.
+
+The 2026-07-24 activation smoke is stored at
+`artifacts/benchmarks/td-outer-worker-shadow-browser-20260724T084704Z/`.
+It passed exact action and diagnostics parity, reported only `legacy` for the
+override lane and only `resumable-paired-td` for the omitted/default lane, and
+observed eight workers, batch size 16, root budget 160, and checkpoint SHA-256
 `7c6605c6b4f366729082f6e57878bfe3349b6e57010a1e39ec730bb3ff76d819`.
+Its one-position 1.340x timing is a smoke observation, not new performance
+evidence.

@@ -12,12 +12,40 @@ import {
   runRolloutSearchTask,
   type RolloutSearchWorkerTask,
 } from './rolloutSearchCore';
-import { runRolloutSearchTaskBatchResumable } from './rolloutSearchPairedTd';
+import {
+  assertPairedTdRolloutAvailable,
+  runRolloutSearchTaskBatchResumable,
+} from './rolloutSearchPairedTd';
 import { createTdRootSearchRolloutGuidance } from './tdRootSearchPolicy';
 import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
 import { ACTION_FEATURE_DIM, OBSERVATION_DIM } from './trainingEncoding';
 
 describe('paired TD rollout search executor', () => {
+  it('fails fast unless TD guidance exposes the paired action scorer', () => {
+    const scalarOnlyModel = {
+      valueScorer: {
+        observationDim: OBSERVATION_DIM,
+        predict() {
+          return 0;
+        },
+      },
+      opponentScorer: {
+        observationDim: OBSERVATION_DIM,
+        actionFeatureDim: ACTION_FEATURE_DIM,
+        logits() {
+          return new Float32Array();
+        },
+      },
+    } satisfies LoadedTdGuidanceModel;
+
+    expect(() => assertPairedTdRolloutAvailable(scalarOnlyModel, true)).toThrow(
+      'requires a paired opponent scorer'
+    );
+    expect(() =>
+      assertPairedTdRolloutAvailable(scalarOnlyModel, false)
+    ).toThrow('requires TD rollout guidance');
+  });
+
   it('matches the legacy task oracle exactly while using paired action inference', () => {
     const world = createSession('paired-td-rollout-world', 'PlayerB');
     const rootPlayer = 'PlayerB' as const;

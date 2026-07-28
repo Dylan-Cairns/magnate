@@ -19,8 +19,8 @@ import {
   type SearchWorkerPool,
 } from './searchWorkerPool';
 import {
+  resolveEffectiveSearchExecutionMode,
   searchWorkerPoolConfigurationMatches,
-  validateSearchExecutionMode,
 } from './searchExecutionMode';
 import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 import {
@@ -62,6 +62,11 @@ interface SearchGuidanceFactories {
   guidanceKind?: SearchDecisionDiagnostics['guidance'];
 }
 
+interface SearchActionResult {
+  action: GameAction | undefined;
+  executionMode: SearchWorkerExecutionMode | 'synchronous';
+}
+
 workerScope.onmessage = (event) => {
   void handleRequest(event.data).catch((error: unknown) => {
     const requestId =
@@ -101,9 +106,14 @@ async function selectAction(
     }
     diagnostics = structuredClone(value);
   };
-  const selected = isRolloutLikeSearchSpec(request.spec)
+  const searchResult = isRolloutLikeSearchSpec(request.spec)
     ? await selectSearchAction(request, captureDiagnostics)
-    : await selectGenericPolicyAction(request, captureDiagnostics);
+    : undefined;
+  const selected =
+    searchResult?.action ??
+    (searchResult
+      ? undefined
+      : await selectGenericPolicyAction(request, captureDiagnostics));
 
   if (cancelledRequestIds.has(request.requestId)) {
     cancelledRequestIds.delete(request.requestId);
@@ -117,6 +127,9 @@ async function selectAction(
     requestId: request.requestId,
     ...(selected ? { actionKey: actionStableKey(selected) } : {}),
     ...(diagnostics ? { diagnostics } : {}),
+    ...(searchResult
+      ? { searchExecutionMode: searchResult.executionMode }
+      : {}),
   });
 }
 
@@ -140,7 +153,7 @@ async function selectGenericPolicyAction(
 async function selectSearchAction(
   request: BotWorkerSelectActionRequest,
   onSearchDiagnostics: (diagnostics: SearchDecisionDiagnostics) => void
-): Promise<GameAction | undefined> {
+): Promise<SearchActionResult> {
   if (!isRolloutLikeSearchSpec(request.spec)) {
     throw new Error(
       `selectSearchAction received unsupported bot kind ${request.spec.kind}.`
@@ -148,17 +161,18 @@ async function selectSearchAction(
   }
   const spec = request.spec;
   const workerCount = resolveRolloutSearchWorkerCount(request);
-  validateSearchExecutionMode(spec, request.searchExecutionMode, workerCount);
+  const executionMode = resolveEffectiveSearchExecutionMode(
+    spec,
+    request.searchExecutionMode,
+    workerCount
+  );
   const guidance = await createGuidanceForSpec(spec, {
     includeRuntimeGuidance: workerCount <= 1,
   });
   if (workerCount > 1) {
-    const pool = ensureSearchWorkerPool(
-      workerCount,
-      request.searchExecutionMode
-    );
+    const pool = ensureSearchWorkerPool(workerCount, executionMode);
     try {
-      return await selectRolloutSearchActionParallel({
+      const action = await selectRolloutSearchActionParallel({
         state: request.state,
         view: request.view,
         candidateActions: request.legalActions,
@@ -181,13 +195,17 @@ async function selectSearchAction(
           return pool.runBatch(tasks, context);
         },
       });
+      return {
+        action,
+        executionMode: executionMode ?? 'legacy',
+      };
     } catch (error) {
       closeSearchWorkerPool();
       throw error;
     }
   }
 
-  return selectRolloutSearchActionSync({
+  const action = selectRolloutSearchActionSync({
     state: request.state,
     view: request.view,
     candidateActions: request.legalActions,
@@ -203,6 +221,7 @@ async function selectSearchAction(
     ...(guidance.guidanceKind ? { guidanceKind: guidance.guidanceKind } : {}),
     onSearchDiagnostics,
   });
+  return { action, executionMode: 'synchronous' };
 }
 
 async function createGuidanceForSpec(
@@ -344,6 +363,7 @@ function postSelectedAction(response: {
   requestId: number;
   actionKey?: string;
   diagnostics?: SearchDecisionDiagnostics;
+  searchExecutionMode?: SearchWorkerExecutionMode | 'synchronous';
 }): void {
   workerScope.postMessage({
     type: 'selected-action',

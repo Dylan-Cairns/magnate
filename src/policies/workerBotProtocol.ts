@@ -28,6 +28,7 @@ export interface BotWorkerSelectedActionResponse {
   requestId: number;
   actionKey?: string;
   diagnostics?: SearchDecisionDiagnostics;
+  searchExecutionMode?: SearchWorkerExecutionMode | 'synchronous';
 }
 
 export interface BotWorkerErrorResponse {
