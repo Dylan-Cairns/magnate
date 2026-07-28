@@ -130,6 +130,26 @@ describe('domTargets', () => {
     });
   });
 
+  it('uses the lane layout target for the next card size and center', () => {
+    const target = makeElement({
+      left: 120,
+      top: 80,
+      width: 96,
+      height: 140,
+    });
+    const lane = makeElement({
+      queries: new Map([['.lane-card-animation-target', target]]),
+    });
+    const fallback = makeElement({ width: 80, height: 120 });
+    const targets = createAnimationDomTargets(makeEnvironment());
+
+    expect(targets.laneCardSize(lane, fallback)).toEqual({
+      width: 96,
+      height: 140,
+    });
+    expect(targets.laneTargetCenter(lane, 120)).toEqual({ x: 168, y: 150 });
+  });
+
   it('targets an empty human lane from the top of its frame', () => {
     const frame = makeElement({ left: 100, top: 200, width: 180, height: 300 });
     const lane = makeElement({

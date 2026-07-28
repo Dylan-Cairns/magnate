@@ -106,6 +106,12 @@ function DistrictLane({
       <div
         className={`lane-stack-frame${playerId === botPlayerId ? ' is-bot' : ''}`}
       >
+        <div
+          className="lane-card-animation-target"
+          aria-hidden="true"
+          data-card-flight-target="true"
+          style={{ '--stack-position': laneCards.length } as CSSProperties}
+        />
         {laneCards.length > 0 ? (
           <div
             className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`}
