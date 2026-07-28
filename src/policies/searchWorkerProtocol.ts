@@ -6,11 +6,16 @@ import type {
 
 export type SearchWorkerTask = RolloutSearchWorkerTask;
 export type SearchWorkerResult = RolloutSearchVisitResult;
+export type SearchWorkerExecutionMode =
+  | 'legacy'
+  | 'resumable-scalar'
+  | 'resumable-paired-td';
 
 export interface SearchWorkerRunBatchRequest {
   type: 'run-batch';
   requestId: number;
   tasks: SearchWorkerTask[];
+  executionMode?: SearchWorkerExecutionMode;
 }
 
 export interface SearchWorkerInitializeRolloutSearchRequest {

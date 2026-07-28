@@ -4,6 +4,7 @@ import type {
   SearchWorkerResponse,
   SearchWorkerResult,
   SearchWorkerTask,
+  SearchWorkerExecutionMode,
 } from './searchWorkerProtocol';
 
 export interface SearchWorkerPoolWorker {
@@ -24,6 +25,7 @@ export interface SearchWorkerPool {
 export interface SearchWorkerPoolOptions {
   workerCount: number;
   createWorker?: () => SearchWorkerPoolWorker;
+  executionMode?: SearchWorkerExecutionMode;
 }
 
 interface PoolWorker {
@@ -48,6 +50,7 @@ type PendingRequest = PendingChunk | PendingInitialize;
 export function createSearchWorkerPool({
   workerCount,
   createWorker = createDefaultSearchWorker,
+  executionMode,
 }: SearchWorkerPoolOptions): SearchWorkerPool {
   if (!Number.isInteger(workerCount) || workerCount <= 0) {
     throw new Error('Search worker pool workerCount must be positive.');
@@ -57,9 +60,12 @@ export function createSearchWorkerPool({
   let activeRequest = false;
   let nextRequestId = 1;
   let initializedRolloutSearchContextId: string | null = null;
-  let initializedRolloutSearchWorldStates: RolloutSearchWorkerContext['worldStates'] | null =
-    null;
-  let initializedRolloutSearchGuidance: RolloutSearchWorkerContext['guidance'] | undefined;
+  let initializedRolloutSearchWorldStates:
+    | RolloutSearchWorkerContext['worldStates']
+    | null = null;
+  let initializedRolloutSearchGuidance:
+    | RolloutSearchWorkerContext['guidance']
+    | undefined;
   const pendingByRequestId = new Map<number, PendingRequest>();
   const workers: PoolWorker[] = Array.from(
     { length: workerCount },
@@ -140,7 +146,11 @@ export function createSearchWorkerPool({
     nextRequestId += 1;
 
     return new Promise((resolve, reject) => {
-      pendingByRequestId.set(requestId, { kind: 'initialize', resolve, reject });
+      pendingByRequestId.set(requestId, {
+        kind: 'initialize',
+        resolve,
+        reject,
+      });
       try {
         poolWorker.worker.postMessage({
           type: 'initialize-rollout-search',
@@ -168,6 +178,7 @@ export function createSearchWorkerPool({
           type: 'run-batch',
           requestId,
           tasks: [...tasks],
+          ...(executionMode ? { executionMode } : {}),
         });
       } catch (error) {
         pendingByRequestId.delete(requestId);

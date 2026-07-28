@@ -16,6 +16,12 @@ export interface TdGuidanceActionScorer {
     observation: readonly number[],
     actions: readonly GameAction[]
   ): Float32Array;
+  logitsForActionPair?(
+    observationA: readonly number[],
+    actionsA: readonly GameAction[],
+    observationB: readonly number[],
+    actionsB: readonly GameAction[]
+  ): readonly [Float32Array, Float32Array];
 }
 
 export interface LoadedTdGuidanceModel {

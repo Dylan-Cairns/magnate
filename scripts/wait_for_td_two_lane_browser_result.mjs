@@ -7,7 +7,11 @@ async function main() {
     options.timeoutMs === 0
       ? Number.POSITIVE_INFINITY
       : Date.now() + options.timeoutMs;
-  const target = await waitForBenchmarkTarget(options.port, deadline);
+  const target = await waitForBenchmarkTarget(
+    options.port,
+    options.pagePath,
+    deadline
+  );
   const client = await CdpClient.connect(target.webSocketDebuggerUrl);
 
   try {
@@ -53,6 +57,7 @@ function parseOptions(args) {
   const port = Number(values.get('--port'));
   const timeoutMs = Number(values.get('--timeout-ms'));
   const outPath = values.get('--out');
+  const pagePath = values.get('--page-path') ?? '/benchmarks/td-two-lane.html';
   if (!Number.isInteger(port) || port <= 0) {
     throw new Error('--port must be a positive integer.');
   }
@@ -64,10 +69,10 @@ function parseOptions(args) {
   if (!outPath) {
     throw new Error('--out is required.');
   }
-  return { port, timeoutMs, outPath };
+  return { port, timeoutMs, outPath, pagePath };
 }
 
-async function waitForBenchmarkTarget(port, targetDeadline) {
+async function waitForBenchmarkTarget(port, pagePath, targetDeadline) {
   const listUrl = `http://127.0.0.1:${port}/json/list`;
   while (Date.now() < targetDeadline) {
     try {
@@ -77,7 +82,7 @@ async function waitForBenchmarkTarget(port, targetDeadline) {
         const target = targets.find(
           (entry) =>
             entry.type === 'page' &&
-            entry.url.includes('/benchmarks/td-two-lane.html') &&
+            entry.url.includes(pagePath) &&
             typeof entry.webSocketDebuggerUrl === 'string'
         );
         if (target) {

@@ -126,6 +126,34 @@ export interface RolloutSearchVisitResult {
   terminatedBeforeDepthLimit: boolean;
 }
 
+export interface RolloutSearchGuidedActionRequest {
+  readonly kind: 'guided-action';
+  readonly state: GameState;
+  readonly actions: readonly GameAction[];
+  readonly decisionPlayer: PlayerId;
+  readonly rootPlayer: PlayerId;
+  readonly random: RandomFn;
+  readonly config: SearchPolicyConfig;
+}
+
+export interface RolloutSearchGuidedLeafRequest {
+  readonly kind: 'guided-leaf';
+  readonly state: GameState;
+  readonly rootPlayer: PlayerId;
+}
+
+export type RolloutSearchVisitRequest =
+  | RolloutSearchGuidedActionRequest
+  | RolloutSearchGuidedLeafRequest;
+
+export type RolloutSearchVisitResponse = GameAction | number | undefined;
+
+export type RolloutSearchVisitRunner = Generator<
+  RolloutSearchVisitRequest,
+  RolloutSearchVisitResult,
+  RolloutSearchVisitResponse
+>;
+
 /**
  * Evaluation-only view of one action taken inside a rollout. Trace observers
  * receive detached snapshots so they cannot affect search behavior.
@@ -329,6 +357,177 @@ export function runRolloutSearchTask(
     score: rollout.score,
     simulatedActionSteps: rollout.simulatedActionSteps,
     terminatedBeforeDepthLimit: rollout.terminatedBeforeDepthLimit,
+  };
+}
+
+/**
+ * Evaluation-only resumable form of one rollout visit. The existing
+ * runRolloutSearchTask remains the production oracle while this runner lets a
+ * worker pause two independent visits at TD inference boundaries.
+ */
+export function createRolloutSearchVisitRunner(
+  task: RolloutSearchWorkerTask,
+  worldStates: readonly GameState[],
+  options: {
+    fallbackRandom?: RandomFn;
+    requestGuidedActions: boolean;
+    requestGuidedLeaf: boolean;
+    trace?: RolloutSearchTaskTraceOptions;
+  }
+): RolloutSearchVisitRunner {
+  return runRolloutSearchTaskResumableGenerator(task, worldStates, options);
+}
+
+/** Drives the resumable visit one request at a time with scalar guidance. */
+export function runRolloutSearchTaskResumable(
+  task: RolloutSearchWorkerTask,
+  worldStates: readonly GameState[],
+  fallbackRandom?: RandomFn,
+  guidance?: RolloutSearchRuntimeGuidance,
+  trace?: RolloutSearchTaskTraceOptions
+): RolloutSearchVisitResult {
+  const runner = createRolloutSearchVisitRunner(task, worldStates, {
+    ...(fallbackRandom ? { fallbackRandom } : {}),
+    requestGuidedActions: guidance?.chooseRolloutAction !== undefined,
+    requestGuidedLeaf: guidance?.evaluateLeaf !== undefined,
+    ...(trace ? { trace } : {}),
+  });
+  let step = runner.next();
+  while (!step.done) {
+    const request = step.value;
+    const response =
+      request.kind === 'guided-action'
+        ? guidance?.chooseRolloutAction?.(request)
+        : guidance?.evaluateLeaf?.(request);
+    step = runner.next(response);
+  }
+  return step.value;
+}
+
+function* runRolloutSearchTaskResumableGenerator(
+  task: RolloutSearchWorkerTask,
+  worldStates: readonly GameState[],
+  options: {
+    fallbackRandom?: RandomFn;
+    requestGuidedActions: boolean;
+    requestGuidedLeaf: boolean;
+    trace?: RolloutSearchTaskTraceOptions;
+  }
+): RolloutSearchVisitRunner {
+  const random = task.randomSeed
+    ? rngFromSeed(task.randomSeed)
+    : options.fallbackRandom;
+  if (!random) {
+    throw new Error('Rollout search task requires randomSeed or fallback RNG.');
+  }
+  const world = worldStates[task.worldIndex];
+  if (!world) {
+    throw new Error(
+      `Rollout search task references unknown world index ${String(task.worldIndex)}.`
+    );
+  }
+  const initialState: GameState = {
+    ...(structuredClone(world) as GameState),
+    seed: task.engineSeed,
+    rngCursor: 0,
+    log: [],
+  };
+  const rootLegalActions = options.trace
+    ? legalActionsForDecisionPlayer(initialState, task.rootPlayer)
+    : [];
+  let state = stepKnownLegalActionToDecisionForSimulation(
+    initialState,
+    task.rootAction
+  );
+  traceRolloutStep(options.trace, {
+    stepIndex: 0,
+    decisionPlayer: task.rootPlayer,
+    stateBefore: initialState,
+    legalActions: rootLegalActions,
+    action: task.rootAction,
+    stateAfter: state,
+  });
+  let depth = 0;
+  let simulatedActionSteps = 1;
+
+  while (!isTerminal(state) && depth < task.config.depth) {
+    const decisionPlayer = decisionPlayerIdForState(state);
+    if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+      break;
+    }
+    const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
+    if (actions.length === 0) {
+      break;
+    }
+
+    let nextAction: GameAction | undefined;
+    if (random() < task.config.rolloutEpsilon) {
+      const keyed = toKeyedActions(actions);
+      nextAction = keyed[Math.floor(random() * keyed.length)].action;
+    } else if (options.requestGuidedActions) {
+      const guidedResponse = yield {
+        kind: 'guided-action',
+        state,
+        actions,
+        decisionPlayer,
+        rootPlayer: task.rootPlayer,
+        random,
+        config: task.config,
+      };
+      nextAction =
+        typeof guidedResponse === 'object' ? guidedResponse : undefined;
+    }
+    if (!nextAction) {
+      nextAction = bestActionByHeuristic(
+        actions,
+        { state, view: toDecisionPlayerView(state, decisionPlayer) },
+        task.config.heuristic
+      )?.action;
+    }
+    if (!nextAction) {
+      throw new Error('Rollout search could not select from legal actions.');
+    }
+
+    const stateBefore = state;
+    state = stepKnownLegalActionToDecisionForSimulation(state, nextAction);
+    depth += 1;
+    simulatedActionSteps += 1;
+    traceRolloutStep(options.trace, {
+      stepIndex: simulatedActionSteps - 1,
+      decisionPlayer,
+      stateBefore,
+      legalActions: actions,
+      action: nextAction,
+      stateAfter: state,
+    });
+  }
+
+  const terminatedBeforeDepthLimit =
+    isTerminal(state) && depth < task.config.depth;
+  let score: number;
+  if (isTerminal(state)) {
+    score = evaluateSearchTerminalState(state, task.rootPlayer);
+  } else if (options.requestGuidedLeaf) {
+    const leafResponse = yield {
+      kind: 'guided-leaf',
+      state,
+      rootPlayer: task.rootPlayer,
+    };
+    if (typeof leafResponse !== 'number') {
+      throw new Error('Rollout search guided leaf did not return a number.');
+    }
+    score = leafResponse;
+  } else {
+    score = evaluateSearchLeafState(state, task.rootPlayer);
+  }
+
+  return {
+    kind: 'rollout-search',
+    visitIndex: task.visitIndex,
+    actionKey: task.rootActionKey,
+    score,
+    simulatedActionSteps,
+    terminatedBeforeDepthLimit,
   };
 }
 
