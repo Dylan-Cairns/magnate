@@ -76,7 +76,12 @@ export function ActionPicker({
         />
       )}
 
-      <button type="button" className="trade-cancel-button" onClick={onClose}>
+      <button
+        type="button"
+        className="trade-cancel-button"
+        title="Close without choosing an action"
+        onClick={onClose}
+      >
         Cancel
       </button>
     </section>
@@ -109,6 +114,7 @@ function TradeCombinedPicker({
               key={`trade-combined-source-${group.give}`}
               type="button"
               className={`trade-choice-button${picker.selectedGive === group.give ? ' is-selected' : ''}`}
+              title={`Give three ${group.give} resources`}
               onClick={() => {
                 const nextGive = group.give;
                 if (picker.selectedReceive) {
@@ -146,6 +152,7 @@ function TradeCombinedPicker({
               key={`trade-combined-receive-${receiveSuit}`}
               type="button"
               className={`trade-choice-button${picker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
+              title={`Receive one ${receiveSuit} resource`}
               onClick={() => {
                 const nextReceive = receiveSuit;
                 if (picker.selectedGive) {
@@ -202,6 +209,7 @@ function DevelopOutrightCombinedPicker({
               key={`develop-outright-district-${option.districtId}`}
               type="button"
               className={`trade-choice-button${picker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
+              title={`Choose district ${option.districtId}`}
               onClick={() => {
                 const nextDistrictId = option.districtId;
                 if (picker.selectedPaymentKey) {
@@ -246,6 +254,7 @@ function DevelopOutrightCombinedPicker({
               key={`develop-outright-payment-${paymentKey}`}
               type="button"
               className={`trade-choice-button${picker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
+              title={`Pay ${formatTokens(option.payment, SUIT_TEXT_TOKEN)}`}
               onClick={() => {
                 const nextPaymentKey = paymentKey;
                 if (picker.selectedDistrictId) {
@@ -312,6 +321,7 @@ function StandardPicker({
           key={option.id}
           type="button"
           className="trade-choice-button"
+          title={option.label}
           onClick={() => onSelectAction(option.action)}
         >
           <SuitText text={option.label} />

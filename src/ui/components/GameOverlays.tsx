@@ -55,6 +55,7 @@ export function StartupPreloadOverlay({
           <button
             type="button"
             className="reset-button startup-preload-retry"
+            title="Retry loading game assets"
             onClick={onRetry}
           >
             Retry
@@ -88,7 +89,12 @@ export function ResolutionWarningOverlay({
           likely be unusable at smaller resolutions :(
         </p>
         <div className="resolution-warning-actions">
-          <button type="button" className="reset-button" onClick={onDismiss}>
+          <button
+            type="button"
+            className="reset-button"
+            title="Dismiss display warning"
+            onClick={onDismiss}
+          >
             OK
           </button>
         </div>

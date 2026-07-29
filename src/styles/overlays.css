@@ -95,18 +95,6 @@
   justify-content: flex-end;
 }
 
-.bug-report-modal {
-  position: absolute;
-  bottom: calc(100% + 0.36rem);
-  right: 0;
-  width: min(26rem, calc(100vw - 2.5rem));
-  padding: 0.62rem;
-  display: grid;
-  gap: 0.72rem;
-  z-index: 149;
-}
-
-
 .bug-report-body {
   color: var(--ink);
   font-size: 0.92rem;
