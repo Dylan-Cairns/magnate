@@ -57,7 +57,6 @@ export function LogPanel({
                         className="log-turn-entry log-turn-entry-seed"
                       >
                         <div className="log-turn-head">
-                          <span className="log-turn">Seed</span>
                           <span className="log-player">{seedValue}</span>
                         </div>
                       </li>
