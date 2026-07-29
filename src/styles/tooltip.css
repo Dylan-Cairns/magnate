@@ -36,8 +36,7 @@
 }
 
 .tooltip-trigger:hover > .app-tooltip,
-.tooltip-trigger:focus-visible > .app-tooltip,
-.tooltip-trigger:focus-within > .app-tooltip {
+.tooltip-trigger:focus-visible > .app-tooltip {
   opacity: 1;
   visibility: visible;
   transform: translate(-50%, 0);
@@ -50,7 +49,6 @@
 }
 
 .tooltip-trigger:hover > .app-tooltip.tooltip-below,
-.tooltip-trigger:focus-visible > .app-tooltip.tooltip-below,
-.tooltip-trigger:focus-within > .app-tooltip.tooltip-below {
+.tooltip-trigger:focus-visible > .app-tooltip.tooltip-below {
   transform: translate(-50%, 0);
 }
