@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
-import type { GameLogEntry, PlayerId } from '../../engine/types';
+import type { GameLogEntry, GameState, PlayerId } from '../../engine/types';
+import { visibleLogEntriesForPlayer } from '../../engine/view';
 import {
   formatLogSummary,
   groupLogEntriesByTurn,
@@ -15,11 +16,20 @@ import { SUIT_TOKEN_BG } from './TokenComponents';
 export function LogPanel({
   timelineLog,
   humanPlayerId,
+  state,
 }: {
   timelineLog: ReadonlyArray<GameLogEntry>;
   humanPlayerId: PlayerId;
+  state: Pick<
+    GameState,
+    'turn' | 'pendingIncomeChoices' | 'submittedIncomeChoices'
+  >;
 }) {
-  const recentLog = [...timelineLog].reverse();
+  // Privacy follows canonical submissions even when presentation is still
+  // showing the previous turn. Keep the full timeline for export and reveal.
+  const recentLog = [
+    ...visibleLogEntriesForPlayer(timelineLog, state, humanPlayerId),
+  ].reverse();
   const recentLogGroups = groupLogEntriesByTurn(recentLog);
 
   return (
