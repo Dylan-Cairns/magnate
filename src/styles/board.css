@@ -61,7 +61,7 @@
   align-items: center;
 }
 
-.player-score-badge {
+.status-badge {
   border: 1px solid rgba(214, 168, 108, 0.55);
   border-radius: 999px;
   background: rgba(44, 31, 21, 0.78);
@@ -74,7 +74,7 @@
   cursor: default;
 }
 
-.player-score-badge:focus-visible {
+.status-badge:focus-visible {
   outline: 1px solid var(--accent-soft);
   outline-offset: 1px;
 }

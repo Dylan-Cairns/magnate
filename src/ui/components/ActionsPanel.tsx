@@ -129,7 +129,7 @@ export function ActionsPanel({
     <section className="panel actions-panel">
       <div className="actions-heading">
         <h2>{terminal ? 'Game Over' : 'Actions'}</h2>
-        {isLastTurn && <span className="last-turn-badge">Last Turn</span>}
+        {isLastTurn && <span className="status-badge">Last Turn</span>}
       </div>
       <div className="actions-body">
         {terminal ? (

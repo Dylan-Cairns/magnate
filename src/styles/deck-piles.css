@@ -4,6 +4,18 @@
   gap: 0.8rem;
 }
 
+.deck-state-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+
+.deck-state-heading h2 {
+  margin: 0;
+}
+
 .deck-pile {
   display: grid;
   justify-items: center;
@@ -87,26 +99,6 @@
   height: calc(
     var(--deck-pile-card-height) + (var(--deck-pile-stack-step) * 2)
   );
-}
-
-.deck-pile-overlay-label {
-  position: absolute;
-  top: 50%;
-  left: calc(50% + var(--deck-overlay-shift, 0px));
-  z-index: 4;
-  transform: translate(-50%, -50%);
-  padding: 0.08rem 0.38rem;
-  border: 1px solid var(--action-border);
-  border-radius: 999px;
-  background: rgba(7, 11, 17, 0.86);
-  color: rgba(196, 208, 224, 0.9);
-  font-size: 0.66rem;
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
 }
 
 .deck-pile-stack.overlay-shift-0 {
