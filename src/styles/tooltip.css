@@ -1,0 +1,56 @@
+.tooltip-trigger {
+  position: relative;
+}
+
+.app-tooltip {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 1.5rem));
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: rgba(10, 14, 22, 0.96);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: normal;
+  text-align: center;
+  text-transform: none;
+  white-space: normal;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    visibility 120ms ease;
+}
+
+.tooltip-trigger:hover > .app-tooltip,
+.tooltip-trigger:focus-visible > .app-tooltip,
+.tooltip-trigger:focus-within > .app-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.app-tooltip.tooltip-below {
+  top: calc(100% + 0.45rem);
+  bottom: auto;
+  transform: translate(-50%, -3px);
+}
+
+.tooltip-trigger:hover > .app-tooltip.tooltip-below,
+.tooltip-trigger:focus-visible > .app-tooltip.tooltip-below,
+.tooltip-trigger:focus-within > .app-tooltip.tooltip-below {
+  transform: translate(-50%, 0);
+}

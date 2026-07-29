@@ -15,6 +15,7 @@ import {
   tweenAnimatedDeedProgressRatio,
 } from './deedProgress';
 import { layoutDeedTokensBySide } from './deedTokenLayout';
+import { Tooltip } from './Tooltip';
 
 export type CardPerspective = 'human' | 'bot';
 
@@ -63,7 +64,6 @@ export function CardTile({
     return (
       <div
         className="card-tile card-back"
-        title="Hidden card"
         data-hand-owner-id={handOwnerId}
         data-hand-card-id={handCardId}
         data-hand-slot-kind={handSlotKind}
@@ -253,8 +253,7 @@ function CardTileCard({
       </div>
       {hasDeedProgress ? (
         <div
-          className="deed-progress"
-          title="development progress"
+          className="deed-progress tooltip-trigger"
           aria-label="development progress"
         >
           <svg
@@ -285,6 +284,7 @@ function CardTileCard({
           <span className="deed-progress-value">
             {deedProgress}/{deedTarget}
           </span>
+          <Tooltip>Development progress</Tooltip>
         </div>
       ) : (
         <span className="deed-progress-placeholder" aria-hidden="true" />
@@ -339,8 +339,7 @@ function CardTileCard({
 
   return (
     <div
-      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}`}
-      title={card.name}
+      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''} tooltip-trigger`}
       data-card-id={cardId}
       data-in-development={inDevelopment ? 'true' : undefined}
       data-hand-owner-id={handOwnerId}
@@ -349,6 +348,15 @@ function CardTileCard({
     >
       {perspective === 'bot' ? imageBody : metadataRow}
       {perspective === 'bot' ? metadataRow : imageBody}
+      <Tooltip
+        placement={
+          perspective === 'human' && handOwnerId === undefined
+            ? 'below'
+            : 'above'
+        }
+      >
+        {card.name}
+      </Tooltip>
     </div>
   );
 }

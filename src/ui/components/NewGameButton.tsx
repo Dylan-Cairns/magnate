@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 
 import { BOT_PROFILES, type BotProfileId } from '../../policies/catalog';
+import { Tooltip } from './Tooltip';
 
 export function NewGameButton({
   expanded,
@@ -26,17 +27,13 @@ export function NewGameButton({
       <button
         ref={buttonRef}
         type="button"
-        className={`new-game-btn${expanded ? ' is-ready' : ''}`}
+        className={`new-game-btn tooltip-trigger${expanded ? ' is-ready' : ''}`}
         aria-expanded={expanded}
         aria-controls="new-game-panel"
-        title={
-          expanded
-            ? 'Start a new game with these options'
-            : 'Choose new game options'
-        }
         onClick={onToggle}
       >
         {expanded ? 'Start' : 'New Game'}
+        <Tooltip>New game</Tooltip>
       </button>
       {expanded && (
         <section
