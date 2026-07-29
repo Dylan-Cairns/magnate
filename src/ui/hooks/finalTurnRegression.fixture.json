@@ -1,0 +1,131 @@
+{
+  "state": {
+    "schemaVersion": 1,
+    "seed": "seed-1784526487357",
+    "rngCursor": 92,
+    "deck": {
+      "draw": [],
+      "discard": ["19", "2", "0", "6", "1", "13", "10", "3", "21"],
+      "reshuffles": 2
+    },
+    "players": [
+      {
+        "id": "PlayerA",
+        "hand": ["8", "9"],
+        "crowns": ["33", "31", "34"],
+        "resources": {
+          "Moons": 6,
+          "Suns": 7,
+          "Waves": 1,
+          "Leaves": 0,
+          "Wyrms": 0,
+          "Knots": 1
+        }
+      },
+      {
+        "id": "PlayerB",
+        "hand": ["17", "16"],
+        "crowns": ["32", "35", "30"],
+        "resources": {
+          "Moons": 1,
+          "Suns": 0,
+          "Waves": 2,
+          "Leaves": 2,
+          "Wyrms": 0,
+          "Knots": 1
+        }
+      }
+    ],
+    "activePlayerIndex": 1,
+    "turn": 42,
+    "phase": "ActionWindow",
+    "districts": [
+      {
+        "id": "D1",
+        "markerSuitMask": ["Moons", "Wyrms", "Knots"],
+        "stacks": {
+          "PlayerA": {
+            "developed": ["18"]
+          },
+          "PlayerB": {
+            "developed": ["27", "7", "5"]
+          }
+        }
+      },
+      {
+        "id": "D2",
+        "markerSuitMask": ["Moons", "Suns", "Leaves"],
+        "stacks": {
+          "PlayerA": {
+            "developed": ["25", "29"]
+          },
+          "PlayerB": {
+            "developed": []
+          }
+        }
+      },
+      {
+        "id": "D3",
+        "markerSuitMask": [],
+        "stacks": {
+          "PlayerA": {
+            "developed": []
+          },
+          "PlayerB": {
+            "developed": ["23"]
+          }
+        }
+      },
+      {
+        "id": "D4",
+        "markerSuitMask": ["Suns", "Waves", "Knots"],
+        "stacks": {
+          "PlayerA": {
+            "developed": ["20", "15", "26"]
+          },
+          "PlayerB": {
+            "developed": []
+          }
+        }
+      },
+      {
+        "id": "D5",
+        "markerSuitMask": ["Waves", "Leaves", "Wyrms"],
+        "stacks": {
+          "PlayerA": {
+            "developed": ["28", "24", "11"]
+          },
+          "PlayerB": {
+            "developed": ["12", "22", "14", "4"]
+          }
+        }
+      }
+    ],
+    "cardPlayedThisTurn": false,
+    "finalTurnsRemaining": 1,
+    "lastIncomeRoll": {
+      "die1": 5,
+      "die2": 4,
+      "rollId": 92
+    },
+    "log": []
+  },
+  "actions": [
+    {
+      "type": "buy-deed",
+      "cardId": "16",
+      "districtId": "D3"
+    },
+    {
+      "type": "develop-deed",
+      "districtId": "D3",
+      "cardId": "16",
+      "tokens": {
+        "Leaves": 1
+      }
+    },
+    {
+      "type": "end-turn"
+    }
+  ]
+}

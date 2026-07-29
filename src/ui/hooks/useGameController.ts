@@ -152,6 +152,7 @@ export function useGameController({
   );
   const {
     enabled: animationsEnabled,
+    animateDeedProgress,
     setEnabled: setAnimationsEnabled,
     resourceFlights,
     cardFlights,
@@ -603,6 +604,7 @@ export function useGameController({
     resetTurn,
     animations: {
       enabled: animationsEnabled,
+      animateDeedProgress,
       setEnabled: setAnimationsEnabled,
       resourceFlights,
       cardFlights,

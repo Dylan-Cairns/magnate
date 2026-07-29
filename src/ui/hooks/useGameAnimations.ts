@@ -518,6 +518,9 @@ export function useGameAnimations() {
 
   return {
     enabled,
+    // Leaf RAF interpolation must stop at the sequence's visible commit, even
+    // when a slow render or delayed frame starts it after the sequence timer.
+    animateDeedProgress: enabled && presentationSnapshot !== null,
     setEnabled: setAnimationsEnabled,
     resourceFlights,
     cardFlights,
