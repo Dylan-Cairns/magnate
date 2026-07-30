@@ -365,6 +365,18 @@ Design expectations:
   rejects unequal raw sampling traces between matched control/augmentation
   arms. Training/validation membership, path-list hashes, and full-content
   hashes are separate so a same-size replay mutation cannot pass preflight.
+- Multi-run replay fingerprints use
+  `run-qualified-canonical-v1`, whose stable key is
+  `<run-directory>/<shard-basename>`. Single-run callers retain the default
+  basename scheme. A path list must be sorted and unique under its selected
+  scheme, and train/evaluation summaries record the scheme with the content
+  hash.
+- Extra-data continuation experiments hold warm starts, fresh optimizer
+  initialization, seeds, hyperparameters, and update counts constant. The
+  treatment may add replay while the control repeats the incumbent replay.
+  Development may freeze one shared checkpoint step for the treatment,
+  matched control, and replication; the final-test split cannot select or
+  replace that candidate.
 - District-symmetry candidate selection uses only the predeclared final
   checkpoint. The primary seed is frozen before reserved strategic repetitions;
   the second seed is replication, cannot replace the primary, and contradictory

@@ -1,8 +1,5 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
   "python.terminal.activateEnvironment": true,
-  "python.terminal.activateEnvInCurrentTerminal": true,
-  "terminal.integrated.env.windows": {
-    "PATH": "C:\\Program Files\\Volta;${env:PATH}"
-  }
+  "python.terminal.activateEnvInCurrentTerminal": true
 }

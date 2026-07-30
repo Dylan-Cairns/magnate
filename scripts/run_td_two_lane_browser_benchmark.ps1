@@ -18,6 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+. (Join-Path $PSScriptRoot 'windows_training_common.ps1')
 if ($States -le 0) {
     $States = if ($Benchmark -eq 'outer-shadow') {
         if ($Mode -eq 'smoke') { 1 } else { 64 }
@@ -117,30 +118,13 @@ if ([string]::IsNullOrWhiteSpace($resolvedBrowser) -or -not (Test-Path -LiteralP
 }
 $resolvedBrowser = (Resolve-Path -LiteralPath $resolvedBrowser).Path
 
-$nodeCommand = Get-Command node -ErrorAction Stop
-$nodeVersion = & $nodeCommand.Source -p 'process.versions.node'
-if (-not $nodeVersion.StartsWith('22.', [StringComparison]::Ordinal)) {
-    $nvmRoot = Join-Path $env:APPDATA 'nvm'
-    $node22Candidates = Get-ChildItem -LiteralPath $nvmRoot -Directory -Filter 'v22.*' -ErrorAction SilentlyContinue |
-        Sort-Object { [version]$_.Name.Substring(1) } -Descending |
-        ForEach-Object { Join-Path $_.FullName 'node.exe' } |
-        Where-Object { Test-Path -LiteralPath $_ }
-    $node22Path = $node22Candidates | Select-Object -First 1
-    if ([string]::IsNullOrWhiteSpace($node22Path)) {
-        throw "The benchmark requires Node 22. Current Node is $nodeVersion and no Node 22 nvm installation was found."
-    }
-    $nodeCommand = Get-Item -LiteralPath $node22Path
-    $nodeVersion = & $nodeCommand.FullName -p 'process.versions.node'
-}
-$nodeExecutable = if (-not [string]::IsNullOrWhiteSpace($nodeCommand.Source)) {
-    $nodeCommand.Source
-} else {
-    $nodeCommand.FullName
-}
+$nodeRuntime = Assert-MagnateNode22Runtime -RepoRoot $repoRoot
+$nodeVersion = $nodeRuntime.NodeVersion.TrimStart('v')
+$nodeExecutable = $nodeRuntime.NodeExecutable
 Write-Host "Using Node $nodeVersion from $nodeExecutable"
 $viteEntry = Join-Path $repoRoot 'node_modules/vite/bin/vite.js'
 if (-not (Test-Path -LiteralPath $viteEntry)) {
-    throw 'Vite is not installed. Run npm install before the benchmark.'
+    throw 'Vite is not installed. Run yarn install before the benchmark.'
 }
 
 $viteStdout = Join-Path $OutDir 'vite.stdout.log'

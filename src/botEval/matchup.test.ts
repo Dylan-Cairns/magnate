@@ -65,39 +65,35 @@ describe('paired TypeScript bot matchups', () => {
     ]);
   });
 
-  it(
-    'runs paired seeds in child processes and preserves deterministic artifact ordering',
-    async () => {
-      const config = testHeadToHeadConfig(2);
-      const sequential = await runHeadToHead(config);
-      const completedGameIds: string[] = [];
-      const parallel = await runHeadToHead(config, {
-        workers: 2,
-        onProgress(progress) {
-          if (progress.type === 'game-completed') {
-            completedGameIds.push(progress.game.gameId);
-          }
-        },
-      });
+  it('runs paired seeds in child processes and preserves deterministic artifact ordering', async () => {
+    const config = testHeadToHeadConfig(2);
+    const sequential = await runHeadToHead(config);
+    const completedGameIds: string[] = [];
+    const parallel = await runHeadToHead(config, {
+      workers: 2,
+      onProgress(progress) {
+        if (progress.type === 'game-completed') {
+          completedGameIds.push(progress.game.gameId);
+        }
+      },
+    });
 
-      expect(parallel.execution).toEqual({
-        requestedWorkers: 2,
-        workers: 2,
-        parallelUnit: 'paired-seed',
-        latencyMode: 'loaded',
-      });
-      expect(parallel.games.map(gameResult)).toEqual(
-        sequential.games.map(gameResult)
-      );
-      expect([...completedGameIds].sort()).toEqual([
-        'pair-0001-candidate-as-a',
-        'pair-0001-candidate-as-b',
-        'pair-0002-candidate-as-a',
-        'pair-0002-candidate-as-b',
-      ]);
-    },
-    15_000
-  );
+    expect(parallel.execution).toEqual({
+      requestedWorkers: 2,
+      workers: 2,
+      parallelUnit: 'paired-seed',
+      latencyMode: 'loaded',
+    });
+    expect(parallel.games.map(gameResult)).toEqual(
+      sequential.games.map(gameResult)
+    );
+    expect([...completedGameIds].sort()).toEqual([
+      'pair-0001-candidate-as-a',
+      'pair-0001-candidate-as-b',
+      'pair-0002-candidate-as-a',
+      'pair-0002-candidate-as-b',
+    ]);
+  }, 15_000);
 
   it('caps workers at the number of paired seeds', async () => {
     const run = await runHeadToHead(testHeadToHeadConfig(1), { workers: 4 });
@@ -110,27 +106,79 @@ describe('paired TypeScript bot matchups', () => {
     });
   });
 
+  it('resumes from validated completed pairs without replaying their games', async () => {
+    const config = testHeadToHeadConfig(2);
+    const complete = await runHeadToHead(config);
+    const completedGameIds: string[] = [];
+    const completedPairIndices: number[] = [];
+    const resumed = await runHeadToHead(config, {
+      initialResults: [
+        {
+          pairIndex: 0,
+          games: [complete.games[0], complete.games[1]],
+        },
+      ],
+      initialElapsedMs: 1_000,
+      onProgress(progress) {
+        if (progress.type === 'game-completed') {
+          completedGameIds.push(progress.game.gameId);
+        } else if (progress.type === 'pair-completed') {
+          completedPairIndices.push(progress.result.pairIndex);
+          expect(progress.completedPairs).toBe(2);
+        }
+      },
+    });
+
+    expect(resumed.games.map(gameResult)).toEqual(
+      complete.games.map(gameResult)
+    );
+    expect(completedGameIds).toEqual([
+      'pair-0002-candidate-as-a',
+      'pair-0002-candidate-as-b',
+    ]);
+    expect(completedPairIndices).toEqual([1]);
+    expect(resumed.summary.elapsedMs).toBeGreaterThanOrEqual(1_000);
+  });
+
+  it('rejects a resumed pair that does not match its frozen seed', async () => {
+    const config = testHeadToHeadConfig(1);
+    const complete = await runHeadToHead(config);
+    const staleGame = {
+      ...complete.games[0],
+      seed: 'wrong-seed',
+    };
+
+    await expect(
+      runHeadToHead(config, {
+        initialResults: [
+          {
+            pairIndex: 0,
+            games: [staleGame, complete.games[1]],
+          },
+        ],
+      })
+    ).rejects.toThrow(
+      'does not match its frozen game IDs, seed, first player, and seats'
+    );
+  });
+
   it('rejects invalid worker counts', async () => {
     await expect(
       runHeadToHead(testHeadToHeadConfig(), { workers: 0 })
     ).rejects.toThrow('workers must be a positive integer.');
   });
 
-  it(
-    'fails the parent matchup when a child pair fails',
-    async () => {
-      await expect(
-        runHeadToHead(
-          {
-            ...testHeadToHeadConfig(2),
-            maxDecisionsPerGame: 1,
-          },
-          { workers: 2 }
-        )
-      ).rejects.toThrow(/Pair worker \d+ failed on pair \d+: Game .* exceeded/);
-    },
-    10_000
-  );
+  it('fails the parent matchup when a child pair fails', async () => {
+    await expect(
+      runHeadToHead(
+        {
+          ...testHeadToHeadConfig(2),
+          maxDecisionsPerGame: 1,
+        },
+        { workers: 2 }
+      )
+    ).rejects.toThrow(/Pair worker \d+ failed on pair \d+: Game .* exceeded/);
+  }, 10_000);
 });
 
 function gameResult(

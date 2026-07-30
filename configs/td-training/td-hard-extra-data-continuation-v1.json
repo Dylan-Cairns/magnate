@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 1,
+  "experimentId": "td-hard-extra-data-continuation-v1",
+  "status": "review-required",
+  "launchAuthorized": false,
+  "purpose": "Measure whether the 690 imported Hard-teacher training games improve the deployed July TD bot under matched continuation compute.",
+  "provenance": {
+    "implementationFiles": [
+      "scripts/evaluate_td_replay_holdout.py",
+      "scripts/prepare_td_hard_extra_data_continuation.py",
+      "scripts/train_td.py",
+      "trainer/encoding.py",
+      "trainer/td/__init__.py",
+      "trainer/td/ablation_manifest.py",
+      "trainer/td/checkpoint.py",
+      "trainer/td/holdout.py",
+      "trainer/td/io.py",
+      "trainer/td/models.py",
+      "trainer/td/replay.py",
+      "trainer/td/symmetry_augmentation.py",
+      "trainer/td/targets.py",
+      "trainer/td/train.py",
+      "trainer/td/types.py",
+      "trainer/types.py"
+    ],
+    "expectedImplementationSha256": "e28b7f8384e606e4fe03f329fcc922b328cea894a37f803824ecd8f9c18c532a"
+  },
+  "replayKeyMode": "run-qualified-canonical-v1",
+  "replay": {
+    "originalControl": {
+      "shardsDirectory": "artifacts/td_replay/20260619T135628Z-v2-hard-laptop-900/shards",
+      "games": 900,
+      "rows": 163194,
+      "bytes": {
+        "value": 427315245,
+        "opponent": 304153169
+      },
+      "contentSha256": {
+        "value": "350350006e74b3e92727e8de6fe8e4ae8d99f5abcfd86f8921d9542ccee82db3",
+        "opponent": "8f7024927ae8f405fa222800dcd04f95ba0a9b88d9678d6fbc3c100eb04ee6dc"
+      }
+    },
+    "importedSplit": {
+      "manifest": "artifacts/training_inputs/td-hard-usb-20260727-split-v1/split.manifest.json",
+      "manifestSha256": "047beddb5af3a15caa98fa1cc49ae938f2d00d70729d8aefbed18f7281588b70",
+      "membershipSha256": "b6788b819e56f6705a23cb05ede8581cc6b2abb9b68416dbe0099c92eff45237",
+      "training": {
+        "games": 690,
+        "rows": 125201,
+        "bytes": {
+          "value": 329917115,
+          "opponent": 233284704
+        },
+        "contentSha256": {
+          "value": "ff88434e8bf1641a9a1d5278f18584bb9fda72285dcd6e007fe6fb9c5554fb47",
+          "opponent": "e5c54bc5076043e258f38850198520c7e2cc6020832528336a32399c3521d920"
+        },
+        "pathListSha256": {
+          "value": "b4126f34e2a6ab8b277a933de78f8b91492282b82622d7bb109a94fe07980dda",
+          "opponent": "d64afa2a236d69e477dd6568de6e8c0572b8b5b50b1db658583464d72e6f7dc0"
+        }
+      },
+      "development": {
+        "games": 100,
+        "rows": 18083,
+        "bytes": {
+          "value": 47570832,
+          "opponent": 33636565
+        },
+        "contentSha256": {
+          "value": "8f8991a8cddbf1db5120955e65cae9a6f43c8d853f4dd4b2106b770c5b96d8ab",
+          "opponent": "f55889e18d38105c66de383443980aa63fc53f3a1fb5d4ed17d041fb9ee5eab0"
+        },
+        "pathListSha256": {
+          "value": "99d1e6d3e4612f550d53095eb1c037bafe28bb54c5bacb92ee4a9e585598b049",
+          "opponent": "1e0aba750bbe83a0c551b57cd927768daa5902f015c89ca92a08743751732923"
+        }
+      },
+      "sealedFinalTest": {
+        "games": 100,
+        "rows": 18061,
+        "contentSha256": {
+          "value": "0f6921fbcd74cc9b4799942ad27c78ca9a6ac98c1c5e83c265cd9d62795cc719",
+          "opponent": "1c43abe91b592b421ccc22df95bb9876c07c013f3e9f2599599510938dd2c99a"
+        },
+        "pathListSha256": {
+          "value": "c3b3301a72ce75aa7a4d7fe9ae90e30f210201c70ce4a9662eda90a722a7aaf1",
+          "opponent": "a38a7d1131c0ea4f142467c415bd85c736e2cd4914b28c94f043117f3c139db1"
+        },
+        "preparationAccess": "path-list hashes only; raw test replay must not be read"
+      }
+    },
+    "treatmentCombined": {
+      "games": 1590,
+      "rows": 288395,
+      "bytes": {
+        "value": 757232360,
+        "opponent": 537437873
+      },
+      "contentSha256": {
+        "value": "01dbbb8828cccbd46440f77c53fc6c9044345feced9cf91daabfe3d6feaa428c",
+        "opponent": "102be4e5dd423ba4b94bf3935993ef6f6aeded8d924fc3da2f22334b79f3bd0c"
+      }
+    }
+  },
+  "warmStart": {
+    "model": "deployed July TD pack reconstructed checkpoints",
+    "optimizerState": "fresh-in-both-arms",
+    "value": {
+      "path": "artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/value-step-0030000.pt",
+      "sha256": "9111a88fb4257f20518437283e4a35d418f536ad3b7985ec3eb5e8d9e8d55630"
+    },
+    "opponent": {
+      "path": "artifacts/td_checkpoints/reconstructed/td-two-stage-imported-20260706-hard-step-30000/opponent-step-0030000.pt",
+      "sha256": "590897272389dc600bb371b6b4bc82ae4b7c24d148a93e91655b19069dbd0937"
+    }
+  },
+  "arms": [
+    {
+      "id": "continued-control",
+      "replay": "original 900 Hard-teacher games"
+    },
+    {
+      "id": "extra-data-treatment",
+      "replay": "original 900 plus imported 690 training games"
+    }
+  ],
+  "seeds": [
+    {
+      "id": "primary",
+      "trainingSeed": 2026072801,
+      "promotionEligibility": true
+    },
+    {
+      "id": "replication",
+      "trainingSeed": 2026072901,
+      "promotionEligibility": false
+    }
+  ],
+  "training": {
+    "computeControl": "same optimizer, seed, batch sizes, hyperparameters, and update counts in matched arms",
+    "valueUpdates": 10000,
+    "opponentUpdates": 10000,
+    "valueBatchSize": 128,
+    "opponentBatchSize": 64,
+    "gamma": 0.995,
+    "valueLearningRate": 0.0003,
+    "valueWeightDecay": 0.00001,
+    "opponentLearningRate": 0.0003,
+    "opponentWeightDecay": 0.00001,
+    "maxGradNorm": 1.0,
+    "targetSyncInterval": 200,
+    "valueTargetMode": "td-lambda",
+    "tdLambda": 0.7,
+    "valueLoss": "huber",
+    "districtAugmentation": "none",
+    "saveEverySteps": 1000,
+    "progressEverySteps": 50,
+    "numThreads": 4,
+    "numInteropThreads": 1
+  },
+  "selection": {
+    "checkpointSteps": [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000],
+    "selectionData": "imported development split only",
+    "selectionModels": "primary extra-data-treatment value and opponent pair",
+    "sharedStepRule": "rank each step ascending by value.monteCarloMse and opponent.softTargetCrossEntropy; choose the minimum rank sum",
+    "tieBreakersInOrder": [
+      "lower value.monteCarloMae",
+      "lower opponent.softTargetKl",
+      "earlier checkpoint step"
+    ],
+    "matchedComparisonsUseSameStep": true,
+    "controlCannotSelectItsOwnStep": true,
+    "replicationCannotSelectItsOwnStep": true,
+    "replicationCanReplacePrimaryCandidate": false,
+    "contradictoryReplicationBlocksPromotion": true,
+    "candidateMustBeFrozenBeforeFinalTest": true
+  },
+  "evaluation": {
+    "development": {
+      "usesAll100Games": true,
+      "sampling": "none",
+      "maySelectCheckpoint": true
+    },
+    "sealedFinalTest": {
+      "usesAll100Games": true,
+      "sampling": "none",
+      "maySelectCheckpoint": false,
+      "mustRemainUnreadUntilCandidateFrozen": true,
+      "comparisons": [
+        "extra-data-treatment-vs-equally-continued-control",
+        "extra-data-treatment-vs-unchanged-July-incumbent",
+        "equally-continued-control-vs-unchanged-July-incumbent-diagnostic"
+      ],
+      "replayNoninferiorityVsControl": {
+        "maximumValueMseRatio": 1.05,
+        "maximumOpponentCrossEntropyIncrease": 0.01
+      }
+    },
+    "fullGamesAfterReplayGate": {
+      "gamesPerSide": 100,
+      "totalGamesPerComparison": 200,
+      "workers": 4,
+      "pairedSeeds": true,
+      "seatSwappedByHarness": true,
+      "botSpec": {
+        "kind": "td-root-search",
+        "worlds": 10,
+        "rollouts": 1,
+        "depth": 40,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0.0,
+        "maximumRootVisitBudget": 160
+      },
+      "decisionRules": {
+        "treatmentVsControl": {
+          "minimumPointWinRate": 0.5,
+          "minimumWilson95LowerBound": 0.45
+        },
+        "treatmentVsIncumbent": {
+          "minimumPointWinRate": 0.52,
+          "minimumWilson95LowerBound": 0.45
+        },
+        "maximumSeatWinRateGap": 0.1
+      }
+    }
+  },
+  "outputs": {
+    "trainingInputDirectory": "artifacts/training_inputs/td-hard-extra-data-continuation-v1",
+    "checkpointDirectory": "artifacts/td_checkpoints/td-hard-extra-data-continuation-v1",
+    "resolvedPlan": "artifacts/training_inputs/td-hard-extra-data-continuation-v1/resolved-plan.json",
+    "evaluationArtifactDirectory": "artifacts/td_extra_data_evals/td-hard-extra-data-continuation-v1"
+  },
+  "guardrails": [
+    "This preparation is non-launching; launchAuthorized must remain false.",
+    "Do not use imported development or final-test games for training.",
+    "Do not read final-test replay until the primary checkpoint step is frozen.",
+    "Do not change architecture, encoding, rewards, augmentation, or search settings in this data-only experiment.",
+    "Do not change public/model-packs/index.json or any bot default.",
+    "No promotion may be based on replay metrics alone."
+  ]
+}

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from scripts import train_td
 from trainer.td.ablation_manifest import (
+    REPLAY_KEY_MODE_RUN_QUALIFIED,
     replay_content_sha256,
     resolve_frozen_replay_split,
     write_replay_path_lists,
@@ -92,6 +93,40 @@ class TDAblationManifestTests(unittest.TestCase):
                     shards_dir=shards,
                     salt="salt",
                     validation_shards=1,
+                )
+
+    def test_run_qualified_fingerprint_supports_duplicate_shard_basenames(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            paths = []
+            for run_id, payload in (("run-a", "a"), ("run-b", "b")):
+                shards = root / run_id / "shards"
+                shards.mkdir(parents=True)
+                replay = shards / "shard-000.value.jsonl"
+                replay.write_text(json.dumps({"payload": payload}) + "\n", encoding="utf-8")
+                paths.append(replay)
+
+            with self.assertRaisesRegex(ValueError, "duplicate shard keys"):
+                replay_content_sha256(paths)
+
+            first = replay_content_sha256(
+                paths,
+                key_mode=REPLAY_KEY_MODE_RUN_QUALIFIED,
+            )
+            second = replay_content_sha256(
+                paths,
+                key_mode=REPLAY_KEY_MODE_RUN_QUALIFIED,
+            )
+            self.assertEqual(first, second)
+
+    def test_run_qualified_fingerprint_requires_shards_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            replay = Path(temp_dir) / "shard-000.value.jsonl"
+            replay.write_text("{}\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "shards"):
+                replay_content_sha256(
+                    [replay],
+                    key_mode=REPLAY_KEY_MODE_RUN_QUALIFIED,
                 )
 
     def test_train_td_replay_list_resolves_relative_paths_and_comments(self) -> None:

@@ -1,6 +1,9 @@
 """TD/Keldon training primitives for Magnate."""
 
 from .ablation_manifest import (
+    REPLAY_KEY_MODE_BASENAME,
+    REPLAY_KEY_MODE_RUN_QUALIFIED,
+    REPLAY_KEY_MODES,
     FrozenReplaySplit,
     count_jsonl_rows,
     named_files_content_sha256,
@@ -73,6 +76,9 @@ from .types import OpponentSample, ValueTransition
 
 __all__ = [
     "FrozenReplaySplit",
+    "REPLAY_KEY_MODE_BASENAME",
+    "REPLAY_KEY_MODE_RUN_QUALIFIED",
+    "REPLAY_KEY_MODES",
     "count_jsonl_rows",
     "named_files_content_sha256",
     "replay_content_sha256",

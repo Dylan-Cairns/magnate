@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveEvaluationExecution } from './execution';
+import type { PairedSeedResult } from './pair';
 import { runRolloutSearchSweep } from './sweep';
 import type { HeadToHeadSummary, RolloutSearchSweepConfig } from './types';
 
@@ -31,6 +32,10 @@ describe('rollout-search sweeps', () => {
           elapsedMs: 1,
           gamesPerMinute: 120_000,
           etaMs: 0,
+          result: {
+            pairIndex: 0,
+            games: [],
+          } as unknown as PairedSeedResult,
         });
         await new Promise((resolve) => setTimeout(resolve, 0));
         activeCalls -= 1;
