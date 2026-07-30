@@ -2,7 +2,10 @@ import { performance } from 'node:perf_hooks';
 
 import type { PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
-import type { ActionPolicy, SearchDecisionDiagnostics } from '../policies/types';
+import type {
+  ActionPolicy,
+  SearchDecisionDiagnostics,
+} from '../policies/types';
 import { resolveEvaluationExecution } from './execution';
 import {
   createPairedSeedJobs,
@@ -29,6 +32,8 @@ export interface HeadToHeadDependencies {
   now?: () => number;
   workers?: number;
   progressIntervalMs?: number;
+  initialResults?: readonly PairedSeedResult[];
+  initialElapsedMs?: number;
   onProgress?: (progress: HeadToHeadProgress) => void;
 }
 
@@ -66,6 +71,7 @@ export type HeadToHeadProgress =
       elapsedMs: number;
       gamesPerMinute: number;
       etaMs: number;
+      result: PairedSeedResult;
     };
 
 export async function runHeadToHead(
@@ -81,10 +87,27 @@ export async function runHeadToHead(
     config.gamesPerSide
   );
   const progressIntervalMs = dependencies.progressIntervalMs ?? 0;
-  const jobs = createPairedSeedJobs(config);
-  const results: PairedSeedResult[] = [];
+  const initialResults = validateInitialResults(
+    config,
+    dependencies.initialResults ?? []
+  );
+  const initialPairIndices = new Set(
+    initialResults.map((result) => result.pairIndex)
+  );
+  const jobs = createPairedSeedJobs(config).filter(
+    (job) => !initialPairIndices.has(job.pairIndex)
+  );
+  const results: PairedSeedResult[] = [...initialResults];
+  const initialElapsedMs = dependencies.initialElapsedMs ?? 0;
+  if (!Number.isFinite(initialElapsedMs) || initialElapsedMs < 0) {
+    throw new Error('initialElapsedMs must be a finite number >= 0.');
+  }
   const startedAt = now();
-  let completedGames = 0;
+  let completedGames = initialResults.length * 2;
+
+  function elapsedMs(): number {
+    return initialElapsedMs + (now() - startedAt);
+  }
 
   function reportGameCompleted(
     workerId: number,
@@ -92,7 +115,7 @@ export async function runHeadToHead(
     game: PlayedGame
   ): void {
     completedGames += 1;
-    const elapsedMs = now() - startedAt;
+    const elapsed = elapsedMs();
     const totalGames = config.gamesPerSide * 2;
     dependencies.onProgress?.({
       type: 'game-completed',
@@ -101,9 +124,8 @@ export async function runHeadToHead(
       workerId,
       completedGames,
       totalGames,
-      elapsedMs,
-      gamesPerMinute:
-        elapsedMs > 0 ? (completedGames * 60_000) / elapsedMs : 0,
+      elapsedMs: elapsed,
+      gamesPerMinute: elapsed > 0 ? (completedGames * 60_000) / elapsed : 0,
       game,
     });
   }
@@ -113,11 +135,11 @@ export async function runHeadToHead(
     result: PairedSeedResult
   ): void {
     results.push(result);
-    const elapsedMs = now() - startedAt;
+    const elapsed = elapsedMs();
     const completedGames = results.length * 2;
     const totalGames = config.gamesPerSide * 2;
     const gamesPerMinute =
-      elapsedMs > 0 ? (completedGames * 60_000) / elapsedMs : 0;
+      elapsed > 0 ? (completedGames * 60_000) / elapsed : 0;
     dependencies.onProgress?.({
       type: 'pair-completed',
       candidateId: config.candidate.id,
@@ -127,16 +149,19 @@ export async function runHeadToHead(
       totalPairs: config.gamesPerSide,
       completedGames,
       totalGames,
-      elapsedMs,
+      elapsedMs: elapsed,
       gamesPerMinute,
       etaMs:
         gamesPerMinute > 0
           ? ((totalGames - completedGames) * 60_000) / gamesPerMinute
           : 0,
+      result,
     });
   }
 
-  if (execution.workers === 1) {
+  if (jobs.length === 0) {
+    // A fully checkpointed run still rebuilds and validates its final artifact.
+  } else if (execution.workers === 1) {
     const bots = createRuntimePairBots(config, createPolicy);
     for (const job of jobs) {
       const result = await playPairedSeed({
@@ -193,9 +218,53 @@ export async function runHeadToHead(
   return {
     config: structuredClone(config),
     execution,
-    summary: summarizeHeadToHead(config, games, now() - startedAt),
+    summary: summarizeHeadToHead(config, games, elapsedMs()),
     games,
   };
+}
+
+function validateInitialResults(
+  config: HeadToHeadConfig,
+  results: readonly PairedSeedResult[]
+): PairedSeedResult[] {
+  const expectedJobs = createPairedSeedJobs(config);
+  const seen = new Set<number>();
+  return results.map((result) => {
+    const expected = expectedJobs[result.pairIndex];
+    if (!expected) {
+      throw new Error(
+        `Initial pair index ${String(result.pairIndex)} is outside this matchup.`
+      );
+    }
+    if (seen.has(result.pairIndex)) {
+      throw new Error(
+        `Initial pair index ${String(result.pairIndex)} is duplicated.`
+      );
+    }
+    seen.add(result.pairIndex);
+    const pairId = String(expected.pairNumber).padStart(4, '0');
+    const [candidateAsA, candidateAsB] = result.games;
+    if (
+      result.games.length !== 2 ||
+      !candidateAsA ||
+      !candidateAsB ||
+      candidateAsA.gameId !== `pair-${pairId}-candidate-as-a` ||
+      candidateAsB.gameId !== `pair-${pairId}-candidate-as-b` ||
+      candidateAsA.seed !== expected.seed ||
+      candidateAsB.seed !== expected.seed ||
+      candidateAsA.firstPlayer !== expected.firstPlayer ||
+      candidateAsB.firstPlayer !== expected.firstPlayer ||
+      candidateAsA.botBySeat.PlayerA !== config.candidate.id ||
+      candidateAsA.botBySeat.PlayerB !== config.opponent.id ||
+      candidateAsB.botBySeat.PlayerA !== config.opponent.id ||
+      candidateAsB.botBySeat.PlayerB !== config.candidate.id
+    ) {
+      throw new Error(
+        `Initial pair ${String(expected.pairNumber)} does not match its frozen game IDs, seed, first player, and seats.`
+      );
+    }
+    return structuredClone(result);
+  });
 }
 
 export function validateHeadToHeadConfig(config: HeadToHeadConfig): void {

@@ -17,6 +17,8 @@ from trainer.td import (
     DISTRICT_AUGMENTATION_NONE,
     DISTRICT_AUGMENTATION_S4,
     DISTRICT_AUGMENTATION_S4_ORBIT,
+    REPLAY_KEY_MODE_BASENAME,
+    REPLAY_KEY_MODES,
     TD_VALUE_TARGET_MODE,
     TD_VALUE_TARGET_MODE_TD_LAMBDA,
     TD_VALUE_TARGET_MODES,
@@ -86,6 +88,15 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Optional frozen content fingerprint for the ordered opponent replay files.",
+    )
+    parser.add_argument(
+        "--replay-key-mode",
+        choices=sorted(REPLAY_KEY_MODES),
+        default=REPLAY_KEY_MODE_BASENAME,
+        help=(
+            "Stable replay identity scheme used by expected content fingerprints. "
+            "Use run-qualified-canonical-v1 when path lists combine multiple runs."
+        ),
     )
     parser.add_argument(
         "--value-replay-max-lines",
@@ -604,6 +615,7 @@ def main() -> int:
             "opponentReplayList": (
                 str(args.opponent_replay_list) if args.opponent_replay_list is not None else None
             ),
+            "replayKeyMode": args.replay_key_mode,
             "valueBatchSize": args.value_batch_size,
             "opponentBatchSize": args.opponent_batch_size,
             "opponentEffectiveBatchSize": (
@@ -840,6 +852,7 @@ def _resolve_training_provenance(args: argparse.Namespace) -> Dict[str, Any]:
     provenance: Dict[str, Any] = {
         "valueReplayContentSha256": None,
         "opponentReplayContentSha256": None,
+        "replayKeyMode": args.replay_key_mode,
         "warmStartValueSha256": None,
         "warmStartOpponentSha256": None,
         "experimentManifest": None,
@@ -848,7 +861,7 @@ def _resolve_training_provenance(args: argparse.Namespace) -> Dict[str, Any]:
     }
     if args.expected_value_replay_content_sha256 is not None:
         assert args.value_replay is not None
-        actual = replay_content_sha256(args.value_replay)
+        actual = replay_content_sha256(args.value_replay, key_mode=args.replay_key_mode)
         _expect_sha256(
             label="value replay content",
             actual=actual,
@@ -857,7 +870,7 @@ def _resolve_training_provenance(args: argparse.Namespace) -> Dict[str, Any]:
         provenance["valueReplayContentSha256"] = actual
     if args.expected_opponent_replay_content_sha256 is not None:
         assert args.opponent_replay is not None
-        actual = replay_content_sha256(args.opponent_replay)
+        actual = replay_content_sha256(args.opponent_replay, key_mode=args.replay_key_mode)
         _expect_sha256(
             label="opponent replay content",
             actual=actual,

@@ -19,6 +19,167 @@ Use the project `.venv` for all Python commands in this repo.
 `--opponent-replay-list`, each pointing to a UTF-8 file with one replay path per
 line. This avoids platform command-length limits for large frozen shard sets.
 
+## Hard-Teacher Extra-Data Continuation Preparation
+
+The imported 890-game V2 Hard replay is frozen as 690 training, 100
+development, and 100 final-test games. Prepare the matched continuation
+experiment with:
+
+```powershell
+python -m scripts.prepare_td_hard_extra_data_continuation
+```
+
+This validates
+`configs/td-training/td-hard-extra-data-continuation-v1.json`, the imported
+split manifest, the original 900-game replay, the reconstructed deployed-July
+warm starts, and the frozen implementation fingerprint. It writes ignored
+path lists plus eight exact commands for two seeds, two arms, and separate
+value/opponent jobs. It also prepares four one-update guardrail smoke commands.
+The command never launches training and does not read raw final-test replay.
+
+The matched control continues the July bot on the original 900 games. The
+treatment uses the same warm starts, seed, optimizer initialization,
+hyperparameters, and 10,000-update budget, but trains on the original 900 plus
+the 690 imported training games. Only the primary treatment pair may select a
+checkpoint step. Selection ranks the ten 1,000-step checkpoints on all 100
+development games by value Monte Carlo MSE and opponent soft-target
+cross-entropy, then applies the frozen tie breakers. The control and replication
+use that same selected step. The final 100 games remain sealed until the
+candidate is frozen and replication direction is reviewed.
+
+Replay lists that span collection runs must pass
+`--replay-key-mode run-qualified-canonical-v1`. This fingerprints each shard as
+`<run-directory>/<shard-basename>`, so identically named shards from different
+runs cannot collide. The default basename scheme remains unchanged for
+single-run path lists.
+
+The resolved plan remains `review-required` with `launchAuthorized=false`.
+Review it before executing even the one-update smoke commands. No launcher,
+promotion, or deployed model-index change is performed by preparation.
+
+Dry-run the first-class Windows launcher with:
+
+```powershell
+.\scripts\run_td_hard_extra_data_continuation.ps1 -DryRun
+```
+
+Start or resume the eight full jobs with:
+
+```powershell
+.\scripts\run_td_hard_extra_data_continuation.ps1
+```
+
+The PowerShell wrapper uses `windows_training_common.ps1` for project-local
+caches, the project virtualenv, fixed native thread caps, array-safe invocation,
+and durable outer log/status files under `artifacts/logs/`. It refuses a
+duplicate experiment runner or trainer. The Python orchestrator reruns frozen
+preflight, validates all eight command profiles, executes sequentially through
+`td_loop_common.run_step`, streams merged output through the background output
+pump, writes per-job heartbeat/progress files, and fails on the first nonzero
+exit.
+
+Rerunning the launcher is resumable at job boundaries. It skips only summaries
+that validate the full 10,000-update configuration, seed, replay and warm-start
+fingerprints, manifest and implementation fingerprints, row/file counts,
+sampling trace, all ten expected checkpoint steps, and checkpoint paths.
+Missing summaries rerun; malformed or mismatched summaries are hard errors. A
+completion marker is written only after all eight summaries and checkpoint
+sets validate. `-DryRun` performs preflight and reports the exact resume plan
+without starting training.
+
+The four one-update guardrail smokes completed on 2026-07-28. Both control
+jobs loaded 900 files and 163,194 rows; both treatment jobs loaded 1,590 files
+and 288,395 rows. Value training built 1,800 control and 3,180 treatment
+TD-lambda sequences. Every summary and step-1 checkpoint embedded the expected
+run-qualified replay hash, July warm-start hash, source-manifest hash,
+implementation hash, primary seed `2026072801`, and one-update step. Training
+provenance contained no development or final-test files.
+
+The smoke sampling traces were:
+
+- control value:
+  `375fc286cf9f609bfa4cd42b135809d78500bd58533b1f2a81b5c2a60097c357`;
+- control opponent:
+  `3749492b93ba12991371cad33f3dc8f10e02047121e2417e27a042d283b96b0c`;
+- treatment value:
+  `aaa42decbfa42842ec34a7b6456df07511b6f5d8a38f1b4e9dc89ef90685b748`;
+  and
+- treatment opponent:
+  `4de6c785ad5f1fd995393035cbd911ec91fee58ce0ee49ae8f7fe582dcabfb9b`.
+
+Unlike augmentation ablations over one shared buffer, this data-volume
+experiment must not require equal control/treatment sampling-index hashes:
+the buffer sizes differ by design. The matched controls are the RNG seed,
+warm starts, optimizer initialization, hyperparameters, batches, and update
+counts. One-update losses are plumbing diagnostics, not selection evidence.
+
+All eight 10,000-update jobs completed and passed the launcher's summary and
+checkpoint validation on 2026-07-29.
+
+Dry-run the frozen development-only evaluation with:
+
+```powershell
+.\scripts\run_td_hard_extra_data_development.ps1 -DryRun
+```
+
+Start or resume it with:
+
+```powershell
+.\scripts\run_td_hard_extra_data_development.ps1
+```
+
+This launcher uses the same shared Windows cache, array-safe invocation,
+logging, status, thread-cap, and duplicate-process infrastructure as training.
+The Python orchestrator validates the completed training summaries and all 80
+checkpoint hashes, evaluates the primary treatment at steps 1,000 through
+10,000 on the frozen development replay, and applies the manifest's rank-sum
+and ordered tie-break rules. It then evaluates primary control, both
+replication arms, and the unchanged July incumbent at the selected step.
+Existing results are reused only after their checkpoint, step, replay-content,
+key-mode, row-count, and metric contracts validate. The final-test replay is
+not an input to this stage and remains sealed.
+
+The development stage completed on 2026-07-29 and froze step 9,000. Step 9,000
+and step 10,000 tied at rank sum 4; step 9,000 won the first tie breaker with
+lower value Monte Carlo MAE. Against the matched control, the primary treatment
+improved value MSE by 1.74% and opponent cross-entropy by `0.007629`. The
+replication improved opponent cross-entropy by `0.011045` and value MAE by
+`0.005334`, but its value MSE was 0.21% worse than replication control. Both
+treatment seeds beat the unchanged incumbent on value MSE, value MAE, opponent
+cross-entropy, and teacher-top-action agreement.
+
+This is mixed replication on the frozen primary metrics: the opponent result
+agrees, while value MSE reverses slightly. The manifest says contradictory
+replication blocks promotion. No final-test replay or full-game evaluation has
+been run. The aggregate is
+`artifacts/td_extra_data_evals/td-hard-extra-data-continuation-v1/development/development.result.json`.
+
+### Overnight Heuristic-V2 Comparison
+
+The historical July checkpoint scored 88-32 in a 120-game comparison against
+heuristic-v2 medium. Run the same 60 paired seeds and search settings against
+the frozen primary-treatment step-9,000 checkpoint with:
+
+```powershell
+.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1
+```
+
+Use `-DryRun` to execute the full checkpoint, model-pack, Node, argument, and
+resume preflight without starting a game. The launcher verifies the frozen
+development result and checkpoint hashes, uses an isolated experimental model
+index, invokes TSX through the fnm-resolved `node.exe`, refuses duplicate
+matchup parents, and logs through `Invoke-MagnateLoggedCommand`.
+
+The matchup uses five existing paired-seed workers and writes each completed
+two-game seat swap atomically. Rerunning the same launcher resumes from those
+pair checkpoints and rebuilds the final `matchup.json` and `summary.md` under:
+
+`artifacts/ts-bot-evals/td-hard-extra-data-continuation-v1-primary-treatment-step-09000-vs-heuristic-v2-medium-120/`
+
+This is a useful like-for-like diagnostic against the historical 73.3% result.
+It does not spend the sealed replay final test or override the experiment's
+mixed-replication promotion block.
+
 ## District-Symmetry Pilot Preparation
 
 ```powershell
@@ -165,10 +326,10 @@ Both complete-orbit checkpoints slightly improved heldout opponent
 cross-entropy and passed the `+0.01` noninferiority gate. The direct symmetry
 gates failed reproducibly:
 
-| Seed | Top-action agreement, control -> orbit | Mean probability drift reduction |
-| --- | ---: | ---: |
-| `pilot-a` | 82.85% -> 86.36% | 25.0% |
-| `pilot-b` | 83.03% -> 86.09% | 25.2% |
+| Seed      | Top-action agreement, control -> orbit | Mean probability drift reduction |
+| --------- | -------------------------------------: | -------------------------------: |
+| `pilot-a` |                       82.85% -> 86.36% |                            25.0% |
+| `pilot-b` |                       83.03% -> 86.09% |                            25.2% |
 
 The required thresholds were at least 95% orbit agreement and at least 50%
 drift reduction versus the matched control. Complete-orbit augmentation is

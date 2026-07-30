@@ -11,6 +11,10 @@
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
+- Compare the imported-data experiment's frozen step-9,000 primary-treatment
+  checkpoint with the historical heuristic-v2-medium result before deciding
+  whether its sealed final test is worth spending. Mixed replication still
+  blocks promotion.
 
 ## Locked Decisions
 
@@ -23,6 +27,11 @@
 ## Current State
 
 - Browser play is functional with selectable bot profiles behind a shared async policy contract.
+- Local and CI JavaScript tooling now uses fnm with `.nvmrc` pinning Node
+  22.23.1, an explicit Node 22 engine range, and a Corepack-managed Yarn
+  1.22.22 pin. Windows runtime helpers can recover the pinned fnm Node from
+  `-NoProfile` shells instead of probing legacy version-manager installation
+  paths.
 - TypeScript engine partial deed income is submitted simultaneously: pending obligations remain intact, submitted suit choices do not pay resources until all required choices are submitted, then selected resources resolve in deterministic pending-choice order.
 - Browser controller/UI partial deed income follows the simultaneous engine phase: human and bot can submit owned income choices from the shared pending state, and resource flights occur on final reveal.
 - Vite dev builds support `?fixture=multi-income` for multiple partial-income choices and `?fixture=late-game` for a heuristic-rollout late-game board.
@@ -279,6 +288,46 @@
   not duplicate long-running train orchestration.
 - Promoted TD checkpoint warm starts and opponent-pool entries are registered in `models/td_checkpoints/manifest.json`.
 - Typed bridge payloads cover the main `trainer/` package; some script orchestration remains dynamic.
+- The USB V2 Hard replay import is byte-validated and split deterministically
+  into 690 training, 100 development, and 100 sealed final-test games with no
+  local-seed overlap. The non-launching
+  `td-hard-extra-data-continuation-v1` plan is resolved against live replay,
+  checkpoint, source-manifest, and implementation hashes. It prepares matched
+  10,000-update control/treatment jobs for primary and replication seeds.
+  Control uses the original 900 games; treatment uses those 900 plus the
+  imported 690. All four one-update guardrail smokes passed on 2026-07-28:
+  control loaded 900 files/163,194 rows, treatment loaded 1,590 files/288,395
+  rows, and the summaries plus step-1 checkpoints matched frozen replay,
+  warm-start, manifest, implementation, seed, and step provenance. Development
+  and raw final-test replay were not used. Full training now has a first-class,
+  dry-run-validated launcher:
+  `scripts/run_td_hard_extra_data_continuation.ps1`. Its thin Windows wrapper
+  uses shared cache/thread/log/status helpers; its Python orchestrator uses the
+  shared output-pump/heartbeat runner, frozen preflight, duplicate-run refusal,
+  validated-summary resume, per-job progress, fail-fast execution, checkpoint
+  verification, and a completion marker. All eight 10,000-update jobs completed
+  and validated on 2026-07-29. Development selection now has a matching
+  first-class launcher, `scripts/run_td_hard_extra_data_development.ps1`, that
+  validates all 80 checkpoint hashes, evaluates the ten primary-treatment
+  steps under the frozen rank rule, resumes only validated results, and runs
+  selected-step control, replication, and unchanged-incumbent comparisons.
+  The development stage completed on 2026-07-29 and froze step 9,000 after a
+  rank-sum tie with step 10,000 was resolved by lower value MAE. Primary
+  treatment beat matched control on value MSE by 1.74% and opponent
+  cross-entropy by 0.007629. Replication improved opponent cross-entropy by
+  0.011045 and value MAE by 0.005334, but value MSE was 0.21% worse than its
+  control. Both treatment seeds beat the unchanged incumbent on value MSE,
+  value MAE, opponent cross-entropy, and teacher-top-action agreement. This is
+  mixed replication on the frozen primary metrics, so the manifest's
+  contradictory-replication rule blocks promotion. The aggregate result hash
+  is `2fa5e960acd77722526d323bf7b7835b43b732f3c550f107d9f67140e069d1a0`.
+  Final-test replay remains unspent. A first-class Windows launcher now
+  validates the isolated step-9,000 browser pack and runs or resumes the
+  requested 120-game comparison against heuristic-v2 medium on the same 60
+  paired seeds and search settings as the July 88-32 baseline. It uses the
+  shared fnm runtime, array-safe logged invocation, duplicate-run refusal, and
+  atomic per-pair checkpoints. Its executable dry-run passed without starting
+  any games; the full matchup remains unstarted.
 
 ## Remaining Work
 
@@ -298,20 +347,27 @@
 
 ## Immediate Next Steps
 
-1. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
+1. Run or resume
+   `.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1`, then compare its
+   120-game result with the historical July checkpoint's 88-32 result.
+2. Do not promote `td-hard-extra-data-continuation-v1` from development
+   evidence: replication reverses slightly on value MSE. Decide explicitly
+   whether the sealed final test is worth spending as a diagnostic despite the
+   frozen promotion block.
+3. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
    in the opponent/action architecture, while preserving the existing replay,
    checkpoint, and browser-export contracts where practical.
-2. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
-3. Continue self-play iterations with promoted manifest warm starts,
+4. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
+5. Continue self-play iterations with promoted manifest warm starts,
    `td-lambda` value targets, checkpoint selection, replay windows, and
    generator gating.
-4. Track checkpoint-selection winners, block-selection winners, generator-gate
+6. Track checkpoint-selection winners, block-selection winners, generator-gate
    outcomes, final promotion outcomes, and side-gap stability in artifacts, not
    Memory Bank prose.
-5. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>`
+7. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>`
    for large TypeScript teacher replay exports; use `collect-td-replay` for
    serial debugging.
-6. Keep docs aligned by replacing stale Memory Bank bullets rather than
+8. Keep docs aligned by replacing stale Memory Bank bullets rather than
    appending task history.
 
-_Updated: 2026-07-24._
+_Updated: 2026-07-29._

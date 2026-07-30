@@ -72,54 +72,126 @@ function Get-MagnateVenvPython {
   return (Resolve-Path $pythonPath).Path
 }
 
+function Get-MagnatePinnedNodeVersion {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$RepoRoot
+  )
+
+  $versionFile = Join-Path $RepoRoot ".nvmrc"
+  if (-not (Test-Path -LiteralPath $versionFile)) {
+    throw "Missing Node version file at $versionFile."
+  }
+
+  $versionText = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+  if ($versionText -notmatch '^\d+\.\d+\.\d+$') {
+    throw "Expected a semantic Node version in $versionFile, but found '$versionText'."
+  }
+
+  return $versionText
+}
+
+function Get-MagnateNodeRuntimeCandidate {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$NodePath,
+
+    [Parameter(Mandatory = $true)]
+    [version]$MinimumVersion
+  )
+
+  if ([string]::IsNullOrWhiteSpace($NodePath) -or -not (Test-Path -LiteralPath $NodePath)) {
+    return $null
+  }
+
+  try {
+    $versionOutput = @(& $NodePath --version 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $versionOutput.Count -eq 0) {
+      return $null
+    }
+    $versionText = ([string]$versionOutput[0]).Trim()
+    $parsedVersion = [version]$versionText.TrimStart("v")
+  } catch {
+    return $null
+  }
+
+  if ($parsedVersion.Major -ne $MinimumVersion.Major -or $parsedVersion -lt $MinimumVersion) {
+    return $null
+  }
+
+  return [pscustomobject]@{
+    NodePath = (Resolve-Path -LiteralPath $NodePath).Path
+    NodeVersion = $versionText
+  }
+}
+
 function Assert-MagnateNode22Runtime {
   param(
     [Parameter(Mandatory = $true)]
     [string]$RepoRoot
   )
 
-  $nodePath = $null
-  $nodeCommand = Get-Command node -ErrorAction SilentlyContinue
+  $pinnedVersionText = Get-MagnatePinnedNodeVersion -RepoRoot $RepoRoot
+  $minimumVersion = [version]$pinnedVersionText
+  if ($minimumVersion.Major -ne 22) {
+    throw "Expected the Magnate Node pin to remain on Node 22, but found $pinnedVersionText."
+  }
+
+  $runtime = $null
+  $nodeCommand = Get-Command node -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -First 1
   if ($null -ne $nodeCommand) {
-    $nodePath = $nodeCommand.Source
-  } else {
-    $candidates = @()
-    if (-not [string]::IsNullOrWhiteSpace($env:NVM_SYMLINK)) {
-      $candidates += (Join-Path $env:NVM_SYMLINK "node.exe")
-    }
-    $candidates += "C:\nvm4w\nodejs\node.exe"
-    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
-      $candidates += (Join-Path $env:ProgramFiles "nodejs\node.exe")
-    }
+    $runtime = Get-MagnateNodeRuntimeCandidate `
+      -NodePath $nodeCommand.Source `
+      -MinimumVersion $minimumVersion
+  }
 
-    foreach ($candidate in $candidates) {
-      if (Test-Path $candidate) {
-        $nodePath = $candidate
-        break
+  $fnmFailure = $null
+  if ($null -eq $runtime) {
+    $fnmCommand = Get-Command fnm -CommandType Application -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if ($null -ne $fnmCommand) {
+      $fnmOutput = @(
+        & $fnmCommand.Source exec "--using=$pinnedVersionText" -- node -p "process.execPath" 2>&1
+      )
+      $fnmExitCode = $LASTEXITCODE
+      if ($fnmExitCode -eq 0) {
+        $fnmNodePath = $fnmOutput |
+          ForEach-Object { ([string]$_).Trim() } |
+          Where-Object { $_ -match '(?i)node\.exe$' } |
+          Select-Object -Last 1
+        if (-not [string]::IsNullOrWhiteSpace($fnmNodePath)) {
+          $runtime = Get-MagnateNodeRuntimeCandidate `
+            -NodePath $fnmNodePath `
+            -MinimumVersion $minimumVersion
+        }
+      } else {
+        $fnmFailure = ($fnmOutput -join [Environment]::NewLine).Trim()
       }
+    } else {
+      $fnmFailure = "fnm was not found on PATH."
     }
   }
 
-  if ([string]::IsNullOrWhiteSpace($nodePath)) {
-    throw 'Node is not installed in a known location. Run "nvm use 22.23.1" in this shell first.'
+  if ($null -eq $runtime) {
+    $detail = if ([string]::IsNullOrWhiteSpace($fnmFailure)) {
+      ""
+    } else {
+      " fnm reported: $fnmFailure"
+    }
+    throw (
+      "Expected Node $pinnedVersionText or a newer Node 22 release. " +
+      "From the repo root, run ""fnm install"" and ""fnm use""." +
+      $detail
+    )
   }
 
-  $nodeDir = Split-Path $nodePath -Parent
+  $nodeDir = Split-Path $runtime.NodePath -Parent
   $pathEntries = @($env:Path -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-  if ($pathEntries -notcontains $nodeDir) {
-    $env:Path = "$nodeDir;$env:Path"
-  }
-
-  $versionText = (& $nodePath --version).Trim()
-  if ([string]::IsNullOrWhiteSpace($versionText)) {
-    throw 'Unable to determine Node version. Run "nvm use 22.23.1" and try again.'
-  }
-
-  $normalizedVersion = $versionText.TrimStart("v")
-  $parsedVersion = [version]$normalizedVersion
-  if ($parsedVersion.Major -ne 22 -or $parsedVersion -lt [version]"22.12.0") {
-    throw "Expected Node 22.12.0+ within the Node 22 line for this repo, but found $versionText. Run ""nvm use 22.23.1""."
-  }
+  $remainingPathEntries = @(
+    $pathEntries | Where-Object { $_.TrimEnd('\', '/') -ine $nodeDir.TrimEnd('\', '/') }
+  )
+  $env:Path = (@($nodeDir) + $remainingPathEntries) -join ';'
 
   $tsxPath = Join-Path $RepoRoot "node_modules\.bin\tsx.cmd"
   if (-not (Test-Path $tsxPath)) {
@@ -127,7 +199,8 @@ function Assert-MagnateNode22Runtime {
   }
 
   return [pscustomobject]@{
-    NodeVersion = $versionText
+    NodeExecutable = $runtime.NodePath
+    NodeVersion = $runtime.NodeVersion
     TsxPath = (Resolve-Path $tsxPath).Path
   }
 }
@@ -314,6 +387,22 @@ function Format-MagnateCommandLine {
   }
 
   return ($quoted -join " ")
+}
+
+function Get-MagnateCommandArgument {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string[]]$Command,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Flag
+  )
+
+  $index = [Array]::IndexOf($Command, $Flag)
+  if ($index -lt 0 -or $index + 1 -ge $Command.Count) {
+    throw "Prepared command is missing $Flag."
+  }
+  return [string]$Command[$index + 1]
 }
 
 function Invoke-MagnateLoggedCommand {

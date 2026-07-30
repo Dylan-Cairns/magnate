@@ -2,7 +2,7 @@
 
 ## Stack
 
-- Node.js 22.12.0+ within the Node 22 line; the `package.json` Volta toolchain and `.nvmrc` pin the project runtime to 22.23.1
+- Node.js 22.23.1+ within the Node 22 line; `engines.node` declares the supported range and `.nvmrc` pins local/CI execution to 22.23.1
 - TypeScript strict
 - React + Vite
 - Vitest
@@ -26,11 +26,19 @@
 
 ## Tooling Notes
 
-- Package manager: Yarn classic 1.22.22, pinned with the project Volta toolchain.
-- Volta provides automatic per-project Node/Yarn selection; `.nvmrc` remains aligned for CI and other version managers.
+- Node version manager: fnm. Shell integration selects the checked-in `.nvmrc`
+  version automatically; Windows wrappers can resolve that pin through `fnm`
+  even when launched from a `-NoProfile` shell.
+- Package manager: Yarn classic 1.22.22, declared by `packageManager` and
+  activated through Corepack independently of fnm.
 - JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
-- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` reads the Node `22.23.1` pin from `.nvmrc`, then gates deployment on `yarn test`, `yarn lint`, and `yarn build`.
-- VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe`, explicitly requests virtual-environment activation in new and current integrated terminals, and prefixes the Volta shim directory in Windows integrated-terminal `PATH`.
+- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` reads the Node
+  `22.23.1` pin from `.nvmrc`, activates the `packageManager` Yarn pin with
+  Corepack, then gates deployment on `yarn test`, `yarn lint`, and `yarn build`.
+- VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe` and
+  explicitly requests virtual-environment activation in new and current
+  integrated terminals; Node selection is inherited from normal fnm shell
+  integration without a workspace-specific `PATH` override.
 - Checked-in pyright scope covers `trainer/` plus trainer-side tests in `trainer_tests/`; some `scripts/` orchestration remains outside checked-in pyright scope.
 - TypeScript bridge output is canonical. Python models the consumed subset in `trainer/bridge_payloads.py`.
 - Strategic-position diagnostics support `--positions`, `--variants`, and
@@ -52,6 +60,8 @@
 
 ## Core Commands
 
+- Install/select pinned Node: `fnm install`, then `fnm use`
+- Activate pinned Yarn: `corepack enable`, then `corepack install`
 - Install JS deps: `yarn install`
 - Dev server: `yarn dev`
 - Bridge runtime: `yarn bridge`
@@ -76,6 +86,12 @@
 - Launch or resume first-stage district-S4 evaluation sequentially: `.\scripts\run_td_district_symmetry_evaluation_stage1.ps1`
 - Validate and resolve the opponent-only complete-S4-orbit follow-up: `.\.venv\Scripts\python -m scripts.prepare_td_opponent_orbit_ablation`
 - Launch or resume the four opponent-orbit jobs sequentially at four threads: `.\scripts\run_td_opponent_orbit_pilot.ps1`
+- Validate and resolve the non-launching Hard-teacher extra-data continuation: `.\.venv\Scripts\python -m scripts.prepare_td_hard_extra_data_continuation`
+- Dry-run/start/resume the matched Hard-teacher continuation: `.\scripts\run_td_hard_extra_data_continuation.ps1 [-DryRun]`
+- Dry-run/start/resume its frozen development-only selection: `.\scripts\run_td_hard_extra_data_development.ps1 [-DryRun]`
+- Dry-run/start/resume its 120-game step-9,000 vs heuristic-v2-medium
+  comparison:
+  `.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1 [-DryRun]`
 - Evaluate a final value/opponent pair on the complete replay holdout: `.\.venv\Scripts\python -m scripts.evaluate_td_replay_holdout --help`
 
 ## Python Workflow
@@ -115,6 +131,9 @@
   source-manifest, and implementation hashes before training. Experimental
   candidate packs live under ignored `public/model-packs-experiments/` with a
   separate index.
+- Replay path lists spanning multiple run directories must use
+  `--replay-key-mode run-qualified-canonical-v1`; basename mode remains the
+  default for existing single-run fingerprints.
 
 ## Known Gaps
 
@@ -122,4 +141,4 @@
 - Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
 - Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
-_Updated: 2026-07-16._
+_Updated: 2026-07-29._

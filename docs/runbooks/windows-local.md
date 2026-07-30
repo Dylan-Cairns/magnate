@@ -4,19 +4,29 @@
 
 From repo root:
 
-1. Install or use Node `22.23.1` (the version pinned in `.nvmrc`) with `nvm`:
-   `nvm install 22.23.1`
-   `nvm use 22.23.1`
-2. Install Yarn classic if needed:
-   `npm install -g yarn`
-3. Install JS deps:
+1. Install `fnm` and configure its PowerShell integration. Use recursive
+   version-file lookup if you work from directories below the repo root.
+2. Install and select the Node version pinned in `.nvmrc`:
+   `fnm install`
+   `fnm use`
+3. Enable Corepack and install the Yarn version pinned in `package.json`:
+   `corepack enable`
+   `corepack install`
+4. Verify the resolved toolchain:
+   `node --version`
+   `yarn --version`
+5. Install JS deps:
    `yarn install`
-4. Install Python deps:
+6. Install Python deps:
    `.\scripts\setup_python_env.ps1`
-5. Activate the venv when you want an interactive Python shell:
+7. Activate the venv when you want an interactive Python shell:
    `.\.venv\Scripts\Activate.ps1`
 
 `setup_python_env.ps1` installs `requirements-dev.txt`, CPU-only PyTorch, Ruff, and Pyright. It routes temp and cache files into repo-local `.tmp/`, `.pip-cache/`, `.npm-cache/`, and `.yarn-cache/` folders.
+
+The Windows training wrappers validate the active Node runtime and can resolve
+the `.nvmrc` pin through `fnm` when launched from a `-NoProfile` shell. They do
+not depend on legacy version-manager installation paths.
 
 ## Laptop Training Wrappers
 
@@ -28,7 +38,7 @@ Use the PowerShell wrappers so laptop-safe worker and thread settings stay separ
 
 Wrapper behavior:
 
-- requires Node `22.12.0+` within the Node 22 line, `yarn install`, and a populated `.venv`
+- requires Node `22.23.1+` within the Node 22 line, `yarn install`, and a populated `.venv`
 - sets repo-local temp and cache dirs plus BLAS and OpenMP thread caps
 - auto-sizes CPU budget from logical core count
 - defaults to `-CpuTargetPercent 60 -ReserveLogicalCores 2`
@@ -46,3 +56,6 @@ Useful invocations:
   `.\scripts\run_td_loop_selfplay_laptop.ps1 -CpuTargetPercent 70 -DryRun`
 - Override loop args:
   `.\scripts\run_td_loop_selfplay_laptop.ps1 -LoopArgs @('--run-label', 'td-loop-selfplay-laptop-test', '--collect-games', '300')`
+- Run or resume the frozen extra-data step-9,000 checkpoint's 120-game
+  heuristic-v2-medium comparison:
+  `.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1`

@@ -32,6 +32,11 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Enable pinned Yarn
+        run: |
+          corepack enable
+          corepack install
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
