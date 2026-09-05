@@ -326,8 +326,11 @@
   requested 120-game comparison against heuristic-v2 medium on the same 60
   paired seeds and search settings as the July 88-32 baseline. It uses the
   shared fnm runtime, array-safe logged invocation, duplicate-run refusal, and
-  atomic per-pair checkpoints. Its executable dry-run passed without starting
-  any games; the full matchup remains unstarted.
+  atomic per-pair checkpoints. The USB backup overlay from D: has been
+  restored to this machine, fnm Node 22.23.1 configured, launcher path
+  portability resolved and validated with SHA-256 checks, and the full
+  test suite passed. Its executable dry-run passed; the 120-game matchup is
+  ready to run.
 
 ## Remaining Work
 
@@ -370,4 +373,4 @@
 8. Keep docs aligned by replacing stale Memory Bank bullets rather than
    appending task history.
 
-_Updated: 2026-07-29._
+_Updated: 2026-09-05._
