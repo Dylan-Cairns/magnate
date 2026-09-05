@@ -148,11 +148,16 @@ function Assert-MagnateNode22Runtime {
 
   $fnmFailure = $null
   if ($null -eq $runtime) {
-    $fnmCommand = Get-Command fnm -CommandType Application -ErrorAction SilentlyContinue |
-      Select-Object -First 1
-    if ($null -ne $fnmCommand) {
+    $fnmCandidatePaths = @(
+      (Get-Command fnm -CommandType Application -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
+      (Join-Path $env:LOCALAPPDATA "fnm\fnm.exe"),
+      (Join-Path $env:APPDATA "fnm\fnm.exe"),
+      (Join-Path $env:USERPROFILE ".fnm\fnm.exe")
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) }
+    $fnmSource = $fnmCandidatePaths | Select-Object -First 1
+    if ($null -ne $fnmSource) {
       $fnmOutput = @(
-        & $fnmCommand.Source exec "--using=$pinnedVersionText" -- node -p "process.execPath" 2>&1
+        & $fnmSource exec "--using=$pinnedVersionText" -- node -p "process.execPath" 2>&1
       )
       $fnmExitCode = $LASTEXITCODE
       if ($fnmExitCode -eq 0) {
@@ -169,7 +174,7 @@ function Assert-MagnateNode22Runtime {
         $fnmFailure = ($fnmOutput -join [Environment]::NewLine).Trim()
       }
     } else {
-      $fnmFailure = "fnm was not found on PATH."
+      $fnmFailure = "fnm was not found on PATH or standard install paths."
     }
   }
 
@@ -439,7 +444,9 @@ function Invoke-MagnateLoggedCommand {
   $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
   $logWriter = [System.IO.StreamWriter]::new($logPath, $false, $utf8NoBom)
   $logWriter.AutoFlush = $true
+  $previousErrorAction = $ErrorActionPreference
   try {
+    $ErrorActionPreference = "Continue"
     $executable = $Command[0]
     $arguments = [string[]]($Command | Select-Object -Skip 1)
     & $executable @arguments 2>&1 | ForEach-Object {
@@ -449,6 +456,7 @@ function Invoke-MagnateLoggedCommand {
     }
     $exitCode = [int]$LASTEXITCODE
   } finally {
+    $ErrorActionPreference = $previousErrorAction
     if ($null -ne $logWriter) {
       $logWriter.Dispose()
     }

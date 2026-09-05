@@ -52,10 +52,23 @@ if ($selectedRows.Count -ne 1) {
 }
 
 $selectedCommand = [string[]]$selectedRows[0].command
-$valueCheckpoint = Get-MagnateCommandArgument -Command $selectedCommand -Flag "--value-checkpoint"
-$opponentCheckpoint = Get-MagnateCommandArgument -Command $selectedCommand -Flag "--opponent-checkpoint"
 $expectedValueSha256 = Get-MagnateCommandArgument -Command $selectedCommand -Flag "--expected-value-checkpoint-sha256"
 $expectedOpponentSha256 = Get-MagnateCommandArgument -Command $selectedCommand -Flag "--expected-opponent-checkpoint-sha256"
+
+$modelIndex = Get-Content -LiteralPath $modelIndexPath -Raw | ConvertFrom-Json
+$packRows = @($modelIndex.packs | Where-Object { [string]$_.id -eq $packId })
+if ([int]$modelIndex.schemaVersion -ne 1 -or $packRows.Count -ne 1) {
+  throw "Isolated model-pack index does not contain exactly one $packId entry."
+}
+$manifestPath = Join-Path (Join-Path $repoRoot "public") ([string]$packRows[0].manifestPath -replace "/", "\")
+if (-not (Test-Path -LiteralPath $manifestPath)) {
+  throw "Missing selected model-pack manifest at $manifestPath."
+}
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$weightsPath = Join-Path (Split-Path $manifestPath -Parent) ([string]$manifest.model.weightsPath)
+$valueCheckpoint = Resolve-MagnateProjectPath -RepoRoot $repoRoot -PathValue ([string]$manifest.source.valueCheckpoint)
+$opponentCheckpoint = Resolve-MagnateProjectPath -RepoRoot $repoRoot -PathValue ([string]$manifest.source.opponentCheckpoint)
+
 foreach ($checkpointPath in @($valueCheckpoint, $opponentCheckpoint)) {
   if (-not (Test-Path -LiteralPath $checkpointPath)) {
     throw "Missing selected checkpoint at $checkpointPath."
@@ -71,25 +84,10 @@ if ($actualOpponentSha256 -ne $expectedOpponentSha256) {
   throw "Selected opponent checkpoint SHA-256 does not match the frozen development plan."
 }
 
-$modelIndex = Get-Content -LiteralPath $modelIndexPath -Raw | ConvertFrom-Json
-$packRows = @($modelIndex.packs | Where-Object { [string]$_.id -eq $packId })
-if ([int]$modelIndex.schemaVersion -ne 1 -or $packRows.Count -ne 1) {
-  throw "Isolated model-pack index does not contain exactly one $packId entry."
-}
-$manifestPath = Join-Path (Join-Path $repoRoot "public") ([string]$packRows[0].manifestPath -replace "/", "\")
-if (-not (Test-Path -LiteralPath $manifestPath)) {
-  throw "Missing selected model-pack manifest at $manifestPath."
-}
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$weightsPath = Join-Path (Split-Path $manifestPath -Parent) ([string]$manifest.model.weightsPath)
-$manifestValueCheckpoint = Resolve-MagnateProjectPath -RepoRoot $repoRoot -PathValue ([string]$manifest.source.valueCheckpoint)
-$manifestOpponentCheckpoint = Resolve-MagnateProjectPath -RepoRoot $repoRoot -PathValue ([string]$manifest.source.opponentCheckpoint)
 if (
   [int]$manifest.schemaVersion -ne 1 -or
   [string]$manifest.packId -ne $packId -or
   [int]$manifest.source.checkpointMetadata.step -ne 9000 -or
-  $manifestValueCheckpoint -ne [System.IO.Path]::GetFullPath($valueCheckpoint) -or
-  $manifestOpponentCheckpoint -ne [System.IO.Path]::GetFullPath($opponentCheckpoint) -or
   -not (Test-Path -LiteralPath $weightsPath)
 ) {
   throw "Candidate model pack does not match the frozen primary-treatment step-9,000 checkpoint pair."
