@@ -32,6 +32,9 @@
 - Package manager: Yarn classic 1.22.22, declared by `packageManager` and
   activated through Corepack independently of fnm.
 - JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
+- Vite development watching excludes the local Python environment, generated
+  artifacts, and local test/tool caches so Windows HMR does not track training
+  runtime files.
 - GitHub Pages deploy: `.github/workflows/deploy_pages.yml` reads the Node
   `22.23.1` pin from `.nvmrc`, activates the `packageManager` Yarn pin with
   Corepack, then gates deployment on `yarn test`, `yarn lint`, and `yarn build`.
