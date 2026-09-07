@@ -50,6 +50,24 @@ export function transitionLogEntries(
   ).entries;
 }
 
+/**
+ * Creates the automatic roll/tax/income entries for the first turn. Unlike
+ * later turns, this transition occurs while a session is being created, so
+ * there is no player action or engine log entry to trigger it.
+ */
+export function initialTurnCycleLogEntries(
+  initialState: GameState,
+  sessionState: GameState,
+  humanPlayerId: PlayerId
+): GameLogEntry[] {
+  return resolveTurnCycleEntries(
+    initialState,
+    sessionState,
+    { type: 'end-turn' },
+    humanPlayerId
+  ).entries;
+}
+
 export function transitionLogUpdate(
   previousState: GameState,
   nextState: GameState,
@@ -216,10 +234,15 @@ function summarizeIncome(
   postTaxResources: Map<PlayerId, ResourcePool>,
   humanPlayerId: PlayerId
 ): string[] {
-  return nextState.players.map((player) => {
+  return nextState.players.flatMap((player) => {
     const baseline = postTaxResources.get(player.id) ?? player.resources;
     const delta = resourceDelta(baseline, player.resources);
-    return `Income ${playerDisplayName(player.id, humanPlayerId)} ${formatDelta(delta)}`;
+    const formattedDelta = formatDelta(delta);
+    return formattedDelta
+      ? [
+          `Income ${playerDisplayName(player.id, humanPlayerId)} ${formattedDelta}`,
+        ]
+      : [];
   });
 }
 
@@ -310,7 +333,7 @@ function resourceDelta(
   return delta;
 }
 
-function formatDelta(delta: Partial<Record<Suit, number>>): string {
+function formatDelta(delta: Partial<Record<Suit, number>>): string | null {
   const parts: string[] = [];
   for (const suit of SUIT_ORDER) {
     const count = delta[suit] ?? 0;
@@ -321,7 +344,7 @@ function formatDelta(delta: Partial<Record<Suit, number>>): string {
     parts.push(`${sign}${count} ${suit}`);
   }
   if (parts.length === 0) {
-    return 'none';
+    return null;
   }
   return parts.join(', ');
 }

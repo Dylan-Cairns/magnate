@@ -33,16 +33,17 @@ describe('groupLogEntriesByTurn', () => {
 });
 
 describe('formatLogSummary', () => {
-  it('adds property rank and suit codes to card actions', () => {
-    expect(formatLogSummary('develop 6')).toBe('Develop 2 mo kn (6)');
-    expect(formatLogSummary('[PlayerB] sell 7')).toBe(
-      '[PlayerB] Sell 2 su wy (7)'
+  it('adds property rank and suit codes to card actions without internal ids', () => {
+    expect(formatLogSummary('develop outright 6 to D1')).toBe(
+      'Develop outright 2 mo kn to D1'
     );
+    expect(formatLogSummary('buy deed 6 to D2')).toBe('Buy deed 2 mo kn to D2');
+    expect(formatLogSummary('[PlayerB] sell 7')).toBe('[PlayerB] Sell 2 su wy');
   });
 
   it('formats income choices and standalone suit names', () => {
     expect(formatLogSummary('income choice 8:Leaves')).toBe(
-      'Income choice 2 wa le (8):le'
+      'Income choice 2 wa le:le'
     );
     expect(formatLogSummary('Tax Moons (PlayerA -2)')).toBe(
       'Tax mo (PlayerA -2)'

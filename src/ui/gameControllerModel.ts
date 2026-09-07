@@ -1,6 +1,7 @@
 import { legalActions } from '../engine/actionBuilders';
 import { createDevFixtureSession, type DevFixtureId } from '../dev/fixtures';
 import { createSession } from '../engine/session';
+import { newGame } from '../engine/game';
 import { isTerminal } from '../engine/scoring';
 import type {
   GameAction,
@@ -8,6 +9,7 @@ import type {
   GameState,
   PlayerId,
 } from '../engine/types';
+import { initialTurnCycleLogEntries } from './logTimeline';
 export {
   policyRandomForState as botRandomForState,
   policyRandomSeedForState as botRandomSeedForState,
@@ -31,22 +33,45 @@ export function createBrowserSession(
 export function withSeedLogPrefix(
   state: GameState,
   entries: readonly GameLogEntry[],
-  fallbackPlayerId: PlayerId
+  fallbackPlayerId: PlayerId,
+  botProfileLabel?: string
 ): ReadonlyArray<GameLogEntry> {
   const seedSummary = `Seed ${state.seed}`;
   if (entries[0]?.summary === seedSummary) {
     return [...entries];
   }
 
-  return [
+  const prefix: GameLogEntry[] = [
     {
       turn: state.turn,
       player: activePlayerIdForState(state, fallbackPlayerId),
       phase: state.phase,
       summary: seedSummary,
     },
-    ...entries,
   ];
+  if (botProfileLabel) {
+    prefix.push({
+      turn: state.turn,
+      player: activePlayerIdForState(state, fallbackPlayerId),
+      phase: state.phase,
+      summary: `Bot ${botProfileLabel}`,
+    });
+  }
+  return [...prefix, ...entries];
+}
+
+export function initialBrowserTimelineLog(
+  state: GameState,
+  humanPlayerId: PlayerId,
+  botProfileLabel: string
+): ReadonlyArray<GameLogEntry> {
+  const initialState = newGame(state.seed, { firstPlayer: humanPlayerId });
+  return withSeedLogPrefix(
+    state,
+    initialTurnCycleLogEntries(initialState, state, humanPlayerId),
+    humanPlayerId,
+    botProfileLabel
+  );
 }
 
 export function activePlayerIdForState(

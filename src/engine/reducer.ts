@@ -133,10 +133,7 @@ function sameSuitCounts(
   return SUITS.every((suit) => (left[suit] ?? 0) === (right[suit] ?? 0));
 }
 
-function endTurn(
-  state: GameState,
-  options: ApplyActionOptions
-): GameState {
+function endTurn(state: GameState, options: ApplyActionOptions): GameState {
   if (!state.cardPlayedThisTurn) {
     throw new Error('Cannot end turn before a card has been played.');
   }
@@ -247,7 +244,9 @@ function resolveSubmittedIncomeChoices(
       incomeChoiceMatches(choice, entry)
     );
     if (!submission) {
-      throw new Error('Cannot resolve income choices before all are submitted.');
+      throw new Error(
+        'Cannot resolve income choices before all are submitted.'
+      );
     }
     if (!choice.suits.includes(submission.suit)) {
       throw new Error(
@@ -418,7 +417,7 @@ function developOutright(
       phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
-    `develop ${action.cardId}`,
+    `develop outright ${action.cardId} to ${action.districtId}`,
     undefined,
     options
   );
@@ -463,7 +462,7 @@ function buyDeed(
       phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
-    `buy deed ${action.cardId}`,
+    `buy deed ${action.cardId} to ${action.districtId}`,
     undefined,
     options
   );
