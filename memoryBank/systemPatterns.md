@@ -272,6 +272,10 @@ Design expectations:
     choices resolve
   - partial-income resource flights are planned only on the final reveal that
     actually applies submitted choices
+  - visible timeline logs share the engine player-view income-choice filter;
+    privacy follows canonical pending submissions even while animations lag.
+    Opponent choices stay hidden until all choices resolve, while prior-turn
+    entries remain visible and exported timelines retain the full history.
 - Browser session state, timeline logging, reset snapshots, bot scheduling,
   shared action dispatch, and animation-hook composition should live in
   `useGameController`; `App.tsx` should retain UI-local menu, picker, preload,
