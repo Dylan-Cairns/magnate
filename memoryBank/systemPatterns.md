@@ -168,6 +168,10 @@ Design expectations:
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
+- An empty human input list is not a no-legal-actions condition: canonical
+  decisions can advance ahead of the displayed phase. Action-panel empty states
+  show bot thinking when allowed by presentation visibility, income resolution,
+  or nothing between decisions.
 - UI animation sequencing should keep pure runtime sequencing, injectable
   browser-only DOM target resolution, and flight object construction separate;
   browser DOM access remains outside the engine and isolated in `domTargets.ts`.
