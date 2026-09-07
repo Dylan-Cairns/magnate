@@ -59,6 +59,7 @@ vi.mock('react', async (importOriginal) => {
 
 import { DEED_PROGRESS_REVEAL_MS } from '../animations/timing';
 import { CardTile } from './CardTile';
+import { buildDeedProgressArcPath } from './deedProgress';
 
 type AnimationFrameCallback = (timestamp: number) => void;
 
@@ -87,6 +88,20 @@ afterEach(() => {
 });
 
 describe('CardTile deed progress animation', () => {
+  it('finishes at presentation commit even if the browser has not run the first frame', () => {
+    renderCard(0);
+    renderCard(2);
+    expect(animationFrames.size).toBeGreaterThan(0);
+
+    // The sequence can commit while a slow browser still owes the first RAF.
+    const committedHtml = renderCard(2, false);
+    expect(committedHtml).toContain(`d="${buildDeedProgressArcPath(2 / 9)}"`);
+    expect(animationFrames.size).toBe(0);
+
+    flushAnimationFrames(DEED_PROGRESS_REVEAL_MS);
+    expect(renderCard(2, false)).toBe(committedHtml);
+  });
+
   it('does not carry progress into a remounted card with the same id', () => {
     renderCard(0);
     renderCard(2);
@@ -106,7 +121,7 @@ describe('CardTile deed progress animation', () => {
   });
 });
 
-function renderCard(progress: number): string {
+function renderCard(progress: number, animateDeedProgress = true): string {
   hookHarness.beginRender();
   return renderToStaticMarkup(
     <CardTile
@@ -114,7 +129,7 @@ function renderCard(progress: number): string {
       deedProgress={progress}
       deedTarget={9}
       inDevelopment
-      animateDeedProgress
+      animateDeedProgress={animateDeedProgress}
     />
   );
 }

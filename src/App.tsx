@@ -159,6 +159,7 @@ export function App() {
     resetTurn,
     animations: {
       enabled: animationsEnabled,
+      animateDeedProgress,
       setEnabled: setAnimationsEnabled,
       resourceFlights,
       cardFlights,
@@ -658,7 +659,7 @@ export function App() {
             handSlotCount={PLAYER_HAND_SLOT_COUNT}
             humanPlayerId={HUMAN_PLAYER}
             botPlayerId={BOT_PLAYER}
-            animateDeedProgress={animationsEnabled}
+            animateDeedProgress={animateDeedProgress}
           />
         </aside>
 
@@ -686,7 +687,7 @@ export function App() {
                 district={district}
                 humanPlayerId={HUMAN_PLAYER}
                 botPlayerId={BOT_PLAYER}
-                animateDeedProgress={animationsEnabled}
+                animateDeedProgress={animateDeedProgress}
                 highlightedIncomeCardIds={incomeHighlightCardIdSet}
               />
             ))}

@@ -247,7 +247,10 @@
   is sourced from the shared animation timing constant. Its interpolated ratio
   is scoped to the mounted card, initialized and bounded by the current
   presentation snapshot, and does not persist across deed placements or game
-  sessions. Presentation finalization and input unlock are derived from
+  sessions. Its local frame interpolation stops at the sequence's visible
+  commit and snaps to presented progress, including when a slow browser has
+  delayed its first frame, so it cannot continue after the winner appears.
+  Presentation finalization and input unlock are derived from
   `AnimationSequence`
   `commitMs`/`inputUnlockMs` rather than action-type timing rules. Human input is
   blocked only when a transition opens a new human decision window; the barrier

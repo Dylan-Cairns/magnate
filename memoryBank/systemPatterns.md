@@ -223,7 +223,10 @@ Design expectations:
 - Leaf animation interpolation must be scoped to the mounted visual instance
   and bounded by the current presentation snapshot. Deed progress continuity
   must not use module-global card-ID caches that survive a placement, reset, or
-  game session.
+  game session. Deed progress interpolation is enabled only while a sequence
+  snapshot is active; visible commit snaps the ring to presented progress and
+  cancels pending frames, so delayed browser RAF callbacks cannot outlive the
+  sequence or continue after the winner appears.
 - Pre-commit presentation reducers should construct visible mutations from the
   current step/event payload and current presentation snapshot. Copy broad
   `nextState` structures only at the explicit final commit boundary, or at a
