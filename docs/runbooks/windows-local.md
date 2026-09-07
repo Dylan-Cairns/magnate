@@ -28,6 +28,23 @@ The Windows training wrappers validate the active Node runtime and can resolve
 the `.nvmrc` pin through `fnm` when launched from a `-NoProfile` shell. They do
 not depend on legacy version-manager installation paths.
 
+### Yarn cannot find `node.exe`
+
+If Yarn is found but reports that `node.exe` is not recognized, initialize
+fnm in the current PowerShell terminal, then select the repo's pinned version:
+
+```powershell
+fnm env --use-on-cd --version-file-strategy recursive --shell powershell | Out-String | Invoke-Expression
+fnm use
+yarn dev
+```
+
+For new terminals, add the `fnm env ... | Out-String | Invoke-Expression`
+line to `$PROFILE.CurrentUserAllHosts` (create its parent directory and file
+if missing). PowerShell 7 and Windows PowerShell use separate profile
+directories. Python `.venv` activation does not initialize Node, and is not
+required to run the browser dev server.
+
 ## Laptop Training Wrappers
 
 Use the PowerShell wrappers so laptop-safe worker and thread settings stay separate from Linux and RunPod flows.

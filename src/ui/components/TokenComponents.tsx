@@ -4,6 +4,7 @@ import { SUITS } from '../../engine/stateHelpers';
 import type { ResourcePool, Suit } from '../../engine/types';
 import { SuitIcon } from '../suitIcons';
 
+// Shared opaque fills for tokens, animation copies, deck-map nodes, and suit dice.
 export const SUIT_TOKEN_BG: Record<Suit, string> = {
   Moons: '#e4e7eb',
   Suns: '#f7cc95',
