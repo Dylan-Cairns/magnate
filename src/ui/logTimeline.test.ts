@@ -8,7 +8,11 @@ import {
   makePlayer,
   makeResources,
 } from '../engine/__tests__/fixtures';
-import { transitionLogEntries, transitionLogUpdate } from './logTimeline';
+import {
+  initialTurnCycleLogEntries,
+  transitionLogEntries,
+  transitionLogUpdate,
+} from './logTimeline';
 
 function withLog(state: GameState, log: readonly GameLogEntry[]): GameState {
   return {
@@ -278,8 +282,35 @@ describe('transitionLogEntries', () => {
     expect(finalUpdate.entries.map((entry) => entry.summary)).toEqual([
       'income choice 8:Leaves',
       'Income You +1 Suns, +1 Leaves',
-      'Income Bot none',
     ]);
     expect(finalUpdate.deferredIncomeLogContext).toBeNull();
+  });
+
+  it('includes the automatic first roll in the session timeline', () => {
+    const initial = makeGameState({
+      phase: 'StartTurn',
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 0 }) }),
+        makePlayer(PLAYER_B, { resources: makeResources({ Suns: 0 }) }),
+      ] as const,
+    });
+    const session = makeGameState({
+      phase: 'ActionWindow',
+      lastIncomeRoll: { die1: 7, die2: 4 },
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1 }) }),
+        makePlayer(PLAYER_B, { resources: makeResources({ Suns: 1 }) }),
+      ] as const,
+    });
+
+    expect(
+      initialTurnCycleLogEntries(initial, session, PLAYER_A).map(
+        (entry) => entry.summary
+      )
+    ).toEqual([
+      'Roll d10 7/4 (income 7)',
+      'Income You +1 Moons',
+      'Income Bot +1 Suns',
+    ]);
   });
 });

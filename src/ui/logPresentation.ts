@@ -12,7 +12,8 @@ const SUIT_LOG_CODE: Record<Suit, SuitLogCode> = {
   Knots: 'kn',
 };
 const SUIT_NAME_PATTERN = /\b(Moons|Suns|Waves|Leaves|Wyrms|Knots)\b/g;
-const CARD_ACTION_PATTERN = /\b(buy deed|sell|advance|develop)\s+(\d+)\b/gi;
+const CARD_ACTION_PATTERN =
+  /\b(buy deed|develop outright|sell|advance)\s+(\d+)\b/gi;
 const INCOME_CHOICE_PATTERN = /\bincome choice\s+(\d+):([A-Za-z]+)\b/gi;
 export const SUIT_CODE_PATTERN = /\b(mo|su|wa|le|wy|kn)\b/g;
 
@@ -122,7 +123,7 @@ function formatCardIdForLog(rawCardId: string): string {
     return rawCardId;
   }
   const suitCodes = card.suits.map((suit) => SUIT_LOG_CODE[suit]).join(' ');
-  return `${card.rank} ${suitCodes} (${rawCardId})`;
+  return `${card.rank} ${suitCodes}`;
 }
 
 function suitNameToCode(value: string): SuitLogCode | null {

@@ -15,6 +15,7 @@ import {
   errorMessage,
   humanActionsAcceptingInputForState,
   humanDecisionWindowKeyForState,
+  initialBrowserTimelineLog,
   makeBrowserSessionSeed,
   shouldScheduleBotAction,
   transitionOpensHumanDecisionWindow,
@@ -33,7 +34,7 @@ describe('gameControllerModel', () => {
     expect(session.players[session.activePlayerIndex]?.id).toBe(PLAYER_B);
   });
 
-  it('prefixes timeline logs with the seed exactly once', () => {
+  it('prefixes timeline logs with the seed and selected bot exactly once', () => {
     const state = makeGameState({ seed: 'controller-test' });
     const engineEntry: GameLogEntry = {
       turn: 1,
@@ -42,13 +43,32 @@ describe('gameControllerModel', () => {
       summary: 'engine entry',
     };
 
-    const prefixed = withSeedLogPrefix(state, [engineEntry], PLAYER_A);
+    const prefixed = withSeedLogPrefix(
+      state,
+      [engineEntry],
+      PLAYER_A,
+      'V2 Hard'
+    );
 
     expect(prefixed.map((entry) => entry.summary)).toEqual([
       'Seed controller-test',
+      'Bot V2 Hard',
       'engine entry',
     ]);
     expect(withSeedLogPrefix(state, prefixed, PLAYER_A)).toEqual(prefixed);
+  });
+
+  it('starts a browser timeline with metadata and the first roll', () => {
+    const state = createBrowserSession('first-roll-seed', PLAYER_A);
+    const timeline = initialBrowserTimelineLog(state, PLAYER_A, 'V2 Hard');
+
+    expect(timeline.map((entry) => entry.summary)).toContain(
+      'Seed first-roll-seed'
+    );
+    expect(timeline.map((entry) => entry.summary)).toContain('Bot V2 Hard');
+    expect(
+      timeline.some((entry) => entry.summary.startsWith('Roll d10 '))
+    ).toBe(true);
   });
 
   it('creates deterministic bot randomness from state and profile identity', () => {

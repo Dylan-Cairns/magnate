@@ -32,10 +32,10 @@ import {
   errorMessage,
   humanActionsAcceptingInputForState,
   incomeChoiceActionsForPlayer,
+  initialBrowserTimelineLog,
   makeBrowserSessionSeed,
   shouldScheduleBotAction,
   transitionOpensHumanDecisionWindow,
-  withSeedLogPrefix,
 } from '../gameControllerModel';
 import {
   transitionLogUpdate,
@@ -98,6 +98,9 @@ export function useGameController({
   botPlayerId,
   startupPreloadReady,
 }: UseGameControllerOptions) {
+  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
+    DEFAULT_BOT_PROFILE_ID
+  );
   const [state, setState] = useState<GameState>(() =>
     createBrowserSession(
       makeBrowserSessionSeed(),
@@ -106,7 +109,12 @@ export function useGameController({
     )
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
-    () => withSeedLogPrefix(state, state.log, humanPlayerId)
+    () =>
+      initialBrowserTimelineLog(
+        state,
+        humanPlayerId,
+        resolveBotProfile(DEFAULT_BOT_PROFILE_ID).selected.label
+      )
   );
   const [error, setError] = useState<string | null>(null);
   const [actionHistory, setActionHistory] = useState<
@@ -116,9 +124,6 @@ export function useGameController({
   const [humanInputBarrierOrdinal, setHumanInputBarrierOrdinal] = useState<
     number | null
   >(null);
-  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
-    DEFAULT_BOT_PROFILE_ID
-  );
   const [turnResetAnchor, setTurnResetAnchor] =
     useState<TurnResetAnchor | null>(null);
   const [turnResetTimelineAnchor, setTurnResetTimelineAnchor] =
@@ -522,7 +527,11 @@ export function useGameController({
         canonicalDispatchInProgressRef.current = false;
         setState(initialState);
         setTimelineLog(
-          withSeedLogPrefix(initialState, initialState.log, humanPlayerId)
+          initialBrowserTimelineLog(
+            initialState,
+            humanPlayerId,
+            resolveBotProfile(botProfileId).selected.label
+          )
         );
         setActionHistory([]);
         setError(null);
@@ -531,7 +540,7 @@ export function useGameController({
         setError(`Failed to start game: ${errorMessage(err)}`);
       }
     },
-    [clearAllFlights, clearPresentationQueue, humanPlayerId]
+    [botProfileId, clearAllFlights, clearPresentationQueue, humanPlayerId]
   );
 
   const resetTurn = useCallback(() => {
@@ -557,10 +566,10 @@ export function useGameController({
     setTimelineLog(
       turnResetTimelineAnchor
         ? [...turnResetTimelineAnchor]
-        : withSeedLogPrefix(
+        : initialBrowserTimelineLog(
             turnResetAnchor.state,
-            turnResetAnchor.state.log,
-            humanPlayerId
+            humanPlayerId,
+            resolveBotProfile(botProfileId).selected.label
           )
     );
     setActionHistory(
@@ -575,6 +584,7 @@ export function useGameController({
     clearAllFlights,
     clearPresentationQueue,
     humanInputReady,
+    botProfileId,
     humanPlayerId,
     state,
     turnResetAnchor,
