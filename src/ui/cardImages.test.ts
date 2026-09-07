@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { CARD_BY_ID, type CardId } from '../engine/cards';
 import {
@@ -7,6 +7,7 @@ import {
   CARD_IMAGE_FILE_BY_ID,
   getCardImage,
   getCardImageFile,
+  preloadCardImageUrl,
 } from './cardImages';
 
 const EXPECTED_CARD_IMAGE_FILE_BY_ID: Record<CardId, string> = {
@@ -83,4 +84,51 @@ describe('cardImages', () => {
       expect(ALL_CARD_IMAGE_URLS).toContain(imageUrl);
     }
   });
+
+  it('rejects a decode failure and permits a subsequent preload attempt', async () => {
+    const url = 'test-decode-failure.png';
+    const images: TestImage[] = [];
+    vi.stubGlobal(
+      'Image',
+      class TestImage {
+        complete = false;
+        naturalWidth = 1;
+        naturalHeight = 1;
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+
+        constructor() {
+          images.push(this);
+        }
+
+        set src(_value: string) {
+          queueMicrotask(() => this.onload?.());
+        }
+
+        decode(): Promise<void> {
+          return Promise.reject(new Error('decode failed'));
+        }
+      }
+    );
+
+    try {
+      await expect(preloadCardImageUrl(url)).rejects.toThrow(
+        'Failed to preload card image'
+      );
+      await expect(preloadCardImageUrl(url)).rejects.toThrow(
+        'Failed to preload card image'
+      );
+      expect(images).toHaveLength(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
+
+type TestImage = {
+  complete: boolean;
+  naturalWidth: number;
+  naturalHeight: number;
+  onload: (() => void) | null;
+  onerror: (() => void) | null;
+};

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import { DEED_PROGRESS_REVEAL_MS } from '../animations/timing';
-import { getCardImage } from '../cardImages';
+import { getCardImage, reportImageRenderFailure } from '../cardImages';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import {
@@ -295,7 +295,12 @@ function CardTileCard({
   const imageBody = (
     <div className="card-row card-body">
       <div className="card-image-frame" aria-hidden="true">
-        <img className="card-image" src={cardImage} alt="" />
+        <img
+          className="card-image"
+          src={cardImage}
+          alt=""
+          onError={() => reportImageRenderFailure(cardImage, 'card image')}
+        />
       </div>
       {showDeedTokenRails ? (
         <>

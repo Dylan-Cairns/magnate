@@ -5,6 +5,7 @@ import sunsIcon from '../assets/icons/suns.svg';
 import wavesIcon from '../assets/icons/waves.svg';
 import wyrmsIcon from '../assets/icons/wyrms.svg';
 import type { Suit } from '../engine/types';
+import { reportImageRenderFailure } from './cardImages';
 
 export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
   Moons: moonsIcon,
@@ -15,7 +16,8 @@ export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
   Knots: knotsIcon,
 };
 
-export const ALL_SUIT_ICON_URLS: readonly string[] = Object.values(SUIT_ICON_BY_SUIT);
+export const ALL_SUIT_ICON_URLS: readonly string[] =
+  Object.values(SUIT_ICON_BY_SUIT);
 
 export const SUIT_TEXT_TOKEN: Record<Suit, string> = {
   Moons: '{Moons}',
@@ -55,6 +57,9 @@ export function SuitIcon({
       alt={suit}
       title={suit}
       className={`suit-icon${className ? ` ${className}` : ''}`}
+      onError={() =>
+        reportImageRenderFailure(SUIT_ICON_BY_SUIT[suit], `${suit} token`)
+      }
     />
   );
 }

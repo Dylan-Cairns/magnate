@@ -84,6 +84,7 @@ export const ALL_CARD_IMAGE_URLS = Object.freeze(
 const PRELOADED_CARD_IMAGE_URLS = new Set<string>();
 const PRELOADED_CARD_IMAGE_BY_URL = new Map<string, HTMLImageElement>();
 const CARD_IMAGE_PRELOAD_PROMISE_BY_URL = new Map<string, Promise<void>>();
+const REPORTED_IMAGE_RENDER_FAILURES = new Set<string>();
 
 export function getCardImageFile(cardId: CardId): string {
   return CARD_IMAGE_FILE_BY_ID[cardId];
@@ -137,10 +138,7 @@ export function preloadCardImageUrl(url: string): Promise<void> {
 
     image.onload = () => {
       if (typeof image.decode === 'function') {
-        image
-          .decode()
-          .catch(() => undefined)
-          .finally(finish);
+        image.decode().then(finish).catch(fail);
         return;
       }
       finish();
@@ -164,4 +162,13 @@ export function preloadCardImageUrl(url: string): Promise<void> {
     }
   });
   return created;
+}
+
+export function reportImageRenderFailure(url: string, label: string): void {
+  const key = `${label}:${url}`;
+  if (REPORTED_IMAGE_RENDER_FAILURES.has(key)) {
+    return;
+  }
+  REPORTED_IMAGE_RENDER_FAILURES.add(key);
+  console.error(`[Magnate asset] Failed to render ${label}: ${url}`);
 }

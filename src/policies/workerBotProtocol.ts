@@ -11,6 +11,8 @@ export interface BotWorkerSelectActionRequest {
   view: PlayerView;
   legalActions: GameAction[];
   randomSeed: string;
+  /** Request full root-search diagnostics for explicit browser debugging. */
+  collectDiagnostics?: boolean;
   searchExecutionMode?: SearchWorkerExecutionMode;
 }
 

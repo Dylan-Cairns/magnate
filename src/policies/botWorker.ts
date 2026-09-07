@@ -100,12 +100,16 @@ async function selectAction(
   }
 
   let diagnostics: SearchDecisionDiagnostics | undefined;
-  const captureDiagnostics = (value: SearchDecisionDiagnostics): void => {
-    if (diagnostics) {
-      throw new Error('Worker policy emitted duplicate search diagnostics.');
-    }
-    diagnostics = structuredClone(value);
-  };
+  const captureDiagnostics = request.collectDiagnostics
+    ? (value: SearchDecisionDiagnostics): void => {
+        if (diagnostics) {
+          throw new Error(
+            'Worker policy emitted duplicate search diagnostics.'
+          );
+        }
+        diagnostics = structuredClone(value);
+      }
+    : undefined;
   const searchResult = isRolloutLikeSearchSpec(request.spec)
     ? await selectSearchAction(request, captureDiagnostics)
     : undefined;
@@ -135,7 +139,7 @@ async function selectAction(
 
 async function selectGenericPolicyAction(
   request: BotWorkerSelectActionRequest,
-  onSearchDiagnostics: (diagnostics: SearchDecisionDiagnostics) => void
+  onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void
 ): Promise<GameAction | undefined> {
   const policy = policyForSpec(request);
   return await Promise.resolve(
@@ -145,14 +149,14 @@ async function selectGenericPolicyAction(
       legalActions: request.legalActions,
       random: rngFromSeed(request.randomSeed),
       randomSeed: request.randomSeed,
-      onSearchDiagnostics,
+      ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
     })
   );
 }
 
 async function selectSearchAction(
   request: BotWorkerSelectActionRequest,
-  onSearchDiagnostics: (diagnostics: SearchDecisionDiagnostics) => void
+  onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void
 ): Promise<SearchActionResult> {
   if (!isRolloutLikeSearchSpec(request.spec)) {
     throw new Error(
@@ -190,7 +194,7 @@ async function selectSearchAction(
           : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
-        onSearchDiagnostics,
+        ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
         runBatch(tasks, context) {
           return pool.runBatch(tasks, context);
         },
@@ -219,7 +223,7 @@ async function selectSearchAction(
       ? { rolloutGuidance: guidance.rolloutGuidance }
       : {}),
     ...(guidance.guidanceKind ? { guidanceKind: guidance.guidanceKind } : {}),
-    onSearchDiagnostics,
+    ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
   });
   return { action, executionMode: 'synchronous' };
 }

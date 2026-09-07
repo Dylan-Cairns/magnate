@@ -1,6 +1,6 @@
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
-import { getCardImage } from '../cardImages';
+import { getCardImage, reportImageRenderFailure } from '../cardImages';
 import { SuitIcon, SUIT_TEXT_TOKEN } from '../suitIcons';
 import { SuitText } from './SuitText';
 
@@ -124,6 +124,12 @@ export function DeckPiles({
                         className="deck-pile-image"
                         src={getCardImage(cardId)}
                         alt=""
+                        onError={() =>
+                          reportImageRenderFailure(
+                            getCardImage(cardId),
+                            'discard card image'
+                          )
+                        }
                       />
                     </div>
                   );
