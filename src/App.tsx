@@ -707,7 +707,6 @@ export function App() {
               drawCount={humanView.deck.drawCount}
               reshuffles={humanView.deck.reshuffles}
               discard={humanView.deck.discard}
-              terminal={terminal}
             />
           </div>
 

@@ -8,12 +8,10 @@ export function DeckPiles({
   drawCount,
   reshuffles,
   discard,
-  terminal,
 }: {
   drawCount: number;
   reshuffles: number;
   discard: readonly CardId[];
-  terminal: boolean;
 }) {
   const deckStackCount = Math.min(3, drawCount);
   const deckOverlayShiftClass =
@@ -22,8 +20,9 @@ export function DeckPiles({
       : deckStackCount === 2
         ? 'overlay-shift-1'
         : 'overlay-shift-0';
-  const showSecondShuffleLabel =
-    reshuffles > 0 && !(terminal && drawCount === 0);
+const shuffleNumber = reshuffles === 0 ? 1 : 2;
+  const shuffleTooltip =
+    'The deck is shuffled at the start of the game. When it runs out, the discard pile is shuffled to form a new draw pile. When that runs out, each player gets one final turn.';
   const visibleDiscardCards = discard;
   const discardStackCardIds = visibleDiscardCards.slice(0, 3).reverse();
   const discardCardDetails = visibleDiscardCards.map((cardId) => {
@@ -46,7 +45,12 @@ export function DeckPiles({
 
   return (
     <section className="panel">
-      <h2>Deck State</h2>
+      <header className="deck-state-heading">
+        <h2>Deck State</h2>
+        <span className="status-badge" title={shuffleTooltip}>
+          Shuffles {shuffleNumber}/2
+        </span>
+      </header>
       <div className="deck-piles" aria-label="Deck and discard piles">
         <div className="deck-pile">
           <div
@@ -64,11 +68,6 @@ export function DeckPiles({
                 />
               ))
             )}
-            {showSecondShuffleLabel ? (
-              <span className="deck-pile-overlay-label" aria-hidden="true">
-                2nd shuffle
-              </span>
-            ) : null}
             <div className="deck-pile-animation-anchor" aria-hidden="true" />
           </div>
           <strong className="deck-pile-count">{drawCount}</strong>

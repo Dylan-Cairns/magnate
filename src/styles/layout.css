@@ -104,19 +104,6 @@
   margin: 0;
 }
 
-.last-turn-badge {
-  border: 1px solid var(--last-turn-border);
-  background: var(--last-turn-bg);
-  color: var(--last-turn-text);
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  box-shadow: 0 0 0 1px var(--last-turn-ring);
-}
-
 .panel {
   padding: var(--panel-padding);
 }
