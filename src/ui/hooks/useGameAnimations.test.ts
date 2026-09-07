@@ -60,6 +60,10 @@ import {
 } from '../../engine/__tests__/fixtures';
 import { buildAnimationSequence } from '../runtime/animationSequence';
 import { buildGameTransaction } from '../runtime/transactions';
+import { stepToDecision } from '../../engine/session';
+import { isTerminal } from '../../engine/scoring';
+import type { GameAction, GameState } from '../../engine/types';
+import finalTurnFixture from './finalTurnRegression.fixture.json';
 import {
   resourceFlightsAfterPresentationTime,
   sequencePresentationSnapshotUpdateTimes,
@@ -86,6 +90,50 @@ afterEach(() => {
 });
 
 describe('useGameAnimations scheduling helpers', () => {
+  it('keeps the reported final bot turn visible until its queued actions finish', () => {
+    // Final turn from magnate-log-2026-07-20T06-04-42.json; history omitted.
+    let canonicalState = finalTurnFixture.state as GameState;
+    let animations = AnimationHarness();
+    for (const [index, action] of (
+      finalTurnFixture.actions as GameAction[]
+    ).entries()) {
+      const previousState = canonicalState;
+      canonicalState = stepToDecision(previousState, action);
+      animations.enqueueTransition({
+        transactionId: `reported-final-turn-${index}`,
+        previousState,
+        nextState: canonicalState,
+        action,
+        actingPlayerId: PLAYER_B,
+      });
+    }
+    expect(isTerminal(canonicalState)).toBe(true);
+    expect(canonicalState.finalScore?.winner).toBe(PLAYER_A);
+
+    while (vi.getTimerCount() > 0) {
+      animations = AnimationHarness();
+      const viewState =
+        animations.presentationSnapshot?.viewState ??
+        animations.presentedState ??
+        canonicalState;
+      expect(isTerminal(viewState)).toBe(false);
+      if (animations.presentationSnapshot === null) {
+        expect(animations.animateDeedProgress).toBe(false);
+      }
+      vi.advanceTimersToNextTimer();
+    }
+    animations = AnimationHarness();
+    expect(animations.presentationPending).toBe(false);
+    expect(animations.animateDeedProgress).toBe(false);
+    expect(
+      isTerminal(
+        animations.presentationSnapshot?.viewState ??
+          animations.presentedState ??
+          canonicalState
+      )
+    ).toBe(true);
+  });
+
   it('removes only the income overlays whose presentation landing has arrived', () => {
     const baseFlight = {
       suit: 'Moons' as const,
@@ -161,6 +209,7 @@ describe('useGameAnimations scheduling helpers', () => {
     animations = AnimationHarness();
     expect(animations.presentationPending).toBe(true);
     expect(animations.presentationSnapshot).not.toBeNull();
+    expect(animations.animateDeedProgress).toBe(true);
     expect(onInputUnlock).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1);
@@ -168,6 +217,7 @@ describe('useGameAnimations scheduling helpers', () => {
     expect(onInputUnlock).toHaveBeenCalledOnce();
     expect(animations.presentationPending).toBe(true);
     expect(animations.presentedState).toBe(transaction.nextState);
+    expect(animations.animateDeedProgress).toBe(false);
 
     vi.advanceTimersByTime(sequence.durationMs - sequence.inputUnlockMs);
     animations = AnimationHarness();

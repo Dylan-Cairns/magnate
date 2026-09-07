@@ -222,12 +222,13 @@ function CardTileCard({
     };
   }, [animateDeedProgress, cardId, deedProgressRatio]);
 
-  const displayedDeedProgressRatio = hasDeedProgress
-    ? clampAnimatedDeedProgressRatio(
-        animatedDeedProgressRatio,
-        deedProgressRatio
-      )
-    : deedProgressRatio;
+  const displayedDeedProgressRatio =
+    hasDeedProgress && animateDeedProgress
+      ? clampAnimatedDeedProgressRatio(
+          animatedDeedProgressRatio,
+          deedProgressRatio
+        )
+      : deedProgressRatio;
   const deedProgressArcPath = buildDeedProgressArcPath(
     displayedDeedProgressRatio
   );
