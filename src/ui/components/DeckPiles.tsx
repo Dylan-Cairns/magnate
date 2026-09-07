@@ -50,7 +50,7 @@ const shuffleNumber = reshuffles === 0 ? 1 : 2;
         <h2>Deck State</h2>
         <span className="status-badge tooltip-trigger" tabIndex={0}>
           Shuffles {shuffleNumber}/2
-          <Tooltip>{shuffleTooltip}</Tooltip>
+          <Tooltip placement="below-left">{shuffleTooltip}</Tooltip>
         </span>
       </header>
       <div className="deck-piles" aria-label="Deck and discard piles">

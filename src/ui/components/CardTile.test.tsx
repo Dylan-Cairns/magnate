@@ -18,9 +18,9 @@ describe('CardTile', () => {
       <CardTile cardId="29" perspective="bot" />
     );
 
-    expect(humanHtml).toContain('app-tooltip tooltip-below');
-    expect(handHtml).not.toContain('app-tooltip tooltip-below');
-    expect(botHtml).not.toContain('app-tooltip tooltip-below');
+    expect(humanHtml).toContain('tooltip-anchor tooltip-below');
+    expect(handHtml).not.toContain('tooltip-anchor tooltip-below');
+    expect(botHtml).not.toContain('tooltip-anchor tooltip-below');
   });
 
   it('renders no deed progress value arc at zero progress', () => {

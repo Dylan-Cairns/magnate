@@ -118,8 +118,8 @@ describe('ActionPicker', () => {
 
     expect(html).toContain('District');
     expect(html).toContain('Payment');
-    expect(html).toContain('>D1<span class="app-tooltip"');
-    expect(html).toContain('>D2<span class="app-tooltip"');
+    expect(html).toContain('>D1<span class="tooltip-anchor"');
+    expect(html).toContain('>D2<span class="tooltip-anchor"');
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
   });
