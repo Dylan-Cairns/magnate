@@ -1,8 +1,7 @@
 import type { CardId } from '../../engine/cards';
 import { PROPERTY_CARDS } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
-import { SUIT_ICON_BY_SUIT } from '../suitIcons';
-import { SUIT_TOKEN_BG } from './TokenComponents';
+import { SuitTokenFace } from './SuitTokenFace';
 import React from 'react';
 
 // Clockwise from top-left
@@ -156,20 +155,11 @@ export function DecktetSuitDiagram({
           const isDimmed = dimmedSuits.has(suit);
           return (
             <g key={suit}>
-              <circle
-                cx={x}
-                cy={y}
-                r={NODE_R}
-                fill={SUIT_TOKEN_BG[suit]}
-                stroke="rgba(255,255,255,0.15)"
-                strokeWidth={1}
-              />
-              <image
-                href={SUIT_ICON_BY_SUIT[suit]}
-                x={x - NODE_R + 2}
-                y={y - NODE_R + 2}
-                width={NODE_R * 2 - 4}
-                height={NODE_R * 2 - 4}
+              <SuitTokenFace
+                suit={suit}
+                x={x - NODE_R}
+                y={y - NODE_R}
+                size={NODE_R * 2}
               />
               {isDimmed && (
                 <circle cx={x} cy={y} r={NODE_R} fill="rgba(5,8,15,0.78)" />

@@ -237,11 +237,6 @@
   height: var(--token-rail-chip-size);
 }
 
-.rail-resources-row .token-chip.compact .chip-suit-icon {
-  width: calc(100% - 0.16rem);
-  height: calc(100% - 0.16rem);
-}
-
 .rail-resources-row .token-count {
   top: -0.3rem;
   right: -0.28rem;
@@ -258,11 +253,6 @@
 .crowns-rail-row .token-chip.compact {
   width: var(--token-rail-chip-size);
   height: var(--token-rail-chip-size);
-}
-
-.crowns-rail-row .token-chip.compact .chip-suit-icon {
-  width: calc(100% - 0.16rem);
-  height: calc(100% - 0.16rem);
 }
 
 .district-strip {
