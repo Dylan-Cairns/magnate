@@ -1,4 +1,5 @@
 import type { StartupPreloadProgress } from '../startupPreload';
+import { Tooltip } from './Tooltip';
 
 export function StartupPreloadOverlay({
   ready,
@@ -54,11 +55,11 @@ export function StartupPreloadOverlay({
         {error ? (
           <button
             type="button"
-            className="reset-button startup-preload-retry"
-            title="Retry loading game assets"
+            className="reset-button startup-preload-retry tooltip-trigger"
             onClick={onRetry}
           >
             Retry
+            <Tooltip>Retry loading game assets</Tooltip>
           </button>
         ) : null}
       </section>
@@ -91,11 +92,11 @@ export function ResolutionWarningOverlay({
         <div className="resolution-warning-actions">
           <button
             type="button"
-            className="reset-button"
-            title="Dismiss display warning"
+            className="reset-button tooltip-trigger"
             onClick={onDismiss}
           >
             OK
+            <Tooltip>Dismiss display warning</Tooltip>
           </button>
         </div>
       </section>

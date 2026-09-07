@@ -3,6 +3,7 @@ import type { Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
 import { SuitIcon, SUIT_TEXT_TOKEN } from '../suitIcons';
 import { SuitText } from './SuitText';
+import { Tooltip } from './Tooltip';
 
 export function DeckPiles({
   drawCount,
@@ -47,15 +48,15 @@ const shuffleNumber = reshuffles === 0 ? 1 : 2;
     <section className="panel">
       <header className="deck-state-heading">
         <h2>Deck State</h2>
-        <span className="status-badge" title={shuffleTooltip}>
+        <span className="status-badge tooltip-trigger" tabIndex={0}>
           Shuffles {shuffleNumber}/2
+          <Tooltip>{shuffleTooltip}</Tooltip>
         </span>
       </header>
       <div className="deck-piles" aria-label="Deck and discard piles">
         <div className="deck-pile">
           <div
-            className={`deck-pile-stack is-deck ${deckOverlayShiftClass}`}
-            title="Cards remaining"
+            className={`deck-pile-stack is-deck ${deckOverlayShiftClass} tooltip-trigger`}
             aria-label="Cards remaining"
           >
             {deckStackCount === 0 ? (
@@ -69,6 +70,7 @@ const shuffleNumber = reshuffles === 0 ? 1 : 2;
               ))
             )}
             <div className="deck-pile-animation-anchor" aria-hidden="true" />
+            <Tooltip>Cards remaining</Tooltip>
           </div>
           <strong className="deck-pile-count">{drawCount}</strong>
         </div>
@@ -76,7 +78,6 @@ const shuffleNumber = reshuffles === 0 ? 1 : 2;
           <div className="player-score-wrap discard-pile-wrap">
             <div
               className={`deck-pile-stack is-discard${discardStackCardIds.length > 0 ? ' is-fanned' : ''}`}
-              title="Discard pile"
               aria-label="Discard pile"
               tabIndex={0}
             >
@@ -146,9 +147,6 @@ const shuffleNumber = reshuffles === 0 ? 1 : 2;
               role="tooltip"
               aria-label="Discard pile details"
             >
-              <p className="score-result">
-                Discarded Cards: <strong>{discardCardDetails.length}</strong>
-              </p>
               {discardCardDetails.length === 0 ? (
                 <p className="score-line">
                   <span>None yet</span>

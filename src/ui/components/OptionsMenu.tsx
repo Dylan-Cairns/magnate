@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { BotProfileId } from '../../policies/catalog';
 import { BugReportInstructions } from './BugReportInstructions';
 import { NewGameButton } from './NewGameButton';
+import { Tooltip } from './Tooltip';
 
 export function OptionsMenu({
   open,
@@ -57,39 +58,38 @@ export function OptionsMenu({
     <div className="corner-options-anchor">
       <button
         type="button"
-        className={`log-toggle-button${!mapVisible ? ' is-inactive' : ''}`}
+        className={`log-toggle-button tooltip-trigger${!mapVisible ? ' is-inactive' : ''}`}
         aria-label={mapVisible ? 'Hide deck map' : 'Show deck map'}
-        title={mapVisible ? 'Hide deck map' : 'Show deck map'}
         aria-pressed={mapVisible}
         onClick={onToggleMap}
       >
         <MapIcon />
+        <Tooltip>{mapVisible ? 'Hide deck map' : 'Show deck map'}</Tooltip>
       </button>
       <button
         type="button"
-        className={`log-toggle-button${!logVisible ? ' is-inactive' : ''}`}
+        className={`log-toggle-button tooltip-trigger${!logVisible ? ' is-inactive' : ''}`}
         aria-label={logVisible ? 'Hide game log' : 'Show game log'}
-        title={logVisible ? 'Hide game log' : 'Show game log'}
         aria-pressed={logVisible}
         onClick={onToggleLog}
       >
         <LogIcon />
+        <Tooltip>{logVisible ? 'Hide game log' : 'Show game log'}</Tooltip>
       </button>
       <button
         type="button"
-        className="history-button"
+        className="history-button tooltip-trigger"
         aria-label="Game history"
-        title="View game history"
         onClick={onHistoryOpen}
       >
         <TrophyIcon />
+        <Tooltip>View game history</Tooltip>
       </button>
       <button
         ref={buttonRef}
         type="button"
-        className={`hamburger-button${open ? ' is-open' : ''}`}
+        className={`hamburger-button tooltip-trigger${open ? ' is-open' : ''}`}
         aria-label="Settings"
-        title={open ? 'Close settings' : 'Open settings'}
         aria-controls="brand-options-menu"
         aria-expanded={open}
         onClick={onToggle}
@@ -99,6 +99,7 @@ export function OptionsMenu({
           <span />
           <span />
         </span>
+        <Tooltip>{open ? 'Close settings' : 'Open settings'}</Tooltip>
       </button>
       <NewGameButton
         expanded={newGameExpanded}

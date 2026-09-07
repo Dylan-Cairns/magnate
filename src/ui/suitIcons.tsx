@@ -6,6 +6,7 @@ import wavesIcon from '../assets/icons/waves.svg';
 import wyrmsIcon from '../assets/icons/wyrms.svg';
 import type { Suit } from '../engine/types';
 import { reportImageRenderFailure } from './cardImages';
+import { Tooltip } from './components/Tooltip';
 
 export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
   Moons: moonsIcon,
@@ -52,15 +53,17 @@ export function SuitIcon({
   className?: string;
 }) {
   return (
-    <img
-      src={SUIT_ICON_BY_SUIT[suit]}
-      alt={suit}
-      title={suit}
-      className={`suit-icon${className ? ` ${className}` : ''}`}
-      onError={() =>
-        reportImageRenderFailure(SUIT_ICON_BY_SUIT[suit], `${suit} token`)
-      }
-    />
+    <span className="tooltip-trigger suit-icon-tooltip">
+      <img
+        src={SUIT_ICON_BY_SUIT[suit]}
+        alt={suit}
+        className={`suit-icon${className ? ` ${className}` : ''}`}
+        onError={() =>
+          reportImageRenderFailure(SUIT_ICON_BY_SUIT[suit], `${suit} token`)
+        }
+      />
+      <Tooltip>{suit}</Tooltip>
+    </span>
   );
 }
 

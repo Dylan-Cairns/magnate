@@ -14,11 +14,11 @@ export function BugReportInstructions({
             Click to{' '}
             <button
               type="button"
-              className="bug-report-download-link"
-              title="Download a diagnostic log file"
+              className="bug-report-download-link tooltip-trigger"
               onClick={onDownload}
             >
               download a log file
+              <Tooltip>Download a diagnostic log file</Tooltip>
             </button>
           </li>
           <li>
@@ -34,3 +34,4 @@ export function BugReportInstructions({
     </section>
   );
 }
+import { Tooltip } from './Tooltip';
