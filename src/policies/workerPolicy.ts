@@ -176,6 +176,9 @@ export function createWorkerBackedPolicy(
             view: context.view,
             legalActions: [...context.legalActions],
             randomSeed: randomSeedForContext(context, spec),
+            ...(context.onSearchDiagnostics
+              ? { collectDiagnostics: true }
+              : {}),
             ...(searchExecutionMode ? { searchExecutionMode } : {}),
           });
         } catch (error) {

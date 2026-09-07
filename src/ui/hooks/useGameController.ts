@@ -49,6 +49,29 @@ import {
 import { useGameAnimations } from './useGameAnimations';
 
 const DEFAULT_BOT_DELAY_MS = 450;
+const BOT_DIAGNOSTICS_QUERY_KEY = 'botDiagnostics';
+
+function browserBotDiagnosticsEnabled(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return (
+    new URLSearchParams(window.location.search).get(
+      BOT_DIAGNOSTICS_QUERY_KEY
+    ) === '1'
+  );
+}
+
+function closeActionPolicy(policy: unknown): void {
+  if (
+    typeof policy === 'object' &&
+    policy !== null &&
+    'close' in policy &&
+    typeof policy.close === 'function'
+  ) {
+    policy.close();
+  }
+}
 
 type UseGameControllerOptions = {
   humanPlayerId: PlayerId;
@@ -275,6 +298,7 @@ export function useGameController({
     () => resolveBotProfile(botProfileId),
     [botProfileId]
   );
+  const collectBotDiagnostics = browserBotDiagnosticsEnabled();
   const humanActionsAcceptingInput = useMemo(
     () =>
       humanActionsAcceptingInputForState({
@@ -389,7 +413,9 @@ export function useGameController({
               current,
               resolvedBotProfile.selected.id
             ),
-            onSearchDiagnostics: logBotSearchDiagnostics,
+            ...(collectBotDiagnostics
+              ? { onSearchDiagnostics: logBotSearchDiagnostics }
+              : {}),
           });
         } catch (err) {
           if (
@@ -458,6 +484,7 @@ export function useGameController({
   }, [
     activePlayerId,
     botPlayerId,
+    collectBotDiagnostics,
     botIncomeActions.length,
     dispatchAction,
     resolvedBotProfile,
@@ -466,6 +493,13 @@ export function useGameController({
     startupPreloadReady,
     terminal,
   ]);
+
+  useEffect(() => {
+    const policy = resolvedBotProfile.policy;
+    return () => {
+      closeActionPolicy(policy);
+    };
+  }, [resolvedBotProfile.policy]);
 
   const performHumanAction = useCallback(
     (action: GameAction) => {
@@ -512,6 +546,7 @@ export function useGameController({
       humanInputBarrierOrdinalRef.current = null;
       setHumanInputBarrierOrdinal(null);
       botDecisionGenerationRef.current += 1;
+      closeActionPolicy(resolvedBotProfile.policy);
       clearPresentationQueue();
       clearAllFlights();
       clearAllDeedTokenLayouts();
@@ -540,7 +575,13 @@ export function useGameController({
         setError(`Failed to start game: ${errorMessage(err)}`);
       }
     },
-    [botProfileId, clearAllFlights, clearPresentationQueue, humanPlayerId]
+    [
+      botProfileId,
+      clearAllFlights,
+      clearPresentationQueue,
+      humanPlayerId,
+      resolvedBotProfile.policy,
+    ]
   );
 
   const resetTurn = useCallback(() => {
@@ -558,6 +599,7 @@ export function useGameController({
     humanInputBarrierOrdinalRef.current = null;
     setHumanInputBarrierOrdinal(null);
     botDecisionGenerationRef.current += 1;
+    closeActionPolicy(resolvedBotProfile.policy);
     clearPresentationQueue();
     deferredIncomeLogContextRef.current = null;
     stateRef.current = turnResetAnchor.state;
@@ -586,6 +628,7 @@ export function useGameController({
     humanInputReady,
     botProfileId,
     humanPlayerId,
+    resolvedBotProfile.policy,
     state,
     turnResetAnchor,
     turnResetActionHistoryAnchor,

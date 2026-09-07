@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Suit } from '../../engine/types';
 import '../../styles/d6-die.css';
 import { SUIT_TOKEN_BG } from './TokenComponents';
+import { reportImageRenderFailure } from '../cardImages';
 import { SUIT_ICON_BY_SUIT } from '../suitIcons';
 
 const SUITS_BY_FACE: [Suit, Suit, Suit, Suit, Suit, Suit] = [
@@ -104,6 +105,12 @@ export function D6Die({
                   src={SUIT_ICON_BY_SUIT[faceSuit]}
                   alt=""
                   className="die-suit-icon"
+                  onError={() =>
+                    reportImageRenderFailure(
+                      SUIT_ICON_BY_SUIT[faceSuit],
+                      `${faceSuit} die face`
+                    )
+                  }
                 />
               </div>
             </div>

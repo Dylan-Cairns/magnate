@@ -94,6 +94,7 @@ describe('worker-backed policy', () => {
       requestId: 1,
       spec,
       randomSeed: policyRandomSeedForState(state, spec.id),
+      collectDiagnostics: true,
     });
     expect(request).not.toHaveProperty('searchExecutionMode');
 
