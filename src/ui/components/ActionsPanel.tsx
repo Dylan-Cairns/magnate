@@ -194,6 +194,7 @@ export function ActionsPanel({
                         <button
                           type="button"
                           className="action-button has-submenu"
+                          title={label}
                           onClick={(event) => {
                             if (isOpen) {
                               onClosePicker();
@@ -227,6 +228,7 @@ export function ActionsPanel({
                           <button
                             type="button"
                             className="action-button has-submenu"
+                            title="Choose resources to trade"
                             onClick={(event) => {
                               if (actionPicker?.kind === 'trade-combined') {
                                 onClosePicker();
@@ -256,6 +258,7 @@ export function ActionsPanel({
                         <button
                           type="button"
                           className="action-button has-submenu"
+                          title={`Trade three ${item.give} resources`}
                           onClick={(event) => {
                             if (
                               actionPicker?.kind === 'trade' &&
@@ -351,6 +354,7 @@ export function ActionsPanel({
                         <button
                           type="button"
                           className="action-button has-submenu"
+                          title={`Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`}
                           onClick={(event) => {
                             if (
                               (actionPicker?.kind ===
@@ -430,6 +434,7 @@ export function ActionsPanel({
                   key="reset-turn"
                   type="button"
                   className="action-button reset-turn-button"
+                  title="Undo actions taken this turn"
                   onClick={onResetTurn}
                 >
                   <span className="action-text">Reset turn</span>
@@ -495,7 +500,12 @@ function ActionButton({
   onClick: () => void;
 }) {
   return (
-    <button type="button" className="action-button" onClick={onClick}>
+    <button
+      type="button"
+      className="action-button"
+      title={text}
+      onClick={onClick}
+    >
       <span className="action-text">
         <SuitText text={text} />
       </span>

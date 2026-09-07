@@ -115,7 +115,6 @@ export function App() {
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
-  const [bugReportOpen, setBugReportOpen] = useState<boolean>(false);
   const [newGameExpanded, setNewGameExpanded] = useState<boolean>(false);
   const [logVisible, setLogVisible] = useState<boolean>(() =>
     readBooleanPreference(LOG_VISIBLE_KEY, true)
@@ -182,7 +181,6 @@ export function App() {
   const seedInputRef = useRef<HTMLInputElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
-  const closeBugReport = useCallback(() => setBugReportOpen(false), []);
   const closeNewGame = useCallback(() => setNewGameExpanded(false), []);
   const visualActivePlayerId =
     activePlayerHighlightOverride ?? viewActivePlayerId;
@@ -401,15 +399,8 @@ export function App() {
       handleReset();
     } else {
       closeOptionsMenu();
-      closeBugReport();
       setNewGameExpanded(true);
     }
-  };
-
-  const handleOpenBugReport = () => {
-    closeActionPicker();
-    closeOptionsMenu();
-    setBugReportOpen((open) => !open);
   };
 
   const handleDownloadBugReport = () => {
@@ -747,16 +738,13 @@ export function App() {
             newGameExpanded={newGameExpanded}
             newGamePanelRef={newGamePanelRef}
             newGameButtonRef={newGameButtonRef}
-            onBugReport={handleOpenBugReport}
             onToggle={() => {
-              setBugReportOpen(false);
               closeNewGame();
               setOptionsMenuOpen((open) => !open);
             }}
             onNewGameToggle={handleNewGameToggle}
             onBotProfileChange={setBotProfileId}
             onAnimationsEnabledChange={setAnimationsEnabled}
-            bugReportOpen={bugReportOpen}
             bugReportIssueUrl={getBugReportIssueUrl()}
             onBugReportDownload={handleDownloadBugReport}
             logVisible={logVisible}
@@ -773,7 +761,6 @@ export function App() {
       <HistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
 
       <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
-      <OptionsBackdrop open={bugReportOpen} onClose={closeBugReport} />
       <OptionsBackdrop open={newGameExpanded} onClose={closeNewGame} />
 
       <ResolutionWarningOverlay

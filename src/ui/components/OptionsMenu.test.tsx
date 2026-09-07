@@ -20,12 +20,10 @@ describe('OptionsMenu', () => {
         newGameExpanded
         newGamePanelRef={createRef<HTMLElement>()}
         newGameButtonRef={createRef<HTMLButtonElement>()}
-        onBugReport={noop}
         onToggle={noop}
         onNewGameToggle={noop}
         onBotProfileChange={noop}
         onAnimationsEnabledChange={noop}
-        bugReportOpen={false}
         bugReportIssueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
         onBugReportDownload={noop}
         logVisible
@@ -39,7 +37,8 @@ describe('OptionsMenu', () => {
     );
 
     expect(html).toContain('id="brand-options-menu"');
-    expect(html).toContain('aria-label="Report a bug"');
+    expect(html).toContain('See a bug?');
+    expect(html).toContain('download a log file');
     expect(html).toContain('id="seed-input"');
     expect(html).toContain('id="bot-profile-select"');
     expect(html).toContain('value="rollout-search-v2-medium" selected=""');

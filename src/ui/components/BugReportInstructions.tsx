@@ -1,32 +1,21 @@
-export function BugReportModal({
-  open,
+export function BugReportInstructions({
   issueUrl,
   onDownload,
 }: {
-  open: boolean;
   issueUrl: string;
   onDownload: () => void;
 }) {
-  if (!open) {
-    return null;
-  }
-
   return (
-    <section
-      className="panel bug-report-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="bug-report-title"
-    >
-      <h2 id="bug-report-title">See a bug?</h2>
+    <section className="bug-report-instructions">
       <div className="bug-report-body">
-        <p>A report would be appreciated. To file:</p>
+        <p>See a bug? A report would be appreciated. To file:</p>
         <ol>
           <li>
             Click to{' '}
             <button
               type="button"
               className="bug-report-download-link"
+              title="Download a diagnostic log file"
               onClick={onDownload}
             >
               download a log file
