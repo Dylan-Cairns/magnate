@@ -36,11 +36,6 @@
   height: var(--token-rail-chip-size);
 }
 
-.token-chip.compact.resource-flight-chip .chip-suit-icon {
-  width: calc(100% - 0.16rem);
-  height: calc(100% - 0.16rem);
-}
-
 @keyframes resource-chip-flight {
   0% {
     transform: translate(-50%, -50%);
@@ -172,4 +167,3 @@
     opacity: 0;
   }
 }
-
