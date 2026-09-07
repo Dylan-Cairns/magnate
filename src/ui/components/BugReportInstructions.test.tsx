@@ -1,15 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { BugReportModal } from './BugReportModal';
+import { BugReportInstructions } from './BugReportInstructions';
 
 const noop = () => {};
 
-describe('BugReportModal', () => {
-  it('renders the requested report instructions while open', () => {
+describe('BugReportInstructions', () => {
+  it('renders the requested report instructions', () => {
     const html = renderToStaticMarkup(
-      <BugReportModal
-        open
+      <BugReportInstructions
         issueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
         onDownload={noop}
       />
@@ -22,17 +21,5 @@ describe('BugReportModal', () => {
     expect(html).toContain(
       'Attach the log file and include any notes about the bug'
     );
-  });
-
-  it('renders nothing while closed', () => {
-    expect(
-      renderToStaticMarkup(
-        <BugReportModal
-          open={false}
-          issueUrl="https://github.com/Dylan-Cairns/magnate/issues/new"
-          onDownload={noop}
-        />
-      )
-    ).toBe('');
   });
 });

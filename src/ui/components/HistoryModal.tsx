@@ -162,6 +162,7 @@ export function HistoryModal({
             type="button"
             className="history-modal-close"
             aria-label="Close history"
+            title="Close game history"
             onClick={onClose}
           >
             <CloseIcon />
