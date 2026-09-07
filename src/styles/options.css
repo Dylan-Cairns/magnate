@@ -105,11 +105,14 @@
 }
 
 .log-toggle-button.is-inactive {
-  opacity: 0.38;
+  color: rgba(240, 210, 172, 0.38);
+  border-color: rgba(74, 93, 121, 0.45);
+  background: rgba(26, 35, 51, 0.5);
+  box-shadow: none;
 }
 
 .log-toggle-button.is-inactive:hover {
-  opacity: 0.6;
+  color: rgba(240, 210, 172, 0.6);
 }
 
 .close-x {
