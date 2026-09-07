@@ -326,11 +326,14 @@
   requested 120-game comparison against heuristic-v2 medium on the same 60
   paired seeds and search settings as the July 88-32 baseline. It uses the
   shared fnm runtime, array-safe logged invocation, duplicate-run refusal, and
-  atomic per-pair checkpoints. The USB backup overlay from D: has been
+  atomic per-pair checkpoints. The USB backup overlay from D: was
   restored to this machine, fnm Node 22.23.1 configured, launcher path
   portability resolved and validated with SHA-256 checks, and the full
-  test suite passed. Its executable dry-run passed; the 120-game matchup is
-  ready to run.
+  test suite passed. The 120-game benchmark completed on 2026-09-06:
+  candidate step 9,000 scored 99 wins, 21 losses (82.5% win rate, 95% CI
+  [0.747, 0.883], side gap 0.117), decisively outperforming the July
+  incumbent baseline (88-32, 73.3%, 95% CI [0.648, 0.804], side gap 0.167)
+  by +9.2 percentage points with a lower bound above the baseline point estimate.
 
 ## Remaining Work
 
@@ -350,13 +353,10 @@
 
 ## Immediate Next Steps
 
-1. Run or resume
-   `.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1`, then compare its
-   120-game result with the historical July checkpoint's 88-32 result.
-2. Do not promote `td-hard-extra-data-continuation-v1` from development
-   evidence: replication reverses slightly on value MSE. Decide explicitly
-   whether the sealed final test is worth spending as a diagnostic despite the
-   frozen promotion block.
+1. Review the step-9,000 candidate's decisive win-rate gain (82.5% vs 73.3%)
+   and decide whether to override the development-replication promotion block,
+   register the candidate in `models/td_checkpoints/manifest.json`, or evaluate
+   it against the sealed 100-game final test first.
 3. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
    in the opponent/action architecture, while preserving the existing replay,
    checkpoint, and browser-export contracts where practical.
