@@ -88,6 +88,43 @@ describe('app render model', () => {
     ).toBe(0);
   });
 
+  it('dims a suit icon when its Ace is played, even if other suit cards remain', () => {
+    const viewState = makeGameState({
+      deck: {
+        draw: ['2', '13'],
+        discard: [],
+        reshuffles: 0,
+      },
+      players: [
+        makePlayer(PLAYER_A, { hand: ['6'] }),
+        makePlayer('PlayerB', { hand: [] }),
+      ],
+    });
+
+    const dimming = buildDeckMapDimming({
+      deckMapInteractive: true,
+      viewState: {
+        ...viewState,
+        deck: { ...viewState.deck, draw: ['13'] },
+        districts: viewState.districts.map((district) =>
+          district.id === 'D1'
+            ? {
+                ...district,
+                stacks: {
+                  ...district.stacks,
+                  [PLAYER_A]: { developed: ['2'] },
+                },
+              }
+            : district
+        ),
+      },
+    });
+
+    expect(dimming.dimmedSuits.has('Moons')).toBe(true);
+    expect(dimming.dimmedCardIds.has('6')).toBe(false);
+    expect(dimming.dimmedCardIds.has('13')).toBe(false);
+  });
+
   it('keeps bot thinking visible during locked income-choice resolution', () => {
     expect(
       shouldHideBotWaitMessageDuringAnimationLock({

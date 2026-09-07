@@ -11,12 +11,13 @@ const ALL_SUITS: Suit[] = [
   'Knots',
 ];
 
-const SUIT_CARD_IDS = new Map<Suit, ReadonlyArray<CardId>>(
+const ACE_CARD_ID_BY_SUIT = new Map<Suit, CardId>(
   ALL_SUITS.map((suit) => [
     suit,
-    PROPERTY_CARDS.filter((card) => card.suits.includes(suit)).map(
-      (card) => card.id
-    ),
+    PROPERTY_CARDS.find(
+      (card) =>
+        card.rank === 1 && card.suits.length === 1 && card.suits[0] === suit
+    )!.id,
   ])
 );
 
@@ -88,8 +89,8 @@ export function buildDeckMapDimming({
   }
 
   const dimmedSuits = new Set<Suit>();
-  for (const [suit, cardIds] of SUIT_CARD_IDS) {
-    if (cardIds.every((id) => !inCirculation.has(id))) {
+  for (const [suit, aceCardId] of ACE_CARD_ID_BY_SUIT) {
+    if (!inCirculation.has(aceCardId)) {
       dimmedSuits.add(suit);
     }
   }
