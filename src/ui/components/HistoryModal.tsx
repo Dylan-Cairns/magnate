@@ -16,6 +16,7 @@ import {
 } from '../../db/gameHistory';
 import type { AchievementKey, GameRecord } from '../../db/db';
 import type { Stats } from '../../db/historyLogic';
+import { Tooltip } from './Tooltip';
 
 const DATE_FMT = new Intl.DateTimeFormat('en-US', {
   month: 'short',
@@ -160,12 +161,12 @@ export function HistoryModal({
           <h2 id="history-modal-title">Game History</h2>
           <button
             type="button"
-            className="history-modal-close"
+            className="history-modal-close tooltip-trigger"
             aria-label="Close history"
-            title="Close game history"
             onClick={onClose}
           >
             <CloseIcon />
+            <Tooltip>Close game history</Tooltip>
           </button>
         </div>
 
@@ -257,8 +258,7 @@ export function HistoryModal({
                 return (
                   <li
                     key={key}
-                    className={`achievement-item${unlocked ? ' is-unlocked' : ''}`}
-                    title={tooltipTitle}
+                    className={`achievement-item tooltip-trigger${unlocked ? ' is-unlocked' : ''}`}
                   >
                     <span className="achievement-icon" aria-hidden="true">
                       {unlocked ? <CheckIcon /> : <LockIcon />}
@@ -267,6 +267,7 @@ export function HistoryModal({
                       <span className="achievement-name">{meta.label}</span>
                       <span className="achievement-desc">{meta.description}</span>
                     </span>
+                    <Tooltip>{tooltipTitle}</Tooltip>
                   </li>
                 );
               })}

@@ -4,6 +4,25 @@ import { describe, expect, it } from 'vitest';
 import { CardTile } from './CardTile';
 
 describe('CardTile', () => {
+  it('opens player-area card tooltips below their stack but keeps hand cards above', () => {
+    const humanHtml = renderToStaticMarkup(<CardTile cardId="29" />);
+    const handHtml = renderToStaticMarkup(
+      <CardTile
+        cardId="29"
+        handOwnerId="PlayerA"
+        handCardId="29"
+        handSlotKind="occupied"
+      />
+    );
+    const botHtml = renderToStaticMarkup(
+      <CardTile cardId="29" perspective="bot" />
+    );
+
+    expect(humanHtml).toContain('app-tooltip tooltip-below');
+    expect(handHtml).not.toContain('app-tooltip tooltip-below');
+    expect(botHtml).not.toContain('app-tooltip tooltip-below');
+  });
+
   it('renders no deed progress value arc at zero progress', () => {
     const html = renderToStaticMarkup(
       <CardTile

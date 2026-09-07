@@ -18,10 +18,13 @@ describe('DeckPiles', () => {
     expect(html).toContain('deck-pile-stack-card');
     expect(html).toContain('Shuffles 2/2');
     expect(html).toContain('status-badge');
+    expect(html).toContain('status-badge tooltip-trigger');
+    expect(html).toContain('class="app-tooltip" role="tooltip"');
     expect(html).toContain(
-      'title="The deck is shuffled at the start of the game. When it runs out, the discard pile is shuffled to form a new draw pile. When that runs out, each player gets one final turn."'
+      'The deck is shuffled at the start of the game. When it runs out, the discard pile is shuffled to form a new draw pile. When that runs out, each player gets one final turn.'
     );
-    expect(html).toContain('Discarded Cards: <strong>2</strong>');
+    expect(html).not.toContain('Discarded Cards:');
+    expect(html).not.toContain('>Discard pile<');
     expect(html).toContain('The Desert');
     expect(html).toContain('The Author');
   });

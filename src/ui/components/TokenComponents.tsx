@@ -84,7 +84,6 @@ export function TokenChip({
         className ? ` ${className}` : ''
       }`}
       data-token-suit={suit}
-      title={`${suit} x${count}`}
       style={{ '--token-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
     >
       <SuitIcon suit={suit} className="chip-suit-icon" />
