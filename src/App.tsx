@@ -724,6 +724,7 @@ export function App() {
               <LogPanel
                 timelineLog={timelineLog}
                 humanPlayerId={HUMAN_PLAYER}
+                state={canonicalState}
               />
             )}
             {mapVisible && (

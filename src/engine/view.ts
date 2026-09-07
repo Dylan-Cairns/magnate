@@ -40,11 +40,7 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
   const visibleSubmitted =
     filteredSubmitted?.length === 0 ? undefined : filteredSubmitted;
 
-  const visibleLog = selectionInProgress
-    ? state.log.filter(
-        (e) => !e.summary.startsWith('income choice ') || e.player === viewerId
-      )
-    : state.log;
+  const visibleLog = visibleLogEntriesForPlayer(state.log, state, viewerId);
 
   return {
     viewerId,
@@ -68,6 +64,27 @@ export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
     finalScore: cloneFinalScore(state.finalScore),
     log: visibleLog.map(cloneLogEntry),
   };
+}
+
+export function visibleLogEntriesForPlayer(
+  entries: ReadonlyArray<GameLogEntry>,
+  state: Pick<
+    GameState,
+    'turn' | 'pendingIncomeChoices' | 'submittedIncomeChoices'
+  >,
+  viewerId: PlayerId
+): ReadonlyArray<GameLogEntry> {
+  const selectionInProgress =
+    (state.pendingIncomeChoices?.length ?? 0) >
+    (state.submittedIncomeChoices?.length ?? 0);
+  if (!selectionInProgress) return entries;
+
+  return entries.filter(
+    (entry) =>
+      entry.turn !== state.turn ||
+      !entry.summary.startsWith('income choice ') ||
+      entry.player === viewerId
+  );
 }
 
 export function toActivePlayerView(state: GameState): PlayerView {
