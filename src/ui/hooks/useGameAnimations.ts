@@ -230,7 +230,14 @@ export function useGameAnimations() {
             if (flights.length === 0) {
               return;
             }
-            appendResourceFlightsWithCleanup(flights, command.durationMs);
+            setResourceFlights((existing) => [
+              ...existing,
+              ...flights.map((flight) => ({
+                ...flight,
+                presentationLandingMs:
+                  command.atMs + flight.delayMs + command.flightDurationMs,
+              })),
+            ]);
           });
           return;
         case 'launch-deed-token-flights':
@@ -524,6 +531,7 @@ export function useGameAnimations() {
     setEnabled: setAnimationsEnabled,
     resourceFlights,
     cardFlights,
+    tradeProgress: presentationSnapshot?.overlays.tradeProgress,
     incomeHighlightCardIds: presentationOverlays?.incomeHighlightCardIds ?? [],
     incomeHighlightCrowns: presentationOverlays?.incomeHighlightCrowns ?? [],
     diceVisualState: presentationOverlays?.dice ?? null,

@@ -229,7 +229,10 @@ describe('buildAnimationSequence', () => {
       'launch-trade-token-flights',
       'apply-trade-token-loss',
       'apply-trade-token-loss',
+      'land-trade-token',
       'apply-trade-token-loss',
+      'land-trade-token',
+      'land-trade-token',
       'apply-trade-token-gain',
       'commit-view-state',
     ]);
@@ -244,16 +247,16 @@ describe('buildAnimationSequence', () => {
     );
     expect(tradeLosses.map((candidate) => candidate.startMs)).toEqual([
       tradeFlights.startMs,
-      tradeFlights.startMs +
-        DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs,
+      tradeFlights.startMs + DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs,
       tradeFlights.startMs +
         2 * DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs,
     ]);
     expect(tradeGain.startMs).toBe(
-      tradeLosses.at(-1)?.startMs
+      tradeLosses.at(-1)!.startMs + DEFAULT_ANIMATION_DURATIONS.paymentFlightMs
     );
     expect(tradeGain.startMs).toBe(
       tradeFlights.startMs +
+        DEFAULT_ANIMATION_DURATIONS.paymentFlightMs +
         2 * DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs
     );
     expect(tradeGain.endMs).toBe(
@@ -262,6 +265,39 @@ describe('buildAnimationSequence', () => {
         DEFAULT_ANIMATION_DURATIONS.commitBufferMs
     );
   });
+
+  it.each([
+    [120, 300],
+    [900, 100],
+    [300, 300],
+    [0, 0],
+  ])(
+    'aligns trade arrivals with custom duration %i and stagger %i',
+    (paymentFlightMs, paymentFlightStaggerMs) => {
+      const sequence = buildAnimationSequence(makeTradeTransaction(), {
+        ...DEFAULT_ANIMATION_DURATIONS,
+        paymentFlightMs,
+        paymentFlightStaggerMs,
+      });
+      const launch = step(sequence, 'launch-trade-token-flights');
+      const landings = sequence.steps.filter(
+        (candidate) => candidate.type === 'land-trade-token'
+      );
+      expect(
+        landings.map((candidate) => candidate.startMs - launch.startMs)
+      ).toEqual([
+        paymentFlightMs,
+        paymentFlightMs + paymentFlightStaggerMs,
+        paymentFlightMs + 2 * paymentFlightStaggerMs,
+      ]);
+      expect(step(sequence, 'apply-trade-token-gain').startMs).toBe(
+        landings[2].startMs
+      );
+      expect(
+        sequence.steps.every((candidate) => candidate.durationMs >= 0)
+      ).toBe(true);
+    }
+  );
 
   it('keeps no-loss tax animation on the turn-cycle transaction that resolved it', () => {
     const sequence = buildAnimationSequence(makeNoLossTaxEndTurnTransaction());

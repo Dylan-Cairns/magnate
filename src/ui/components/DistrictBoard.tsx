@@ -11,6 +11,7 @@ import type {
   Suit,
 } from '../../engine/types';
 import { CardTile, type CardPerspective } from './CardTile';
+import type { TradeProgress } from '../runtime/types';
 import { TokenRow } from './TokenComponents';
 import { Tooltip } from './Tooltip';
 
@@ -186,9 +187,7 @@ export function DistrictColumn({
         </span>
         <header className="district-header tooltip-trigger">
           <span className="district-id">{district.id}</span>
-          <strong className="district-marker-name">
-            {markerName}
-          </strong>
+          <strong className="district-marker-name">{markerName}</strong>
           {district.markerSuitMask.length > 0 ? (
             <TokenRow
               className="district-marker-tokens"
@@ -226,10 +225,12 @@ export function PlayerTokenRail({
   player,
   side,
   highlightedCrownSuits,
+  tradeProgress,
 }: {
   player: ObservedPlayerState;
   side: 'human' | 'bot';
   highlightedCrownSuits?: ReadonlySet<Suit>;
+  tradeProgress?: TradeProgress;
 }) {
   const crowns = (
     <div className="token-rail-group">
@@ -254,6 +255,9 @@ export function PlayerTokenRail({
       <TokenRow
         className="rail-resources-row"
         tokens={player.resources}
+        tradeProgress={
+          tradeProgress?.playerId === player.id ? tradeProgress : undefined
+        }
         compact
         fixedSuitSlots
       />
