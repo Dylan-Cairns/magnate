@@ -37,7 +37,7 @@ describe('formatLogSummary', () => {
     expect(formatLogSummary('develop outright 6 to D1')).toBe(
       'Develop outright 2 mo kn to D1'
     );
-    expect(formatLogSummary('buy deed 6 to D2')).toBe('Buy deed 2 mo kn to D2');
+    expect(formatLogSummary('buy deed 6 in D2')).toBe('Buy deed 2 mo kn in D2');
     expect(formatLogSummary('[PlayerB] sell 7')).toBe('[PlayerB] Sell 2 su wy');
   });
 
