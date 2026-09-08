@@ -462,7 +462,7 @@ function buyDeed(
       phase: 'ActionWindow',
       cardPlayedThisTurn: true,
     },
-    `buy deed ${action.cardId} to ${action.districtId}`,
+    `buy deed ${action.cardId} in ${action.districtId}`,
     undefined,
     options
   );
