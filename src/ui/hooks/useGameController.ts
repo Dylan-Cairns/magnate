@@ -47,6 +47,7 @@ import {
   type TurnResetAnchor,
 } from '../turnReset';
 import { useGameAnimations } from './useGameAnimations';
+import { loadSavedGame, writeSavedGame, type SavedGame } from '../savedGame';
 
 const DEFAULT_BOT_DELAY_MS = 450;
 const BOT_DIAGNOSTICS_QUERY_KEY = 'botDiagnostics';
@@ -121,28 +122,46 @@ export function useGameController({
   botPlayerId,
   startupPreloadReady,
 }: UseGameControllerOptions) {
-  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
-    DEFAULT_BOT_PROFILE_ID
+  const [initialSave] = useState(() =>
+    devFixtureIdFromBrowserLocation()
+      ? { save: null, error: null }
+      : loadSavedGame(humanPlayerId)
   );
-  const [state, setState] = useState<GameState>(() =>
-    createBrowserSession(
-      makeBrowserSessionSeed(),
-      humanPlayerId,
-      devFixtureIdFromBrowserLocation()
-    )
+  const [gameId, setGameId] = useState(
+    () => initialSave.save?.gameId ?? crypto.randomUUID()
+  );
+  const [storageError, setStorageError] = useState<string | null>(
+    initialSave.error
+  );
+  const storageBlockedRef = useRef(initialSave.error !== null);
+  const [awaitingResumeInput, setAwaitingResumeInput] = useState(
+    Boolean(initialSave.save)
+  );
+  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
+    initialSave.save?.botProfileId ?? DEFAULT_BOT_PROFILE_ID
+  );
+  const [state, setState] = useState<GameState>(
+    () =>
+      initialSave.save?.state ??
+      createBrowserSession(
+        makeBrowserSessionSeed(),
+        humanPlayerId,
+        devFixtureIdFromBrowserLocation()
+      )
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
     () =>
+      initialSave.save?.timelineLog ??
       initialBrowserTimelineLog(
         state,
         humanPlayerId,
-        resolveBotProfile(DEFAULT_BOT_PROFILE_ID).selected.label
+        resolveBotProfile(botProfileId).selected.label
       )
   );
   const [error, setError] = useState<string | null>(null);
   const [actionHistory, setActionHistory] = useState<
     ReadonlyArray<BugReportActionEntry>
-  >([]);
+  >(initialSave.save?.actionHistory ?? []);
   const [botThinking, setBotThinking] = useState<boolean>(false);
   const [humanInputBarrierOrdinal, setHumanInputBarrierOrdinal] = useState<
     number | null
@@ -159,7 +178,43 @@ export function useGameController({
   const humanInputBarrierOrdinalRef = useRef<number | null>(null);
   const botDecisionGenerationRef = useRef(0);
   const deferredIncomeLogContextRef = useRef<DeferredIncomeLogContext | null>(
-    null
+    initialSave.save?.deferredIncomeLogContext ?? null
+  );
+  const timelineLogRef = useRef(timelineLog);
+  const actionHistoryRef = useRef(actionHistory);
+  const checkpointRef = useRef<SavedGame | null>(initialSave.save);
+  const persistCheckpoint = useCallback((checkpoint: SavedGame) => {
+    checkpointRef.current = checkpoint;
+    if (storageBlockedRef.current || devFixtureIdFromBrowserLocation()) return;
+    setStorageError(writeSavedGame(checkpoint));
+  }, []);
+
+  useEffect(() => {
+    // Only session creation runs here; action checkpoints are written synchronously.
+    if (checkpointRef.current) return;
+    persistCheckpoint({
+      version: 1,
+      gameId,
+      humanPlayerId,
+      botProfileId,
+      state: stateRef.current,
+      timelineLog: timelineLogRef.current,
+      actionHistory: actionHistoryRef.current,
+      deferredIncomeLogContext: deferredIncomeLogContextRef.current,
+    });
+  }, [botProfileId, gameId, humanPlayerId, persistCheckpoint]);
+
+  const changeBotProfile = useCallback(
+    (profileId: BotProfileId) => {
+      resolveBotProfile(profileId);
+      setBotProfileId(profileId);
+      if (checkpointRef.current)
+        persistCheckpoint({
+          ...checkpointRef.current,
+          botProfileId: profileId,
+        });
+    },
+    [persistCheckpoint]
   );
   const commitCanonicalTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
@@ -172,11 +227,34 @@ export function useGameController({
       );
       deferredIncomeLogContextRef.current =
         timelineUpdate.deferredIncomeLogContext;
-      setTimelineLog((existing) => [...existing, ...timelineUpdate.entries]);
+      timelineLogRef.current = [
+        ...timelineLogRef.current,
+        ...timelineUpdate.entries,
+      ];
+      setTimelineLog(timelineLogRef.current);
       stateRef.current = nextState;
       setState(nextState);
+      if (
+        transitionOpensHumanDecisionWindow(
+          previousState,
+          nextState,
+          humanPlayerId
+        ) ||
+        isTerminal(nextState)
+      ) {
+        persistCheckpoint({
+          version: 1,
+          gameId,
+          humanPlayerId,
+          botProfileId,
+          state: nextState,
+          timelineLog: timelineLogRef.current,
+          actionHistory: actionHistoryRef.current,
+          deferredIncomeLogContext: deferredIncomeLogContextRef.current,
+        });
+      }
     },
-    [humanPlayerId]
+    [botProfileId, gameId, humanPlayerId, persistCheckpoint]
   );
   const {
     enabled: animationsEnabled,
@@ -235,16 +313,18 @@ export function useGameController({
           humanInputBarrierOrdinalRef.current = plan.actionOrdinal;
           setHumanInputBarrierOrdinal(plan.actionOrdinal);
         }
-        setActionHistory((existing) => [
-          ...existing,
+        actionHistoryRef.current = [
+          ...actionHistoryRef.current,
           {
             turn: plan.previousState.turn,
             phase: plan.previousState.phase,
             actingPlayerId,
             action,
           },
-        ]);
+        ];
+        setActionHistory(actionHistoryRef.current);
         commitCanonicalTransition(plan.previousState, plan.nextState, action);
+        if (actingPlayerId === humanPlayerId) setAwaitingResumeInput(false);
 
         if (!animationsEnabled) {
           clearAllFlights();
@@ -342,14 +422,16 @@ export function useGameController({
     }
   }
 
-  const shouldRunBot = shouldScheduleBotAction({
-    terminal,
-    activePlayerId,
-    botPlayerId,
-    isIncomeChoicePhase: state.phase === 'CollectIncome',
-    botIncomeActionCount: botIncomeActions.length,
-    startupPreloadReady,
-  });
+  const shouldRunBot =
+    !awaitingResumeInput &&
+    shouldScheduleBotAction({
+      terminal,
+      activePlayerId,
+      botPlayerId,
+      isIncomeChoicePhase: state.phase === 'CollectIncome',
+      botIncomeActionCount: botIncomeActions.length,
+      startupPreloadReady,
+    });
   const [prevShouldRunBot, setPrevShouldRunBot] = useState(false);
 
   if (shouldRunBot !== prevShouldRunBot) {
@@ -559,17 +641,31 @@ export function useGameController({
           devFixtureIdFromBrowserLocation()
         );
         stateRef.current = initialState;
+        const nextGameId = crypto.randomUUID();
+        setGameId(nextGameId);
+        setAwaitingResumeInput(false);
+        storageBlockedRef.current = false;
         nextActionOrdinalRef.current = 0;
         canonicalDispatchInProgressRef.current = false;
         setState(initialState);
-        setTimelineLog(
-          initialBrowserTimelineLog(
-            initialState,
-            humanPlayerId,
-            resolveBotProfile(botProfileId).selected.label
-          )
+        timelineLogRef.current = initialBrowserTimelineLog(
+          initialState,
+          humanPlayerId,
+          resolveBotProfile(botProfileId).selected.label
         );
+        setTimelineLog(timelineLogRef.current);
+        actionHistoryRef.current = [];
         setActionHistory([]);
+        persistCheckpoint({
+          version: 1,
+          gameId: nextGameId,
+          humanPlayerId,
+          botProfileId,
+          state: initialState,
+          timelineLog: timelineLogRef.current,
+          actionHistory: [],
+          deferredIncomeLogContext: null,
+        });
         setError(null);
         setBotThinking(false);
       } catch (err) {
@@ -581,6 +677,7 @@ export function useGameController({
       clearAllFlights,
       clearPresentationQueue,
       humanPlayerId,
+      persistCheckpoint,
       resolvedBotProfile.policy,
     ]
   );
@@ -606,18 +703,18 @@ export function useGameController({
     stateRef.current = turnResetAnchor.state;
     canonicalDispatchInProgressRef.current = false;
     setState(turnResetAnchor.state);
-    setTimelineLog(
-      turnResetTimelineAnchor
-        ? [...turnResetTimelineAnchor]
-        : initialBrowserTimelineLog(
-            turnResetAnchor.state,
-            humanPlayerId,
-            resolveBotProfile(botProfileId).selected.label
-          )
-    );
-    setActionHistory(
-      turnResetActionHistoryAnchor ? [...turnResetActionHistoryAnchor] : []
-    );
+    timelineLogRef.current = turnResetTimelineAnchor
+      ? [...turnResetTimelineAnchor]
+      : initialBrowserTimelineLog(
+          turnResetAnchor.state,
+          humanPlayerId,
+          resolveBotProfile(botProfileId).selected.label
+        );
+    setTimelineLog(timelineLogRef.current);
+    actionHistoryRef.current = turnResetActionHistoryAnchor
+      ? [...turnResetActionHistoryAnchor]
+      : [];
+    setActionHistory(actionHistoryRef.current);
     setError(null);
     setBotThinking(false);
     clearAllFlights();
@@ -637,6 +734,8 @@ export function useGameController({
   ]);
 
   return {
+    gameId,
+    storageError,
     state,
     viewState,
     humanView,
@@ -649,7 +748,7 @@ export function useGameController({
     botThinking,
     botProfileId,
     botStatusText: resolvedBotProfile.statusText,
-    setBotProfileId,
+    setBotProfileId: changeBotProfile,
     humanActionsAcceptingInput,
     humanInputBlockedByPresentation: !humanInputReady,
     canResetTurn,
@@ -657,6 +756,10 @@ export function useGameController({
     resetSession,
     resetTurn,
     animations: {
+      quietIncomeRollId:
+        gameId === initialSave.save?.gameId
+          ? initialSave.save.state.lastIncomeRoll?.rollId
+          : undefined,
       enabled: animationsEnabled,
       animateDeedProgress,
       setEnabled: setAnimationsEnabled,

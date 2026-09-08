@@ -137,6 +137,8 @@ export function App() {
     shouldShowResolutionWarningOnLoad
   );
   const {
+    gameId,
+    storageError,
     state: canonicalState,
     viewState,
     humanView,
@@ -157,6 +159,7 @@ export function App() {
     resetSession,
     resetTurn,
     animations: {
+      quietIncomeRollId,
       enabled: animationsEnabled,
       animateDeedProgress,
       setEnabled: setAnimationsEnabled,
@@ -251,22 +254,34 @@ export function App() {
     [viewState]
   );
 
-  const gameRecordedRef = useRef(false);
+  const [historyErrorGameId, setHistoryErrorGameId] = useState<string | null>(
+    null
+  );
+  const historyError =
+    historyErrorGameId === gameId
+      ? 'The result could not be added to game history. Reload to retry.'
+      : null;
   useEffect(() => {
-    if (!terminal) {
-      gameRecordedRef.current = false;
-      return;
-    }
-    if (gameRecordedRef.current) return;
-    gameRecordedRef.current = true;
+    if (!canonicalState.finalScore) return;
+    let cancelled = false;
     const botProfile = getBotProfile(botProfileId);
     void recordGame({
-      score,
+      sessionId: gameId,
+      score: canonicalState.finalScore,
       humanPlayerId: HUMAN_PLAYER,
       botProfileId,
       botLabel: botProfile.label,
-    });
-  }, [terminal, score, botProfileId]);
+    })
+      .then(() => {
+        if (!cancelled) setHistoryErrorGameId(null);
+      })
+      .catch(() => {
+        if (!cancelled) setHistoryErrorGameId(gameId);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canonicalState.finalScore, gameId, botProfileId]);
   const { dimmedCardIds, dimmedSuits } = useMemo(
     () => buildDeckMapDimming({ deckMapInteractive, viewState }),
     [deckMapInteractive, viewState]
@@ -579,6 +594,11 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {(storageError || historyError) && (
+        <section className="error-banner" role="status">
+          {storageError || historyError}
+        </section>
+      )}
       {error && (
         <section className="error-banner">
           <strong>Engine Error:</strong> {error}
@@ -661,7 +681,11 @@ export function App() {
               <RollResult
                 dice={visibleDiceState}
                 gameKey={viewState.seed}
-                animationsEnabled={animationsEnabled}
+                animationsEnabled={
+                  animationsEnabled &&
+                  (quietIncomeRollId === undefined ||
+                    visibleDiceState?.incomeRoll.rollId !== quietIncomeRollId)
+                }
               />
             </div>
             <PlayerTokenRail

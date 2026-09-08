@@ -9,6 +9,7 @@ import {
 import { checkNewAchievements, computeStats } from './historyLogic';
 
 export interface RecordGameParams {
+  sessionId: string;
   score: FinalScore;
   humanPlayerId: PlayerId;
   botProfileId: string;
@@ -55,6 +56,7 @@ export async function recordGame(params: RecordGameParams): Promise<void> {
         : 'bot';
 
   const record: GameRecord = {
+    sessionId: params.sessionId,
     timestamp: Date.now(),
     winner,
     decidedBy: score.decidedBy,
@@ -68,29 +70,33 @@ export async function recordGame(params: RecordGameParams): Promise<void> {
     botResources: score.resourceTotals[botPlayerId],
   };
 
-  const gameId = (await db.games.add(record)) as number;
+  await db.transaction('rw', db.games, db.achievements, async () => {
+    if (await db.games.where('sessionId').equals(params.sessionId).first())
+      return;
+    const gameId = (await db.games.add(record)) as number;
 
-  const [allGames, existingAchievements] = await Promise.all([
-    db.games.orderBy('timestamp').toArray(),
-    db.achievements.toArray(),
-  ]);
+    const [allGames, existingAchievements] = await Promise.all([
+      db.games.orderBy('timestamp').toArray(),
+      db.achievements.toArray(),
+    ]);
 
-  const newKeys = checkNewAchievements(
-    { ...record, id: gameId },
-    allGames,
-    existingAchievements
-  );
-
-  if (newKeys.length > 0) {
-    const now = Date.now();
-    await db.achievements.bulkAdd(
-      newKeys.map((key) => ({
-        achievementKey: key,
-        gameId,
-        unlockedAt: now,
-      }))
+    const newKeys = checkNewAchievements(
+      { ...record, id: gameId },
+      allGames,
+      existingAchievements
     );
-  }
+
+    if (newKeys.length > 0) {
+      const now = Date.now();
+      await db.achievements.bulkAdd(
+        newKeys.map((key) => ({
+          achievementKey: key,
+          gameId,
+          unlockedAt: now,
+        }))
+      );
+    }
+  });
 }
 
 export async function getStats() {

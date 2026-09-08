@@ -5,6 +5,10 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 ## At A Glance
 
 - Browser game is playable with selectable bot profiles.
+- Games autosave locally at the beginning of each human action or income-choice
+  window. Returning restores a settled board and waits for your input; moves
+  after that checkpoint may need to be replayed. New Game replaces the save.
+  Saves stay in the same browser/site and do not provide offline app loading.
 - TypeScript engine is the canonical rules implementation.
 - Python training and evaluation call the engine through the Node bridge.
 - Training progression is bootstrap or recalibration with `scripts.run_td_loop`, then self-play-focused iteration with `scripts.run_td_loop_selfplay`.
