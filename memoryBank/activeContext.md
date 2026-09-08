@@ -26,6 +26,11 @@
 
 ## Current State
 
+- Browser games autosave at the beginning of human action/income-choice windows
+  and restore to a settled board without dice or bot activity until human input.
+  Terminal boards also persist, with session-ID-based history deduplication.
+  Unfinished work after the last checkpoint may be replayed; full offline app
+  loading remains outside this feature.
 - Browser play is functional with selectable bot profiles behind a shared async policy contract.
 - Local and CI JavaScript tooling now uses fnm with `.nvmrc` pinning Node
   22.23.1, an explicit Node 22 engine range, and a Corepack-managed Yarn
@@ -386,4 +391,4 @@
 8. Keep docs aligned by replacing stale Memory Bank bullets rather than
    appending task history.
 
-_Updated: 2026-09-05._
+_Updated: 2026-09-08._

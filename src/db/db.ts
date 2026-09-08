@@ -10,6 +10,7 @@ export type AchievementKey =
 
 export interface GameRecord {
   id?: number;
+  sessionId?: string;
   timestamp: number;
   winner: WinnerOutcome;
   decidedBy: WinnerDecider;
@@ -38,6 +39,10 @@ class MagnateDb extends Dexie {
     super('magnate');
     this.version(1).stores({
       games: '++id, timestamp, winner, botProfileId',
+      achievements: '++id, achievementKey, gameId',
+    });
+    this.version(2).stores({
+      games: '++id, &sessionId, timestamp, winner, botProfileId',
       achievements: '++id, achievementKey, gameId',
     });
   }

@@ -454,6 +454,23 @@ Design expectations:
 
 ## Versioning Pattern
 
+- Browser persistence uses one versioned `magnate:savedGame` local-storage entry
+  containing canonical state, session ID, bot profile, timeline, action history,
+  and deferred income-log context. Save synchronously when a new human decision
+  window opens, plus initial and terminal states; ordinary actions within a
+  window do not replace its checkpoint. Developer fixtures bypass persistence.
+- Restore validates the snapshot and deferred income context by replaying its
+  history through the canonical TS engine. Incompatible/unreadable saves remain
+  untouched, with autosave paused until explicit New Game. Storage failures are
+  visible to the user.
+- Restored sessions render without queued presentation or initial dice motion.
+  Pending bot income decisions wait for the first accepted human action; later
+  decisions and rolls use normal presentation. Rebuild turn-reset anchors from
+  the restored main action window. Reload can rewind to the preceding human
+  window if the next checkpoint has not yet opened.
+- Terminal saves retain the final board. IndexedDB game history uses a unique
+  session ID and one transaction for results/achievements, so reloads and
+  concurrent recording attempts cannot duplicate a completed game.
 - Include `schemaVersion` in serialized engine state.
 - Include `contractVersion` in bridge metadata/responses where applicable.
 - Breaking bridge changes require a major contract bump.
