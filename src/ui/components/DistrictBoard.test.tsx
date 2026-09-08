@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { DistrictState, ObservedPlayerState } from '../../engine/types';
+import { buildDeedProgressArcPath } from './deedProgress';
 import { DistrictColumn, PlayerTokenRail } from './DistrictBoard';
 
 describe('DistrictColumn', () => {
@@ -161,6 +162,64 @@ describe('DistrictColumn', () => {
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
   });
+
+  it.each(['PlayerA', 'PlayerB'] as const)(
+    'shows trade progress only on the receiving player resource: %s',
+    (playerId) => {
+      const player: ObservedPlayerState = {
+        id: playerId,
+        crowns: ['30'],
+        resources: {
+          Moons: 3,
+          Suns: 0,
+          Waves: 0,
+          Leaves: 0,
+          Wyrms: 0,
+          Knots: 0,
+        },
+        hand: [],
+        handCount: 0,
+        handHidden: true,
+      };
+      const tradeProgress = {
+        transactionId: 'trade-1',
+        playerId,
+        suit: 'Suns' as const,
+        landed: 1,
+        total: 3,
+      };
+      const html = renderToStaticMarkup(
+        <PlayerTokenRail
+          player={player}
+          side="human"
+          tradeProgress={tradeProgress}
+        />
+      );
+      expect(html.match(/class="trade-progress"/g)).toHaveLength(1);
+      expect(html).toContain('>1/3<');
+      expect(html).toContain(`d="${buildDeedProgressArcPath(1 / 3)}"`);
+      expect(html).not.toMatch(
+        /class="token-chip[^"]*empty[^"]*" data-token-suit="Suns"/
+      );
+      const other = {
+        ...player,
+        id:
+          playerId === 'PlayerA' ? ('PlayerB' as const) : ('PlayerA' as const),
+      };
+      expect(
+        renderToStaticMarkup(
+          <PlayerTokenRail
+            player={other}
+            side="bot"
+            tradeProgress={tradeProgress}
+          />
+        )
+      ).not.toContain('class="trade-progress"');
+      expect(
+        renderToStaticMarkup(<PlayerTokenRail player={player} side="human" />)
+      ).not.toContain('class="trade-progress"');
+    }
+  );
 
   it('renders empty deed token rails for in-development cards with no deed tokens yet', () => {
     const district: DistrictState = {

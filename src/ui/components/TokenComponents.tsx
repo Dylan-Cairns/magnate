@@ -1,3 +1,5 @@
+import type { TradeProgress } from '../runtime/types';
+import { ProgressTracker } from './ProgressTracker';
 import { SUITS } from '../../engine/stateHelpers';
 import type { ResourcePool, Suit } from '../../engine/types';
 import { SuitTokenFace } from './SuitTokenFace';
@@ -20,6 +22,7 @@ export function TokenRow({
   fixedSuitSlots,
   className,
   highlightedSuits,
+  tradeProgress,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
   compact?: boolean;
@@ -27,6 +30,7 @@ export function TokenRow({
   fixedSuitSlots?: boolean;
   className?: string;
   highlightedSuits?: ReadonlySet<Suit>;
+  tradeProgress?: TradeProgress;
 }) {
   const entries = fixedSuitSlots
     ? SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 }))
@@ -47,6 +51,9 @@ export function TokenRow({
           key={suit}
           suit={suit}
           count={count}
+          tradeProgress={
+            tradeProgress?.suit === suit ? tradeProgress : undefined
+          }
           compact={compact}
           className={
             highlightedSuits?.has(suit) ? 'is-income-highlighted' : undefined
@@ -63,14 +70,16 @@ export function TokenChip({
   compact,
   className,
   showTooltip = true,
+  tradeProgress,
 }: {
   suit: Suit;
   count: number;
   compact?: boolean;
   className?: string;
   showTooltip?: boolean;
+  tradeProgress?: TradeProgress;
 }) {
-  const isEmpty = count === 0;
+  const isEmpty = count === 0 && !tradeProgress;
   return (
     <span
       className={`token-chip${showTooltip ? ' tooltip-trigger' : ''}${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
@@ -80,6 +89,17 @@ export function TokenChip({
     >
       <SuitTokenFace suit={suit} empty={isEmpty} />
       {count > 1 && <span className="token-count">x{count}</span>}
+      {tradeProgress ? (
+        <span className="trade-progress">
+          <ProgressTracker
+            key={tradeProgress.transactionId}
+            cardId={tradeProgress.transactionId}
+            deedProgress={tradeProgress.landed}
+            deedTarget={tradeProgress.total}
+            label="Trade progress"
+          />
+        </span>
+      ) : null}
       {showTooltip ? <Tooltip>{suit}</Tooltip> : null}
     </span>
   );

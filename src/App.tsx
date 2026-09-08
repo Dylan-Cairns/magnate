@@ -162,6 +162,7 @@ export function App() {
       setEnabled: setAnimationsEnabled,
       resourceFlights,
       cardFlights,
+      tradeProgress,
       incomeHighlightCardIds,
       incomeHighlightCrowns,
       diceVisualState,
@@ -666,6 +667,7 @@ export function App() {
             <PlayerTokenRail
               player={botPlayer}
               side="bot"
+              tradeProgress={tradeProgress}
               highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
                 BOT_PLAYER
               )}
@@ -686,6 +688,7 @@ export function App() {
           <PlayerTokenRail
             player={humanPlayer}
             side="human"
+            tradeProgress={tradeProgress}
             highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
               HUMAN_PLAYER
             )}

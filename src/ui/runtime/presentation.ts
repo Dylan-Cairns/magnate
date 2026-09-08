@@ -145,12 +145,26 @@ function applySequenceStep(
         }),
         overlays,
       };
+    case 'land-trade-token':
+      return {
+        viewState,
+        overlays: {
+          ...overlays,
+          tradeProgress: {
+            transactionId: transaction.id,
+            playerId: step.event.playerId,
+            suit: step.event.receive,
+            landed: step.landed,
+            total: step.event.giveCount,
+          },
+        },
+      };
     case 'apply-trade-token-gain':
       return {
         viewState: applyResourceDelta(viewState, step.event.playerId, {
           [step.event.receive]: step.event.receiveCount,
         }),
-        overlays,
+        overlays: { ...overlays, tradeProgress: undefined },
       };
     case 'draw-card-flight':
       if (elapsedMs < step.endMs) {
@@ -427,7 +441,11 @@ function applyDeedProgress(
     { type: 'deed-progress-applied' }
   >
 ): GameState {
-  const currentStack = districtStackFor(state, event.districtId, event.playerId);
+  const currentStack = districtStackFor(
+    state,
+    event.districtId,
+    event.playerId
+  );
   if (!currentStack?.deed) {
     return state;
   }
@@ -496,15 +514,10 @@ function revealDeedCompletion(
 
   return {
     ...state,
-    districts: replaceDistrictStack(
-      state,
-      event.districtId,
-      event.playerId,
-      {
-        developed: [...currentStack.developed, event.cardId],
-        deed: undefined,
-      }
-    ),
+    districts: replaceDistrictStack(state, event.districtId, event.playerId, {
+      developed: [...currentStack.developed, event.cardId],
+      deed: undefined,
+    }),
   };
 }
 

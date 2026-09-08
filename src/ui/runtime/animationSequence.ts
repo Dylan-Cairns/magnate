@@ -158,10 +158,7 @@ export type AnimationStep =
       id: string;
       type: 'apply-deed-progress';
       durationMs: number;
-      event: Extract<
-        GamePresentationEvent,
-        { type: 'deed-progress-applied' }
-      >;
+      event: Extract<GamePresentationEvent, { type: 'deed-progress-applied' }>;
     }
   | {
       id: string;
@@ -187,6 +184,16 @@ export type AnimationStep =
       durationMs: number;
       playerId: PlayerId;
       suit: Suit;
+    }
+  | {
+      id: string;
+      type: 'land-trade-token';
+      durationMs: number;
+      landed: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: 'trade-resources-applied' }
+      >;
     }
   | {
       id: string;
@@ -532,10 +539,12 @@ function scheduleSteps(
   return {
     transactionId,
     durationMs: cursorMs,
-    commitMs: scheduled.find((step) => step.type === 'commit-view-state')
-      ?.startMs ?? cursorMs,
-    inputUnlockMs: scheduled.find((step) => step.type === 'commit-view-state')
-      ?.startMs ?? cursorMs,
+    commitMs:
+      scheduled.find((step) => step.type === 'commit-view-state')?.startMs ??
+      cursorMs,
+    inputUnlockMs:
+      scheduled.find((step) => step.type === 'commit-view-state')?.startMs ??
+      cursorMs,
     steps: scheduled,
   };
 }
@@ -637,20 +646,43 @@ function appendTradeSteps(
     flightStaggerMs: durations.paymentFlightStaggerMs,
     event: trade,
   });
+  // Merge launches and arrivals so overlapping flights retain explicit boundaries.
+  const boundaries: { atMs: number; step: AnimationStep }[] = [];
   for (let index = 0; index < trade.giveCount; index += 1) {
-    const isLastToken = index === trade.giveCount - 1;
-    steps.push({
-      id: `apply-trade-token-loss:${trade.playerId}:${trade.give}:${String(index)}`,
-      type: 'apply-trade-token-loss',
-      durationMs: isLastToken ? 0 : durations.paymentFlightStaggerMs,
-      playerId: trade.playerId,
-      suit: trade.give,
+    const launchMs = index * durations.paymentFlightStaggerMs;
+    boundaries.push({
+      atMs: launchMs,
+      step: {
+        id: `apply-trade-token-loss:${trade.playerId}:${trade.give}:${index}`,
+        type: 'apply-trade-token-loss',
+        durationMs: 0,
+        playerId: trade.playerId,
+        suit: trade.give,
+      },
+    });
+    boundaries.push({
+      atMs: launchMs + durations.paymentFlightMs,
+      step: {
+        id: `land-trade-token:${trade.playerId}:${index}`,
+        type: 'land-trade-token',
+        durationMs: 0,
+        landed: index + 1,
+        event: trade,
+      },
     });
   }
+  boundaries.sort((a, b) => a.atMs - b.atMs);
+  boundaries.forEach((boundary, index) => {
+    steps.push({
+      ...boundary.step,
+      durationMs:
+        (boundaries[index + 1]?.atMs ?? boundary.atMs) - boundary.atMs,
+    });
+  });
   steps.push({
     id: `apply-trade-token-gain:${trade.playerId}:${trade.receive}`,
     type: 'apply-trade-token-gain',
-    durationMs: durations.paymentFlightMs + durations.commitBufferMs,
+    durationMs: durations.commitBufferMs,
     event: trade,
   });
 }

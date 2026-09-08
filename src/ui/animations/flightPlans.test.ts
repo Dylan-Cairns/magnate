@@ -217,10 +217,11 @@ describe('flightPlans', () => {
     ]);
   });
 
-  it('plans three staggered trade removals from the given resource', () => {
+  it('plans three staggered trade transfers to the receiving resource', () => {
     const moons = makeElement({ left: 10, top: 20, width: 20, height: 20 });
+    const suns = makeElement({ left: 80, top: 120, width: 20, height: 20 });
     const targets = makeTargets({
-      resourceToken: (_playerId, suit) => (suit === 'Moons' ? moons : null),
+      resourceToken: (_playerId, suit) => (suit === 'Moons' ? moons : suns),
     });
 
     expect(
@@ -242,25 +243,25 @@ describe('flightPlans', () => {
         suit: 'Moons',
         startX: 20,
         startY: 30,
-        endX: 20,
-        endY: 500,
+        endX: 90,
+        endY: 130,
         delayMs: 0,
         durationMs: PAYMENT_FLIGHT_DURATION_MS,
-        variant: 'payment',
+        variant: 'transfer',
       },
       {
         id: 'trade-2',
         suit: 'Moons',
         delayMs: PAYMENT_FLIGHT_STAGGER_MS,
         durationMs: PAYMENT_FLIGHT_DURATION_MS,
-        variant: 'payment',
+        variant: 'transfer',
       },
       {
         id: 'trade-3',
         suit: 'Moons',
         delayMs: 2 * PAYMENT_FLIGHT_STAGGER_MS,
         durationMs: PAYMENT_FLIGHT_DURATION_MS,
-        variant: 'payment',
+        variant: 'transfer',
       },
     ]);
   });
@@ -294,12 +295,7 @@ describe('flightPlans', () => {
     });
 
     expect(
-      buildSoldCardFlightFromDom(
-        PLAYER_A,
-        '6',
-        makeIds('sell'),
-        targets
-      )
+      buildSoldCardFlightFromDom(PLAYER_A, '6', makeIds('sell'), targets)
     ).toMatchObject([{ id: 'sell-1', visual: 'face', cardId: '6' }]);
 
     expect(
@@ -331,12 +327,7 @@ describe('flightPlans', () => {
     ]);
 
     expect(
-      buildDrawCardFlightFromDom(
-        PLAYER_A,
-        '7',
-        makeIds('draw'),
-        targets
-      )
+      buildDrawCardFlightFromDom(PLAYER_A, '7', makeIds('draw'), targets)
     ).toMatchObject([{ id: 'draw-1', variant: 'draw', visual: 'back' }]);
   });
 });

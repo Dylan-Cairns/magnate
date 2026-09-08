@@ -180,13 +180,23 @@ export function buildTradeFlightsFromDom(
   domTargets: AnimationDomTargets = browserAnimationDomTargets,
   timing: PaymentFlightTiming = DEFAULT_PAYMENT_FLIGHT_TIMING
 ): ResourceFlight[] {
-  return buildRemovalFlightsFromDom(
-    event.playerId,
-    Array.from({ length: event.giveCount }, () => event.give),
-    makeFlightId,
-    domTargets,
-    timing
-  );
+  if (!domTargets.isAvailable()) return [];
+  const sourceElement = domTargets.resourceToken(event.playerId, event.give);
+  const targetElement = domTargets.resourceToken(event.playerId, event.receive);
+  if (!sourceElement || !targetElement) return [];
+  const source = domTargets.tokenVisualCenter(sourceElement);
+  const target = domTargets.tokenVisualCenter(targetElement);
+  return Array.from({ length: event.giveCount }, (_, index) => ({
+    id: makeFlightId(),
+    suit: event.give,
+    startX: source.x,
+    startY: source.y,
+    endX: target.x,
+    endY: target.y,
+    delayMs: index * timing.staggerMs,
+    durationMs: timing.durationMs,
+    variant: 'transfer' as const,
+  }));
 }
 
 function buildRemovalFlightsFromDom(
