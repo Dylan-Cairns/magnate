@@ -29,11 +29,6 @@
 
 .player-panel.is-active {
   border-color: var(--active-border);
-  box-shadow:
-    var(--rail-panel-shadow),
-    0 0 0 1px var(--active-ring),
-    0 0 14px var(--active-glow-outer),
-    inset 0 0 16px var(--active-glow);
 }
 
 .player-header {
@@ -403,17 +398,22 @@
   align-items: flex-end;
 }
 
-.lane-card-animation-target {
+.lane-card-animation-target,
+.placement-ghost {
   position: absolute;
   left: 50%;
   width: var(--card-width);
   height: var(--card-height);
   pointer-events: none;
-  visibility: hidden;
   transform: translateX(-50%);
 }
 
-.district-lane.is-human .lane-card-animation-target {
+.lane-card-animation-target {
+  visibility: hidden;
+}
+
+.district-lane.is-human .lane-card-animation-target,
+.district-lane.is-human .placement-ghost {
   top: calc(var(--stack-position) * var(--card-stack-step));
 }
 

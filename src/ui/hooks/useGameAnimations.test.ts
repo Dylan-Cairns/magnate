@@ -41,7 +41,8 @@ const reactHookHarness = vi.hoisted(() => {
   };
 });
 
-vi.mock('react', () => ({
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
   useCallback: <T>(callback: T) => callback,
   useEffect: (run: () => void | (() => void)) => {
     run();

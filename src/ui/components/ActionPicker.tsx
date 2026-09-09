@@ -1,3 +1,4 @@
+import { useActionHover } from './ActionHighlights';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 
 import type { GameAction } from '../../engine/types';
@@ -14,6 +15,7 @@ import {
 import {
   buildPickerOptions,
   formatTokens,
+  paymentSignature,
   type TradeSourceGroup,
 } from '../actionPresentation';
 import { SUIT_TEXT_TOKEN } from '../suitIcons';
@@ -102,6 +104,7 @@ function TradeCombinedPicker({
   onPickerChange: Dispatch<SetStateAction<ActionPickerState | null>>;
   onSelectAction: (action: GameAction) => void;
 }) {
+  const hoverProps = useActionHover('picker');
   const tradeActions = tradeActionsForPicker(legalActions);
   const receiveOptions = tradeReceiveOptions(tradeActions);
 
@@ -113,6 +116,14 @@ function TradeCombinedPicker({
           {tradeSourceGroups.map((group) => (
             <button
               key={`trade-combined-source-${group.give}`}
+              {...hoverProps(
+                tradeActions.filter(
+                  (action) =>
+                    action.give === group.give &&
+                    (!picker.selectedReceive ||
+                      action.receive === picker.selectedReceive)
+                )
+              )}
               type="button"
               className={`trade-choice-button tooltip-trigger${picker.selectedGive === group.give ? ' is-selected' : ''}`}
               onClick={() => {
@@ -151,6 +162,14 @@ function TradeCombinedPicker({
           {receiveOptions.map((receiveSuit) => (
             <button
               key={`trade-combined-receive-${receiveSuit}`}
+              {...hoverProps(
+                tradeActions.filter(
+                  (action) =>
+                    action.receive === receiveSuit &&
+                    (!picker.selectedGive ||
+                      action.give === picker.selectedGive)
+                )
+              )}
               type="button"
               className={`trade-choice-button tooltip-trigger${picker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
               onClick={() => {
@@ -197,6 +216,7 @@ function DevelopOutrightCombinedPicker({
   onPickerChange: Dispatch<SetStateAction<ActionPickerState | null>>;
   onSelectAction: (action: GameAction) => void;
 }) {
+  const hoverProps = useActionHover('picker');
   const { outrightOptions, districtOptions, paymentOptions } =
     buildDevelopOutrightCompositeOptions(legalActions, picker.cardId);
 
@@ -208,6 +228,15 @@ function DevelopOutrightCombinedPicker({
           {districtOptions.map((option) => (
             <button
               key={`develop-outright-district-${option.districtId}`}
+              {...hoverProps(
+                outrightOptions.filter(
+                  (action) =>
+                    action.districtId === option.districtId &&
+                    (!picker.selectedPaymentKey ||
+                      paymentSignature(action.payment) ===
+                        picker.selectedPaymentKey)
+                )
+              )}
               type="button"
               className={`trade-choice-button tooltip-trigger${picker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
               onClick={() => {
@@ -253,6 +282,14 @@ function DevelopOutrightCombinedPicker({
           {paymentOptions.map(([paymentKey, option]) => (
             <button
               key={`develop-outright-payment-${paymentKey}`}
+              {...hoverProps(
+                outrightOptions.filter(
+                  (action) =>
+                    paymentSignature(action.payment) === paymentKey &&
+                    (!picker.selectedDistrictId ||
+                      action.districtId === picker.selectedDistrictId)
+                )
+              )}
               type="button"
               className={`trade-choice-button tooltip-trigger${picker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
               onClick={() => {
@@ -309,6 +346,7 @@ function StandardPicker({
   legalActions: readonly GameAction[];
   onSelectAction: (action: GameAction) => void;
 }) {
+  const hoverProps = useActionHover('picker');
   const options = buildPickerOptions(
     toPickerQuery(picker),
     legalActions,
@@ -322,6 +360,7 @@ function StandardPicker({
       {options.map((option) => (
         <button
           key={option.id}
+          {...hoverProps([option.action])}
           type="button"
           className="trade-choice-button tooltip-trigger"
           onClick={() => onSelectAction(option.action)}

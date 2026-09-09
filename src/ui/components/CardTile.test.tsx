@@ -4,6 +4,33 @@ import { describe, expect, it } from 'vitest';
 import { CardTile } from './CardTile';
 
 describe('CardTile', () => {
+  it('renders a deed ghost with zero progress and no interactive tooltip', () => {
+    const html = renderToStaticMarkup(
+      <CardTile
+        cardId="6"
+        preview
+        inDevelopment
+        deedProgress={0}
+        deedTarget={2}
+        animateDeedProgress={false}
+      />
+    );
+    expect(html).toContain('is-in-development');
+    expect(html).toContain('>0/2<');
+    expect(html).toContain('deed-progress-ring-track');
+    expect(html).not.toContain('deed-progress-ring-value');
+    expect(html).not.toContain('data-card-id');
+    expect(html).not.toContain('tooltip-anchor');
+  });
+
+  it('renders preview artwork without a real-card animation target or tooltip', () => {
+    const html = renderToStaticMarkup(<CardTile cardId="6" preview />);
+    expect(html).toContain('card-image');
+    expect(html).toContain('card-rank');
+    expect(html).not.toContain('data-card-id');
+    expect(html).not.toContain('tooltip-anchor');
+  });
+
   it('opens player-area card tooltips below their stack but keeps hand cards above', () => {
     const humanHtml = renderToStaticMarkup(<CardTile cardId="29" />);
     const handHtml = renderToStaticMarkup(

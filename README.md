@@ -5,6 +5,10 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 ## At A Glance
 
 - Browser game is playable with selectable bot profiles.
+- Hover actions and submenu options to highlight affected cards, resources, and
+  destinations with a shared glow. Open submenus keep shared targets highlighted,
+  and placement ghosts distinguish incomplete deeds from completed properties.
+  Category headings and End turn do not trigger previews.
 - Games autosave locally at the beginning of each human action or income-choice
   window. Returning restores a settled board and waits for your input; moves
   after that checkpoint may need to be replayed. New Game replaces the save.

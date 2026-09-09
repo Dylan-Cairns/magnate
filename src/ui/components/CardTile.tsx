@@ -1,3 +1,5 @@
+import { useHighlightClass } from './ActionHighlights';
+import type { HighlightTarget } from '../actionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
@@ -23,6 +25,8 @@ export function CardTile({
   handSlotKind,
   animateDeedProgress = true,
   incomeHighlighted = false,
+  highlightTarget,
+  preview = false,
 }: {
   cardId?: CardId;
   hidden?: boolean;
@@ -37,6 +41,8 @@ export function CardTile({
   handSlotKind?: 'occupied' | 'hidden' | 'empty';
   animateDeedProgress?: boolean;
   incomeHighlighted?: boolean;
+  highlightTarget?: HighlightTarget;
+  preview?: boolean;
 }) {
   if (placeholder) {
     return (
@@ -78,6 +84,8 @@ export function CardTile({
       handSlotKind={handSlotKind}
       animateDeedProgress={animateDeedProgress}
       incomeHighlighted={incomeHighlighted}
+      highlightTarget={highlightTarget}
+      preview={preview}
     />
   );
 }
@@ -94,6 +102,8 @@ function CardTileCard({
   handSlotKind,
   animateDeedProgress = true,
   incomeHighlighted = false,
+  highlightTarget,
+  preview = false,
 }: {
   cardId: CardId;
   deedTokens?: Partial<Record<Suit, number>>;
@@ -106,7 +116,13 @@ function CardTileCard({
   handSlotKind?: 'occupied' | 'hidden' | 'empty';
   animateDeedProgress?: boolean;
   incomeHighlighted?: boolean;
+  highlightTarget?: HighlightTarget;
+  preview?: boolean;
 }) {
+  const highlightClass = useHighlightClass();
+  const actionHighlight = highlightTarget
+    ? highlightClass(highlightTarget)
+    : '';
   const card = CARD_BY_ID[cardId];
   const cardImage = getCardImage(cardId);
   const suits = card.kind === 'Excuse' ? [] : [...card.suits];
@@ -141,6 +157,7 @@ function CardTileCard({
                 key={`${cardId}-${suit}`}
                 suit={suit}
                 className="card-suit-icon"
+                showTooltip={!preview}
               />
             ))
           ) : (
@@ -154,6 +171,7 @@ function CardTileCard({
           deedTarget={deedTarget}
           animateDeedProgress={animateDeedProgress}
           cardId={cardId}
+          showTooltip={!preview}
         />
       ) : (
         <span className="deed-progress-placeholder" aria-hidden="true" />
@@ -208,8 +226,8 @@ function CardTileCard({
 
   return (
     <div
-      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''} tooltip-trigger`}
-      data-card-id={cardId}
+      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}${actionHighlight} tooltip-trigger`}
+      data-card-id={preview ? undefined : cardId}
       data-in-development={inDevelopment ? 'true' : undefined}
       data-hand-owner-id={handOwnerId}
       data-hand-card-id={handCardId}
@@ -217,15 +235,17 @@ function CardTileCard({
     >
       {perspective === 'bot' ? imageBody : metadataRow}
       {perspective === 'bot' ? metadataRow : imageBody}
-      <Tooltip
-        placement={
-          perspective === 'human' && handOwnerId === undefined
-            ? 'below'
-            : 'above'
-        }
-      >
-        {card.name}
-      </Tooltip>
+      {!preview && (
+        <Tooltip
+          placement={
+            perspective === 'human' && handOwnerId === undefined
+              ? 'below'
+              : 'above'
+          }
+        >
+          {card.name}
+        </Tooltip>
+      )}
     </div>
   );
 }

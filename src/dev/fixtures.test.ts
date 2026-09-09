@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
+import { PROPERTY_CARDS, CROWN_CARDS } from '../engine/cards';
+import { stepToDecision } from '../engine/session';
 import { isTerminal, scoreLive } from '../engine/scoring';
 import type { GameState, PlayerId } from '../engine/types';
 import {
@@ -11,6 +13,50 @@ import { buildHumanActionList } from '../ui/actionPresentation';
 import { createDevFixtureSession, devFixtureIdFromSearch } from './fixtures';
 
 describe('dev fixtures', () => {
+  it.each<PlayerId>(['PlayerA', 'PlayerB'])(
+    'keeps complete hands and every card exactly once for %s',
+    (humanPlayerId) => {
+      let state = createDevFixtureSession('multi-income', humanPlayerId);
+      expect(state.players.map((player) => player.hand.length)).toEqual([3, 3]);
+      const ids = [
+        ...state.deck.draw,
+        ...state.deck.discard,
+        ...state.players.flatMap((player) => [
+          ...player.hand,
+          ...player.crowns,
+        ]),
+        ...state.districts.flatMap((district) =>
+          Object.values(district.stacks).flatMap((stack) => [
+            ...stack.developed,
+            ...(stack.deed ? [stack.deed.cardId] : []),
+          ])
+        ),
+      ];
+      expect(ids.sort()).toEqual(
+        [...PROPERTY_CARDS, ...CROWN_CARDS].map((card) => card.id).sort()
+      );
+      while (state.phase === 'CollectIncome') {
+        const action = legalActions(state).find(
+          (action) => action.type === 'choose-income-suit'
+        );
+        if (!action) throw new Error('Missing fixture income decision');
+        state = stepToDecision(state, action);
+      }
+      const sell = legalActions(state).find(
+        (action) => action.type === 'sell-card'
+      );
+      if (!sell) throw new Error('Missing fixture sale');
+      state = stepToDecision(state, sell);
+      expect(
+        state.players.find((player) => player.id === humanPlayerId)?.hand
+      ).toHaveLength(2);
+      state = stepToDecision(state, { type: 'end-turn' });
+      expect(
+        state.players.find((player) => player.id === humanPlayerId)?.hand
+      ).toHaveLength(3);
+    }
+  );
+
   it('derives multiple partial-income choices from real CollectIncome resolution', () => {
     const state = createDevFixtureSession('multi-income', 'PlayerA');
 

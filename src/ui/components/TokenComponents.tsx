@@ -1,3 +1,4 @@
+import { useHighlightClass } from './ActionHighlights';
 import type { TradeProgress } from '../runtime/types';
 import { ProgressTracker } from './ProgressTracker';
 import { SUITS } from '../../engine/stateHelpers';
@@ -22,6 +23,7 @@ export function TokenRow({
   fixedSuitSlots,
   className,
   highlightedSuits,
+  highlightResources = false,
   tradeProgress,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
@@ -30,8 +32,10 @@ export function TokenRow({
   fixedSuitSlots?: boolean;
   className?: string;
   highlightedSuits?: ReadonlySet<Suit>;
+  highlightResources?: boolean;
   tradeProgress?: TradeProgress;
 }) {
+  const highlightClass = useHighlightClass();
   const entries = fixedSuitSlots
     ? SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 }))
     : tokenEntries(tokens);
@@ -55,9 +59,7 @@ export function TokenRow({
             tradeProgress?.suit === suit ? tradeProgress : undefined
           }
           compact={compact}
-          className={
-            highlightedSuits?.has(suit) ? 'is-income-highlighted' : undefined
-          }
+          className={`${highlightedSuits?.has(suit) ? 'is-income-highlighted' : ''}${highlightClass({ kind: 'resource', suit }, highlightResources)}`}
         />
       ))}
     </div>

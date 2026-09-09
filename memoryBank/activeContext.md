@@ -26,6 +26,23 @@
 
 ## Current State
 
+- Action-menu and picker hover previews cover the six actions with previewable effects using one
+  dice-inspired glow on affected human cards, resource suits, district
+  destinations, and shared piles. Grouped entries show only shared targets;
+  specific options refine the preview. No dimming, deltas, or badges are added.
+  The active-player hand panel uses a border without a glow, keeping it distinct
+  from the stronger action-hover halo.
+  District destinations show a nearly opaque, low-contrast ghost of the actual
+  card at its next stack position. Deed purchases preview the gray incomplete
+  card with zero progress; outright purchases preview a completed card. Ghosts
+  and real cards share an edge-based halo independent of artwork filtering.
+  Soft halos have no added solid outline; hand cards use a stronger near halo
+  to compensate for their warm panel background.
+  Category headings do not trigger previews, and end turn highlights nothing.
+  Open submenus retain their shared highlights and selected context between
+  hovered options. Ghosts do not affect layout or real-card animation targets.
+- The multi-income development fixture replenishes hands after reserving its
+  board cards, preserving three opening cards per player and card uniqueness.
 - Browser games autosave at the beginning of human action/income-choice windows
   and restore to a settled board without dice or bot activity until human input.
   Terminal boards also persist, with session-ID-based history deduplication.
@@ -375,20 +392,20 @@
    and decide whether to override the development-replication promotion block,
    register the candidate in `models/td_checkpoints/manifest.json`, or evaluate
    it against the sealed 100-game final test first.
-3. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
+2. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
    in the opponent/action architecture, while preserving the existing replay,
    checkpoint, and browser-export contracts where practical.
-4. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
-5. Continue self-play iterations with promoted manifest warm starts,
+3. Keep the uncertain-resource diagnostic separate from symmetry augmentation.
+4. Continue self-play iterations with promoted manifest warm starts,
    `td-lambda` value targets, checkpoint selection, replay windows, and
    generator gating.
-6. Track checkpoint-selection winners, block-selection winners, generator-gate
+5. Track checkpoint-selection winners, block-selection winners, generator-gate
    outcomes, final promotion outcomes, and side-gap stability in artifacts, not
    Memory Bank prose.
-7. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>`
+6. Use `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers <count> --shard-games <games-per-shard>`
    for large TypeScript teacher replay exports; use `collect-td-replay` for
    serial debugging.
-8. Keep docs aligned by replacing stale Memory Bank bullets rather than
+7. Keep docs aligned by replacing stale Memory Bank bullets rather than
    appending task history.
 
 _Updated: 2026-09-08._
