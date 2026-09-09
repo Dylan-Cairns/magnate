@@ -64,8 +64,8 @@ export function PlayerPanel({
             aria-label="Score details"
           >
             <p className="score-result">
-              {scoreHeadline}: <strong>{winnerLabel}</strong> (
-              {score.decidedBy})
+              {scoreHeadline}: <strong>{winnerLabel}</strong> ({score.decidedBy}
+              )
             </p>
             <ScoreLine
               label="Districts"
@@ -126,6 +126,11 @@ export function PlayerPanel({
                   perspective={cardPerspective}
                   handOwnerId={player.id}
                   handCardId={cardId}
+                  highlightTarget={
+                    player.id === humanPlayerId
+                      ? { kind: 'hand-card', cardId }
+                      : undefined
+                  }
                   handSlotKind="occupied"
                   animateDeedProgress={animateDeedProgress}
                 />

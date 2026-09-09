@@ -1,3 +1,4 @@
+import { usePlacementGhost } from './ActionHighlights';
 import type { CSSProperties } from 'react';
 
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from '../../engine/cards';
@@ -53,18 +54,27 @@ function markerSuitTokens(
 }
 
 function DistrictLane({
+  districtId,
   playerId,
   stack,
   botPlayerId,
   animateDeedProgress = true,
   highlightedIncomeCardIds,
 }: {
+  districtId: string;
   playerId: PlayerId;
   stack: DistrictStack;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
   highlightedIncomeCardIds?: ReadonlySet<CardId>;
 }) {
+  const preview = usePlacementGhost(districtId);
+  const ghost = playerId !== botPlayerId ? preview : undefined;
+  const ghostProperty = ghost ? findProperty(ghost.cardId) : undefined;
+  const ghostDeedTarget =
+    ghost?.placement === 'deed' && ghostProperty
+      ? developmentCost(ghostProperty)
+      : undefined;
   const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
   const perspective: CardPerspective =
@@ -132,6 +142,11 @@ function DistrictLane({
               >
                 <CardTile
                   cardId={laneCard.cardId}
+                  highlightTarget={
+                    playerId !== botPlayerId
+                      ? { kind: 'played-card', cardId: laneCard.cardId }
+                      : undefined
+                  }
                   deedTokens={laneCard.deedTokens}
                   deedProgress={laneCard.deedProgress}
                   deedTarget={laneCard.deedTarget}
@@ -142,6 +157,22 @@ function DistrictLane({
                 />
               </div>
             ))}
+          </div>
+        ) : null}
+        {ghost ? (
+          <div
+            className="placement-ghost is-action-highlighted"
+            aria-hidden="true"
+            style={{ '--stack-position': laneCards.length } as CSSProperties}
+          >
+            <CardTile
+              cardId={ghost.cardId}
+              inDevelopment={ghost.placement === 'deed'}
+              deedProgress={ghostDeedTarget !== undefined ? 0 : undefined}
+              deedTarget={ghostDeedTarget}
+              preview
+              animateDeedProgress={false}
+            />
           </div>
         ) : null}
       </div>
@@ -171,6 +202,7 @@ export function DistrictColumn({
   return (
     <article className="district-column" data-district-id={district.id}>
       <DistrictLane
+        districtId={district.id}
         playerId={botPlayerId}
         stack={district.stacks[botPlayerId]}
         botPlayerId={botPlayerId}
@@ -211,6 +243,7 @@ export function DistrictColumn({
       </div>
 
       <DistrictLane
+        districtId={district.id}
         playerId={humanPlayerId}
         stack={district.stacks[humanPlayerId]}
         botPlayerId={botPlayerId}
@@ -254,6 +287,7 @@ export function PlayerTokenRail({
       <h3>Resources</h3>
       <TokenRow
         className="rail-resources-row"
+        highlightResources={side === 'human'}
         tokens={player.resources}
         tradeProgress={
           tradeProgress?.playerId === player.id ? tradeProgress : undefined

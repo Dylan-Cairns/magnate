@@ -303,6 +303,8 @@ Design expectations:
 - Suit tokens, resource flights, deck-map nodes, and suit dice share opaque
   `SUIT_TOKEN_BG` fills. Ordinary tokens and flight copies have no decorative
   outer shadows or extra flight rings, which accumulate when stacked.
+- Portaled tooltips stay hidden until Floating UI reports their position ready,
+  preventing an initial frame at the viewport origin when hovering submenu suits.
 - `TokenChip` owns its tooltip target and contains the same `SuitTokenFace` SVG
   as deck-map nodes. Its rim and artwork share one square coordinate system;
   resource, crown, deed, inline, and flight contexts only size the outer token.
@@ -311,6 +313,27 @@ Design expectations:
 - Action-panel and picker components stay controlled: `App.tsx` owns picker
   state, positioning callbacks, refs, dismiss hooks, and action execution,
   while pure category and picker-conversion helpers live under `src/ui/`.
+- Action hover previews use the shared `HighlightTarget` union and pure action
+  mapping in `src/ui/actionHighlights.ts`. Player-owned targets are scoped to
+  human components; target payloads do not repeat player IDs. Grouped entries
+  highlight only targets shared by their candidate actions. Open pickers retain
+  shared highlights and selected context between hovered options. The shared
+  React context handles hover lifecycle and matching. Real cards and placement
+  ghosts share an edge-based halo independent of artwork opacity and filtering;
+  tokens use circular edges and discard cards follow their fanned edges. Shared
+  glow colors use soft light without an added solid outline, with stronger near
+  light on the warm hand panel. Category headings do not preview actions; end
+  turn has no targets. Button hover wrappers preserve grid stretching so menu
+  actions fill their rows.
+  District targets identify the card and
+  whether it is being deeded or completed. Nearly opaque, low-contrast ghosts
+  occupy the next human stack position; deed ghosts use the normal gray card
+  styling and a zero-progress tracker, without invested tokens. Ghosts reuse
+  card rendering and placement geometry, but omit real-card animation IDs and
+  tooltips and do not affect layout or pointer interaction. No
+  screen-coordinate lookup or engine mutation is needed. Hover previews expire
+  when the canonical state or picker changes, with open-picker highlights derived
+  from current legal actions; existing income highlights remain separate.
 
 ## Turn-Flow Pattern
 

@@ -16,12 +16,14 @@ export function ProgressTracker({
   animateDeedProgress = true,
   cardId,
   label = 'Development progress',
+  showTooltip = true,
 }: {
   deedProgress: number;
   deedTarget: number;
   animateDeedProgress?: boolean;
   cardId: string;
   label?: string;
+  showTooltip?: boolean;
 }) {
   const progressValue = deedProgress ?? 0;
   const progressTarget = deedTarget ?? 0;
@@ -146,7 +148,7 @@ export function ProgressTracker({
       <span className="deed-progress-value">
         {deedProgress}/{deedTarget}
       </span>
-      <Tooltip>{label}</Tooltip>
+      {showTooltip && <Tooltip>{label}</Tooltip>}
     </div>
   );
 }
