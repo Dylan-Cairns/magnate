@@ -26,7 +26,7 @@ describe('TerminalScoreSummary', () => {
     expect(html).toContain('Winner: <strong>You</strong>');
     expect(html).toContain('<strong>Districts</strong>');
     expect(html.indexOf('<h3>You</h3>')).toBeLessThan(
-      html.indexOf('<h3>Bot</h3>')
+      html.indexOf('<h3>Opponent</h3>')
     );
     expect(html).toContain('<strong>D1, D3</strong>');
     expect(html).toContain('<strong>None</strong>');

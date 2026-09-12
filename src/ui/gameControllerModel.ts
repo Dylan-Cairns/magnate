@@ -54,7 +54,7 @@ export function withSeedLogPrefix(
       turn: state.turn,
       player: activePlayerIdForState(state, fallbackPlayerId),
       phase: state.phase,
-      summary: `Bot ${botProfileLabel}`,
+      summary: `Opponent ${botProfileLabel}`,
     });
   }
   return [...prefix, ...entries];

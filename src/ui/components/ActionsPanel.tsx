@@ -483,9 +483,9 @@ function BotThinkingText() {
   }, []);
 
   return (
-    <span className="bot-thinking-text" aria-label="Bot is thinking...">
+    <span className="bot-thinking-text" aria-label="Opponent is thinking...">
       <span aria-hidden="true">
-        Bot is thinking
+        Opponent is thinking
         <span className="bot-thinking-dots">
           {Array.from({ length: 3 }, (_, index) => (
             <span

@@ -505,7 +505,7 @@ export function useGameController({
           ? currentBotIncomeActions
           : currentLegalActions;
         if (actions.length === 0) {
-          setError('Bot has no legal actions.');
+          setError('Opponent has no legal actions.');
           setBotThinking(false);
           return;
         }
@@ -538,7 +538,7 @@ export function useGameController({
               currentState: stateRef.current,
             })
           ) {
-            setError(`Bot action failed: ${errorMessage(err)}`);
+            setError(`Opponent action failed: ${errorMessage(err)}`);
             setBotThinking(false);
           }
           return;
@@ -556,7 +556,7 @@ export function useGameController({
           return;
         }
         if (!choice) {
-          setError('Bot policy could not select an action.');
+          setError('Opponent policy could not select an action.');
           setBotThinking(false);
           return;
         }
@@ -574,7 +574,7 @@ export function useGameController({
             !cancelled &&
             botDecisionGenerationRef.current === decisionGeneration
           ) {
-            setError(`Bot action failed: ${errorMessage(err)}`);
+            setError(`Opponent action failed: ${errorMessage(err)}`);
           }
         } finally {
           if (
