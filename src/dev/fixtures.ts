@@ -88,20 +88,29 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
     throw new Error(`Unknown human player for dev fixture: ${humanPlayerId}`);
   }
 
+  // Moving fixture cards onto the board must not leave either opening hand short.
+  const draw = state.deck.draw.filter((cardId) => !fixtureCardSet.has(cardId));
+  const players = state.players.map((player) => {
+    const hand = player.hand.filter((cardId) => !fixtureCardSet.has(cardId));
+    while (hand.length < 3) {
+      const replacement = draw.shift();
+      if (!replacement)
+        throw new Error('Multi-income fixture ran out of replacement cards.');
+      hand.push(replacement);
+    }
+    return { ...player, hand };
+  });
+
   return advanceToDecision({
     ...state,
     deck: {
       ...state.deck,
-      draw: state.deck.draw.filter((cardId) => !fixtureCardSet.has(cardId)),
+      draw,
       discard: state.deck.discard.filter(
         (cardId) => !fixtureCardSet.has(cardId)
       ),
     },
-    players: state.players.map((player) => ({
-      ...player,
-      hand: player.hand.filter((cardId) => !fixtureCardSet.has(cardId)),
-      crowns: player.crowns.filter((cardId) => !fixtureCardSet.has(cardId)),
-    })),
+    players,
     activePlayerIndex,
     turn: 3,
     phase: 'CollectIncome',

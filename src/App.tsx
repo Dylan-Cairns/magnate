@@ -32,6 +32,7 @@ import {
   preloadStartupAssets,
   type StartupPreloadProgress,
 } from './ui/startupPreload';
+import { ActionHighlights } from './ui/components/ActionHighlights';
 import { ActionPicker } from './ui/components/ActionPicker';
 import { ActionsPanel } from './ui/components/ActionsPanel';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
@@ -593,226 +594,235 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
-      {(storageError || historyError) && (
-        <section className="error-banner" role="status">
-          {storageError || historyError}
-        </section>
-      )}
-      {error && (
-        <section className="error-banner">
-          <strong>Engine Error:</strong> {error}
-        </section>
-      )}
+    <ActionHighlights
+      state={canonicalState}
+      picker={actionPicker}
+      legalActions={humanActionsAcceptingInput}
+    >
+      <div className="app-shell">
+        {(storageError || historyError) && (
+          <section className="error-banner" role="status">
+            {storageError || historyError}
+          </section>
+        )}
+        {error && (
+          <section className="error-banner">
+            <strong>Engine Error:</strong> {error}
+          </section>
+        )}
 
-      <main className="layout">
-        <aside className="actions-pane">
-          <div className="brand-row">
-            <section className="panel brand-panel">
-              <div className="brand-header">
-                <div className="brand-title-block">
-                  <h1>Magnate</h1>
-                  <p className="brand-subtitle">A Decktet game</p>
-                  <a
-                    className="brand-options-link"
-                    href="http://decktet.wikidot.com/game:magnate"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Rules
-                  </a>
+        <main className="layout">
+          <aside className="actions-pane">
+            <div className="brand-row">
+              <section className="panel brand-panel">
+                <div className="brand-header">
+                  <div className="brand-title-block">
+                    <h1>Magnate</h1>
+                    <p className="brand-subtitle">A Decktet game</p>
+                    <a
+                      className="brand-options-link"
+                      href="http://decktet.wikidot.com/game:magnate"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Rules
+                    </a>
+                  </div>
                 </div>
-              </div>
-            </section>
-          </div>
-
-          <ActionsPanel
-            terminal={terminal}
-            isLastTurn={isLastTurn}
-            score={score}
-            wonDistrictsByPlayer={wonDistrictsByPlayer}
-            activePlayerId={activePlayerId}
-            humanPlayerId={HUMAN_PLAYER}
-            botPlayerId={BOT_PLAYER}
-            visibleActionItems={visibleHumanActionItems}
-            isIncomeChoicePhase={isIncomeChoicePhase}
-            hasMultipleTradeSources={hasMultipleTradeSources}
-            actionPicker={actionPicker}
-            canResetTurn={canResetTurn}
-            botThinking={botThinking}
-            hideBotWaitMessageDuringTurnCycleLock={
-              hideBotWaitMessageDuringTurnCycleLock
-            }
-            humanActionUiBlockedByAnimation={humanActionUiBlockedByAnimation}
-            humanActionUiBlockedByTurnCycleAnimation={
-              humanActionUiBlockedByTurnCycleAnimation
-            }
-            onAction={performHumanAction}
-            onResetTurn={handleTurnReset}
-            onClosePicker={closeActionPicker}
-            onOpenTradeCombinedPicker={openTradeCombinedPicker}
-            onOpenTradePicker={openTradePicker}
-            onOpenDistrictPicker={openDistrictPicker}
-            onOpenDevelopOutrightCombinedPicker={
-              openDevelopOutrightCombinedPicker
-            }
-            onOpenDevelopOutrightDistrictOnlyPicker={
-              openDevelopOutrightDistrictOnlyPicker
-            }
-            onOpenDeedPaymentPicker={openDeedPaymentPicker}
-            onOpenIncomeChoicePicker={openIncomeChoicePicker}
-          />
-
-          <PlayerPanel
-            player={humanPlayer}
-            isActive={!terminal && visualActivePlayerId === HUMAN_PLAYER}
-            score={score}
-            terminal={terminal}
-            handSlotCount={PLAYER_HAND_SLOT_COUNT}
-            humanPlayerId={HUMAN_PLAYER}
-            botPlayerId={BOT_PLAYER}
-            animateDeedProgress={animateDeedProgress}
-          />
-        </aside>
-
-        <section className="board-pane">
-          <div className="board-top-row">
-            <div className="dice-float">
-              <RollResult
-                dice={visibleDiceState}
-                gameKey={viewState.seed}
-                animationsEnabled={
-                  animationsEnabled &&
-                  (quietIncomeRollId === undefined ||
-                    visibleDiceState?.incomeRoll.rollId !== quietIncomeRollId)
-                }
-              />
+              </section>
             </div>
-            <PlayerTokenRail
-              player={botPlayer}
-              side="bot"
-              tradeProgress={tradeProgress}
-              highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
-                BOT_PLAYER
-              )}
-            />
-          </div>
-          <div className="district-strip" aria-label="District board">
-            {humanView.districts.map((district) => (
-              <DistrictColumn
-                key={district.id}
-                district={district}
-                humanPlayerId={HUMAN_PLAYER}
-                botPlayerId={BOT_PLAYER}
-                animateDeedProgress={animateDeedProgress}
-                highlightedIncomeCardIds={incomeHighlightCardIdSet}
-              />
-            ))}
-          </div>
-          <PlayerTokenRail
-            player={humanPlayer}
-            side="human"
-            tradeProgress={tradeProgress}
-            highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
-              HUMAN_PLAYER
-            )}
-          />
-        </section>
 
-        <aside className="info-pane">
-          <div className="bot-info-row">
-            <BotHandPanel
-              player={botPlayer}
-              isActive={!terminal && visualActivePlayerId === BOT_PLAYER}
-              score={score}
+            <ActionsPanel
               terminal={terminal}
+              isLastTurn={isLastTurn}
+              score={score}
+              wonDistrictsByPlayer={wonDistrictsByPlayer}
+              activePlayerId={activePlayerId}
               humanPlayerId={HUMAN_PLAYER}
               botPlayerId={BOT_PLAYER}
+              visibleActionItems={visibleHumanActionItems}
+              isIncomeChoicePhase={isIncomeChoicePhase}
+              hasMultipleTradeSources={hasMultipleTradeSources}
+              actionPicker={actionPicker}
+              canResetTurn={canResetTurn}
+              botThinking={botThinking}
+              hideBotWaitMessageDuringTurnCycleLock={
+                hideBotWaitMessageDuringTurnCycleLock
+              }
+              humanActionUiBlockedByAnimation={humanActionUiBlockedByAnimation}
+              humanActionUiBlockedByTurnCycleAnimation={
+                humanActionUiBlockedByTurnCycleAnimation
+              }
+              onAction={performHumanAction}
+              onResetTurn={handleTurnReset}
+              onClosePicker={closeActionPicker}
+              onOpenTradeCombinedPicker={openTradeCombinedPicker}
+              onOpenTradePicker={openTradePicker}
+              onOpenDistrictPicker={openDistrictPicker}
+              onOpenDevelopOutrightCombinedPicker={
+                openDevelopOutrightCombinedPicker
+              }
+              onOpenDevelopOutrightDistrictOnlyPicker={
+                openDevelopOutrightDistrictOnlyPicker
+              }
+              onOpenDeedPaymentPicker={openDeedPaymentPicker}
+              onOpenIncomeChoicePicker={openIncomeChoicePicker}
             />
 
-            <DeckPiles
-              drawCount={humanView.deck.drawCount}
-              reshuffles={humanView.deck.reshuffles}
-              discard={humanView.deck.discard}
+            <PlayerPanel
+              player={humanPlayer}
+              isActive={!terminal && visualActivePlayerId === HUMAN_PLAYER}
+              score={score}
+              terminal={terminal}
+              handSlotCount={PLAYER_HAND_SLOT_COUNT}
+              humanPlayerId={HUMAN_PLAYER}
+              botPlayerId={BOT_PLAYER}
+              animateDeedProgress={animateDeedProgress}
             />
-          </div>
+          </aside>
 
-          <div className="log-map-stack">
-            {logVisible && (
-              <LogPanel
-                timelineLog={timelineLog}
+          <section className="board-pane">
+            <div className="board-top-row">
+              <div className="dice-float">
+                <RollResult
+                  dice={visibleDiceState}
+                  gameKey={viewState.seed}
+                  animationsEnabled={
+                    animationsEnabled &&
+                    (quietIncomeRollId === undefined ||
+                      visibleDiceState?.incomeRoll.rollId !== quietIncomeRollId)
+                  }
+                />
+              </div>
+              <PlayerTokenRail
+                player={botPlayer}
+                side="bot"
+                tradeProgress={tradeProgress}
+                highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
+                  BOT_PLAYER
+                )}
+              />
+            </div>
+            <div className="district-strip" aria-label="District board">
+              {humanView.districts.map((district) => (
+                <DistrictColumn
+                  key={district.id}
+                  district={district}
+                  humanPlayerId={HUMAN_PLAYER}
+                  botPlayerId={BOT_PLAYER}
+                  animateDeedProgress={animateDeedProgress}
+                  highlightedIncomeCardIds={incomeHighlightCardIdSet}
+                />
+              ))}
+            </div>
+            <PlayerTokenRail
+              player={humanPlayer}
+              side="human"
+              tradeProgress={tradeProgress}
+              highlightedCrownSuits={incomeHighlightCrownSuitsByPlayer.get(
+                HUMAN_PLAYER
+              )}
+            />
+          </section>
+
+          <aside className="info-pane">
+            <div className="bot-info-row">
+              <BotHandPanel
+                player={botPlayer}
+                isActive={!terminal && visualActivePlayerId === BOT_PLAYER}
+                score={score}
+                terminal={terminal}
                 humanPlayerId={HUMAN_PLAYER}
-                state={canonicalState}
+                botPlayerId={BOT_PLAYER}
               />
-            )}
-            {mapVisible && (
-              <DecktetSuitDiagram
-                dimmedCardIds={dimmedCardIds}
-                dimmedSuits={dimmedSuits}
+
+              <DeckPiles
+                drawCount={humanView.deck.drawCount}
+                reshuffles={humanView.deck.reshuffles}
+                discard={humanView.deck.discard}
               />
-            )}
-          </div>
+            </div>
 
-          <OptionsMenu
-            open={optionsMenuOpen}
-            botProfileId={botProfileId}
-            botStatusText={botStatusText}
-            animationsEnabled={animationsEnabled}
-            menuRef={optionsMenuRef}
-            buttonRef={optionsMenuButtonRef}
-            seedInputRef={seedInputRef}
-            newGameExpanded={newGameExpanded}
-            newGamePanelRef={newGamePanelRef}
-            newGameButtonRef={newGameButtonRef}
-            onToggle={() => {
-              closeNewGame();
-              setOptionsMenuOpen((open) => !open);
-            }}
-            onNewGameToggle={handleNewGameToggle}
-            onBotProfileChange={setBotProfileId}
-            onAnimationsEnabledChange={setAnimationsEnabled}
-            bugReportIssueUrl={getBugReportIssueUrl()}
-            onBugReportDownload={handleDownloadBugReport}
-            logVisible={logVisible}
-            onToggleLog={() => setLogVisible((v) => !v)}
-            mapVisible={mapVisible}
-            onToggleMap={() => setMapVisible((v) => !v)}
-            deckMapInteractive={deckMapInteractive}
-            onDeckMapInteractiveChange={setDeckMapInteractive}
-            onHistoryOpen={() => setHistoryOpen(true)}
-          />
-        </aside>
-      </main>
+            <div className="log-map-stack">
+              {logVisible && (
+                <LogPanel
+                  timelineLog={timelineLog}
+                  humanPlayerId={HUMAN_PLAYER}
+                  state={canonicalState}
+                />
+              )}
+              {mapVisible && (
+                <DecktetSuitDiagram
+                  dimmedCardIds={dimmedCardIds}
+                  dimmedSuits={dimmedSuits}
+                />
+              )}
+            </div>
 
-      <HistoryModal open={historyOpen} onClose={() => setHistoryOpen(false)} />
+            <OptionsMenu
+              open={optionsMenuOpen}
+              botProfileId={botProfileId}
+              botStatusText={botStatusText}
+              animationsEnabled={animationsEnabled}
+              menuRef={optionsMenuRef}
+              buttonRef={optionsMenuButtonRef}
+              seedInputRef={seedInputRef}
+              newGameExpanded={newGameExpanded}
+              newGamePanelRef={newGamePanelRef}
+              newGameButtonRef={newGameButtonRef}
+              onToggle={() => {
+                closeNewGame();
+                setOptionsMenuOpen((open) => !open);
+              }}
+              onNewGameToggle={handleNewGameToggle}
+              onBotProfileChange={setBotProfileId}
+              onAnimationsEnabledChange={setAnimationsEnabled}
+              bugReportIssueUrl={getBugReportIssueUrl()}
+              onBugReportDownload={handleDownloadBugReport}
+              logVisible={logVisible}
+              onToggleLog={() => setLogVisible((v) => !v)}
+              mapVisible={mapVisible}
+              onToggleMap={() => setMapVisible((v) => !v)}
+              deckMapInteractive={deckMapInteractive}
+              onDeckMapInteractiveChange={setDeckMapInteractive}
+              onHistoryOpen={() => setHistoryOpen(true)}
+            />
+          </aside>
+        </main>
 
-      <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
-      <OptionsBackdrop open={newGameExpanded} onClose={closeNewGame} />
-
-      <ResolutionWarningOverlay
-        open={resolutionWarningOpen}
-        onDismiss={() => setResolutionWarningOpen(false)}
-      />
-
-      <ResourceFlightLayer flights={resourceFlights} />
-
-      <CardFlightLayer
-        flights={cardFlights}
-        animationsEnabled={animationsEnabled}
-      />
-
-      {actionPicker ? (
-        <ActionPicker
-          picker={actionPicker}
-          pickerRef={actionPopoverRef}
-          legalActions={humanActionsAcceptingInput}
-          tradeSourceGroups={tradeSourceGroups}
-          onPickerChange={setActionPicker}
-          onSelectAction={handlePickerSelection}
-          onClose={closeActionPicker}
+        <HistoryModal
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
         />
-      ) : null}
-    </div>
+
+        <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
+        <OptionsBackdrop open={newGameExpanded} onClose={closeNewGame} />
+
+        <ResolutionWarningOverlay
+          open={resolutionWarningOpen}
+          onDismiss={() => setResolutionWarningOpen(false)}
+        />
+
+        <ResourceFlightLayer flights={resourceFlights} />
+
+        <CardFlightLayer
+          flights={cardFlights}
+          animationsEnabled={animationsEnabled}
+        />
+
+        {actionPicker ? (
+          <ActionPicker
+            picker={actionPicker}
+            pickerRef={actionPopoverRef}
+            legalActions={humanActionsAcceptingInput}
+            tradeSourceGroups={tradeSourceGroups}
+            onPickerChange={setActionPicker}
+            onSelectAction={handlePickerSelection}
+            onClose={closeActionPicker}
+          />
+        ) : null}
+      </div>
+    </ActionHighlights>
   );
 }
 

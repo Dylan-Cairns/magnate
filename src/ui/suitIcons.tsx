@@ -48,9 +48,11 @@ export const SUIT_TOKEN_REGEX = new RegExp(
 export function SuitIcon({
   suit,
   className,
+  showTooltip = true,
 }: {
   suit: Suit;
   className?: string;
+  showTooltip?: boolean;
 }) {
   return (
     <span className="tooltip-trigger suit-icon-tooltip">
@@ -62,7 +64,7 @@ export function SuitIcon({
           reportImageRenderFailure(SUIT_ICON_BY_SUIT[suit], `${suit} token`)
         }
       />
-      <Tooltip>{suit}</Tooltip>
+      {showTooltip && <Tooltip>{suit}</Tooltip>}
     </span>
   );
 }

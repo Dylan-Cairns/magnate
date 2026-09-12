@@ -49,6 +49,66 @@ export function tradeActionsForPicker(
   );
 }
 
+// Candidate actions drive persistent submenu highlights as well as hover previews.
+export function actionsForOpenPicker(
+  picker: ActionPickerState,
+  actions: readonly GameAction[]
+): GameAction[] {
+  switch (picker.kind) {
+    case 'trade-combined':
+      return tradeActionsForPicker(actions).filter(
+        (action) =>
+          (!picker.selectedGive || action.give === picker.selectedGive) &&
+          (!picker.selectedReceive || action.receive === picker.selectedReceive)
+      );
+    case 'develop-outright-combined':
+      return buildDevelopOutrightCompositeOptions(
+        actions,
+        picker.cardId
+      ).outrightOptions.filter(
+        (action) =>
+          (!picker.selectedDistrictId ||
+            action.districtId === picker.selectedDistrictId) &&
+          (!picker.selectedPaymentKey ||
+            paymentSignature(action.payment) === picker.selectedPaymentKey)
+      );
+    case 'trade':
+      return tradeActionsForPicker(actions).filter(
+        (action) => action.give === picker.give
+      );
+    case 'district':
+      return actions.filter(
+        (action) =>
+          action.type === 'buy-deed' && action.cardId === picker.cardId
+      );
+    case 'develop-outright-district':
+      return buildDevelopOutrightCompositeOptions(actions, picker.cardId)
+        .outrightOptions;
+    case 'develop-outright-payment':
+      return buildDevelopOutrightCompositeOptions(
+        actions,
+        picker.cardId
+      ).outrightOptions.filter(
+        (action) => action.districtId === picker.districtId
+      );
+    case 'deed-payment':
+      return actions.filter(
+        (action) =>
+          action.type === 'develop-deed' &&
+          action.cardId === picker.cardId &&
+          action.districtId === picker.districtId
+      );
+    case 'income-choice':
+      return actions.filter(
+        (action) =>
+          action.type === 'choose-income-suit' &&
+          action.cardId === picker.cardId &&
+          action.districtId === picker.districtId &&
+          action.playerId === picker.playerId
+      );
+  }
+}
+
 export function tradeReceiveOptions(actions: readonly TradeAction[]): Suit[] {
   return [...new Set(actions.map((action) => action.receive))];
 }

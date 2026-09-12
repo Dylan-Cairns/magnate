@@ -1,3 +1,4 @@
+import { useHighlightClass } from './ActionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
@@ -14,6 +15,7 @@ export function DeckPiles({
   reshuffles: number;
   discard: readonly CardId[];
 }) {
+  const highlightClass = useHighlightClass();
   const deckStackCount = Math.min(3, drawCount);
   const deckOverlayShiftClass =
     deckStackCount >= 3
@@ -21,7 +23,7 @@ export function DeckPiles({
       : deckStackCount === 2
         ? 'overlay-shift-1'
         : 'overlay-shift-0';
-const shuffleNumber = reshuffles === 0 ? 1 : 2;
+  const shuffleNumber = reshuffles === 0 ? 1 : 2;
   const shuffleTooltip =
     'The deck is shuffled at the start of the game. When it runs out, the discard pile is shuffled to form a new draw pile. When that runs out, each player gets one final turn.';
   const visibleDiscardCards = discard;
@@ -77,7 +79,7 @@ const shuffleNumber = reshuffles === 0 ? 1 : 2;
         <div className="deck-pile">
           <div className="player-score-wrap discard-pile-wrap">
             <div
-              className={`deck-pile-stack is-discard${discardStackCardIds.length > 0 ? ' is-fanned' : ''}`}
+              className={`deck-pile-stack is-discard${discardStackCardIds.length > 0 ? ' is-fanned' : ''}${highlightClass({ kind: 'pile', pile: 'discard' })}`}
               aria-label="Discard pile"
               tabIndex={0}
             >

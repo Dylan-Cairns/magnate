@@ -1,3 +1,4 @@
+import { useActionHover } from './ActionHighlights';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import type { CardId } from '../../engine/cards';
@@ -119,6 +120,7 @@ export function ActionsPanel({
     optionCount: number
   ) => void;
 }) {
+  const hoverProps = useActionHover();
   const hasVisibleIncomeChoiceActions = visibleActionItems.some(
     (item) =>
       (item.kind === 'action' && item.action.type === 'choose-income-suit') ||
@@ -181,7 +183,19 @@ export function ActionsPanel({
                         {showCategory ? (
                           <p className="action-category">{categoryLabel}</p>
                         ) : null}
-                        {button}
+                        <div
+                          className="action-entry-button"
+                          {...hoverProps(
+                            item.kind === 'action'
+                              ? [item.action]
+                              : item.kind === 'trade-group' &&
+                                  hasMultipleTradeSources
+                                ? []
+                                : item.options
+                          )}
+                        >
+                          {button}
+                        </div>
                       </div>
                     );
 
@@ -499,11 +513,7 @@ function ActionButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className="action-button"
-      onClick={onClick}
-    >
+    <button type="button" className="action-button" onClick={onClick}>
       <span className="action-text">
         <SuitText text={text} showSuitTooltips={false} />
       </span>

@@ -1,0 +1,52 @@
+.is-action-highlighted {
+  --action-glow-near: rgb(255 227 174 / 75%);
+  --action-glow-far: rgb(226 191 137 / 55%);
+  --action-glow-spread: 1px;
+}
+
+/* The warm hand backdrop needs a little more light than the dark board. */
+.player-panel .card-tile.is-action-highlighted {
+  --action-glow-near: rgb(255 242 210 / 95%);
+  --action-glow-spread: 2px;
+}
+
+/* Keep real and ghost card halos independent of artwork filters and opacity. */
+.card-tile.is-action-highlighted::after,
+.placement-ghost.is-action-highlighted::after,
+.token-chip.is-action-highlighted::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  pointer-events: none;
+  box-shadow:
+    0 0 5px var(--action-glow-spread) var(--action-glow-near),
+    0 0 12px var(--action-glow-far);
+}
+
+/* Circular geometry keeps artwork and count badges from changing the halo. */
+.token-chip.is-action-highlighted::after {
+  border-radius: inherit;
+}
+
+/* Light the actual fanned edges without filling the translucent empty pile. */
+.deck-pile-stack.is-action-highlighted > .deck-pile-stack-card {
+  box-shadow:
+    0 0 5px var(--action-glow-near),
+    0 0 12px var(--action-glow-far);
+}
+
+/* Empty receiving suits must be as legible as other preview targets. */
+.token-chip.empty.is-action-highlighted {
+  opacity: 1;
+}
+
+/* The ghost occupies the next stack position without changing layout or hit targets. */
+.placement-ghost {
+  z-index: 1;
+}
+
+.placement-ghost > .card-tile {
+  opacity: 0.97;
+  filter: saturate(0.2) contrast(0.45);
+}

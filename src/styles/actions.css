@@ -93,6 +93,10 @@
   font-size: 0.84rem;
 }
 
+.action-entry-button {
+  display: grid;
+}
+
 .bot-thinking-text {
   white-space: nowrap;
 }

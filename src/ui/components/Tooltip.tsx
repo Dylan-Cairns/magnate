@@ -24,7 +24,7 @@ export function Tooltip({
   const [floating, setFloating] = useState<HTMLSpanElement | null>(null);
   const [open, setOpen] = useState(false);
   const tooltipId = useId();
-  const { floatingStyles, refs } = useFloating({
+  const { floatingStyles, refs, isPositioned } = useFloating({
     open,
     onOpenChange: setOpen,
     placement:
@@ -87,7 +87,11 @@ export function Tooltip({
             id={tooltipId}
             className="app-tooltip"
             role="tooltip"
-            style={floatingStyles}
+            style={{
+              ...floatingStyles,
+              // The portal mounts before Floating UI has measured its position.
+              visibility: isPositioned ? 'visible' : 'hidden',
+            }}
           >
             {children}
           </span>
