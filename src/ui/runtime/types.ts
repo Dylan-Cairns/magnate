@@ -19,7 +19,16 @@ export type RuntimeMode =
   | { type: 'animating'; transactionId: string; elapsedMs: number }
   | { type: 'awaiting-input'; actorId: PlayerId };
 
+export type TradeProgress = {
+  transactionId: string;
+  playerId: PlayerId;
+  suit: Suit;
+  landed: number;
+  total: number;
+};
+
 export type AnimationOverlayState = {
+  tradeProgress?: TradeProgress;
   incomeHighlightCardIds: readonly CardId[];
   incomeHighlightCrowns: readonly { playerId: PlayerId; suit: Suit }[];
   activePlayerHighlightOverride: PlayerId | null;
@@ -27,11 +36,7 @@ export type AnimationOverlayState = {
 };
 
 export type IncomeDicePhase = 'rolling' | 'settled';
-export type TaxDicePhase =
-  | 'hidden'
-  | 'rolling'
-  | 'settled'
-  | 'dimmed';
+export type TaxDicePhase = 'hidden' | 'rolling' | 'settled' | 'dimmed';
 
 export type DiceVisualState = {
   incomeRoll: IncomeRollResult;

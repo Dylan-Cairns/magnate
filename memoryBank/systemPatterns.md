@@ -220,6 +220,12 @@ Design expectations:
   but canonical-looking resource/card/count mutations belong to explicit
   sequence apply/commit steps so React cannot leak `nextState` before the
   sequence reaches it.
+- Trade presentation uses the shared deed `ProgressTracker` without changing its
+  SVG arc geometry or interpolation. Source tokens fly to the receiving suit
+  in the same player's resource rail; explicit sequence landing boundaries
+  remove each flight and advance a transaction-scoped progress overlay. The
+  final landing clears progress and increments the receiving resource count
+  in the same snapshot. Launches still debit source resources individually.
 - Leaf animation interpolation must be scoped to the mounted visual instance
   and bounded by the current presentation snapshot. Deed progress continuity
   must not use module-global card-ID caches that survive a placement, reset, or

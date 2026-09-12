@@ -332,10 +332,7 @@ describe('derivePresentationSnapshotFromSequence', () => {
   it('stages final income-choice reveal and waits for the sequence gain step', () => {
     const transaction = makeIncomeChoiceTransaction();
     const sequence = buildAnimationSequence(transaction);
-    const revealSubmission = step(
-      sequence,
-      'reveal-income-choice-submission'
-    );
+    const revealSubmission = step(sequence, 'reveal-income-choice-submission');
     const launchIncome = step(sequence, 'launch-income-token-flights');
     const landings = sequence.steps.filter(
       (candidate) => candidate.type === 'land-income-token'
@@ -720,14 +717,52 @@ describe('derivePresentationSnapshotFromSequence', () => {
       expect(resourceCount(afterLoss, PLAYER_A, 'Suns')).toBe(0);
     });
 
-    const atThirdRemovalLaunch = derivePresentationSnapshotFromSequence({
+    const landings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-trade-token'
+    );
+    landings.forEach((landing, index) => {
+      const before = derivePresentationSnapshotFromSequence({
+        transaction,
+        sequence,
+        elapsedMs: landing.startMs - 1,
+      });
+      expect(resourceCount(before.viewState, PLAYER_A, 'Suns')).toBe(0);
+      expect(before.overlays.tradeProgress?.landed ?? 0).toBe(index);
+      const after = derivePresentationSnapshotFromSequence({
+        transaction,
+        sequence,
+        elapsedMs: landing.startMs,
+      });
+      if (index < 2) {
+        expect(after.overlays.tradeProgress).toEqual({
+          transactionId: transaction.id,
+          playerId: PLAYER_A,
+          suit: 'Suns',
+          landed: index + 1,
+          total: 3,
+        });
+        expect(resourceCount(after.viewState, PLAYER_A, 'Suns')).toBe(0);
+      } else {
+        expect(after.overlays.tradeProgress).toBeUndefined();
+        expect(resourceCount(after.viewState, PLAYER_A, 'Suns')).toBe(1);
+      }
+    });
+    expect(
+      derivePresentationSnapshotFromSequence({
+        transaction,
+        sequence,
+        elapsedMs: sequence.commitMs,
+      }).overlays.tradeProgress
+    ).toBeUndefined();
+
+    const atFinalLanding = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
       elapsedMs: tradeGain.startMs,
     }).viewState;
-    expect(tradeGain.startMs).toBe(tradeLosses[2].startMs);
-    expect(resourceCount(atThirdRemovalLaunch, PLAYER_A, 'Moons')).toBe(0);
-    expect(resourceCount(atThirdRemovalLaunch, PLAYER_A, 'Suns')).toBe(1);
+    expect(tradeGain.startMs).toBeGreaterThan(tradeLosses[2].startMs);
+    expect(resourceCount(atFinalLanding, PLAYER_A, 'Moons')).toBe(0);
+    expect(resourceCount(atFinalLanding, PLAYER_A, 'Suns')).toBe(1);
   });
 });
 

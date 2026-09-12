@@ -135,7 +135,7 @@ describe('deriveAnimationVisualCommands', () => {
     });
   });
 
-  it('derives trade removal flights from the trade sequence', () => {
+  it('derives trade transfer flights from the trade sequence', () => {
     const sequence = buildAnimationSequence(makeTradeTransaction());
     const flightStep = step(sequence, 'launch-trade-token-flights');
 

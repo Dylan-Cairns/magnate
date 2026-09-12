@@ -242,7 +242,12 @@
   flights now have individual sequence landing steps; each step increments the
   corresponding visible resource count and removes that flight overlay in the
   same scheduled React update, so completed overlays no longer wait for a
-  batch income apply. The deed progress tracker uses its original explicit SVG
+  batch income apply. Trade flights target the receiving suit in the acting
+  player's resource rail. Sequence landing boundaries remove flight overlays
+  and show shared progress at 1/3 and 2/3; the final landing clears progress
+  and increments the target resource count together. The shared
+  `ProgressTracker`, extracted from `CardTile`, retains the deed tracker's
+  original explicit SVG
   arc geometry with local requestAnimationFrame interpolation, but its duration
   is sourced from the shared animation timing constant. Its interpolated ratio
   is scoped to the mounted card, initialized and bounded by the current

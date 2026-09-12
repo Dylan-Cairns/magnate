@@ -241,6 +241,7 @@
   padding: 0 0.22rem;
 }
 
+.trade-progress .deed-progress,
 .card-tile.is-in-development .deed-progress {
   position: absolute;
   left: 50%;
@@ -272,6 +273,7 @@
   top: calc(var(--card-padding) + (var(--card-image-area-height) / 2));
 }
 
+.trade-progress .deed-progress-ring,
 .card-tile.is-in-development .deed-progress-ring {
   position: absolute;
   inset: 0;
@@ -280,22 +282,27 @@
   pointer-events: none;
 }
 
+.trade-progress .deed-progress-ring-track,
 .card-tile.is-in-development .deed-progress-ring-track,
+.trade-progress .deed-progress-ring-value,
 .card-tile.is-in-development .deed-progress-ring-value {
   fill: none;
   stroke-width: 1.8;
   vector-effect: non-scaling-stroke;
 }
 
+.trade-progress .deed-progress-ring-track,
 .card-tile.is-in-development .deed-progress-ring-track {
   stroke: rgba(190, 201, 216, 0.26);
 }
 
+.trade-progress .deed-progress-ring-value,
 .card-tile.is-in-development .deed-progress-ring-value {
   stroke: rgba(190, 201, 216, 0.82);
   stroke-linecap: butt;
 }
 
+.trade-progress .deed-progress-value,
 .card-tile.is-in-development .deed-progress-value {
   position: relative;
   z-index: 1;
@@ -471,4 +478,10 @@
   50% {
     transform: scale(1.06);
   }
+}
+
+.trade-progress .deed-progress {
+  top: 50%;
+  width: 100%;
+  height: 100%;
 }

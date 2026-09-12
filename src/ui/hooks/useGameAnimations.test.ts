@@ -60,6 +60,7 @@ import {
 } from '../../engine/__tests__/fixtures';
 import { buildAnimationSequence } from '../runtime/animationSequence';
 import { buildGameTransaction } from '../runtime/transactions';
+import { browserAnimationDomTargets } from '../animations/domTargets';
 import { stepToDecision } from '../../engine/session';
 import { isTerminal } from '../../engine/scoring';
 import type { GameAction, GameState } from '../../engine/types';
@@ -85,6 +86,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -133,6 +135,57 @@ describe('useGameAnimations scheduling helpers', () => {
       )
     ).toBe(true);
   });
+
+  it.each(['finish', 'reset', 'disable'] as const)(
+    'cleans trade flights and progress on %s',
+    (ending) => {
+      vi.spyOn(browserAnimationDomTargets, 'isAvailable').mockReturnValue(true);
+      vi.spyOn(browserAnimationDomTargets, 'resourceToken').mockReturnValue(
+        {} as HTMLElement
+      );
+      vi.spyOn(browserAnimationDomTargets, 'tokenVisualCenter').mockReturnValue(
+        { x: 20, y: 30 }
+      );
+      const transaction = makeTradeTransaction(
+        makeBuyDeedTransaction().nextState
+      );
+      const sequence = buildAnimationSequence(transaction);
+      const landings = sequence.steps.filter(
+        (step) => step.type === 'land-trade-token'
+      );
+      let animations = AnimationHarness();
+      animations.enqueueTransition({
+        transactionId: transaction.id,
+        previousState: transaction.previousState,
+        nextState: transaction.nextState,
+        action: transaction.action,
+        actingPlayerId: transaction.actingPlayerId,
+      });
+      animations = AnimationHarness();
+      expect(animations.resourceFlights).toHaveLength(3);
+      expect(animations.tradeProgress).toBeUndefined();
+      vi.advanceTimersByTime(landings[0].startMs);
+      animations = AnimationHarness();
+      expect(animations.resourceFlights).toHaveLength(2);
+      expect(animations.tradeProgress?.landed).toBe(1);
+      if (ending === 'reset') animations.clearPresentationQueue();
+      else if (ending === 'disable') {
+        animations.setEnabled(false);
+        AnimationHarness();
+      } else {
+        vi.advanceTimersByTime(landings[1].startMs - landings[0].startMs);
+        animations = AnimationHarness();
+        expect(animations.resourceFlights).toHaveLength(1);
+        expect(animations.tradeProgress?.landed).toBe(2);
+        vi.advanceTimersByTime(landings[2].startMs - landings[1].startMs);
+      }
+      animations = AnimationHarness();
+      expect(animations.resourceFlights).toEqual([]);
+      expect(animations.tradeProgress).toBeUndefined();
+      vi.runAllTimers();
+      expect(AnimationHarness().tradeProgress).toBeUndefined();
+    }
+  );
 
   it('removes only the income overlays whose presentation landing has arrived', () => {
     const baseFlight = {
