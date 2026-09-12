@@ -12,6 +12,19 @@ export interface Size {
   height: number;
 }
 
+export interface LaneCardMetrics extends Size {
+  /**
+   * Resolved `--card-image-area-width` / `--card-image-area-height` for the
+   * lane scope, or 0 when the lane does not expose a card scope. Flights use
+   * them to adopt the destination card layout, so their last frame matches the
+   * real card exactly. Both values are propagated because custom properties
+   * inherit as computed values: overriding only the width would leave an
+   * inherited `calc()` height at the source size.
+   */
+  imageAreaWidth: number;
+  imageAreaHeight: number;
+}
+
 export interface AnimationDomEnvironment {
   isAvailable(): boolean;
   querySelector<T extends Element = HTMLElement>(selectors: string): T | null;
@@ -59,10 +72,10 @@ export interface AnimationDomTargets {
     laneElement: HTMLElement,
     cardHeightPx: number
   ): Point | null;
-  laneCardSize(
+  laneCardMetrics(
     laneElement: HTMLElement,
     fallbackElement?: HTMLElement
-  ): Size | null;
+  ): LaneCardMetrics | null;
   deckSource(): HTMLElement | null;
   discardTarget(): HTMLElement | null;
   handSource(playerId: PlayerId, cardId: CardId): HTMLElement | null;
@@ -149,39 +162,69 @@ function measureCssLength(
   return measured > 0 ? measured : fallbackPx;
 }
 
-function laneCardSize(
+function laneCardMetrics(
   environment: AnimationDomEnvironment,
   laneElement: HTMLElement,
   fallbackElement?: HTMLElement
-): Size | null {
-  const explicitTarget = laneElement.querySelector<HTMLElement>(
-    '.lane-card-animation-target'
-  );
-  const explicitRect = explicitTarget?.getBoundingClientRect();
-  if (explicitRect && explicitRect.width > 0 && explicitRect.height > 0) {
-    return { width: explicitRect.width, height: explicitRect.height };
-  }
+): LaneCardMetrics | null {
+  // Card metrics resolve inside the lane's card scope (`.lane-stack` or its
+  // layout anchor); the lane element itself only inherits the root hand-card
+  // values, so it must never be the source of the variables.
+  const anchor =
+    laneElement.querySelector<HTMLElement>('.lane-card-animation-target') ??
+    laneElement.querySelector<HTMLElement>('.lane-stack');
+  const anchorRect = anchor?.getBoundingClientRect();
+  const anchorStyle = anchor ? environment.getComputedStyle(anchor) : null;
+  const anchorWidth = anchorRect && anchorRect.width > 0 ? anchorRect.width : 0;
+  const anchorHeight =
+    anchorRect && anchorRect.height > 0 ? anchorRect.height : 0;
 
   const fallbackRect = fallbackElement?.getBoundingClientRect();
   const fallbackWidth = fallbackRect?.width ?? 0;
   const fallbackHeight = fallbackRect?.height ?? 0;
-  const laneStyle = environment.getComputedStyle(laneElement);
-  const width = measureCssLength(
-    environment,
-    laneElement,
-    'width',
-    laneStyle.getPropertyValue('--card-width').trim(),
-    fallbackWidth
-  );
-  const height = measureCssLength(
-    environment,
-    laneElement,
-    'height',
-    laneStyle.getPropertyValue('--card-height').trim(),
-    fallbackHeight
-  );
 
-  return width > 0 && height > 0 ? { width, height } : null;
+  const width =
+    anchorWidth > 0
+      ? anchorWidth
+      : measureCssLength(
+          environment,
+          anchor ?? laneElement,
+          'width',
+          anchorStyle?.getPropertyValue('--card-width').trim() ?? '',
+          fallbackWidth
+        );
+  const height =
+    anchorHeight > 0
+      ? anchorHeight
+      : measureCssLength(
+          environment,
+          anchor ?? laneElement,
+          'height',
+          anchorStyle?.getPropertyValue('--card-height').trim() ?? '',
+          fallbackHeight
+        );
+  const imageAreaWidth = anchorStyle
+    ? measureCssLength(
+        environment,
+        anchor ?? laneElement,
+        'width',
+        anchorStyle.getPropertyValue('--card-image-area-width').trim(),
+        0
+      )
+    : 0;
+  const imageAreaHeight = anchorStyle
+    ? measureCssLength(
+        environment,
+        anchor ?? laneElement,
+        'height',
+        anchorStyle.getPropertyValue('--card-image-area-height').trim(),
+        0
+      )
+    : 0;
+
+  return width > 0 && height > 0
+    ? { width, height, imageAreaWidth, imageAreaHeight }
+    : null;
 }
 
 function stackStepForLane(
@@ -404,8 +447,8 @@ export function createAnimationDomTargets(
       laneElement.querySelector<HTMLElement>('.lane-stack-frame'),
     laneTargetCenter: (laneElement, cardHeightPx) =>
       laneTargetCenter(environment, laneElement, cardHeightPx),
-    laneCardSize: (laneElement, fallbackElement) =>
-      laneCardSize(environment, laneElement, fallbackElement),
+    laneCardMetrics: (laneElement, fallbackElement) =>
+      laneCardMetrics(environment, laneElement, fallbackElement),
     deckSource: () =>
       nestedStackTarget(
         '.deck-pile-stack.is-deck',

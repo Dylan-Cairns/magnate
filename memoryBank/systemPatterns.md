@@ -221,6 +221,13 @@ Design expectations:
 - Browser DOM lookup and flight construction stay outside the engine (for
   example `domTargets.ts`); sequence-derived visual commands carry the semantics
   needed to launch command-specific flights.
+- Flights that land inside a differently-sized card scope (hand to district lane)
+  adopt the destination's resolved card metrics: `laneCardMetrics` measures the
+  lane animation anchor's card size plus image-area width/height, the flight
+  carries them as `endImageArea*`, and `CardFlightLayer` applies both as inline
+  custom properties. Propagate both dimensions because custom properties inherit
+  as computed values; the final flight frame must match the real card exactly so
+  the landing swap is seamless.
 - The actions menu is intentionally tooltip-free: `ActionsPanel` and every
   `ActionPicker` variant render no `Tooltip` markup. Picker options are
   self-describing through suit tokens and labels, and the popover's stacking

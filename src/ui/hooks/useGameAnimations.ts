@@ -227,7 +227,13 @@ export function useGameAnimations() {
             if (flights.length === 0) {
               return;
             }
-            appendCardFlightsWithCleanup(flights, command.durationMs);
+            appendCardFlightsWithCleanup(
+              flights.map((flight) => ({
+                ...flight,
+                presentationLandingMs: command.atMs + command.durationMs,
+              })),
+              command.durationMs
+            );
           });
           return;
         case 'launch-payment-token-flights':

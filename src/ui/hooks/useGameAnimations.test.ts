@@ -323,6 +323,63 @@ describe('useGameAnimations scheduling helpers', () => {
     ]);
   });
 
+  it('removes the card-to-district flight at its sequence landing time', () => {
+    vi.spyOn(browserAnimationDomTargets, 'isAvailable').mockReturnValue(true);
+    vi.spyOn(browserAnimationDomTargets, 'handSource').mockReturnValue(
+      makeFakeCardElement()
+    );
+    vi.spyOn(browserAnimationDomTargets, 'lane').mockReturnValue({
+      classList: { contains: () => false },
+    } as unknown as HTMLElement);
+    vi.spyOn(browserAnimationDomTargets, 'laneCardMetrics').mockReturnValue({
+      width: 96,
+      height: 140,
+      imageAreaWidth: 86,
+      imageAreaHeight: 133,
+    });
+    vi.spyOn(browserAnimationDomTargets, 'laneFrame').mockReturnValue(null);
+    vi.spyOn(browserAnimationDomTargets, 'laneTargetCenter').mockReturnValue({
+      x: 400,
+      y: 500,
+    });
+    const transaction = makeBuyDeedTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const flightStep = sequence.steps.find(
+      (step) => step.type === 'launch-card-to-district-flight'
+    );
+    if (!flightStep) {
+      throw new Error('Expected a card-to-district flight step.');
+    }
+
+    let animations = AnimationHarness();
+    animations.enqueueTransition({
+      transactionId: transaction.id,
+      previousState: transaction.previousState,
+      nextState: transaction.nextState,
+      action: transaction.action,
+      actingPlayerId: transaction.actingPlayerId,
+    });
+    animations = AnimationHarness();
+    expect(animations.cardFlights).toHaveLength(1);
+    expect(animations.cardFlights[0]?.presentationLandingMs).toBe(
+      flightStep.endMs
+    );
+    expect(animations.cardFlights[0]?.endImageAreaWidth).toBe(86);
+    expect(animations.cardFlights[0]?.endImageAreaHeight).toBe(133);
+
+    vi.advanceTimersByTime(flightStep.endMs - 1);
+    animations = AnimationHarness();
+    expect(animations.cardFlights).toHaveLength(1);
+
+    vi.advanceTimersByTime(1);
+    animations = AnimationHarness();
+    expect(animations.cardFlights).toEqual([]);
+    expect(
+      animations.presentationSnapshot?.viewState.districts[0]?.stacks[PLAYER_A]
+        ?.deed?.cardId
+    ).toBe('6');
+  });
+
   it('removes only the income overlays whose presentation landing has arrived', () => {
     const baseFlight = {
       suit: 'Moons' as const,

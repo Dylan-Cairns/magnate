@@ -461,6 +461,8 @@ export function createCardFlightToPoint(
     durationMs?: number;
     endWidth?: number;
     endHeight?: number;
+    endImageAreaWidth?: number;
+    endImageAreaHeight?: number;
     variant?: 'play' | 'draw';
   },
   domTargets: AnimationDomTargets = browserAnimationDomTargets
@@ -484,6 +486,8 @@ export function createCardFlightToPoint(
     endHeight: options?.endHeight ?? sourceRect.height,
     renderWidth: options?.endWidth ?? sourceRect.width,
     renderHeight: options?.endHeight ?? sourceRect.height,
+    endImageAreaWidth: options?.endImageAreaWidth,
+    endImageAreaHeight: options?.endImageAreaHeight,
     delayMs: options?.delayMs ?? 0,
     durationMs: options?.durationMs,
   };
@@ -545,8 +549,8 @@ export function buildCardToDistrictFlightFromDom(
   }
 
   const laneElement = domTargets.lane(event.playerId, event.districtId);
-  const targetCardSize = laneElement
-    ? domTargets.laneCardSize(laneElement, sourceElement)
+  const targetCardMetrics = laneElement
+    ? domTargets.laneCardMetrics(laneElement, sourceElement)
     : null;
   const districtColumn = domTargets.districtColumn(event.districtId);
   const fallbackTargetElement =
@@ -557,7 +561,8 @@ export function buildCardToDistrictFlightFromDom(
     (laneElement
       ? domTargets.laneTargetCenter(
           laneElement,
-          targetCardSize?.height ?? sourceElement.getBoundingClientRect().height
+          targetCardMetrics?.height ??
+            sourceElement.getBoundingClientRect().height
         )
       : null) ??
     (fallbackTargetElement
@@ -585,8 +590,16 @@ export function buildCardToDistrictFlightFromDom(
         cardId: event.cardId,
         isDeed: event.placement === 'deed',
         perspective,
-        endWidth: targetCardSize?.width,
-        endHeight: targetCardSize?.height,
+        endWidth: targetCardMetrics?.width,
+        endHeight: targetCardMetrics?.height,
+        endImageAreaWidth:
+          targetCardMetrics && targetCardMetrics.imageAreaWidth > 0
+            ? targetCardMetrics.imageAreaWidth
+            : undefined,
+        endImageAreaHeight:
+          targetCardMetrics && targetCardMetrics.imageAreaHeight > 0
+            ? targetCardMetrics.imageAreaHeight
+            : undefined,
       },
       domTargets
     ),

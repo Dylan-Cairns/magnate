@@ -110,23 +110,46 @@ describe('domTargets', () => {
     expect(targetsWithAnchor.handDrawTarget('PlayerB')).toBe(anchor);
   });
 
-  it('measures the board card size from lane CSS variables', () => {
+  it('falls back to the source card size without a lane card scope', () => {
     const lane = makeElement({ width: 300, height: 500 });
+    const fallback = makeElement({ width: 80, height: 120 });
+    const targets = createAnimationDomTargets(makeEnvironment());
+
+    expect(targets.laneCardMetrics(lane, fallback)).toEqual({
+      width: 80,
+      height: 120,
+      imageAreaWidth: 0,
+      imageAreaHeight: 0,
+    });
+  });
+
+  it('measures lane card metrics from the lane animation target', () => {
+    const target = makeElement({
+      left: 120,
+      top: 80,
+      width: 96,
+      height: 140,
+    });
+    const lane = makeElement({
+      queries: new Map([['.lane-card-animation-target', target]]),
+    });
     const fallback = makeElement({ width: 80, height: 120 });
     const targets = createAnimationDomTargets(
       makeEnvironment(
         new Map(),
         new Map(),
         new Map([
-          ['--card-width', '96px'],
-          ['--card-height', '140px'],
+          ['--card-image-area-width', '86px'],
+          ['--card-image-area-height', '133px'],
         ])
       )
     );
 
-    expect(targets.laneCardSize(lane, fallback)).toEqual({
+    expect(targets.laneCardMetrics(lane, fallback)).toEqual({
       width: 96,
       height: 140,
+      imageAreaWidth: 86,
+      imageAreaHeight: 133,
     });
   });
 
@@ -143,9 +166,11 @@ describe('domTargets', () => {
     const fallback = makeElement({ width: 80, height: 120 });
     const targets = createAnimationDomTargets(makeEnvironment());
 
-    expect(targets.laneCardSize(lane, fallback)).toEqual({
+    expect(targets.laneCardMetrics(lane, fallback)).toEqual({
       width: 96,
       height: 140,
+      imageAreaWidth: 0,
+      imageAreaHeight: 0,
     });
     expect(targets.laneTargetCenter(lane, 120)).toEqual({ x: 168, y: 150 });
   });
