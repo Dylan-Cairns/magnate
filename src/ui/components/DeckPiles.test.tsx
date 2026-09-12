@@ -24,6 +24,8 @@ describe('DeckPiles', () => {
     expect(html).not.toContain('>Discard pile<');
     expect(html).toContain('The Desert');
     expect(html).toContain('The Author');
+    expect(html).toContain('inline-token-chip');
+    expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
   });
 
   it('keeps empty pile anchors and reports the completed second shuffle', () => {

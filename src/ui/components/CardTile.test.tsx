@@ -62,6 +62,21 @@ describe('CardTile', () => {
     expect(botHtml).not.toContain('tooltip-anchor tooltip-below');
   });
 
+  it('renders deed suit tokens without their own tooltips', () => {
+    const html = renderToStaticMarkup(
+      <CardTile
+        cardId="6"
+        inDevelopment
+        deedTokens={{ Moons: 1 }}
+        deedProgress={1}
+        deedTarget={2}
+      />
+    );
+
+    expect(html).toContain('data-token-suit="Moons"');
+    expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
+  });
+
   it('renders no deed progress value arc at zero progress', () => {
     const html = renderToStaticMarkup(
       <CardTile

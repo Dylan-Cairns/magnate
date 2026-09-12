@@ -134,6 +134,7 @@ describe('DistrictColumn', () => {
     expect(html).toContain('data-token-suit="Waves"');
     expect(html).toContain('data-card-flight-target="true"');
     expect(html).toContain('--stack-position:1');
+    expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
   });
 
   it('applies income highlight class to developed cards', () => {
@@ -186,6 +187,14 @@ describe('DistrictColumn', () => {
     expect(html).toContain('data-token-rail-player-id="PlayerA"');
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
+
+    const chipClasses = [
+      ...html.matchAll(/class="(token-chip[^"]*)"/g),
+    ].map((match) => match[1]);
+    expect(chipClasses.length).toBeGreaterThan(0);
+    for (const chipClass of chipClasses) {
+      expect(chipClass).toContain('tooltip-trigger');
+    }
   });
 
   it.each(['PlayerA', 'PlayerB'] as const)(

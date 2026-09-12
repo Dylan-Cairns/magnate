@@ -154,7 +154,6 @@ function CardTileCard({
                 key={`${cardId}-${suit}`}
                 suit={suit}
                 className="card-suit-icon"
-                showTooltip={!preview}
               />
             ))
           ) : (

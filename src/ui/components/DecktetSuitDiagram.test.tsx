@@ -48,6 +48,13 @@ describe('DecktetSuitDiagram', () => {
     });
   });
 
+  it('renders Court suit tokens without their own tooltips', () => {
+    const html = renderDiagram('extended');
+
+    expect(html).toContain('data-token-suit="Moons"');
+    expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
+  });
+
   it('dims a Court row once that Court has left circulation', () => {
     const html = renderToStaticMarkup(
       <DecktetSuitDiagram

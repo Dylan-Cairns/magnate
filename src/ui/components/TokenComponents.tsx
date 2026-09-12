@@ -27,6 +27,7 @@ export function TokenRow({
   className,
   highlightedSuits,
   highlightResources = false,
+  showTooltip = false,
   tradeProgress,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
@@ -36,6 +37,7 @@ export function TokenRow({
   className?: string;
   highlightedSuits?: ReadonlySet<Suit>;
   highlightResources?: boolean;
+  showTooltip?: boolean;
   tradeProgress?: TradeProgress;
 }) {
   const resourceHighlightClass = useResourceHighlightClass();
@@ -78,6 +80,7 @@ export function TokenRow({
               tradeProgress?.suit === suit ? tradeProgress : undefined
             }
             compact={compact}
+            showTooltip={showTooltip}
             className={`${highlightedSuits?.has(suit) ? 'is-income-highlighted' : ''}${resourceHighlightClass(suit, highlightResources)}`}
           />
         );
@@ -91,7 +94,7 @@ export function TokenChip({
   count,
   compact,
   className,
-  showTooltip = true,
+  showTooltip = false,
   preview = false,
   tradeProgress,
 }: {
