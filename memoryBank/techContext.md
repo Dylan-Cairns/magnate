@@ -26,6 +26,9 @@
 
 ## Tooling Notes
 
+- Playable card artwork uses lossless WebP at its original 242 × 376 dimensions.
+  The asset mapping and eager URL glob live in `src/ui/cardImages.ts`; startup
+  continues to preload and decode all playable cards before showing the board.
 - Node version manager: fnm. Shell integration selects the checked-in `.nvmrc`
   version automatically; Windows wrappers can resolve that pin through `fnm`
   even when launched from a `-NoProfile` shell.
