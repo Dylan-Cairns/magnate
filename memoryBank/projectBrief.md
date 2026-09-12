@@ -13,31 +13,29 @@ Build a web-playable, single-player Magnate with a competent bot.
 
 ## Non-Goals (v1)
 
-- Multiplayer/accounts/backend services.
-- Full cross-language rules schema/codegen.
+- Multiplayer, accounts, or backend services.
+- Full cross-language rules schema or codegen.
 - Native Python rules engine.
 
 ## Architecture
 
-- **TS Engine (canonical)**: deterministic rules/state transitions.
+- **TS Engine (canonical)**: deterministic rules and state transitions.
 - **UI (React/TS)**: thin layer over engine APIs.
-- **Node Bridge**: stable JSON protocol to expose engine to Python.
+- **Node Bridge**: stable JSON protocol exposing the engine to Python.
 - **Python Trainer**: RL loop as a bridge client.
 
 ## Success Criteria
 
 - Rules behavior matches `memoryBank/magnateRules.md`.
-- Deterministic replay from seed + actions.
+- Deterministic replay from seed plus actions.
 - Stable bridge contract for TS/Python integration.
-- Bot can play full games in browser without server runtime.
+- Bot can play full games in browser without a server runtime.
 
 ## Licensing
 
-- Project license: CC BY-NC-SA 4.0 (`LICENSE`); `package.json` declares the
-  same SPDX identifier.
-- Game and artwork credits (Cristyn Magnus, P.D. Magnus, The Decktet) live in
-  the info modal and `README.md`; bundled software notices are in
-  `public/third-party-notices.txt`.
+Project license is CC BY-NC-SA 4.0 (`LICENSE`; matching SPDX identifier in
+`package.json`). Game credits appear in the info modal and `README.md`; bundled
+software notices live in `public/third-party-notices.txt`.
 
 ## References
 

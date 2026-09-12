@@ -4,29 +4,29 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 ## At A Glance
 
-- Browser game is playable with selectable bot profiles.
-- New games can be started with either the standard or extended rules
-  (the latter adds the four Court property cards). Easy/Medium/Hard bots support
-  both; the Experimental TD bot is standard-only.
-- Hover actions and submenu options to highlight affected cards, resources, and
-  destinations with a shared glow. Open submenus keep shared targets highlighted,
-  and placement ghosts distinguish incomplete deeds from completed properties.
-  Category headings and End turn do not trigger previews.
-- Games autosave locally at the beginning of each human action or income-choice
-  window. Returning restores a settled board and waits for your input; moves
-  after that checkpoint may need to be replayed. New Game replaces the save.
-  Saves stay in the same browser/site and do not provide offline app loading.
-- TypeScript engine is the canonical rules implementation.
-- Python training and evaluation call the engine through the Node bridge.
-- Training progression is bootstrap or recalibration with `scripts.run_td_loop`, then self-play-focused iteration with `scripts.run_td_loop_selfplay`.
-- TD promoted checkpoints use `models/td_checkpoints/manifest.json` as the checked-in warm-start and opponent-pool registry.
-- Self-play training uses checkpoint selection, generator gating, and small replay windows.
-- TD value training defaults to sequence-aware `td-lambda` targets (`--train-value-target-mode td-lambda`).
+- Browser game is playable with selectable bot profiles: Easy, Medium, and Hard
+  (rollout search with heuristic v2), plus an Experimental trained TD bot that
+  supports the standard ruleset only.
+- New games support the standard ruleset or the extended ruleset, which adds the
+  four Court property cards.
+- Action and submenu hovers preview affected cards, resources, and destinations;
+  placement ghosts distinguish incomplete deeds from completed properties.
+- Games autosave locally at human decision windows and restore to a settled
+  board; New Game replaces the save. Saves do not provide offline app loading.
+- TypeScript engine is the canonical rules implementation; Python training and
+  evaluation call it through the Node bridge.
+- Training progression is bootstrap or recalibration with
+  `scripts.run_td_loop`, then self-play iteration with
+  `scripts.run_td_loop_selfplay`.
+- Promoted checkpoints are registered in
+  `models/td_checkpoints/manifest.json`. Self-play uses checkpoint selection,
+  generator gating, and replay windows, with `td-lambda` value targets by
+  default.
 
 ## Quickstart
 
 1. Install [fnm](https://github.com/Schniz/fnm) and enable its shell integration.
-2. From the repo root, run `fnm install` and `fnm use`. The checked-in `.nvmrc` selects Node `22.23.1`.
+2. From the repo root, run `fnm install` and `fnm use`; `.nvmrc` pins Node `22.23.1`.
 3. Run `corepack enable` and `corepack install` to activate the `package.json` Yarn `4.15.0` pin.
 4. `yarn install`
 5. `yarn dev`
@@ -44,9 +44,8 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context a
 - Format: `yarn format`
 - TypeScript browser-bot head-to-head eval: `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
 - TypeScript rollout-search sweep: `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
-- TypeScript rollout-search TD replay export: `yarn bot:eval collect-td-replay --config configs/bot-eval/collect-td-replay.rollout-search.example.json`
+- Sharded TD replay export: `yarn bot:eval collect-td-replay-sharded --config configs/bot-eval/collect-td-replay.v2-hard.json --workers 8 --shard-games 1`
 - Strategic-position characterization: `yarn bot:eval strategic-positions --repetitions 1`
-- Override timed heartbeat cadence for supported bot-eval commands: append `--progress-interval-seconds 10` (`0` disables heartbeats); strategic-position characterization reports per decision instead.
 - Replay one recorded TypeScript bot game: `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`

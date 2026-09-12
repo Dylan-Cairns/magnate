@@ -1,6 +1,7 @@
 # TypeScript Browser-Bot Evaluation Runbook
 
-`src/botEval/` runs browser `ActionPolicy` implementations directly against the canonical TypeScript engine.
+`src/botEval/` runs browser `ActionPolicy` implementations directly against the
+canonical TypeScript engine.
 
 ## Commands
 
@@ -18,135 +19,72 @@
   `yarn bot:eval strategic-forced-rollouts --repetitions 0 --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
-- Override heartbeat cadence for head-to-head, sweep, replay, and replay-export
+- Heartbeat override for head-to-head, sweep, replay, and replay-export
   commands: append `--progress-interval-seconds 10` (`0` disables timed
-  heartbeats). Strategic-position characterization reports after each decision
-  and does not use this flag.
+  heartbeats). Strategic-position characterization reports per decision and does
+  not use this flag.
 
 ## Head-To-Head Artifacts
 
-Head-to-head evals use paired seeds, swapped policy seats, alternating first-player seats, Wilson confidence intervals, latency summaries, JSON artifacts, Markdown summaries, and exact stable-action-key replay checks.
+Head-to-head evals use paired seeds, swapped policy seats, alternating
+first-player seats, Wilson confidence intervals, latency summaries, JSON
+artifacts, Markdown summaries, and exact stable-action-key replay checks.
 
 Typical outputs:
 
 - `artifacts/ts-bot-evals/<run>/matchup.json`
 - `artifacts/ts-bot-evals/<run>/summary.md`
 
-Config inputs can reference catalog presets with `{ "profileId": "rollout-search-v2-medium" }` or define serializable bot specs directly.
+Config inputs can reference catalog presets with
+`{ "profileId": "rollout-search-v2-medium" }` or define serializable bot specs
+directly.
 
 ## Strategic Position Characterization
 
-`yarn bot:eval strategic-positions [--repetitions <count>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] [--model-index-path <path> --pack-id <id>] [--out-dir <path>]`
-by default runs the typed strategic position catalog against direct heuristic
-v2, V2 Hard, and the current TD V2 Medium profile. All variants receive the same
-explicit random seed for each position/repetition. The command records choices
-and root diagnostics; it does not treat current-bot agreement with the catalog's
-reviewed pairwise preference as a test pass condition. A choice outside the
-declared pair is reported as unassessed rather than as a mismatch. The JSON also
-records the information-safe state summary and a canonical fingerprint of each
-full catalog-case payload, including descriptive metadata. Compare the recorded
-state, legal actions, and action consequences when checking executable equality
-across artifacts; metadata-only wording changes also change the fingerprint.
+`yarn bot:eval strategic-positions [--repetitions <count>] [--start-repetition <nonnegative-integer>] [--positions <ids>] [--variants <ids>] [--model-index-path <path> --pack-id <id>] [--out-dir <path>]`
+runs the typed catalog against direct heuristic v2, V2 Hard, and the current TD
+V2 Medium profile by default. It records choices, root diagnostics, the
+information-safe state summary, and a canonical fingerprint of each full
+catalog-case payload. Actions outside a preference's declared pair are reported
+as unassessed, not as mismatches; the reviewed preferences are not test
+assertions.
 
-One repetition is useful as a smoke check; eight is the initial fixed-position
-stability screen. Repetitions reveal seed sensitivity in stochastic policies,
-not independent strategic evidence. Direct heuristic v2 is deterministic in
-these cases, so repeating it only confirms repeatability.
+One repetition is a smoke check, eight is the initial stability screen.
+Repetitions reveal seed sensitivity, not independent strategic evidence. The
+default selection includes all three variants; `--variants` also accepts the
+opt-in `td-root-search-v2-800-visits` diagnostic, which clones current TD V2
+Medium and changes only sampled worlds from 10 to 50. Any TD-guided variant
+requires a valid model pack under `public/model-packs/`. For a frozen
+experimental pack, pass both `--model-index-path` and `--pack-id`; those apply
+only to TD variants and are also accepted by `strategic-forced-rollouts`.
+`--start-repetition` changes the deterministic seed index for targeted
+extensions; it does not resume or merge a prior run, so use a separate output
+directory.
 
-The default selection includes all three variants. `--variants` can select any
-unique comma-separated subset of the three defaults and this opt-in diagnostic:
-
-- `td-root-search-v2-800-visits`.
-
-A valid default model pack under `public/model-packs/` is required when any
-selected variant is TD-guided. The 800-visit variant clones current TD V2 Medium
-and changes only sampled worlds from 10 to 50 while retaining depth 40 and the
-same default model-pack selection. It matches V2 Hard's root-visit count, not
-its deeper search or total computation, and does not join the default variant
-set.
-For a frozen experimental TD pack, pass both `--model-index-path` and
-`--pack-id`. The selector is applied only to TD variants; heuristic variants
-remain unchanged. The same pair is accepted by `strategic-forced-rollouts`.
-This avoids changing the deployed default while comparing candidate packs.
-`--positions` likewise accepts unique catalog position IDs, and unknown or
-duplicate IDs fail fast. `--start-repetition` changes the
-deterministic repetition/seed index for a targeted extension. It does not resume
-or merge an earlier run, so use a separate output directory and combine results
-externally if needed. For example:
-
-```powershell
-yarn bot:eval strategic-positions `
-  --positions known-hand-optionality-original,known-hand-optionality-mirror `
-  --variants td-root-search-v2-800-visits `
-  --start-repetition 7 `
-  --repetitions 1 `
-  --out-dir artifacts/ts-bot-evals/optionality-td-seed-7
-```
-
-The Markdown summary begins with per-position/variant selection histograms,
-modal counts, and preferred/alternative/unassessed results. It then reports
-within-position focus-score/value gaps with visits and expansion coverage,
-matched counterfactual selection transitions, raw decisions, and focus-action
-signals. Search means come from adaptive, potentially unequal visits; treat
-their gaps as diagnostics within one position and variant, not fixed-budget
-paired estimates. Policies run in-process in Node without browser or Web Worker
-wrappers, so reported latency is diagnostic for that execution mode.
-
-Typical outputs:
-
-- `artifacts/ts-bot-evals/<run>/positions.json`
-- `artifacts/ts-bot-evals/<run>/summary.md`
-
-See [the summary-v0/catalog-v1 design](../design/strategic-state-summary-v0.md)
-for the factual summary contract, catalog scope, and interpretation rules.
+Typical outputs: `positions.json` and `summary.md` under
+`artifacts/ts-bot-evals/<run>/`. See
+[the summary/catalog design](../design/strategic-state-summary-v0.md) for the
+factual contract and interpretation rules.
 
 ## Strategic Forced-Rollout Tracing
 
-`yarn bot:eval strategic-forced-rollouts [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] [--out-dir <path>]`
-is the continuation-level diagnostic for the mirrored optionality cases. It
-does not let root search choose or allocate visits. For every requested
-position, repetition, and action-local scenario index, it samples one hidden
-world and forces both `preserve-option` and `overwrite-option` through that
-same world, simulated engine seed, and rollout seed. Each forced root is then
-played to terminal once by TD rollout guidance and once by heuristic v2.
+`yarn bot:eval strategic-forced-rollouts [--positions <ids>] [--repetitions <id-list>] [--scenarios <id-list>] [--out-dir <path>]`
+is the continuation-level diagnostic for the mirrored optionality cases. For
+every requested position, repetition, and action-local scenario index, it
+samples one hidden world and forces both `preserve-option` and
+`overwrite-option` through that same world, engine seed, and rollout seed, then
+plays each forced root to terminal once under TD rollout guidance and once under
+heuristic v2. It bypasses root search and UCB allocation entirely and records
+both guides' proposals at every encountered state without consuming the live
+RNG. It fails if a trace reaches the depth limit.
 
-The trace also records both guides' proposed action at every encountered
-non-root state without consuming the live rollout RNG. This makes it possible
-to distinguish an unavailable continuation card from a legal play the guide
-declined, and to locate an earlier resource or lane choice that removed the
-continuation. Current catalog targets are Author, Penitent, Origin, and Market.
-The command uses the 800-visit diagnostic's rollout settings
-(`worlds=50`, depth 40, epsilon 0, heuristic v2) and current default TD model
-pack. It fails if a trace reaches the depth limit, because a non-terminal leaf
-would make the claimed terminal comparison invalid.
+`--repetitions` and `--scenarios` are explicit ID lists. `--scenarios` defaults
+to `0`-`49`, one complete cycle of the 50 sampled hidden worlds. Omitting
+`--positions` selects all positions carrying optionality-trace metadata.
 
-`--repetitions` is an explicit ID list, not a count. `--scenarios` likewise
-selects action-local scenario indices and defaults to `0` through `49`, one
-complete cycle of the 50 sampled hidden worlds. Omitting `--positions` selects
-all catalog positions carrying optionality-trace metadata: both original mirror
-pairs and both independent holdout mirror pairs. Example diagnostic runs:
-
-```powershell
-yarn bot:eval strategic-forced-rollouts `
-  --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror `
-  --repetitions 0,1 `
-  --out-dir artifacts/ts-bot-evals/known-optionality-holdout-forced
-
-yarn bot:eval strategic-forced-rollouts `
-  --positions unknown-pool-optionality-holdout-original,unknown-pool-optionality-holdout-mirror `
-  --repetitions 0,1 `
-  --out-dir artifacts/ts-bot-evals/unknown-optionality-holdout-forced
-```
-
-Typical outputs:
-
-- `artifacts/ts-bot-evals/<run>/traces.json`
-- `artifacts/ts-bot-evals/<run>/summary.md`
-
-The JSON deliberately contains compact action-by-action traces and can be
-large. The Markdown summary aggregates terminal scores, wins, continuation
-outcomes, and strategically relevant TD-versus-heuristic proposal differences.
-These are controlled fixture diagnostics, not full-game strength estimates.
+Typical outputs: `traces.json` and `summary.md` under
+`artifacts/ts-bot-evals/<run>/`. These are controlled fixture diagnostics, not
+full-game strength estimates.
 
 ## TD District-Symmetry Audit
 
@@ -160,40 +98,46 @@ yarn bot:eval td-symmetry `
   --out-dir artifacts/ts-bot-evals/<run>
 ```
 
-Provide exactly one of `--replay-dir` or `--replay-list`. A path list is the
-preferred form for a frozen holdout because it prevents training shards in the
-same source directory from entering the audit. Sampling is deterministic over
-the sorted explicit file set. The audit applies all 24 D1/D2/D4/D5
-permutations with D3 fixed and reports action-probability and value drift; it
-does not measure playing strength.
+Provide exactly one of `--replay-dir` or `--replay-list`. A path list is
+preferred for a frozen holdout because it prevents training shards in the same
+source directory from entering the audit. Sampling is deterministic over the
+sorted explicit file set. The audit applies all 24 D1/D2/D4/D5 permutations with
+D3 fixed and reports action-probability and value drift; it does not measure
+playing strength.
 
 ## TD Replay Export
 
-`yarn bot:eval collect-td-replay --config <path> [--out-dir <path>]` runs full self-play games through Node-compatible policies and writes value, opponent, and summary artifacts under `artifacts/td_replay` by default.
+`yarn bot:eval collect-td-replay --config <path> [--out-dir <path>]` runs full
+self-play games through Node-compatible policies and writes value, opponent, and
+summary artifacts under `artifacts/td_replay` by default.
 
-`yarn bot:eval collect-td-replay-sharded --config <path> --workers <count> [--shard-games <count>] [--out-dir <path>]` splits the same config into contiguous game-index ranges and runs those ranges in child Node processes. By default it creates one shard per worker, capped by game count. `--shard-games` instead creates queued shard jobs of at most that many games, which is useful when individual games have uneven runtime and you want a fixed worker pool to keep picking up small jobs. Each shard writes independent `shard-NNN.value.jsonl`, `shard-NNN.opponent.jsonl`, and `shard-NNN.summary.json` files under `artifacts/td_replay/<run>/shards/`; the parent writes `artifacts/td_replay/<run>/summary.json`.
+`yarn bot:eval collect-td-replay-sharded --config <path> --workers <count> [--shard-games <count>] [--out-dir <path>]`
+splits the same config into contiguous game-index ranges run in child Node
+processes. By default it creates one shard per worker, capped by game count.
+`--shard-games` instead creates queued shard jobs of at most that many games for
+more balanced runtime. Each shard writes `shard-NNN.value.jsonl`,
+`shard-NNN.opponent.jsonl`, and `shard-NNN.summary.json` under
+`artifacts/td_replay/<run>/shards/`; the parent writes `summary.json`.
 
-Replay rows use TypeScript `trainingEncoding`, include `episodeId` plus contiguous per-player `timestep` for `td-lambda`, order opponent action candidates by canonical stable action key, and are readable by `scripts.train_td`.
-
-When passing multiple exported value replay files into one td-lambda train run, keep each export's `seedPrefix` globally unique because the sequence key is `(episodeId, playerId, timestep)`. Shards from one sharded export already use one global seed sequence and can be passed together directly.
-
-Example sharded training input:
-
-```powershell
-.\.venv\Scripts\python -m scripts.train_td `
-  --value-replay artifacts/td_replay/<run>/shards/*.value.jsonl `
-  --opponent-replay artifacts/td_replay/<run>/shards/*.opponent.jsonl `
-  --steps 2000 `
-  --run-label td-v2-teacher
-```
+Replay rows use TypeScript `trainingEncoding`, include `episodeId` plus
+contiguous per-player `timestep` for `td-lambda`, order opponent action
+candidates by canonical stable action key, and are readable by
+`scripts.train_td`. When passing multiple exported value replay files into one
+td-lambda run, keep each export's `seedPrefix` globally unique because the
+sequence key is `(episodeId, playerId, timestep)`. Shards from one sharded
+export share one global seed sequence and can be passed together directly.
 
 ## Sweeps And Workers
 
-`yarn bot:eval rollout-search-sweep --config <path> [--workers <count>]` runs explicit rollout `search` candidates sequentially against one fixed opponent with one shared paired-seed prefix.
+`yarn bot:eval rollout-search-sweep --config <path> [--workers <count>]` runs
+explicit rollout `search` candidates sequentially against one fixed opponent
+with one shared paired-seed prefix.
 
-Worker counts above `1` record latency as loaded latency, so those timings are throughput diagnostics rather than isolated browser latency measurements. Use `--workers 1` for browser-relevant latency.
-
-Sweep aggregate artifacts are written with `status=running` before compute starts and atomically refreshed after each completed candidate. Automatic sweep resume is not implemented; follow-up runs must be constructed explicitly.
+Worker counts above `1` record latency as loaded latency, so those timings are
+throughput diagnostics rather than isolated browser latency measurements. Use
+`--workers 1` for browser-relevant latency. Sweep aggregates are written with
+`status=running` before compute starts and refreshed after each completed
+candidate; automatic sweep resume is not implemented.
 
 ## Model-Pack Runtime
 
