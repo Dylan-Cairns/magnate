@@ -7,6 +7,7 @@ canonical TypeScript engine.
 
 - Head-to-head eval:
   `yarn bot:eval head-to-head --config configs/bot-eval/head-to-head.example.json`
+  (append `--resume <checkpoint-path>` to continue an interrupted run)
 - Rollout-search sweep:
   `yarn bot:eval rollout-search-sweep --config configs/bot-eval/rollout-search-width-sweep.example.json`
 - Rollout-search TD replay export:
@@ -21,6 +22,8 @@ canonical TypeScript engine.
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Court value benchmark report:
   `yarn bot:eval court-value-report --artifact artifacts/ts-bot-evals/<run>/matchup.json [--out-dir <path>]`
+- Court decision calibration:
+  `yarn bot:eval court-decision-eval (--artifact <matchup.json> | --checkpoint <checkpoint.json>) [--worlds <positive-integer>] [--max-positions <positive-integer>] [--continuation-scale <nonnegative-number>] [--out-dir <path>]`
 - Heartbeat override for head-to-head, sweep, replay, and replay-export
   commands: append `--progress-interval-seconds 10` (`0` disables timed
   heartbeats). Strategic-position characterization reports per decision and does
@@ -37,9 +40,32 @@ Typical outputs:
 - `artifacts/ts-bot-evals/<run>/matchup.json`
 - `artifacts/ts-bot-evals/<run>/summary.md`
 
+Long matchups also checkpoint every completed pair to
+`<out-dir>/checkpoint.json` with an atomic replace. If a run is interrupted,
+rerun the same config and out-dir with
+`--resume artifacts/ts-bot-evals/<run>/checkpoint.json`; completed pairs are
+never replayed and accumulated elapsed time carries into the final summary. The
+checkpoint config must match the requested config exactly, and the checkpoint
+file is removed once the final artifacts are written.
+
 Config inputs can reference catalog presets with
 `{ "profileId": "rollout-search-v2-medium" }` or define serializable bot specs
 directly.
+
+## Court Decision Calibration
+
+`court-decision-eval` replays an extended artifact or an interrupted run's
+checkpoint, finds decisions where a term-owned Court action (buy-deed or
+develop-deed on a Court) was legal, and compares the term's top Court action
+against the best non-Court action under matched hidden worlds and matched engine
+seeds. Both arms play to terminal with
+the heuristic v2 continuation (`--continuation-scale`, default 1); positive
+delta means the Court action reached a higher district-point margin for the
+acting player. Positions where the term recommends a Court action and positions
+where it rejects one are reported separately, with swing, feasibility, phase,
+and action-type buckets, plus recommendation-by-feasibility cross-tabs. This is
+a decision-level calibration instrument and a cheap pre-screen; it does not
+replace the head-to-head behavioral gates.
 
 ## Strategic Position Characterization
 

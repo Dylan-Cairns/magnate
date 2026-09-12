@@ -8,17 +8,17 @@ import {
 } from './config';
 
 describe('head-to-head config parsing', () => {
-  it('parses the checked-in court-valuation benchmark configs', async () => {
+  it('parses the checked-in court-valuation configs', async () => {
     const directory = 'configs/bot-eval/court-valuation';
     for (const file of [
-      'extended-hard-ab.json',
-      'extended-hard-extension.json',
-      'standard-hard-smoke.json',
+      'extended-hard-screen.json',
+      'extended-medium-ab.json',
     ]) {
       const payload: unknown = JSON.parse(
         await readFile(`${directory}/${file}`, 'utf8')
       );
       const config = parseHeadToHeadConfig(payload);
+      expect(config.ruleset).toBe('extended');
       expect(
         config.candidate.kind === 'search' &&
           config.candidate.config.courtValueScale
@@ -29,12 +29,31 @@ describe('head-to-head config parsing', () => {
       ).toBe(0);
     }
 
-    const extensionPayload: unknown = JSON.parse(
-      await readFile(`${directory}/extended-hard-extension.json`, 'utf8')
+    const hardPayload: unknown = JSON.parse(
+      await readFile(`${directory}/extended-hard-screen.json`, 'utf8')
     );
-    const extension = parseHeadToHeadConfig(extensionPayload);
-    expect(extension.seedPrefix).toBe('court-valuation-extended-hard-ab-v1');
-    expect(extension.gamesPerSide).toBe(60);
+    const hard = parseHeadToHeadConfig(hardPayload);
+    expect(hard.seedPrefix).toBe('court-valuation-extended-hard-screen-v1');
+    expect(hard.gamesPerSide).toBe(10);
+    expect(
+      hard.candidate.kind === 'search' && hard.candidate.config.worlds
+    ).toBe(25);
+    expect(hard.candidate.kind === 'search' && hard.candidate.config.depth).toBe(
+      270
+    );
+
+    const mediumPayload: unknown = JSON.parse(
+      await readFile(`${directory}/extended-medium-ab.json`, 'utf8')
+    );
+    const medium = parseHeadToHeadConfig(mediumPayload);
+    expect(medium.seedPrefix).toBe('court-valuation-extended-medium-ab-v1');
+    expect(medium.gamesPerSide).toBe(30);
+    expect(
+      medium.candidate.kind === 'search' && medium.candidate.config.worlds
+    ).toBe(10);
+    expect(
+      medium.candidate.kind === 'search' && medium.candidate.config.depth
+    ).toBe(40);
   });
 
   it('resolves catalog profile references and arbitrary specs', () => {

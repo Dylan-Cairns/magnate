@@ -169,8 +169,8 @@ Design expectations:
 - Contract tests protect the TS/Python boundary; `trainer_tests/` covers the
   bridge client, encoding, eval scaffolding, and search policies.
 - TypeScript bot evaluation has focused tests for serializable specs, full-game
-  deterministic transcripts, paired seat-swapped scheduling, artifacts, and
-  exact replay divergence reporting.
+  deterministic transcripts, paired seat-swapped scheduling, artifacts, exact
+  replay divergence reporting, and checkpointed head-to-head resume.
 - Promotion evals use paired seeds with swapped seats, Wilson confidence
   intervals, and explicit side-gap reporting.
 

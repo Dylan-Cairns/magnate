@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "runLabel": "court-valuation-extended-hard-ab-v1",
-  "seedPrefix": "court-valuation-extended-hard-ab-v1",
+  "runLabel": "court-valuation-extended-medium-ab-v1",
+  "seedPrefix": "court-valuation-extended-medium-ab-v1",
   "gamesPerSide": 30,
   "candidate": {
     "id": "v2-court-scale-100",
     "kind": "search",
     "config": {
-      "worlds": 50,
+      "worlds": 10,
       "rollouts": 1,
-      "depth": 270,
+      "depth": 40,
       "maxRootActions": 16,
       "rolloutEpsilon": 0,
       "heuristic": "v2",
@@ -20,9 +20,9 @@
     "id": "v2-court-scale-000",
     "kind": "search",
     "config": {
-      "worlds": 50,
+      "worlds": 10,
       "rollouts": 1,
-      "depth": 270,
+      "depth": 40,
       "maxRootActions": 16,
       "rolloutEpsilon": 0,
       "heuristic": "v2",

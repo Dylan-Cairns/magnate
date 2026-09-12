@@ -14,22 +14,43 @@ import type {
   ResourcePool,
   Suit,
 } from '../engine/types';
+import {
+  courtPotentialValueForPlayerV2,
+  isCourtCard,
+} from './courtPotentialV2';
+import {
+  createHeuristicV2PositionContext,
+  type HeuristicV2PositionContext,
+} from './heuristicV2PositionContext';
+import { DEFAULT_COURT_VALUE_SCALE } from './searchConfig';
 import { resourceBankValueV2 } from './tokenValueV2';
 
 const LATE_GAME_DRAW_COUNT = 6;
 const TERMINAL_OUTCOME_BASE_VALUE = 0.72;
 const TERMINAL_MARGIN_VALUE = 1 - TERMINAL_OUTCOME_BASE_VALUE;
 
+export interface SearchLeafEvaluationOptions {
+  courtValueScale?: number;
+}
+
 export function evaluateSearchLeafState(
   state: GameState,
-  rootPlayer: PlayerId
+  rootPlayer: PlayerId,
+  options: SearchLeafEvaluationOptions = {}
 ): number {
   const opponent = otherPlayerId(rootPlayer);
   const lateGame = isLateGame(state);
+  const courtValueScale =
+    options.courtValueScale ?? DEFAULT_COURT_VALUE_SCALE;
 
   const districtTerm = districtControlTerm(state, rootPlayer, opponent);
   const rankTerm = developedRankTerm(state, rootPlayer, opponent);
-  const deedTerm = deedPotentialTerm(state, rootPlayer, opponent);
+  const deedTerm = deedPotentialTerm(
+    state,
+    rootPlayer,
+    opponent,
+    courtValueScale
+  );
   const resourceTerm = resourceQualityTerm(state, rootPlayer, opponent);
 
   const score = lateGame
@@ -113,20 +134,32 @@ function developedRankTerm(
 function deedPotentialTerm(
   state: GameState,
   rootPlayer: PlayerId,
-  opponent: PlayerId
+  opponent: PlayerId,
+  courtValueScale: number
 ): number {
   const root = requiredPlayerState(state, rootPlayer);
   const opponentState = requiredPlayerState(state, opponent);
+  const courtContexts = new Map<PlayerId, HeuristicV2PositionContext>();
   let diff = 0;
   for (const district of state.districts) {
     diff +=
-      deedPotentialForPlayer(state, district, rootPlayer, opponent, root) -
+      deedPotentialForPlayer(
+        state,
+        district,
+        rootPlayer,
+        opponent,
+        root,
+        courtContexts,
+        courtValueScale
+      ) -
       deedPotentialForPlayer(
         state,
         district,
         opponent,
         rootPlayer,
-        opponentState
+        opponentState,
+        courtContexts,
+        courtValueScale
       );
   }
   return clamp(diff / Math.max(1, state.districts.length), -1, 1);
@@ -137,7 +170,9 @@ function deedPotentialForPlayer(
   district: DistrictState,
   playerId: PlayerId,
   opponentId: PlayerId,
-  player: PlayerState
+  player: PlayerState,
+  courtContexts: Map<PlayerId, HeuristicV2PositionContext>,
+  courtValueScale: number
 ): number {
   const stack = district.stacks[playerId];
   const deed = stack.deed;
@@ -148,6 +183,19 @@ function deedPotentialForPlayer(
   const card = findDevelopableCard(deed.cardId);
   if (!card) {
     return 0;
+  }
+
+  if (isCourtCard(card) && courtValueScale > 0) {
+    const courtValue = courtPotentialValueForPlayerV2(
+      state,
+      playerId,
+      district,
+      courtContextFor(courtContexts, state, playerId),
+      courtValueScale
+    );
+    if (courtValue !== undefined) {
+      return courtValue;
+    }
   }
 
   const target = developmentCost(card);
@@ -172,7 +220,8 @@ function deedPotentialForPlayer(
   const currentMargin = ownCurrentScore - opponentScore;
   const completedMargin = ownCompletedScore - opponentScore;
   const controlImpact = deedControlImpact(currentMargin, completedMargin);
-  // Courts rank 10 and are capped at the same [0, 1] scale as rank-9 cards.
+  // Legacy curve for Courts at courtValueScale = 0; Courts rank 10 and are
+  // capped at the same [0, 1] scale as rank-9 cards.
   const rankImpact = Math.min(1, card.rank / 9);
 
   return (
@@ -180,6 +229,19 @@ function deedPotentialForPlayer(
     accessMultiplier *
     (0.78 * controlImpact + 0.22 * rankImpact)
   );
+}
+
+function courtContextFor(
+  contexts: Map<PlayerId, HeuristicV2PositionContext>,
+  state: GameState,
+  playerId: PlayerId
+): HeuristicV2PositionContext {
+  let context = contexts.get(playerId);
+  if (!context) {
+    context = createHeuristicV2PositionContext(state, playerId);
+    contexts.set(playerId, context);
+  }
+  return context;
 }
 
 function deedProgressWeight(progressRatio: number, remaining: number): number {

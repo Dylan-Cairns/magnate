@@ -68,6 +68,38 @@ export function isCourtCard(
   return card?.kind === 'Court';
 }
 
+/**
+ * State-based value of an incomplete Court for the leaf evaluator: the same
+ * feasibility-discounted completion swing the action term uses, without any
+ * action spend. Returns undefined for non-Court, complete, or standard states.
+ */
+export function courtPotentialValueForPlayerV2(
+  state: GameState,
+  playerId: PlayerId,
+  district: DistrictState,
+  positionContext: HeuristicV2PositionContext,
+  courtValueScale: number
+): number | undefined {
+  if (state.ruleset !== 'extended') {
+    return undefined;
+  }
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  if (!player) {
+    return undefined;
+  }
+  const valuation = courtDeedValuation(
+    district,
+    district.stacks[playerId],
+    player.resources,
+    playerId,
+    positionContext
+  );
+  if (!valuation) {
+    return undefined;
+  }
+  return valuation.value * courtValueScale;
+}
+
 export function courtActionBreakdown(
   action: GameAction,
   state: GameState,

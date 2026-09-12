@@ -6,10 +6,13 @@ import type {
 } from '../engine/types';
 import type { BotSpec, SearchBotSpec } from '../policies/botSpec';
 import type { SearchDecisionDiagnostics } from '../policies/types';
+import type { PairedSeedResult } from './pair';
 
 export const HEAD_TO_HEAD_CONFIG_SCHEMA_VERSION = 1;
 export const HEAD_TO_HEAD_ARTIFACT_SCHEMA_VERSION = 3;
 export const HEAD_TO_HEAD_ARTIFACT_TYPE = 'ts-bot-head-to-head';
+export const HEAD_TO_HEAD_CHECKPOINT_SCHEMA_VERSION = 1;
+export const HEAD_TO_HEAD_CHECKPOINT_TYPE = 'ts-bot-head-to-head-checkpoint';
 export const ROLLOUT_SEARCH_SWEEP_CONFIG_SCHEMA_VERSION = 1;
 export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_SCHEMA_VERSION = 2;
 export const ROLLOUT_SEARCH_SWEEP_ARTIFACT_TYPE = 'ts-rollout-search-sweep';
@@ -204,6 +207,14 @@ export interface HeadToHeadRun {
   execution: EvaluationExecution;
   summary: HeadToHeadSummary;
   games: PlayedGame[];
+}
+
+export interface HeadToHeadCheckpoint {
+  schemaVersion: typeof HEAD_TO_HEAD_CHECKPOINT_SCHEMA_VERSION;
+  artifactType: typeof HEAD_TO_HEAD_CHECKPOINT_TYPE;
+  config: HeadToHeadConfig;
+  elapsedMs: number;
+  results: PairedSeedResult[];
 }
 
 export interface RolloutSearchSweepRun {

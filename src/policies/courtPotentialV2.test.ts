@@ -12,6 +12,7 @@ import type {
 } from '../engine/types';
 import {
   courtActionBreakdown,
+  courtPotentialValueForPlayerV2,
   isCourtCard,
 } from './courtPotentialV2';
 import { createHeuristicV2PositionContext } from './heuristicV2PositionContext';
@@ -365,6 +366,121 @@ describe('court valuation v2', () => {
     expect(isCourtCard(undefined)).toBe(false);
     expect(isCourtCard(findDevelopableCard('29'))).toBe(false);
     expect(isCourtCard(findDevelopableCard(COURT_ID))).toBe(true);
+  });
+
+  it('values incomplete courts from state for the leaf evaluator', () => {
+    const state = courtState({
+      resources: fixtureResources({ Moons: 4, Waves: 4, Knots: 4 }),
+      districts: [
+        district({
+          id: 'D0',
+          playerADeed: { cardId: COURT_ID, progress: 0, tokens: {} },
+        }),
+        district({ id: 'D1', playerBDeveloped: ['29'] }),
+        district({ id: 'D2' }),
+        district({ id: 'D3' }),
+        district({ id: 'D4' }),
+      ],
+    });
+    const context = createHeuristicV2PositionContext(state, 'PlayerA');
+    const courtDistrict = state.districts[0];
+
+    const value = courtPotentialValueForPlayerV2(
+      state,
+      'PlayerA',
+      courtDistrict,
+      context,
+      1
+    );
+    expect(value).toBeGreaterThan(0);
+    expect(
+      courtPotentialValueForPlayerV2(
+        state,
+        'PlayerA',
+        courtDistrict,
+        context,
+        2
+      )
+    ).toBeCloseTo((value ?? 0) * 2, 10);
+
+    const standardState = { ...state, ruleset: 'standard' as const };
+    expect(
+      courtPotentialValueForPlayerV2(
+        standardState,
+        'PlayerA',
+        standardState.districts[0],
+        createHeuristicV2PositionContext(standardState, 'PlayerA'),
+        1
+      )
+    ).toBeUndefined();
+    expect(
+      courtPotentialValueForPlayerV2(
+        state,
+        'PlayerA',
+        state.districts[2],
+        context,
+        1
+      )
+    ).toBeUndefined();
+    expect(
+      courtPotentialValueForPlayerV2(state, 'PlayerB', courtDistrict, context, 1)
+    ).toBeUndefined();
+  });
+
+  it('raises the state value as court progress improves feasibility', () => {
+    const base = courtState({
+      resources: fixtureResources({ Moons: 1, Waves: 1, Knots: 1 }),
+      districts: [
+        district({
+          id: 'D0',
+          playerADeed: { cardId: COURT_ID, progress: 0, tokens: {} },
+        }),
+        district({ id: 'D1' }),
+        district({ id: 'D2' }),
+        district({ id: 'D3' }),
+        district({ id: 'D4' }),
+      ],
+    });
+    const progressed: GameState = {
+      ...base,
+      districts: base.districts.map((entry) => {
+        if (entry.id !== 'D0') {
+          return entry;
+        }
+        const deed = entry.stacks.PlayerA.deed;
+        if (!deed) {
+          return entry;
+        }
+        return {
+          ...entry,
+          stacks: {
+            ...entry.stacks,
+            PlayerA: {
+              ...entry.stacks.PlayerA,
+              deed: { ...deed, progress: 6 },
+            },
+          },
+        };
+      }),
+    };
+
+    const early = courtPotentialValueForPlayerV2(
+      base,
+      'PlayerA',
+      base.districts[0],
+      createHeuristicV2PositionContext(base, 'PlayerA'),
+      1
+    );
+    const late = courtPotentialValueForPlayerV2(
+      progressed,
+      'PlayerA',
+      progressed.districts[0],
+      createHeuristicV2PositionContext(progressed, 'PlayerA'),
+      1
+    );
+
+    expect(early).toBeGreaterThan(0);
+    expect(late ?? 0).toBeGreaterThan(early ?? 0);
   });
 });
 

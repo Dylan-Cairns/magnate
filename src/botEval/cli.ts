@@ -11,9 +11,23 @@ import {
 } from './artifacts';
 import { writeAtomic } from './artifactUtils';
 import {
+  clearHeadToHeadCheckpoint,
+  createHeadToHeadCheckpoint,
+  headToHeadCheckpointPath,
+  headToHeadConfigsMatch,
+  loadHeadToHeadCheckpoint,
+  writeHeadToHeadCheckpoint,
+} from './checkpointArtifacts';
+import {
   buildCourtValueReport,
   renderCourtValueReportMarkdown,
 } from './courtValueReport';
+import {
+  buildCourtDecisionEvalReport,
+  courtDecisionEvalInputFromCheckpoint,
+  renderCourtDecisionEvalMarkdown,
+  type CourtDecisionEvalInput,
+} from './courtDecisionEval';
 import {
   parseHeadToHeadConfig,
   parseRolloutSearchSweepConfig,
@@ -41,7 +55,8 @@ import {
   defaultShardedTdReplayOutputDirectory,
   type TdReplayShardProgress,
 } from './tdReplayShards';
-import type { RolloutSearchSweepRun } from './types';
+import type { HeadToHeadConfig, RolloutSearchSweepRun } from './types';
+import type { PairedSeedResult } from './pair';
 import {
   createStrategicPositionArtifactV0,
   defaultStrategicPositionOutputDirectoryV0,
@@ -91,6 +106,9 @@ async function main(): Promise<void> {
     case 'court-value-report':
       await runCourtValueReportCommand(args);
       return;
+    case 'court-decision-eval':
+      await runCourtDecisionEvalCommand(args);
+      return;
     case 'rollout-search-sweep':
       await runRolloutSearchSweepCommand(args);
       return;
@@ -111,7 +129,7 @@ async function main(): Promise<void> {
       return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry (--replay-dir <path> | --replay-list <path>) [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | court-value-report --artifact <path> [--out-dir <path>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] [--resume <checkpoint-path>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry (--replay-dir <path> | --replay-list <path>) [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | court-value-report --artifact <path> [--out-dir <path>] | court-decision-eval (--artifact <path> | --checkpoint <path>) [--out-dir <path>] [--worlds <positive-integer>] [--max-positions <positive-integer>] [--continuation-scale <nonnegative-number>] [--seed <text>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -365,17 +383,45 @@ async function runHeadToHeadCommand(args: readonly string[]): Promise<void> {
     flags.get('--out-dir') ?? defaultHeadToHeadOutputDirectory(config.runLabel);
   const progressIntervalMs = parseProgressIntervalMs(flags);
   const workers = parseWorkers(flags);
+  const resumePath = flags.get('--resume');
+  const resume = resumePath
+    ? await loadHeadToHeadResumeState(resumePath, config)
+    : { results: [] as PairedSeedResult[], elapsedMs: 0 };
   const execution = resolveEvaluationExecution(workers, config.gamesPerSide);
+  const checkpointPath = headToHeadCheckpointPath(outputDirectory);
+  const checkpointResults: PairedSeedResult[] = [...resume.results];
   process.stderr.write(
-    `[matchup] started candidate=${config.candidate.id} opponent=${config.opponent.id} games=${String(config.gamesPerSide * 2)} workers=${String(execution.workers)} requestedWorkers=${String(execution.requestedWorkers)} latencyMode=${execution.latencyMode}\n`
+    `[matchup] started candidate=${config.candidate.id} opponent=${config.opponent.id} games=${String(config.gamesPerSide * 2)} workers=${String(execution.workers)} requestedWorkers=${String(execution.requestedWorkers)} latencyMode=${execution.latencyMode}${resumePath ? ` resumedPairs=${String(resume.results.length)}/${String(config.gamesPerSide)}` : ''}\n`
   );
   const run = await runHeadToHead(config, {
     workers,
     progressIntervalMs,
-    onProgress: logHeadToHeadProgress,
+    initialResults: resume.results,
+    initialElapsedMs: resume.elapsedMs,
+    onProgress(progress) {
+      logHeadToHeadProgress(progress);
+      if (progress.type !== 'pair-completed') {
+        return;
+      }
+      checkpointResults.push(progress.result);
+      try {
+        writeHeadToHeadCheckpoint(
+          createHeadToHeadCheckpoint(
+            config,
+            checkpointResults,
+            progress.elapsedMs
+          ),
+          checkpointPath
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stderr.write(`[matchup] checkpoint write failed: ${message}\n`);
+      }
+    },
   });
   const artifact = createHeadToHeadArtifact(run);
   const written = await writeHeadToHeadArtifacts(artifact, outputDirectory);
+  clearHeadToHeadCheckpoint(checkpointPath);
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -388,6 +434,25 @@ async function runHeadToHeadCommand(args: readonly string[]): Promise<void> {
       2
     )}\n`
   );
+}
+
+async function loadHeadToHeadResumeState(
+  resumePath: string,
+  config: HeadToHeadConfig
+): Promise<{ results: PairedSeedResult[]; elapsedMs: number }> {
+  const checkpoint = await loadHeadToHeadCheckpoint(resumePath);
+  if (!headToHeadConfigsMatch(checkpoint.config, config)) {
+    throw new Error(
+      `Head-to-head checkpoint config does not match the requested config; refusing to resume ${path.resolve(resumePath)}.`
+    );
+  }
+  process.stderr.write(
+    `[matchup] resume checkpoint=${path.resolve(resumePath)} pairs=${String(checkpoint.results.length)}/${String(config.gamesPerSide)} elapsed=${formatDuration(checkpoint.elapsedMs)}\n`
+  );
+  return {
+    results: checkpoint.results,
+    elapsedMs: checkpoint.elapsedMs,
+  };
 }
 
 async function runRolloutSearchSweepCommand(
@@ -561,6 +626,60 @@ async function runReplayCommand(args: readonly string[]): Promise<void> {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
+async function runCourtDecisionEvalCommand(
+  args: readonly string[]
+): Promise<void> {
+  const flags = parseFlags(args);
+  const artifactPath = flags.get('--artifact');
+  const checkpointPath = flags.get('--checkpoint');
+  let input: CourtDecisionEvalInput;
+  let sourceKind: 'artifact' | 'checkpoint';
+  let sourcePath: string;
+  if (artifactPath !== undefined && checkpointPath === undefined) {
+    input = await loadHeadToHeadArtifact(artifactPath);
+    sourceKind = 'artifact';
+    sourcePath = artifactPath;
+  } else if (checkpointPath !== undefined && artifactPath === undefined) {
+    const checkpoint = await loadHeadToHeadCheckpoint(checkpointPath);
+    input = courtDecisionEvalInputFromCheckpoint(checkpoint);
+    sourceKind = 'checkpoint';
+    sourcePath = checkpointPath;
+  } else {
+    throw new Error('Provide exactly one of --artifact or --checkpoint.');
+  }
+  const report = buildCourtDecisionEvalReport(input, {
+    sourceKind,
+    sourcePath: path.resolve(sourcePath),
+    worlds: parseOptionalPositiveInteger(flags, '--worlds'),
+    maxPositions: parseOptionalPositiveInteger(flags, '--max-positions'),
+    continuationScale: parseOptionalNonnegativeNumber(
+      flags,
+      '--continuation-scale'
+    ),
+    seed: flags.get('--seed'),
+    onProgress(evaluated, total) {
+      if (evaluated === total || evaluated % 25 === 0) {
+        process.stderr.write(
+          `[court-decision-eval] evaluated ${String(evaluated)}/${String(total)} positions\n`
+        );
+      }
+    },
+  });
+  const markdown = renderCourtDecisionEvalMarkdown(report);
+  const outputDirectory = flags.get('--out-dir');
+  if (outputDirectory) {
+    await mkdir(outputDirectory, { recursive: true });
+    const reportPath = path.join(outputDirectory, 'court-decision-eval.json');
+    const markdownPath = path.join(outputDirectory, 'court-decision-eval.md');
+    await writeAtomic(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    await writeAtomic(markdownPath, markdown);
+    process.stderr.write(
+      `[court-decision-eval] artifacts json=${path.resolve(reportPath)} markdown=${path.resolve(markdownPath)}\n`
+    );
+  }
+  process.stdout.write(markdown);
+}
+
 async function runCourtValueReportCommand(
   args: readonly string[]
 ): Promise<void> {
@@ -656,6 +775,21 @@ function parseOptionalNonnegativeInteger(
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
     throw new Error(`${name} must be a nonnegative integer.`);
+  }
+  return parsed;
+}
+
+function parseOptionalNonnegativeNumber(
+  flags: ReadonlyMap<string, string>,
+  name: string
+): number | undefined {
+  const value = flags.get(name);
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a finite number >= 0.`);
   }
   return parsed;
 }

@@ -17,6 +17,7 @@ import type {
   GameState,
   PlayerId,
   ResourcePool,
+  Ruleset,
 } from '../engine/types';
 import {
   evaluateSearchLeafState,
@@ -173,6 +174,61 @@ describe('search state evaluator', () => {
     );
   });
 
+  it('prices incomplete courts with the feasibility-discounted swing', () => {
+    const funded = courtEvalState({
+      resourcesA: makeResources({ Moons: 4, Waves: 4, Knots: 4 }),
+    });
+    const unfunded = courtEvalState({ resourcesA: makeResources() });
+
+    expect(
+      evaluateSearchLeafState(funded, PLAYER_A, { courtValueScale: 1 })
+    ).toBeGreaterThan(
+      evaluateSearchLeafState(funded, PLAYER_A, { courtValueScale: 0 })
+    );
+    expect(
+      evaluateSearchLeafState(unfunded, PLAYER_A, { courtValueScale: 1 })
+    ).toBeLessThan(
+      evaluateSearchLeafState(unfunded, PLAYER_A, { courtValueScale: 0 })
+    );
+  });
+
+  it('raises the leaf value as court feasibility improves', () => {
+    const low = courtEvalState({
+      resourcesA: makeResources({ Moons: 1, Waves: 1, Knots: 1 }),
+    });
+    const high = courtEvalState({
+      resourcesA: makeResources({ Moons: 6, Waves: 6, Knots: 6 }),
+    });
+
+    expect(
+      evaluateSearchLeafState(high, PLAYER_A, { courtValueScale: 1 })
+    ).toBeGreaterThan(
+      evaluateSearchLeafState(low, PLAYER_A, { courtValueScale: 1 })
+    );
+  });
+
+  it('leaves non-court deeds and standard states unchanged by the court scale', () => {
+    const nonCourt = makeEvalState({
+      districts: withDistrictStacks({
+        D1: { [PLAYER_A]: stack({ deed: { cardId: '29', progress: 4 } }) },
+      }),
+    });
+    const standardCourt = makeEvalState({
+      districts: withDistrictStacks({
+        D1: { [PLAYER_A]: stack({ deed: { cardId: '41', progress: 0 } }) },
+      }),
+    });
+
+    expect(
+      evaluateSearchLeafState(nonCourt, PLAYER_A, { courtValueScale: 1 })
+    ).toBe(evaluateSearchLeafState(nonCourt, PLAYER_A, { courtValueScale: 0 }));
+    expect(
+      evaluateSearchLeafState(standardCourt, PLAYER_A, { courtValueScale: 1 })
+    ).toBe(
+      evaluateSearchLeafState(standardCourt, PLAYER_A, { courtValueScale: 0 })
+    );
+  });
+
   it('keeps terminal wins above draws and losses', () => {
     const narrowWin = terminalState(
       makeEvalState({
@@ -271,6 +327,7 @@ function makeEvalState({
   handB = [],
   finalTurnsRemaining,
   deck,
+  ruleset,
 }: {
   districts?: DistrictState[];
   resourcesA?: ResourcePool;
@@ -279,11 +336,13 @@ function makeEvalState({
   handB?: string[];
   finalTurnsRemaining?: number;
   deck?: DeckState;
+  ruleset?: Ruleset;
 } = {}): GameState {
   return makeGameState({
     districts,
     deck,
     finalTurnsRemaining,
+    ruleset,
     players: [
       makePlayer(PLAYER_A, {
         crowns: [],
@@ -309,6 +368,23 @@ function withDistrictStacks(
       ...(overrides[district.id] ?? {}),
     },
   }));
+}
+
+function courtEvalState({
+  resourcesA,
+}: {
+  resourcesA: ResourcePool;
+}): GameState {
+  return makeEvalState({
+    ruleset: 'extended',
+    resourcesA,
+    districts: withDistrictStacks({
+      D1: {
+        [PLAYER_A]: stack({ deed: { cardId: '41', progress: 0 } }),
+        [PLAYER_B]: stack({ developed: ['10'] }),
+      },
+    }),
+  });
 }
 
 function stack({

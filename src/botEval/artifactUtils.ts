@@ -1,3 +1,4 @@
+import { renameSync, writeFileSync } from 'node:fs';
 import { rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -25,6 +26,17 @@ export async function writeAtomic(
   const tempPath = `${targetPath}.tmp`;
   await writeFile(tempPath, contents, 'utf8');
   await rename(tempPath, targetPath);
+}
+
+/**
+ * Synchronous atomic write for durability inside run loops that do not yield to
+ * the event loop, where pending async fs completions can be starved for the
+ * whole run.
+ */
+export function writeAtomicSync(targetPath: string, contents: string): void {
+  const tempPath = `${targetPath}.tmp`;
+  writeFileSync(tempPath, contents, 'utf8');
+  renameSync(tempPath, targetPath);
 }
 
 export function appendRootActionLatencyTable(

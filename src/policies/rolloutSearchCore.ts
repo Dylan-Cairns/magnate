@@ -522,7 +522,9 @@ function* runRolloutSearchTaskResumableGenerator(
     }
     score = leafResponse;
   } else {
-    score = evaluateSearchLeafState(state, task.rootPlayer);
+    score = evaluateSearchLeafState(state, task.rootPlayer, {
+      courtValueScale: task.config.courtValueScale,
+    });
   }
 
   return {
@@ -989,7 +991,9 @@ function runRollout(
   return {
     score: guidance?.evaluateLeaf
       ? guidance.evaluateLeaf({ state, rootPlayer })
-      : evaluateSearchLeafState(state, rootPlayer),
+      : evaluateSearchLeafState(state, rootPlayer, {
+          courtValueScale: config.courtValueScale,
+        }),
     simulatedActionSteps,
     terminatedBeforeDepthLimit,
   };
