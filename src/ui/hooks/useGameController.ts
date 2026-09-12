@@ -236,14 +236,6 @@ export function useGameController({
     ReadonlyArray<BugReportActionEntry>
   >(initialSave.save?.actionHistory ?? []);
   const [botThinking, setBotThinking] = useState<boolean>(false);
-  // Hidden-tab policy: never start bot search work while the page is not
-  // visible, and stop in-flight work when the page hides. Each decision is
-  // seed-derived, so restarting on return is deterministic.
-  const [pageVisible, setPageVisible] = useState<boolean>(() =>
-    typeof document === 'undefined'
-      ? true
-      : document.visibilityState !== 'hidden'
-  );
   const [humanInputBarrierOrdinal, setHumanInputBarrierOrdinal] = useState<
     number | null
   >(null);
@@ -484,24 +476,6 @@ export function useGameController({
     () => resolveBotProfile(botProfileId),
     [botProfileId]
   );
-  useEffect(() => {
-    if (typeof document === 'undefined') {
-      return;
-    }
-    const handleVisibilityChange = () => {
-      const visible = document.visibilityState !== 'hidden';
-      setPageVisible(visible);
-      if (!visible) {
-        // Cancels an in-flight search and releases warm workers so a hidden
-        // tab does not keep cores busy or hold search memory.
-        closeActionPolicy(resolvedBotProfile.policy);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [resolvedBotProfile.policy]);
   const collectBotDiagnostics = browserBotDiagnosticsEnabled();
   const humanActionsAcceptingInput = useMemo(
     () =>
@@ -554,7 +528,6 @@ export function useGameController({
       isIncomeChoicePhase: state.phase === 'CollectIncome',
       botIncomeActionCount: botIncomeActions.length,
       startupPreloadReady,
-      pageVisible,
     });
   const [prevShouldRunBot, setPrevShouldRunBot] = useState(false);
 

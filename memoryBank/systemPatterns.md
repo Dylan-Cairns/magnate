@@ -70,15 +70,17 @@ Design expectations:
   `close()`.
 - Browser search resources follow one policy: workers are created lazily,
   pooled per bot worker, sized to `hardwareConcurrency - 2` with an 8-worker cap
-  and budget clamps, and never more numerous than the scheduled work. Bot
-  search does not run while the page is hidden: decisions do not start, and
-  hiding cancels in-flight work and releases warm workers. The policy is closed
-  when the game is terminal, and a warm worker is torn down after five idle
-  minutes. Teardown sends a `shutdown` request so the owning worker closes its
-  nested search pool itself, with a `terminate()` fallback after a short grace
-  period; this must not rely on the browser cascading termination to nested
-  workers. Fixed per-profile visit budgets remain the anti-overheat lever, so
-  lifecycle changes must not alter search semantics or determinism.
+  and budget clamps, and never more numerous than the scheduled work. Page
+  visibility must never reduce bot strength: hiding does not defer, pause,
+  cancel, or weaken a decision, and it does not tear down warm workers, so a
+  bot turn keeps playing out while the user is on another tab (browser timer
+  throttling may only slow it in wall-clock terms). The policy is closed when
+  the game is terminal, and a warm worker is torn down after ten idle minutes.
+  Teardown sends a `shutdown` request so the owning worker closes its nested
+  search pool itself, with a `terminate()` fallback after a short grace period;
+  this must not rely on the browser cascading termination to nested workers.
+  Fixed per-profile visit budgets remain the anti-overheat lever, so lifecycle
+  changes must not alter search semantics or determinism.
 
 ## Heuristic Scoring Pattern
 

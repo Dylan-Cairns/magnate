@@ -220,7 +220,7 @@ describe('worker-backed policy', () => {
     }
   });
 
-  it('shuts the worker down cooperatively when the policy closes', () => {
+  it('shuts the worker down cooperatively when the policy closes', async () => {
     vi.useFakeTimers();
     try {
       const workers: FakeWorker[] = [];
@@ -229,7 +229,7 @@ describe('worker-backed policy', () => {
         createWorker: () => pushWorker(workers),
       });
 
-      void policy.selectAction(context);
+      const pendingSelection = Promise.resolve(policy.selectAction(context));
       policy.close();
 
       expect(workers[0].messages[workers[0].messages.length - 1]).toEqual({
@@ -238,6 +238,7 @@ describe('worker-backed policy', () => {
       expect(workers[0].terminated).toBe(false);
       vi.advanceTimersByTime(WORKER_SHUTDOWN_GRACE_MS);
       expect(workers[0].terminated).toBe(true);
+      await expect(pendingSelection).resolves.toBeUndefined();
     } finally {
       vi.useRealTimers();
     }
