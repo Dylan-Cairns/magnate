@@ -4,7 +4,7 @@ import {
   scoreGame,
   scoreMarginsForPlayer,
 } from '../engine/scoring';
-import { developmentCost, findProperty, SUITS } from '../engine/stateHelpers';
+import { developmentCost, findDevelopableCard, SUITS } from '../engine/stateHelpers';
 import type {
   DistrictState,
   DistrictStack,
@@ -145,7 +145,7 @@ function deedPotentialForPlayer(
     return 0;
   }
 
-  const card = findProperty(deed.cardId);
+  const card = findDevelopableCard(deed.cardId);
   if (!card) {
     return 0;
   }
@@ -172,7 +172,8 @@ function deedPotentialForPlayer(
   const currentMargin = ownCurrentScore - opponentScore;
   const completedMargin = ownCompletedScore - opponentScore;
   const controlImpact = deedControlImpact(currentMargin, completedMargin);
-  const rankImpact = card.rank / 9;
+  // Courts rank 10 and are capped at the same [0, 1] scale as rank-9 cards.
+  const rankImpact = Math.min(1, card.rank / 9);
 
   return (
     progressWeight *
@@ -271,7 +272,7 @@ function resourceQualityTerm(
 
 function developedRankTotal(stack: DistrictStack): number {
   return stack.developed.reduce((total, cardId) => {
-    const card = findProperty(cardId);
+    const card = findDevelopableCard(cardId);
     return total + (card?.rank ?? 0);
   }, 0);
 }
@@ -289,7 +290,7 @@ function crownSuitCounts(player: PlayerState): Partial<Record<Suit, number>> {
 
 function playerHandHasSuit(player: PlayerState, suit: Suit): boolean {
   return player.hand.some((cardId) =>
-    findProperty(cardId)?.suits.includes(suit)
+    findDevelopableCard(cardId)?.suits.includes(suit)
   );
 }
 
@@ -300,7 +301,7 @@ function playerDevelopedBoardHasSuit(
 ): boolean {
   return state.districts.some((district) =>
     district.stacks[playerId].developed.some((cardId) =>
-      findProperty(cardId)?.suits.includes(suit)
+      findDevelopableCard(cardId)?.suits.includes(suit)
     )
   );
 }

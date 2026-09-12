@@ -1,5 +1,8 @@
 import { stepToDecision as defaultStepToDecision } from '../../engine/session';
-import { developmentCost, findProperty } from '../../engine/stateHelpers';
+import {
+  developmentCost,
+  findDevelopableCard,
+} from '../../engine/stateHelpers';
 import type {
   GameAction,
   GameState,
@@ -208,7 +211,7 @@ function deriveDevelopDeedEvents(
   const nextDeed = nextState.districts.find(
     (district) => district.id === action.districtId
   )?.stacks[actingPlayerId]?.deed;
-  const card = findProperty(action.cardId);
+  const card = findDevelopableCard(action.cardId);
   const targetProgress = card
     ? developmentCost(card)
     : (nextDeed?.progress ?? previousDeed?.progress ?? 0);

@@ -2,7 +2,7 @@ import { toKeyedActions } from '../engine/actionSurface';
 import {
   ALL_CARDS,
   CARD_BY_ID,
-  PROPERTY_CARDS,
+  propertyDeckForRuleset,
   type CardId,
 } from '../engine/cards';
 import {
@@ -15,7 +15,7 @@ import { districtScore, scoreGame } from '../engine/scoring';
 import {
   SUITS,
   developmentCost,
-  findProperty,
+  findDevelopableCard,
   placementAllowed,
   sumTokens,
 } from '../engine/stateHelpers';
@@ -146,7 +146,7 @@ export interface StrategicStackFactsV0 {
 
 export interface StrategicDeedFactsV0 {
   readonly cardId: CardId;
-  readonly rank: Exclude<Rank, 10>;
+  readonly rank: Rank;
   readonly suits: readonly Suit[];
   readonly progress: number;
   readonly target: number;
@@ -551,7 +551,7 @@ function cardKnowledgeFacts({
 }): StrategicCardKnowledgeFactsV0 {
   const ownHand = ownHandCardIds.map(requiredProperty).map((card) => card.id);
   const discard = discardCardIds
-    .map((cardId) => findProperty(cardId))
+    .map((cardId) => findDevelopableCard(cardId))
     .filter(isDefined)
     .map((card) => card.id);
   const board = state.districts.flatMap((district) =>
@@ -578,9 +578,9 @@ function cardKnowledgeFacts({
     }
   }
 
-  const unknownPropertyCardIds = PROPERTY_CARDS.filter(
-    (card) => !known.has(card.id)
-  ).map((card) => card.id);
+  const unknownPropertyCardIds = propertyDeckForRuleset(state.ruleset)
+    .filter((card) => !known.has(card.id))
+    .map((card) => card.id);
   const expectedUnknownCount = drawCount + opponentHandCount;
   if (unknownPropertyCardIds.length !== expectedUnknownCount) {
     throw new Error(
@@ -699,7 +699,7 @@ function requiredPlayerView(
 }
 
 function requiredProperty(cardId: CardId) {
-  const card = findProperty(cardId);
+  const card = findDevelopableCard(cardId);
   if (!card) {
     throw new Error(`Strategic summary expected property card ${cardId}.`);
   }

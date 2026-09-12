@@ -41,6 +41,16 @@ describe('TypeScript bot game runner', () => {
     ).rejects.toThrow('selected illegal action');
   });
 
+  it('plays a full extended-rules game with rollouts search policies', async () => {
+    const first = await runExtendedSearchGame();
+    const second = await runExtendedSearchGame();
+
+    expect(actionKeys(first)).toEqual(actionKeys(second));
+    expect(first.finalScore).toEqual(second.finalScore);
+    expect(first.transcript.length).toBeGreaterThan(0);
+    expect(first.turns).toBeGreaterThan(0);
+  });
+
   it('emits timed heartbeats while a policy is selecting actions', async () => {
     let currentTime = 0;
     const heartbeats: string[] = [];
@@ -77,6 +87,34 @@ describe('TypeScript bot game runner', () => {
     expect(new Set(heartbeats)).toEqual(new Set(['heartbeat-game']));
   });
 });
+
+function tinySearchSpec(id: string): BotSpec {
+  return {
+    id,
+    kind: 'search',
+    config: {
+      worlds: 1,
+      rollouts: 1,
+      depth: 1,
+      maxRootActions: 4,
+      rolloutEpsilon: 0,
+      heuristic: 'v2',
+    },
+  };
+}
+
+async function runExtendedSearchGame() {
+  return playGame({
+    gameId: 'extended-search-game',
+    seed: 'extended-search-game',
+    firstPlayer: 'PlayerA',
+    ruleset: 'extended',
+    botBySeat: {
+      PlayerA: runtimeBotFor(tinySearchSpec('extended-search-a')),
+      PlayerB: runtimeBotFor(tinySearchSpec('extended-search-b')),
+    },
+  });
+}
 
 async function runDeterministicGame() {
   return playGame({

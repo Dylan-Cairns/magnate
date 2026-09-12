@@ -8,15 +8,6 @@ const CARD_IMAGE_MODULES = import.meta.glob(
   }
 ) as Record<string, string>;
 
-// Courts are not part of Magnate's current deck, but their art is retained for
-// a planned extended ruleset and must not be reported as an unexpected asset.
-export const RETAINED_COURT_NAMES = [
-  'The Consul',
-  'The Island',
-  'The Rite',
-  'The Window',
-] as const;
-
 const FILE_NAME_PREFIX = 'decktet-card-';
 
 export function cardImageFileName(cardName: string): string {
@@ -43,21 +34,11 @@ function fileNameFromModuleKey(key: string): string {
   return key.slice(key.lastIndexOf('/') + 1);
 }
 
-const EXPECTED_PLAYABLE_FILE_NAMES = ALL_CARDS.map((card) =>
-  cardImageFileName(card.name)
+const EXPECTED_FILE_NAMES = new Set(
+  ALL_CARDS.map((card) => cardImageFileName(card.name))
 );
-const EXPECTED_COURT_FILE_NAMES = RETAINED_COURT_NAMES.map((name) =>
-  cardImageFileName(name)
-);
-const EXPECTED_FILE_NAMES = new Set([
-  ...EXPECTED_PLAYABLE_FILE_NAMES,
-  ...EXPECTED_COURT_FILE_NAMES,
-]);
 
-if (
-  EXPECTED_FILE_NAMES.size !==
-  EXPECTED_PLAYABLE_FILE_NAMES.length + EXPECTED_COURT_FILE_NAMES.length
-) {
+if (EXPECTED_FILE_NAMES.size !== ALL_CARDS.length) {
   throw new Error('Duplicate card image filenames derived from card names.');
 }
 

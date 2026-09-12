@@ -5,11 +5,13 @@ Players: 2
 Length: about 30 minutes  
 Materials: Extended Decktet, resource tokens, two d10, one d6
 
-Courts are not used.
+The default ruleset is the base deck and does not use Courts. An optional
+extended-deck variant adds the four Courts as additional property cards; see
+"Extended deck (optional)" at the end of this file.
 
 ## 1. Components
 
-- Deck: Extended Decktet including Pawns, Crowns, and the Excuse. Courts are not used.
+- Deck: Extended Decktet including Pawns, Crowns, and the Excuse. Courts are not used in the regular ruleset; the extended variant shuffles them in.
 - District markers: Four Pawns plus the Excuse (5 total districts).
 - Crowns: Used to determine each player’s starting resources.
 - Resource tokens: Six kinds, one per suit: Moons, Suns, Waves, Leaves, Wyrms, Knots.
@@ -136,3 +138,24 @@ Tiebreakers, in order:
 1. If tied in districts: compare the sum of ranks of developed properties across all districts; higher total wins.
 2. If tied in total properties (the all-district rank total above): the player with more remaining resource tokens wins.
 3. If still tied: the game is a draw.
+
+## 8. Extended deck (optional)
+
+Selecting the "Extended deck" ruleset shuffles the four Court cards into the
+deck as additional property cards. Everything else follows the regular rules.
+
+- The four Courts are The Consul (Moons, Waves, Knots), The Island (Suns,
+  Waves, Wyrms), The Rite (Moons, Leaves, Wyrms), and The Window (Suns, Leaves,
+  Knots). Each has three suits and counts as rank 10 for placement chains and
+  victory scoring.
+- Selling a Court gains three resource tokens, one matching each of its suits.
+- A Court deed costs three tokens, one matching each of its suits.
+- Developing a Court outright costs 10 tokens of its suits, with at least one
+  matching each of the three suits.
+- A developed Court never provides income (its rank is 10, so no rank-income
+  roll matches it). It still counts as a rank-10 property for district scoring,
+  rank totals, and Ace suit bonuses.
+
+The in-app New Game menu exposes this as a ruleset choice. Easy, Medium, and
+Hard opponents support both rulesets; the Experimental (trained) opponent is
+regular-ruleset only.

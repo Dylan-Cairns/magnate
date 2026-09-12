@@ -34,8 +34,8 @@
   `decktet-card-<normalized-card-name>.webp`. The asset mapping and eager URL
   glob live in `src/ui/cardImages.ts` and derive filenames from card names;
   startup continues to preload and decode all playable cards before showing the
-  board. The four Court WebPs are retained for a planned extended ruleset but are
-  not mapped to the current 41-card deck.
+  board. The four Court WebPs are mapped to the extended-deck cards (IDs
+  `"41"`-`"44"`) and are only dealt when the extended ruleset is selected.
 - Card facts (names, ranks, ordered suits) are authored from the local Jacynth
   Decktet extraction (`decktet_cards.csv`) rather than any third-party card
   catalog. Card IDs and `ALL_CARDS` ordering remain compatibility surfaces.

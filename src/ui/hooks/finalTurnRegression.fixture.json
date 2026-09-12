@@ -3,6 +3,7 @@
     "schemaVersion": 1,
     "seed": "seed-1784526487357",
     "rngCursor": 92,
+    "ruleset": "regular",
     "deck": {
       "draw": [],
       "discard": ["19", "2", "0", "6", "1", "13", "10", "3", "21"],

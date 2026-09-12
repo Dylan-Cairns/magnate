@@ -1,12 +1,13 @@
-import { CARD_BY_ID, PROPERTY_CARDS, type CardId } from '../engine/cards';
+import { CARD_BY_ID, propertyDeckForRuleset, type CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
-import { findProperty, placementAllowed } from '../engine/stateHelpers';
+import { findDevelopableCard, placementAllowed } from '../engine/stateHelpers';
 import type {
+  DevelopableCard,
   DistrictState,
   GameState,
   PlayerId,
   PlayerState,
-  PropertyCard,
+  Rank,
   Suit,
 } from '../engine/types';
 import { clamp, otherPlayerId, smoothstep } from './policyProjection';
@@ -76,13 +77,13 @@ export function suitAccessBySuitForPlayerV2(
   for (const district of context.state.districts) {
     const stack = district.stacks[playerId];
     for (const cardId of stack.developed) {
-      const card = findProperty(cardId);
+      const card = findDevelopableCard(cardId);
       if (card) {
         addCardAccess(access, card, DEVELOPED_ACCESS_WEIGHT);
       }
     }
     if (stack.deed) {
-      const card = findProperty(stack.deed.cardId);
+      const card = findDevelopableCard(stack.deed.cardId);
       if (card) {
         addCardAccess(access, card, INCOMPLETE_DEED_ACCESS_WEIGHT);
       }
@@ -108,7 +109,7 @@ export function knownPropertyIdsForPlayerV2(
 
 export function cardEarningDemandV2(
   context: HeuristicV2PositionContext,
-  card: PropertyCard
+  card: DevelopableCard
 ): number {
   const cached = context.cardEarningDemandById.get(card.id);
   if (cached !== undefined) {
@@ -128,7 +129,7 @@ export function cardEarningDemandV2(
 export function bestCardScoringDemandV2(
   context: HeuristicV2PositionContext,
   playerId: PlayerId,
-  card: PropertyCard
+  card: DevelopableCard
 ): number {
   const key = `${playerId}:${card.id}`;
   const cached = context.bestCardScoringDemandByKey.get(key);
@@ -154,7 +155,7 @@ export function cardScoringDemandInDistrictV2(
   context: HeuristicV2PositionContext,
   playerId: PlayerId,
   district: DistrictState,
-  card: PropertyCard
+  card: DevelopableCard
 ): number {
   const key = `${playerId}:${district.id}:${card.id}`;
   const cached = context.districtCardScoringDemandByKey.get(key);
@@ -194,7 +195,7 @@ export function placementAllowedCached(
   context: HeuristicV2PositionContext,
   playerId: PlayerId,
   district: DistrictState,
-  card: PropertyCard
+  card: DevelopableCard
 ): boolean {
   const key = `${playerId}:${district.id}:${card.id}`;
   const cached = context.placementAllowedByKey.get(key);
@@ -206,26 +207,30 @@ export function placementAllowedCached(
   return allowed;
 }
 
-export function propertyCardsUnknownToPlayerV2(
+export function developableCardsUnknownToPlayerV2(
   context: HeuristicV2PositionContext,
   playerId: PlayerId
-): readonly PropertyCard[] {
+): readonly DevelopableCard[] {
   const known = knownPropertyIdsForPlayerV2(context, playerId);
-  return PROPERTY_CARDS.filter((card) => !known.has(card.id));
+  return propertyDeckForRuleset(context.state.ruleset).filter(
+    (card) => !known.has(card.id)
+  );
 }
 
-export function incomeProbabilityForRankV2(
-  rank: PropertyCard['rank']
-): number {
+export function incomeProbabilityForRankV2(rank: Rank): number {
   if (rank === 1) {
     return 0.01;
+  }
+  // Courts are rank 10 and never provide income.
+  if (rank === 10) {
+    return 0;
   }
   return (2 * rank - 1) / 100;
 }
 
 function addCardAccess(
   access: SuitValueMap<number>,
-  card: PropertyCard,
+  card: DevelopableCard,
   sourceWeight: number
 ): void {
   const value = incomeProbabilityForRankV2(card.rank) * sourceWeight;
@@ -257,7 +262,7 @@ function informationSafeKnownPropertyIds(
     known.add(cardId);
   }
   for (const cardId of state.deck.discard) {
-    const card = findProperty(cardId);
+    const card = findDevelopableCard(cardId);
     if (card) {
       known.add(card.id);
     }

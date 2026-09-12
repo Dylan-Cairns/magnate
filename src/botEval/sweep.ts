@@ -107,6 +107,7 @@ export async function runRolloutSearchSweep(
         gamesPerSide: config.gamesPerSide,
         candidate,
         opponent: config.opponent,
+        ruleset: config.ruleset,
         maxDecisionsPerGame: config.maxDecisionsPerGame,
       },
       {

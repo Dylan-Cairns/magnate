@@ -1,3 +1,4 @@
+import type { Ruleset } from '../engine/types';
 import { getBotProfile } from '../policies/catalog';
 import { parseBotSpec, type BotSpec } from '../policies/botSpec';
 import {
@@ -39,6 +40,10 @@ export function parseHeadToHeadConfig(value: unknown): HeadToHeadConfig {
     opponent: parseBotReference(
       source.opponent,
       'head-to-head config.opponent'
+    ),
+    ruleset: optionalRuleset(
+      source.ruleset,
+      'head-to-head config.ruleset'
     ),
     maxDecisionsPerGame: optionalPositiveInteger(
       source.maxDecisionsPerGame,
@@ -117,6 +122,10 @@ export function parseRolloutSearchSweepConfig(
     ),
     opponent,
     candidates,
+    ruleset: optionalRuleset(
+      source.ruleset,
+      'rollout-search sweep config.ruleset'
+    ),
     maxDecisionsPerGame: optionalPositiveInteger(
       source.maxDecisionsPerGame,
       'rollout-search sweep config.maxDecisionsPerGame'
@@ -229,6 +238,19 @@ function optionalPositiveInteger(
     return undefined;
   }
   return requiredPositiveInteger(value, label);
+}
+
+function optionalRuleset(
+  value: unknown,
+  label: string
+): Ruleset | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === 'regular' || value === 'extended') {
+    return value;
+  }
+  throw new Error(`${label} must be "regular" or "extended".`);
 }
 
 function optionalPositiveNumber(

@@ -35,6 +35,12 @@ function formatDecidedBy(decidedBy: GameRecord['decidedBy']) {
   return '—';
 }
 
+function formatRuleset(ruleset: GameRecord['ruleset']) {
+  if (ruleset === 'extended') return 'Extended';
+  if (ruleset === 'regular') return 'Regular';
+  return '—';
+}
+
 const columnHelper = createColumnHelper<GameRecord>();
 
 const COLUMNS = [
@@ -54,6 +60,10 @@ const COLUMNS = [
   columnHelper.accessor('decidedBy', {
     header: 'Decided By',
     cell: (info) => formatDecidedBy(info.getValue()),
+  }),
+  columnHelper.accessor('ruleset', {
+    header: 'Ruleset',
+    cell: (info) => formatRuleset(info.getValue()),
   }),
   columnHelper.accessor('botLabel', {
     header: 'Opponent',

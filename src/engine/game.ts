@@ -7,16 +7,19 @@ import type {
   PlayerId,
   PlayerState,
   ResourcePool,
+  Ruleset,
 } from './types';
 
 const PLAYER_IDS: readonly [PlayerId, PlayerId] = ['PlayerA', 'PlayerB'];
 
-interface NewGameOptions {
+export interface NewGameOptions {
   firstPlayer?: PlayerId;
+  ruleset?: Ruleset;
 }
 
 export function newGame(seed: string, options: NewGameOptions = {}): GameState {
-  const setup = initialSetup(seed);
+  const ruleset = options.ruleset ?? 'regular';
+  const setup = initialSetup(seed, ruleset);
   const firstPlayer = options.firstPlayer ?? 'PlayerA';
 
   const players: readonly [PlayerState, PlayerState] = [
@@ -42,6 +45,7 @@ export function newGame(seed: string, options: NewGameOptions = {}): GameState {
     schemaVersion: 1,
     seed,
     rngCursor: 0,
+    ruleset,
     deck: {
       draw: [...setup.deck.draw],
       discard: [...setup.deck.discard],

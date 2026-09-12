@@ -1,5 +1,6 @@
 import type { RefObject } from 'react';
 
+import type { Ruleset } from '../../engine/types';
 import type { BotProfileId } from '../../policies/catalog';
 import { BugReportInstructions } from './BugReportInstructions';
 import { NewGameButton } from './NewGameButton';
@@ -9,6 +10,7 @@ export function OptionsMenu({
   open,
   botProfileId,
   botStatusText,
+  ruleset,
   animationsEnabled,
   menuRef,
   buttonRef,
@@ -19,6 +21,7 @@ export function OptionsMenu({
   onToggle,
   onNewGameToggle,
   onBotProfileChange,
+  onRulesetChange,
   onAnimationsEnabledChange,
   bugReportIssueUrl,
   onBugReportDownload,
@@ -33,6 +36,7 @@ export function OptionsMenu({
   open: boolean;
   botProfileId: BotProfileId;
   botStatusText: string;
+  ruleset: Ruleset;
   animationsEnabled: boolean;
   menuRef: RefObject<HTMLElement | null>;
   buttonRef: RefObject<HTMLButtonElement | null>;
@@ -43,6 +47,7 @@ export function OptionsMenu({
   onToggle: () => void;
   onNewGameToggle: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
+  onRulesetChange: (ruleset: Ruleset) => void;
   onAnimationsEnabledChange: (enabled: boolean) => void;
   bugReportIssueUrl: string;
   onBugReportDownload: () => void;
@@ -108,8 +113,10 @@ export function OptionsMenu({
         seedInputRef={seedInputRef}
         botProfileId={botProfileId}
         botStatusText={botStatusText}
+        ruleset={ruleset}
         onToggle={onNewGameToggle}
         onBotProfileChange={onBotProfileChange}
+        onRulesetChange={onRulesetChange}
       />
 
       {open ? (

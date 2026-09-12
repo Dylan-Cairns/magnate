@@ -1,5 +1,5 @@
 import type { CardId } from '../engine/cards';
-import { findProperty, SUITS } from '../engine/stateHelpers';
+import { findDevelopableCard, SUITS } from '../engine/stateHelpers';
 import type { DistrictId, GameAction, Suit } from '../engine/types';
 
 // Player-owned targets are scoped to the human player's rendered components.
@@ -34,7 +34,7 @@ function resources(suits: readonly Suit[]): HighlightTarget[] {
 }
 
 function cardResources(cardId: CardId): HighlightTarget[] {
-  const card = findProperty(cardId);
+  const card = findDevelopableCard(cardId);
   if (!card) throw new Error(`Expected a property card: ${cardId}`);
   return resources(card.suits);
 }

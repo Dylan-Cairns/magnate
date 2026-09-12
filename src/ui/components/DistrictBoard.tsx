@@ -3,7 +3,10 @@ import type { CSSProperties } from 'react';
 
 import { CARD_BY_ID, PAWN_CARDS, type CardId } from '../../engine/cards';
 import { districtScore } from '../../engine/scoring';
-import { developmentCost, findProperty } from '../../engine/stateHelpers';
+import {
+  developmentCost,
+  findDevelopableCard,
+} from '../../engine/stateHelpers';
 import type {
   DistrictStack,
   DistrictState,
@@ -70,12 +73,16 @@ function DistrictLane({
 }) {
   const preview = usePlacementGhost(districtId);
   const ghost = playerId !== botPlayerId ? preview : undefined;
-  const ghostProperty = ghost ? findProperty(ghost.cardId) : undefined;
+  const ghostProperty = ghost
+    ? findDevelopableCard(ghost.cardId)
+    : undefined;
   const ghostDeedTarget =
     ghost?.placement === 'deed' && ghostProperty
       ? developmentCost(ghostProperty)
       : undefined;
-  const deedProperty = stack.deed ? findProperty(stack.deed.cardId) : undefined;
+  const deedProperty = stack.deed
+    ? findDevelopableCard(stack.deed.cardId)
+    : undefined;
   const deedTarget = deedProperty ? developmentCost(deedProperty) : undefined;
   const perspective: CardPerspective =
     playerId === botPlayerId ? 'bot' : 'human';

@@ -1,6 +1,6 @@
 import {
   developmentCost,
-  findProperty,
+  findDevelopableCard,
   mergeTokens,
   sumTokens,
 } from '../engine/stateHelpers';
@@ -76,7 +76,7 @@ export function projectStackAction(
   if (!deed) {
     return stack;
   }
-  const card = findProperty(deed.cardId);
+  const card = findDevelopableCard(deed.cardId);
   const progress = deed.progress + sumTokens(action.tokens);
   const target = card ? developmentCost(card) : 0;
   if (target > 0 && progress >= target) {

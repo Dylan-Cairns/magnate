@@ -1,3 +1,4 @@
+import type { Ruleset } from '../engine/types';
 import { createPolicyFromBotSpec, type BotKind, type BotSpec } from './botSpec';
 import type { ActionPolicy } from './types';
 import { createWorkerBackedPolicy } from './workerPolicy';
@@ -14,6 +15,7 @@ export interface BotProfile {
   description: string;
   kind: BotKind;
   available: boolean;
+  supportedRulesets: readonly Ruleset[];
   turnDelayMs: number;
   spec: BotSpec;
   policy: ActionPolicy;
@@ -31,6 +33,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Easy',
     description: '',
     available: true,
+    supportedRulesets: ['regular', 'extended'],
     turnDelayMs: 0,
     spec: {
       id: 'rollout-search-v2-easy',
@@ -51,6 +54,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Medium',
     description: '',
     available: true,
+    supportedRulesets: ['regular', 'extended'],
     turnDelayMs: 0,
     spec: {
       id: 'rollout-search-v2-medium',
@@ -71,6 +75,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Hard',
     description: '',
     available: true,
+    supportedRulesets: ['regular', 'extended'],
     turnDelayMs: 0,
     spec: {
       id: 'rollout-search-v2-hard',
@@ -91,6 +96,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Experimental',
     description: '',
     available: true,
+    supportedRulesets: ['regular'],
     turnDelayMs: 0,
     spec: {
       id: 'td-root-search-v2-medium',
@@ -117,10 +123,46 @@ export function getBotProfile(id: string): BotProfile {
   throw new Error(`Unknown bot profile: ${id}`);
 }
 
-export function resolveBotProfile(id: string): ResolvedBotProfile {
+export function profilesForRuleset(ruleset: Ruleset): readonly BotProfile[] {
+  return BOT_PROFILES.filter(
+    (profile) =>
+      profile.available && profile.supportedRulesets.includes(ruleset)
+  );
+}
+
+export function botProfileSupportsRuleset(
+  id: string,
+  ruleset: Ruleset
+): boolean {
+  return getBotProfile(id).supportedRulesets.includes(ruleset);
+}
+
+export function defaultBotProfileIdForRuleset(
+  ruleset: Ruleset
+): BotProfileId {
+  const profiles = profilesForRuleset(ruleset);
+  const defaultProfile = profiles.find(
+    (profile) => profile.id === DEFAULT_BOT_PROFILE_ID
+  );
+  const fallback = profiles[0];
+  if (!defaultProfile && !fallback) {
+    throw new Error(`No bot profiles support the ${ruleset} ruleset.`);
+  }
+  return (defaultProfile ?? fallback).id;
+}
+
+export function resolveBotProfile(
+  id: string,
+  ruleset?: Ruleset
+): ResolvedBotProfile {
   const selected = getBotProfile(id);
   if (!selected.available) {
     throw new Error(`Bot profile is not available: ${id}`);
+  }
+  if (ruleset && !selected.supportedRulesets.includes(ruleset)) {
+    throw new Error(
+      `Bot profile ${id} is not available for the ${ruleset} ruleset.`
+    );
   }
 
   return {

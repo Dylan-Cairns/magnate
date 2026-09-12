@@ -1,5 +1,5 @@
 import { CARD_BY_ID, type CardId } from '../engine/cards';
-import { findProperty } from '../engine/stateHelpers';
+import { findDevelopableCard } from '../engine/stateHelpers';
 import type {
   GameAction,
   GameState,
@@ -186,7 +186,7 @@ function resolveIncome(
     for (const district of state.districts) {
       const stack = district.stacks[player.id];
       for (const developedCardId of stack.developed) {
-        const property = findProperty(developedCardId);
+        const property = findDevelopableCard(developedCardId);
         if (!property || property.rank !== incomeRank) {
           continue;
         }
@@ -197,7 +197,7 @@ function resolveIncome(
       }
 
       const deedProperty = stack.deed
-        ? findProperty(stack.deed.cardId)
+        ? findDevelopableCard(stack.deed.cardId)
         : undefined;
       if (!deedProperty || deedProperty.rank !== incomeRank) {
         continue;

@@ -1,6 +1,7 @@
 import type { CardId } from './cards';
 import {
   CARD_BY_ID,
+  COURT_CARDS,
   CROWN_CARDS,
   EXCUSE_CARD,
   PAWN_CARDS,
@@ -8,7 +9,7 @@ import {
 } from './cards';
 import { createDeck } from './deckCore';
 import { rngFromSeed, shuffleInPlace } from './rng';
-import type { DeckState, PlayerId, ResourcePool } from './types';
+import type { DeckState, PlayerId, ResourcePool, Ruleset } from './types';
 
 export interface SetupResult {
   deck: DeckState;
@@ -18,10 +19,17 @@ export interface SetupResult {
   districts: CardId[]; // marker card IDs: four Pawns + the Excuse
 }
 
-export function initialSetup(seed: string): SetupResult {
+export function initialSetup(
+  seed: string,
+  ruleset: Ruleset = 'regular'
+): SetupResult {
   const rand = rngFromSeed(seed);
 
-  const draw = PROPERTY_CARDS.map((card) => card.id);
+  const propertyPool =
+    ruleset === 'extended'
+      ? [...PROPERTY_CARDS, ...COURT_CARDS]
+      : PROPERTY_CARDS;
+  const draw = propertyPool.map((card) => card.id);
   shuffleInPlace(draw, rand);
 
   const crowns = CROWN_CARDS.map((card) => card.id);

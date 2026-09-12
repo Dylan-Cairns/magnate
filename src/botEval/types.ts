@@ -1,4 +1,9 @@
-import type { FinalScore, GamePhase, PlayerId } from '../engine/types';
+import type {
+  FinalScore,
+  GamePhase,
+  PlayerId,
+  Ruleset,
+} from '../engine/types';
 import type { BotSpec, SearchBotSpec } from '../policies/botSpec';
 import type { SearchDecisionDiagnostics } from '../policies/types';
 
@@ -38,6 +43,7 @@ export interface HeadToHeadConfig {
   gamesPerSide: number;
   candidate: BotSpec;
   opponent: BotSpec;
+  ruleset?: Ruleset;
   maxDecisionsPerGame?: number;
 }
 
@@ -48,6 +54,7 @@ export interface RolloutSearchSweepConfig {
   gamesPerSide: number;
   opponent: BotSpec;
   candidates: SearchBotSpec[];
+  ruleset?: Ruleset;
   maxDecisionsPerGame?: number;
 }
 

@@ -53,6 +53,59 @@ describe('determinization', () => {
 
     expect(hiddenAssignments(worldsB)).toEqual(hiddenAssignments(worldsA));
   });
+
+  it('uses the extended deck pool, including Courts, for hidden worlds', () => {
+    const rootHand = ['24', '25', '26'].map(asCardId);
+    const opponentHand = ['6', '7'].map(asCardId);
+    const extendedPool = [
+      ...Array.from({ length: 30 }, (_, index) => asCardId(String(index))),
+      '41',
+      '42',
+      '43',
+      '44',
+    ].map(asCardId);
+    const draw = extendedPool.filter(
+      (cardId) => !rootHand.includes(cardId) && !opponentHand.includes(cardId)
+    );
+
+    const state = makeGameState({
+      turn: 8,
+      phase: 'ActionWindow',
+      ruleset: 'extended',
+      districts: makeDefaultDistricts(),
+      deck: { draw, discard: [], reshuffles: 0 },
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: rootHand,
+          crowns: [],
+          resources: makeResources(),
+        }),
+        makePlayer(PLAYER_B, {
+          hand: opponentHand,
+          crowns: [],
+          resources: makeResources(),
+        }),
+      ] as const,
+    });
+
+    const worlds = sampleHiddenWorldStates({
+      state,
+      view: toPlayerView(state, PLAYER_A),
+      rootPlayer: PLAYER_A,
+      worldCount: 4,
+      random: rngFromSeed('determinization-extended'),
+      errorPrefix: 'test',
+    });
+
+    for (const world of worlds) {
+      const opponentCards =
+        world.players.find((player) => player.id === PLAYER_B)?.hand ?? [];
+      const combined = [...opponentCards, ...world.deck.draw];
+      expect(combined).toHaveLength(31);
+      expect(combined.some((cardId) => ['41', '42', '43', '44'].includes(cardId)))
+        .toBe(true);
+    }
+  });
 });
 
 function hiddenAssignmentState({

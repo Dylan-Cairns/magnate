@@ -1,8 +1,6 @@
-import { PROPERTY_CARDS } from '../engine/cards';
+import { propertyDeckForRuleset } from '../engine/cards';
 import { shuffleInPlace, type RandomFn } from '../engine/rng';
 import type { GameState, PlayerId, PlayerView } from '../engine/types';
-
-const PROPERTY_CARD_IDS = PROPERTY_CARDS.map((card) => card.id);
 
 export function sampleHiddenWorldStates({
   state,
@@ -35,9 +33,9 @@ export function sampleHiddenWorldStates({
     knownCards.add(cardId);
   }
 
-  const hiddenPool = PROPERTY_CARD_IDS.filter(
-    (cardId) => !knownCards.has(cardId)
-  );
+  const hiddenPool = propertyDeckForRuleset(state.ruleset)
+    .map((card) => card.id)
+    .filter((cardId) => !knownCards.has(cardId));
   const expectedHiddenCount = opponentHandCount + drawCount;
   if (hiddenPool.length !== expectedHiddenCount) {
     throw new Error(

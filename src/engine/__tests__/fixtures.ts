@@ -12,6 +12,7 @@ import type {
   PlayerId,
   PlayerState,
   ResourcePool,
+  Ruleset,
   SubmittedIncomeChoice,
   Suit,
 } from '../types';
@@ -82,6 +83,7 @@ export interface GameStateOverrides {
   rngCursor?: number;
   turn?: number;
   cardPlayedThisTurn?: boolean;
+  ruleset?: Ruleset;
   finalTurnsRemaining?: number;
   lastIncomeRoll?: IncomeRollResult;
   pendingIncomeChoices?: readonly IncomeChoice[];
@@ -101,6 +103,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     schemaVersion: 1,
     seed: overrides.seed ?? 'test-seed',
     rngCursor: overrides.rngCursor ?? 0,
+    ruleset: overrides.ruleset ?? 'regular',
     deck: overrides.deck ?? {
       draw: ['6', '7', '8'],
       discard: [],

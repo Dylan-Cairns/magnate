@@ -1,4 +1,4 @@
-import { findProperty } from './stateHelpers';
+import { findDevelopableCard } from './stateHelpers';
 import type {
   DistrictId,
   DistrictStack,
@@ -139,7 +139,7 @@ function rankTotal(stack: DistrictStack): number {
 }
 
 function developedProperties(stack: DistrictStack) {
-  return stack.developed.map(findProperty).filter(isDefined);
+  return stack.developed.map(findDevelopableCard).filter(isDefined);
 }
 
 function resourceTotal(state: GameState, playerId: PlayerId): number {

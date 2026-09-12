@@ -52,6 +52,7 @@ describe('gameControllerModel', () => {
 
     expect(prefixed.map((entry) => entry.summary)).toEqual([
       'Seed controller-test',
+      'Ruleset Regular',
       'Opponent V2 Hard',
       'engine entry',
     ]);
@@ -68,9 +69,25 @@ describe('gameControllerModel', () => {
     expect(timeline.map((entry) => entry.summary)).toContain(
       'Opponent V2 Hard'
     );
+    expect(timeline.map((entry) => entry.summary)).toContain('Ruleset Regular');
     expect(
       timeline.some((entry) => entry.summary.startsWith('Roll d10 '))
     ).toBe(true);
+  });
+
+  it('labels the extended ruleset in the opening timeline log', () => {
+    const state = createBrowserSession(
+      'extended-timeline-seed',
+      PLAYER_A,
+      null,
+      'extended'
+    );
+    const timeline = initialBrowserTimelineLog(state, PLAYER_A, 'V2 Hard');
+
+    expect(state.ruleset).toBe('extended');
+    expect(timeline.map((entry) => entry.summary)).toContain(
+      'Ruleset Extended deck'
+    );
   });
 
   it('creates deterministic bot randomness from state and profile identity', () => {
