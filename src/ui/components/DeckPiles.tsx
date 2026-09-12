@@ -1,8 +1,8 @@
 import { useHighlightClass } from './ActionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
-import type { Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
 import { SuitIcon, SUIT_TEXT_TOKEN } from '../suitIcons';
+import { CardRank } from './CardRank';
 import { SuitText } from './SuitText';
 import { Tooltip } from './Tooltip';
 
@@ -86,31 +86,23 @@ export function DeckPiles({
               {discardStackCardIds.length > 0 ? (
                 discardStackCardIds.map((cardId, index) => {
                   const isTopCard = index === discardStackCardIds.length - 1;
-                  let topMeta: { rank: string; suits: Suit[] } | null = null;
-                  if (isTopCard) {
-                    const card = CARD_BY_ID[cardId];
-                    topMeta = {
-                      rank:
-                        card.kind === 'Property' || card.kind === 'Crown'
-                          ? String(card.rank)
-                          : card.kind === 'Pawn'
-                            ? 'P'
-                            : 'X',
-                      suits: card.kind === 'Excuse' ? [] : [...card.suits],
-                    };
-                  }
+                  const topCard = isTopCard ? CARD_BY_ID[cardId] : null;
+                  const topSuits =
+                    topCard && topCard.kind !== 'Excuse' ? topCard.suits : [];
                   return (
                     <div
                       key={`discard-${cardId}-${index}`}
                       className="deck-pile-card deck-pile-card-discard deck-pile-stack-card"
                     >
                       <div className="deck-pile-card-meta">
-                        {topMeta !== null && (
+                        {topCard !== null && (
                           <>
-                            <span className="card-rank">{topMeta.rank}</span>
-                            {topMeta.suits.length > 0 && (
+                            <span className="card-rank">
+                              <CardRank cardId={cardId} />
+                            </span>
+                            {topSuits.length > 0 && (
                               <div className="deck-pile-card-suits">
-                                {topMeta.suits.map((suit) => (
+                                {topSuits.map((suit) => (
                                   <SuitIcon
                                     key={suit}
                                     suit={suit}

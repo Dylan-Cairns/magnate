@@ -38,6 +38,9 @@ Design expectations:
 - UI card-art filenames are derived from card names in `src/ui/cardImages.ts`
   rather than maintained in a duplicate table; Court art is mapped like any
   other playable card.
+- Card rank badges render through `src/ui/components/CardRank.tsx`: numeric
+  ranks and `P` for Pawns as text, `X` for the Excuse, and the extracted
+  `court.svg` glyph for Court cards.
 
 ## Client Controller Pattern
 

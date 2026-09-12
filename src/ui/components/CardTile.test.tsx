@@ -31,6 +31,18 @@ describe('CardTile', () => {
     expect(html).not.toContain('tooltip-anchor');
   });
 
+  it('renders the Court rank symbol instead of the placeholder X', () => {
+    const html = renderToStaticMarkup(<CardTile cardId="41" preview />);
+    expect(html).toContain('card-rank-court-icon');
+    expect(html).not.toContain('>X<');
+  });
+
+  it('keeps the placeholder X rank for the Excuse', () => {
+    const html = renderToStaticMarkup(<CardTile cardId="36" preview />);
+    expect(html).toContain('<span class="card-rank">X</span>');
+    expect(html).not.toContain('card-rank-court-icon');
+  });
+
   it('opens player-area card tooltips below their stack but keeps hand cards above', () => {
     const humanHtml = renderToStaticMarkup(<CardTile cardId="29" />);
     const handHtml = renderToStaticMarkup(

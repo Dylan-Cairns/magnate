@@ -44,4 +44,22 @@ describe('DeckPiles', () => {
 
     expect(html).toContain('Shuffles 1/2');
   });
+
+  it('renders the Court rank symbol on the top discard card', () => {
+    const html = renderToStaticMarkup(
+      <DeckPiles drawCount={5} reshuffles={0} discard={['41']} />
+    );
+
+    expect(html).toContain('card-rank-court-icon');
+    expect(html).not.toContain('>X<');
+  });
+
+  it('keeps the placeholder X rank for a non-Court top discard card', () => {
+    const html = renderToStaticMarkup(
+      <DeckPiles drawCount={5} reshuffles={0} discard={['36']} />
+    );
+
+    expect(html).toContain('<span class="card-rank">X</span>');
+    expect(html).not.toContain('card-rank-court-icon');
+  });
 });
