@@ -37,7 +37,7 @@ function formatDecidedBy(decidedBy: GameRecord['decidedBy']) {
 
 function formatRuleset(ruleset: GameRecord['ruleset']) {
   if (ruleset === 'extended') return 'Extended';
-  if (ruleset === 'regular') return 'Regular';
+  if (ruleset === 'standard') return 'Standard';
   return '—';
 }
 

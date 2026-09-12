@@ -71,18 +71,24 @@ describe('saved game checkpoints', () => {
     expect(() => parseSavedGame(JSON.stringify(save), 'PlayerB')).toThrow();
   });
 
-  it('round trips an extended-rules save and treats legacy saves as regular', () => {
+  it('round trips an extended-rules save and maps legacy rulesets to standard', () => {
     const extended = initialSave('extended-save', 'extended');
     expect(extended.state.ruleset).toBe('extended');
     expect(parseSavedGame(JSON.stringify(extended), 'PlayerA')).toEqual(
       extended
     );
 
+    const missing = JSON.parse(JSON.stringify(initialSave('legacy-save')));
+    delete missing.state.ruleset;
+    expect(
+      parseSavedGame(JSON.stringify(missing), 'PlayerA').state.ruleset
+    ).toBe('standard');
+
     const legacy = JSON.parse(JSON.stringify(initialSave('legacy-save')));
-    delete legacy.state.ruleset;
-    expect(parseSavedGame(JSON.stringify(legacy), 'PlayerA').state.ruleset).toBe(
-      'regular'
-    );
+    legacy.state.ruleset = 'regular';
+    expect(
+      parseSavedGame(JSON.stringify(legacy), 'PlayerA').state.ruleset
+    ).toBe('standard');
   });
 
   it('leaves unreadable data intact and reports storage failures', () => {

@@ -688,7 +688,7 @@ function heuristicFixtureState({
     schemaVersion: 1,
     seed: 'heuristic-fixture',
     rngCursor: 0,
-    ruleset: 'regular',
+    ruleset: 'standard',
     deck: {
       draw: ['6', '7', '8', '9', '10', '11', '12', '13'],
       discard: [],

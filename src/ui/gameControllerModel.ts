@@ -24,7 +24,7 @@ export function createBrowserSession(
   seed: string,
   humanPlayerId: PlayerId,
   devFixtureId: DevFixtureId | null = null,
-  ruleset: Ruleset = 'regular'
+  ruleset: Ruleset = 'standard'
 ): GameState {
   if (devFixtureId && import.meta.env.DEV) {
     return createDevFixtureSession(devFixtureId, humanPlayerId);
@@ -33,7 +33,7 @@ export function createBrowserSession(
 }
 
 export function rulesetLabel(ruleset: Ruleset): string {
-  return ruleset === 'extended' ? 'Extended deck' : 'Regular';
+  return ruleset === 'extended' ? 'Extended' : 'Standard';
 }
 
 export function withSeedLogPrefix(
@@ -42,7 +42,7 @@ export function withSeedLogPrefix(
   fallbackPlayerId: PlayerId,
   botProfileLabel?: string
 ): ReadonlyArray<GameLogEntry> {
-  const seedSummary = `Seed ${state.seed}`;
+  const seedSummary = `Seed: ${state.seed}`;
   if (entries[0]?.summary === seedSummary) {
     return [...entries];
   }
@@ -58,7 +58,7 @@ export function withSeedLogPrefix(
       turn: state.turn,
       player: activePlayerIdForState(state, fallbackPlayerId),
       phase: state.phase,
-      summary: `Ruleset ${rulesetLabel(state.ruleset)}`,
+      summary: `Ruleset: ${rulesetLabel(state.ruleset)}`,
       details: { ruleset: state.ruleset },
     },
   ];
@@ -67,7 +67,7 @@ export function withSeedLogPrefix(
       turn: state.turn,
       player: activePlayerIdForState(state, fallbackPlayerId),
       phase: state.phase,
-      summary: `Opponent ${botProfileLabel}`,
+      summary: `Opponent: ${botProfileLabel}`,
     });
   }
   return [...prefix, ...entries];

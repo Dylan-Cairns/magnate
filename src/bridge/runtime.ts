@@ -500,14 +500,14 @@ function parseSerializedState(candidate: unknown): GameState {
     );
   }
 
-  // The Python training/eval bridge stays on the regular ruleset.
-  if (candidate.ruleset !== undefined && candidate.ruleset !== 'regular') {
+  // The Python training/eval bridge stays on the standard ruleset.
+  if (candidate.ruleset !== undefined && candidate.ruleset !== 'standard') {
     throw new RuntimeBridgeError(
       'STATE_DESERIALIZATION_FAILED',
-      'The bridge supports the regular ruleset only.'
+      'The bridge supports the standard ruleset only.'
     );
   }
-  candidate.ruleset = 'regular';
+  candidate.ruleset = 'standard';
 
   return candidate as unknown as GameState;
 }

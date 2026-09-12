@@ -21,7 +21,7 @@ export interface SetupResult {
 
 export function initialSetup(
   seed: string,
-  ruleset: Ruleset = 'regular'
+  ruleset: Ruleset = 'standard'
 ): SetupResult {
   const rand = rngFromSeed(seed);
 

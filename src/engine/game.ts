@@ -18,7 +18,7 @@ export interface NewGameOptions {
 }
 
 export function newGame(seed: string, options: NewGameOptions = {}): GameState {
-  const ruleset = options.ruleset ?? 'regular';
+  const ruleset = options.ruleset ?? 'standard';
   const setup = initialSetup(seed, ruleset);
   const firstPlayer = options.firstPlayer ?? 'PlayerA';
 

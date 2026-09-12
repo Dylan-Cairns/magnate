@@ -90,7 +90,7 @@ describe('bot policy catalog', () => {
   });
 
   it('offers the rollouts search profiles for both rulesets', () => {
-    expect(profilesForRuleset('regular').map((profile) => profile.id)).toEqual([
+    expect(profilesForRuleset('standard').map((profile) => profile.id)).toEqual([
       'rollout-search-v2-easy',
       'rollout-search-v2-medium',
       'rollout-search-v2-hard',

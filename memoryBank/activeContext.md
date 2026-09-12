@@ -53,6 +53,14 @@
   Medium, and Hard (`rollout-search-v2-*`, heuristic v2) and Experimental
   (all-TD `td-root-search-v2-medium` using the default browser pack, now the
   promoted step-9,000 checkpoint).
+- Browser UI and ordinary game-log entries call the computer player "Bot"; the
+  opening log rows are bold `Seed: …`, `Ruleset: Standard|Extended`, and
+  `Opponent: {profile}` labels, and the history modal uses "Opponent" and
+  Standard|Extended. History is a sortable grid of past games only.
+  Achievement/streak logic, the Dexie `achievements` table (dropped via schema
+  version 3), and their tests are removed. Legacy persisted ruleset values
+  (`regular`) migrate to `standard` on save restore and via Dexie schema
+  version 4.
 - Local and CI JavaScript tooling now uses fnm with `.nvmrc` pinning Node
   22.23.1, an explicit Node 22 engine range, and a Corepack-managed Yarn
   4.15.0 pin matching the modern Yarn lockfile. Windows runtime helpers can recover the pinned fnm Node from
@@ -373,14 +381,14 @@
   [0.747, 0.883], side gap 0.117), decisively outperforming the July
   incumbent baseline (88-32, 73.3%, 95% CI [0.648, 0.804], side gap 0.167)
   by +9.2 percentage points with a lower bound above the baseline point estimate.
-- The browser game supports a selectable ruleset: `regular` (base 41-card deck)
+- The browser game supports a selectable ruleset: `standard` (base 41-card deck)
   or `extended` (adds the four Courts as rank-10 three-suit property cards).
   The chosen ruleset is stored on `GameState`, persisted with autosaves and
   game-history records, and shown in the opening log next to the seed.
   Easy/Medium/Hard rollout-search profiles are ruleset-aware (determinization
   and heuristic v2 use the ruleset's property pool); the Experimental TD profile
-  is regular-only and hidden for extended games. Court art and the Court rank
-  symbol are mapped, and the extended deck is selectable/evaluable through
+  is standard-only and hidden for extended games. Court art and the Court rank
+  symbol are mapped, and the extended ruleset is selectable/evaluable through
   bot-eval head-to-head configs.
 
 ## Remaining Work

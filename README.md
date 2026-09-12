@@ -5,9 +5,9 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 ## At A Glance
 
 - Browser game is playable with selectable bot profiles.
-- New games can be started with either the regular rules or the extended deck
-  (adds the four Court property cards). Easy/Medium/Hard bots support both;
-  the Experimental TD bot is regular-only.
+- New games can be started with either the standard or extended rules
+  (the latter adds the four Court property cards). Easy/Medium/Hard bots support
+  both; the Experimental TD bot is standard-only.
 - Hover actions and submenu options to highlight affected cards, resources, and
   destinations with a shared glow. Open submenus keep shared targets highlighted,
   and placement ghosts distinguish incomplete deeds from completed properties.

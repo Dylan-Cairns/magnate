@@ -51,9 +51,9 @@ describe('gameControllerModel', () => {
     );
 
     expect(prefixed.map((entry) => entry.summary)).toEqual([
-      'Seed controller-test',
-      'Ruleset Regular',
-      'Opponent V2 Hard',
+      'Seed: controller-test',
+      'Ruleset: Standard',
+      'Opponent: V2 Hard',
       'engine entry',
     ]);
     expect(withSeedLogPrefix(state, prefixed, PLAYER_A)).toEqual(prefixed);
@@ -64,12 +64,14 @@ describe('gameControllerModel', () => {
     const timeline = initialBrowserTimelineLog(state, PLAYER_A, 'V2 Hard');
 
     expect(timeline.map((entry) => entry.summary)).toContain(
-      'Seed first-roll-seed'
+      'Seed: first-roll-seed'
     );
     expect(timeline.map((entry) => entry.summary)).toContain(
-      'Opponent V2 Hard'
+      'Opponent: V2 Hard'
     );
-    expect(timeline.map((entry) => entry.summary)).toContain('Ruleset Regular');
+    expect(timeline.map((entry) => entry.summary)).toContain(
+      'Ruleset: Standard'
+    );
     expect(
       timeline.some((entry) => entry.summary.startsWith('Roll d10 '))
     ).toBe(true);
@@ -86,7 +88,7 @@ describe('gameControllerModel', () => {
 
     expect(state.ruleset).toBe('extended');
     expect(timeline.map((entry) => entry.summary)).toContain(
-      'Ruleset Extended deck'
+      'Ruleset: Extended'
     );
   });
 

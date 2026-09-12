@@ -54,7 +54,7 @@ describe('determinization', () => {
     expect(hiddenAssignments(worldsB)).toEqual(hiddenAssignments(worldsA));
   });
 
-  it('uses the extended deck pool, including Courts, for hidden worlds', () => {
+  it('uses the extended ruleset pool, including Courts, for hidden worlds', () => {
     const rootHand = ['24', '25', '26'].map(asCardId);
     const opponentHand = ['6', '7'].map(asCardId);
     const extendedPool = [
@@ -102,8 +102,9 @@ describe('determinization', () => {
         world.players.find((player) => player.id === PLAYER_B)?.hand ?? [];
       const combined = [...opponentCards, ...world.deck.draw];
       expect(combined).toHaveLength(31);
-      expect(combined.some((cardId) => ['41', '42', '43', '44'].includes(cardId)))
-        .toBe(true);
+      expect(
+        combined.some((cardId) => ['41', '42', '43', '44'].includes(cardId))
+      ).toBe(true);
     }
   });
 });

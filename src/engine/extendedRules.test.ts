@@ -36,17 +36,17 @@ function extendedSetup(seed: string) {
 describe('extended rules: setup', () => {
   it('deals the Courts only in the extended ruleset', () => {
     const extended = extendedSetup('extended-seed');
-    const regular = initialSetup('extended-seed');
+    const standard = initialSetup('extended-seed');
 
     const extendedPool = [
       ...extended.deck.draw,
       ...extended.handsByPlayer.PlayerA,
       ...extended.handsByPlayer.PlayerB,
     ];
-    const regularPool = [
-      ...regular.deck.draw,
-      ...regular.handsByPlayer.PlayerA,
-      ...regular.handsByPlayer.PlayerB,
+    const standardPool = [
+      ...standard.deck.draw,
+      ...standard.handsByPlayer.PlayerA,
+      ...standard.handsByPlayer.PlayerB,
     ];
 
     expect(new Set(extendedPool).size).toBe(
@@ -59,15 +59,15 @@ describe('extended rules: setup', () => {
       expect(extendedPool).toContain(courtId);
     }
 
-    expect(regular.deck.draw).toHaveLength(PROPERTY_CARDS.length - 6);
+    expect(standard.deck.draw).toHaveLength(PROPERTY_CARDS.length - 6);
     for (const courtId of COURT_IDS) {
-      expect(regularPool).not.toContain(courtId);
+      expect(standardPool).not.toContain(courtId);
     }
   });
 
   it('records the ruleset on the game state', () => {
-    expect(newGame('regular-seed').ruleset).toBe('regular');
-    expect(newGame('regular-seed', { ruleset: 'extended' }).ruleset).toBe(
+    expect(newGame('standard-seed').ruleset).toBe('standard');
+    expect(newGame('standard-seed', { ruleset: 'extended' }).ruleset).toBe(
       'extended'
     );
   });
@@ -101,10 +101,7 @@ describe('extended rules: costs', () => {
       expect(payment.Knots ?? 0).toBeGreaterThanOrEqual(1);
     }
     expect(
-      enumerateOutrightPayments(
-        CONSUL,
-        makeResources({ Moons: 9, Waves: 1 })
-      )
+      enumerateOutrightPayments(CONSUL, makeResources({ Moons: 9, Waves: 1 }))
     ).toEqual([]);
   });
 });
@@ -226,10 +223,7 @@ describe('extended rules: income and victory', () => {
         makeDistrict('D4', ['Leaves']),
         makeDistrict('D5', []),
       ],
-      players: [
-        makePlayer(PLAYER_A),
-        makePlayer('PlayerB'),
-      ] as const,
+      players: [makePlayer(PLAYER_A), makePlayer('PlayerB')] as const,
       phase: 'ActionWindow',
     });
   }
@@ -294,8 +288,8 @@ describe('extended rules: determinism', () => {
     expect(first).toEqual(second);
   });
 
-  it('keeps the regular deck composition independent of Courts', () => {
-    const state = newGame('regular-composition');
+  it('keeps the standard deck composition independent of Courts', () => {
+    const state = newGame('standard-composition');
     expect(state.deck.draw).toHaveLength(PROPERTY_CARDS.length - 6);
     for (const cardId of state.deck.draw) {
       expect(COURT_CARDS.some((court) => court.id === cardId)).toBe(false);

@@ -80,7 +80,7 @@ export function BotHandPanel({
         </div>
       </header>
 
-      <div className="bot-hand-card-wrap" aria-label="Opponent hand">
+      <div className="bot-hand-card-wrap" aria-label="Bot hand">
         <div
           className="bot-hand-fan"
           style={{ '--bot-hand-count': hiddenCardCount } as CSSProperties}

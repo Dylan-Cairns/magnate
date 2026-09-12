@@ -13,7 +13,7 @@ describe('OptionsMenu', () => {
         open
         botProfileId="rollout-search-v2-medium"
         botStatusText="Selected bot status"
-        ruleset="regular"
+        ruleset="standard"
         animationsEnabled
         menuRef={createRef<HTMLElement>()}
         buttonRef={createRef<HTMLButtonElement>()}
@@ -43,7 +43,7 @@ describe('OptionsMenu', () => {
     expect(html).toContain('download a log file');
     expect(html).toContain('id="seed-input"');
     expect(html).toContain('id="ruleset-select"');
-    expect(html).toContain('value="regular" selected=""');
+    expect(html).toContain('value="standard" selected=""');
     expect(html).toContain('id="bot-profile-select"');
     expect(html).toContain('value="rollout-search-v2-medium" selected=""');
     expect(html).toContain('id="animations-toggle" type="checkbox" checked=""');
