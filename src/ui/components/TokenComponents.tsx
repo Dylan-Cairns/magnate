@@ -1,18 +1,9 @@
-import type { CSSProperties } from 'react';
-
 import { SUITS } from '../../engine/stateHelpers';
 import type { ResourcePool, Suit } from '../../engine/types';
-import { SuitIcon } from '../suitIcons';
+import { SuitTokenFace } from './SuitTokenFace';
+import { Tooltip } from './Tooltip';
 
-// Shared opaque fills for tokens, animation copies, deck-map nodes, and suit dice.
-export const SUIT_TOKEN_BG: Record<Suit, string> = {
-  Moons: '#e4e7eb',
-  Suns: '#f7cc95',
-  Waves: '#cfe3f5',
-  Leaves: '#dfc8b2',
-  Wyrms: '#bfe3b3',
-  Knots: '#f6f4bf',
-};
+export { SUIT_TOKEN_BG } from './SuitTokenFace';
 
 export function tokenEntries(
   tokens: Partial<Record<Suit, number>> | ResourcePool
@@ -80,14 +71,14 @@ export function TokenChip({
   const isEmpty = count === 0;
   return (
     <span
-      className={`token-chip${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
+      className={`token-chip tooltip-trigger${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
         className ? ` ${className}` : ''
       }`}
       data-token-suit={suit}
-      style={{ '--token-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
     >
-      <SuitIcon suit={suit} className="chip-suit-icon" />
+      <SuitTokenFace suit={suit} empty={isEmpty} />
       {count > 1 && <span className="token-count">x{count}</span>}
+      <Tooltip>{suit}</Tooltip>
     </span>
   );
 }

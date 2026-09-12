@@ -346,11 +346,6 @@
   height: var(--token-rail-chip-size);
 }
 
-.card-side-token-rail .token-chip.compact .chip-suit-icon {
-  width: calc(100% - 0.16rem);
-  height: calc(100% - 0.16rem);
-}
-
 .card-side-token-rail .token-count {
   top: -0.3rem;
   right: -0.28rem;
@@ -390,30 +385,26 @@
   position: relative;
   width: 1.7rem;
   height: 1.7rem;
+  flex-shrink: 0;
   border-radius: 999px;
-  border: 1px solid var(--chip-border);
-  background: var(--token-bg, var(--chip-bg));
   display: grid;
   place-items: center;
   font-size: 0.84rem;
-  /* Keep shading inside the opaque token so stacked flights do not darken its edge. */
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-.token-chip .chip-suit-icon {
-  width: calc(100% - 0.16rem);
-  height: calc(100% - 0.16rem);
+/* The SVG owns both the rim and the artwork. CSS only sizes the whole face. */
+.token-chip > .suit-token-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .token-chip.compact {
   width: 1.35rem;
   height: 1.35rem;
   font-size: 0.72rem;
-}
-
-.token-chip.compact .chip-suit-icon {
-  width: calc(100% - 0.12rem);
-  height: calc(100% - 0.12rem);
 }
 
 .token-chip.inline-token-chip {
@@ -427,7 +418,6 @@
 
 .token-chip.empty {
   opacity: 0.38;
-  border-style: dashed;
 }
 
 .token-count {

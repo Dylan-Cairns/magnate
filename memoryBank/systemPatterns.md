@@ -295,8 +295,13 @@ Design expectations:
   components, and a final responsive override layer. Preserve import order
   when moving rules so selector-bearing compatibility surfaces do not change.
 - Suit tokens, resource flights, deck-map nodes, and suit dice share opaque
-  `SUIT_TOKEN_BG` fills. Ordinary tokens and flight copies use inset shading
-  without outer shadows or extra flight rings, which accumulate when stacked.
+  `SUIT_TOKEN_BG` fills. Ordinary tokens and flight copies have no decorative
+  outer shadows or extra flight rings, which accumulate when stacked.
+- `TokenChip` owns its tooltip target and contains the same `SuitTokenFace` SVG
+  as deck-map nodes. Its rim and artwork share one square coordinate system;
+  resource, crown, deed, inline, and flight contexts only size the outer token.
+  Keep the whole token square under flex layout. Do not add a separate CSS
+  background circle, directional rim shading, or context-specific image sizing.
 - Action-panel and picker components stay controlled: `App.tsx` owns picker
   state, positioning callbacks, refs, dismiss hooks, and action execution,
   while pure category and picker-conversion helpers live under `src/ui/`.
