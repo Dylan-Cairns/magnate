@@ -130,9 +130,15 @@ export function ActionsPanel({
       (item.kind === 'action' && item.action.type === 'choose-income-suit') ||
       item.kind === 'income-choice-group'
   );
+  const humanInputOwned =
+    activePlayerId === humanPlayerId || hasVisibleIncomeChoiceActions;
+  const humanInputAvailable =
+    !terminal && !humanActionUiBlockedByAnimation && humanInputOwned;
 
   return (
-    <section className="panel actions-panel">
+    <section
+      className={`panel actions-panel${humanInputAvailable ? ' is-active' : ''}`}
+    >
       <div className="actions-heading">
         <h2>{terminal ? 'Game Over' : 'Actions'}</h2>
         {isLastTurn && (
@@ -149,8 +155,7 @@ export function ActionsPanel({
             onPlayAgain={onPlayAgain}
             onChangeSetup={onChangeSetup}
           />
-        ) : activePlayerId === humanPlayerId ||
-          hasVisibleIncomeChoiceActions ? (
+        ) : humanInputOwned ? (
           <div className="actions-human-layout">
             <div className="actions-human-main">
               {humanActionUiBlockedByTurnCycleAnimation ? (

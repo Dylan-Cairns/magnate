@@ -8,8 +8,8 @@
   --bg-center-glow: rgba(78, 109, 156, 0.2);
   --panel: #080b12;
   --side-rail-panel-fill: rgba(8, 11, 18, 0.5);
-  --panel-border: rgba(125, 94, 73, 0.6);
-  --panel-border-start: #b57e4f;
+  --panel-border: rgba(125, 94, 73, 0.26);
+  --panel-border-start: rgba(146, 105, 72, 0.45);
   --panel-border-end: #2e2f35;
   --container-shadow: 0 14px 32px rgba(0, 0, 0, 0.62);
   --container-shadow-soft: 0 9px 22px rgba(0, 0, 0, 0.54);
@@ -41,7 +41,7 @@
   --error-border: #b47b63;
   --error-bg: #24171c;
   --error-text: #ffd7cc;
-  --board-border: rgba(125, 94, 73, 0.62);
+  --board-border: rgba(125, 94, 73, 0.3);
   --active-border: #e2bf89;
   --active-ring: rgba(226, 191, 137, 0.48);
   --active-glow: rgba(164, 119, 79, 0.34);
@@ -59,7 +59,7 @@
     var(--wood-start) 0%,
     var(--wood-end) 100%
   );
-  --district-divider-border: #7b4f39;
+  --district-divider-border: rgba(123, 79, 57, 0.45);
   --card-inset-border: rgba(255, 255, 255, 0.24);
   --card-back-border: rgba(48, 62, 86, 0.96);
   --card-back-stripe-a: #646d7b;
