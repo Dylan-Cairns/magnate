@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
-import { PROPERTY_CARDS, CROWN_CARDS } from '../engine/cards';
+import { PROPERTY_CARDS, CROWN_CARDS, type CardId } from '../engine/cards';
 import { stepToDecision } from '../engine/session';
 import { isTerminal, scoreLive } from '../engine/scoring';
 import type { GameState, PlayerId } from '../engine/types';
@@ -18,22 +18,8 @@ describe('dev fixtures', () => {
     (humanPlayerId) => {
       let state = createDevFixtureSession('multi-income', humanPlayerId);
       expect(state.players.map((player) => player.hand.length)).toEqual([3, 3]);
-      const ids = [
-        ...state.deck.draw,
-        ...state.deck.discard,
-        ...state.players.flatMap((player) => [
-          ...player.hand,
-          ...player.crowns,
-        ]),
-        ...state.districts.flatMap((district) =>
-          Object.values(district.stacks).flatMap((stack) => [
-            ...stack.developed,
-            ...(stack.deed ? [stack.deed.cardId] : []),
-          ])
-        ),
-      ];
-      expect(ids.sort()).toEqual(
-        [...PROPERTY_CARDS, ...CROWN_CARDS].map((card) => card.id).sort()
+      expect(allCardIdsInPlay(state).sort()).toEqual(
+        expectedDeckCardIds().sort()
       );
       while (state.phase === 'CollectIncome') {
         const action = legalActions(state).find(
@@ -121,15 +107,50 @@ describe('dev fixtures', () => {
     expect(scoreLive(state).winner).toMatch(/PlayerA|PlayerB|Draw/);
   });
 
+  it('stacks a deep district lane for overflow layout checks', () => {
+    const state = createDevFixtureSession('deep-lanes', 'PlayerA');
+    const firstDistrict = state.districts.find(
+      (district) => district.id === 'D1'
+    );
+
+    expect(state.phase).toBe('ActionWindow');
+    expect(state.players.map((player) => player.hand.length)).toEqual([3, 3]);
+    expect(firstDistrict?.stacks.PlayerA.developed).toHaveLength(7);
+    expect(firstDistrict?.stacks.PlayerB.developed).toHaveLength(8);
+    expect(legalActions(state).length).toBeGreaterThan(0);
+    expect(allCardIdsInPlay(state).sort()).toEqual(
+      expectedDeckCardIds().sort()
+    );
+  });
+
   it('parses only known dev fixture query values', () => {
     expect(devFixtureIdFromSearch('?fixture=multi-income')).toBe(
       'multi-income'
     );
     expect(devFixtureIdFromSearch('?fixture=late-game')).toBe('late-game');
+    expect(devFixtureIdFromSearch('?fixture=deep-lanes')).toBe('deep-lanes');
     expect(devFixtureIdFromSearch('?fixture=unknown')).toBeNull();
     expect(devFixtureIdFromSearch('')).toBeNull();
   });
 });
+
+function expectedDeckCardIds(): CardId[] {
+  return [...PROPERTY_CARDS, ...CROWN_CARDS].map((card) => card.id);
+}
+
+function allCardIdsInPlay(state: GameState): CardId[] {
+  return [
+    ...state.deck.draw,
+    ...state.deck.discard,
+    ...state.players.flatMap((player) => [...player.hand, ...player.crowns]),
+    ...state.districts.flatMap((district) =>
+      Object.values(district.stacks).flatMap((stack) => [
+        ...stack.developed,
+        ...(stack.deed ? [stack.deed.cardId] : []),
+      ])
+    ),
+  ];
+}
 
 function developedCountsByPlayer(state: GameState): Record<PlayerId, number> {
   return state.districts.reduce<Record<PlayerId, number>>(
