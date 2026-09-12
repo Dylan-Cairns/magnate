@@ -20,7 +20,6 @@ import {
 } from '../actionPresentation';
 import { SUIT_TEXT_TOKEN } from '../suitIcons';
 import { SuitText } from './SuitText';
-import { Tooltip } from './Tooltip';
 
 export function ActionPicker({
   picker,
@@ -79,13 +78,8 @@ export function ActionPicker({
         />
       )}
 
-      <button
-        type="button"
-        className="trade-cancel-button tooltip-trigger"
-        onClick={onClose}
-      >
+      <button type="button" className="trade-cancel-button" onClick={onClose}>
         Cancel
-        <Tooltip>Close without choosing an action</Tooltip>
       </button>
     </section>
   );
@@ -125,7 +119,7 @@ function TradeCombinedPicker({
                 )
               )}
               type="button"
-              className={`trade-choice-button tooltip-trigger${picker.selectedGive === group.give ? ' is-selected' : ''}`}
+              className={`trade-choice-button${picker.selectedGive === group.give ? ' is-selected' : ''}`}
               onClick={() => {
                 const nextGive = group.give;
                 if (picker.selectedReceive) {
@@ -150,7 +144,6 @@ function TradeCombinedPicker({
               }}
             >
               <SuitText text={`${SUIT_TEXT_TOKEN[group.give]} x3`} />
-              <Tooltip>{`Give three ${group.give} resources`}</Tooltip>
             </button>
           ))}
         </div>
@@ -171,7 +164,7 @@ function TradeCombinedPicker({
                 )
               )}
               type="button"
-              className={`trade-choice-button tooltip-trigger${picker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
+              className={`trade-choice-button${picker.selectedReceive === receiveSuit ? ' is-selected' : ''}`}
               onClick={() => {
                 const nextReceive = receiveSuit;
                 if (picker.selectedGive) {
@@ -196,7 +189,6 @@ function TradeCombinedPicker({
               }}
             >
               <SuitText text={`${SUIT_TEXT_TOKEN[receiveSuit]} x1`} />
-              <Tooltip>{`Receive one ${receiveSuit} resource`}</Tooltip>
             </button>
           ))}
         </div>
@@ -238,7 +230,7 @@ function DevelopOutrightCombinedPicker({
                 )
               )}
               type="button"
-              className={`trade-choice-button tooltip-trigger${picker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
+              className={`trade-choice-button${picker.selectedDistrictId === option.districtId ? ' is-selected' : ''}`}
               onClick={() => {
                 const nextDistrictId = option.districtId;
                 if (picker.selectedPaymentKey) {
@@ -270,7 +262,6 @@ function DevelopOutrightCombinedPicker({
               }}
             >
               {option.districtId}
-              <Tooltip>{`Choose district ${option.districtId}`}</Tooltip>
             </button>
           ))}
         </div>
@@ -291,7 +282,7 @@ function DevelopOutrightCombinedPicker({
                 )
               )}
               type="button"
-              className={`trade-choice-button tooltip-trigger${picker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
+              className={`trade-choice-button${picker.selectedPaymentKey === paymentKey ? ' is-selected' : ''}`}
               onClick={() => {
                 const nextPaymentKey = paymentKey;
                 if (picker.selectedDistrictId) {
@@ -323,9 +314,6 @@ function DevelopOutrightCombinedPicker({
               }}
             >
               <SuitText text={formatTokens(option.payment, SUIT_TEXT_TOKEN)} />
-              <Tooltip>
-                {`Pay ${formatTokens(option.payment, SUIT_TEXT_TOKEN)}`}
-              </Tooltip>
             </button>
           ))}
         </div>
@@ -362,11 +350,10 @@ function StandardPicker({
           key={option.id}
           {...hoverProps([option.action])}
           type="button"
-          className="trade-choice-button tooltip-trigger"
+          className="trade-choice-button"
           onClick={() => onSelectAction(option.action)}
         >
           <SuitText text={option.label} />
-          <Tooltip>{option.label}</Tooltip>
         </button>
       ))}
     </div>

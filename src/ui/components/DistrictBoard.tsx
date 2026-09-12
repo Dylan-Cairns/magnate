@@ -78,9 +78,7 @@ function DistrictLane({
 }) {
   const preview = usePlacementGhost(districtId);
   const ghost = playerId !== botPlayerId ? preview : undefined;
-  const ghostProperty = ghost
-    ? findDevelopableCard(ghost.cardId)
-    : undefined;
+  const ghostProperty = ghost ? findDevelopableCard(ghost.cardId) : undefined;
   const ghostDeedTarget =
     ghost?.placement === 'deed' && ghostProperty
       ? developmentCost(ghostProperty)
@@ -166,6 +164,7 @@ function DistrictLane({
                   perspective={perspective}
                   animateDeedProgress={animateDeedProgress}
                   incomeHighlighted={laneCard.incomeHighlighted}
+                  showTooltip={index === laneCards.length - 1}
                 />
               </div>
             ))}

@@ -120,7 +120,7 @@ export function ProgressTracker({
 
   return (
     <div
-      className="deed-progress tooltip-trigger"
+      className={`deed-progress${showTooltip ? ' tooltip-trigger' : ''}`}
       aria-label={label.toLowerCase()}
     >
       <svg

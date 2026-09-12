@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { GameAction } from '../../engine/types';
+import type { ActionPickerState } from '../actionPickerModel';
 import { buildTradeSourceGroups } from '../actionPresentation';
 import { ActionPicker } from './ActionPicker';
 
@@ -119,8 +120,8 @@ describe('ActionPicker', () => {
 
     expect(html).toContain('District');
     expect(html).toContain('Payment');
-    expect(html).toContain('>D1<span class="tooltip-anchor"');
-    expect(html).toContain('>D2<span class="tooltip-anchor"');
+    expect(html).toContain('>D1</button>');
+    expect(html).toContain('>D2</button>');
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
   });
@@ -149,5 +150,55 @@ describe('ActionPicker', () => {
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
     expect(html).not.toContain('data-token-suit="Suns"');
+  });
+
+  it('renders no tooltips for any action menu picker variant', () => {
+    const allActions = [
+      ...TRADE_ACTIONS,
+      ...OUTRIGHT_ACTIONS,
+      ...INCOME_ACTIONS,
+    ];
+    const pickers: ActionPickerState[] = [
+      { kind: 'trade', give: 'Moons', top: 0, left: 0 },
+      {
+        kind: 'trade-combined',
+        selectedGive: 'Moons',
+        selectedReceive: 'Suns',
+        top: 0,
+        left: 0,
+      },
+      {
+        kind: 'develop-outright-combined',
+        cardId: '6',
+        selectedDistrictId: 'D1',
+        top: 0,
+        left: 0,
+      },
+      {
+        kind: 'income-choice',
+        playerId: 'PlayerA',
+        cardId: '6',
+        districtId: 'D1',
+        top: 0,
+        left: 0,
+      },
+    ];
+
+    for (const picker of pickers) {
+      const html = renderToStaticMarkup(
+        <ActionPicker
+          picker={picker}
+          pickerRef={createRef<HTMLElement>()}
+          legalActions={allActions}
+          tradeSourceGroups={buildTradeSourceGroups(TRADE_ACTIONS)}
+          onPickerChange={noop}
+          onSelectAction={noop}
+          onClose={noop}
+        />
+      );
+
+      expect(html).not.toContain('tooltip-trigger');
+      expect(html).not.toContain('tooltip-anchor');
+    }
   });
 });

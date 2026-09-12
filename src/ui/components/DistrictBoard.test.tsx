@@ -137,6 +137,71 @@ describe('DistrictColumn', () => {
     expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
   });
 
+  it('shows card tooltips only for the topmost card in each lane stack', () => {
+    const district: DistrictState = {
+      id: 'D1',
+      markerSuitMask: ['Moons'],
+      stacks: {
+        PlayerA: {
+          developed: ['6', '10'],
+        },
+        PlayerB: {
+          developed: ['29'],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
+    );
+
+    const cardTileMatches = [
+      ...html.matchAll(/class="(card-tile[^"]*)" data-card-id="([^"]+)"/g),
+    ];
+    const tooltipCardIds = cardTileMatches
+      .filter((match) => match[1].includes('tooltip-trigger'))
+      .map((match) => match[2]);
+
+    expect(tooltipCardIds).toEqual(['10', '29']);
+  });
+
+  it('keeps the tooltip on a deed that sits on top of its lane stack', () => {
+    const district: DistrictState = {
+      id: 'D2',
+      markerSuitMask: ['Suns'],
+      stacks: {
+        PlayerA: {
+          developed: [],
+        },
+        PlayerB: {
+          developed: ['29'],
+          deed: { cardId: '6', progress: 1, tokens: {} },
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
+    );
+
+    const cardTileMatches = [
+      ...html.matchAll(/class="(card-tile[^"]*)" data-card-id="([^"]+)"/g),
+    ];
+    const tooltipCardIds = cardTileMatches
+      .filter((match) => match[1].includes('tooltip-trigger'))
+      .map((match) => match[2]);
+
+    expect(tooltipCardIds).toEqual(['6']);
+  });
+
   it('applies income highlight class to developed cards', () => {
     const district: DistrictState = {
       id: 'D3',
@@ -188,9 +253,9 @@ describe('DistrictColumn', () => {
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
 
-    const chipClasses = [
-      ...html.matchAll(/class="(token-chip[^"]*)"/g),
-    ].map((match) => match[1]);
+    const chipClasses = [...html.matchAll(/class="(token-chip[^"]*)"/g)].map(
+      (match) => match[1]
+    );
     expect(chipClasses.length).toBeGreaterThan(0);
     for (const chipClass of chipClasses) {
       expect(chipClass).toContain('tooltip-trigger');
