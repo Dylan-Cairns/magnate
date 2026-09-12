@@ -86,8 +86,9 @@ export function ResolutionWarningOverlay({
           Display Warning
         </h2>
         <p className="app-bootstrap-copy resolution-warning-message">
-          The UI was designed with a minimum size of 1920 x 1080p and will
-          likely be unusable at smaller resolutions :(
+          The interface is tuned for landscape desktop displays. Below roughly
+          1280 x 720, parts of the board or panels may overlap or be difficult
+          to read.
         </p>
         <div className="resolution-warning-actions">
           <button
