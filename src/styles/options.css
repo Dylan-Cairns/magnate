@@ -265,6 +265,10 @@
   line-height: 1.35;
 }
 
+.animation-controls {
+  justify-items: end;
+}
+
 .animation-controls .animation-toggle-row {
   display: inline-flex;
   align-items: center;
@@ -280,9 +284,25 @@
   accent-color: var(--accent-soft);
 }
 
-.bug-report-instructions {
+.game-credits {
   border-top: 1px solid var(--panel-border);
   padding-top: 0.62rem;
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.game-credits p {
+  margin: 0;
+}
+
+.game-credits p + p {
+  margin-top: 0.45rem;
+}
+
+.game-credits a {
+  color: var(--accent-soft);
+  text-underline-offset: 0.14rem;
 }
 
 .new-game-btn {

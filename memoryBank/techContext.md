@@ -26,6 +26,10 @@
 
 ## Tooling Notes
 
+- The project is licensed CC BY-NC-SA 4.0 (`LICENSE`). Decktet card art and
+  glyph credits and third-party software notices are documented in `README.md`
+  and `public/third-party-notices.txt` (served to the deployed app and linked
+  from the info-modal credits).
 - Google Fonts are requested directly from `index.html` with preconnect hints
   for the stylesheet and font origins and `display=swap`, so font discovery
   does not wait for the application CSS.

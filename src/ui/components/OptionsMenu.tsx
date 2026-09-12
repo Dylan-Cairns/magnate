@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import type { Ruleset } from '../../engine/types';
 import type { BotProfileId } from '../../policies/catalog';
 import { BugReportInstructions } from './BugReportInstructions';
+import { GameCredits } from './GameCredits';
 import { NewGameButton } from './NewGameButton';
 import { Tooltip } from './Tooltip';
 
@@ -29,8 +30,6 @@ export function OptionsMenu({
   onToggleLog,
   mapVisible,
   onToggleMap,
-  deckMapInteractive,
-  onDeckMapInteractiveChange,
   onHistoryOpen,
 }: {
   open: boolean;
@@ -55,8 +54,6 @@ export function OptionsMenu({
   onToggleLog: () => void;
   mapVisible: boolean;
   onToggleMap: () => void;
-  deckMapInteractive: boolean;
-  onDeckMapInteractiveChange: (enabled: boolean) => void;
   onHistoryOpen: () => void;
 }) {
   return (
@@ -94,17 +91,17 @@ export function OptionsMenu({
         ref={buttonRef}
         type="button"
         className={`hamburger-button tooltip-trigger${open ? ' is-open' : ''}`}
-        aria-label="Settings"
+        aria-label="Info"
         aria-controls="brand-options-menu"
         aria-expanded={open}
         onClick={onToggle}
       >
-        <GearIcon />
+        <QuestionMarkIcon />
         <span className="close-x" aria-hidden="true">
           <span />
           <span />
         </span>
-        <Tooltip>{open ? 'Close settings' : 'Open settings'}</Tooltip>
+        <Tooltip>{open ? 'Close info' : 'Open info'}</Tooltip>
       </button>
       <NewGameButton
         expanded={newGameExpanded}
@@ -114,9 +111,11 @@ export function OptionsMenu({
         botProfileId={botProfileId}
         botStatusText={botStatusText}
         ruleset={ruleset}
+        animationsEnabled={animationsEnabled}
         onToggle={onNewGameToggle}
         onBotProfileChange={onBotProfileChange}
         onRulesetChange={onRulesetChange}
+        onAnimationsEnabledChange={onAnimationsEnabledChange}
       />
 
       {open ? (
@@ -124,39 +123,13 @@ export function OptionsMenu({
           id="brand-options-menu"
           ref={menuRef}
           className="brand-options-menu"
-          aria-label="Settings"
+          aria-label="Info"
         >
-          <div className="bot-profile-controls animation-controls">
-            <label className="animation-toggle-row" htmlFor="animations-toggle">
-              <span>Animations</span>
-              <input
-                id="animations-toggle"
-                type="checkbox"
-                checked={animationsEnabled}
-                onChange={(event) =>
-                  onAnimationsEnabledChange(event.target.checked)
-                }
-              />
-            </label>
-            <label
-              className="animation-toggle-row"
-              htmlFor="deck-map-interactive-toggle"
-            >
-              <span>Interactive deck map</span>
-              <input
-                id="deck-map-interactive-toggle"
-                type="checkbox"
-                checked={deckMapInteractive}
-                onChange={(event) =>
-                  onDeckMapInteractiveChange(event.target.checked)
-                }
-              />
-            </label>
-          </div>
           <BugReportInstructions
             issueUrl={bugReportIssueUrl}
             onDownload={onBugReportDownload}
           />
+          <GameCredits />
         </section>
       ) : null}
     </div>
@@ -175,15 +148,16 @@ function TrophyIcon() {
   );
 }
 
-function GearIcon() {
+function QuestionMarkIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
       aria-hidden="true"
       className="hamburger-button-icon"
     >
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
     </svg>
   );
 }

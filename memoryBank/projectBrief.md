@@ -31,6 +31,14 @@ Build a web-playable, single-player Magnate with a competent bot.
 - Stable bridge contract for TS/Python integration.
 - Bot can play full games in browser without server runtime.
 
+## Licensing
+
+- Project license: CC BY-NC-SA 4.0 (`LICENSE`); `package.json` declares the
+  same SPDX identifier.
+- Game and artwork credits (Cristyn Magnus, P.D. Magnus, The Decktet) live in
+  the info modal and `README.md`; bundled software notices are in
+  `public/third-party-notices.txt`.
+
 ## References
 
 - Rules: `memoryBank/magnateRules.md`

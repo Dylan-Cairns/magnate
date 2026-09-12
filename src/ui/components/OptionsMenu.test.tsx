@@ -32,13 +32,13 @@ describe('OptionsMenu', () => {
         onToggleLog={noop}
         mapVisible
         onToggleMap={noop}
-        deckMapInteractive
-        onDeckMapInteractiveChange={noop}
         onHistoryOpen={noop}
       />
     );
 
     expect(html).toContain('id="brand-options-menu"');
+    expect(html).toContain('aria-label="Info"');
+    expect(html).not.toContain('Open settings');
     expect(html).toContain('See a bug?');
     expect(html).toContain('download a log file');
     expect(html).toContain('id="seed-input"');
@@ -47,7 +47,11 @@ describe('OptionsMenu', () => {
     expect(html).toContain('id="bot-profile-select"');
     expect(html).toContain('value="rollout-search-v2-medium" selected=""');
     expect(html).toContain('id="animations-toggle" type="checkbox" checked=""');
+    expect(html).not.toContain('deck-map-interactive-toggle');
     expect(html).toContain('Selected bot status');
+    expect(html).toContain('Cristyn Magnus');
+    expect(html).toContain('third-party-notices.txt');
+    expect(html).not.toContain('original rules');
   });
 
   it('renders the backdrop only while open', () => {

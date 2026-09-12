@@ -73,7 +73,6 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
-const DECK_MAP_INTERACTIVE_KEY = 'magnate:deckMapInteractive';
 
 function readBooleanPreference(key: string, defaultValue: boolean): boolean {
   if (typeof window === 'undefined') return defaultValue;
@@ -122,9 +121,6 @@ export function App() {
   );
   const [mapVisible, setMapVisible] = useState<boolean>(() =>
     readBooleanPreference(MAP_VISIBLE_KEY, true)
-  );
-  const [deckMapInteractive, setDeckMapInteractive] = useState<boolean>(() =>
-    readBooleanPreference(DECK_MAP_INTERACTIVE_KEY, true)
   );
   const [startupPreloadReady, setStartupPreloadReady] =
     useState<boolean>(false);
@@ -243,10 +239,6 @@ export function App() {
     persistBooleanPreference(MAP_VISIBLE_KEY, mapVisible);
   }, [mapVisible]);
 
-  useEffect(() => {
-    persistBooleanPreference(DECK_MAP_INTERACTIVE_KEY, deckMapInteractive);
-  }, [deckMapInteractive]);
-
   const isLastTurn = !terminal && (viewState.finalTurnsRemaining ?? 0) > 0;
   const score = useMemo(
     () => viewState.finalScore ?? scoreLive(viewState),
@@ -292,8 +284,8 @@ export function App() {
     botProfileId,
   ]);
   const { dimmedCardIds, dimmedSuits } = useMemo(
-    () => buildDeckMapDimming({ deckMapInteractive, viewState }),
-    [deckMapInteractive, viewState]
+    () => buildDeckMapDimming({ viewState }),
+    [viewState]
   );
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
@@ -793,8 +785,6 @@ export function App() {
               onToggleLog={() => setLogVisible((v) => !v)}
               mapVisible={mapVisible}
               onToggleMap={() => setMapVisible((v) => !v)}
-              deckMapInteractive={deckMapInteractive}
-              onDeckMapInteractiveChange={setDeckMapInteractive}
               onHistoryOpen={() => setHistoryOpen(true)}
             />
           </aside>

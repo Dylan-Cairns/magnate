@@ -74,18 +74,9 @@ describe('app render model', () => {
       ],
     });
 
-    const dimming = buildDeckMapDimming({
-      deckMapInteractive: true,
-      viewState,
-    });
+    const dimming = buildDeckMapDimming({ viewState });
 
     expect(dimming.dimmedCardIds.has('6')).toBe(false);
-    expect(
-      buildDeckMapDimming({
-        deckMapInteractive: false,
-        viewState,
-      }).dimmedCardIds.size
-    ).toBe(0);
   });
 
   it('dims a suit icon when its Ace is played, even if other suit cards remain', () => {
@@ -102,7 +93,6 @@ describe('app render model', () => {
     });
 
     const dimming = buildDeckMapDimming({
-      deckMapInteractive: true,
       viewState: {
         ...viewState,
         deck: { ...viewState.deck, draw: ['13'] },

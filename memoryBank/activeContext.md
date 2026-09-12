@@ -23,6 +23,7 @@
 - Shared TS/Python boundary remains a small interface contract, not a duplicated rules schema.
 - Native Python rules are out of scope unless throughput becomes a proven bottleneck.
 - Training/eval scripts should fail fast on invalid bridge payloads, missing checkpoints, malformed policy probabilities, or unsupported policy signals.
+- Project licensing is CC BY-NC-SA 4.0 (`LICENSE`; SPDX `CC-BY-NC-SA-4.0` in `package.json`). Game credits (Magnate by Cristyn Magnus; The Decktet by P.D. Magnus) appear in the info modal; software notices are in `public/third-party-notices.txt`.
 
 ## Current State
 

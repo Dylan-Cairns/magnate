@@ -52,6 +52,19 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context a
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
 - Register promoted TD checkpoint: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
 
+## Credits & License
+
+Magnate is an unofficial, noncommercial fan implementation of the Decktet game
+[Magnate](https://decktet.wikidot.com/game:magnate), designed by Cristyn Magnus
+with additional development by P.D. Magnus. The Decktet is created by P.D.
+Magnus; its card art and game material are used under a
+[Creative Commons Attribution-NonCommercial-ShareAlike](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+license. The same credits appear in the in-app info menu.
+
+This project is licensed under CC BY-NC-SA 4.0; see [LICENSE](LICENSE). Bundled
+third-party software notices are listed in
+[public/third-party-notices.txt](public/third-party-notices.txt).
+
 ## Source-of-Truth Docs
 
 - Tooling context: [memoryBank/techContext.md](memoryBank/techContext.md)
