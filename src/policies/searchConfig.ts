@@ -6,17 +6,18 @@ export interface SearchPolicyConfig {
   rolloutEpsilon: number;
   heuristic?: SearchHeuristicVersion;
   /**
-   * Heuristic v2 district-potential weight granted to a deed before any
-   * progress tokens. 0 reproduces the pre-floor scoring behavior and is the
-   * control arm for benchmark A/B runs.
+   * Multiplier on heuristic v2's incomplete-Court valuation. 1 is the
+   * deployed default; 0 disables the court term and is the control arm for
+   * benchmark A/B runs. Standard-ruleset games never reach the term because
+   * the standard deck has no Courts.
    */
-  deedPotentialBase?: number;
+  courtValueScale?: number;
 }
 
 export type SearchHeuristicVersion = 'v1' | 'v2';
 export type SearchPolicyOptions = Partial<SearchPolicyConfig>;
 
-export const DEFAULT_DEED_POTENTIAL_BASE = 0.2;
+export const DEFAULT_COURT_VALUE_SCALE = 1;
 
 export const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   worlds: 4,
@@ -25,7 +26,7 @@ export const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   maxRootActions: 6,
   rolloutEpsilon: 0.04,
   heuristic: 'v1',
-  deedPotentialBase: DEFAULT_DEED_POTENTIAL_BASE,
+  courtValueScale: DEFAULT_COURT_VALUE_SCALE,
 };
 
 export function resolveSearchConfig(
@@ -50,10 +51,10 @@ export function resolveSearchConfig(
   const rolloutEpsilon =
     options.rolloutEpsilon ?? DEFAULT_SEARCH_POLICY_CONFIG.rolloutEpsilon;
   const heuristic = options.heuristic ?? DEFAULT_SEARCH_POLICY_CONFIG.heuristic;
-  const deedPotentialBase =
-    options.deedPotentialBase ??
-    DEFAULT_SEARCH_POLICY_CONFIG.deedPotentialBase ??
-    DEFAULT_DEED_POTENTIAL_BASE;
+  const courtValueScale =
+    options.courtValueScale ??
+    DEFAULT_SEARCH_POLICY_CONFIG.courtValueScale ??
+    DEFAULT_COURT_VALUE_SCALE;
   if (
     !Number.isFinite(rolloutEpsilon) ||
     rolloutEpsilon < 0 ||
@@ -68,13 +69,9 @@ export function resolveSearchConfig(
       `Search policy heuristic must be v1 or v2; received ${String(heuristic)}.`
     );
   }
-  if (
-    !Number.isFinite(deedPotentialBase) ||
-    deedPotentialBase < 0 ||
-    deedPotentialBase > 1
-  ) {
+  if (!Number.isFinite(courtValueScale) || courtValueScale < 0) {
     throw new Error(
-      `Search policy deedPotentialBase must be in [0, 1]; received ${String(deedPotentialBase)}.`
+      `Search policy courtValueScale must be a finite number >= 0; received ${String(courtValueScale)}.`
     );
   }
   return {
@@ -84,7 +81,7 @@ export function resolveSearchConfig(
     maxRootActions,
     rolloutEpsilon,
     heuristic,
-    deedPotentialBase,
+    courtValueScale,
   };
 }
 

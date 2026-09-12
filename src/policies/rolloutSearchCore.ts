@@ -203,7 +203,7 @@ interface SearchHeuristicContext {
   state?: GameState;
   view?: PlayerView;
   legalActions?: readonly GameAction[];
-  deedPotentialBase?: number;
+  courtValueScale?: number;
 }
 
 interface RolloutSearchFinalResult {
@@ -485,7 +485,7 @@ function* runRolloutSearchTaskResumableGenerator(
         actions,
         { state, view: toDecisionPlayerView(state, decisionPlayer) },
         task.config.heuristic,
-        task.config.deedPotentialBase
+        task.config.courtValueScale
       )?.action;
     }
     if (!nextAction) {
@@ -579,7 +579,7 @@ function createRolloutSearchSession({
       view,
       candidateActions,
       heuristic: config.heuristic,
-      deedPotentialBase: config.deedPotentialBase,
+      courtValueScale: config.courtValueScale,
     });
 
   return new RolloutSearchSession({
@@ -604,12 +604,12 @@ export function createHeuristicRolloutSearchRootGuide({
   view,
   candidateActions,
   heuristic = 'v1',
-  deedPotentialBase,
+  courtValueScale,
 }: Pick<RolloutSearchSelectionInput, 'state' | 'view' | 'candidateActions'> & {
   heuristic?: SearchHeuristicVersion;
-  deedPotentialBase?: number;
+  courtValueScale?: number;
 }): RolloutSearchRootGuide {
-  const heuristicContext = { state, view, deedPotentialBase };
+  const heuristicContext = { state, view, courtValueScale };
   return {
     rankedRootActions: rankActionsByHeuristic(
       candidateActions,
@@ -1023,7 +1023,7 @@ function chooseRolloutAction(
     actions,
     { state, view: toDecisionPlayerView(state, decisionPlayer) },
     config.heuristic,
-    config.deedPotentialBase
+    config.courtValueScale
   );
   if (!best) {
     throw new Error('Rollout search could not select from legal actions.');
@@ -1035,10 +1035,10 @@ function bestActionByHeuristic(
   actions: readonly GameAction[],
   context: SearchHeuristicContext,
   heuristic: SearchHeuristicVersion | undefined,
-  deedPotentialBase: number | undefined
+  courtValueScale: number | undefined
 ): KeyedAction | undefined {
   if (heuristic === 'v2') {
-    return bestHeuristicV2Action(actions, { ...context, deedPotentialBase });
+    return bestHeuristicV2Action(actions, { ...context, courtValueScale });
   }
   return bestHeuristicAction(actions, context);
 }

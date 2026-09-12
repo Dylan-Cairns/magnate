@@ -257,7 +257,7 @@ describe('heuristic scorer v2', () => {
     ).toEqual(actionKeysForHeuristicV2RootRanking(firstHiddenAssignment));
   });
 
-  it('reproduces legacy scores exactly at deedPotentialBase zero', () => {
+  it('reproduces the restored standard-ruleset scores exactly', () => {
     const standard = heuristicV2FixtureState({ turn: 20 });
     const deedState = fixtureDeedState();
     const cases: Array<{
@@ -301,49 +301,51 @@ describe('heuristic scorer v2', () => {
         state: standard,
         expected: -0.0012565940034856005,
       },
-      {
-        action: { type: 'buy-deed', cardId: '41', districtId: 'D1' },
-        state: courtFixtureState(),
-        expected: 0.013643645128153851,
-      },
-      {
-        action: { type: 'sell-card', cardId: '41' },
-        state: courtFixtureState(),
-        expected: -0.13669491337410833,
-      },
-      {
-        action: {
-          type: 'develop-deed',
-          cardId: '41',
-          districtId: 'D0',
-          tokens: { Waves: 1 },
-        },
-        state: courtDeedFixtureState(),
-        expected: 2.3218617439806177,
-      },
-      {
-        action: {
-          type: 'develop-outright',
-          cardId: '41',
-          districtId: 'D1',
-          payment: { Moons: 4, Waves: 3, Knots: 3 },
-        },
-        state: courtFixtureState(),
-        expected: 22.049453980083012,
-      },
     ];
 
     for (const entry of cases) {
       expect(scoreHeuristicV2Action(entry.action, { state: entry.state })).toBe(
         entry.expected
       );
-      expect(
-        scoreHeuristicV2Action(entry.action, {
-          state: entry.state,
-          deedPotentialBase: 0,
-        })
-      ).toBe(entry.expected);
     }
+  });
+
+  it('leaves court scoring untouched at courtValueScale zero', () => {
+    const state = courtFixtureState();
+    const deedState = courtDeedFixtureState();
+    const buyCourtDeed: GameAction = {
+      type: 'buy-deed',
+      cardId: '41',
+      districtId: 'D1',
+    };
+    const developCourtDeed: GameAction = {
+      type: 'develop-deed',
+      cardId: '41',
+      districtId: 'D0',
+      tokens: { Waves: 1 },
+    };
+    const developCourtOutright: GameAction = {
+      type: 'develop-outright',
+      cardId: '41',
+      districtId: 'D1',
+      payment: { Moons: 4, Waves: 3, Knots: 3 },
+    };
+
+    expect(
+      scoreHeuristicV2Action(buyCourtDeed, { state, courtValueScale: 0 })
+    ).toBe(0.013643645128153851);
+    expect(
+      scoreHeuristicV2Action(developCourtDeed, {
+        state: deedState,
+        courtValueScale: 0,
+      })
+    ).toBe(0.048989265057632285);
+    expect(
+      scoreHeuristicV2Action(developCourtOutright, {
+        state,
+        courtValueScale: 0,
+      })
+    ).toBe(22.049453980083012);
   });
 
   it('values a fresh court deed purchase above selling it', () => {
@@ -354,65 +356,94 @@ describe('heuristic scorer v2', () => {
       districtId: 'D1',
     };
     const sellCourt: GameAction = { type: 'sell-card', cardId: '41' };
-    const baseContext = { state, deedPotentialBase: 0.2 };
 
-    expect(scoreHeuristicV2Action(buyCourtDeed, baseContext)).toBeGreaterThan(0);
-    expect(scoreHeuristicV2Action(buyCourtDeed, baseContext)).toBeGreaterThan(
-      scoreHeuristicV2Action(sellCourt, baseContext)
-    );
-    expect(scoreHeuristicV2Action(buyCourtDeed, baseContext)).toBeGreaterThan(
-      scoreHeuristicV2Action(buyCourtDeed, { state, deedPotentialBase: 0 })
+    const disabled = scoreHeuristicV2Action(buyCourtDeed, {
+      state,
+      courtValueScale: 0,
+    });
+    const valued = scoreHeuristicV2Action(buyCourtDeed, { state });
+
+    expect(valued).toBeGreaterThan(disabled);
+    expect(valued).toBeGreaterThan(
+      scoreHeuristicV2Action(sellCourt, { state })
     );
   });
 
-  it('keeps near-complete deeds above new deeds with a nonzero base', () => {
-    const newDeed = heuristicV2FixtureState({
-      turn: 30,
-      districts: [
-        fixtureDistrict({
-          id: 'D0',
-          playerADeed: { cardId: '29', progress: 0, tokens: {} },
-        }),
-        fixtureDistrict({ id: 'D1' }),
-        fixtureDistrict({ id: 'D2' }),
-        fixtureDistrict({ id: 'D3' }),
-        fixtureDistrict({ id: 'D4' }),
-      ],
-    });
-    const nearCompleteDeed = heuristicV2FixtureState({
-      turn: 30,
-      districts: [
-        fixtureDistrict({
-          id: 'D0',
-          playerADeed: { cardId: '29', progress: 8, tokens: { Moons: 8 } },
-        }),
-        fixtureDistrict({ id: 'D1' }),
-        fixtureDistrict({ id: 'D2' }),
-        fixtureDistrict({ id: 'D3' }),
-        fixtureDistrict({ id: 'D4' }),
-      ],
-    });
-    const developDeed: GameAction = {
-      type: 'develop-deed',
-      cardId: '29',
-      districtId: 'D0',
-      tokens: { Suns: 1 },
+  it('keeps court outright development on the generic scoring path', () => {
+    const state = courtFixtureState();
+    const developCourtOutright: GameAction = {
+      type: 'develop-outright',
+      cardId: '41',
+      districtId: 'D1',
+      payment: { Moons: 4, Waves: 3, Knots: 3 },
     };
 
     expect(
-      scoreHeuristicV2Action(developDeed, {
-        state: nearCompleteDeed,
-        deedPotentialBase: 0.2,
-      })
-    ).toBeGreaterThan(
-      scoreHeuristicV2Action(developDeed, {
-        state: newDeed,
-        deedPotentialBase: 0.2,
+      scoreHeuristicV2Action(developCourtOutright, { state })
+    ).toBe(
+      scoreHeuristicV2Action(developCourtOutright, {
+        state,
+        courtValueScale: 0,
       })
     );
   });
 
-  it('threads the deed potential base through the heuristic v2 root guide', () => {
+  it('values court deed progress above a stalled court deed', () => {
+    const freshCourtDeed = courtDeedFixtureState();
+    const nearCompleteCourtDeed = withCourtDeedProgress(freshCourtDeed, 9, {
+      Moons: 4,
+      Waves: 2,
+      Knots: 3,
+    });
+    const developCourtDeed: GameAction = {
+      type: 'develop-deed',
+      cardId: '41',
+      districtId: 'D0',
+      tokens: { Waves: 1 },
+    };
+
+    expect(
+      scoreHeuristicV2Action(developCourtDeed, {
+        state: nearCompleteCourtDeed,
+      })
+    ).toBeGreaterThan(
+      scoreHeuristicV2Action(developCourtDeed, { state: freshCourtDeed })
+    );
+  });
+
+  it('keeps court buy, progress, and completion totals positive', () => {
+    const buyState = courtFixtureState();
+    const buyCourtDeed: GameAction = {
+      type: 'buy-deed',
+      cardId: '41',
+      districtId: 'D1',
+    };
+    expect(
+      scoreHeuristicV2Action(buyCourtDeed, { state: buyState })
+    ).toBeGreaterThan(0);
+
+    const progressState = courtDeedFixtureState();
+    const progressAction: GameAction = {
+      type: 'develop-deed',
+      cardId: '41',
+      districtId: 'D0',
+      tokens: { Waves: 1 },
+    };
+    expect(
+      scoreHeuristicV2Action(progressAction, { state: progressState })
+    ).toBeGreaterThan(0);
+
+    const completionState = withCourtDeedProgress(progressState, 9, {
+      Moons: 4,
+      Waves: 2,
+      Knots: 3,
+    });
+    expect(
+      scoreHeuristicV2Action(progressAction, { state: completionState })
+    ).toBeGreaterThan(0);
+  });
+
+  it('threads the court value scale through the heuristic v2 root guide', () => {
     const state = courtFixtureState();
     const view = toPlayerView(state, 'PlayerA');
     const actions = legalActions(state);
@@ -431,31 +462,34 @@ describe('heuristic scorer v2', () => {
       view,
       candidateActions: actions,
       heuristic: 'v2',
-      deedPotentialBase: 0.2,
+      courtValueScale: 1,
     });
-    const legacyGuide = createHeuristicRolloutSearchRootGuide({
+    const disabledGuide = createHeuristicRolloutSearchRootGuide({
       state,
       view,
       candidateActions: actions,
       heuristic: 'v2',
+      courtValueScale: 0,
     });
 
     expect(guide.rankedRootActions.map((entry) => entry.actionKey)).toEqual(
       rankHeuristicV2Actions(actions, {
         state,
         view,
-        deedPotentialBase: 0.2,
+        courtValueScale: 1,
       }).map((entry) => entry.actionKey)
     );
     expect(
-      legacyGuide.rankedRootActions.map((entry) => entry.actionKey)
+      disabledGuide.rankedRootActions.map((entry) => entry.actionKey)
     ).toEqual(
-      rankHeuristicV2Actions(actions, { state, view }).map(
-        (entry) => entry.actionKey
-      )
+      rankHeuristicV2Actions(actions, {
+        state,
+        view,
+        courtValueScale: 0,
+      }).map((entry) => entry.actionKey)
     );
     expect(guide.rootPriorByKey.get(courtBuyActionKey)).toBeGreaterThan(
-      legacyGuide.rootPriorByKey.get(courtBuyActionKey) ?? 0
+      disabledGuide.rootPriorByKey.get(courtBuyActionKey) ?? 0
     );
   });
 });
@@ -644,6 +678,30 @@ function courtDeedFixtureState(): GameState {
       fixtureDistrict({ id: 'D3' }),
       fixtureDistrict({ id: 'D4' }),
     ],
+  };
+}
+
+function withCourtDeedProgress(
+  state: GameState,
+  progress: number,
+  tokens: Partial<Record<Suit, number>>
+): GameState {
+  return {
+    ...state,
+    districts: state.districts.map((district) =>
+      district.id === 'D0'
+        ? {
+            ...district,
+            stacks: {
+              ...district.stacks,
+              PlayerA: {
+                ...district.stacks.PlayerA,
+                deed: { cardId: '41', progress, tokens },
+              },
+            },
+          }
+        : district
+    ),
   };
 }
 

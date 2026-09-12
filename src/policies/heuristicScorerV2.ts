@@ -23,6 +23,8 @@ import {
   projectDistrictAction,
   smoothstep,
 } from './policyProjection';
+import { courtActionBreakdown, isCourtCard } from './courtPotentialV2';
+import { DEFAULT_COURT_VALUE_SCALE } from './searchConfig';
 import {
   createHeuristicV2PositionContext,
   suitAccessBySuitForPlayerV2,
@@ -41,7 +43,7 @@ export interface HeuristicV2SelectionContext {
   state: GameState;
   view: PlayerView;
   legalActions: readonly GameAction[];
-  deedPotentialBase?: number;
+  courtValueScale?: number;
 }
 
 export interface HeuristicV2ScoredAction extends KeyedAction {
@@ -53,7 +55,7 @@ export interface HeuristicV2ScoredAction extends KeyedAction {
 type HeuristicV2EvaluationContext = Partial<
   Pick<
     HeuristicV2SelectionContext,
-    'state' | 'view' | 'legalActions' | 'deedPotentialBase'
+    'state' | 'view' | 'legalActions' | 'courtValueScale'
   >
 >;
 
@@ -64,7 +66,7 @@ interface ResolvedHeuristicV2Context {
   positionContext: HeuristicV2PositionContext;
   tokenContext: TokenValueContextV2;
   earningPotential: number;
-  deedPotentialBase: number;
+  courtValueScale: number;
 }
 
 interface CachedHeuristicV2Score extends KeyedAction {
@@ -204,15 +206,18 @@ function scoreHeuristicV2ActionWithContext(
   const phase = gamePhase(state);
   const scoringWeight = scoringWeightForPhase(phase);
   const earningWeight = earningWeightForPhase(phase);
+  const courtDelta =
+    courtActionBreakdown(
+      action,
+      state,
+      activePlayerId,
+      resolved.positionContext,
+      resolved.courtValueScale
+    )?.delta ?? 0;
 
   return (
     scoringWeight *
-      scoringDeltaForAction(
-        action,
-        state,
-        activePlayerId,
-        resolved.deedPotentialBase
-      ) +
+      (scoringDeltaForAction(action, state, activePlayerId) + courtDelta) +
     earningWeight * earningDeltaForAction(action, resolved, projected) +
     TOKEN_VALUE_WEIGHT *
       tokenDeltaForActionV2(
@@ -308,14 +313,10 @@ function resolveContext(context: HeuristicV2EvaluationContext):
     activePlayerId
   );
   const access = suitAccessBySuitForPlayerV2(positionContext, activePlayerId);
-  const deedPotentialBase = context.deedPotentialBase ?? 0;
-  if (
-    !Number.isFinite(deedPotentialBase) ||
-    deedPotentialBase < 0 ||
-    deedPotentialBase > 1
-  ) {
+  const courtValueScale = context.courtValueScale ?? DEFAULT_COURT_VALUE_SCALE;
+  if (!Number.isFinite(courtValueScale) || courtValueScale < 0) {
     throw new Error(
-      `Heuristic v2 deedPotentialBase must be in [0, 1]; received ${String(deedPotentialBase)}.`
+      `Heuristic v2 courtValueScale must be a finite number >= 0; received ${String(courtValueScale)}.`
     );
   }
   return {
@@ -330,15 +331,14 @@ function resolveContext(context: HeuristicV2EvaluationContext):
       positionContext
     ),
     earningPotential: earningPotentialValueFromAccess(access),
-    deedPotentialBase,
+    courtValueScale,
   };
 }
 
 function scoringDeltaForAction(
   action: GameAction,
   state: GameState,
-  playerId: PlayerId,
-  deedPotentialBase: number
+  playerId: PlayerId
 ): number {
   if (!isDistrictAction(action)) {
     return 0;
@@ -350,18 +350,12 @@ function scoringDeltaForAction(
     return 0;
   }
   const opponentId = otherPlayerId(playerId);
-  const beforeMargin = potentialDistrictMargin(
-    district,
-    playerId,
-    opponentId,
-    deedPotentialBase
-  );
+  const beforeMargin = potentialDistrictMargin(district, playerId, opponentId);
   const afterDistrict = projectDistrictAction(district, action, playerId);
   const afterMargin = potentialDistrictMargin(
     afterDistrict,
     playerId,
-    opponentId,
-    deedPotentialBase
+    opponentId
   );
   return (
     Math.tanh(afterMargin / SCORING_SCALE) -
@@ -442,19 +436,15 @@ function requiresProjectedTokenContext(action: GameAction): boolean {
 function potentialDistrictMargin(
   district: DistrictState,
   playerId: PlayerId,
-  opponentId: PlayerId,
-  deedPotentialBase: number
+  opponentId: PlayerId
 ): number {
   return (
-    potentialStackScore(district.stacks[playerId], deedPotentialBase) -
-    potentialStackScore(district.stacks[opponentId], deedPotentialBase)
+    potentialStackScore(district.stacks[playerId]) -
+    potentialStackScore(district.stacks[opponentId])
   );
 }
 
-function potentialStackScore(
-  stack: DistrictStack,
-  deedPotentialBase: number
-): number {
+function potentialStackScore(stack: DistrictStack): number {
   const developedScore = districtScore(stack);
   if (!stack.deed) {
     return developedScore;
@@ -463,19 +453,21 @@ function potentialStackScore(
   if (!card) {
     return developedScore;
   }
+  // Incomplete Courts are owned by the court valuation term, which prices the
+  // district swing against completion feasibility.
+  if (isCourtCard(card)) {
+    return developedScore;
+  }
   const target = developmentCost(card);
   if (target <= 0) {
     return developedScore;
   }
   const completionRatio = clamp(stack.deed.progress / target, 0, 1);
-  // A newly bought deed already opens a control path; progress earns the rest
-  // of the potential quadratically, up to full credit on completion.
-  const completionWeight =
-    deedPotentialBase +
-    (1 - deedPotentialBase) * completionRatio * completionRatio;
   return (
     developedScore +
-    incrementalDevelopedScore(stack.developed, card.id) * completionWeight
+    incrementalDevelopedScore(stack.developed, card.id) *
+      completionRatio *
+      completionRatio
   );
 }
 

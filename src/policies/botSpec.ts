@@ -122,14 +122,14 @@ function parseSearchConfig(value: unknown, label: string): SearchPolicyConfig {
     source.heuristic,
     `${label}.heuristic`
   );
-  const deedPotentialBase = optionalProbability(
-    source.deedPotentialBase,
-    `${label}.deedPotentialBase`
+  const courtValueScale = optionalNonnegativeNumber(
+    source.courtValueScale,
+    `${label}.courtValueScale`
   );
   return optionalObjectProperties({
     ...config,
     ...(heuristic ? { heuristic } : {}),
-    ...(deedPotentialBase !== undefined ? { deedPotentialBase } : {}),
+    ...(courtValueScale !== undefined ? { courtValueScale } : {}),
   });
 }
 
@@ -176,14 +176,17 @@ function requiredProbability(value: unknown, label: string): number {
   return value;
 }
 
-function optionalProbability(
+function optionalNonnegativeNumber(
   value: unknown,
   label: string
 ): number | undefined {
   if (value === undefined) {
     return undefined;
   }
-  return requiredProbability(value, label);
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error(`${label} must be a finite number >= 0.`);
+  }
+  return value;
 }
 
 function optionalSearchHeuristic(
