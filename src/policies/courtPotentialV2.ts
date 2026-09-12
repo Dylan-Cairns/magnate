@@ -37,6 +37,15 @@ import { otherPlayerId, projectDistrictAction } from './policyProjection';
 
 export const COURT_FEASIBILITY_HAIRCUT = 0.7;
 export const COURT_HORIZON_CAP = 24;
+/**
+ * Convex progress discount for the leaf evaluator's Court option value. The
+ * action term prices a fresh deed at the same feasibility-discounted swing as a
+ * nearly-complete one, which is correct for a single action but not for a
+ * depth-limited leaf state: it made medium profiles over-buy deed Courts. The
+ * leaf applies `progressRatio^2`, so a fresh deed carries no option value and
+ * value accrues as the deed is developed.
+ */
+export const COURT_LEAF_PROGRESS_EXPONENT = 2;
 const EXPECTED_GAME_TURNS = 42;
 const SCORING_SCALE = 5;
 
@@ -56,6 +65,7 @@ export interface CourtActionBreakdown {
 interface CourtDeedValuation {
   readonly swing: number;
   readonly feasibility: number;
+  readonly progressRatio: number;
   readonly remainingCost: number;
   readonly availableTokens: number;
   readonly turnsLeft: number;
@@ -69,9 +79,14 @@ export function isCourtCard(
 }
 
 /**
- * State-based value of an incomplete Court for the leaf evaluator: the same
- * feasibility-discounted completion swing the action term uses, without any
- * action spend. Returns undefined for non-Court, complete, or standard states.
+ * State-based value of an incomplete Court for the leaf evaluator: the action
+ * term's feasibility-discounted completion swing, without any action spend and
+ * with a convex progress discount. The action term must price a fresh deed
+ * (a real option bought this turn), but a depth-limited leaf state must not:
+ * without the progress discount a fresh deed was worth almost a completed
+ * Court's swing, which inverted the leaf's buy-versus-develop ordering and made
+ * medium profiles over-buy deed Courts. Returns undefined for non-Court,
+ * complete, or standard states.
  */
 export function courtPotentialValueForPlayerV2(
   state: GameState,
@@ -97,7 +112,11 @@ export function courtPotentialValueForPlayerV2(
   if (!valuation) {
     return undefined;
   }
-  return valuation.value * courtValueScale;
+  const progressFactor = Math.pow(
+    valuation.progressRatio,
+    COURT_LEAF_PROGRESS_EXPONENT
+  );
+  return valuation.value * progressFactor * courtValueScale;
 }
 
 export function courtActionBreakdown(
@@ -180,6 +199,8 @@ function courtDeedValuation(
   if (remainingCost <= 0) {
     return undefined;
   }
+  const progressRatio =
+    target > 0 ? clamp(deed.progress / target, 0, 1) : 0;
 
   const access = suitAccessBySuitForPlayerV2(positionContext, playerId);
   let stock = 0;
@@ -201,6 +222,7 @@ function courtDeedValuation(
   return {
     swing,
     feasibility,
+    progressRatio,
     remainingCost,
     availableTokens,
     turnsLeft,
@@ -248,4 +270,8 @@ function negateTokens(
     }
   }
   return out;
+}
+
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.max(minimum, Math.min(maximum, value));
 }

@@ -374,7 +374,7 @@ describe('court valuation v2', () => {
       districts: [
         district({
           id: 'D0',
-          playerADeed: { cardId: COURT_ID, progress: 0, tokens: {} },
+          playerADeed: { cardId: COURT_ID, progress: 4, tokens: {} },
         }),
         district({ id: 'D1', playerBDeveloped: ['29'] }),
         district({ id: 'D2' }),
@@ -427,7 +427,7 @@ describe('court valuation v2', () => {
     ).toBeUndefined();
   });
 
-  it('raises the state value as court progress improves feasibility', () => {
+  it('grows the state value convexly from court progress', () => {
     const base = courtState({
       resources: fixtureResources({ Moons: 1, Waves: 1, Knots: 1 }),
       districts: [
@@ -441,7 +441,7 @@ describe('court valuation v2', () => {
         district({ id: 'D4' }),
       ],
     });
-    const progressed: GameState = {
+    const atProgress = (progress: number): GameState => ({
       ...base,
       districts: base.districts.map((entry) => {
         if (entry.id !== 'D0') {
@@ -457,30 +457,32 @@ describe('court valuation v2', () => {
             ...entry.stacks,
             PlayerA: {
               ...entry.stacks.PlayerA,
-              deed: { ...deed, progress: 6 },
+              deed: { ...deed, progress },
             },
           },
         };
       }),
+    });
+    const valueAt = (progress: number): number => {
+      const state = atProgress(progress);
+      return (
+        courtPotentialValueForPlayerV2(
+          state,
+          'PlayerA',
+          state.districts[0],
+          createHeuristicV2PositionContext(state, 'PlayerA'),
+          1
+        ) ?? 0
+      );
     };
 
-    const early = courtPotentialValueForPlayerV2(
-      base,
-      'PlayerA',
-      base.districts[0],
-      createHeuristicV2PositionContext(base, 'PlayerA'),
-      1
-    );
-    const late = courtPotentialValueForPlayerV2(
-      progressed,
-      'PlayerA',
-      progressed.districts[0],
-      createHeuristicV2PositionContext(progressed, 'PlayerA'),
-      1
-    );
+    const fresh = valueAt(0);
+    const mid = valueAt(4);
+    const late = valueAt(8);
 
-    expect(early).toBeGreaterThan(0);
-    expect(late ?? 0).toBeGreaterThan(early ?? 0);
+    expect(fresh).toBe(0);
+    expect(mid).toBeGreaterThan(fresh);
+    expect(late - mid).toBeGreaterThan(mid - fresh);
   });
 });
 
