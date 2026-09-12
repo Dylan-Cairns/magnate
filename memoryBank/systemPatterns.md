@@ -203,6 +203,10 @@ Design expectations:
 - Human input is gated by a transaction-specific decision-window barrier, not by
   pending presentation. Later actions in the same human window use canonical
   legality immediately and may run ahead of visuals.
+- Human-input activity styling (actions-panel and human player-panel glow)
+  derives from rendered human action items (canonical legality, readiness-gated),
+  not from the presented phase: a bot-only income choice on the human's turn
+  must not light the human input area while its action list is empty.
 - Browser DOM lookup and flight construction stay outside the engine (for
   example `domTargets.ts`); sequence-derived visual commands carry the semantics
   needed to launch command-specific flights.

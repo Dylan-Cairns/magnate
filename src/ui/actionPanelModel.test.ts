@@ -125,6 +125,26 @@ describe('human input activity', () => {
     ).toBe(true);
   });
 
+  it('stays inactive while the displayed phase lags a bot-only income choice', () => {
+    // The human owns the turn, but the canonical decision actor is the bot
+    // choosing income for its own deed; the presented phase has not caught up
+    // to CollectIncome yet, so isIncomeChoicePhase is still false.
+    expect(
+      activeWith({
+        activePlayerId: 'PlayerA',
+        isIncomeChoicePhase: false,
+        visibleActionItems: [],
+      })
+    ).toBe(false);
+    expect(
+      activeWith({
+        activePlayerId: 'PlayerA',
+        isIncomeChoicePhase: false,
+        visibleActionItems: incomeChoiceItems,
+      })
+    ).toBe(true);
+  });
+
   it('stays inactive during income selection when only the bot must choose', () => {
     expect(
       activeWith({ isIncomeChoicePhase: true, visibleActionItems: [] })
