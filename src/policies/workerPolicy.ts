@@ -34,6 +34,11 @@ export interface WorkerBackedActionPolicy extends ActionPolicy {
   close(): void;
 }
 
+/** Grace period between a cooperative shutdown and a hard `terminate()`. */
+export const WORKER_SHUTDOWN_GRACE_MS = 250;
+/** Warm-pool lifetime without a bot decision before teardown. */
+export const WORKER_IDLE_SHUTDOWN_MS = 5 * 60_000;
+
 interface PendingSelection {
   legalActions: readonly GameAction[];
   onSearchDiagnostics: ActionSelectionContext['onSearchDiagnostics'];
@@ -46,6 +51,7 @@ export function createWorkerBackedPolicy(
   options: WorkerBackedPolicyOptions = {}
 ): WorkerBackedActionPolicy {
   let worker: WorkerBackedPolicyWorker | null = null;
+  let idleShutdownTimer: ReturnType<typeof setTimeout> | null = null;
   let nextRequestId = 1;
   const pendingByRequestId = new Map<number, PendingSelection>();
   const createWorker = options.createWorker ?? createDefaultWorker;
@@ -58,6 +64,7 @@ export function createWorkerBackedPolicy(
     options.searchExecutionMode ?? browserSearchExecutionModeOverride();
 
   function ensureWorker(): WorkerBackedPolicyWorker {
+    cancelIdleShutdown();
     if (worker) {
       return worker;
     }
@@ -70,17 +77,45 @@ export function createWorkerBackedPolicy(
 
   function close(): void {
     settlePendingAsSuperseded();
-    terminateWorker();
+    shutdownWorker();
   }
 
-  function terminateWorker(): void {
-    if (!worker) {
+  function shutdownWorker(): void {
+    cancelIdleShutdown();
+    const current = worker;
+    if (!current) {
       return;
     }
-    worker.onmessage = null;
-    worker.onerror = null;
-    worker.terminate();
     worker = null;
+    current.onmessage = null;
+    current.onerror = null;
+    try {
+      current.postMessage({ type: 'shutdown' });
+    } catch {
+      current.terminate();
+      return;
+    }
+    // The shutdown request lets the worker close its nested search pool before
+    // it stops; the fallback guarantees teardown even if it is never processed.
+    setTimeout(() => {
+      current.terminate();
+    }, WORKER_SHUTDOWN_GRACE_MS);
+  }
+
+  function scheduleIdleShutdown(): void {
+    cancelIdleShutdown();
+    idleShutdownTimer = setTimeout(() => {
+      idleShutdownTimer = null;
+      shutdownWorker();
+    }, WORKER_IDLE_SHUTDOWN_MS);
+  }
+
+  function cancelIdleShutdown(): void {
+    if (idleShutdownTimer === null) {
+      return;
+    }
+    clearTimeout(idleShutdownTimer);
+    idleShutdownTimer = null;
   }
 
   function settlePendingAsSuperseded(): void {
@@ -97,6 +132,7 @@ export function createWorkerBackedPolicy(
       return;
     }
     pendingByRequestId.delete(response.requestId);
+    scheduleIdleShutdown();
 
     if (response.type === 'error') {
       pending.reject(new Error(response.message));
@@ -135,7 +171,7 @@ export function createWorkerBackedPolicy(
     const message = event.message ?? 'Bot worker failed.';
     const error =
       event.error instanceof Error ? event.error : new Error(message);
-    terminateWorker();
+    shutdownWorker();
     for (const pending of pendingByRequestId.values()) {
       pending.reject(error);
     }
@@ -153,7 +189,7 @@ export function createWorkerBackedPolicy(
 
       if (pendingByRequestId.size > 0) {
         settlePendingAsSuperseded();
-        terminateWorker();
+        shutdownWorker();
       }
 
       const requestId = nextRequestId;
@@ -183,7 +219,7 @@ export function createWorkerBackedPolicy(
           });
         } catch (error) {
           pendingByRequestId.delete(requestId);
-          terminateWorker();
+          shutdownWorker();
           reject(error instanceof Error ? error : new Error(String(error)));
         }
       });

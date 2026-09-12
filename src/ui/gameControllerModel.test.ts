@@ -260,6 +260,7 @@ describe('gameControllerModel', () => {
         isIncomeChoicePhase: false,
         botIncomeActionCount: 0,
         startupPreloadReady: true,
+        pageVisible: true,
         ...overrides,
       });
 
@@ -267,6 +268,7 @@ describe('gameControllerModel', () => {
     expect(schedulingAllowed({ terminal: true })).toBe(false);
     expect(schedulingAllowed({ activePlayerId: 'PlayerA' })).toBe(false);
     expect(schedulingAllowed({ startupPreloadReady: false })).toBe(false);
+    expect(schedulingAllowed({ pageVisible: false })).toBe(false);
     expect(
       schedulingAllowed({
         activePlayerId: 'PlayerA',

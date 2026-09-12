@@ -82,6 +82,28 @@ describe('rollout search core', () => {
     expectRootActionDiagnosticsAreConsistent(serialDiagnostics[0]);
   });
 
+  it('stops scheduling parallel batches once cancellation is requested', async () => {
+    const fixture = selectionFixture('rollout-core-cancel');
+    const randomSeed = 'rollout-core-cancel-rng';
+    let batches = 0;
+    const cancelled = await selectRolloutSearchActionParallel({
+      ...fixture,
+      config: TEST_CONFIG,
+      random: rngFromSeed(randomSeed),
+      randomSeed,
+      batchSize: 1,
+      parallelWorkers: 2,
+      shouldCancel: () => batches >= 1,
+      async runBatch(tasks, context) {
+        batches += 1;
+        return runTasks(tasks, context);
+      },
+    });
+
+    expect(cancelled).toBeUndefined();
+    expect(batches).toBe(1);
+  });
+
   it('merges parallel batch results independently of response ordering', async () => {
     const fixture = selectionFixture('rollout-core-response-order');
     const randomSeed = 'rollout-core-response-order-rng';

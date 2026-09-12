@@ -86,6 +86,11 @@ export interface RolloutSearchSelectionInput {
 export interface RolloutSearchParallelSelectionInput extends RolloutSearchSelectionInput {
   batchSize: number;
   parallelWorkers: number;
+  /**
+   * Cooperative cancellation hook. Checked between rollout batches; when it
+   * returns true the search stops without selecting an action.
+   */
+  shouldCancel?: () => boolean;
   runBatch: (
     tasks: readonly RolloutSearchWorkerTask[],
     context: RolloutSearchWorkerContext
@@ -290,6 +295,9 @@ export async function selectRolloutSearchActionParallel(
   );
   let batches = 0;
   while (session.hasUnscheduledVisits()) {
+    if (input.shouldCancel?.()) {
+      return undefined;
+    }
     const tasks: RolloutSearchWorkerTask[] = [];
     while (tasks.length < input.batchSize && session.hasUnscheduledVisits()) {
       input.onProgress?.();
