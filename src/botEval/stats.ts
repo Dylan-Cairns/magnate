@@ -12,6 +12,95 @@ export interface SearchDecisionLatencySample {
   latencyMs: number;
 }
 
+export interface PairedDiscordantSummary {
+  pairs: number;
+  candidateWinsMorePairs: number;
+  opponentWinsMorePairs: number;
+  tiedPairs: number;
+  meanWinMargin: number;
+  meanWinMarginCi95: ConfidenceInterval;
+  mcnemarTwoSidedP: number;
+}
+
+/**
+ * Summarizes per-pair win margins in win-rate units (candidate wins minus
+ * opponent wins, divided by two games per pair). The confidence interval is a
+ * normal approximation over pair margins; the McNemar p-value is the exact
+ * two-sided binomial test over discordant pairs.
+ */
+export function pairedDiscordantSummary(
+  pairMargins: readonly number[]
+): PairedDiscordantSummary {
+  if (pairMargins.length === 0) {
+    throw new Error('pairedDiscordantSummary requires at least one pair.');
+  }
+  for (const margin of pairMargins) {
+    if (!Number.isFinite(margin)) {
+      throw new Error('pairedDiscordantSummary requires finite margins.');
+    }
+  }
+
+  let candidateWinsMorePairs = 0;
+  let opponentWinsMorePairs = 0;
+  let tiedPairs = 0;
+  let sum = 0;
+  for (const margin of pairMargins) {
+    if (margin > 0) {
+      candidateWinsMorePairs += 1;
+    } else if (margin < 0) {
+      opponentWinsMorePairs += 1;
+    } else {
+      tiedPairs += 1;
+    }
+    sum += margin;
+  }
+
+  const pairs = pairMargins.length;
+  const meanWinMargin = sum / pairs;
+  let standardError = 0;
+  if (pairs >= 2) {
+    const variance =
+      pairMargins.reduce(
+        (total, margin) => total + (margin - meanWinMargin) ** 2,
+        0
+      ) /
+      (pairs - 1);
+    standardError = Math.sqrt(variance / pairs);
+  }
+
+  return {
+    pairs,
+    candidateWinsMorePairs,
+    opponentWinsMorePairs,
+    tiedPairs,
+    meanWinMargin,
+    meanWinMarginCi95: {
+      low: meanWinMargin - 1.96 * standardError,
+      high: meanWinMargin + 1.96 * standardError,
+    },
+    mcnemarTwoSidedP: exactBinomialTwoSidedP(
+      Math.min(candidateWinsMorePairs, opponentWinsMorePairs),
+      candidateWinsMorePairs + opponentWinsMorePairs
+    ),
+  };
+}
+
+function exactBinomialTwoSidedP(successes: number, trials: number): number {
+  if (trials <= 0) {
+    return 1;
+  }
+  if (successes < 0 || successes > trials) {
+    throw new Error('exactBinomialTwoSidedP received invalid inputs.');
+  }
+  let tail = 0;
+  let probability = 0.5 ** trials;
+  for (let index = 0; index <= successes; index += 1) {
+    tail += probability;
+    probability *= (trials - index) / (index + 1);
+  }
+  return Math.min(1, 2 * tail);
+}
+
 export function wilsonInterval(
   successes: number,
   trials: number,

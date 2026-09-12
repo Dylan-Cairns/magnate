@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  pairedDiscordantSummary,
   rootActionCountBucket,
   summarizeLatencies,
   summarizeSearchWork,
@@ -8,6 +9,36 @@ import {
 } from './stats';
 
 describe('bot evaluation stats', () => {
+  it('summarizes paired margins with an exact McNemar p-value', () => {
+    const summary = pairedDiscordantSummary([1, 1, 1, -1]);
+
+    expect(summary.pairs).toBe(4);
+    expect(summary.candidateWinsMorePairs).toBe(3);
+    expect(summary.opponentWinsMorePairs).toBe(1);
+    expect(summary.tiedPairs).toBe(0);
+    expect(summary.meanWinMargin).toBe(0.5);
+    expect(summary.mcnemarTwoSidedP).toBeCloseTo(0.625, 12);
+  });
+
+  it('reports tied pairs and a neutral p-value when nothing is discordant', () => {
+    const summary = pairedDiscordantSummary([0, 0, 0]);
+
+    expect(summary.tiedPairs).toBe(3);
+    expect(summary.candidateWinsMorePairs).toBe(0);
+    expect(summary.opponentWinsMorePairs).toBe(0);
+    expect(summary.meanWinMargin).toBe(0);
+    expect(summary.meanWinMarginCi95).toEqual({ low: 0, high: 0 });
+    expect(summary.mcnemarTwoSidedP).toBe(1);
+  });
+
+  it('computes a paired margin interval from pair spread', () => {
+    const summary = pairedDiscordantSummary([1, 0.5, 0.5, 0]);
+
+    expect(summary.meanWinMargin).toBe(0.5);
+    expect(summary.meanWinMarginCi95.low).toBeLessThan(0.5);
+    expect(summary.meanWinMarginCi95.high).toBeGreaterThan(0.5);
+  });
+
   it('computes a Wilson interval within probability bounds', () => {
     const interval = wilsonInterval(6, 10);
 

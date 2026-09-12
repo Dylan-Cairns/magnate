@@ -85,6 +85,67 @@ describe('bot specs', () => {
     });
   });
 
+  it('parses a rollout-search spec with a deed potential base', () => {
+    expect(
+      parseBotSpec({
+        id: 'search-v2',
+        kind: 'search',
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          heuristic: 'v2',
+          deedPotentialBase: 0.2,
+        },
+      })
+    ).toEqual({
+      id: 'search-v2',
+      kind: 'search',
+      config: {
+        worlds: 2,
+        rollouts: 1,
+        depth: 4,
+        maxRootActions: 3,
+        rolloutEpsilon: 0,
+        heuristic: 'v2',
+        deedPotentialBase: 0.2,
+      },
+    });
+  });
+
+  it('rejects out-of-range deed potential bases', () => {
+    expect(() =>
+      parseBotSpec({
+        id: 'broken-search',
+        kind: 'search',
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          deedPotentialBase: 1.5,
+        },
+      })
+    ).toThrow('deedPotentialBase');
+    expect(() =>
+      parseBotSpec({
+        id: 'broken-search',
+        kind: 'search',
+        config: {
+          worlds: 2,
+          rollouts: 1,
+          depth: 4,
+          maxRootActions: 3,
+          rolloutEpsilon: 0,
+          deedPotentialBase: 'high',
+        },
+      })
+    ).toThrow('deedPotentialBase');
+  });
+
   it('constructs policies for deterministic bot kinds', () => {
     expect(
       createPolicyFromBotSpec({ id: 'heuristic-test', kind: 'heuristic' })
