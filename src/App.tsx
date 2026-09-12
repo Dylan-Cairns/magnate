@@ -16,6 +16,7 @@ import {
   tradeCompositePickerStillLegal,
   type ActionPickerState,
 } from './ui/actionPickerModel';
+import { isHumanInputActive } from './ui/actionPanelModel';
 import { errorMessage } from './ui/gameControllerModel';
 import {
   getBugReportIssueUrl,
@@ -355,6 +356,14 @@ export function App() {
     humanInputBlockedByPresentation && humanActionsAcceptingInput.length === 0;
   const humanActionUiBlockedByTurnCycleAnimation =
     humanActionUiBlockedByAnimation && isTurnCycleAnimationLock;
+  const humanInputActive = isHumanInputActive({
+    terminal,
+    activePlayerId,
+    humanPlayerId: HUMAN_PLAYER,
+    visibleActionItems: visibleHumanActionItems,
+    humanActionUiBlockedByAnimation,
+    isIncomeChoicePhase,
+  });
 
   if (
     terminal ||
@@ -686,7 +695,7 @@ export function App() {
 
             <PlayerPanel
               player={humanPlayer}
-              isActive={!terminal && visualActivePlayerId === HUMAN_PLAYER}
+              isActive={humanInputActive}
               score={score}
               terminal={terminal}
               handSlotCount={PLAYER_HAND_SLOT_COUNT}

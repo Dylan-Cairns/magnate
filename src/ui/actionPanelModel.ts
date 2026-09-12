@@ -1,10 +1,44 @@
-import type { GameAction } from '../engine/types';
+import type { GameAction, PlayerId } from '../engine/types';
 import {
   paymentSignature,
   type HumanActionListItem,
 } from './actionPresentation';
 
 type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
+
+export function hasVisibleIncomeChoiceActions(
+  items: readonly HumanActionListItem[]
+): boolean {
+  return items.some(
+    (item) =>
+      (item.kind === 'action' && item.action.type === 'choose-income-suit') ||
+      item.kind === 'income-choice-group'
+  );
+}
+
+export function isHumanInputActive({
+  terminal,
+  activePlayerId,
+  humanPlayerId,
+  visibleActionItems,
+  humanActionUiBlockedByAnimation,
+  isIncomeChoicePhase,
+}: {
+  terminal: boolean;
+  activePlayerId: PlayerId;
+  humanPlayerId: PlayerId;
+  visibleActionItems: readonly HumanActionListItem[];
+  humanActionUiBlockedByAnimation: boolean;
+  isIncomeChoicePhase: boolean;
+}): boolean {
+  return (
+    !terminal &&
+    !humanActionUiBlockedByAnimation &&
+    (isIncomeChoicePhase
+      ? hasVisibleIncomeChoiceActions(visibleActionItems)
+      : activePlayerId === humanPlayerId)
+  );
+}
 
 export function actionCategoryForItem(item: HumanActionListItem): string {
   switch (item.kind) {

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GameAction } from '../engine/types';
+import type { GameAction, PlayerId } from '../engine/types';
+import type { HumanActionListItem } from './actionPresentation';
 import {
   actionCategoryForItem,
   actionCategoryLabel,
   buildDevelopOutrightGroupPresentation,
+  hasVisibleIncomeChoiceActions,
+  isHumanInputActive,
 } from './actionPanelModel';
 
 const OUTRIGHT_ACTIONS: Array<
@@ -59,6 +62,92 @@ describe('action panel categories', () => {
     expect(actionCategoryLabel('develop-outright')).toBe('Develop Outright');
     expect(actionCategoryLabel('choose-income-suit')).toBe('Choose Income');
     expect(actionCategoryLabel('custom')).toBe('custom');
+  });
+});
+
+describe('human input activity', () => {
+  const endTurnItems: readonly HumanActionListItem[] = [
+    { kind: 'action', action: { type: 'end-turn' } },
+  ];
+  const incomeChoiceItems: readonly HumanActionListItem[] = [
+    {
+      kind: 'income-choice-group',
+      playerId: 'PlayerA',
+      districtId: 'D1',
+      cardId: '6',
+      options: [
+        {
+          type: 'choose-income-suit',
+          playerId: 'PlayerA',
+          districtId: 'D1',
+          cardId: '6',
+          suit: 'Moons',
+        },
+      ],
+    },
+  ];
+
+  function activeWith(overrides: {
+    terminal?: boolean;
+    activePlayerId?: PlayerId;
+    visibleActionItems?: readonly HumanActionListItem[];
+    humanActionUiBlockedByAnimation?: boolean;
+    isIncomeChoicePhase?: boolean;
+  }) {
+    return isHumanInputActive({
+      terminal: false,
+      activePlayerId: 'PlayerA',
+      humanPlayerId: 'PlayerA',
+      visibleActionItems: endTurnItems,
+      humanActionUiBlockedByAnimation: false,
+      isIncomeChoicePhase: false,
+      ...overrides,
+    });
+  }
+
+  it('detects visible income choice actions', () => {
+    expect(hasVisibleIncomeChoiceActions([])).toBe(false);
+    expect(hasVisibleIncomeChoiceActions(endTurnItems)).toBe(false);
+    expect(hasVisibleIncomeChoiceActions(incomeChoiceItems)).toBe(true);
+  });
+
+  it('is active exactly while human actions are rendered and unblocked', () => {
+    expect(activeWith({})).toBe(true);
+    expect(activeWith({ terminal: true })).toBe(false);
+    expect(activeWith({ humanActionUiBlockedByAnimation: true })).toBe(false);
+    expect(activeWith({ activePlayerId: 'PlayerB' })).toBe(false);
+    expect(
+      activeWith({
+        activePlayerId: 'PlayerB',
+        visibleActionItems: incomeChoiceItems,
+        isIncomeChoicePhase: true,
+      })
+    ).toBe(true);
+  });
+
+  it('stays inactive during income selection when only the bot must choose', () => {
+    expect(
+      activeWith({ isIncomeChoicePhase: true, visibleActionItems: [] })
+    ).toBe(false);
+    expect(
+      activeWith({
+        isIncomeChoicePhase: true,
+        visibleActionItems: endTurnItems,
+      })
+    ).toBe(false);
+    expect(
+      activeWith({
+        activePlayerId: 'PlayerB',
+        isIncomeChoicePhase: true,
+        visibleActionItems: [],
+      })
+    ).toBe(false);
+    expect(
+      activeWith({
+        isIncomeChoicePhase: true,
+        visibleActionItems: incomeChoiceItems,
+      })
+    ).toBe(true);
   });
 });
 
