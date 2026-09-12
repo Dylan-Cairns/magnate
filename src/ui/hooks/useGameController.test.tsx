@@ -16,6 +16,7 @@ vi.mock('../gameControllerModel', async (importOriginal) => ({
 }));
 
 vi.mock('../../policies/catalog', () => ({
+  BOT_PROFILES: [],
   DEFAULT_BOT_PROFILE_ID: 'test-bot',
   resolveBotProfile: () => ({ selected: { id: 'test-bot' }, policy: {} }),
 }));

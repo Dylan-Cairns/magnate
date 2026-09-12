@@ -1,6 +1,5 @@
 import type { BotSpec } from './botSpec';
 import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
-import { resolveTdRootSearchGuidanceConfig } from './tdRootGuidanceConfig';
 
 export function validateSearchExecutionMode(
   spec: BotSpec,
@@ -28,12 +27,6 @@ export function validateSearchExecutionMode(
       `Search execution mode ${mode} requires parallel search workers.`
     );
   }
-  const guidance = resolveTdRootSearchGuidanceConfig(spec.guidance);
-  if (guidance.rollout !== 'td') {
-    throw new Error(
-      `Search execution mode ${mode} requires TD rollout guidance.`
-    );
-  }
 }
 
 export function resolveEffectiveSearchExecutionMode(
@@ -48,8 +41,7 @@ export function resolveEffectiveSearchExecutionMode(
   if (spec.kind !== 'td-root-search' || workerCount <= 1) {
     return undefined;
   }
-  const guidance = resolveTdRootSearchGuidanceConfig(spec.guidance);
-  return guidance.rollout === 'td' ? 'resumable-paired-td' : undefined;
+  return 'resumable-paired-td';
 }
 
 export function searchWorkerPoolConfigurationMatches(

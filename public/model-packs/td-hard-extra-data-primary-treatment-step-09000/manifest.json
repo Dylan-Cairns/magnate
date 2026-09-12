@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "packId": "td-hard-extra-data-primary-treatment-step-09000",
+  "label": "TD Hard Extra Data Step 9000",
+  "createdAtUtc": "2026-09-15T06:27:39.298591+00:00",
+  "model": {
+    "modelType": "td-root-search-v1",
+    "weightsPath": "weights.json",
+    "value": {
+      "checkpointType": "magnate_td_value_v1",
+      "encodingVersion": 2,
+      "observationDim": 206,
+      "hiddenDim": 256,
+      "requiredStateDictKeys": [
+        "encoder.0.weight",
+        "encoder.0.bias",
+        "encoder.2.weight",
+        "encoder.2.bias",
+        "encoder.4.weight",
+        "encoder.4.bias"
+      ]
+    },
+    "opponent": {
+      "checkpointType": "magnate_td_opponent_v1",
+      "encodingVersion": 2,
+      "observationDim": 206,
+      "actionFeatureDim": 40,
+      "hiddenDim": 256,
+      "requiredStateDictKeys": [
+        "obs_encoder.0.weight",
+        "obs_encoder.0.bias",
+        "obs_encoder.2.weight",
+        "obs_encoder.2.bias",
+        "action_encoder.0.weight",
+        "action_encoder.0.bias",
+        "policy_head.0.weight",
+        "policy_head.0.bias",
+        "policy_head.2.weight",
+        "policy_head.2.bias"
+      ]
+    }
+  },
+  "source": {
+    "runId": null,
+    "valueCheckpoint": "models\\td_checkpoints\\experimental\\value-step-0009000.pt",
+    "opponentCheckpoint": "models\\td_checkpoints\\experimental\\opponent-step-0009000.pt",
+    "checkpointMetadata": {
+      "step": 9000,
+      "value": {
+        "runLabel": "td-hard-extra-data-continuation-v1-primary-extra-data-treatment-value",
+        "trainingSeed": 2026072801,
+        "districtAugmentation": "none",
+        "districtAugmentationSeed": null,
+        "valueAugmentationStreamSeed": null,
+        "opponentAugmentationStreamSeed": null,
+        "opponentAugmentationCopiesPerRawSample": null,
+        "valueSamplingTraceSha256": "6ccecec205e9e83f608cb2cfc59c20222d9fb93d9d6c73b275fef2d6a93d1cbe",
+        "opponentSamplingTraceSha256": null,
+        "provenance": {
+          "valueReplayContentSha256": "01dbbb8828cccbd46440f77c53fc6c9044345feced9cf91daabfe3d6feaa428c",
+          "opponentReplayContentSha256": null,
+          "replayKeyMode": "run-qualified-canonical-v1",
+          "warmStartValueSha256": "9111a88fb4257f20518437283e4a35d418f536ad3b7985ec3eb5e8d9e8d55630",
+          "warmStartOpponentSha256": null,
+          "experimentManifest": "C:\\Users\\dcairns\\Documents\\src\\magnate\\configs\\td-training\\td-hard-extra-data-continuation-v1.json",
+          "experimentManifestSha256": "20d6499e0abd68edf91ab8e2ede99ecc21b6ad39ed61969b7c0ef11b3492f5c4",
+          "implementationSha256": "e28b7f8384e606e4fe03f329fcc922b328cea894a37f803824ecd8f9c18c532a",
+          "implementationFiles": [
+            "scripts/evaluate_td_replay_holdout.py",
+            "scripts/prepare_td_hard_extra_data_continuation.py",
+            "scripts/train_td.py",
+            "trainer/encoding.py",
+            "trainer/td/__init__.py",
+            "trainer/td/ablation_manifest.py",
+            "trainer/td/checkpoint.py",
+            "trainer/td/holdout.py",
+            "trainer/td/io.py",
+            "trainer/td/models.py",
+            "trainer/td/replay.py",
+            "trainer/td/symmetry_augmentation.py",
+            "trainer/td/targets.py",
+            "trainer/td/train.py",
+            "trainer/td/types.py",
+            "trainer/types.py"
+          ]
+        },
+        "step": 9000
+      },
+      "opponent": {
+        "runLabel": "td-hard-extra-data-continuation-v1-primary-extra-data-treatment-opponent",
+        "trainingSeed": 2026072801,
+        "districtAugmentation": "none",
+        "districtAugmentationSeed": null,
+        "valueAugmentationStreamSeed": null,
+        "opponentAugmentationStreamSeed": null,
+        "opponentAugmentationCopiesPerRawSample": 1,
+        "valueSamplingTraceSha256": null,
+        "opponentSamplingTraceSha256": "65969e4114e1796811f15f43bc8bc0ba332b5b71d7a1469185d373da50b78446",
+        "provenance": {
+          "valueReplayContentSha256": null,
+          "opponentReplayContentSha256": "102be4e5dd423ba4b94bf3935993ef6f6aeded8d924fc3da2f22334b79f3bd0c",
+          "replayKeyMode": "run-qualified-canonical-v1",
+          "warmStartValueSha256": null,
+          "warmStartOpponentSha256": "590897272389dc600bb371b6b4bc82ae4b7c24d148a93e91655b19069dbd0937",
+          "experimentManifest": "C:\\Users\\dcairns\\Documents\\src\\magnate\\configs\\td-training\\td-hard-extra-data-continuation-v1.json",
+          "experimentManifestSha256": "20d6499e0abd68edf91ab8e2ede99ecc21b6ad39ed61969b7c0ef11b3492f5c4",
+          "implementationSha256": "e28b7f8384e606e4fe03f329fcc922b328cea894a37f803824ecd8f9c18c532a",
+          "implementationFiles": [
+            "scripts/evaluate_td_replay_holdout.py",
+            "scripts/prepare_td_hard_extra_data_continuation.py",
+            "scripts/train_td.py",
+            "trainer/encoding.py",
+            "trainer/td/__init__.py",
+            "trainer/td/ablation_manifest.py",
+            "trainer/td/checkpoint.py",
+            "trainer/td/holdout.py",
+            "trainer/td/io.py",
+            "trainer/td/models.py",
+            "trainer/td/replay.py",
+            "trainer/td/symmetry_augmentation.py",
+            "trainer/td/targets.py",
+            "trainer/td/train.py",
+            "trainer/td/types.py",
+            "trainer/types.py"
+          ]
+        },
+        "step": 9000
+      }
+    }
+  }
+}

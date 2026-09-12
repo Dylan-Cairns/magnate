@@ -3,12 +3,10 @@ import type { ActionPolicy } from './types';
 import { createWorkerBackedPolicy } from './workerPolicy';
 
 export type BotProfileId =
-  | 'rollout-search-v2-hard'
-  | 'rollout-search-v2-medium-hard'
+  | 'rollout-search-v2-easy'
   | 'rollout-search-v2-medium'
-  | 'td-root-search-v2-medium'
-  | 'td-root-search-v2-medium-heuristic-leaf'
-  | 'rollout-search-v2-easy';
+  | 'rollout-search-v2-hard'
+  | 'td-root-search-v2-medium';
 
 export interface BotProfile {
   id: BotProfileId;
@@ -29,39 +27,19 @@ export interface ResolvedBotProfile {
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   createBotProfile({
-    id: 'rollout-search-v2-hard',
-    label: 'V2 Hard',
+    id: 'rollout-search-v2-easy',
+    label: 'Easy',
     description: '',
     available: true,
     turnDelayMs: 0,
     spec: {
-      id: 'rollout-search-v2-hard',
+      id: 'rollout-search-v2-easy',
       kind: 'search',
       config: {
-        worlds: 50,
+        worlds: 20,
         rollouts: 1,
-        depth: 270,
-        maxRootActions: 16,
-        rolloutEpsilon: 0.0,
-        heuristic: 'v2',
-      },
-    },
-    createPolicy: createWorkerBackedPolicy,
-  }),
-  createBotProfile({
-    id: 'rollout-search-v2-medium-hard',
-    label: 'Heuristic V2 Medium Hard',
-    description: '',
-    available: true,
-    turnDelayMs: 0,
-    spec: {
-      id: 'rollout-search-v2-medium-hard',
-      kind: 'search',
-      config: {
-        worlds: 40,
-        rollouts: 1,
-        depth: 180,
-        maxRootActions: 16,
+        depth: 80,
+        maxRootActions: 10,
         rolloutEpsilon: 0.0,
         heuristic: 'v2',
       },
@@ -70,7 +48,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   }),
   createBotProfile({
     id: 'rollout-search-v2-medium',
-    label: 'V2 Medium',
+    label: 'Medium',
     description: '',
     available: true,
     turnDelayMs: 0,
@@ -89,8 +67,28 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     createPolicy: createWorkerBackedPolicy,
   }),
   createBotProfile({
+    id: 'rollout-search-v2-hard',
+    label: 'Hard',
+    description: '',
+    available: true,
+    turnDelayMs: 0,
+    spec: {
+      id: 'rollout-search-v2-hard',
+      kind: 'search',
+      config: {
+        worlds: 50,
+        rollouts: 1,
+        depth: 270,
+        maxRootActions: 16,
+        rolloutEpsilon: 0.0,
+        heuristic: 'v2',
+      },
+    },
+    createPolicy: createWorkerBackedPolicy,
+  }),
+  createBotProfile({
     id: 'td-root-search-v2-medium',
-    label: 'TD V2 Medium',
+    label: 'Experimental',
     description: '',
     available: true,
     turnDelayMs: 0,
@@ -103,51 +101,6 @@ export const BOT_PROFILES: readonly BotProfile[] = [
         depth: 40,
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
-      },
-    },
-    createPolicy: createWorkerBackedPolicy,
-  }),
-  createBotProfile({
-    id: 'td-root-search-v2-medium-heuristic-leaf',
-    label: 'TD V2 Medium + Heuristic Leaf',
-    description: '',
-    available: true,
-    turnDelayMs: 0,
-    spec: {
-      id: 'td-root-search-v2-medium-heuristic-leaf',
-      kind: 'td-root-search',
-      guidance: {
-        root: 'td',
-        rollout: 'td',
-        leaf: 'heuristic',
-      },
-      config: {
-        worlds: 10,
-        rollouts: 1,
-        depth: 40,
-        maxRootActions: 16,
-        rolloutEpsilon: 0.0,
-        heuristic: 'v2',
-      },
-    },
-    createPolicy: createWorkerBackedPolicy,
-  }),
-  createBotProfile({
-    id: 'rollout-search-v2-easy',
-    label: 'V2 Easy',
-    description: '',
-    available: true,
-    turnDelayMs: 0,
-    spec: {
-      id: 'rollout-search-v2-easy',
-      kind: 'search',
-      config: {
-        worlds: 20,
-        rollouts: 1,
-        depth: 80,
-        maxRootActions: 10,
-        rolloutEpsilon: 0.0,
-        heuristic: 'v2',
       },
     },
     createPolicy: createWorkerBackedPolicy,

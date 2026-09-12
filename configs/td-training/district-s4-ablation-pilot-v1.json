@@ -200,11 +200,6 @@
         "depth": 40,
         "maxRootActions": 16,
         "rolloutEpsilon": 0.0,
-        "guidance": {
-          "root": "td",
-          "rollout": "td",
-          "leaf": "td"
-        },
         "maximumRootVisitBudget": 160
       },
       "comparisons": [

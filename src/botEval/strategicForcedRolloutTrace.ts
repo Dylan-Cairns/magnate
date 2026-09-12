@@ -196,10 +196,7 @@ export async function runStrategicForcedRolloutTraceV0(
   const model = await (options.loadModel
     ? options.loadModel()
     : preloadTdRootBrowserModel(modelIndexPath));
-  const tdGuidance = createTdRootSearchRolloutGuidance({
-    model,
-    guidance: { rollout: 'td', leaf: 'td' },
-  });
+  const tdGuidance = createTdRootSearchRolloutGuidance({ model });
   if (!tdGuidance.chooseRolloutAction || !tdGuidance.evaluateLeaf) {
     throw new Error(
       'Forced rollout tracing requires TD rollout and leaf guidance.'

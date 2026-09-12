@@ -46,8 +46,7 @@ class TDDistrictSymmetryEvaluationTests(unittest.TestCase):
                     "depth": 40,
                     "maxRootActions": 16,
                     "rolloutEpsilon": 0.0,
-                    "guidance": {"root": "td", "rollout": "td", "leaf": "td"},
-                }
+                },
             },
         )
 
@@ -56,7 +55,7 @@ class TDDistrictSymmetryEvaluationTests(unittest.TestCase):
             "model-packs-experiments/pilot/index.json?tdPackId=frozen-pack",
         )
         self.assertEqual(spec["config"]["worlds"], 10)
-        self.assertEqual(spec["guidance"]["leaf"], "td")
+        self.assertNotIn("guidance", spec)
 
     def test_training_summary_selects_only_the_frozen_final_step(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

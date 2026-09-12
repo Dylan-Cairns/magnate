@@ -24,7 +24,6 @@ import type { PairedSeedResult } from '../src/botEval/pair';
 import type { HeadToHeadConfig, PlayedGame } from '../src/botEval/types';
 import type { PlayerId } from '../src/engine/types';
 import type { BotSpec } from '../src/policies/botSpec';
-import type { TdRootGuidanceSource } from '../src/policies/tdRootGuidanceConfig';
 
 interface ModelPackIndex {
   defaultPackId: string | null;
@@ -42,9 +41,6 @@ interface Options {
   depth: number;
   maxRootActions: number;
   rolloutEpsilon: number;
-  tdRoot: TdRootGuidanceSource;
-  tdRollout: TdRootGuidanceSource;
-  tdLeaf: TdRootGuidanceSource;
   opponent: 'heuristic-v2' | 'td';
   tdPackId?: string;
   tdModelIndexPath: string;
@@ -63,9 +59,6 @@ const DEFAULT_OPTIONS: Options = {
   depth: 40,
   maxRootActions: 16,
   rolloutEpsilon: 0,
-  tdRoot: 'td',
-  tdRollout: 'td',
-  tdLeaf: 'td',
   opponent: 'heuristic-v2',
   tdModelIndexPath: 'model-packs/index.json',
   workers: 1,
@@ -103,7 +96,7 @@ async function main(): Promise<void> {
     options.outDir ?? defaultHeadToHeadOutputDirectory(config.runLabel);
   const resume = prepareResume(options, config, outDir);
   process.stderr.write(
-    `[td-vs-v2] games=${String(options.games)} workers=${String(options.workers)} worlds=${String(options.worlds)} depth=${String(options.depth)} maxRootActions=${String(options.maxRootActions)} tdRoot=${options.tdRoot} tdRollout=${options.tdRollout} tdLeaf=${options.tdLeaf} tdManifest=${manifestUrl} resumedPairs=${String(resume.results.length)}\n`
+    `[td-vs-v2] games=${String(options.games)} workers=${String(options.workers)} worlds=${String(options.worlds)} depth=${String(options.depth)} maxRootActions=${String(options.maxRootActions)} tdManifest=${manifestUrl} resumedPairs=${String(resume.results.length)}\n`
   );
   if (options.dryRun) {
     process.stdout.write(
@@ -179,21 +172,15 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
     rolloutEpsilon: options.rolloutEpsilon,
     heuristic: 'v2' as const,
   };
-  const guidanceLabel = `root-${options.tdRoot}-rollout-${options.tdRollout}-leaf-${options.tdLeaf}`;
   const opponentLabel =
     options.opponent === 'td' ? 'td-root-all-td' : 'heuristic-v2';
   const opponent =
     options.opponent === 'td'
       ? ({
-          id: 'td-root-medium-root-td-rollout-td-leaf-td',
+          id: 'td-root-medium-all-td',
           kind: 'td-root-search',
           modelIndexPath: selectedTdModelIndexPath(options),
           config: searchConfig,
-          guidance: {
-            root: 'td' as const,
-            rollout: 'td' as const,
-            leaf: 'td' as const,
-          },
         } satisfies BotSpec)
       : ({
           id: 'heuristic-v2-medium',
@@ -202,20 +189,15 @@ function benchmarkConfig(options: Options): HeadToHeadConfig {
         } satisfies BotSpec);
   return {
     schemaVersion: 1,
-    runLabel: `td-root-${guidanceLabel}-vs-${opponentLabel}-medium`,
-    seedPrefix: `td-root-${guidanceLabel}-vs-${opponentLabel}-medium`,
+    runLabel: `td-root-all-td-vs-${opponentLabel}-medium`,
+    seedPrefix: `td-root-all-td-vs-${opponentLabel}-medium`,
     gamesPerSide: options.games / 2,
     maxDecisionsPerGame: options.maxDecisionsPerGame,
     candidate: {
-      id: `td-root-medium-${guidanceLabel}`,
+      id: 'td-root-medium-all-td',
       kind: 'td-root-search',
       modelIndexPath: selectedTdModelIndexPath(options),
       config: searchConfig,
-      guidance: {
-        root: options.tdRoot,
-        rollout: options.tdRollout,
-        leaf: options.tdLeaf,
-      },
     },
     opponent,
   };
@@ -326,21 +308,6 @@ function parseOptions(args: readonly string[]): Options {
       flags,
       '--rollout-epsilon',
       DEFAULT_OPTIONS.rolloutEpsilon
-    ),
-    tdRoot: optionalTdRootGuidanceSource(
-      flags,
-      '--td-root',
-      DEFAULT_OPTIONS.tdRoot
-    ),
-    tdRollout: optionalTdRootGuidanceSource(
-      flags,
-      '--td-rollout',
-      DEFAULT_OPTIONS.tdRollout
-    ),
-    tdLeaf: optionalTdRootGuidanceSource(
-      flags,
-      '--td-leaf',
-      DEFAULT_OPTIONS.tdLeaf
     ),
     opponent: optionalOpponent(flags, '--opponent', DEFAULT_OPTIONS.opponent),
     tdModelIndexPath:
@@ -500,21 +467,6 @@ function optionalBoolean(
     return false;
   }
   throw new Error(`${name} must be true or false.`);
-}
-
-function optionalTdRootGuidanceSource(
-  flags: ReadonlyMap<string, string>,
-  name: string,
-  fallback: TdRootGuidanceSource
-): TdRootGuidanceSource {
-  const raw = flags.get(name);
-  if (raw === undefined) {
-    return fallback;
-  }
-  if (raw === 'td' || raw === 'heuristic') {
-    return raw;
-  }
-  throw new Error(`${name} must be td or heuristic.`);
 }
 
 function optionalOpponent(

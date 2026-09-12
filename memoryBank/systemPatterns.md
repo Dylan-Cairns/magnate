@@ -59,9 +59,9 @@ Design expectations:
   - the UI/controller still awaits one async policy decision;
   - the worker-backed bot may coordinate nested browser search workers for
     deterministic root-visit batches;
-  - eligible parallel TD-root search with TD rollout guidance defaults to the
-    paired lockstep worker executor, while a `tdSearchExecutor=legacy` browser
-    query parameter provides a session-scoped rollback;
+  - parallel TD-root search defaults to the paired lockstep worker executor,
+    while a `tdSearchExecutor=legacy` browser query parameter provides a
+    session-scoped rollback;
   - executor selection must preserve rollout waves, UCB scheduling, visit
     budgets, RNG streams, ordered result merging, diagnostics/teacher targets,
     and selected-action semantics, and the outer worker reports its effective
@@ -74,12 +74,12 @@ Design expectations:
   where practical: root state/stat ownership in the coordinator, cloneable
   worker tasks/results, stable action keys for merging, and algorithm-specific
   rollout/leaf/opponent kernels behind a small task-result union.
-- TD-root rollout-search variants keep the current rollout-search kernel,
-  sampled hidden worlds, root visit scheduling/UCB, no-log simulation stepping,
-  diagnostics, and worker-backed execution while replacing heuristic guidance
-  with TD model-pack signals: root action ordering and priors from
-  opponent/action logits, non-terminal leaf values from the value model, and
-  rollout playout action choice from opponent/action logits.
+- TD-root rollout-search keeps the current rollout-search kernel, sampled
+  hidden worlds, root visit scheduling/UCB, no-log simulation stepping,
+  diagnostics, and worker-backed execution while using TD model-pack signals for
+  every hook: root action ordering and priors from opponent/action logits,
+  non-terminal leaf values from the value model, and rollout playout action
+  choice from opponent/action logits. Heuristic mixing hooks are not supported.
 - Heuristic v1 scorer rules should stay action-level and engine-state-derived: avoid duplicating rule legality, avoid speculative placement-chain/Ace-bonus preferences, and treat trades as penalties unless the simulated post-trade resources immediately unlock a high-value development or deed move.
 - Heuristic v2 should remain additive and broad-delta based: score district-local saturated scoring-margin deltas, future suit-access earning deltas, and contextual token-bank deltas without rewarding generic resource hoarding or v1 tactical patchwork constants.
 - Experimental strategic evaluation should begin from one pure, deterministic,
@@ -98,11 +98,8 @@ Design expectations:
   within one position and variant, and adaptive root means with unequal visit
   counts are not fixed-budget paired estimates. Existing-bot agreement is
   diagnostic output rather than a test assertion; generated comparison results
-  belong under ignored evaluation artifacts. Per-hook attribution should use a
-  small factorial of opt-in variants with unchanged budgets, seeds, model pack,
-  and inactive hooks; verify terminal coverage before claiming that leaf
-  guidance participated, and check a second position family before treating a
-  localized fix as a general policy improvement.
+  belong under ignored evaluation artifacts. Check a second position family
+  before treating a localized fix as a general policy improvement.
 - Forced-root continuation attribution should bypass UCB allocation by building
   evaluation-only rollout tasks directly. Sample hidden worlds once per
   position/repetition, reuse the same action-local world index plus engine and

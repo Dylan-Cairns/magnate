@@ -125,16 +125,12 @@ async function createRuntimeGuidance(
       pairTdActions: false,
     };
   }
-  switch (guidance.kind) {
-    case 'td-root': {
-      const model = await preloadTdRootBrowserModel(guidance.modelIndexPath);
-      return {
-        guidance: createTdRootSearchRolloutGuidance({ model, guidance }),
-        model,
-        pairTdActions: (guidance.rollout ?? 'td') === 'td',
-      };
-    }
-  }
+  const model = await preloadTdRootBrowserModel(guidance.modelIndexPath);
+  return {
+    guidance: createTdRootSearchRolloutGuidance({ model }),
+    model,
+    pairTdActions: true,
+  };
 }
 
 function postError(requestId: number | undefined, error: unknown): void {

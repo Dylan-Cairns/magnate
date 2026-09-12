@@ -10,15 +10,17 @@ describe('bot policy catalog', () => {
   });
 
   it('keeps all configured profiles available', () => {
-    expect(BOT_PROFILES.length).toBeGreaterThanOrEqual(2);
+    expect(BOT_PROFILES.length).toBe(4);
     expect(BOT_PROFILES.every((profile) => profile.available)).toBe(true);
   });
 
-  it('includes only rollout-search profiles for the active browser catalog', () => {
-    expect(BOT_PROFILES.length).toBe(6);
-    expect(BOT_PROFILES.some((profile) => profile.kind === 'search')).toBe(
-      true
-    );
+  it('exposes the expected labelled browser profiles', () => {
+    expect(BOT_PROFILES.map((profile) => profile.label)).toEqual([
+      'Easy',
+      'Medium',
+      'Hard',
+      'Experimental',
+    ]);
     expect(
       BOT_PROFILES.every(
         (profile) =>
@@ -36,48 +38,21 @@ describe('bot policy catalog', () => {
     ).toBe(true);
   });
 
-  it('includes a rollout-search v2 profile using the v2 heuristic', () => {
-    const profile = getBotProfile('rollout-search-v2-medium');
+  it('includes the rollout-search v2 difficulty profiles', () => {
+    const easy = getBotProfile('rollout-search-v2-easy');
+    const medium = getBotProfile('rollout-search-v2-medium');
+    const hard = getBotProfile('rollout-search-v2-hard');
 
-    expect(profile.kind).toBe('search');
-    expect(profile.available).toBe(true);
-    expect(profile.spec.kind).toBe('search');
-    if (profile.spec.kind !== 'search') {
-      throw new Error('Expected rollout-search-v2 to use a search spec.');
+    for (const profile of [easy, medium, hard]) {
+      expect(profile.kind).toBe('search');
+      expect(profile.spec.kind).toBe('search');
+      if (profile.spec.kind !== 'search') {
+        throw new Error('Expected rollout-search-v2 to use a search spec.');
+      }
+      expect(profile.spec.config.heuristic).toBe('v2');
     }
-    expect(profile.spec.config.heuristic).toBe('v2');
-  });
 
-  it('includes the medium-hard heuristic v2 training profile', () => {
-    const profile = getBotProfile('rollout-search-v2-medium-hard');
-
-    expect(profile.label).toBe('Heuristic V2 Medium Hard');
-    expect(profile.kind).toBe('search');
-    expect(profile.available).toBe(true);
-    expect(profile.spec.kind).toBe('search');
-    if (profile.spec.kind !== 'search') {
-      throw new Error('Expected medium-hard v2 profile to use a search spec.');
-    }
-    expect(profile.spec.config).toEqual({
-      worlds: 40,
-      rollouts: 1,
-      depth: 180,
-      maxRootActions: 16,
-      rolloutEpsilon: 0,
-      heuristic: 'v2',
-    });
-  });
-
-  it('includes a TD-root profile using heuristic v2 leaf evaluation', () => {
-    const profile = getBotProfile('td-root-search-v2-medium-heuristic-leaf');
-
-    expect(profile.kind).toBe('td-root-search');
-    expect(profile.available).toBe(true);
-    expect(profile.spec.kind).toBe('td-root-search');
-    if (profile.spec.kind !== 'td-root-search') {
-      throw new Error('Expected hybrid TD profile to use a TD-root spec.');
-    }
-    expect(profile.spec.config).toMatchObject({
+    expect(medium.spec.kind === 'search' && medium.spec.config).toEqual({
       worlds: 10,
       rollouts: 1,
       depth: 40,
@@ -85,10 +60,25 @@ describe('bot policy catalog', () => {
       rolloutEpsilon: 0,
       heuristic: 'v2',
     });
-    expect(profile.spec.guidance).toEqual({
-      root: 'td',
-      rollout: 'td',
-      leaf: 'heuristic',
+  });
+
+  it('includes an all-TD experimental profile', () => {
+    const profile = getBotProfile('td-root-search-v2-medium');
+
+    expect(profile.label).toBe('Experimental');
+    expect(profile.kind).toBe('td-root-search');
+    expect(profile.available).toBe(true);
+    expect(profile.spec.kind).toBe('td-root-search');
+    if (profile.spec.kind !== 'td-root-search') {
+      throw new Error('Expected experimental profile to use a TD-root spec.');
+    }
+    expect(profile.spec.config).toEqual({
+      worlds: 10,
+      rollouts: 1,
+      depth: 40,
+      maxRootActions: 16,
+      rolloutEpsilon: 0,
     });
+    expect(profile.spec.modelIndexPath).toBeUndefined();
   });
 });

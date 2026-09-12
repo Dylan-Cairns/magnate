@@ -38,18 +38,9 @@ export const STRATEGIC_POSITION_FINGERPRINT_SCHEME =
   'sha256-canonical-json-v1' as const;
 export const STRATEGIC_TD_800_VISIT_VARIANT_ID =
   'td-root-search-v2-800-visits' as const;
-export const STRATEGIC_TD_800_HEURISTIC_ROOT_VARIANT_ID =
-  'td-root-search-v2-800-visits-heuristic-root' as const;
-export const STRATEGIC_TD_800_HEURISTIC_ROLLOUT_VARIANT_ID =
-  'td-root-search-v2-800-visits-heuristic-rollout' as const;
-export const STRATEGIC_TD_800_HEURISTIC_ROOT_ROLLOUT_VARIANT_ID =
-  'td-root-search-v2-800-visits-heuristic-root-rollout' as const;
 
 const STRATEGIC_DIAGNOSTIC_VARIANT_IDS = new Set<string>([
   STRATEGIC_TD_800_VISIT_VARIANT_ID,
-  STRATEGIC_TD_800_HEURISTIC_ROOT_VARIANT_ID,
-  STRATEGIC_TD_800_HEURISTIC_ROLLOUT_VARIANT_ID,
-  STRATEGIC_TD_800_HEURISTIC_ROOT_ROLLOUT_VARIANT_ID,
 ]);
 
 export type StrategicVariantDescriptorV0 =
@@ -182,33 +173,6 @@ export function createStrategicComparisonVariantCatalogV0(
       worlds: 50,
     },
   };
-  const td800HeuristicRoot = createTd800GuidanceAblationSpec(
-    td800,
-    STRATEGIC_TD_800_HEURISTIC_ROOT_VARIANT_ID,
-    {
-      root: 'heuristic',
-      rollout: 'td',
-      leaf: 'td',
-    }
-  );
-  const td800HeuristicRollout = createTd800GuidanceAblationSpec(
-    td800,
-    STRATEGIC_TD_800_HEURISTIC_ROLLOUT_VARIANT_ID,
-    {
-      root: 'td',
-      rollout: 'heuristic',
-      leaf: 'td',
-    }
-  );
-  const td800HeuristicRootRollout = createTd800GuidanceAblationSpec(
-    td800,
-    STRATEGIC_TD_800_HEURISTIC_ROOT_ROLLOUT_VARIANT_ID,
-    {
-      root: 'heuristic',
-      rollout: 'heuristic',
-      leaf: 'td',
-    }
-  );
   return [
     {
       descriptor: {
@@ -242,30 +206,6 @@ export function createStrategicComparisonVariantCatalogV0(
         spec: td800,
       },
     },
-    {
-      descriptor: {
-        kind: 'bot-spec',
-        id: td800HeuristicRoot.id,
-        label: 'TD V2, 800 visits, heuristic root',
-        spec: td800HeuristicRoot,
-      },
-    },
-    {
-      descriptor: {
-        kind: 'bot-spec',
-        id: td800HeuristicRollout.id,
-        label: 'TD V2, 800 visits, heuristic rollout',
-        spec: td800HeuristicRollout,
-      },
-    },
-    {
-      descriptor: {
-        kind: 'bot-spec',
-        id: td800HeuristicRootRollout.id,
-        label: 'TD V2, 800 visits, heuristic root + rollout',
-        spec: td800HeuristicRootRollout,
-      },
-    },
   ];
 }
 
@@ -275,24 +215,6 @@ export function createDefaultStrategicComparisonVariantsV0(
   return createStrategicComparisonVariantCatalogV0(options).filter(
     (variant) => !STRATEGIC_DIAGNOSTIC_VARIANT_IDS.has(variant.descriptor.id)
   );
-}
-
-function createTd800GuidanceAblationSpec(
-  baseline: Extract<BotSpec, { kind: 'td-root-search' }>,
-  id: string,
-  guidance: NonNullable<
-    Extract<BotSpec, { kind: 'td-root-search' }>['guidance']
-  >
-): Extract<BotSpec, { kind: 'td-root-search' }> {
-  return {
-    ...structuredClone(baseline),
-    id,
-    guidance: structuredClone(guidance),
-    config: {
-      ...structuredClone(baseline.config),
-      heuristic: 'v2',
-    },
-  };
 }
 
 export async function runStrategicPositionComparisonV0(

@@ -235,15 +235,12 @@ giving it 800 root visits while retaining depth 40, the same default model-pack
 selection, and TD guidance at root, rollout, and leaf. This matches V2 Hard's
 root-visit count, not its search configuration or total computation.
 
-Three additional opt-in variants form a per-hook guidance matrix. Each retains
-the 800-visit configuration and TD leaf setting, uses heuristic v2 for any
-heuristic hook, and remains excluded from defaults:
-
-| ID                                                    | root         | rollout      | leaf |
-| :---------------------------------------------------- | :----------- | :----------- | :--- |
-| `td-root-search-v2-800-visits-heuristic-root`         | heuristic v2 | TD           | TD   |
-| `td-root-search-v2-800-visits-heuristic-rollout`      | TD           | heuristic v2 | TD   |
-| `td-root-search-v2-800-visits-heuristic-root-rollout` | heuristic v2 | heuristic v2 | TD   |
+The former opt-in per-hook guidance-matrix variants
+(`td-root-search-v2-800-visits-heuristic-root`,
+`td-root-search-v2-800-visits-heuristic-rollout`, and
+`td-root-search-v2-800-visits-heuristic-root-rollout`) have been removed along
+with the per-hook guidance mechanism. TD-root search now always uses TD guidance
+for root, rollout, and leaf.
 
 Each `(position, repetition)` supplies the same explicit random seed to every
 variant, independent of bot ID. Positions in a declared counterfactual group,
@@ -335,7 +332,9 @@ mirror.
 
 This motivated a narrow root-versus-rollout guidance ablation on the known-hand
 pair. Leaf guidance was held fixed because terminal simulations never invoke
-the non-terminal leaf estimator.
+the non-terminal leaf estimator. The per-hook guidance mechanism and its
+variants were later removed after mixed TD+heuristic guidance performed worse
+than straight TD; the results below are retained as historical evidence.
 
 ## Step 4 Guidance-Ablation Outcome
 

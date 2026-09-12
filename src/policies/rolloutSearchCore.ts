@@ -43,7 +43,6 @@ import {
   evaluateSearchLeafState,
   evaluateSearchTerminalState,
 } from './searchStateEvaluator';
-import type { TdRootGuidanceSource } from './tdRootGuidanceConfig';
 import type {
   SearchDecisionDiagnostics,
   SearchRootActionDiagnostics,
@@ -61,13 +60,11 @@ export interface RolloutSearchRuntimeGuidance {
   }) => GameAction | undefined;
 }
 
-export type RolloutSearchGuidanceKind = 'heuristic' | 'td-root' | 'custom';
+export type RolloutSearchGuidanceKind = 'heuristic' | 'td-root';
 
 export interface RolloutSearchTdRootWorkerGuidance {
   kind: 'td-root';
   modelIndexPath: string;
-  rollout?: TdRootGuidanceSource;
-  leaf?: TdRootGuidanceSource;
 }
 
 export type RolloutSearchWorkerGuidance = RolloutSearchTdRootWorkerGuidance;
@@ -82,7 +79,6 @@ export interface RolloutSearchSelectionInput {
   createRootGuide?: RolloutSearchRootGuideFactory;
   rolloutGuidance?: RolloutSearchRuntimeGuidance;
   workerGuidance?: RolloutSearchWorkerGuidance;
-  guidanceKind?: RolloutSearchGuidanceKind;
   onSearchDiagnostics?: (diagnostics: SearchDecisionDiagnostics) => void;
   onProgress?: () => void;
 }
@@ -549,7 +545,6 @@ function createRolloutSearchSession({
   createRootGuide,
   rolloutGuidance,
   workerGuidance,
-  guidanceKind,
 }: RolloutSearchSelectionInput): RolloutSearchSession | null {
   const rootPlayer = view.activePlayerId;
   const worldStates = sampleHiddenWorldStates({
@@ -588,8 +583,9 @@ function createRolloutSearchSession({
     rolloutGuidance,
     workerGuidance,
     guidanceKind:
-      guidanceKind ??
-      (createRootGuide || rolloutGuidance ? 'custom' : 'heuristic'),
+      createRootGuide || rolloutGuidance || workerGuidance
+        ? 'td-root'
+        : 'heuristic',
     rootRandomSeed: randomSeedForSession({ random, randomSeed }),
   });
 }
