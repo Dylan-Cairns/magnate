@@ -26,6 +26,7 @@ export function BotHandPanel({
   terminal,
   humanPlayerId,
   botPlayerId,
+  animationsEnabled = true,
 }: {
   player: ObservedPlayerState;
   isActive: boolean;
@@ -33,6 +34,7 @@ export function BotHandPanel({
   terminal: boolean;
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
+  animationsEnabled?: boolean;
 }) {
   const districtScore = score.districtPoints[player.id];
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
@@ -105,6 +107,7 @@ export function BotHandPanel({
                   {
                     '--bot-hand-card-angle': `${angle}deg`,
                     '--bot-hand-card-z': index + 1,
+                    transition: animationsEnabled ? undefined : 'none',
                   } as CSSProperties
                 }
               >

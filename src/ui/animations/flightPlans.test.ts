@@ -9,6 +9,7 @@ import {
   buildDrawCardFlightFromDom,
   buildIncomeFlightsFromDom,
   buildPaymentFlightsFromDom,
+  buildSellTokenFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
   buildTradeFlightsFromDom,
@@ -17,6 +18,8 @@ import {
   PAYMENT_FLIGHT_DURATION_MS,
   PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
+  SELL_FLIGHT_DURATION_MS,
+  SELL_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_STAGGER_MS,
 } from './timing';
 
@@ -261,6 +264,63 @@ describe('flightPlans', () => {
         suit: 'Moons',
         delayMs: 2 * PAYMENT_FLIGHT_STAGGER_MS,
         durationMs: PAYMENT_FLIGHT_DURATION_MS,
+        variant: 'transfer',
+      },
+    ]);
+  });
+
+  it('plans sell gain transfers from the sold card to the resource rail', () => {
+    const card = makeElement({ left: 100, top: 200, width: 80, height: 120 });
+    const moons = makeElement({ left: 10, top: 20, width: 20, height: 20 });
+    const knots = makeElement({ left: 50, top: 70, width: 20, height: 20 });
+    const targets = makeTargets({
+      handSource: () => card,
+      resourceToken: (_playerId, suit) =>
+        suit === 'Moons' ? moons : suit === 'Knots' ? knots : null,
+    });
+
+    expect(
+      buildSellTokenFlightsFromDom(
+        [
+          {
+            type: 'sell-resource-gained',
+            playerId: PLAYER_A,
+            cardId: '6',
+            suit: 'Moons',
+            tokenIndex: 0,
+          },
+          {
+            type: 'sell-resource-gained',
+            playerId: PLAYER_A,
+            cardId: '6',
+            suit: 'Knots',
+            tokenIndex: 0,
+          },
+        ],
+        makeIds('sell-gain'),
+        targets
+      )
+    ).toMatchObject([
+      {
+        id: 'sell-gain-1',
+        suit: 'Moons',
+        startX: 140,
+        startY: 260,
+        endX: 20,
+        endY: 30,
+        delayMs: 0,
+        durationMs: SELL_FLIGHT_DURATION_MS,
+        variant: 'transfer',
+      },
+      {
+        id: 'sell-gain-2',
+        suit: 'Knots',
+        startX: 140,
+        startY: 260,
+        endX: 60,
+        endY: 80,
+        delayMs: SELL_FLIGHT_STAGGER_MS,
+        durationMs: SELL_FLIGHT_DURATION_MS,
         variant: 'transfer',
       },
     ]);

@@ -17,6 +17,17 @@ export type AnimationVisualCommand =
       cardId: CardId;
     }
   | {
+      type: 'launch-sell-token-flights';
+      atMs: number;
+      durationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
+      gains: readonly Extract<
+        GamePresentationEvent,
+        { type: 'sell-resource-gained' }
+      >[];
+    }
+  | {
       type: 'launch-card-to-district-flight';
       atMs: number;
       durationMs: number;
@@ -103,6 +114,16 @@ export function deriveAnimationVisualCommands(
           atMs: step.startMs,
           playerId: step.playerId,
           cardId: step.cardId,
+        });
+        break;
+      case 'launch-sell-token-flights':
+        commands.push({
+          type: 'launch-sell-token-flights',
+          atMs: step.startMs,
+          durationMs: step.flightSequenceDurationMs,
+          flightDurationMs: step.flightDurationMs,
+          flightStaggerMs: step.flightStaggerMs,
+          gains: step.gains,
         });
         break;
       case 'launch-card-to-district-flight':

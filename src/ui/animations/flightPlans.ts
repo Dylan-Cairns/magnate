@@ -19,6 +19,8 @@ import {
   PAYMENT_FLIGHT_DURATION_MS,
   PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
+  SELL_FLIGHT_DURATION_MS,
+  SELL_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
@@ -57,9 +59,19 @@ export type PaymentFlightTiming = {
   staggerMs: number;
 };
 
+export type SellFlightTiming = {
+  durationMs: number;
+  staggerMs: number;
+};
+
 const DEFAULT_PAYMENT_FLIGHT_TIMING: PaymentFlightTiming = {
   durationMs: PAYMENT_FLIGHT_DURATION_MS,
   staggerMs: PAYMENT_FLIGHT_STAGGER_MS,
+};
+
+const DEFAULT_SELL_FLIGHT_TIMING: SellFlightTiming = {
+  durationMs: SELL_FLIGHT_DURATION_MS,
+  staggerMs: SELL_FLIGHT_STAGGER_MS,
 };
 
 const DEFAULT_INCOME_FLIGHT_TIMING: IncomeFlightTiming = {
@@ -139,6 +151,44 @@ export function buildIncomeFlightsFromDom(
     flights.push({
       id: makeFlightId(),
       suit: token.suit,
+      startX: source.x,
+      startY: source.y,
+      endX: target.x,
+      endY: target.y,
+      delayMs: index * timing.staggerMs,
+      durationMs: timing.durationMs,
+      variant: 'transfer',
+    });
+  }
+
+  return flights;
+}
+
+export function buildSellTokenFlightsFromDom(
+  gains: readonly Extract<
+    GamePresentationEvent,
+    { type: 'sell-resource-gained' }
+  >[],
+  makeFlightId: () => string,
+  domTargets: AnimationDomTargets = browserAnimationDomTargets,
+  timing: SellFlightTiming = DEFAULT_SELL_FLIGHT_TIMING
+): ResourceFlight[] {
+  if (!domTargets.isAvailable() || gains.length === 0) {
+    return [];
+  }
+
+  const flights: ResourceFlight[] = [];
+  for (const [index, gain] of gains.entries()) {
+    const sourceElement = domTargets.handSource(gain.playerId, gain.cardId);
+    const targetElement = domTargets.resourceToken(gain.playerId, gain.suit);
+    if (!sourceElement || !targetElement) {
+      continue;
+    }
+    const source = domTargets.elementCenter(sourceElement);
+    const target = domTargets.tokenVisualCenter(targetElement);
+    flights.push({
+      id: makeFlightId(),
+      suit: gain.suit,
       startX: source.x,
       startY: source.y,
       endX: target.x,

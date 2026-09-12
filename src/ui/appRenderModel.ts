@@ -1,5 +1,5 @@
 import type { CardId } from '../engine/cards';
-import { PROPERTY_CARDS } from '../engine/cards';
+import { COURT_CARDS, PROPERTY_CARDS } from '../engine/cards';
 import type { GameState, Suit } from '../engine/types';
 
 const ALL_SUITS: Suit[] = [
@@ -64,18 +64,24 @@ export function shouldHideBotWaitMessageDuringAnimationLock({
 
 export function buildDeckMapDimming({
   viewState,
+  canonicalState,
 }: {
   viewState: GameState;
+  canonicalState?: GameState;
 }): DeckMapDimming {
   const inCirculation = new Set<CardId>([
-    ...viewState.deck.draw,
-    ...viewState.players.flatMap((player) => player.hand),
-    ...(viewState.deck.reshuffles === 0 ? viewState.deck.discard : []),
+    ...circulationCardIds(viewState),
+    ...(canonicalState ? circulationCardIds(canonicalState) : []),
   ]);
   const dimmedCardIds = new Set<CardId>();
   for (const card of PROPERTY_CARDS) {
     if (card.suits.length === 2 && !inCirculation.has(card.id)) {
       dimmedCardIds.add(card.id);
+    }
+  }
+  for (const court of COURT_CARDS) {
+    if (!inCirculation.has(court.id)) {
+      dimmedCardIds.add(court.id);
     }
   }
 
@@ -86,4 +92,12 @@ export function buildDeckMapDimming({
     }
   }
   return { dimmedCardIds, dimmedSuits };
+}
+
+function circulationCardIds(state: GameState): CardId[] {
+  return [
+    ...state.deck.draw,
+    ...state.players.flatMap((player) => player.hand),
+    ...(state.deck.reshuffles === 0 ? state.deck.discard : []),
+  ];
 }

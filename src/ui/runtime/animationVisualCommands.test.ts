@@ -148,6 +148,28 @@ describe('deriveAnimationVisualCommands', () => {
       event: flightStep.event,
     });
   });
+
+  it('derives sell gain flights and the sold-card flight from the sell sequence', () => {
+    const sequence = buildAnimationSequence(makeSellCardTransaction());
+    const gainFlights = step(sequence, 'launch-sell-token-flights');
+    const soldCard = step(sequence, 'stage-sold-card');
+    const commands = deriveAnimationVisualCommands(sequence);
+
+    expect(commands).toContainEqual({
+      type: 'launch-sell-token-flights',
+      atMs: gainFlights.startMs,
+      durationMs: gainFlights.flightSequenceDurationMs,
+      flightDurationMs: gainFlights.flightDurationMs,
+      flightStaggerMs: gainFlights.flightStaggerMs,
+      gains: gainFlights.gains,
+    });
+    expect(commands).toContainEqual({
+      type: 'launch-sold-card-flight',
+      atMs: soldCard.startMs,
+      playerId: PLAYER_A,
+      cardId: '6',
+    });
+  });
 });
 
 function makeEndTurnTransaction() {
@@ -303,6 +325,39 @@ function makeTradeTransaction() {
     action: { type: 'trade', give: 'Moons', receive: 'Suns' },
     actingPlayerId: PLAYER_A,
     transactionId: 'tx-trade',
+    stepToDecision: () => next,
+  });
+}
+
+function makeSellCardTransaction() {
+  const previous = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources(),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+  });
+  const next = makeGameState({
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: [],
+        resources: makeResources({ Moons: 1, Knots: 1 }),
+      }),
+      makePlayer(PLAYER_B),
+    ],
+    deck: {
+      draw: [],
+      discard: ['6'],
+      reshuffles: 0,
+    },
+  });
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'sell-card', cardId: '6' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-sell-card',
     stepToDecision: () => next,
   });
 }

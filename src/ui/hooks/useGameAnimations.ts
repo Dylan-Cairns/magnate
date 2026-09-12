@@ -12,6 +12,7 @@ import {
   buildDrawCardFlightFromDom,
   buildIncomeFlightsFromDom,
   buildPaymentFlightsFromDom,
+  buildSellTokenFlightsFromDom,
   buildSoldCardFlightFromDom,
   buildTaxLossFlightsFromDom,
   buildTradeFlightsFromDom,
@@ -185,6 +186,30 @@ export function useGameAnimations() {
               return;
             }
             setCardFlights((existing) => [...existing, ...flights]);
+          });
+          return;
+        case 'launch-sell-token-flights':
+          scheduleAt(command.atMs, () => {
+            const flights = buildSellTokenFlightsFromDom(
+              command.gains,
+              makeResourceFlightId,
+              browserAnimationDomTargets,
+              {
+                durationMs: command.flightDurationMs,
+                staggerMs: command.flightStaggerMs,
+              }
+            );
+            if (flights.length === 0) {
+              return;
+            }
+            setResourceFlights((existing) => [
+              ...existing,
+              ...flights.map((flight) => ({
+                ...flight,
+                presentationLandingMs:
+                  command.atMs + flight.delayMs + command.flightDurationMs,
+              })),
+            ]);
           });
           return;
         case 'launch-card-to-district-flight':

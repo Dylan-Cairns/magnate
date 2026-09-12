@@ -10,11 +10,12 @@
   left: var(--resource-flight-start-x);
   top: var(--resource-flight-start-y);
   transform: translate(-50%, -50%);
+  opacity: 0;
   will-change: transform, opacity;
   animation-duration: var(--resource-flight-duration-ms);
   animation-timing-function: linear;
   animation-delay: var(--resource-flight-delay-ms);
-  animation-fill-mode: both;
+  animation-fill-mode: forwards;
 }
 
 .resource-flight.is-transfer {

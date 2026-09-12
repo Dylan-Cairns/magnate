@@ -284,8 +284,8 @@ export function App() {
     botProfileId,
   ]);
   const { dimmedCardIds, dimmedSuits } = useMemo(
-    () => buildDeckMapDimming({ viewState }),
-    [viewState]
+    () => buildDeckMapDimming({ viewState, canonicalState }),
+    [viewState, canonicalState]
   );
   const humanPlayer = humanView.players.find(
     (player) => player.id === HUMAN_PLAYER
@@ -678,6 +678,8 @@ export function App() {
               humanPlayerId={HUMAN_PLAYER}
               botPlayerId={BOT_PLAYER}
               animateDeedProgress={animateDeedProgress}
+              animationsEnabled={animationsEnabled}
+              gameKey={viewState.seed}
             />
           </aside>
 
@@ -734,6 +736,7 @@ export function App() {
                 terminal={terminal}
                 humanPlayerId={HUMAN_PLAYER}
                 botPlayerId={BOT_PLAYER}
+                animationsEnabled={animationsEnabled}
               />
 
               <DeckPiles
@@ -753,6 +756,7 @@ export function App() {
               )}
               {mapVisible && (
                 <DecktetSuitDiagram
+                  ruleset={canonicalState.ruleset}
                   dimmedCardIds={dimmedCardIds}
                   dimmedSuits={dimmedSuits}
                 />

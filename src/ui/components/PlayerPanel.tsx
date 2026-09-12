@@ -1,8 +1,11 @@
+import { useRef } from 'react';
+
 import type {
   FinalScore,
   ObservedPlayerState,
   PlayerId,
 } from '../../engine/types';
+import { useHandSlideAnimation } from '../hooks/useHandSlideAnimation';
 import { playerDisplayName, winnerDisplayName } from '../playerDisplay';
 import { CardTile, type CardPerspective } from './CardTile';
 
@@ -26,6 +29,8 @@ export function PlayerPanel({
   humanPlayerId,
   botPlayerId,
   animateDeedProgress = true,
+  animationsEnabled = true,
+  gameKey,
 }: {
   player: ObservedPlayerState;
   isActive: boolean;
@@ -35,7 +40,16 @@ export function PlayerPanel({
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
+  animationsEnabled?: boolean;
+  gameKey?: string;
 }) {
+  const handRowRef = useRef<HTMLDivElement | null>(null);
+  useHandSlideAnimation({
+    containerRef: handRowRef,
+    cardIds: player.handHidden ? [] : player.hand,
+    enabled: animationsEnabled && !player.handHidden,
+    resetKey: gameKey,
+  });
   const handCardCount = player.handHidden
     ? player.handCount
     : player.hand.length;
@@ -88,7 +102,7 @@ export function PlayerPanel({
 
       <div className="player-row">
         <div className="player-section hand-section" aria-label="Hand">
-          <div className="card-row-wrap fixed-slots">
+          <div className="card-row-wrap fixed-slots" ref={handRowRef}>
             {Array.from({ length: handSlots }).map((_, index) => {
               if (player.handHidden) {
                 return index < player.handCount ? (
@@ -121,7 +135,7 @@ export function PlayerPanel({
               }
               return (
                 <CardTile
-                  key={`hand-${player.id}-${cardId}-${index}`}
+                  key={`hand-${player.id}-${cardId}`}
                   cardId={cardId}
                   perspective={cardPerspective}
                   handOwnerId={player.id}

@@ -37,6 +37,33 @@
   display: block;
 }
 
+.suit-diagram-courts {
+  --court-glyph-size: 1.35rem;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  justify-content: space-between;
+  row-gap: 0.45rem;
+  padding-inline: calc(100% * 23 / 340);
+}
+
+.suit-diagram-court {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.suit-diagram-court.is-dimmed {
+  opacity: 0.25;
+}
+
+.suit-diagram-court .court-icon {
+  filter: brightness(0) invert(1);
+}
+
+.suit-diagram-court .card-rank-court-icon {
+  height: var(--court-glyph-size);
+}
+
 .seed-input {
   width: 100%;
   max-width: none;
@@ -120,6 +147,7 @@
   z-index: var(--bot-hand-card-z);
   transform: translateX(-50%) rotate(var(--bot-hand-card-angle));
   transform-origin: 50% 96%;
+  transition: transform 160ms ease-out;
 }
 
 .bot-hand-card-wrap .card-tile {

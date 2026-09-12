@@ -1,7 +1,10 @@
 import type { CardId } from '../../engine/cards';
-import { PROPERTY_CARDS } from '../../engine/cards';
-import type { Suit } from '../../engine/types';
+import { COURT_CARDS, PROPERTY_CARDS } from '../../engine/cards';
+import type { Ruleset, Suit } from '../../engine/types';
+import { CardRank } from './CardRank';
 import { SuitTokenFace } from './SuitTokenFace';
+import { TokenChip } from './TokenComponents';
+import { Tooltip } from './Tooltip';
 import React from 'react';
 
 // Clockwise from top-left
@@ -81,9 +84,11 @@ const CARD_BY_EDGE_KEY = new Map<string, CardId>(
 );
 
 export function DecktetSuitDiagram({
+  ruleset,
   dimmedCardIds,
   dimmedSuits,
 }: {
+  ruleset: Ruleset;
   dimmedCardIds: ReadonlySet<CardId>;
   dimmedSuits: ReadonlySet<Suit>;
 }) {
@@ -168,6 +173,29 @@ export function DecktetSuitDiagram({
           );
         })}
       </svg>
+      {ruleset === 'extended' ? (
+        <div className="suit-diagram-courts" role="group" aria-label="Courts">
+          {COURT_CARDS.map((court) => (
+            <div
+              key={court.id}
+              className={`suit-diagram-court tooltip-trigger${dimmedCardIds.has(court.id) ? ' is-dimmed' : ''}`}
+            >
+              <span className="card-rank">
+                <CardRank cardId={court.id} />
+              </span>
+              {court.suits.map((suit) => (
+                <TokenChip
+                  key={`${court.id}-${suit}`}
+                  suit={suit}
+                  count={1}
+                  compact
+                />
+              ))}
+              <Tooltip>{court.name}</Tooltip>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
