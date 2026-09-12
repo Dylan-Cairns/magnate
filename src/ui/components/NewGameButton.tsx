@@ -54,12 +54,14 @@ export function NewGameButton({
             />
           </div>
           <div className="bot-profile-controls">
-            <label htmlFor="bot-profile-select">Bot Profile</label>
+            <label htmlFor="bot-profile-select">Opponent</label>
             <select
               id="bot-profile-select"
               className="bot-profile-select"
               value={botProfileId}
-              onChange={(e) => onBotProfileChange(e.target.value as BotProfileId)}
+              onChange={(e) =>
+                onBotProfileChange(e.target.value as BotProfileId)
+              }
             >
               {BOT_PROFILES.map((profile) => (
                 <option key={profile.id} value={profile.id}>

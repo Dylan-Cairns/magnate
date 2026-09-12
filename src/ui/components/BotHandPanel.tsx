@@ -39,10 +39,7 @@ export function BotHandPanel({
   const title = playerDisplayName(player.id, humanPlayerId);
   const winnerLabel = winnerDisplayName(score.winner, humanPlayerId);
   const hiddenCardCount = Math.max(0, player.handCount);
-  const fanSpreadDegrees = Math.min(
-    18,
-    Math.max(0, (hiddenCardCount - 1) * 6)
-  );
+  const fanSpreadDegrees = Math.min(18, Math.max(0, (hiddenCardCount - 1) * 6));
 
   return (
     <section
@@ -61,8 +58,8 @@ export function BotHandPanel({
             aria-label="Score details"
           >
             <p className="score-result">
-              {scoreHeadline}: <strong>{winnerLabel}</strong> (
-              {score.decidedBy})
+              {scoreHeadline}: <strong>{winnerLabel}</strong> ({score.decidedBy}
+              )
             </p>
             <ScoreLine
               label="Districts"
@@ -83,7 +80,7 @@ export function BotHandPanel({
         </div>
       </header>
 
-      <div className="bot-hand-card-wrap" aria-label="Bot hand">
+      <div className="bot-hand-card-wrap" aria-label="Opponent hand">
         <div
           className="bot-hand-fan"
           style={{ '--bot-hand-count': hiddenCardCount } as CSSProperties}

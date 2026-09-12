@@ -92,7 +92,7 @@ describe('ActionsPanel', () => {
         activePlayerId: 'PlayerB',
         botThinking: true,
       })
-    ).toContain('Bot is thinking...');
+    ).toContain('Opponent is thinking...');
     expect(
       renderPanel({
         activePlayerId: 'PlayerB',
@@ -103,7 +103,7 @@ describe('ActionsPanel', () => {
       renderPanel({
         activePlayerId: 'PlayerB',
       })
-    ).toContain('Bot is thinking...');
+    ).toContain('Opponent is thinking...');
   });
 
   it('hides bot wait text during a non-income turn-cycle lock', () => {
@@ -112,7 +112,7 @@ describe('ActionsPanel', () => {
       hideBotWaitMessageDuringTurnCycleLock: true,
     });
 
-    expect(html).not.toContain('Bot is thinking...');
+    expect(html).not.toContain('Opponent is thinking...');
   });
 
   it('renders human income choices during a bot-owned shared income phase', () => {
@@ -195,7 +195,7 @@ describe('ActionsPanel', () => {
       });
 
       expect(html).not.toContain('No legal actions.');
-      expect(html.includes('Bot is thinking...')).toBe(
+      expect(html.includes('Opponent is thinking...')).toBe(
         !hideBotWaitMessageDuringTurnCycleLock
       );
     }
@@ -205,7 +205,7 @@ describe('ActionsPanel', () => {
     const html = renderPanel({ visibleActionItems: [] });
 
     expect(html).not.toContain('No legal actions.');
-    expect(html).not.toContain('Bot is thinking...');
+    expect(html).not.toContain('Opponent is thinking...');
     expect(html).not.toContain('Resolving income choices...');
   });
 
@@ -216,7 +216,7 @@ describe('ActionsPanel', () => {
       botThinking: true,
     });
 
-    expect(html).toContain('Bot is thinking...');
+    expect(html).toContain('Opponent is thinking...');
     expect(html).not.toContain('Resolving income choices...');
     expect(html).not.toContain('No legal actions.');
   });

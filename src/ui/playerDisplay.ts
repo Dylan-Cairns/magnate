@@ -4,7 +4,7 @@ export function playerDisplayName(
   playerId: PlayerId,
   humanPlayerId: PlayerId
 ): string {
-  return playerId === humanPlayerId ? 'You' : 'Bot';
+  return playerId === humanPlayerId ? 'You' : 'Opponent';
 }
 
 export function winnerDisplayName(

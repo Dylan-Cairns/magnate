@@ -52,7 +52,7 @@ describe('gameControllerModel', () => {
 
     expect(prefixed.map((entry) => entry.summary)).toEqual([
       'Seed controller-test',
-      'Bot V2 Hard',
+      'Opponent V2 Hard',
       'engine entry',
     ]);
     expect(withSeedLogPrefix(state, prefixed, PLAYER_A)).toEqual(prefixed);
@@ -65,7 +65,9 @@ describe('gameControllerModel', () => {
     expect(timeline.map((entry) => entry.summary)).toContain(
       'Seed first-roll-seed'
     );
-    expect(timeline.map((entry) => entry.summary)).toContain('Bot V2 Hard');
+    expect(timeline.map((entry) => entry.summary)).toContain(
+      'Opponent V2 Hard'
+    );
     expect(
       timeline.some((entry) => entry.summary.startsWith('Roll d10 '))
     ).toBe(true);
