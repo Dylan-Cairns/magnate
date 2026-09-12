@@ -369,8 +369,7 @@
 
 - The disappearing-image code review did not confirm an unbounded memory leak
   or reproduce Firefox image loss. Worker lifecycle cleanup, opt-in bot
-  diagnostics, and image preload/render failure handling are implemented;
-  findings and validation are in `docs/investigations/disappearing-images.md`.
+  diagnostics, and image preload/render failure handling are implemented.
   Perform a prolonged browser memory reproduction only if symptoms continue.
 - Design a district-equivariant opponent/action model intervention. Both
   random-S4 and complete-orbit continuation training improved but failed the
