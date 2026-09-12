@@ -51,7 +51,7 @@
 - Browser play is functional with selectable bot profiles behind a shared async policy contract.
 - Local and CI JavaScript tooling now uses fnm with `.nvmrc` pinning Node
   22.23.1, an explicit Node 22 engine range, and a Corepack-managed Yarn
-  1.22.22 pin. Windows runtime helpers can recover the pinned fnm Node from
+  4.15.0 pin matching the modern Yarn lockfile. Windows runtime helpers can recover the pinned fnm Node from
   `-NoProfile` shells instead of probing legacy version-manager installation
   paths.
 - TypeScript engine partial deed income is submitted simultaneously: pending obligations remain intact, submitted suit choices do not pay resources until all required choices are submitted, then selected resources resolve in deterministic pending-choice order.

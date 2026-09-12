@@ -26,14 +26,18 @@
 
 ## Tooling Notes
 
+- Google Fonts are requested directly from `index.html` with preconnect hints
+  for the stylesheet and font origins and `display=swap`, so font discovery
+  does not wait for the application CSS.
 - Playable card artwork uses lossless WebP at its original 242 × 376 dimensions.
   The asset mapping and eager URL glob live in `src/ui/cardImages.ts`; startup
   continues to preload and decode all playable cards before showing the board.
 - Node version manager: fnm. Shell integration selects the checked-in `.nvmrc`
   version automatically; Windows wrappers can resolve that pin through `fnm`
   even when launched from a `-NoProfile` shell.
-- Package manager: Yarn classic 1.22.22, declared by `packageManager` and
-  activated through Corepack independently of fnm.
+- Package manager: Yarn 4.15.0, declared by `packageManager` and activated
+  through Corepack independently of fnm. CI uses `yarn install --immutable`
+  with the modern Yarn lockfile and restores its cache after activating Yarn.
 - JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
 - Vite development watching excludes the local Python environment, generated
   artifacts, and local test/tool caches so Windows HMR does not track training
