@@ -62,23 +62,25 @@ export function TokenChip({
   count,
   compact,
   className,
+  showTooltip = true,
 }: {
   suit: Suit;
   count: number;
   compact?: boolean;
   className?: string;
+  showTooltip?: boolean;
 }) {
   const isEmpty = count === 0;
   return (
     <span
-      className={`token-chip tooltip-trigger${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
+      className={`token-chip${showTooltip ? ' tooltip-trigger' : ''}${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
         className ? ` ${className}` : ''
       }`}
       data-token-suit={suit}
     >
       <SuitTokenFace suit={suit} empty={isEmpty} />
       {count > 1 && <span className="token-count">x{count}</span>}
-      <Tooltip>{suit}</Tooltip>
+      {showTooltip ? <Tooltip>{suit}</Tooltip> : null}
     </span>
   );
 }
