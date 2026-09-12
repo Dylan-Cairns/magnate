@@ -86,7 +86,7 @@
     inset 0 -1px 2px var(--status-highlight);
   color: var(--status-ink);
   font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1rem;
@@ -142,7 +142,7 @@
 
 .player-meta {
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.88rem;
 }
 
 .player-row {
@@ -161,7 +161,7 @@
 .player-section h3 {
   margin: 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   text-align: left;
@@ -225,7 +225,7 @@
 .token-rail-group h3 {
   margin: 0;
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -245,7 +245,7 @@
   top: -0.3rem;
   right: -0.28rem;
   min-width: 1.02rem;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
 }
 
 .crowns-rail-row {
@@ -327,7 +327,7 @@
 
 .district-id {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   letter-spacing: 0.05em;
   position: relative;
   z-index: 1;
@@ -343,7 +343,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   text-align: center;
@@ -478,7 +478,7 @@
   background-repeat: repeat, repeat, no-repeat;
   padding: 0.05rem 0.2rem;
   color: rgba(178, 190, 206, 0.84);
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-align: center;
   letter-spacing: 0.01em;

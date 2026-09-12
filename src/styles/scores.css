@@ -1,7 +1,7 @@
 .score-result {
   margin: 0;
   color: var(--accent-soft);
-  font-size: 0.76rem;
+  font-size: 0.8rem;
 }
 
 .score-line {
@@ -9,7 +9,7 @@
   justify-content: space-between;
   gap: 0.5rem;
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
 }
 
 .terminal-score-summary {
@@ -27,7 +27,7 @@
 .terminal-score-player h3 {
   margin: 0;
   color: var(--accent-soft);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }

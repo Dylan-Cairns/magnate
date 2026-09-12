@@ -1,7 +1,12 @@
 import { usePlacementGhost } from './ActionHighlights';
 import type { CSSProperties } from 'react';
 
-import { CARD_BY_ID, PAWN_CARDS, type CardId } from '../../engine/cards';
+import {
+  CARD_BY_ID,
+  EXCUSE_CARD,
+  PAWN_CARDS,
+  type CardId,
+} from '../../engine/cards';
 import { districtScore } from '../../engine/scoring';
 import {
   developmentCost,
@@ -37,7 +42,7 @@ function suitMaskKey(suits: readonly Suit[]): string {
 
 function districtMarkerName(markerSuitMask: readonly Suit[]): string {
   if (markerSuitMask.length === 0) {
-    return 'Excuse';
+    return EXCUSE_CARD.name;
   }
 
   const marker = PAWN_CARDS.find(

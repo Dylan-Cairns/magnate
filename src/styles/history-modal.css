@@ -49,7 +49,7 @@
 .history-score-key {
   margin-left: auto;
   text-align: right;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 
 .history-body,
@@ -88,7 +88,7 @@
   background: var(--panel);
   padding: 0.45rem 0.6rem;
   text-align: left;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;

@@ -65,7 +65,7 @@
   grid-template-columns: max-content 2.5rem minmax(0, 1fr);
   align-items: center;
   column-gap: 0.3rem;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   line-height: 1.15;
   white-space: nowrap;
 }
@@ -86,7 +86,7 @@
 }
 
 .discard-pile-card-name {
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   color: var(--ink);
   min-width: 0;
   overflow: hidden;
@@ -224,7 +224,7 @@
 }
 
 .deck-pile-card-meta .card-rank {
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   min-height: unset;
 }
 
@@ -249,6 +249,6 @@
 }
 
 .deck-pile-count {
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   line-height: 1;
 }

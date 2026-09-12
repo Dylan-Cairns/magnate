@@ -151,7 +151,7 @@
 
 .card-rank-court-icon {
   display: block;
-  height: 0.82rem;
+  height: 0.92rem;
   width: auto;
 }
 
@@ -178,14 +178,14 @@
 }
 
 .card-suit-icon {
-  width: 0.82rem;
-  height: 0.82rem;
+  width: 0.92rem;
+  height: 0.92rem;
 }
 
 .card-suit-placeholder {
   display: inline-block;
-  width: 0.82rem;
-  min-height: 0.82rem;
+  width: 0.92rem;
+  min-height: 0.92rem;
   opacity: 0;
 }
 
@@ -267,7 +267,7 @@
   background: rgba(7, 12, 20, 0.88);
   box-shadow: none;
   color: #bec9d8;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 500;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -363,11 +363,11 @@
   top: -0.3rem;
   right: -0.28rem;
   min-width: 1.02rem;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
 }
 
 .deed-progress {
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   color: var(--card-ink);
 }
 
@@ -402,7 +402,7 @@
   border-radius: 999px;
   display: grid;
   place-items: center;
-  font-size: 0.84rem;
+  font-size: 0.88rem;
 }
 
 /* The SVG owns both the rim and the artwork. CSS only sizes the whole face. */
@@ -417,7 +417,7 @@
 .token-chip.compact {
   width: 1.35rem;
   height: 1.35rem;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
 }
 
 .token-chip.inline-token-chip {
@@ -443,7 +443,7 @@
   border: 1px solid var(--chip-count-border);
   background: var(--chip-count-bg);
   color: var(--chip-count-text);
-  font-size: 0.58rem;
+  font-size: 0.72rem;
   text-align: center;
   padding: 0.03rem 0.2rem;
 }
