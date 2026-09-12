@@ -21,6 +21,7 @@ export function OptionsMenu({
   newGameButtonRef,
   onToggle,
   onNewGameToggle,
+  onNewGameStart,
   onBotProfileChange,
   onRulesetChange,
   onAnimationsEnabledChange,
@@ -45,6 +46,7 @@ export function OptionsMenu({
   newGameButtonRef: RefObject<HTMLButtonElement | null>;
   onToggle: () => void;
   onNewGameToggle: () => void;
+  onNewGameStart: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
   onRulesetChange: (ruleset: Ruleset) => void;
   onAnimationsEnabledChange: (enabled: boolean) => void;
@@ -113,6 +115,7 @@ export function OptionsMenu({
         ruleset={ruleset}
         animationsEnabled={animationsEnabled}
         onToggle={onNewGameToggle}
+        onStart={onNewGameStart}
         onBotProfileChange={onBotProfileChange}
         onRulesetChange={onRulesetChange}
         onAnimationsEnabledChange={onAnimationsEnabledChange}

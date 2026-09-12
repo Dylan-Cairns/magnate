@@ -49,3 +49,36 @@
   display: grid;
   gap: 0.45rem;
 }
+
+.terminal-score-actions {
+  margin-top: 0.55rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.terminal-score-play-again {
+  width: 100%;
+}
+
+.terminal-score-change-setup {
+  border: 1px solid var(--action-border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-soft);
+  background: var(--action-bg);
+  cursor: pointer;
+  box-shadow: var(--button-shadow);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.terminal-score-change-setup:hover {
+  background: var(--action-bg-hover);
+  border-color: #60789a;
+  box-shadow: var(--button-shadow-hover);
+}
