@@ -43,8 +43,9 @@
 - GitHub Pages deploy (`.github/workflows/deploy_pages.yml`) reads the `.nvmrc`
   pin, activates the Yarn `packageManager` pin, and gates on `yarn test`,
   `yarn lint`, and `yarn build`.
-- Checked-in pyright scope covers `trainer/` plus `trainer_tests/`; some
-  `scripts/` orchestration remains outside it.
+- Checked-in pyright scope covers `trainer/` plus `trainer_tests/` (excluding
+  `trainer_tests/test_eval_suite*.py`); some `scripts/` orchestration remains
+  outside it.
 - TypeScript bridge output is canonical. Python models the consumed subset in
   `trainer/bridge_payloads.py`.
 - Strategic-position diagnostics support `--positions`, `--variants`,

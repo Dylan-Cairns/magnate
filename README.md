@@ -48,7 +48,8 @@ Use [memoryBank/techContext.md](memoryBank/techContext.md) for tooling context a
 - Strategic-position characterization: `yarn bot:eval strategic-positions --repetitions 1`
 - Replay one recorded TypeScript bot game: `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
 - Python test: `.\.venv\Scripts\python -m pytest`
-- Python lint: `python -m ruff check scripts trainer trainer_tests`
+- Python lint: `.\.venv\Scripts\python -m ruff check scripts trainer trainer_tests`
+- Python typecheck: `.\.venv\Scripts\python -m pyright -p .`
 - Register promoted TD checkpoint: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
 
 ## Credits & License
@@ -66,9 +67,11 @@ third-party software notices are listed in
 
 ## Source-of-Truth Docs
 
+- Agent workflow: [docs/AGENT_GUIDE.md](docs/AGENT_GUIDE.md)
 - Tooling context: [memoryBank/techContext.md](memoryBank/techContext.md)
 - Current project context: [memoryBank/activeContext.md](memoryBank/activeContext.md)
 - Rules reference: [memoryBank/magnateRules.md](memoryBank/magnateRules.md)
 - Bridge contract: [memoryBank/bridgeInterfaceContract.md](memoryBank/bridgeInterfaceContract.md)
 - Strategic-state design: [docs/design/strategic-state-summary-v0.md](docs/design/strategic-state-summary-v0.md)
+- District-symmetry design: [docs/design/district-symmetry.md](docs/design/district-symmetry.md)
 - Runbooks: [docs/runbooks/](docs/runbooks/)
