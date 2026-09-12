@@ -22,7 +22,6 @@ import type {
 import { CardTile, type CardPerspective } from './CardTile';
 import type { TradeProgress } from '../runtime/types';
 import { TokenRow } from './TokenComponents';
-import { Tooltip } from './Tooltip';
 
 function crownsToSuits(crowns: readonly CardId[]): Suit[] {
   const suits: Suit[] = [];
@@ -228,7 +227,7 @@ export function DistrictColumn({
         >
           {botDistrictScore}
         </span>
-        <header className="district-header tooltip-trigger">
+        <header className="district-header">
           <span className="district-id">{district.id}</span>
           <strong className="district-marker-name">{markerName}</strong>
           {district.markerSuitMask.length > 0 ? (
@@ -243,7 +242,6 @@ export function DistrictColumn({
               aria-hidden="true"
             />
           )}
-          <Tooltip>{markerName}</Tooltip>
         </header>
         <span
           className={`district-lane-score district-lane-score-human${humanLeadsDistrict ? ' is-leading' : ''}`}

@@ -130,7 +130,7 @@ export function DecktetSuitDiagram({
               y={ly}
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={15}
+              fontSize={18}
               fontFamily="inherit"
               transform={`rotate(${angle}, ${lx}, ${ly})`}
               style={
@@ -147,7 +147,7 @@ export function DecktetSuitDiagram({
                 const cardId = CARD_BY_EDGE_KEY.get(`${suitA}|${suitB}|${part}`);
                 const isDimmed = cardId !== undefined && dimmedCardIds.has(cardId);
                 return (
-                <tspan key={isDimmed ? `${j}d` : j} dx={j === 0 ? 0 : 7} opacity={isDimmed ? 0.25 : 1}>
+                <tspan key={isDimmed ? `${j}d` : j} dx={j === 0 ? 0 : 8} opacity={isDimmed ? 0.25 : 1}>
                   {part}
                 </tspan>
                 );

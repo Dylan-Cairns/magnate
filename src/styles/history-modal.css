@@ -88,11 +88,9 @@
   background: var(--panel);
   padding: 0.45rem 0.6rem;
   text-align: left;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-soft);
   border-bottom: 1px solid var(--divider-subtle);
   white-space: nowrap;
 }
@@ -110,13 +108,11 @@
   background: none;
   color: inherit;
   font: inherit;
-  text-transform: inherit;
-  letter-spacing: inherit;
   cursor: pointer;
 }
 
 .history-sort-button:hover {
-  color: var(--accent-soft);
+  color: var(--ink);
 }
 
 .history-sort-indicator {

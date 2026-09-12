@@ -45,6 +45,26 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
   - Python changes: targeted pytest for touched behavior, then Ruff and
     Pyright.
   - Bridge changes: contract tests plus stable action IDs and keys.
+- Default to **user verification** for visual/UI changes: make the change, run
+  the non-visual checks (lint, typecheck, tests, build), then hand off for the
+  user to review in the running app. Do not self-verify UI with the
+  Playwright/CDP harness unless the user explicitly asks you to iterate without
+  their feedback on that task.
+- Scope to what was asked. Do not convert your own coverage gaps, hypotheses, or
+  "worth confirming" items into tasks. If something seems worth investigating
+  beyond the request, ask first and let the user decide. If you notice a
+  suspected defect incidentally, report it — investigating it is the user's call,
+  not yours. If an automated run does not reach its goal on the first attempt,
+  stop and report rather than iterating unprompted.
+- Do not build a bespoke harness for a one-off task. Write one short throwaway
+  script, run it, delete it; only generalize after a third use.
+- Run focused tests while iterating; run the full suite and build once per
+  change-set (per "Verify before handoff" above). Skip checks the change cannot
+  affect — CSS-only changes do not need vitest.
+- Set up browser tooling at most once per session, at a sensible window size,
+  and tear it down at the end. Prefer handing off to the user for visual review.
+- Batch visual changes and review them in one pass rather than re-verifying
+  after each edit.
 - Prefer promoted checkpoints as warm start; register promotions through
   `models/td_checkpoints/manifest.json`.
 - Keep docs aligned with code changes; replace stale docs instead of appending

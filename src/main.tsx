@@ -1,6 +1,13 @@
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 
+// Self-hosted fonts (no CDN). Latin subsets only, weights in use.
+import '@fontsource/averia-serif-libre/latin-400.css';
+import '@fontsource/averia-serif-libre/latin-700.css';
+import '@fontsource/alegreya-sans/latin-400.css';
+import '@fontsource/alegreya-sans/latin-500.css';
+import '@fontsource/alegreya-sans/latin-700.css';
+
 import './styles.css';
 
 const LazyApp = lazy(() =>

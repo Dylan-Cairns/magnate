@@ -64,7 +64,7 @@
   left: -26px;
   width: 52px;
   text-align: center;
-  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  font-family: var(--font-ui);
   font-size: 15px;
   font-weight: 700;
   line-height: 1;
