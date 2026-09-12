@@ -101,6 +101,7 @@ vi.mock('../../policies/catalog', async (original) => ({
 }));
 
 import { legalActions } from '../../engine/actionBuilders';
+import { DEFAULT_BOT_PROFILE_ID } from '../../policies/catalog';
 import {
   advanceSave,
   initialSave,
@@ -150,6 +151,34 @@ afterEach(() => {
 });
 
 describe('controller persistence', () => {
+  it.each([undefined, 'broken'])(
+    'restores the chosen opponent without a usable game save (%s)',
+    (save) => {
+      if (save !== undefined) storage.set(SAVED_GAME_KEY, save);
+      const controller = render();
+      controller.setBotProfileId('rollout-search-v2-easy');
+      expect(storage.get('magnate:botProfileId')).toBe(
+        'rollout-search-v2-easy'
+      );
+      hooks.unmount();
+      if (save === undefined) storage.delete(SAVED_GAME_KEY);
+      expect(render().botProfileId).toBe('rollout-search-v2-easy');
+    }
+  );
+
+  it('uses the default opponent when the saved preference is obsolete', () => {
+    storage.set('magnate:botProfileId', 'removed-profile');
+    expect(render().botProfileId).toBe(DEFAULT_BOT_PROFILE_ID);
+  });
+
+  it('keeps the saved game opponent when restoring an existing session', () => {
+    const save = initialSave();
+    storage.set(SAVED_GAME_KEY, JSON.stringify(save));
+    storage.set('magnate:botProfileId', 'rollout-search-v2-hard');
+    expect(render().botProfileId).toBe(save.botProfileId);
+    expect(storage.get('magnate:botProfileId')).toBe(save.botProfileId);
+  });
+
   it('preserves the window through actions and reset, then restores without presentation', () => {
     let controller = render();
     const checkpoint = stored();

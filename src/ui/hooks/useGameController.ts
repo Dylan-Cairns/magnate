@@ -16,6 +16,7 @@ import type {
 import { toPlayerView } from '../../engine/view';
 import type { BotProfileId } from '../../policies/catalog';
 import {
+  BOT_PROFILES,
   DEFAULT_BOT_PROFILE_ID,
   resolveBotProfile,
 } from '../../policies/catalog';
@@ -51,6 +52,29 @@ import { loadSavedGame, writeSavedGame, type SavedGame } from '../savedGame';
 
 const DEFAULT_BOT_DELAY_MS = 450;
 const BOT_DIAGNOSTICS_QUERY_KEY = 'botDiagnostics';
+const BOT_PROFILE_STORAGE_KEY = 'magnate:botProfileId';
+
+function readBotProfilePreference(): BotProfileId {
+  if (typeof window === 'undefined') return DEFAULT_BOT_PROFILE_ID;
+  try {
+    const stored = window.localStorage.getItem(BOT_PROFILE_STORAGE_KEY);
+    return (
+      BOT_PROFILES.find((profile) => profile.id === stored && profile.available)
+        ?.id ?? DEFAULT_BOT_PROFILE_ID
+    );
+  } catch {
+    return DEFAULT_BOT_PROFILE_ID;
+  }
+}
+
+function persistBotProfilePreference(profileId: BotProfileId): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(BOT_PROFILE_STORAGE_KEY, profileId);
+  } catch {
+    // Preferences remain usable when browser storage is unavailable.
+  }
+}
 
 function browserBotDiagnosticsEnabled(): boolean {
   if (typeof window === 'undefined') {
@@ -138,8 +162,11 @@ export function useGameController({
     Boolean(initialSave.save)
   );
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(
-    initialSave.save?.botProfileId ?? DEFAULT_BOT_PROFILE_ID
+    () => initialSave.save?.botProfileId ?? readBotProfilePreference()
   );
+  useEffect(() => {
+    persistBotProfilePreference(botProfileId);
+  }, [botProfileId]);
   const [state, setState] = useState<GameState>(
     () =>
       initialSave.save?.state ??
@@ -207,6 +234,7 @@ export function useGameController({
   const changeBotProfile = useCallback(
     (profileId: BotProfileId) => {
       resolveBotProfile(profileId);
+      persistBotProfilePreference(profileId);
       setBotProfileId(profileId);
       if (checkpointRef.current)
         persistCheckpoint({
