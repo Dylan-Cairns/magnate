@@ -137,7 +137,7 @@ describe('LogPanel', () => {
 
     expect(html.indexOf('T1')).toBeLessThan(html.indexOf('fixed-seed'));
     expect(html).toContain('>You<');
-    expect(html).toContain('[Bot] Income choice');
+    expect(html).toContain('[Opponent] Income choice');
     expect(html).toContain('class="log-suit-code"');
     expect(html).toContain('>wa<');
     expect(html).toContain('fixed-seed');

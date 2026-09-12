@@ -106,7 +106,7 @@ describe('transitionLogEntries', () => {
       'end turn',
       'Roll d10 7/4 (income 7)',
       'Income You +1 Moons',
-      'Income Bot +1 Suns',
+      'Income Opponent +1 Suns',
     ]);
     expect(entries[1]?.player).toBe(PLAYER_B);
   });
@@ -173,7 +173,7 @@ describe('transitionLogEntries', () => {
     expect(update.entries.map((entry) => entry.summary)).toEqual([
       'end turn',
       'Roll d10 1/8 (income 8)',
-      'Tax Moons (You -2, Bot -1)',
+      'Tax Moons (You -2, Opponent -1)',
     ]);
     expect(update.entries[2]?.player).toBe(PLAYER_B);
     expect(update.deferredIncomeLogContext).not.toBeNull();
@@ -310,7 +310,7 @@ describe('transitionLogEntries', () => {
     ).toEqual([
       'Roll d10 7/4 (income 7)',
       'Income You +1 Moons',
-      'Income Bot +1 Suns',
+      'Income Opponent +1 Suns',
     ]);
   });
 });
