@@ -7,6 +7,7 @@ export type AnimationVisualCommand =
   | {
       type: 'launch-draw-card-flight';
       atMs: number;
+      landingMs: number;
       playerId: PlayerId;
       cardId: CardId;
     }
@@ -104,6 +105,7 @@ export function deriveAnimationVisualCommands(
         commands.push({
           type: 'launch-draw-card-flight',
           atMs: step.startMs,
+          landingMs: step.endMs,
           playerId: step.playerId,
           cardId: step.cardId,
         });

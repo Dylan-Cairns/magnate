@@ -67,6 +67,7 @@ import { isTerminal } from '../../engine/scoring';
 import type { GameAction, GameState, Suit } from '../../engine/types';
 import finalTurnFixture from './finalTurnRegression.fixture.json';
 import {
+  cardFlightsAfterPresentationTime,
   resourceFlightsAfterPresentationTime,
   sequencePresentationSnapshotUpdateTimes,
   useGameAnimations,
@@ -236,6 +237,90 @@ describe('useGameAnimations scheduling helpers', () => {
     expect(
       sellResourceCount(animations.presentationSnapshot?.viewState, 'Knots')
     ).toBe(1);
+  });
+
+  it('removes only the card flights whose presentation landing has arrived', () => {
+    const baseFlight = {
+      variant: 'draw' as const,
+      visual: 'back' as const,
+      isDeed: false,
+      perspective: 'human' as const,
+      startX: 0,
+      startY: 0,
+      endX: 10,
+      endY: 10,
+      startWidth: 80,
+      startHeight: 120,
+      endWidth: 80,
+      endHeight: 120,
+      delayMs: 0,
+    };
+    const flights = [
+      { ...baseFlight, id: 'first', presentationLandingMs: 300 },
+      { ...baseFlight, id: 'second', presentationLandingMs: 900 },
+      { ...baseFlight, id: 'unrelated' },
+    ];
+
+    expect(
+      cardFlightsAfterPresentationTime(flights, 299).map((flight) => flight.id)
+    ).toEqual(['first', 'second', 'unrelated']);
+    expect(
+      cardFlightsAfterPresentationTime(flights, 300).map((flight) => flight.id)
+    ).toEqual(['second', 'unrelated']);
+    expect(
+      cardFlightsAfterPresentationTime(flights, 900).map((flight) => flight.id)
+    ).toEqual(['unrelated']);
+  });
+
+  it('swaps the draw flight for the revealed hand card in one update', () => {
+    vi.spyOn(browserAnimationDomTargets, 'isAvailable').mockReturnValue(true);
+    vi.spyOn(browserAnimationDomTargets, 'deckSource').mockReturnValue(
+      makeFakeCardElement()
+    );
+    vi.spyOn(browserAnimationDomTargets, 'handDrawTarget').mockReturnValue(
+      makeFakeCardElement()
+    );
+    vi.spyOn(browserAnimationDomTargets, 'elementCenter').mockReturnValue({
+      x: 40,
+      y: 60,
+    });
+    const transaction = makeDrawEndTurnTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const drawStep = sequence.steps.find(
+      (step) => step.type === 'draw-card-flight'
+    );
+    if (!drawStep) {
+      throw new Error('Expected a draw step.');
+    }
+
+    let animations = AnimationHarness();
+    animations.enqueueTransition({
+      transactionId: transaction.id,
+      previousState: transaction.previousState,
+      nextState: transaction.nextState,
+      action: transaction.action,
+      actingPlayerId: transaction.actingPlayerId,
+    });
+    animations = AnimationHarness();
+    expect(animations.cardFlights).toHaveLength(1);
+    expect(animations.cardFlights[0]?.presentationLandingMs).toBe(
+      drawStep.endMs
+    );
+
+    vi.advanceTimersByTime(drawStep.endMs - 1);
+    animations = AnimationHarness();
+    expect(animations.cardFlights).toHaveLength(1);
+    expect(animations.presentationSnapshot?.viewState.players[0].hand).toEqual([
+      '6',
+    ]);
+
+    vi.advanceTimersByTime(1);
+    animations = AnimationHarness();
+    expect(animations.cardFlights).toEqual([]);
+    expect(animations.presentationSnapshot?.viewState.players[0].hand).toEqual([
+      '6',
+      '7',
+    ]);
   });
 
   it('removes only the income overlays whose presentation landing has arrived', () => {
@@ -574,4 +659,63 @@ function sellResourceCount(
   return (
     state.players.find((player) => player.id === PLAYER_A)?.resources[suit] ?? 0
   );
+}
+
+function makeDrawEndTurnTransaction() {
+  const previous = makeGameState({
+    phase: 'ActionWindow',
+    activePlayerIndex: 0,
+    cardPlayedThisTurn: true,
+    players: [
+      makePlayer(PLAYER_A, {
+        hand: ['6'],
+        resources: makeResources({ Moons: 1 }),
+      }),
+      makePlayer(PLAYER_B, {
+        hand: ['8'],
+        resources: makeResources({ Moons: 1 }),
+      }),
+    ],
+  });
+  const next = {
+    ...makeGameState({
+      phase: 'ActionWindow',
+      activePlayerIndex: 1,
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6', '7'],
+          resources: makeResources({ Moons: 1 }),
+        }),
+        makePlayer(PLAYER_B, {
+          hand: ['8'],
+          resources: makeResources({ Moons: 1 }),
+        }),
+      ],
+      lastIncomeRoll: { die1: 1, die2: 7, rollId: 12 },
+    }),
+    lastTaxSuit: 'Moons',
+  } satisfies GameState;
+  return buildGameTransaction({
+    previousState: previous,
+    action: { type: 'end-turn' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-draw-end-turn',
+    stepToDecision: () => next,
+  });
+}
+
+function makeFakeCardElement(): HTMLElement {
+  return {
+    getBoundingClientRect: () => ({
+      bottom: 120,
+      height: 120,
+      left: 0,
+      right: 80,
+      top: 0,
+      width: 80,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    }),
+  } as unknown as HTMLElement;
 }

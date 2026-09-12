@@ -346,6 +346,11 @@
   both layouts, new-game resets, and disabled animations; the bot hand fan
   transitions its spread when the hidden card count changes and honors the same
   animations toggle.
+- Draw flights no longer fade out before the hand reveal. The draw-card flight
+  carries a presentation landing time (the draw sequence step end) so the
+  face-down copy stays visible until the exact snapshot update that reveals the
+  face-up hand card, and both batch into a single React commit; the old CSS
+  fade ended before the reveal and flashed an empty hand slot.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
