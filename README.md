@@ -24,7 +24,7 @@ Single-player Magnate with a deterministic TypeScript engine, browser UI, and Py
 
 1. Install [fnm](https://github.com/Schniz/fnm) and enable its shell integration.
 2. From the repo root, run `fnm install` and `fnm use`. The checked-in `.nvmrc` selects Node `22.23.1`.
-3. Run `corepack enable` and `corepack install` to activate the `package.json` Yarn `1.22.22` pin.
+3. Run `corepack enable` and `corepack install` to activate the `package.json` Yarn `4.15.0` pin.
 4. `yarn install`
 5. `yarn dev`
 6. `yarn test`
