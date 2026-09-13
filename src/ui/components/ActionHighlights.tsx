@@ -7,6 +7,7 @@ import {
 } from 'react';
 import type { GameAction, GameState, Suit } from '../../engine/types';
 import {
+  actionHighlightTargets,
   highlightTargetKey,
   resourceGainSuits,
   sharedActionHighlightTargets,
@@ -30,11 +31,13 @@ export function ActionHighlights({
   state,
   picker,
   legalActions,
+  committedAction,
   children,
 }: {
   state: GameState;
   picker: ActionPickerState | null;
   legalActions: readonly GameAction[];
+  committedAction?: GameAction | null;
   children: ReactNode;
 }) {
   const [hovered, setHovered] = useState<{
@@ -43,25 +46,41 @@ export function ActionHighlights({
     picker: ActionPickerState | null;
     source: HoverSource;
   } | null>(null);
+  // A confirmed action keeps its hand card lit and raised while the action's
+  // animation plays, so the card stays on top from hover through the effect.
+  const committedTargets = useMemo(
+    () =>
+      committedAction
+        ? actionHighlightTargets(committedAction).filter(
+            (target) => target.kind === 'hand-card'
+          )
+        : [],
+    [committedAction]
+  );
   const targets = useMemo(() => {
-    const persistent = sharedActionHighlightTargets(
-      picker ? actionsForOpenPicker(picker, legalActions) : []
-    );
-    if (hovered?.state !== state || hovered.picker !== picker)
-      return persistent;
-    if (hovered.actions.some((action) => action.type === 'end-turn')) return [];
-    const temporary = sharedActionHighlightTargets(hovered.actions);
-    // A picker option can preview replacing a selected district or trade source.
-    if (hovered.source === 'picker' && temporary.length > 0) return temporary;
-    return [
+    const withCommitted = (
+      list: readonly HighlightTarget[]
+    ): HighlightTarget[] => [
       ...new Map(
-        [...persistent, ...temporary].map((target) => [
+        [...list, ...committedTargets].map((target) => [
           highlightTargetKey(target),
           target,
         ])
       ).values(),
     ];
-  }, [hovered, state, picker, legalActions]);
+    const persistent = sharedActionHighlightTargets(
+      picker ? actionsForOpenPicker(picker, legalActions) : []
+    );
+    if (hovered?.state !== state || hovered.picker !== picker)
+      return withCommitted(persistent);
+    if (hovered.actions.some((action) => action.type === 'end-turn'))
+      return withCommitted([]);
+    const temporary = sharedActionHighlightTargets(hovered.actions);
+    // A picker option can preview replacing a selected district or trade source.
+    if (hovered.source === 'picker' && temporary.length > 0)
+      return withCommitted(temporary);
+    return withCommitted([...persistent, ...temporary]);
+  }, [hovered, state, picker, legalActions, committedTargets]);
   const keys = useMemo(
     () => new Set(targets.map(highlightTargetKey)),
     [targets]

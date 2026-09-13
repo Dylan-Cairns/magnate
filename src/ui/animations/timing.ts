@@ -2,7 +2,6 @@ export const RESOURCE_FLIGHT_DURATION_MS = 280;
 export const RESOURCE_FLIGHT_STAGGER_MS = 75;
 export const CARD_FLIGHT_DURATION_MS = 280;
 export const ACTION_FLIGHT_COMMIT_BUFFER_MS = 20;
-export const HAND_SLIDE_DURATION_MS = 200;
 
 // Dice animation settle durations — must match the CSS transition durations.
 export const DICE_D10_SETTLE_MS = 1000;

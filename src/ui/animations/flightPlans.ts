@@ -409,6 +409,18 @@ export function buildDeedResourceFlightsFromDom(
   return flights;
 }
 
+function layoutSize(
+  element: HTMLElement,
+  rect: DOMRect
+): { width: number; height: number } {
+  // A rotated card reports a larger axis-aligned rect; the untransformed
+  // layout box keeps flights sized to the card itself.
+  return {
+    width: element.offsetWidth > 0 ? element.offsetWidth : rect.width,
+    height: element.offsetHeight > 0 ? element.offsetHeight : rect.height,
+  };
+}
+
 export function createCardFlight(
   makeFlightId: () => string,
   sourceElement: HTMLElement,
@@ -426,6 +438,7 @@ export function createCardFlight(
 ): CardFlight {
   const sourceRect = sourceElement.getBoundingClientRect();
   const targetRect = targetElement.getBoundingClientRect();
+  const sourceSize = layoutSize(sourceElement, sourceRect);
   const sourceCenter = domTargets.elementCenter(sourceElement);
   const targetCenter = domTargets.elementCenter(targetElement);
   return {
@@ -439,10 +452,10 @@ export function createCardFlight(
     startY: sourceCenter.y,
     endX: targetCenter.x,
     endY: targetCenter.y,
-    startWidth: sourceRect.width,
-    startHeight: sourceRect.height,
-    endWidth: targetRect.width || sourceRect.width,
-    endHeight: targetRect.height || sourceRect.height,
+    startWidth: sourceSize.width,
+    startHeight: sourceSize.height,
+    endWidth: targetRect.width || sourceSize.width,
+    endHeight: targetRect.height || sourceSize.height,
     delayMs: options?.delayMs ?? 0,
     durationMs: options?.durationMs,
   };
@@ -468,6 +481,7 @@ export function createCardFlightToPoint(
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight {
   const sourceRect = sourceElement.getBoundingClientRect();
+  const sourceSize = layoutSize(sourceElement, sourceRect);
   const sourceCenter = domTargets.elementCenter(sourceElement);
   return {
     id: makeFlightId(),
@@ -480,12 +494,12 @@ export function createCardFlightToPoint(
     startY: sourceCenter.y,
     endX: target.x,
     endY: target.y,
-    startWidth: sourceRect.width,
-    startHeight: sourceRect.height,
-    endWidth: options?.endWidth ?? sourceRect.width,
-    endHeight: options?.endHeight ?? sourceRect.height,
-    renderWidth: options?.endWidth ?? sourceRect.width,
-    renderHeight: options?.endHeight ?? sourceRect.height,
+    startWidth: sourceSize.width,
+    startHeight: sourceSize.height,
+    endWidth: options?.endWidth ?? sourceSize.width,
+    endHeight: options?.endHeight ?? sourceSize.height,
+    renderWidth: options?.endWidth ?? sourceSize.width,
+    renderHeight: options?.endHeight ?? sourceSize.height,
     endImageAreaWidth: options?.endImageAreaWidth,
     endImageAreaHeight: options?.endImageAreaHeight,
     delayMs: options?.delayMs ?? 0,

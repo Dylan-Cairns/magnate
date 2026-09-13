@@ -365,6 +365,7 @@ export function useGameController({
     diceVisualState,
     presentationSnapshot,
     presentedState,
+    presentingAction,
     activePlayerHighlightOverride,
     presentationPending,
     clearPresentationQueue,
@@ -881,6 +882,7 @@ export function useGameController({
       diceVisualState,
       activePlayerHighlightOverride,
       presentationPending,
+      presentingAction,
     },
   };
 }

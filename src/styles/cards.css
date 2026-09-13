@@ -115,12 +115,6 @@
     inset 0 0 0 1px var(--card-inset-border);
 }
 
-.card-placeholder {
-  border-style: dashed;
-  border-color: var(--card-placeholder-border);
-  background: var(--card-placeholder-bg);
-}
-
 .card-row {
   display: flex;
   align-items: center;

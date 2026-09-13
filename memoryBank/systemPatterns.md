@@ -230,6 +230,14 @@ Design expectations:
   custom properties. Propagate both dimensions because custom properties inherit
   as computed values; the final flight frame must match the real card exactly so
   the landing swap is seamless.
+- A source card that is transformed (the fanned human hand) reports a larger
+  axis-aligned rect; flight construction uses the untransformed layout box
+  (`offsetWidth`/`offsetHeight`) for the flight's start size so it matches the
+  card it departs. The hand fans with per-slot CSS transforms (`.hand-fan-slot`)
+  about each card's center, and an invisible `data-hand-slot-kind="empty"` anchor
+  marks the next draw's landing slot. A hand card targeted by the action being
+  previewed or presented (`ActionHighlights` committed action) is raised above
+  its neighbours until its animation finishes.
 - The actions menu is intentionally tooltip-free: `ActionsPanel` and every
   `ActionPicker` variant render no `Tooltip` markup. Picker options are
   self-describing through suit tokens and labels, and the popover's stacking

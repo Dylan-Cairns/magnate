@@ -477,9 +477,8 @@ export function createAnimationDomTargets(
       const escapedPlayerId = cssEscapeValue(playerId);
       return (
         environment.querySelector<HTMLElement>(
-          `.player-panel[data-player-id="${escapedPlayerId}"] .card-tile[data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="empty"]`
-        ) ??
-        hiddenHandTarget(escapedPlayerId)
+          `.player-panel[data-player-id="${escapedPlayerId}"] [data-hand-owner-id="${escapedPlayerId}"][data-hand-slot-kind="empty"]`
+        ) ?? hiddenHandTarget(escapedPlayerId)
       );
     },
   };

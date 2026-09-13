@@ -176,6 +176,7 @@ export function App() {
       diceVisualState,
       activePlayerHighlightOverride,
       presentationPending,
+      presentingAction,
     },
   } = useGameController({
     humanPlayerId: HUMAN_PLAYER,
@@ -635,6 +636,7 @@ export function App() {
       state={canonicalState}
       picker={actionPicker}
       legalActions={humanActionsAcceptingInput}
+      committedAction={presentingAction}
     >
       <div className="app-shell">
         {(storageError || historyError) && (
@@ -718,7 +720,6 @@ export function App() {
               botPlayerId={BOT_PLAYER}
               animateDeedProgress={animateDeedProgress}
               animationsEnabled={animationsEnabled}
-              gameKey={viewState.seed}
             />
           </aside>
 

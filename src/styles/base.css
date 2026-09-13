@@ -137,6 +137,12 @@
   --three-card-row-width: calc(
     (var(--card-width) * 3) + (var(--card-row-gap) * 2)
   );
+  /* Hand fan: each adjacent card center sits one step apart, so the fan hides
+     only the overlap strip instead of the whole card behind its neighbour. */
+  --hand-fan-overlap: 1.35rem;
+  --hand-fan-step: calc(var(--card-width) - var(--hand-fan-overlap));
+  /* Extra room below the fan keeps the tilted card corners off the panel edge. */
+  --hand-fan-bottom-room: 1rem;
   --side-column-width: calc(var(--three-card-row-width) + 1.4rem);
   --card-height: calc(
     (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +

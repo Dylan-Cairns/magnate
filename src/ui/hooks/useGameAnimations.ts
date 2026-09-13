@@ -64,6 +64,9 @@ export function useGameAnimations() {
   const [presentationSnapshot, setPresentationSnapshot] =
     useState<PresentationSnapshot | null>(null);
   const [presentedState, setPresentedState] = useState<GameState | null>(null);
+  const [presentingAction, setPresentingAction] = useState<GameAction | null>(
+    null
+  );
   const [presentationPending, setPresentationPending] =
     useState<boolean>(false);
   const [presentationTimers] = useState<AnimationTimerRegistry>(() =>
@@ -383,6 +386,7 @@ export function useGameAnimations() {
     setPresentationPending(false);
     setPresentationSnapshot(null);
     setPresentedState(null);
+    setPresentingAction(null);
     clearAllFlights();
   }, [clearAllFlights, presentationTimers]);
   const finishPresentationQueue = useCallback(() => {
@@ -404,6 +408,7 @@ export function useGameAnimations() {
     setPresentationPending(false);
     setPresentationSnapshot(null);
     setPresentedState(null);
+    setPresentingAction(null);
     clearAllFlights();
   }, [clearAllFlights, presentationTimers]);
   const startNextTransition = useCallback(() => {
@@ -436,6 +441,7 @@ export function useGameAnimations() {
       const settleMs = presentationSequence?.durationMs ?? 0;
       if (!presentationTransaction || !presentationSequence || settleMs <= 0) {
         setPresentedState(nextState);
+        setPresentingAction(null);
         options.onInputUnlock?.();
         options.onSettle?.();
         continue;
@@ -449,6 +455,7 @@ export function useGameAnimations() {
       activeTransitionRef.current = activeTransition;
       setPresentationPending(true);
       setPresentedState(previousState);
+      setPresentingAction(action);
       presentationTimers.clearAll();
       scheduleSequenceVisuals(presentationTransaction, presentationSequence);
       setPresentationSnapshot(
@@ -507,6 +514,7 @@ export function useGameAnimations() {
         setResourceFlights([]);
         setCardFlights([]);
         setPresentationSnapshot(null);
+        setPresentingAction(null);
         clearTurnCycleVisuals();
         settlePresentationTransition(activeTransition);
         activeTransitionRef.current = null;
@@ -526,6 +534,7 @@ export function useGameAnimations() {
     setPresentationPending(false);
     setPresentationSnapshot(null);
     setPresentedState(null);
+    setPresentingAction(null);
   }, [clearTurnCycleVisuals, presentationTimers, scheduleSequenceVisuals]);
   useEffect(() => {
     startNextTransitionRef.current = startNextTransition;
@@ -577,6 +586,7 @@ export function useGameAnimations() {
     diceVisualState: presentationOverlays?.dice ?? null,
     presentationSnapshot,
     presentedState,
+    presentingAction,
     activePlayerHighlightOverride:
       presentationOverlays?.activePlayerHighlightOverride ?? null,
     presentationPending,

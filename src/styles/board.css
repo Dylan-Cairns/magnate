@@ -171,6 +171,44 @@
   min-width: var(--three-card-row-width);
 }
 
+/* The human hand fans in place: slots overlap slightly and tilt around their
+   own centers, so each card stays mostly visible. Slots are absolutely placed
+   so the overlap does not change the row's reserved width. */
+.card-row-wrap.hand-fan {
+  position: relative;
+  display: block;
+  height: calc(var(--card-height) + var(--hand-fan-bottom-room));
+  min-width: var(--three-card-row-width);
+  /* The fan reads as one held group, so give the whole silhouette a stronger
+     shadow like the deck stacks rather than relying on per-card overlap. */
+  filter: drop-shadow(var(--card-stack-drop-shadow));
+}
+
+.hand-fan-slot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--card-width);
+  height: var(--card-height);
+  transform: translateX(calc(-50% + var(--hand-fan-x, 0px)));
+  transition: transform 200ms ease-out;
+}
+
+.hand-fan-slot > .card-tile {
+  rotate: var(--hand-fan-angle, 0deg);
+  transition: rotate 200ms ease-out;
+}
+
+.card-row-wrap.hand-fan.is-static .hand-fan-slot,
+.card-row-wrap.hand-fan.is-static .hand-fan-slot > .card-tile {
+  transition: none;
+}
+
+/* An action-targeted hand card rises above the cards fanning over it. */
+.hand-fan-slot.is-raised {
+  z-index: 20;
+}
+
 .token-rail {
   min-width: 0;
   display: flex;

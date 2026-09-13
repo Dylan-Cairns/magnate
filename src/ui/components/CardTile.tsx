@@ -15,7 +15,6 @@ export type CardPerspective = 'human' | 'bot';
 export function CardTile({
   cardId,
   hidden,
-  placeholder,
   deedTokens,
   deedProgress,
   deedTarget,
@@ -32,7 +31,6 @@ export function CardTile({
 }: {
   cardId?: CardId;
   hidden?: boolean;
-  placeholder?: boolean;
   deedTokens?: Partial<Record<Suit, number>>;
   deedProgress?: number;
   deedTarget?: number;
@@ -47,18 +45,6 @@ export function CardTile({
   preview?: boolean;
   showTooltip?: boolean;
 }) {
-  if (placeholder) {
-    return (
-      <div
-        className="card-tile card-placeholder"
-        aria-hidden="true"
-        data-hand-owner-id={handOwnerId}
-        data-hand-card-id={handCardId}
-        data-hand-slot-kind={handSlotKind}
-      />
-    );
-  }
-
   if (hidden) {
     return (
       <div
