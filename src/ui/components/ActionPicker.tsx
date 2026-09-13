@@ -45,16 +45,12 @@ export function ActionPicker({
       ref={pickerRef}
       className="panel trade-popover"
       role="dialog"
-      aria-label="Choose follow-up action option"
+      aria-label={title}
       style={{
         top: `${picker.top}px`,
         left: `${picker.left}px`,
       }}
     >
-      <h2>
-        <SuitText text={title} />
-      </h2>
-
       {picker.kind === 'trade-combined' ? (
         <TradeCombinedPicker
           picker={picker}

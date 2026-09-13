@@ -101,10 +101,6 @@
   border-top: 1px dashed var(--divider-subtle);
 }
 
-.actions-footer .action-button {
-  width: 100%;
-}
-
 .actions-heading {
   display: flex;
   align-items: center;
@@ -118,7 +114,9 @@
 }
 
 .panel {
-  padding: var(--panel-padding);
+  /* Content sits on the --content-inset rail; row surfaces cancel this inset
+     with a negative margin so they meet --panel-padding, where titles sit. */
+  padding: var(--panel-padding) var(--content-inset);
 }
 
 .panel h2 {

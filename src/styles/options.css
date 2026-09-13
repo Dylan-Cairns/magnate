@@ -169,7 +169,8 @@
   width: min(20.5rem, calc(100vw - 2.5rem));
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  background: rgba(9, 13, 20, 0.97);
+  background: var(--side-rail-panel-fill);
+  backdrop-filter: blur(6px);
   box-shadow:
     0 10px 22px rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -339,7 +340,8 @@
   width: 100%;
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  background: rgba(9, 13, 20, 0.97);
+  background: var(--side-rail-panel-fill);
+  backdrop-filter: blur(6px);
   box-shadow:
     0 10px 22px rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);

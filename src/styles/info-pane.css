@@ -104,7 +104,6 @@
   justify-self: stretch;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 0;
-  padding: var(--panel-padding);
 }
 
 .bot-hand-panel .player-header {

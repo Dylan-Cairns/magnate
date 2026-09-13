@@ -15,6 +15,9 @@
   background-repeat: repeat, repeat, no-repeat;
   backdrop-filter: none;
   padding: var(--panel-padding-compact);
+  /* Keep the tray's block padding compact but put its header on the panel
+     heading line so both hand trays line up with the other panel titles. */
+  padding-inline: var(--panel-padding);
   display: grid;
   gap: var(--space-3);
   width: 100%;
@@ -571,4 +574,10 @@
   justify-self: center;
   width: 0.78rem;
   height: 0.78rem;
+}
+
+/* The bot's lane is above its tab and the human's below: point the caret at
+   whichever player is ahead. */
+.district-lane-score-human .district-lead-icon {
+  transform: rotate(180deg);
 }

@@ -28,6 +28,10 @@
   --layout-gap: var(--space-6);
   --panel-padding: var(--space-5);
   --panel-padding-compact: var(--space-3) var(--space-4);
+  /* Two-tier panel rhythm: content (bordered rows, section labels, flat text)
+     sits on this rail, one --row-inset in from the panel edge. Titles hang
+     back out to --panel-padding, level with the bordered row surfaces. */
+  --content-inset: calc(var(--panel-padding) + var(--row-inset));
   --section-gap: var(--space-4);
   --lane-fade: 1.75rem;
   --ink: #fafcff;
@@ -73,6 +77,10 @@
   --action-border: #4a5d79;
   --action-bg: #1a2333;
   --action-bg-hover: #24334a;
+  /* Horizontal padding inside a bordered row surface. Rows cancel it with a
+     negative margin so their surface meets --panel-padding while their text
+     stays on the --content-inset rail with labels and flat content. */
+  --row-inset: 0.5rem;
   --button-shadow: 0 2px 5px rgba(0, 0, 0, 0.34);
   --button-shadow-hover: 0 3px 7px rgba(0, 0, 0, 0.42);
   --reset-turn-border: #60cc87;
@@ -228,6 +236,9 @@ body,
 
 body {
   font-family: var(--font-ui);
+  /* Default to lining figures so digits match the surrounding text and any
+     adjacent icons; tabular spacing stays scoped to numeric columns below. */
+  font-variant-numeric: lining-nums;
 }
 
 .app-shell {

@@ -1,0 +1,14 @@
+/*
+  Panel rhythm: titles (and their subtitles) hang back to --panel-padding, the
+  same line as bordered row surfaces. Row text, section labels and flat content
+  stay one --row-inset in, on the --content-inset rail.
+
+  Loaded last so the hang wins over the per-element `margin` resets in the
+  panel stylesheets above.
+*/
+.panel h1,
+.panel h2,
+.panel .brand-subtitle,
+.panel .brand-options-link {
+  margin-inline-start: calc(var(--row-inset) * -1);
+}

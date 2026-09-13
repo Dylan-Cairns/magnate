@@ -61,6 +61,11 @@ const PLAYER_HAND_SLOT_COUNT = 3;
 const TRADE_POPOVER_WIDTH_PX = 220;
 const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
 const TRADE_POPOVER_GAP_PX = 8;
+/* The popover's first content row should line up with the trigger's top: shift
+   the popover up by its top border and padding. The padding matches
+   `.trade-popover`'s `--panel-padding`. */
+const TRADE_POPOVER_CONTENT_TOP_REM = 0.8;
+const TRADE_POPOVER_BORDER_PX = 1;
 const VIEWPORT_PADDING_PX = 10;
 const RESOLUTION_WARNING_BASE_WIDTH_PX = 1280;
 const RESOLUTION_WARNING_BASE_HEIGHT_PX = 720;
@@ -582,7 +587,17 @@ export function App() {
       VIEWPORT_PADDING_PX,
       maxLeft
     );
-    const top = clamp(rect.top, VIEWPORT_PADDING_PX, maxTop);
+    // Align the popover's first content row with the trigger's top edge.
+    const rootFontSizePx = parseFloat(
+      getComputedStyle(document.documentElement).fontSize
+    );
+    const contentTopInsetPx =
+      TRADE_POPOVER_BORDER_PX + rootFontSizePx * TRADE_POPOVER_CONTENT_TOP_REM;
+    const top = clamp(
+      rect.top - contentTopInsetPx,
+      VIEWPORT_PADDING_PX,
+      maxTop
+    );
 
     return { left, top };
   };

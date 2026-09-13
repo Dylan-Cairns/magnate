@@ -5,7 +5,9 @@
   min-height: 0;
   flex: 1;
   align-content: start;
-  padding: 0.08rem 0.15rem 0.08rem 0;
+  /* Room for the rows' outward bleed, so row text stays on the content rail. */
+  margin-inline: calc(var(--row-inset) * -1);
+  padding: 0.08rem var(--row-inset);
 }
 
 .action-button {
@@ -15,7 +17,10 @@
   color: var(--ink);
   font: inherit;
   text-align: left;
-  padding: 0.45rem 0.55rem;
+  padding: 0.45rem var(--row-inset);
+  /* Extend the surface back to the panel's edge while text stays on the
+     content rail. */
+  margin-inline: calc(var(--row-inset) * -1);
   cursor: pointer;
   display: grid;
   gap: 0.14rem;
@@ -122,11 +127,14 @@
   display: grid;
   gap: 0.7rem;
   z-index: 60;
+  /* Grid options can't bleed without overlapping, so the popover keeps the
+     base padding and insets its section labels to reach the content rail. */
+  padding: var(--panel-padding);
+  /* Match the rail panels' translucent fill so the menu doesn't read darker. */
+  background: var(--side-rail-panel-fill);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(6px);
   box-shadow: 0 10px 24px var(--shadow-popover);
-}
-
-.trade-popover h2 {
-  margin: 0;
 }
 
 .trade-choice-list {
@@ -146,7 +154,7 @@
   color: var(--ink);
   font: inherit;
   cursor: pointer;
-  padding: 0.5rem 0.6rem;
+  padding: 0.5rem var(--row-inset);
   box-shadow: var(--container-shadow-soft);
 }
 
@@ -182,6 +190,7 @@
 
 .composite-picker-label {
   margin: 0;
+  padding-left: var(--row-inset);
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.9rem;
 }
