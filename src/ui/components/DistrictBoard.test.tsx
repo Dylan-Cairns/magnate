@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { DistrictState, ObservedPlayerState } from '../../engine/types';
 import { buildDeedProgressArcPath } from './deedProgress';
-import { DistrictColumn, PlayerTokenRail } from './DistrictBoard';
+import {
+  DistrictColumn,
+  districtMarkerName,
+  PlayerTokenRail,
+} from './DistrictBoard';
 
 describe('DistrictColumn', () => {
   it('uses canonical ace scoring for district lane totals', () => {
@@ -29,12 +33,12 @@ describe('DistrictColumn', () => {
     );
 
     const laneScores = [
-      ...html.matchAll(/aria-label="District score: (\d+)"/g),
+      ...html.matchAll(/aria-label="District score: (\d+)[^"]*"/g),
     ].map((match) => Number.parseInt(match[1], 10));
     expect(laneScores).toEqual([4, 0]);
   });
 
-  it('labels the Excuse district with the canonical card name', () => {
+  it('shows every suit on the Excuse district marker', () => {
     const district: DistrictState = {
       id: 'D3',
       markerSuitMask: [],
@@ -56,10 +60,56 @@ describe('DistrictColumn', () => {
       />
     );
 
-    expect(html).toContain('The Excuse');
+    const chipSuits = [...html.matchAll(/data-token-suit="([^"]+)"/g)].map(
+      (match) => match[1]
+    );
+    expect(chipSuits).toEqual([
+      'Moons',
+      'Suns',
+      'Waves',
+      'Leaves',
+      'Wyrms',
+      'Knots',
+    ]);
   });
 
-  it('marks only the leading district score as bold', () => {
+  it('exposes the district marker name only through the header tooltip', () => {
+    const district: DistrictState = {
+      id: 'D3',
+      markerSuitMask: [],
+      stacks: {
+        PlayerA: {
+          developed: [],
+        },
+        PlayerB: {
+          developed: [],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
+    );
+
+    expect(html).toContain('district-header tooltip-trigger');
+    expect(html).not.toContain('district-marker-name');
+  });
+
+  it('resolves district marker names from the pawn suit mask', () => {
+    expect(districtMarkerName([])).toBe('The Excuse');
+    expect(districtMarkerName(['Suns', 'Waves', 'Knots'])).toBe(
+      'The Light Keeper'
+    );
+    expect(districtMarkerName(['Moons', 'Wyrms', 'Knots'])).toBe(
+      'The Watchman'
+    );
+  });
+
+  it('marks the leading district score and dims the trailing one', () => {
     const district: DistrictState = {
       id: 'D2',
       markerSuitMask: ['Suns'],
@@ -92,6 +142,48 @@ describe('DistrictColumn', () => {
       ),
     ];
     expect(leadingScoreMatches).toHaveLength(1);
+
+    const trailingScoreMatches = [
+      ...html.matchAll(
+        /class="[^"]*\bdistrict-lane-score\b[^"]*\bis-trailing\b[^"]*"/g
+      ),
+    ];
+    expect(trailingScoreMatches).toHaveLength(1);
+
+    const leadIcons = [...html.matchAll(/district-lead-icon/g)];
+    expect(leadIcons).toHaveLength(1);
+  });
+
+  it('leaves both district scores unmarked when the district is tied', () => {
+    const district: DistrictState = {
+      id: 'D2',
+      markerSuitMask: ['Suns'],
+      stacks: {
+        PlayerA: {
+          developed: ['10'],
+        },
+        PlayerB: {
+          developed: ['10'],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
+    );
+
+    const scoreClassMatches = [
+      ...html.matchAll(/class="[^"]*\bdistrict-lane-score\b[^"]*"/g),
+    ];
+    expect(scoreClassMatches).toHaveLength(2);
+    expect(html).not.toMatch(
+      /district-lane-score[^"]*\bis-(leading|trailing)\b/
+    );
+    expect(html).not.toContain('district-lead-icon');
   });
 
   it('renders deed progress rings and values for both bot and human lane perspectives', () => {

@@ -288,13 +288,12 @@
 
 .district-header {
   position: relative;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.4rem;
-  min-height: 1.4rem;
+  column-gap: 0.3rem;
   border: 1px solid var(--district-divider-border);
-  border-radius: 6px;
+  border-radius: 8px;
   background-color: transparent;
   background-image:
     var(--grain-texture), var(--grain-texture), var(--district-divider-bg);
@@ -307,11 +306,22 @@
     88px 56px,
     center;
   background-repeat: repeat, repeat, no-repeat;
-  padding: 0.24rem 0.22rem;
+  padding: 0.24rem 0.4rem;
   z-index: 2;
   isolation: isolate;
 }
 
+.district-header:focus-visible {
+  outline: 1px solid var(--accent-soft);
+  outline-offset: 3px;
+}
+
+/*
+  Keep this as a pseudo-element. It is inset by the border, so its outer shadow
+  is cast from the padding box and grazes the divider's own border. On the
+  element itself the shadow is clipped outside the border box, and the border
+  loses that wash and reads as a brighter outline.
+*/
 .district-header::before {
   content: '';
   position: absolute;
@@ -325,42 +335,24 @@
 }
 
 .district-id {
+  justify-self: start;
   color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 400;
-  letter-spacing: 0.05em;
-  position: relative;
-  z-index: 1;
-}
-
-.district-marker-name {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
-  max-width: calc(100% - 7.6rem);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ink);
   font-size: 0.9rem;
   font-weight: 400;
   letter-spacing: 0.05em;
-  text-align: center;
-  pointer-events: none;
+  position: relative;
+  z-index: 1;
 }
 
 .district-marker-tokens {
-  margin-left: auto;
   position: relative;
   z-index: 1;
-  min-width: 4.4rem;
-  display: flex;
-  justify-content: flex-end;
 }
 
-.district-marker-placeholder {
-  min-height: 1.35rem;
+/* Scoped past `.token-chip.compact` in cards.css, which loads later. */
+.district-header .district-marker-tokens .token-chip {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .district-lane {
@@ -375,14 +367,15 @@
   min-height: 0;
 }
 
+/* Padding reserves the space the district score tab occupies above/below. */
 .district-lane.is-bot {
   justify-content: flex-end;
-  padding-bottom: 1.02rem;
+  padding-bottom: 1.3rem;
 }
 
 .district-lane.is-human {
   justify-content: flex-start;
-  padding-top: 1.02rem;
+  padding-top: 1.3rem;
 }
 
 .card-row-wrap {
@@ -482,6 +475,10 @@
   min-width: 2.6rem;
   max-width: 4.5rem;
   transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  justify-items: center;
   border: 1px solid #586270;
   background-color: #171d24;
   background-image:
@@ -498,8 +495,8 @@
   background-repeat: repeat, repeat, no-repeat;
   padding: 0.05rem 0.2rem;
   color: rgba(178, 190, 206, 0.84);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 500;
   text-align: center;
   letter-spacing: 0.01em;
   line-height: 1.15;
@@ -508,6 +505,7 @@
   isolation: isolate;
 }
 
+/* Inset by the border, so the shadow grazes the tab's own border. */
 .district-lane-score::before {
   content: '';
   position: absolute;
@@ -518,25 +516,36 @@
   z-index: -1;
 }
 
+/* Overlap the divider by 1px so no sub-pixel seam can expose the page behind. */
 .district-lane-score-bot {
-  bottom: 100%;
+  bottom: calc(100% - 1px);
   border-bottom: none;
   border-radius: 6px 6px 0 0;
 }
 
 .district-lane-score-human {
-  top: 100%;
+  top: calc(100% - 1px);
   border-top: none;
   border-radius: 0 0 6px 6px;
 }
 
+/* Weight alone carries the lead; colour and material stay put. */
 .district-lane-score.is-leading {
-  color: #fff;
-  font-weight: 800;
+  font-weight: 700;
 }
 
-@media (max-width: 2499px) {
-  .district-marker-name {
-    display: none;
-  }
+.district-lane-score.is-trailing {
+  font-weight: 400;
+}
+
+/* The score holds the tab's centre whether or not the star is present. */
+.district-score-value {
+  grid-column: 2;
+}
+
+.district-lead-icon {
+  grid-column: 1;
+  justify-self: center;
+  width: 0.78rem;
+  height: 0.78rem;
 }
