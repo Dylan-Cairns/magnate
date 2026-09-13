@@ -39,17 +39,18 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 - Use the project `.venv` for any Python command in this repo. Training and
   evaluation are fail-fast: invalid payloads, missing checkpoints, or malformed
   policy probabilities are hard errors, never silent fallbacks.
-- Verify before handoff:
-  - TypeScript changes: focused `yarn vitest run <pattern>`, then `yarn test`
-    and `yarn lint`.
-  - Python changes: targeted pytest for touched behavior, then Ruff and
-    Pyright.
-  - Bridge changes: contract tests plus stable action IDs and keys.
-- Default to **user verification** for visual/UI changes: make the change, run
-  the non-visual checks (lint, typecheck, tests, build), then hand off for the
-  user to review in the running app. Do not self-verify UI with the
-  Playwright/CDP harness unless the user explicitly asks you to iterate without
-  their feedback on that task.
+- Iterate cheap, gate once:
+  - While a change is still being shaped, run only the narrow check for what
+    you touched: focused `yarn vitest run <pattern>`, targeted pytest, or
+    formatting for markup/CSS-only edits.
+  - Run the full gate once per change-set — `yarn test` + `yarn lint`, plus
+    Ruff/Pyright or bridge contract tests where relevant — when the user agrees
+    the feature is basically done, or before a commit. Never run the full suite
+    after every edit.
+- Iterate visual/UI work in a real browser (Playwright/CDP against the dev
+  server): hard-reload, measure the geometry you depend on, screenshot, and fix
+  what looks wrong before presenting. The user gives the final visual sign-off.
+- Bridge changes: contract tests plus stable action IDs and keys.
 - Scope to what was asked. Do not convert your own coverage gaps, hypotheses, or
   "worth confirming" items into tasks. If something seems worth investigating
   beyond the request, ask first and let the user decide. If you notice a
@@ -58,13 +59,10 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
   stop and report rather than iterating unprompted.
 - Do not build a bespoke harness for a one-off task. Write one short throwaway
   script, run it, delete it; only generalize after a third use.
-- Run focused tests while iterating; run the full suite and build once per
-  change-set (per "Verify before handoff" above). Skip checks the change cannot
-  affect — CSS-only changes do not need vitest.
+- Skip checks the change cannot affect — CSS-only changes do not need vitest.
 - Set up browser tooling at most once per session, at a sensible window size,
-  and tear it down at the end. Prefer handing off to the user for visual review.
-- Batch visual changes and review them in one pass rather than re-verifying
-  after each edit.
+  and tear it down at the end. Batch visual edits and look at each batch in the
+  browser before involving the user.
 - Prefer promoted checkpoints as warm start; register promotions through
   `models/td_checkpoints/manifest.json`.
 - Keep docs aligned with code changes; replace stale docs instead of appending

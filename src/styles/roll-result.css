@@ -2,13 +2,64 @@
   margin: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 1.4rem;
+  /*
+    Stretch, not center: both groups take the taller one's height, so the tax
+    die stays centred against the income pair.
+  */
+  align-items: stretch;
+  gap: 1.4rem 2.8rem;
   flex-wrap: wrap;
 }
 
-.roll-value .die-scene-d6 {
-  margin-left: 23px;
+.roll-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4rem;
+  /*
+    The d10's rendered apex starts 17px below the 100px scene top (pixel
+    verified at every rest pose: the scene carries the bounce headroom, and the
+    tilted faces project inside it). 10px puts the scene top at row y=18 and the
+    apex at y=35 — the chip-top line. Integer px on purpose; a fractional offset
+    re-rasterises the d10's 3D faces and shows seams.
+  */
+  margin-top: 10px;
+}
+
+/*
+  The label overlaps the scene's headroom: top: 9px puts the label box bottom
+  on the shared heading line (row y=27) while the box itself starts inside the
+  scene, so the visible gap to the apex stays the same 8px the token rails use
+  between their headings and chips. translate(-100%) uses the label's own
+  height, so the offset holds at every root font size.
+*/
+.roll-group h3 {
+  position: absolute;
+  top: 9px;
+  left: 0;
+  transform: translateY(-100%);
+  white-space: nowrap;
+}
+
+/*
+  Dice paint above their label: the roll bounce lifts a die ~18px, past the rest
+  pose and into the label band, and it must cover the label on the way.
+*/
+.roll-group .die-scene-d10,
+.roll-group .die-scene-d6 {
+  position: relative;
+  z-index: 1;
+}
+
+/*
+  The tax die is short next to the d10 pair, so bottom-aligning it would drop
+  its whole silhouette low and stretch its label gap. Centring it against the
+  d10s keeps the three dice reading as one cluster; its label gap stays larger
+  than Income's because both labels sit on the shared heading line.
+*/
+.roll-group .die-scene-d6 {
+  align-self: center;
 }
 
 .die-scene-d10.is-glowing,

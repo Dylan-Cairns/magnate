@@ -247,7 +247,8 @@ h1,
 h2,
 .district-id,
 .district-marker-name,
-.token-rail-group h3 {
+.token-rail-group h3,
+.roll-group h3 {
   font-family: var(--font-display);
 }
 

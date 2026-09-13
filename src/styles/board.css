@@ -205,7 +205,14 @@
 
 .board-top-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  /*
+    Heading band: the Income/Tax dice labels share the token rails' heading
+    line, so the rails sit at the top of the row and the dice group drops below
+    the band (see .roll-group margin-top). The row pays for the band in height
+    rather than shrinking the dice.
+  */
+  padding-top: 8px;
 }
 
 .token-rail-group {
@@ -213,11 +220,27 @@
   gap: 0.5rem;
 }
 
-.token-rail-group h3 {
+.token-rail-group h3,
+.roll-group h3 {
   margin: 0;
   color: var(--muted);
   font-size: 1rem;
   letter-spacing: normal;
+}
+
+/*
+  The top row's heading line is geometric, not typographic: the dice are fixed
+  px, so pin the heading line height and the heading-to-chips gap to keep the
+  dice apex on the chip-top line and the labels on the rails' heading line at
+  every root font size. The bottom rail keeps natural rem spacing.
+*/
+.board-top-row .token-rail-group h3,
+.roll-group h3 {
+  line-height: 19px;
+}
+
+.board-top-row .token-rail-group {
+  gap: 8px;
 }
 
 .token-row.fixed-suits.rail-resources-row {

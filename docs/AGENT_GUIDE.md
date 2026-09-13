@@ -26,7 +26,14 @@ front.
 
 ## Verification Contract
 
-Run the narrowest relevant check before handoff, then report what you ran.
+Run the narrowest relevant check while iterating; run the full gate once per
+change-set, when the user agrees the feature is basically done or before a
+commit. Full-suite runs after every edit waste the user's time and tokens.
+
+Visual/UI work is verified in a real browser, not by reasoning about CSS: drive
+the dev server with Playwright/CDP, hard-reload before judging, measure the
+geometry you depend on, and screenshot. Iterate until it holds up, then hand off
+for the user's final visual sign-off.
 
 TypeScript (canonical engine, UI, bot evaluation):
 

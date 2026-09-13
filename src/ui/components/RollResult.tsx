@@ -24,32 +24,37 @@ export function RollResult({
   const incomeSettled = dice.incomePhase === 'settled';
   const taxSettled = dice.taxPhase === 'settled';
   const taxDimmed = dice.taxPhase === 'hidden' || dice.taxPhase === 'dimmed';
-  const taxSuit =
-    taxDimmed ? undefined : dice.taxSuit;
+  const taxSuit = taxDimmed ? undefined : dice.taxSuit;
 
   return (
     <div className="roll-value" aria-label="Roll result">
-      <D10Die
-        result={dice.incomeRoll.die1}
-        rollKey={visibleRollKey}
-        glowing={incomeSettled && die1Wins}
-        dimmed={incomeSettled && !die1Wins}
-        animationsEnabled={animationsEnabled}
-      />
-      <D10Die
-        result={dice.incomeRoll.die2}
-        rollKey={visibleRollKey}
-        glowing={incomeSettled && die2Wins}
-        dimmed={incomeSettled && !die2Wins}
-        animationsEnabled={animationsEnabled}
-      />
-      <D6Die
-        suit={taxSuit}
-        rollKey={visibleRollKey}
-        glowing={taxSettled && taxSuit !== undefined}
-        dimmed={taxDimmed}
-        animationsEnabled={animationsEnabled}
-      />
+      <div className="roll-group">
+        <h3>Income</h3>
+        <D10Die
+          result={dice.incomeRoll.die1}
+          rollKey={visibleRollKey}
+          glowing={incomeSettled && die1Wins}
+          dimmed={incomeSettled && !die1Wins}
+          animationsEnabled={animationsEnabled}
+        />
+        <D10Die
+          result={dice.incomeRoll.die2}
+          rollKey={visibleRollKey}
+          glowing={incomeSettled && die2Wins}
+          dimmed={incomeSettled && !die2Wins}
+          animationsEnabled={animationsEnabled}
+        />
+      </div>
+      <div className="roll-group">
+        <h3>Tax</h3>
+        <D6Die
+          suit={taxSuit}
+          rollKey={visibleRollKey}
+          glowing={taxSettled && taxSuit !== undefined}
+          dimmed={taxDimmed}
+          animationsEnabled={animationsEnabled}
+        />
+      </div>
     </div>
   );
 }
