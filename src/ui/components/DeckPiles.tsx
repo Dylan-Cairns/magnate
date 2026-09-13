@@ -47,7 +47,7 @@ export function DeckPiles({
   });
 
   return (
-    <section className="panel">
+    <section className="panel deck-state-panel">
       <header className="deck-state-heading">
         <h2>Deck State</h2>
         <span className="status-badge tooltip-trigger" tabIndex={0}>

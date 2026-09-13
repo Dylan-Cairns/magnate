@@ -1,9 +1,9 @@
 .player-panel {
-  border: 1px solid var(--board-border);
+  border: 1px solid var(--granite-edge);
   border-radius: 10px;
   background-color: transparent;
   background-image:
-    var(--grain-texture), var(--grain-texture), var(--player-area-bg);
+    var(--grain-texture), var(--grain-texture), var(--granite-bg);
   background-size:
     180px 180px,
     300px 300px,
@@ -54,6 +54,9 @@
 .player-header h2 {
   margin: 0;
   font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: var(--heading-ink);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42);
 }
 
 .player-title-line {
@@ -69,10 +72,10 @@
 }
 
 .status-badge {
-  --status-ink: #d5dfed;
-  --status-fill: rgba(13, 22, 36, 0.58);
-  --status-edge: rgba(158, 180, 209, 0.28);
-  --status-highlight: rgba(190, 211, 237, 0.07);
+  --status-ink: #dde4ee;
+  --status-fill: rgba(43, 51, 63, 0.7);
+  --status-edge: rgba(120, 134, 152, 0.5);
+  --status-highlight: rgba(200, 214, 234, 0.06);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -98,11 +101,13 @@
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
 
-.status-badge--wood {
-  --status-ink: #f0d4a2;
-  --status-fill: rgba(39, 22, 13, 0.48);
-  --status-edge: rgba(222, 178, 106, 0.3);
-  --status-highlight: rgba(247, 208, 140, 0.07);
+/* Last Turn is the one status chip that isn't a running counter, so it keeps
+   the blue treatment the others used to share. */
+.status-badge--blue {
+  --status-ink: #d5dfed;
+  --status-fill: rgba(13, 22, 36, 0.58);
+  --status-edge: rgba(158, 180, 209, 0.28);
+  --status-highlight: rgba(190, 211, 237, 0.07);
 }
 
 .status-badge:focus-visible {

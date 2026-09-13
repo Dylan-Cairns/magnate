@@ -9,13 +9,27 @@
   background: rgba(4, 7, 12, 0.6);
 }
 
-.history-modal {
+.panel.history-modal {
   width: min(80rem, calc(100vw - 2rem));
   max-height: min(42rem, calc(100vh - 2rem));
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   overflow: hidden;
+  border-color: var(--granite-edge);
+  background-color: transparent;
+  background-image:
+    var(--grain-texture), var(--grain-texture), var(--granite-bg);
+  background-size:
+    180px 180px,
+    300px 300px,
+    auto;
+  background-position:
+    0 0,
+    88px 56px,
+    center;
+  background-repeat: repeat, repeat, no-repeat;
+  background-clip: border-box;
 }
 
 .history-modal-header {
@@ -82,10 +96,6 @@
 }
 
 .history-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--panel);
   padding: 0.45rem 0.6rem;
   text-align: left;
   font-size: 0.88rem;
@@ -134,7 +144,11 @@
 }
 
 .history-result--player {
-  color: var(--accent-soft);
+  color: var(--moss);
+}
+
+.history-result--bot {
+  color: var(--rust);
 }
 
 /* ── History button in corner row ── */

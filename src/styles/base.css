@@ -39,7 +39,9 @@
   --accent: #e3bc6c;
   --accent-soft: #f1d69b;
   --heading-ink: #f4e0b2;
+  /* Win and loss text, so results don't spend the gold accent. */
   --moss: #4fbf74;
+  --rust: #e2685a;
   --input-border: #637896;
   --input-bg: #111926;
   --button-primary-text: #21170f;
@@ -49,7 +51,6 @@
   --error-border: #b47b63;
   --error-bg: #24171c;
   --error-text: #ffd7cc;
-  --board-border: rgba(126, 98, 60, 0.3);
   --active-border: #e2bf89;
   --active-ring: rgba(226, 191, 137, 0.48);
   --active-glow: rgba(164, 119, 79, 0.34);
@@ -57,11 +58,18 @@
   --board-dashed: rgba(171, 139, 112, 0.34);
   --wood-start: #140f0c;
   --wood-end: #5b2f1e;
-  --player-area-bg: linear-gradient(
-    135deg,
-    var(--wood-start) 0%,
-    var(--wood-end) 100%
+  /* Granite is the third material: wood is the board's own structure, blue is
+     the field and its chrome, granite is where cards and records live. It
+     reads from its edge and grain more than from its value, which keeps it
+     dark enough that card faces hold their contrast against it. */
+  --granite-start: #232b35;
+  --granite-end: #151b23;
+  --granite-bg: linear-gradient(
+    150deg,
+    var(--granite-start) 0%,
+    var(--granite-end) 100%
   );
+  --granite-edge: rgba(120, 134, 152, 0.45);
   --district-divider-bg: linear-gradient(
     135deg,
     var(--wood-start) 0%,
