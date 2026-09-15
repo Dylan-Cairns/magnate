@@ -22,6 +22,12 @@ Design expectations:
 - No side effects in rules logic.
 - Immutable state updates.
 - Phase-driven turn flow.
+- Card metadata is generated from a domain-oriented Decktet specification
+  (`src/engine/cards.ts`) authored from the local Jacynth facts; card IDs and
+  `ALL_CARDS` ordering are compatibility-sensitive and locked by tests.
+- UI card-art filenames are derived from card names in `src/ui/cardImages.ts`
+  rather than maintained in a duplicate table. Court WebPs are retained but not
+  mapped to the current deck; an extended-deck/Court ruleset is planned.
 
 ## Client Controller Pattern
 

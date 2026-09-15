@@ -14,3 +14,4 @@ public/model-packs-experiments/
 *.pyc
 *.pyo
 *.pyd
+*.har

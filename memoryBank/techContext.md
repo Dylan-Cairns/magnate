@@ -29,9 +29,16 @@
 - Google Fonts are requested directly from `index.html` with preconnect hints
   for the stylesheet and font origins and `display=swap`, so font discovery
   does not wait for the application CSS.
-- Playable card artwork uses lossless WebP at its original 242 × 376 dimensions.
-  The asset mapping and eager URL glob live in `src/ui/cardImages.ts`; startup
-  continues to preload and decode all playable cards before showing the board.
+- Playable card artwork uses lossless WebP at its original 242 × 376 dimensions
+  under `src/assets/decktet-card-art/`, named
+  `decktet-card-<normalized-card-name>.webp`. The asset mapping and eager URL
+  glob live in `src/ui/cardImages.ts` and derive filenames from card names;
+  startup continues to preload and decode all playable cards before showing the
+  board. The four Court WebPs are retained for a planned extended ruleset but are
+  not mapped to the current 41-card deck.
+- Card facts (names, ranks, ordered suits) are authored from the local Jacynth
+  Decktet extraction (`decktet_cards.csv`) rather than any third-party card
+  catalog. Card IDs and `ALL_CARDS` ordering remain compatibility surfaces.
 - Node version manager: fnm. Shell integration selects the checked-in `.nvmrc`
   version automatically; Windows wrappers can resolve that pin through `fnm`
   even when launched from a `-NoProfile` shell.
