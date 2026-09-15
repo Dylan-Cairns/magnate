@@ -149,6 +149,12 @@
   line-height: 1;
 }
 
+.card-rank-court-icon {
+  display: block;
+  height: 0.82rem;
+  width: auto;
+}
+
 .card-suits-row {
   display: flex;
   align-items: center;

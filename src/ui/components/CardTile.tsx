@@ -3,6 +3,7 @@ import type { HighlightTarget } from '../actionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
+import { CardRank } from './CardRank';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import { ProgressTracker } from './ProgressTracker';
@@ -126,12 +127,6 @@ function CardTileCard({
   const card = CARD_BY_ID[cardId];
   const cardImage = getCardImage(cardId);
   const suits = card.kind === 'Excuse' ? [] : [...card.suits];
-  const rank =
-    card.kind === 'Property' || card.kind === 'Crown'
-      ? String(card.rank)
-      : card.kind === 'Pawn'
-        ? 'P'
-        : 'X';
   const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
   const hasDeedTokens = deedTokenEntries.length > 0;
   const showDeedTokenRails = Boolean(inDevelopment) || hasDeedTokens;
@@ -149,7 +144,9 @@ function CardTileCard({
   const metadataRow = (
     <div className="card-row card-meta">
       <div className="card-meta-leading">
-        <span className="card-rank">{rank}</span>
+        <span className="card-rank">
+          <CardRank cardId={cardId} />
+        </span>
         <div className="card-suits-row">
           {suits.length > 0 ? (
             suits.map((suit) => (

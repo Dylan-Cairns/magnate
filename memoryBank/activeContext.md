@@ -379,8 +379,9 @@
   game-history records, and shown in the opening log next to the seed.
   Easy/Medium/Hard rollout-search profiles are ruleset-aware (determinization
   and heuristic v2 use the ruleset's property pool); the Experimental TD profile
-  is regular-only and hidden for extended games. Court art is mapped, and the
-  extended deck is selectable/evaluable through bot-eval head-to-head configs.
+  is regular-only and hidden for extended games. Court art and the Court rank
+  symbol are mapped, and the extended deck is selectable/evaluable through
+  bot-eval head-to-head configs.
 
 ## Remaining Work
 

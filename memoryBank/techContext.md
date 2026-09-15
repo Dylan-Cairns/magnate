@@ -36,6 +36,11 @@
   startup continues to preload and decode all playable cards before showing the
   board. The four Court WebPs are mapped to the extended-deck cards (IDs
   `"41"`-`"44"`) and are only dealt when the extended ruleset is selected.
+- The Court rank symbol is a monochrome SVG extracted from the
+  `fortune_widgets.ttf` Court glyph (`%%`) and stored at
+  `src/assets/icons/court.svg`; `src/ui/courtIcon.tsx` renders it, and
+  `src/ui/components/CardRank.tsx` uses it in place of the `X` placeholder on
+  card tiles and discard piles, while the Excuse keeps `X`.
 - Card facts (names, ranks, ordered suits) are authored from the local Jacynth
   Decktet extraction (`decktet_cards.csv`) rather than any third-party card
   catalog. Card IDs and `ALL_CARDS` ordering remain compatibility surfaces.
