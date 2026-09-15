@@ -8,7 +8,7 @@ import {
 } from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
-import type { PlayerId } from '../engine/types';
+import type { PlayerId, Ruleset } from '../engine/types';
 import type { BotSpec } from '../policies/botSpec';
 import {
   policyRandomForState,
@@ -31,6 +31,7 @@ export interface PlayGameOptions {
   gameId: string;
   seed: string;
   firstPlayer: PlayerId;
+  ruleset?: Ruleset;
   botBySeat: Record<PlayerId, RuntimeBot>;
   maxDecisions?: number;
   now?: () => number;
@@ -49,6 +50,7 @@ export async function playGame({
   gameId,
   seed,
   firstPlayer,
+  ruleset,
   botBySeat,
   maxDecisions = DEFAULT_MAX_DECISIONS_PER_GAME,
   now = () => performance.now(),
@@ -65,7 +67,7 @@ export async function playGame({
   const gameStartedAt = now();
   let nextHeartbeatAt = gameStartedAt + progressIntervalMs;
   const transcript: PlayedGame['transcript'] = [];
-  let state = createSession(seed, firstPlayer);
+  let state = createSession(seed, firstPlayer, ruleset);
 
   function emitHeartbeatIfDue(): void {
     if (!onHeartbeat || progressIntervalMs === 0) {

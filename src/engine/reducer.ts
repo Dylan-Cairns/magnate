@@ -8,7 +8,7 @@ import {
   canAfford,
   deedCost,
   developmentCost,
-  findProperty,
+  findDevelopableCard,
   mergeTokens,
   placementAllowed,
   sumTokens,
@@ -21,7 +21,7 @@ import type {
   DistrictState,
   Suit,
   PlayerId,
-  PropertyCard,
+  DevelopableCard,
   SubmittedIncomeChoice,
 } from './types';
 
@@ -297,7 +297,7 @@ function developDeed(
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
-  const card = getPropertyCard(action.cardId);
+  const card = getDevelopableCard(action.cardId);
   const district = findDistrictById(state, action.districtId);
   const stack = district.stacks[player.id];
   if (!stack?.deed) {
@@ -367,7 +367,7 @@ function developOutright(
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
-  const card = getPropertyCard(action.cardId);
+  const card = getDevelopableCard(action.cardId);
 
   assertPlayerHasCard(player, action.cardId);
   const district = findDistrictById(state, action.districtId);
@@ -429,7 +429,7 @@ function buyDeed(
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
-  const card = getPropertyCard(action.cardId);
+  const card = getDevelopableCard(action.cardId);
 
   assertPlayerHasCard(player, action.cardId);
   const district = findDistrictById(state, action.districtId);
@@ -477,7 +477,7 @@ function sellCard(
   assertPlayerHasCard(player, action.cardId);
 
   const card = CARD_BY_ID[action.cardId];
-  if (card.kind !== 'Property') {
+  if (card.kind !== 'Property' && card.kind !== 'Court') {
     throw new Error('Only property cards can be sold from hand.');
   }
 
@@ -533,8 +533,8 @@ function validateSuitSpend(
   return next;
 }
 
-function getPropertyCard(cardId: CardId): PropertyCard {
-  const card = findProperty(cardId);
+function getDevelopableCard(cardId: CardId): DevelopableCard {
+  const card = findDevelopableCard(cardId);
   if (!card) {
     throw new Error(`Card ${cardId} is not a property card.`);
   }

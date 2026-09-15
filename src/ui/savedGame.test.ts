@@ -71,6 +71,20 @@ describe('saved game checkpoints', () => {
     expect(() => parseSavedGame(JSON.stringify(save), 'PlayerB')).toThrow();
   });
 
+  it('round trips an extended-rules save and treats legacy saves as regular', () => {
+    const extended = initialSave('extended-save', 'extended');
+    expect(extended.state.ruleset).toBe('extended');
+    expect(parseSavedGame(JSON.stringify(extended), 'PlayerA')).toEqual(
+      extended
+    );
+
+    const legacy = JSON.parse(JSON.stringify(initialSave('legacy-save')));
+    delete legacy.state.ruleset;
+    expect(parseSavedGame(JSON.stringify(legacy), 'PlayerA').state.ruleset).toBe(
+      'regular'
+    );
+  });
+
   it('leaves unreadable data intact and reports storage failures', () => {
     const setItem = vi.fn(() => {
       throw new Error('quota');

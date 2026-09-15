@@ -3,7 +3,7 @@ export type Suit = 'Moons' | 'Suns' | 'Waves' | 'Leaves' | 'Wyrms' | 'Knots';
 
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-export type CardKind = 'Property' | 'Crown' | 'Pawn' | 'Excuse';
+export type CardKind = 'Property' | 'Court' | 'Crown' | 'Pawn' | 'Excuse';
 
 export interface CardBase {
   id: CardId;
@@ -16,6 +16,16 @@ export interface PropertyCard extends CardBase {
   rank: Exclude<Rank, 10>;
   suits: readonly Suit[];
 }
+
+// Courts are the extended-deck property cards. They are developable like
+// properties but always rank 10 with three suits and never provide income.
+export interface CourtCard extends CardBase {
+  kind: 'Court';
+  rank: 10;
+  suits: readonly [Suit, Suit, Suit];
+}
+
+export type DevelopableCard = PropertyCard | CourtCard;
 
 export interface CrownCard extends CardBase {
   kind: 'Crown';
@@ -32,7 +42,12 @@ export interface ExcuseCard extends CardBase {
   kind: 'Excuse';
 }
 
-export type Card = PropertyCard | CrownCard | PawnCard | ExcuseCard;
+export type Card =
+  | PropertyCard
+  | CourtCard
+  | CrownCard
+  | PawnCard
+  | ExcuseCard;
 
 export interface DeckState {
   draw: CardId[];
@@ -53,6 +68,8 @@ export interface DistrictState {
 
 export type DistrictLine = ReadonlyArray<DistrictState>;
 export type PlayerId = 'PlayerA' | 'PlayerB';
+
+export type Ruleset = 'regular' | 'extended';
 
 export type ResourcePool = Record<Suit, number>;
 
@@ -156,6 +173,7 @@ export interface GameState {
   schemaVersion: number;
   seed: string;
   rngCursor: number;
+  ruleset: Ruleset;
   deck: DeckState;
   players: ReadonlyArray<PlayerState>;
   activePlayerIndex: number;

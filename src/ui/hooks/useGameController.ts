@@ -12,12 +12,13 @@ import type {
   GameLogEntry,
   GameState,
   PlayerId,
+  Ruleset,
 } from '../../engine/types';
 import { toPlayerView } from '../../engine/view';
 import type { BotProfileId } from '../../policies/catalog';
 import {
-  BOT_PROFILES,
-  DEFAULT_BOT_PROFILE_ID,
+  defaultBotProfileIdForRuleset,
+  profilesForRuleset,
   resolveBotProfile,
 } from '../../policies/catalog';
 import type { SearchDecisionDiagnostics } from '../../policies/types';
@@ -53,22 +54,53 @@ import { loadSavedGame, writeSavedGame, type SavedGame } from '../savedGame';
 const DEFAULT_BOT_DELAY_MS = 450;
 const BOT_DIAGNOSTICS_QUERY_KEY = 'botDiagnostics';
 const BOT_PROFILE_STORAGE_KEY = 'magnate:botProfileId';
+const RULESET_STORAGE_KEY = 'magnate:ruleset';
 
-function sanitizeBotProfileId(id: string | undefined): BotProfileId {
+function sanitizeRuleset(value: string | undefined): Ruleset {
+  return value === 'extended' ? 'extended' : 'regular';
+}
+
+function sanitizeBotProfileId(
+  id: string | undefined,
+  ruleset: Ruleset
+): BotProfileId {
   return (
-    BOT_PROFILES.find((profile) => profile.id === id && profile.available)
-      ?.id ?? DEFAULT_BOT_PROFILE_ID
+    profilesForRuleset(ruleset).find((profile) => profile.id === id)?.id ??
+    defaultBotProfileIdForRuleset(ruleset)
   );
 }
 
-function readBotProfilePreference(): BotProfileId {
-  if (typeof window === 'undefined') return DEFAULT_BOT_PROFILE_ID;
+function readRulesetPreference(): Ruleset {
+  if (typeof window === 'undefined') return 'regular';
   try {
-    return sanitizeBotProfileId(
-      window.localStorage.getItem(BOT_PROFILE_STORAGE_KEY) ?? undefined
+    return sanitizeRuleset(
+      window.localStorage.getItem(RULESET_STORAGE_KEY) ?? undefined
     );
   } catch {
-    return DEFAULT_BOT_PROFILE_ID;
+    return 'regular';
+  }
+}
+
+function persistRulesetPreference(ruleset: Ruleset): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(RULESET_STORAGE_KEY, ruleset);
+  } catch {
+    // Preferences remain usable when browser storage is unavailable.
+  }
+}
+
+function readBotProfilePreference(ruleset: Ruleset): BotProfileId {
+  if (typeof window === 'undefined') {
+    return defaultBotProfileIdForRuleset(ruleset);
+  }
+  try {
+    return sanitizeBotProfileId(
+      window.localStorage.getItem(BOT_PROFILE_STORAGE_KEY) ?? undefined,
+      ruleset
+    );
+  } catch {
+    return defaultBotProfileIdForRuleset(ruleset);
   }
 }
 
@@ -166,9 +198,16 @@ export function useGameController({
   const [awaitingResumeInput, setAwaitingResumeInput] = useState(
     Boolean(initialSave.save)
   );
+  const [ruleset, setRulesetState] = useState<Ruleset>(
+    () => initialSave.save?.state.ruleset ?? readRulesetPreference()
+  );
+  useEffect(() => {
+    persistRulesetPreference(ruleset);
+  }, [ruleset]);
   const [botProfileId, setBotProfileId] = useState<BotProfileId>(() =>
     sanitizeBotProfileId(
-      initialSave.save?.botProfileId ?? readBotProfilePreference()
+      initialSave.save?.botProfileId ?? readBotProfilePreference(ruleset),
+      ruleset
     )
   );
   useEffect(() => {
@@ -240,7 +279,7 @@ export function useGameController({
 
   const changeBotProfile = useCallback(
     (profileId: BotProfileId) => {
-      resolveBotProfile(profileId);
+      resolveBotProfile(profileId, ruleset);
       persistBotProfilePreference(profileId);
       setBotProfileId(profileId);
       if (checkpointRef.current)
@@ -249,7 +288,30 @@ export function useGameController({
           botProfileId: profileId,
         });
     },
-    [persistCheckpoint]
+    [persistCheckpoint, ruleset]
+  );
+  const changeRuleset = useCallback(
+    (nextRuleset: Ruleset) => {
+      setRulesetState(nextRuleset);
+      persistRulesetPreference(nextRuleset);
+      if (
+        !profilesForRuleset(nextRuleset).some(
+          (profile) => profile.id === botProfileId
+        )
+      ) {
+        const fallback = defaultBotProfileIdForRuleset(nextRuleset);
+        resolveBotProfile(fallback, nextRuleset);
+        persistBotProfilePreference(fallback);
+        setBotProfileId(fallback);
+        if (checkpointRef.current) {
+          persistCheckpoint({
+            ...checkpointRef.current,
+            botProfileId: fallback,
+          });
+        }
+      }
+    },
+    [botProfileId, persistCheckpoint]
   );
   const commitCanonicalTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
@@ -673,7 +735,8 @@ export function useGameController({
         const initialState = createBrowserSession(
           seed,
           humanPlayerId,
-          devFixtureIdFromBrowserLocation()
+          devFixtureIdFromBrowserLocation(),
+          ruleset
         );
         stateRef.current = initialState;
         const nextGameId = crypto.randomUUID();
@@ -714,6 +777,7 @@ export function useGameController({
       humanPlayerId,
       persistCheckpoint,
       resolvedBotProfile.policy,
+      ruleset,
     ]
   );
 
@@ -784,6 +848,8 @@ export function useGameController({
     botProfileId,
     botStatusText: resolvedBotProfile.statusText,
     setBotProfileId: changeBotProfile,
+    ruleset,
+    setRuleset: changeRuleset,
     humanActionsAcceptingInput,
     humanInputBlockedByPresentation: !humanInputReady,
     canResetTurn,

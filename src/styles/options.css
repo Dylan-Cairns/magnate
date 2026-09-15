@@ -247,7 +247,8 @@
   color: var(--muted);
 }
 
-.bot-profile-select {
+.bot-profile-select,
+.ruleset-select {
   width: 100%;
   padding: 0.42rem 0.5rem;
   border-radius: 7px;

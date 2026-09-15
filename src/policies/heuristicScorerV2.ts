@@ -5,7 +5,7 @@ import {
 } from '../engine/actionSurface';
 import type { CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
-import { developmentCost, findProperty, SUITS } from '../engine/stateHelpers';
+import { developmentCost, findDevelopableCard, SUITS } from '../engine/stateHelpers';
 import type {
   DistrictStack,
   DistrictState,
@@ -14,7 +14,7 @@ import type {
   PlayerId,
   PlayerState,
   PlayerView,
-  PropertyCard,
+  DevelopableCard,
 } from '../engine/types';
 import {
   clamp,
@@ -469,8 +469,8 @@ function actionBaseline(action: GameAction): number {
   return action.type === 'end-turn' ? 0 : SMALL_ACTION_BASELINE;
 }
 
-function propertyCard(cardId: string): PropertyCard | undefined {
-  return findProperty(cardId as CardId);
+function propertyCard(cardId: string): DevelopableCard | undefined {
+  return findDevelopableCard(cardId as CardId);
 }
 
 function approximatelyEqual(left: number, right: number): boolean {

@@ -84,6 +84,14 @@ export function seedSummaryValue(summary: string): string | null {
   return summary.slice(prefix.length);
 }
 
+export function rulesetSummaryValue(summary: string): string | null {
+  const prefix = 'Ruleset ';
+  if (!summary.startsWith(prefix)) {
+    return null;
+  }
+  return summary.slice(prefix.length);
+}
+
 export function suitCodeToSuit(value: SuitLogCode): Suit {
   switch (value) {
     case 'mo':
@@ -119,7 +127,11 @@ function formatCardIdForLog(rawCardId: string): string {
   if (!card) {
     return rawCardId;
   }
-  if (card.kind !== 'Property' && card.kind !== 'Crown') {
+  if (
+    card.kind !== 'Property' &&
+    card.kind !== 'Court' &&
+    card.kind !== 'Crown'
+  ) {
     return rawCardId;
   }
   const suitCodes = card.suits.map((suit) => SUIT_LOG_CODE[suit]).join(' ');

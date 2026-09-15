@@ -24,10 +24,20 @@ Design expectations:
 - Phase-driven turn flow.
 - Card metadata is generated from a domain-oriented Decktet specification
   (`src/engine/cards.ts`) authored from the local Jacynth facts; card IDs and
-  `ALL_CARDS` ordering are compatibility-sensitive and locked by tests.
+  `ALL_CARDS` ordering are compatibility-sensitive and locked by tests. The
+  four extended-deck Courts are appended as IDs `"41"`-`"44"` so the regular
+  `"0"`-`"40"` catalog stays byte-stable.
+- Ruleset selection is explicit and canonical: `GameState.ruleset` is
+  `'regular' | 'extended'`, and deck composition comes from
+  `propertyDeckForRuleset(ruleset)` (base 30 properties, plus 4 Courts in
+  extended). Rollout clones, saved games, and the bridge carry the ruleset on
+  state rather than re-deriving it.
+- Court cards are developable property cards (`kind: 'Court'`, rank 10, three
+  suits) handled through the shared `DevelopableCard` helpers. Rank 10 keeps
+  them out of rank-income and out of the TD encoding, which stays regular-only.
 - UI card-art filenames are derived from card names in `src/ui/cardImages.ts`
-  rather than maintained in a duplicate table. Court WebPs are retained but not
-  mapped to the current deck; an extended-deck/Court ruleset is planned.
+  rather than maintained in a duplicate table; Court art is mapped like any
+  other playable card.
 
 ## Client Controller Pattern
 

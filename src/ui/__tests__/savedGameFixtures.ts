@@ -1,6 +1,6 @@
 import { legalActions } from '../../engine/actionBuilders';
 import { createSession, stepToDecision } from '../../engine/session';
-import type { GameAction } from '../../engine/types';
+import type { GameAction, Ruleset } from '../../engine/types';
 import {
   DEFAULT_BOT_PROFILE_ID,
   resolveBotProfile,
@@ -9,8 +9,11 @@ import { initialBrowserTimelineLog } from '../gameControllerModel';
 import { transitionLogUpdate } from '../logTimeline';
 import type { SavedGame } from '../savedGame';
 
-export function initialSave(seed = 'save-test'): SavedGame {
-  const state = createSession(seed, 'PlayerA');
+export function initialSave(
+  seed = 'save-test',
+  ruleset: Ruleset = 'regular'
+): SavedGame {
+  const state = createSession(seed, 'PlayerA', ruleset);
   return {
     version: 1,
     gameId: 'test-session',

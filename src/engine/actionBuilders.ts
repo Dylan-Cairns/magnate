@@ -1,4 +1,4 @@
-import { CARD_BY_ID } from './cards';
+import { CARD_BY_ID, isDevelopableCard } from './cards';
 import {
   SUITS,
   canAfford,
@@ -61,7 +61,7 @@ function developActions(
     }
 
     const card = CARD_BY_ID[deed.cardId];
-    if (!card || card.kind !== 'Property') {
+    if (!isDevelopableCard(card)) {
       return [];
     }
     if (deed.progress >= developmentCost(card)) {
@@ -112,7 +112,7 @@ function playActions(state: GameState): GameAction[] {
 
   return player.hand.flatMap((cardId) => {
     const card = CARD_BY_ID[cardId];
-    if (!card || card.kind !== 'Property') {
+    if (!isDevelopableCard(card)) {
       return [];
     }
 

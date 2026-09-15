@@ -153,6 +153,8 @@ export function App() {
     botProfileId,
     botStatusText,
     setBotProfileId,
+    ruleset,
+    setRuleset,
     humanActionsAcceptingInput,
     humanInputBlockedByPresentation,
     canResetTurn,
@@ -272,6 +274,7 @@ export function App() {
       humanPlayerId: HUMAN_PLAYER,
       botProfileId,
       botLabel: botProfile.label,
+      ruleset: canonicalState.ruleset,
     })
       .then(() => {
         if (!cancelled) setHistoryErrorGameId(null);
@@ -282,7 +285,12 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [canonicalState.finalScore, gameId, botProfileId]);
+  }, [
+    canonicalState.finalScore,
+    canonicalState.ruleset,
+    gameId,
+    botProfileId,
+  ]);
   const { dimmedCardIds, dimmedSuits } = useMemo(
     () => buildDeckMapDimming({ deckMapInteractive, viewState }),
     [deckMapInteractive, viewState]
@@ -763,6 +771,7 @@ export function App() {
               open={optionsMenuOpen}
               botProfileId={botProfileId}
               botStatusText={botStatusText}
+              ruleset={ruleset}
               animationsEnabled={animationsEnabled}
               menuRef={optionsMenuRef}
               buttonRef={optionsMenuButtonRef}
@@ -776,6 +785,7 @@ export function App() {
               }}
               onNewGameToggle={handleNewGameToggle}
               onBotProfileChange={setBotProfileId}
+              onRulesetChange={setRuleset}
               onAnimationsEnabledChange={setAnimationsEnabled}
               bugReportIssueUrl={getBugReportIssueUrl()}
               onBugReportDownload={handleDownloadBugReport}

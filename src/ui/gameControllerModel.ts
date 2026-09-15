@@ -8,6 +8,7 @@ import type {
   GameLogEntry,
   GameState,
   PlayerId,
+  Ruleset,
 } from '../engine/types';
 import { initialTurnCycleLogEntries } from './logTimeline';
 export {
@@ -22,12 +23,17 @@ export function makeBrowserSessionSeed(now = Date.now()): string {
 export function createBrowserSession(
   seed: string,
   humanPlayerId: PlayerId,
-  devFixtureId: DevFixtureId | null = null
+  devFixtureId: DevFixtureId | null = null,
+  ruleset: Ruleset = 'regular'
 ): GameState {
   if (devFixtureId && import.meta.env.DEV) {
     return createDevFixtureSession(devFixtureId, humanPlayerId);
   }
-  return createSession(seed, humanPlayerId);
+  return createSession(seed, humanPlayerId, ruleset);
+}
+
+export function rulesetLabel(ruleset: Ruleset): string {
+  return ruleset === 'extended' ? 'Extended deck' : 'Regular';
 }
 
 export function withSeedLogPrefix(
@@ -48,6 +54,13 @@ export function withSeedLogPrefix(
       phase: state.phase,
       summary: seedSummary,
     },
+    {
+      turn: state.turn,
+      player: activePlayerIdForState(state, fallbackPlayerId),
+      phase: state.phase,
+      summary: `Ruleset ${rulesetLabel(state.ruleset)}`,
+      details: { ruleset: state.ruleset },
+    },
   ];
   if (botProfileLabel) {
     prefix.push({
@@ -65,7 +78,10 @@ export function initialBrowserTimelineLog(
   humanPlayerId: PlayerId,
   botProfileLabel: string
 ): ReadonlyArray<GameLogEntry> {
-  const initialState = newGame(state.seed, { firstPlayer: humanPlayerId });
+  const initialState = newGame(state.seed, {
+    firstPlayer: humanPlayerId,
+    ruleset: state.ruleset,
+  });
   return withSeedLogPrefix(
     state,
     initialTurnCycleLogEntries(initialState, state, humanPlayerId),

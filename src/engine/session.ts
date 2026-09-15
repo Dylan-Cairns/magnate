@@ -1,10 +1,14 @@
 import { newGame } from './game';
 import { applyAction, applyKnownLegalAction } from './reducer';
 import { advanceToDecision } from './turnFlow';
-import type { GameAction, GameState, PlayerId } from './types';
+import type { GameAction, GameState, PlayerId, Ruleset } from './types';
 
-export function createSession(seed: string, firstPlayer: PlayerId): GameState {
-  return advanceToDecision(newGame(seed, { firstPlayer }));
+export function createSession(
+  seed: string,
+  firstPlayer: PlayerId,
+  ruleset: Ruleset = 'regular'
+): GameState {
+  return advanceToDecision(newGame(seed, { firstPlayer, ruleset }));
 }
 
 export function stepToDecision(

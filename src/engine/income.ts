@@ -1,5 +1,5 @@
 import { CARD_BY_ID } from './cards';
-import { findProperty } from './stateHelpers';
+import { findDevelopableCard } from './stateHelpers';
 import type { GameState, IncomeChoice, PlayerId, Rank, Suit } from './types';
 
 export interface IncomeForResult {
@@ -62,13 +62,13 @@ function awardAceIncome(
   state.districts.forEach((district) => {
     const stack = district.stacks[playerId];
     stack.developed.forEach((cardId) => {
-      const property = findProperty(cardId);
+      const property = findDevelopableCard(cardId);
       if (property?.rank === 1) {
         property.suits.forEach((suit) => addSuit(delta, suit, 1));
       }
     });
 
-    const deed = stack.deed ? findProperty(stack.deed.cardId) : undefined;
+    const deed = stack.deed ? findDevelopableCard(stack.deed.cardId) : undefined;
     if (deed?.rank === 1) {
       addSuit(delta, deed.suits[0], 1);
     }
@@ -85,13 +85,13 @@ function awardRankIncome(
   state.districts.forEach((district) => {
     const stack = district.stacks[playerId];
     stack.developed.forEach((cardId) => {
-      const property = findProperty(cardId);
+      const property = findDevelopableCard(cardId);
       if (property?.rank === rank) {
         property.suits.forEach((suit) => addSuit(delta, suit, 1));
       }
     });
 
-    const deed = stack.deed ? findProperty(stack.deed.cardId) : undefined;
+    const deed = stack.deed ? findDevelopableCard(stack.deed.cardId) : undefined;
     if (deed?.rank !== rank) {
       return;
     }

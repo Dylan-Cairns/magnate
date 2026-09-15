@@ -535,7 +535,7 @@ export function cardSummary(
 ): string {
   const card = CARD_BY_ID[cardId];
   const rank =
-    card.kind === 'Property' || card.kind === 'Crown'
+    card.kind === 'Property' || card.kind === 'Crown' || card.kind === 'Court'
       ? String(card.rank)
       : card.kind === 'Pawn'
         ? 'P'

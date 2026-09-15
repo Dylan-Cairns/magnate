@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_CARDS,
   CARD_BY_ID,
+  COURT_CARDS,
   CROWN_CARDS,
   EXCUSE_CARD,
   PAWN_CARDS,
@@ -55,6 +56,10 @@ const EXPECTED_CATALOG = `
 38 The Harvest | Moons,Suns,Leaves
 39 The Light Keeper | Suns,Waves,Knots
 40 The Watchman | Moons,Wyrms,Knots
+41 The Consul | Moons,Waves,Knots
+42 The Island | Suns,Waves,Wyrms
+43 The Rite | Moons,Leaves,Wyrms
+44 The Window | Suns,Leaves,Knots
 `
   .trim()
   .split('\n')
@@ -70,8 +75,8 @@ describe('card catalog', () => {
     expect(ALL_CARDS.map(describeCard).join(';')).toBe(EXPECTED_CATALOG);
   });
 
-  it('orders ALL_CARDS as the contiguous id sequence "0" through "40"', () => {
-    const expectedIds = Array.from({ length: 41 }, (_, index) => String(index));
+  it('orders ALL_CARDS as the contiguous id sequence "0" through "44"', () => {
+    const expectedIds = Array.from({ length: 45 }, (_, index) => String(index));
     expect(ALL_CARDS.map((card) => card.id)).toEqual(expectedIds);
   });
 
@@ -83,11 +88,32 @@ describe('card catalog', () => {
   });
 
   it('has the expected card-class counts', () => {
-    expect(ALL_CARDS).toHaveLength(41);
+    expect(ALL_CARDS).toHaveLength(45);
     expect(PROPERTY_CARDS).toHaveLength(30);
+    expect(COURT_CARDS).toHaveLength(4);
     expect(CROWN_CARDS).toHaveLength(6);
     expect(PAWN_CARDS).toHaveLength(4);
     expect(EXCUSE_CARD.kind).toBe('Excuse');
+  });
+
+  it('defines the extended-deck Courts as rank-10 three-suit cards', () => {
+    for (const court of COURT_CARDS) {
+      expect(court.rank).toBe(10);
+      expect(court.suits).toHaveLength(3);
+      expect(new Set(court.suits).size).toBe(3);
+    }
+    expect(COURT_CARDS.map((card) => card.name)).toEqual([
+      'The Consul',
+      'The Island',
+      'The Rite',
+      'The Window',
+    ]);
+    expect(CARD_BY_ID['41']).toMatchObject({
+      name: 'The Consul',
+      kind: 'Court',
+      rank: 10,
+      suits: ['Moons', 'Waves', 'Knots'],
+    });
   });
 
   it('has six aces and three numeral cards at each rank 2 through 9', () => {

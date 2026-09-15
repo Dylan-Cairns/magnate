@@ -67,6 +67,7 @@ export async function playPairedSeed({
     gameId: `pair-${pairId}-candidate-as-a`,
     seed: job.seed,
     firstPlayer: job.firstPlayer,
+    ruleset: config.ruleset,
     botBySeat: {
       PlayerA: bots.candidate,
       PlayerB: bots.opponent,
@@ -81,6 +82,7 @@ export async function playPairedSeed({
     gameId: `pair-${pairId}-candidate-as-b`,
     seed: job.seed,
     firstPlayer: job.firstPlayer,
+    ruleset: config.ruleset,
     botBySeat: {
       PlayerA: bots.opponent,
       PlayerB: bots.candidate,

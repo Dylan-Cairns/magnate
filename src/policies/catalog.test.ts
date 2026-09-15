@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { BOT_PROFILES, getBotProfile } from './catalog';
+import {
+  BOT_PROFILES,
+  botProfileSupportsRuleset,
+  defaultBotProfileIdForRuleset,
+  getBotProfile,
+  profilesForRuleset,
+  resolveBotProfile,
+} from './catalog';
 
 describe('bot policy catalog', () => {
   it('throws when profile id is unknown', () => {
@@ -80,5 +87,32 @@ describe('bot policy catalog', () => {
       rolloutEpsilon: 0,
     });
     expect(profile.spec.modelIndexPath).toBeUndefined();
+  });
+
+  it('offers the rollouts search profiles for both rulesets', () => {
+    expect(profilesForRuleset('regular').map((profile) => profile.id)).toEqual([
+      'rollout-search-v2-easy',
+      'rollout-search-v2-medium',
+      'rollout-search-v2-hard',
+      'td-root-search-v2-medium',
+    ]);
+    expect(profilesForRuleset('extended').map((profile) => profile.id)).toEqual([
+      'rollout-search-v2-easy',
+      'rollout-search-v2-medium',
+      'rollout-search-v2-hard',
+    ]);
+
+    expect(botProfileSupportsRuleset('rollout-search-v2-hard', 'extended')).toBe(
+      true
+    );
+    expect(botProfileSupportsRuleset('td-root-search-v2-medium', 'extended')).toBe(
+      false
+    );
+    expect(defaultBotProfileIdForRuleset('extended')).toBe(
+      'rollout-search-v2-hard'
+    );
+    expect(() =>
+      resolveBotProfile('td-root-search-v2-medium', 'extended')
+    ).toThrow('not available for the extended ruleset');
   });
 });

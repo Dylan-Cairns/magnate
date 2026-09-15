@@ -3,7 +3,7 @@ import {
   applyDelta,
   deedCost,
   developmentCost,
-  findProperty,
+  findDevelopableCard,
   SUITS,
 } from '../engine/stateHelpers';
 import type {
@@ -11,7 +11,7 @@ import type {
   GameState,
   PlayerId,
   PlayerState,
-  PropertyCard,
+  DevelopableCard,
   ResourcePool,
   Suit,
 } from '../engine/types';
@@ -22,7 +22,7 @@ import {
   createHeuristicV2PositionContext,
   knownPropertyIdsForPlayerV2,
   placementAllowedCached,
-  propertyCardsUnknownToPlayerV2,
+  developableCardsUnknownToPlayerV2,
   suitAccessBySuitForPlayerV2,
   type HeuristicV2PositionContext,
   type SuitValueMap,
@@ -245,7 +245,7 @@ export function resourceDeltaForActionV2(
 ): Partial<Record<Suit, number>> {
   switch (action.type) {
     case 'buy-deed': {
-      const card = findProperty(action.cardId);
+      const card = findDevelopableCard(action.cardId);
       return card ? negateTokens(deedCost(card)) : {};
     }
     case 'choose-income-suit':
@@ -335,7 +335,7 @@ function addIncompleteDeedDemand(
     if (!deed) {
       continue;
     }
-    const card = findProperty(deed.cardId);
+    const card = findDevelopableCard(deed.cardId);
     if (!card) {
       continue;
     }
@@ -373,7 +373,7 @@ function addHandDemand(
 ): void {
   const { player, playerId, positionContext } = context;
   for (const cardId of player.hand) {
-    const card = findProperty(cardId);
+    const card = findDevelopableCard(cardId);
     if (!card) {
       continue;
     }
@@ -399,7 +399,7 @@ function addUnknownPoolDemand(
   context: TokenDemandContextV2
 ): void {
   const { playerId, positionContext } = context;
-  for (const card of propertyCardsUnknownToPlayerV2(
+  for (const card of developableCardsUnknownToPlayerV2(
     positionContext,
     playerId
   )) {
@@ -422,7 +422,7 @@ function addCardDemandToSuits(
     earningDemand,
     scoringDemand,
   }: {
-    card: PropertyCard;
+    card: DevelopableCard;
     earningDemand: number;
     scoringDemand: number;
   }
@@ -437,7 +437,7 @@ function addCardDemandToSuits(
 function playerHasLegalPlacement(
   positionContext: HeuristicV2PositionContext,
   playerId: PlayerId,
-  card: PropertyCard
+  card: DevelopableCard
 ): boolean {
   return positionContext.state.districts.some((district) =>
     placementAllowedCached(positionContext, playerId, district, card)
@@ -595,7 +595,7 @@ function replaceabilityMultiplierForAccess(access: number): number {
 }
 
 function sellCardDelta(cardId: CardId): Partial<Record<Suit, number>> {
-  const card = findProperty(cardId);
+  const card = findDevelopableCard(cardId);
   if (!card) {
     return {};
   }

@@ -1,7 +1,13 @@
 import type { RefObject } from 'react';
 
-import { BOT_PROFILES, type BotProfileId } from '../../policies/catalog';
+import type { Ruleset } from '../../engine/types';
+import { profilesForRuleset, type BotProfileId } from '../../policies/catalog';
 import { Tooltip } from './Tooltip';
+
+const RULESET_OPTIONS: readonly { value: Ruleset; label: string }[] = [
+  { value: 'regular', label: 'Regular' },
+  { value: 'extended', label: 'Extended deck' },
+];
 
 export function NewGameButton({
   expanded,
@@ -10,8 +16,10 @@ export function NewGameButton({
   seedInputRef,
   botProfileId,
   botStatusText,
+  ruleset,
   onToggle,
   onBotProfileChange,
+  onRulesetChange,
 }: {
   expanded: boolean;
   panelRef: RefObject<HTMLElement | null>;
@@ -19,8 +27,10 @@ export function NewGameButton({
   seedInputRef: RefObject<HTMLInputElement | null>;
   botProfileId: BotProfileId;
   botStatusText: string;
+  ruleset: Ruleset;
   onToggle: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
+  onRulesetChange: (ruleset: Ruleset) => void;
 }) {
   return (
     <>
@@ -54,6 +64,21 @@ export function NewGameButton({
             />
           </div>
           <div className="bot-profile-controls">
+            <label htmlFor="ruleset-select">Ruleset</label>
+            <select
+              id="ruleset-select"
+              className="ruleset-select"
+              value={ruleset}
+              onChange={(e) => onRulesetChange(e.target.value as Ruleset)}
+            >
+              {RULESET_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="bot-profile-controls">
             <label htmlFor="bot-profile-select">Opponent</label>
             <select
               id="bot-profile-select"
@@ -63,7 +88,7 @@ export function NewGameButton({
                 onBotProfileChange(e.target.value as BotProfileId)
               }
             >
-              {BOT_PROFILES.map((profile) => (
+              {profilesForRuleset(ruleset).map((profile) => (
                 <option key={profile.id} value={profile.id}>
                   {profile.label}
                 </option>

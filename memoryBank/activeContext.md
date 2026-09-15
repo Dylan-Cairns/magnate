@@ -373,6 +373,14 @@
   [0.747, 0.883], side gap 0.117), decisively outperforming the July
   incumbent baseline (88-32, 73.3%, 95% CI [0.648, 0.804], side gap 0.167)
   by +9.2 percentage points with a lower bound above the baseline point estimate.
+- The browser game supports a selectable ruleset: `regular` (base 41-card deck)
+  or `extended` (adds the four Courts as rank-10 three-suit property cards).
+  The chosen ruleset is stored on `GameState`, persisted with autosaves and
+  game-history records, and shown in the opening log next to the seed.
+  Easy/Medium/Hard rollout-search profiles are ruleset-aware (determinization
+  and heuristic v2 use the ruleset's property pool); the Experimental TD profile
+  is regular-only and hidden for extended games. Court art is mapped, and the
+  extended deck is selectable/evaluable through bot-eval head-to-head configs.
 
 ## Remaining Work
 

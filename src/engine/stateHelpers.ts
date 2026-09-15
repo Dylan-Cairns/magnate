@@ -1,5 +1,5 @@
-import { CARD_BY_ID, CardId } from './cards';
-import type { GameState, PlayerId, PropertyCard, Suit } from './types';
+import { CARD_BY_ID, CardId, isDevelopableCard } from './cards';
+import type { DevelopableCard, GameState, PlayerId, Suit } from './types';
 
 export const SUITS: readonly Suit[] = [
   'Moons',
@@ -10,16 +10,18 @@ export const SUITS: readonly Suit[] = [
   'Knots',
 ];
 
-function developmentTarget(card: PropertyCard): number {
+function developmentTarget(card: DevelopableCard): number {
   if (card.rank === 1 && card.suits.length === 1) {
     return 3;
   }
   return card.rank;
 }
 
-export function findProperty(cardId: CardId): PropertyCard | undefined {
+export function findDevelopableCard(
+  cardId: CardId
+): DevelopableCard | undefined {
   const card = CARD_BY_ID[cardId];
-  return card?.kind === 'Property' ? card : undefined;
+  return isDevelopableCard(card) ? card : undefined;
 }
 
 export function canAfford(
@@ -57,7 +59,9 @@ export function sumTokens(tokens: Partial<Record<Suit, number>>): number {
   return SUITS.reduce((total, suit) => total + (tokens[suit] ?? 0), 0);
 }
 
-export function deedCost(card: PropertyCard): Partial<Record<Suit, number>> {
+export function deedCost(
+  card: DevelopableCard
+): Partial<Record<Suit, number>> {
   if (card.rank === 1) {
     return { [card.suits[0]]: 1 };
   }
@@ -67,12 +71,12 @@ export function deedCost(card: PropertyCard): Partial<Record<Suit, number>> {
   }, {});
 }
 
-export function developmentCost(card: PropertyCard): number {
+export function developmentCost(card: DevelopableCard): number {
   return developmentTarget(card);
 }
 
 export function placementAllowed(
-  card: PropertyCard,
+  card: DevelopableCard,
   district: GameState['districts'][number],
   playerId: PlayerId
 ): boolean {
@@ -82,7 +86,9 @@ export function placementAllowed(
   }
   const suits = new Set(card.suits);
   if (stack && stack.developed.length > 0) {
-    const previous = findProperty(stack.developed[stack.developed.length - 1]);
+    const previous = findDevelopableCard(
+      stack.developed[stack.developed.length - 1]
+    );
     return Boolean(previous?.suits.some((suit) => suits.has(suit)));
   }
   const isExcuseDistrict = district.markerSuitMask.length === 0;
@@ -93,7 +99,7 @@ export function placementAllowed(
 }
 
 export function enumerateOutrightPayments(
-  card: PropertyCard,
+  card: DevelopableCard,
   pool: GameState['players'][number]['resources']
 ): Partial<Record<Suit, number>>[] {
   const suits = [...card.suits];

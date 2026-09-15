@@ -5,6 +5,7 @@ import { visibleLogEntriesForPlayer } from '../../engine/view';
 import {
   formatLogSummary,
   groupLogEntriesByTurn,
+  rulesetSummaryValue,
   seedSummaryValue,
   SUIT_CODE_PATTERN,
   suitCodeToSuit,
@@ -49,15 +50,17 @@ export function LogPanel({
               </div>
               <ol className="log-turn-entries">
                 {group.entries.map((entry, entryIndex) => {
-                  const seedValue = seedSummaryValue(entry.summary);
-                  if (seedValue !== null) {
+                  const metaValue =
+                    seedSummaryValue(entry.summary) ??
+                    rulesetSummaryValue(entry.summary);
+                  if (metaValue !== null) {
                     return (
                       <li
                         key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
                         className="log-turn-entry log-turn-entry-seed"
                       >
                         <div className="log-turn-head">
-                          <span className="log-player">{seedValue}</span>
+                          <span className="log-player">{metaValue}</span>
                         </div>
                       </li>
                     );

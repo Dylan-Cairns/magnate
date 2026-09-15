@@ -56,8 +56,16 @@ export function parseSavedGame(
   ) {
     throw new Error('Invalid or incompatible saved game.');
   }
-  resolveBotProfile(save.botProfileId);
-  let state = createSession(save.state.seed, humanPlayerId);
+  // Older saves predate the ruleset field; they can only be regular games.
+  if (save.state.ruleset !== 'regular' && save.state.ruleset !== 'extended') {
+    save.state.ruleset = 'regular';
+  }
+  resolveBotProfile(save.botProfileId, save.state.ruleset);
+  let state = createSession(
+    save.state.seed,
+    humanPlayerId,
+    save.state.ruleset
+  );
   let previousState: GameState | null = null;
   let deferredIncomeLogContext: DeferredIncomeLogContext | null = null;
   for (const entry of save.actionHistory) {

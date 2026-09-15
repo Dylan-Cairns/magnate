@@ -252,6 +252,25 @@ describe('MagnateBridgeRuntime', () => {
     expect(typeof result.state.seed).toBe('string');
   });
 
+  it('stays on the regular ruleset and rejects extended snapshots', () => {
+    const runtime = new MagnateBridgeRuntime();
+    const serialized = expectOk<{ state: Record<string, unknown> }>(
+      request(runtime, { requestId: 'req-ruleset', command: 'serialize' })
+    );
+    expect(serialized.state.ruleset).toBe('regular');
+
+    const error = expectErr(
+      request(runtime, {
+        requestId: 'req-ruleset-reset',
+        command: 'reset',
+        payload: {
+          serializedState: { ...serialized.state, ruleset: 'extended' },
+        },
+      })
+    );
+    expect(error.code).toBe('STATE_DESERIALIZATION_FAILED');
+  });
+
   it('returns INVALID_COMMAND for unsupported commands', () => {
     const runtime = new MagnateBridgeRuntime();
     const error = expectErr(

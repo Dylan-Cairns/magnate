@@ -1,9 +1,12 @@
 import type {
   Card,
+  CourtCard,
   CrownCard,
+  DevelopableCard,
   ExcuseCard,
   PawnCard,
   PropertyCard,
+  Ruleset,
   Suit,
 } from './types';
 
@@ -11,9 +14,10 @@ export type CardId = string;
 
 // Decktet facts below are authored from the author's own Jacynth extraction:
 // jacynth/src/public/javascript/model/decktet_cards.csv (data rows 2-42).
-// Magnate's playable deck is that 41-card set. The four Courts documented in
-// the same table are intentionally out of scope here, but their art is retained
-// for a planned extended ruleset. Display casing follows Magnate, not Jacynth.
+// Magnate's regular deck is that 41-card set (ids "0"-"40"). The four extended
+// deck Courts are appended as ids "41"-"44" so the regular catalog stays
+// byte-stable; they are only dealt in the extended ruleset. Display casing
+// follows Magnate, not Jacynth.
 
 // Aces are grouped by suit in ASCII order.
 const ACE_SUITS = [
@@ -111,6 +115,14 @@ const PAWNS = [
   { name: 'The Watchman', suits: ['Moons', 'Wyrms', 'Knots'] },
 ] as const;
 
+// Courts are the four three-suit extended-deck property cards.
+const COURTS = [
+  { name: 'The Consul', suits: ['Moons', 'Waves', 'Knots'] },
+  { name: 'The Island', suits: ['Suns', 'Waves', 'Wyrms'] },
+  { name: 'The Rite', suits: ['Moons', 'Leaves', 'Wyrms'] },
+  { name: 'The Window', suits: ['Suns', 'Leaves', 'Knots'] },
+] as const;
+
 const EXCUSE_NAME = 'The Excuse' as const;
 
 // CardId and CardName intentionally remain `string`, matching the historical
@@ -171,13 +183,23 @@ const pawnSpecs: CardSpec[] = [...PAWNS]
     suits: card.suits,
   }));
 
-// Canonical ordering reproduces Magnate's existing card IDs 0-40.
+const courtSpecs: CardSpec[] = [...COURTS]
+  .sort((a, b) => compareAscii(a.name, b.name))
+  .map((card) => ({
+    name: card.name,
+    kind: 'Court',
+    suits: card.suits,
+  }));
+
+// Canonical ordering reproduces Magnate's existing card IDs 0-40, with the
+// extended-deck Courts appended as IDs 41-44.
 const CARD_SPECS: readonly CardSpec[] = [
   ...aceSpecs,
   ...numeralSpecs,
   ...crownSpecs,
   excuseSpec,
   ...pawnSpecs,
+  ...courtSpecs,
 ];
 
 const toCard = (id: CardId, spec: CardSpec): Card => {
@@ -209,6 +231,16 @@ const toCard = (id: CardId, spec: CardSpec): Card => {
       };
       return card;
     }
+    case 'Court': {
+      const card: CourtCard = {
+        id,
+        name: spec.name,
+        kind: 'Court',
+        rank: 10,
+        suits: spec.suits as readonly [Suit, Suit, Suit],
+      };
+      return card;
+    }
     case 'Property': {
       if (spec.rank === undefined) {
         throw new Error(`Property card ${spec.name} is missing a rank.`);
@@ -236,13 +268,18 @@ function assertCatalog(cards: readonly Card[]): void {
   const CROWN_COUNT = 6;
   const PAWN_COUNT = 4;
   const EXCUSE_COUNT = 1;
+  const COURT_COUNT = 4;
 
   if (
     cards.length !==
-    PROPERTY_COUNT + CROWN_COUNT + PAWN_COUNT + EXCUSE_COUNT
+    PROPERTY_COUNT +
+      COURT_COUNT +
+      CROWN_COUNT +
+      PAWN_COUNT +
+      EXCUSE_COUNT
   ) {
     throw new Error(
-      `Magnate catalog must contain exactly 41 cards, found ${cards.length}.`
+      `Magnate catalog must contain exactly 45 cards, found ${cards.length}.`
     );
   }
 
@@ -253,6 +290,7 @@ function assertCatalog(cards: readonly Card[]): void {
   let crowns = 0;
   let pawns = 0;
   let excuses = 0;
+  let courts = 0;
 
   for (const card of cards) {
     if (ids.has(card.id)) {
@@ -279,6 +317,13 @@ function assertCatalog(cards: readonly Card[]): void {
         crowns += 1;
         if (card.suits.length !== 1) {
           throw new Error(`Crown ${card.name} must have exactly one suit.`);
+        }
+        break;
+      }
+      case 'Court': {
+        courts += 1;
+        if (card.suits.length !== 3 || new Set(card.suits).size !== 3) {
+          throw new Error(`Court ${card.name} must have three distinct suits.`);
         }
         break;
       }
@@ -328,6 +373,9 @@ function assertCatalog(cards: readonly Card[]): void {
   if (excuses !== EXCUSE_COUNT) {
     throw new Error(`Expected ${EXCUSE_COUNT} Excuse, found ${excuses}.`);
   }
+  if (courts !== COURT_COUNT) {
+    throw new Error(`Expected ${COURT_COUNT} Courts, found ${courts}.`);
+  }
 }
 
 assertCatalog(ALL_CARDS);
@@ -340,12 +388,32 @@ export const CARD_BY_ID: Record<CardId, Card> = ALL_CARDS.reduce(
   Object.create(null) as Record<CardId, Card>
 );
 
+export function isDevelopableCard(
+  card: Card | undefined
+): card is DevelopableCard {
+  return card?.kind === 'Property' || card?.kind === 'Court';
+}
+
 export const PROPERTY_CARDS = ALL_CARDS.filter(
   (c): c is PropertyCard => c.kind === 'Property'
+);
+export const COURT_CARDS = ALL_CARDS.filter(
+  (c): c is CourtCard => c.kind === 'Court'
 );
 export const CROWN_CARDS = ALL_CARDS.filter(
   (c): c is CrownCard => c.kind === 'Crown'
 );
+
+// Deck of developable property cards for the selected ruleset. The regular
+// ruleset uses the base 30 properties; extended adds the four Courts.
+export function propertyDeckForRuleset(
+  ruleset: Ruleset
+): readonly DevelopableCard[] {
+  if (ruleset === 'extended') {
+    return [...PROPERTY_CARDS, ...COURT_CARDS];
+  }
+  return PROPERTY_CARDS;
+}
 export const PAWN_CARDS = ALL_CARDS.filter(
   (c): c is PawnCard => c.kind === 'Pawn'
 );

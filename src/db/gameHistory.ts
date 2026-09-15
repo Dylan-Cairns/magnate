@@ -1,4 +1,4 @@
-import type { FinalScore, PlayerId } from '../engine/types';
+import type { FinalScore, PlayerId, Ruleset } from '../engine/types';
 import {
   db,
   type AchievementKey,
@@ -14,6 +14,7 @@ export interface RecordGameParams {
   humanPlayerId: PlayerId;
   botProfileId: string;
   botLabel: string;
+  ruleset: Ruleset;
 }
 
 export interface AchievementWithGame {
@@ -44,7 +45,7 @@ export const ACHIEVEMENT_META: Record<
 };
 
 export async function recordGame(params: RecordGameParams): Promise<void> {
-  const { score, humanPlayerId, botProfileId, botLabel } = params;
+  const { score, humanPlayerId, botProfileId, botLabel, ruleset } = params;
   const botPlayerId: PlayerId =
     humanPlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
 
@@ -62,6 +63,7 @@ export async function recordGame(params: RecordGameParams): Promise<void> {
     decidedBy: score.decidedBy,
     botProfileId,
     botLabel,
+    ruleset,
     playerDistricts: score.districtPoints[humanPlayerId],
     botDistricts: score.districtPoints[botPlayerId],
     playerRankTotal: score.rankTotals[humanPlayerId],

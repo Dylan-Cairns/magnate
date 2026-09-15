@@ -5,7 +5,6 @@ import {
   ALL_CARD_IMAGE_URLS,
   CARD_IMAGE_BY_ID,
   CARD_IMAGE_FILE_BY_ID,
-  RETAINED_COURT_NAMES,
   cardImageFileName,
   getCardImage,
   getCardImageFile,
@@ -22,9 +21,6 @@ const fileNameFromModuleKey = (key: string): string =>
 
 const EXPECTED_PLAYABLE_FILE_NAMES = ALL_CARDS.map((card) =>
   cardImageFileName(card.name)
-);
-const EXPECTED_COURT_FILE_NAMES = RETAINED_COURT_NAMES.map((name) =>
-  cardImageFileName(name)
 );
 
 describe('cardImages', () => {
@@ -68,27 +64,21 @@ describe('cardImages', () => {
     }
   });
 
-  it('contains exactly the playable and retained Court assets', () => {
+  it('contains exactly the playable card assets', () => {
     const actualFileNames = Object.keys(ASSET_MODULES)
       .map(fileNameFromModuleKey)
       .sort();
-    const expectedFileNames = [
-      ...EXPECTED_PLAYABLE_FILE_NAMES,
-      ...EXPECTED_COURT_FILE_NAMES,
-    ].sort();
-    expect(actualFileNames).toEqual(expectedFileNames);
-    expect(actualFileNames).toHaveLength(ALL_CARDS.length + 4);
+    expect(actualFileNames).toEqual([...EXPECTED_PLAYABLE_FILE_NAMES].sort());
+    expect(actualFileNames).toHaveLength(ALL_CARDS.length);
   });
 
-  it('keeps the four Court assets present but unmapped', () => {
+  it('maps the four extended-deck Court assets to engine cards', () => {
     const mappedFileNames = new Set(Object.values(CARD_IMAGE_FILE_BY_ID));
-    const actualFileNames = new Set(
-      Object.keys(ASSET_MODULES).map(fileNameFromModuleKey)
-    );
-    for (const fileName of EXPECTED_COURT_FILE_NAMES) {
-      expect(actualFileNames.has(fileName)).toBe(true);
-      expect(mappedFileNames.has(fileName)).toBe(false);
+    for (const courtId of ['41', '42', '43', '44'] as CardId[]) {
+      expect(mappedFileNames.has(CARD_IMAGE_FILE_BY_ID[courtId])).toBe(true);
     }
+    expect(getCardImageFile('41')).toBe('decktet-card-the-consul.webp');
+    expect(getCardImageFile('44')).toBe('decktet-card-the-window.webp');
   });
 
   it('exposes preload URL list for all card art', () => {

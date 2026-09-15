@@ -1,5 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 
+import type { Ruleset } from '../engine/types';
+
 export type WinnerOutcome = 'player' | 'bot' | 'draw';
 export type WinnerDecider = 'districts' | 'rank-total' | 'resources' | 'draw';
 export type AchievementKey =
@@ -16,6 +18,7 @@ export interface GameRecord {
   decidedBy: WinnerDecider;
   botProfileId: string;
   botLabel: string;
+  ruleset?: Ruleset;
   playerDistricts: number;
   botDistricts: number;
   playerRankTotal: number;

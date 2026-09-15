@@ -10,7 +10,7 @@ import {
   deedCost,
   developmentCost,
   enumerateOutrightPayments,
-  findProperty,
+  findDevelopableCard,
   placementAllowed,
   sumTokens,
   SUITS,
@@ -24,7 +24,7 @@ import type {
   PlayerId,
   PlayerState,
   PlayerView,
-  PropertyCard,
+  DevelopableCard,
   ResourcePool,
   Suit,
 } from '../engine/types';
@@ -488,7 +488,7 @@ function bestUnlockedOutrightScore({
   activePlayer: PlayerState;
   opponentId: PlayerId;
   plan: DistrictPlan;
-  card: PropertyCard;
+  card: DevelopableCard;
   payment: Partial<Record<Suit, number>>;
 }): number {
   let best = 0;
@@ -532,7 +532,7 @@ function bestUnlockedBuyDeedScore({
   activePlayer: PlayerState;
   opponentId: PlayerId;
   plan: DistrictPlan;
-  card: PropertyCard;
+  card: DevelopableCard;
 }): number {
   let best = 0;
   for (const district of state.districts) {
@@ -1249,7 +1249,7 @@ function playerBoardHasSuit(
 
 function scoreStackDeveloped(cardIds: readonly CardId[]): number {
   const properties = cardIds
-    .map((cardId) => findProperty(cardId))
+    .map((cardId) => findDevelopableCard(cardId))
     .filter(isDefined);
   const base = properties.reduce((sum, property) => sum + property.rank, 0);
   const aceBonus = properties
@@ -1394,9 +1394,8 @@ function isLateGame(state: GameState | undefined): boolean {
   );
 }
 
-function propertyCard(cardId: string): PropertyCard | undefined {
-  const card = CARD_BY_ID[cardId as keyof typeof CARD_BY_ID];
-  return card && card.kind === 'Property' ? card : undefined;
+function propertyCard(cardId: string): DevelopableCard | undefined {
+  return findDevelopableCard(cardId as CardId);
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
