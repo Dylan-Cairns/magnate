@@ -181,6 +181,7 @@
 .token-rail-inner {
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--space-8);
 }
@@ -248,7 +249,7 @@
   font-size: 0.78rem;
 }
 
-.crowns-rail-row {
+.token-row.crowns-rail-row {
   display: flex;
   flex-wrap: nowrap;
   gap: 0.24rem;
