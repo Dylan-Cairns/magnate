@@ -502,7 +502,9 @@ Design expectations:
 ## Versioning Pattern
 
 - Browser preferences persist separately in local storage: opponent selection,
-  deck-map visibility/interactivity, log visibility, and animations. A restored
+  deck-map visibility/interactivity, log visibility, and animations. The game
+  log defaults to hidden for users without a stored preference and is
+  remembered once toggled. A restored
   game's opponent takes precedence; without a usable game save, use the saved
   available opponent or the catalog default.
 - Browser persistence uses one versioned `magnate:savedGame` local-storage entry

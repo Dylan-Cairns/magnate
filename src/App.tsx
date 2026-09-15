@@ -118,7 +118,7 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
   const [newGameExpanded, setNewGameExpanded] = useState<boolean>(false);
   const [logVisible, setLogVisible] = useState<boolean>(() =>
-    readBooleanPreference(LOG_VISIBLE_KEY, true)
+    readBooleanPreference(LOG_VISIBLE_KEY, false)
   );
   const [mapVisible, setMapVisible] = useState<boolean>(() =>
     readBooleanPreference(MAP_VISIBLE_KEY, true)
