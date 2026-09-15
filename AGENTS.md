@@ -27,6 +27,7 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 - Use the project `.venv` for any Python command in this repo.
 - When changing Python code, run targeted pytest tests for touched behavior plus Ruff and Pyright before handoff.
 - Keep docs aligned with code changes.
+- Replace stale docs instead of appending history; delete obsolete documentation rather than leaving stubs.
 
 ## Project Context
 

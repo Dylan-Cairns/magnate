@@ -2,15 +2,9 @@
 
 ## Stack
 
-- Node.js 22.23.1+ within the Node 22 line; `engines.node` declares the supported range and `.nvmrc` pins local/CI execution to 22.23.1
-- TypeScript strict
-- React + Vite
-- Vitest
-- Python 3.12+ through the project `.venv`
-- Pytest
-- Ruff
-- Pyright
-- PyTorch + NumPy
+- Node.js `22.23.1` (`.nvmrc`; `engines.node` allows `>=22.23.1 <23`)
+- TypeScript strict, React + Vite, Vitest
+- Python 3.12+ through the project `.venv`: Pytest, Ruff, Pyright, PyTorch + NumPy
 - ESLint + Prettier
 
 ## Layout
@@ -26,113 +20,70 @@
 
 ## Tooling Notes
 
-- The project is licensed CC BY-NC-SA 4.0 (`LICENSE`). Decktet card art and
-  glyph credits and third-party software notices are documented in `README.md`
-  and `public/third-party-notices.txt` (served to the deployed app and linked
-  from the info-modal credits).
-- Google Fonts are requested directly from `index.html` with preconnect hints
-  for the stylesheet and font origins and `display=swap`, so font discovery
-  does not wait for the application CSS.
-- Playable card artwork uses lossless WebP at its original 242 × 376 dimensions
-  under `src/assets/decktet-card-art/`, named
-  `decktet-card-<normalized-card-name>.webp`. The asset mapping and eager URL
-  glob live in `src/ui/cardImages.ts` and derive filenames from card names;
-  startup continues to preload and decode all playable cards before showing the
-  board. The four Court WebPs are mapped to the extended-deck cards (IDs
-  `"41"`-`"44"`) and are only dealt when the extended ruleset is selected.
-- The Court rank symbol is a monochrome SVG extracted from the
-  `fortune_widgets.ttf` Court glyph (`%%`) and stored at
-  `src/assets/icons/court.svg`; `src/ui/courtIcon.tsx` renders it, and
-  `src/ui/components/CardRank.tsx` uses it in place of the `X` placeholder on
-  card tiles and discard piles, while the Excuse keeps `X`. The deck map
-  (`DecktetSuitDiagram`) reuses `CardRank` and `TokenChip`/`SuitTokenFace` at
-  the district-divider token size for its extended-ruleset Courts grid below
-  the hexagon, inset to the hexagon's outer extents; the glyph is
-  white-filtered for the dark panel, and a Court that leaves circulation dims
-  through `buildDeckMapDimming`.
-- Card facts (names, ranks, ordered suits) are authored from the local Jacynth
-  Decktet extraction (`decktet_cards.csv`) rather than any third-party card
-  catalog. Card IDs and `ALL_CARDS` ordering remain compatibility surfaces.
-- Node version manager: fnm. Shell integration selects the checked-in `.nvmrc`
-  version automatically; Windows wrappers can resolve that pin through `fnm`
-  even when launched from a `-NoProfile` shell.
-- Package manager: Yarn 4.15.0, declared by `packageManager` and activated
-  through Corepack independently of fnm. CI uses `yarn install --immutable`
-  with the modern Yarn lockfile and restores its cache after activating Yarn.
-- JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`, `typecheck`, `format`.
-- Vite development watching excludes the local Python environment, generated
-  artifacts, and local test/tool caches so Windows HMR does not track training
-  runtime files.
-- GitHub Pages deploy: `.github/workflows/deploy_pages.yml` reads the Node
-  `22.23.1` pin from `.nvmrc`, activates the `packageManager` Yarn pin with
-  Corepack, then gates deployment on `yarn test`, `yarn lint`, and `yarn build`.
-- VS Code workspace pins `${workspaceFolder}\\.venv\\Scripts\\python.exe` and
-  explicitly requests virtual-environment activation in new and current
-  integrated terminals; Node selection is inherited from normal fnm shell
-  integration without a workspace-specific `PATH` override.
-- Checked-in pyright scope covers `trainer/` plus trainer-side tests in `trainer_tests/`; some `scripts/` orchestration remains outside checked-in pyright scope.
-- TypeScript bridge output is canonical. Python models the consumed subset in `trainer/bridge_payloads.py`.
-- Strategic-position diagnostics support `--positions`, `--variants`, and
-  `--start-repetition` for targeted seed extensions. The command does not
-  resume or merge prior output; targeted extensions should use a separate
-  output directory because reusing one overwrites its files.
-- Opt-in strategic variant `td-root-search-v2-800-visits` clones TD V2 Medium
-  and changes only sampled worlds from 10 to 50. It provides 800 root visits
-  without joining the default variant set.
-- `strategic-forced-rollouts` accepts explicit position, repetition-ID, and
-  action-local scenario-ID lists. It forces preserve/overwrite through one
-  shared hidden-world/seed schedule under TD and heuristic-v2 rollout play,
-  requires terminal completion, and writes detailed JSON plus an aggregate
-  Markdown summary under ignored bot-eval artifacts.
+- License is CC BY-NC-SA 4.0 (`LICENSE`). Card/glyph credits and third-party
+  software notices live in `README.md`, the in-app info modal, and
+  `public/third-party-notices.txt`.
+- Playable card artwork is lossless WebP at 242 x 376 under
+  `src/assets/decktet-card-art/`, named `decktet-card-<normalized-name>.webp`.
+  The mapping and eager URL glob live in `src/ui/cardImages.ts`; startup
+  preloads all playable cards. Court WebPs map to the extended IDs `"41"`-`"44"`.
+- The Court rank symbol is `src/assets/icons/court.svg`, rendered by
+  `src/ui/courtIcon.tsx` and used by `CardRank`; the Excuse keeps the `X`
+  placeholder.
+- Card facts are authored from the local Jacynth Decktet extraction rather than
+  any third-party card catalog. Card IDs and `ALL_CARDS` ordering remain
+  compatibility surfaces.
+- Node version manager: fnm via the checked-in `.nvmrc`, including
+  `-NoProfile` Windows wrappers. Package manager: Yarn 4.15.0 through Corepack;
+  CI runs `yarn install --immutable`.
+- JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`,
+  `typecheck`, `format`.
+- Vite dev watching excludes the local Python environment, generated artifacts,
+  and local test/tool caches.
+- GitHub Pages deploy (`.github/workflows/deploy_pages.yml`) reads the `.nvmrc`
+  pin, activates the Yarn `packageManager` pin, and gates on `yarn test`,
+  `yarn lint`, and `yarn build`.
+- Checked-in pyright scope covers `trainer/` plus `trainer_tests/`; some
+  `scripts/` orchestration remains outside it.
+- TypeScript bridge output is canonical. Python models the consumed subset in
+  `trainer/bridge_payloads.py`.
+- Strategic-position diagnostics support `--positions`, `--variants`,
+  `--repetitions`, and `--start-repetition`. The command does not resume or
+  merge prior output, so targeted extensions need a separate output directory.
 
 ## Core Commands
 
-- Install/select pinned Node: `fnm install`, then `fnm use`
-- Activate pinned Yarn: `corepack enable`, then `corepack install`
+- Install/select Node: `fnm install`, `fnm use`; activate Yarn:
+  `corepack enable`, `corepack install`
 - Install JS deps: `yarn install`
-- Dev server: `yarn dev`
-- Bridge runtime: `yarn bridge`
-- Test: `yarn test`
-- Lint + typecheck: `yarn lint`
-- Format: `yarn format`
-- Strategic position smoke check: `yarn bot:eval strategic-positions --repetitions 1`
-- Strategic position stability screen: `yarn bot:eval strategic-positions --repetitions 8`
-- Strategic forced-rollout trace: `yarn bot:eval strategic-forced-rollouts --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror --repetitions 0,1`
-- TD district-symmetry audit: `yarn bot:eval td-symmetry (--replay-dir <replay-run> | --replay-list <paths.txt>) --sample-size <n> --sampling-seed <seed>`
+- Dev server: `yarn dev`; bridge runtime: `yarn bridge`
+- JS test / lint+typecheck / format: `yarn test`, `yarn lint`, `yarn format`
 - Python test: `.\.venv\Scripts\python -m pytest`
-- Python targeted test: `.\.venv\Scripts\python -m pytest trainer_tests/<test_file>.py`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
-- Python lint autofix: `python -m ruff check --fix scripts trainer trainer_tests`
 - Python typecheck: `.\.venv\Scripts\python -m pyright -p .`
-- Promote/register checkpoint pair: `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
-- Export browser TD-root model pack: `.\.venv\Scripts\python -m scripts.export_browser_td_root_pack --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --set-default`
-- Reconstruct optimizer-free trainer checkpoints from a browser TD-root pack: `.\.venv\Scripts\python -m scripts.reconstruct_browser_td_root_checkpoints --manifest <pack-manifest.json> --output-dir <directory>`
-- Validate and resolve the non-launching district-S4 pilot: `.\.venv\Scripts\python -m scripts.prepare_td_district_symmetry_ablation`
-- Launch or resume the frozen district-S4 pilot sequentially at four threads: `.\scripts\run_td_district_symmetry_pilot.ps1`
-- Prepare the non-launching final-checkpoint evaluation plan after all pilot runs finish: `.\.venv\Scripts\python -m scripts.prepare_td_district_symmetry_evaluation`
-- Launch or resume first-stage district-S4 evaluation sequentially: `.\scripts\run_td_district_symmetry_evaluation_stage1.ps1`
-- Validate and resolve the opponent-only complete-S4-orbit follow-up: `.\.venv\Scripts\python -m scripts.prepare_td_opponent_orbit_ablation`
-- Launch or resume the four opponent-orbit jobs sequentially at four threads: `.\scripts\run_td_opponent_orbit_pilot.ps1`
-- Validate and resolve the non-launching Hard-teacher extra-data continuation: `.\.venv\Scripts\python -m scripts.prepare_td_hard_extra_data_continuation`
-- Dry-run/start/resume the matched Hard-teacher continuation: `.\scripts\run_td_hard_extra_data_continuation.ps1 [-DryRun]`
-- Dry-run/start/resume its frozen development-only selection: `.\scripts\run_td_hard_extra_data_development.ps1 [-DryRun]`
-- Dry-run/start/resume its 120-game step-9,000 vs heuristic-v2-medium
-  comparison:
-  `.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1 [-DryRun]`
-- Evaluate a final value/opponent pair on the complete replay holdout: `.\.venv\Scripts\python -m scripts.evaluate_td_replay_holdout --help`
+- Register a checkpoint pair:
+  `.\.venv\Scripts\python -m scripts.promote_td_checkpoint --help`
+- Export a browser TD-root model pack:
+  `.\.venv\Scripts\python -m scripts.export_browser_td_root_pack --value-checkpoint <value.pt> --opponent-checkpoint <opponent.pt> --set-default`
+- Reconstruct trainer checkpoints from a browser pack:
+  `.\.venv\Scripts\python -m scripts.reconstruct_browser_td_root_checkpoints --manifest <pack-manifest.json> --output-dir <dir>`
 
 ## Python Workflow
 
 - Use the project `.venv` for any Python command in this repo.
-- When changing Python code, run targeted pytest tests for touched behavior plus Ruff and Pyright before handoff.
-- If the change touches Python code outside checked-in pyright scope, note that explicitly in handoff.
+- When changing Python code, run targeted pytest tests for touched behavior plus
+  Ruff and Pyright before handoff.
+- Note explicitly when a change touches Python outside checked-in pyright scope.
 
 ## Checkpoint Manifest
 
-- `models/td_checkpoints/manifest.json` is the canonical checked-in registry for TD checkpoint warm starts and opponent-pool entries.
-- Manifest schema v2 uses `defaultWarmStart`, `opponentPool`, and `checkpoints.<key>.value` / `.opponent`.
-- Referenced checkpoint files under `models/td_checkpoints/<key>/` should be committed when the manifest changes.
-- Successful promotions in TD loop scripts copy accepted checkpoint pairs into `models/td_checkpoints/<key>/` and update the manifest unless `--disable-manifest-promotion` is set.
+- `models/td_checkpoints/manifest.json` (schema v2) is the canonical
+  source-controlled registry: `defaultWarmStart`, `opponentPool`, and
+  `checkpoints.<key>.value` / `.opponent`.
+- Referenced checkpoint files live under `models/td_checkpoints/<key>/` so they
+  move with the repo; commit them when the manifest changes.
+- Successful promotions in TD loop scripts copy accepted pairs into the
+  registry and update the manifest unless `--disable-manifest-promotion` is set.
 
 ## Runbooks
 
@@ -140,35 +91,29 @@
 - RunPod/Linux CPU setup: `docs/runbooks/runpod-linux.md`
 - Python training and evaluation loops: `docs/runbooks/training-loop.md`
 - TypeScript browser-bot evaluation: `docs/runbooks/bot-eval.md`
-- Paired TD outer-worker validation and browser rollback:
-  `docs/runbooks/td-outer-worker-shadow-benchmark.md`
+- TD browser benchmarks and executor rollback:
+  `docs/runbooks/td-browser-benchmarks.md`
 
 ## Constraints
 
 - Static deployment target; no gameplay backend.
-- Deterministic gameplay is required for replay, eval, and training.
-- Rule semantics stay in TS unless explicitly re-approved.
-- Python training scripts are fail-fast and expect the active project virtualenv.
-- `scripts.train_td` enforces Python 3.12+ and active `.venv` at startup.
-- `scripts.train_td` accepts ordered replay path-list files and opt-in
-  `--district-augmentation none|s4|s4-orbit`; `s4-orbit` is opponent-only and
-  deterministically expands each raw row to all 24 fixed-D3 permutations.
-  Enabled augmentation modes require an explicit experiment seed.
-- Frozen pilot commands also verify content-level replay, warm-start,
-  source-manifest, and implementation hashes before training. Experimental
-  candidate packs live under ignored `public/model-packs-experiments/` with a
-  separate index.
+- Deterministic gameplay is required for replay, evaluation, and training.
+- Rule semantics stay in TypeScript unless explicitly re-approved.
+- Python training scripts are fail-fast and require the active project
+  virtualenv; `scripts.train_td` enforces Python 3.12+ and active `.venv`.
 - Replay path lists spanning multiple run directories must use
   `--replay-key-mode run-qualified-canonical-v1`; basename mode remains the
-  default for existing single-run fingerprints.
+  default for single-run fingerprints.
+- Augmentation modes (`--district-augmentation s4|s4-orbit`) require an explicit
+  experiment seed and a matched control. Experimental browser packs use the
+  ignored `public/model-packs-experiments/` index and never change the deployed
+  default.
 
 ## Known Gaps
 
 - Search baseline promotion thresholds still need repeated confirmation.
-- Browser TD deployment uses the committed step-9,000 `td-root-search-v1` pack
-  (`public/model-packs/td-hard-extra-data-primary-treatment-step-09000/`), which
-  is the `defaultPackId` in `public/model-packs/index.json`; legacy checked-in
-  browser model artifacts have been removed.
-- Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
-
-_Updated: 2026-07-29._
+- Browser TD deployment uses the committed step-9,000 pack
+  (`public/model-packs/td-hard-extra-data-primary-treatment-step-09000/`), the
+  `defaultPackId` in `public/model-packs/index.json`.
+- Direct TypeScript TD-root matchup throughput can still improve; each
+  individual Node search decision remains synchronous.

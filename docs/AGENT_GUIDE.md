@@ -29,6 +29,7 @@ Update Memory Bank files when:
 - Keep `memoryBank/activeContext.md` focused on current work, not release-note history.
 - Keep `README.md`, `AGENTS.md`, and relevant Memory Bank files aligned in the same pass.
 - Replace stale bullets instead of appending near-duplicates.
+- Delete obsolete docs and runbooks rather than leaving them in place; git history preserves prior detail.
 - Do not record task-completion logs, experiment blow-by-blow, or agent handoff chatter in Memory Bank files.
 - Do not document volatile UI selections unless the user explicitly asks for that to be part of project direction.
 

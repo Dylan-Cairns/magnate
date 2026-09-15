@@ -73,6 +73,3 @@ Useful invocations:
   `.\scripts\run_td_loop_selfplay_laptop.ps1 -CpuTargetPercent 70 -DryRun`
 - Override loop args:
   `.\scripts\run_td_loop_selfplay_laptop.ps1 -LoopArgs @('--run-label', 'td-loop-selfplay-laptop-test', '--collect-games', '300')`
-- Run or resume the frozen extra-data step-9,000 checkpoint's 120-game
-  heuristic-v2-medium comparison:
-  `.\scripts\run_td_hard_extra_data_heuristic_benchmark.ps1`
