@@ -14,5 +14,6 @@ describe('SuitText', () => {
     expect(html).toContain('x3 for ');
     expect(html).toContain('data-token-suit="Knots"');
     expect(html).toContain('inline-token-chip');
+    expect(html).not.toContain('tooltip-trigger');
   });
 });

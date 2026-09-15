@@ -230,7 +230,7 @@ export function ActionsPanel({
                           }}
                         >
                           <span className="action-text">
-                            <SuitText text={label} showSuitTooltips={false} />
+                            <SuitText text={label} />
                           </span>
                         </button>
                       );
@@ -301,7 +301,6 @@ export function ActionsPanel({
                           <span className="action-text">
                             <SuitText
                               text={`Trade ${SUIT_TEXT_TOKEN[item.give]}x3`}
-                              showSuitTooltips={false}
                             />
                           </span>
                         </button>
@@ -413,7 +412,6 @@ export function ActionsPanel({
                                   ? `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(presentation.firstPayment, SUIT_TEXT_TOKEN)})`
                                   : `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
                               }
-                              showSuitTooltips={false}
                             />
                           </span>
                         </button>
@@ -526,7 +524,7 @@ function ActionButton({
   return (
     <button type="button" className="action-button" onClick={onClick}>
       <span className="action-text">
-        <SuitText text={text} showSuitTooltips={false} />
+        <SuitText text={text} />
       </span>
     </button>
   );

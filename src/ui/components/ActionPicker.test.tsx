@@ -69,6 +69,7 @@ describe('ActionPicker', () => {
     expect(html).toContain('Trade ');
     expect(html).toContain('x3 for');
     expect(html).toContain('data-token-suit="Suns"');
+    expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
     expect(html).toContain('Cancel');
   });
 

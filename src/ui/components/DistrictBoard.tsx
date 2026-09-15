@@ -289,6 +289,7 @@ export function PlayerTokenRail({
           return acc;
         }, {})}
         highlightedSuits={highlightedCrownSuits}
+        showTooltip
         compact
       />
     </div>
@@ -304,6 +305,7 @@ export function PlayerTokenRail({
         tradeProgress={
           tradeProgress?.playerId === player.id ? tradeProgress : undefined
         }
+        showTooltip
         compact
         fixedSuitSlots
       />

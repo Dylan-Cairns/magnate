@@ -3,13 +3,7 @@ import type { ReactNode } from 'react';
 import { SUIT_TOKEN_REGEX, SUIT_TOKEN_TO_SUIT } from '../suitIcons';
 import { TokenChip } from './TokenComponents';
 
-export function SuitText({
-  text,
-  showSuitTooltips = true,
-}: {
-  text: string;
-  showSuitTooltips?: boolean;
-}) {
+export function SuitText({ text }: { text: string }) {
   if (!text) {
     return text;
   }
@@ -34,7 +28,6 @@ export function SuitText({
           count={1}
           compact
           className="inline-token-chip"
-          showTooltip={showSuitTooltips}
         />
       );
     } else {

@@ -208,7 +208,7 @@ describe('ActionsPanel', () => {
     expect(html).toContain('Choose income 2');
     expect(html).toContain('data-token-suit="Moons"');
     expect(html).toContain('data-token-suit="Knots"');
-    expect(html).not.toContain('inline-token-chip tooltip-trigger');
+    expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
   });
 
   it('uses shared income-choice wording after the human has submitted', () => {
