@@ -18,7 +18,7 @@
   display: inline-flex;
   gap: 0.4rem;
   align-items: start;
-  font-size: 0.84rem;
+  font-size: 0.88rem;
   line-height: 1.24;
   color: var(--accent-soft);
   font-weight: 700;
@@ -46,7 +46,7 @@
 
 .log-turn-entry {
   display: block;
-  font-size: 0.84rem;
+  font-size: 0.88rem;
   line-height: 1.24;
 }
 

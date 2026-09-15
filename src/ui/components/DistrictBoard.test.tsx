@@ -34,6 +34,31 @@ describe('DistrictColumn', () => {
     expect(laneScores).toEqual([4, 0]);
   });
 
+  it('labels the Excuse district with the canonical card name', () => {
+    const district: DistrictState = {
+      id: 'D3',
+      markerSuitMask: [],
+      stacks: {
+        PlayerA: {
+          developed: [],
+        },
+        PlayerB: {
+          developed: [],
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <DistrictColumn
+        district={district}
+        humanPlayerId="PlayerB"
+        botPlayerId="PlayerA"
+      />
+    );
+
+    expect(html).toContain('The Excuse');
+  });
+
   it('marks only the leading district score as bold', () => {
     const district: DistrictState = {
       id: 'D2',
