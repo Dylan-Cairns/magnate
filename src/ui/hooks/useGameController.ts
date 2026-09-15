@@ -57,7 +57,7 @@ const BOT_PROFILE_STORAGE_KEY = 'magnate:botProfileId';
 const RULESET_STORAGE_KEY = 'magnate:ruleset';
 
 function sanitizeRuleset(value: string | undefined): Ruleset {
-  return value === 'extended' ? 'extended' : 'regular';
+  return value === 'extended' ? 'extended' : 'standard';
 }
 
 function sanitizeBotProfileId(
@@ -71,13 +71,13 @@ function sanitizeBotProfileId(
 }
 
 function readRulesetPreference(): Ruleset {
-  if (typeof window === 'undefined') return 'regular';
+  if (typeof window === 'undefined') return 'standard';
   try {
     return sanitizeRuleset(
       window.localStorage.getItem(RULESET_STORAGE_KEY) ?? undefined
     );
   } catch {
-    return 'regular';
+    return 'standard';
   }
 }
 
@@ -574,7 +574,7 @@ export function useGameController({
           ? currentBotIncomeActions
           : currentLegalActions;
         if (actions.length === 0) {
-          setError('Opponent has no legal actions.');
+          setError('Bot has no legal actions.');
           setBotThinking(false);
           return;
         }
@@ -607,7 +607,7 @@ export function useGameController({
               currentState: stateRef.current,
             })
           ) {
-            setError(`Opponent action failed: ${errorMessage(err)}`);
+            setError(`Bot action failed: ${errorMessage(err)}`);
             setBotThinking(false);
           }
           return;
@@ -625,7 +625,7 @@ export function useGameController({
           return;
         }
         if (!choice) {
-          setError('Opponent policy could not select an action.');
+          setError('Bot policy could not select an action.');
           setBotThinking(false);
           return;
         }
@@ -643,7 +643,7 @@ export function useGameController({
             !cancelled &&
             botDecisionGenerationRef.current === decisionGeneration
           ) {
-            setError(`Opponent action failed: ${errorMessage(err)}`);
+            setError(`Bot action failed: ${errorMessage(err)}`);
           }
         } finally {
           if (

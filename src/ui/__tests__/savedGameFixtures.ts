@@ -11,7 +11,7 @@ import type { SavedGame } from '../savedGame';
 
 export function initialSave(
   seed = 'save-test',
-  ruleset: Ruleset = 'regular'
+  ruleset: Ruleset = 'standard'
 ): SavedGame {
   const state = createSession(seed, 'PlayerA', ruleset);
   return {

@@ -13,7 +13,13 @@ const LOG: GameLogEntry[] = [
     turn: 0,
     player: 'PlayerA',
     phase: 'StartTurn',
-    summary: 'Seed fixed-seed',
+    summary: 'Seed: fixed-seed',
+  },
+  {
+    turn: 0,
+    player: 'PlayerA',
+    phase: 'StartTurn',
+    summary: 'Opponent: V2 Hard',
   },
   {
     turn: 1,
@@ -137,7 +143,9 @@ describe('LogPanel', () => {
 
     expect(html.indexOf('T1')).toBeLessThan(html.indexOf('fixed-seed'));
     expect(html).toContain('>You<');
-    expect(html).toContain('[Opponent] Income choice');
+    expect(html).toContain('[Bot] Income choice');
+    expect(html).toContain('<span class="log-player">Seed: fixed-seed</span>');
+    expect(html).toContain('<span class="log-player">Opponent: V2 Hard</span>');
     expect(html).toContain('class="log-suit-code"');
     expect(html).toContain('>wa<');
     expect(html).toContain('fixed-seed');

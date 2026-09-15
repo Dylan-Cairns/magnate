@@ -69,7 +69,7 @@ export interface DistrictState {
 export type DistrictLine = ReadonlyArray<DistrictState>;
 export type PlayerId = 'PlayerA' | 'PlayerB';
 
-export type Ruleset = 'regular' | 'extended';
+export type Ruleset = 'standard' | 'extended';
 
 export type ResourcePool = Record<Suit, number>;
 

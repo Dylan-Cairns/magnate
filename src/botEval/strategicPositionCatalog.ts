@@ -1110,7 +1110,7 @@ function positionState(recipe: PositionStateRecipe): GameState {
     schemaVersion: 1,
     seed: `strategic-v0:${recipe.id}`,
     rngCursor: 0,
-    ruleset: 'regular',
+    ruleset: 'standard',
     deck: {
       draw,
       discard,

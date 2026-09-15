@@ -252,12 +252,12 @@ describe('MagnateBridgeRuntime', () => {
     expect(typeof result.state.seed).toBe('string');
   });
 
-  it('stays on the regular ruleset and rejects extended snapshots', () => {
+  it('stays on the standard ruleset and rejects extended snapshots', () => {
     const runtime = new MagnateBridgeRuntime();
     const serialized = expectOk<{ state: Record<string, unknown> }>(
       request(runtime, { requestId: 'req-ruleset', command: 'serialize' })
     );
-    expect(serialized.state.ruleset).toBe('regular');
+    expect(serialized.state.ruleset).toBe('standard');
 
     const error = expectErr(
       request(runtime, {

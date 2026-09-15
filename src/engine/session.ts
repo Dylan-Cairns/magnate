@@ -6,7 +6,7 @@ import type { GameAction, GameState, PlayerId, Ruleset } from './types';
 export function createSession(
   seed: string,
   firstPlayer: PlayerId,
-  ruleset: Ruleset = 'regular'
+  ruleset: Ruleset = 'standard'
 ): GameState {
   return advanceToDecision(newGame(seed, { firstPlayer, ruleset }));
 }

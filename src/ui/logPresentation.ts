@@ -76,20 +76,10 @@ export function formatLogSummary(summary: string): string {
   return sentenceCaseSummary(next);
 }
 
-export function seedSummaryValue(summary: string): string | null {
-  const prefix = 'Seed ';
-  if (!summary.startsWith(prefix)) {
-    return null;
-  }
-  return summary.slice(prefix.length);
-}
+const META_SUMMARY_PATTERN = /^(Seed|Ruleset|Opponent): /;
 
-export function rulesetSummaryValue(summary: string): string | null {
-  const prefix = 'Ruleset ';
-  if (!summary.startsWith(prefix)) {
-    return null;
-  }
-  return summary.slice(prefix.length);
+export function metaSummaryLabel(summary: string): string | null {
+  return META_SUMMARY_PATTERN.test(summary) ? summary : null;
 }
 
 export function suitCodeToSuit(value: SuitLogCode): Suit {

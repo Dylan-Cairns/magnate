@@ -103,7 +103,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     schemaVersion: 1,
     seed: overrides.seed ?? 'test-seed',
     rngCursor: overrides.rngCursor ?? 0,
-    ruleset: overrides.ruleset ?? 'regular',
+    ruleset: overrides.ruleset ?? 'standard',
     deck: overrides.deck ?? {
       draw: ['6', '7', '8'],
       discard: [],

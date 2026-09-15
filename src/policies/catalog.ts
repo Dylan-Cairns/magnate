@@ -33,7 +33,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Easy',
     description: '',
     available: true,
-    supportedRulesets: ['regular', 'extended'],
+    supportedRulesets: ['standard', 'extended'],
     turnDelayMs: 0,
     spec: {
       id: 'rollout-search-v2-easy',
@@ -54,7 +54,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Medium',
     description: '',
     available: true,
-    supportedRulesets: ['regular', 'extended'],
+    supportedRulesets: ['standard', 'extended'],
     turnDelayMs: 0,
     spec: {
       id: 'rollout-search-v2-medium',
@@ -75,7 +75,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Hard',
     description: '',
     available: true,
-    supportedRulesets: ['regular', 'extended'],
+    supportedRulesets: ['standard', 'extended'],
     turnDelayMs: 0,
     spec: {
       id: 'rollout-search-v2-hard',
@@ -96,7 +96,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
     label: 'Experimental',
     description: '',
     available: true,
-    supportedRulesets: ['regular'],
+    supportedRulesets: ['standard'],
     turnDelayMs: 0,
     spec: {
       id: 'td-root-search-v2-medium',

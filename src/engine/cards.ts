@@ -14,8 +14,8 @@ export type CardId = string;
 
 // Decktet facts below are authored from the author's own Jacynth extraction:
 // jacynth/src/public/javascript/model/decktet_cards.csv (data rows 2-42).
-// Magnate's regular deck is that 41-card set (ids "0"-"40"). The four extended
-// deck Courts are appended as ids "41"-"44" so the regular catalog stays
+// Magnate's standard deck is that 41-card set (ids "0"-"40"). The four extended
+// ruleset Courts are appended as ids "41"-"44" so the standard catalog stays
 // byte-stable; they are only dealt in the extended ruleset. Display casing
 // follows Magnate, not Jacynth.
 
@@ -272,11 +272,7 @@ function assertCatalog(cards: readonly Card[]): void {
 
   if (
     cards.length !==
-    PROPERTY_COUNT +
-      COURT_COUNT +
-      CROWN_COUNT +
-      PAWN_COUNT +
-      EXCUSE_COUNT
+    PROPERTY_COUNT + COURT_COUNT + CROWN_COUNT + PAWN_COUNT + EXCUSE_COUNT
   ) {
     throw new Error(
       `Magnate catalog must contain exactly 45 cards, found ${cards.length}.`
@@ -404,7 +400,7 @@ export const CROWN_CARDS = ALL_CARDS.filter(
   (c): c is CrownCard => c.kind === 'Crown'
 );
 
-// Deck of developable property cards for the selected ruleset. The regular
+// Deck of developable property cards for the selected ruleset. The standard
 // ruleset uses the base 30 properties; extended adds the four Courts.
 export function propertyDeckForRuleset(
   ruleset: Ruleset

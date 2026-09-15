@@ -41,10 +41,7 @@ export function parseHeadToHeadConfig(value: unknown): HeadToHeadConfig {
       source.opponent,
       'head-to-head config.opponent'
     ),
-    ruleset: optionalRuleset(
-      source.ruleset,
-      'head-to-head config.ruleset'
-    ),
+    ruleset: optionalRuleset(source.ruleset, 'head-to-head config.ruleset'),
     maxDecisionsPerGame: optionalPositiveInteger(
       source.maxDecisionsPerGame,
       'head-to-head config.maxDecisionsPerGame'
@@ -240,17 +237,14 @@ function optionalPositiveInteger(
   return requiredPositiveInteger(value, label);
 }
 
-function optionalRuleset(
-  value: unknown,
-  label: string
-): Ruleset | undefined {
+function optionalRuleset(value: unknown, label: string): Ruleset | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (value === 'regular' || value === 'extended') {
+  if (value === 'standard' || value === 'extended') {
     return value;
   }
-  throw new Error(`${label} must be "regular" or "extended".`);
+  throw new Error(`${label} must be "standard" or "extended".`);
 }
 
 function optionalPositiveNumber(

@@ -5,8 +5,8 @@ import { profilesForRuleset, type BotProfileId } from '../../policies/catalog';
 import { Tooltip } from './Tooltip';
 
 const RULESET_OPTIONS: readonly { value: Ruleset; label: string }[] = [
-  { value: 'regular', label: 'Regular' },
-  { value: 'extended', label: 'Extended deck' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'extended', label: 'Extended' },
 ];
 
 export function NewGameButton({
@@ -79,7 +79,7 @@ export function NewGameButton({
             </select>
           </div>
           <div className="bot-profile-controls">
-            <label htmlFor="bot-profile-select">Opponent</label>
+            <label htmlFor="bot-profile-select">Bot Profile</label>
             <select
               id="bot-profile-select"
               className="bot-profile-select"

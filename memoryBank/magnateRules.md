@@ -5,13 +5,13 @@ Players: 2
 Length: about 30 minutes  
 Materials: Extended Decktet, resource tokens, two d10, one d6
 
-The default ruleset is the base deck and does not use Courts. An optional
-extended-deck variant adds the four Courts as additional property cards; see
-"Extended deck (optional)" at the end of this file.
+The default standard ruleset is the base deck and does not use Courts. An
+optional extended ruleset adds the four Courts as additional property cards; see
+"Extended ruleset (optional)" at the end of this file.
 
 ## 1. Components
 
-- Deck: Extended Decktet including Pawns, Crowns, and the Excuse. Courts are not used in the regular ruleset; the extended variant shuffles them in.
+- Deck: Extended Decktet including Pawns, Crowns, and the Excuse. Courts are not used in the standard ruleset; the extended ruleset shuffles them in.
 - District markers: Four Pawns plus the Excuse (5 total districts).
 - Crowns: Used to determine each player’s starting resources.
 - Resource tokens: Six kinds, one per suit: Moons, Suns, Waves, Leaves, Wyrms, Knots.
@@ -139,10 +139,10 @@ Tiebreakers, in order:
 2. If tied in total properties (the all-district rank total above): the player with more remaining resource tokens wins.
 3. If still tied: the game is a draw.
 
-## 8. Extended deck (optional)
+## 8. Extended ruleset (optional)
 
-Selecting the "Extended deck" ruleset shuffles the four Court cards into the
-deck as additional property cards. Everything else follows the regular rules.
+Selecting the Extended ruleset shuffles the four Court cards into the
+deck as additional property cards. Everything else follows the standard rules.
 
 - The four Courts are The Consul (Moons, Waves, Knots), The Island (Suns,
   Waves, Wyrms), The Rite (Moons, Leaves, Wyrms), and The Window (Suns, Leaves,
@@ -158,4 +158,4 @@ deck as additional property cards. Everything else follows the regular rules.
 
 The in-app New Game menu exposes this as a ruleset choice. Easy, Medium, and
 Hard opponents support both rulesets; the Experimental (trained) opponent is
-regular-ruleset only.
+standard-ruleset only.

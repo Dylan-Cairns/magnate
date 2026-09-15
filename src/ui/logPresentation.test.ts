@@ -4,7 +4,7 @@ import type { GameLogEntry } from '../engine/types';
 import {
   formatLogSummary,
   groupLogEntriesByTurn,
-  seedSummaryValue,
+  metaSummaryLabel,
   suitCodeToSuit,
 } from './logPresentation';
 
@@ -52,9 +52,11 @@ describe('formatLogSummary', () => {
 });
 
 describe('log metadata helpers', () => {
-  it('extracts only seed-prefixed summaries', () => {
-    expect(seedSummaryValue('Seed nightly-run')).toBe('nightly-run');
-    expect(seedSummaryValue('Income PlayerA none')).toBeNull();
+  it('labels seed, ruleset, and opponent metadata summaries', () => {
+    expect(metaSummaryLabel('Seed: nightly-run')).toBe('Seed: nightly-run');
+    expect(metaSummaryLabel('Ruleset: Extended')).toBe('Ruleset: Extended');
+    expect(metaSummaryLabel('Opponent: Medium')).toBe('Opponent: Medium');
+    expect(metaSummaryLabel('Income PlayerA none')).toBeNull();
   });
 
   it('maps suit codes back to suit names', () => {

@@ -25,16 +25,16 @@ Design expectations:
 - Card metadata is generated from a domain-oriented Decktet specification
   (`src/engine/cards.ts`) authored from the local Jacynth facts; card IDs and
   `ALL_CARDS` ordering are compatibility-sensitive and locked by tests. The
-  four extended-deck Courts are appended as IDs `"41"`-`"44"` so the regular
-  `"0"`-`"40"` catalog stays byte-stable.
+  four extended-ruleset Courts are appended as IDs `"41"`-`"44"` so the
+  standard `"0"`-`"40"` catalog stays byte-stable.
 - Ruleset selection is explicit and canonical: `GameState.ruleset` is
-  `'regular' | 'extended'`, and deck composition comes from
+  `'standard' | 'extended'`, and deck composition comes from
   `propertyDeckForRuleset(ruleset)` (base 30 properties, plus 4 Courts in
   extended). Rollout clones, saved games, and the bridge carry the ruleset on
   state rather than re-deriving it.
 - Court cards are developable property cards (`kind: 'Court'`, rank 10, three
   suits) handled through the shared `DevelopableCard` helpers. Rank 10 keeps
-  them out of rank-income and out of the TD encoding, which stays regular-only.
+  them out of rank-income and out of the TD encoding, which stays standard-only.
 - UI card-art filenames are derived from card names in `src/ui/cardImages.ts`
   rather than maintained in a duplicate table; Court art is mapped like any
   other playable card.
@@ -184,10 +184,14 @@ Design expectations:
 - UI score presentation should be derived, not stateful:
   - compute live score from canonical engine state (`scoreGame(state)`) on render
   - reuse same score component for terminal and non-terminal states
-- Player-facing UI calls the computer player "Opponent". History presents a
-  sortable game table (newest first by default) with a quiet summary and plain-text outcomes, without
-  achievement or streak UI. Preserve its column order: date, result, decider,
-  opponent, districts, properties, resources.
+- Main UI and ordinary game-log entries call the computer player "Bot". The
+  opening log rows are bold `Seed: …`, `Ruleset: Standard|Extended`, and
+  `Opponent: {profile}` labels, and the history modal labels the column
+  "Opponent" and the ruleset values Standard|Extended. History presents a
+  sortable game table (newest first by default) with a quiet summary and
+  plain-text outcomes, without achievement or streak UI. Preserve its column
+  order: date, result, decider, ruleset, opponent, districts, properties,
+  resources.
 - An empty human input list is not a no-legal-actions condition: canonical
   decisions can advance ahead of the displayed phase. Action-panel empty states
   show bot thinking when allowed by presentation visibility, income resolution,
@@ -516,8 +520,8 @@ Design expectations:
   the restored main action window. Reload can rewind to the preceding human
   window if the next checkpoint has not yet opened.
 - Terminal saves retain the final board. IndexedDB game history uses a unique
-  session ID and one transaction for results/achievements, so reloads and
-  concurrent recording attempts cannot duplicate a completed game.
+  session ID and one transaction for game results, so reloads and concurrent
+  recording attempts cannot duplicate a completed game.
 - Include `schemaVersion` in serialized engine state.
 - Include `contractVersion` in bridge metadata/responses where applicable.
 - Breaking bridge changes require a major contract bump.
