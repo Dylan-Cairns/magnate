@@ -17,9 +17,11 @@ export function NewGameButton({
   botProfileId,
   botStatusText,
   ruleset,
+  animationsEnabled,
   onToggle,
   onBotProfileChange,
   onRulesetChange,
+  onAnimationsEnabledChange,
 }: {
   expanded: boolean;
   panelRef: RefObject<HTMLElement | null>;
@@ -28,9 +30,11 @@ export function NewGameButton({
   botProfileId: BotProfileId;
   botStatusText: string;
   ruleset: Ruleset;
+  animationsEnabled: boolean;
   onToggle: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
   onRulesetChange: (ruleset: Ruleset) => void;
+  onAnimationsEnabledChange: (enabled: boolean) => void;
 }) {
   return (
     <>
@@ -95,6 +99,19 @@ export function NewGameButton({
               ))}
             </select>
             <p className="bot-profile-note">{botStatusText}</p>
+          </div>
+          <div className="bot-profile-controls animation-controls">
+            <label className="animation-toggle-row" htmlFor="animations-toggle">
+              <span>Animations</span>
+              <input
+                id="animations-toggle"
+                type="checkbox"
+                checked={animationsEnabled}
+                onChange={(event) =>
+                  onAnimationsEnabledChange(event.target.checked)
+                }
+              />
+            </label>
           </div>
         </section>
       )}

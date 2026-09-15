@@ -63,19 +63,10 @@ export function shouldHideBotWaitMessageDuringAnimationLock({
 }
 
 export function buildDeckMapDimming({
-  deckMapInteractive,
   viewState,
 }: {
-  deckMapInteractive: boolean;
   viewState: GameState;
 }): DeckMapDimming {
-  if (!deckMapInteractive) {
-    return {
-      dimmedCardIds: new Set<CardId>(),
-      dimmedSuits: new Set<Suit>(),
-    };
-  }
-
   const inCirculation = new Set<CardId>([
     ...viewState.deck.draw,
     ...viewState.players.flatMap((player) => player.hand),
