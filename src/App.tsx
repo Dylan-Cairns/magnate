@@ -117,7 +117,7 @@ export function App() {
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
   const [newGameExpanded, setNewGameExpanded] = useState<boolean>(false);
   const [logVisible, setLogVisible] = useState<boolean>(() =>
-    readBooleanPreference(LOG_VISIBLE_KEY, false)
+    readBooleanPreference(LOG_VISIBLE_KEY, true)
   );
   const [mapVisible, setMapVisible] = useState<boolean>(() =>
     readBooleanPreference(MAP_VISIBLE_KEY, true)
@@ -400,24 +400,37 @@ export function App() {
     insideRefs: newGameLayerRefs,
   });
 
-  const handleReset = () => {
+  const resetGame = (seed?: string) => {
+    closeActionPicker();
+    closeOptionsMenu();
+    closeNewGame();
+    resetSession(seed);
+  };
+
+  const handleStartNewGame = () => {
     const specifiedSeed = seedInputRef.current?.value.trim() ?? '';
     if (seedInputRef.current) {
       seedInputRef.current.value = '';
     }
-    closeActionPicker();
-    closeOptionsMenu();
-    closeNewGame();
-    resetSession(specifiedSeed || undefined);
+    resetGame(specifiedSeed || undefined);
   };
 
   const handleNewGameToggle = () => {
     if (newGameExpanded) {
-      handleReset();
+      closeNewGame();
     } else {
       closeOptionsMenu();
       setNewGameExpanded(true);
     }
+  };
+
+  const handlePlayAgain = () => {
+    resetGame();
+  };
+
+  const handleChangeSetup = () => {
+    closeOptionsMenu();
+    setNewGameExpanded(true);
   };
 
   const handleDownloadBugReport = () => {
@@ -655,6 +668,8 @@ export function App() {
               }
               onAction={performHumanAction}
               onResetTurn={handleTurnReset}
+              onPlayAgain={handlePlayAgain}
+              onChangeSetup={handleChangeSetup}
               onClosePicker={closeActionPicker}
               onOpenTradeCombinedPicker={openTradeCombinedPicker}
               onOpenTradePicker={openTradePicker}
@@ -780,6 +795,7 @@ export function App() {
                 setOptionsMenuOpen((open) => !open);
               }}
               onNewGameToggle={handleNewGameToggle}
+              onNewGameStart={handleStartNewGame}
               onBotProfileChange={setBotProfileId}
               onRulesetChange={setRuleset}
               onAnimationsEnabledChange={setAnimationsEnabled}

@@ -23,6 +23,7 @@ describe('OptionsMenu', () => {
         newGameButtonRef={createRef<HTMLButtonElement>()}
         onToggle={noop}
         onNewGameToggle={noop}
+        onNewGameStart={noop}
         onBotProfileChange={noop}
         onRulesetChange={noop}
         onAnimationsEnabledChange={noop}

@@ -19,6 +19,7 @@ export function NewGameButton({
   ruleset,
   animationsEnabled,
   onToggle,
+  onStart,
   onBotProfileChange,
   onRulesetChange,
   onAnimationsEnabledChange,
@@ -32,6 +33,7 @@ export function NewGameButton({
   ruleset: Ruleset;
   animationsEnabled: boolean;
   onToggle: () => void;
+  onStart: () => void;
   onBotProfileChange: (id: BotProfileId) => void;
   onRulesetChange: (ruleset: Ruleset) => void;
   onAnimationsEnabledChange: (enabled: boolean) => void;
@@ -41,13 +43,15 @@ export function NewGameButton({
       <button
         ref={buttonRef}
         type="button"
-        className={`new-game-btn tooltip-trigger${expanded ? ' is-ready' : ''}`}
+        className="new-game-btn tooltip-trigger"
         aria-expanded={expanded}
         aria-controls="new-game-panel"
         onClick={onToggle}
       >
-        {expanded ? 'Start' : 'New Game'}
-        <Tooltip>New game</Tooltip>
+        New Game
+        <Tooltip>
+          {expanded ? 'Close new game setup' : 'Set up a new game'}
+        </Tooltip>
       </button>
       {expanded && (
         <section
@@ -113,6 +117,13 @@ export function NewGameButton({
               />
             </label>
           </div>
+          <button
+            type="button"
+            className="reset-button new-game-start-button"
+            onClick={onStart}
+          >
+            Start Game
+          </button>
         </section>
       )}
     </>

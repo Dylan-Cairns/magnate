@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import type { FinalScore, PlayerId } from '../../engine/types';
 import { playerDisplayName, winnerDisplayName } from '../playerDisplay';
 
@@ -6,12 +8,22 @@ export function TerminalScoreSummary({
   wonDistrictsByPlayer,
   humanPlayerId,
   botPlayerId,
+  onPlayAgain,
+  onChangeSetup,
 }: {
   score: FinalScore;
   wonDistrictsByPlayer: Record<PlayerId, readonly string[]>;
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
+  onPlayAgain: () => void;
+  onChangeSetup: () => void;
 }) {
+  const playAgainRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    playAgainRef.current?.focus();
+  }, []);
+
   return (
     <section
       className="terminal-score-summary"
@@ -48,6 +60,24 @@ export function TerminalScoreSummary({
             </p>
           </article>
         ))}
+      </div>
+
+      <div className="terminal-score-actions">
+        <button
+          ref={playAgainRef}
+          type="button"
+          className="reset-button terminal-score-play-again"
+          onClick={onPlayAgain}
+        >
+          Play Again
+        </button>
+        <button
+          type="button"
+          className="terminal-score-change-setup"
+          onClick={onChangeSetup}
+        >
+          Game options
+        </button>
       </div>
     </section>
   );

@@ -49,6 +49,8 @@ function renderPanel(
       humanActionUiBlockedByTurnCycleAnimation={false}
       onAction={noop}
       onResetTurn={noop}
+      onPlayAgain={noop}
+      onChangeSetup={noop}
       onClosePicker={noop}
       onOpenTradeCombinedPicker={noop}
       onOpenTradePicker={noop}

@@ -60,6 +60,8 @@ export function ActionsPanel({
   humanActionUiBlockedByTurnCycleAnimation,
   onAction,
   onResetTurn,
+  onPlayAgain,
+  onChangeSetup,
   onClosePicker,
   onOpenTradeCombinedPicker,
   onOpenTradePicker,
@@ -87,6 +89,8 @@ export function ActionsPanel({
   humanActionUiBlockedByTurnCycleAnimation: boolean;
   onAction: (action: GameAction) => void;
   onResetTurn: () => void;
+  onPlayAgain: () => void;
+  onChangeSetup: () => void;
   onClosePicker: () => void;
   onOpenTradeCombinedPicker: (trigger: HTMLButtonElement) => void;
   onOpenTradePicker: (
@@ -142,6 +146,8 @@ export function ActionsPanel({
             wonDistrictsByPlayer={wonDistrictsByPlayer}
             humanPlayerId={humanPlayerId}
             botPlayerId={botPlayerId}
+            onPlayAgain={onPlayAgain}
+            onChangeSetup={onChangeSetup}
           />
         ) : activePlayerId === humanPlayerId ||
           hasVisibleIncomeChoiceActions ? (

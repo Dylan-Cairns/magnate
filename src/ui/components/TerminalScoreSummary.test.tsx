@@ -20,6 +20,8 @@ describe('TerminalScoreSummary', () => {
         wonDistrictsByPlayer={{ PlayerA: ['D1', 'D3'], PlayerB: [] }}
         humanPlayerId="PlayerA"
         botPlayerId="PlayerB"
+        onPlayAgain={() => {}}
+        onChangeSetup={() => {}}
       />
     );
 
@@ -30,5 +32,21 @@ describe('TerminalScoreSummary', () => {
     );
     expect(html).toContain('<strong>D1, D3</strong>');
     expect(html).toContain('<strong>None</strong>');
+  });
+
+  it('renders the play again and change setup controls', () => {
+    const html = renderToStaticMarkup(
+      <TerminalScoreSummary
+        score={SCORE}
+        wonDistrictsByPlayer={{ PlayerA: ['D1', 'D3'], PlayerB: [] }}
+        humanPlayerId="PlayerA"
+        botPlayerId="PlayerB"
+        onPlayAgain={() => {}}
+        onChangeSetup={() => {}}
+      />
+    );
+
+    expect(html).toContain('Play Again');
+    expect(html).toContain('Game options');
   });
 });
