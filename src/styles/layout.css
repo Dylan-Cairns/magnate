@@ -59,6 +59,19 @@
   flex-direction: column;
   min-height: 0;
   width: 100%;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.actions-panel.is-active {
+  border-color: var(--active-border);
+  box-shadow:
+    var(--rail-panel-shadow),
+    0 0 0 1px var(--active-ring),
+    0 0 18px var(--active-glow),
+    0 0 32px var(--active-glow-outer),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .actions-body {

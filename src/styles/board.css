@@ -25,10 +25,19 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   min-height: 0;
   overflow: visible;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .player-panel.is-active {
   border-color: var(--active-border);
+  box-shadow:
+    var(--rail-panel-shadow),
+    0 0 0 1px var(--active-ring),
+    0 0 18px var(--active-glow),
+    0 0 32px var(--active-glow-outer),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .player-header {

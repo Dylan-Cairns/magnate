@@ -108,6 +108,42 @@ describe('ActionsPanel', () => {
     ).toContain('Bot is thinking...');
   });
 
+  it('marks the panel active only when human input is available', () => {
+    expect(renderPanel()).toContain('actions-panel is-active');
+    expect(renderPanel({ activePlayerId: 'PlayerB' })).not.toContain(
+      'actions-panel is-active'
+    );
+    expect(
+      renderPanel({
+        humanActionUiBlockedByAnimation: true,
+      })
+    ).not.toContain('actions-panel is-active');
+    expect(
+      renderPanel({
+        humanActionUiBlockedByAnimation: true,
+        humanActionUiBlockedByTurnCycleAnimation: true,
+      })
+    ).not.toContain('actions-panel is-active');
+    expect(
+      renderPanel({
+        activePlayerId: 'PlayerB',
+        isIncomeChoicePhase: true,
+        visibleActionItems: [
+          {
+            kind: 'action',
+            action: {
+              type: 'choose-income-suit',
+              playerId: 'PlayerA',
+              districtId: 'D1',
+              cardId: '6',
+              suit: 'Moons',
+            },
+          },
+        ],
+      })
+    ).toContain('actions-panel is-active');
+  });
+
   it('hides bot wait text during a non-income turn-cycle lock', () => {
     const html = renderPanel({
       activePlayerId: 'PlayerB',
