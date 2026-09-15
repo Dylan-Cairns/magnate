@@ -64,7 +64,7 @@ import { buildGameTransaction } from '../runtime/transactions';
 import { browserAnimationDomTargets } from '../animations/domTargets';
 import { stepToDecision } from '../../engine/session';
 import { isTerminal } from '../../engine/scoring';
-import type { GameAction, GameState } from '../../engine/types';
+import type { GameAction, GameState, Suit } from '../../engine/types';
 import finalTurnFixture from './finalTurnRegression.fixture.json';
 import {
   resourceFlightsAfterPresentationTime,
@@ -187,6 +187,56 @@ describe('useGameAnimations scheduling helpers', () => {
       expect(AnimationHarness().tradeProgress).toBeUndefined();
     }
   );
+
+  it('removes sell gain flights as their landing snapshots arrive', () => {
+    vi.spyOn(browserAnimationDomTargets, 'isAvailable').mockReturnValue(true);
+    vi.spyOn(browserAnimationDomTargets, 'handSource').mockReturnValue(
+      {} as HTMLElement
+    );
+    vi.spyOn(browserAnimationDomTargets, 'resourceToken').mockReturnValue(
+      {} as HTMLElement
+    );
+    vi.spyOn(browserAnimationDomTargets, 'elementCenter').mockReturnValue({
+      x: 100,
+      y: 200,
+    });
+    vi.spyOn(browserAnimationDomTargets, 'tokenVisualCenter').mockReturnValue({
+      x: 20,
+      y: 30,
+    });
+    const transaction = makeSellCardTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    const landings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-sell-token'
+    );
+    let animations = AnimationHarness();
+    animations.enqueueTransition({
+      transactionId: transaction.id,
+      previousState: transaction.previousState,
+      nextState: transaction.nextState,
+      action: transaction.action,
+      actingPlayerId: transaction.actingPlayerId,
+    });
+    animations = AnimationHarness();
+    expect(animations.resourceFlights).toHaveLength(2);
+    expect(
+      sellResourceCount(animations.presentationSnapshot?.viewState, 'Moons')
+    ).toBe(0);
+
+    vi.advanceTimersByTime(landings[0].endMs);
+    animations = AnimationHarness();
+    expect(animations.resourceFlights).toHaveLength(1);
+    expect(
+      sellResourceCount(animations.presentationSnapshot?.viewState, 'Moons')
+    ).toBe(1);
+
+    vi.advanceTimersByTime(landings[1].endMs - landings[0].endMs);
+    animations = AnimationHarness();
+    expect(animations.resourceFlights).toEqual([]);
+    expect(
+      sellResourceCount(animations.presentationSnapshot?.viewState, 'Knots')
+    ).toBe(1);
+  });
 
   it('removes only the income overlays whose presentation landing has arrived', () => {
     const baseFlight = {
@@ -483,4 +533,45 @@ function makeTradeTransaction(previousState: ReturnType<typeof makeGameState>) {
         districts: [...previousState.districts],
       }),
   });
+}
+
+function makeSellCardTransaction() {
+  return buildGameTransaction({
+    previousState: makeGameState({
+      players: [
+        makePlayer(PLAYER_A, { hand: ['6'], resources: makeResources() }),
+        makePlayer(PLAYER_B),
+      ],
+    }),
+    action: { type: 'sell-card', cardId: '6' },
+    actingPlayerId: PLAYER_A,
+    transactionId: 'tx-sell-card',
+    stepToDecision: () =>
+      makeGameState({
+        players: [
+          makePlayer(PLAYER_A, {
+            hand: [],
+            resources: makeResources({ Moons: 1, Knots: 1 }),
+          }),
+          makePlayer(PLAYER_B),
+        ],
+        deck: {
+          draw: [],
+          discard: ['6'],
+          reshuffles: 0,
+        },
+      }),
+  });
+}
+
+function sellResourceCount(
+  state: GameState | null | undefined,
+  suit: Suit
+): number {
+  if (!state) {
+    return 0;
+  }
+  return (
+    state.players.find((player) => player.id === PLAYER_A)?.resources[suit] ?? 0
+  );
 }

@@ -7,6 +7,7 @@ import {
 import {
   actionHighlightTargets,
   highlightTargetKey,
+  resourceGainSuits,
   sharedActionHighlightTargets,
 } from './actionHighlights';
 
@@ -57,7 +58,11 @@ describe('action highlights', () => {
       sharedActionHighlightTargets(actionsForOpenPicker(picker, actions)).map(
         highlightTargetKey
       )
-    ).toEqual(['hand-card:6', 'resource:Moons', 'resource:Knots']);
+    ).toEqual([
+      'hand-card:6',
+      'resource:spend:Moons',
+      'resource:spend:Knots',
+    ]);
   });
 
   it('keeps a chosen trade source without guessing the receiving suit', () => {
@@ -72,7 +77,7 @@ describe('action highlights', () => {
     ] satisfies ActionPickerState[]) {
       expect(
         sharedActionHighlightTargets(actionsForOpenPicker(picker, actions))
-      ).toEqual([{ kind: 'resource', suit: 'Moons' }]);
+      ).toEqual([{ kind: 'resource', suit: 'Moons', effect: 'spend' }]);
     }
     expect(
       actionsForOpenPicker(
@@ -129,8 +134,8 @@ describe('action highlights', () => {
       { type: 'buy-deed', cardId: '6', districtId: 'D2' },
       [
         'hand-card:6',
-        'resource:Moons',
-        'resource:Knots',
+        'resource:spend:Moons',
+        'resource:spend:Knots',
         'district-lane:D2:6:deed',
       ],
     ],
@@ -143,8 +148,8 @@ describe('action highlights', () => {
       },
       [
         'hand-card:6',
-        'resource:Moons',
-        'resource:Knots',
+        'resource:spend:Moons',
+        'resource:spend:Knots',
         'district-lane:D1:6:developed',
       ],
     ],
@@ -155,15 +160,20 @@ describe('action highlights', () => {
         districtId: 'D1',
         tokens: { Knots: 1, Moons: 0 },
       },
-      ['played-card:6', 'resource:Knots'],
+      ['played-card:6', 'resource:spend:Knots'],
     ],
     [
       { type: 'sell-card', cardId: '6' },
-      ['hand-card:6', 'resource:Moons', 'resource:Knots', 'pile:discard'],
+      [
+        'hand-card:6',
+        'resource:gain:Moons',
+        'resource:gain:Knots',
+        'pile:discard',
+      ],
     ],
     [
       { type: 'trade', give: 'Suns', receive: 'Waves' },
-      ['resource:Suns', 'resource:Waves'],
+      ['resource:spend:Suns', 'resource:gain:Waves'],
     ],
     [
       {
@@ -173,22 +183,45 @@ describe('action highlights', () => {
         districtId: 'D1',
         suit: 'Knots',
       },
-      ['played-card:6', 'resource:Knots'],
+      ['played-card:6', 'resource:gain:Knots'],
     ],
     [{ type: 'end-turn' }, []],
   ])('maps $type to its exact UI targets', (action, expected) => {
     expect(keys(action)).toEqual(expected);
   });
 
+  it('collects only resource gains for ghost chip previews', () => {
+    expect(
+      resourceGainSuits(
+        actionHighlightTargets({ type: 'sell-card', cardId: '6' })
+      )
+    ).toEqual(new Set(['Moons', 'Knots']));
+    expect(
+      resourceGainSuits(
+        actionHighlightTargets({ type: 'trade', give: 'Suns', receive: 'Waves' })
+      )
+    ).toEqual(new Set(['Waves']));
+    expect(
+      resourceGainSuits(
+        actionHighlightTargets({
+          type: 'develop-outright',
+          cardId: '6',
+          districtId: 'D1',
+          payment: { Moons: 1, Knots: 1 },
+        })
+      )
+    ).toEqual(new Set());
+  });
+
   it('highlights an Ace suit once for both buying and selling', () => {
     expect(keys({ type: 'buy-deed', cardId: '0', districtId: 'D1' })).toEqual([
       'hand-card:0',
-      'resource:Knots',
+      'resource:spend:Knots',
       'district-lane:D1:0:deed',
     ]);
     expect(keys({ type: 'sell-card', cardId: '0' })).toEqual([
       'hand-card:0',
-      'resource:Knots',
+      'resource:gain:Knots',
       'pile:discard',
     ]);
   });
@@ -200,8 +233,8 @@ describe('action highlights', () => {
     ]);
     expect(targets.map(highlightTargetKey)).toEqual([
       'hand-card:6',
-      'resource:Moons',
-      'resource:Knots',
+      'resource:spend:Moons',
+      'resource:spend:Knots',
     ]);
   });
 

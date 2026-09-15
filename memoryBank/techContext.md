@@ -44,7 +44,12 @@
   `fortune_widgets.ttf` Court glyph (`%%`) and stored at
   `src/assets/icons/court.svg`; `src/ui/courtIcon.tsx` renders it, and
   `src/ui/components/CardRank.tsx` uses it in place of the `X` placeholder on
-  card tiles and discard piles, while the Excuse keeps `X`.
+  card tiles and discard piles, while the Excuse keeps `X`. The deck map
+  (`DecktetSuitDiagram`) reuses `CardRank` and `TokenChip`/`SuitTokenFace` at
+  the district-divider token size for its extended-ruleset Courts grid below
+  the hexagon, inset to the hexagon's outer extents; the glyph is
+  white-filtered for the dark panel, and a Court that leaves circulation dims
+  through `buildDeckMapDimming`.
 - Card facts (names, ranks, ordered suits) are authored from the local Jacynth
   Decktet extraction (`decktet_cards.csv`) rather than any third-party card
   catalog. Card IDs and `ALL_CARDS` ordering remain compatibility surfaces.

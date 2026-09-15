@@ -61,7 +61,7 @@ describe('app render model', () => {
     expect(isVisibleIncomeChoicePhase(visibleIncomeChoice)).toBe(true);
   });
 
-  it('dims the deck map from visible circulation only', () => {
+  it('does not dim a card held in a visible hand', () => {
     const viewState = makeGameState({
       deck: {
         draw: [],
@@ -77,6 +77,85 @@ describe('app render model', () => {
     const dimming = buildDeckMapDimming({ viewState });
 
     expect(dimming.dimmedCardIds.has('6')).toBe(false);
+  });
+
+  it('keeps a sold card and its suit undimmed while it flies to the first-shuffle discard', () => {
+    const players = [
+      makePlayer(PLAYER_A, { hand: [] }),
+      makePlayer('PlayerB', { hand: [] }),
+    ] as const;
+    const viewState = makeGameState({
+      deck: {
+        draw: [],
+        discard: [],
+        reshuffles: 0,
+      },
+      players,
+    });
+    const canonicalState = makeGameState({
+      deck: {
+        draw: [],
+        discard: ['2', '6'],
+        reshuffles: 0,
+      },
+      players,
+    });
+
+    const visibleOnly = buildDeckMapDimming({ viewState });
+    expect(visibleOnly.dimmedCardIds.has('6')).toBe(true);
+    expect(visibleOnly.dimmedSuits.has('Moons')).toBe(true);
+
+    const withCanonical = buildDeckMapDimming({ viewState, canonicalState });
+    expect(withCanonical.dimmedCardIds.has('6')).toBe(false);
+    expect(withCanonical.dimmedSuits.has('Moons')).toBe(false);
+  });
+
+  it('dims a sold card once the discard stops circulating after the first shuffle', () => {
+    const players = [
+      makePlayer(PLAYER_A, { hand: [] }),
+      makePlayer('PlayerB', { hand: [] }),
+    ] as const;
+    const viewState = makeGameState({
+      deck: {
+        draw: [],
+        discard: [],
+        reshuffles: 1,
+      },
+      players,
+    });
+    const canonicalState = makeGameState({
+      deck: {
+        draw: [],
+        discard: ['6'],
+        reshuffles: 1,
+      },
+      players,
+    });
+
+    const dimming = buildDeckMapDimming({ viewState, canonicalState });
+
+    expect(dimming.dimmedCardIds.has('6')).toBe(true);
+  });
+
+  it('dims a Court only once that Court has left circulation', () => {
+    const viewState = makeGameState({
+      deck: {
+        draw: ['41'],
+        discard: [],
+        reshuffles: 0,
+      },
+      players: [
+        makePlayer(PLAYER_A, { hand: ['42'] }),
+        makePlayer('PlayerB', { hand: [] }),
+      ],
+    });
+
+    const dimming = buildDeckMapDimming({ viewState });
+
+    expect(dimming.dimmedCardIds.has('41')).toBe(false);
+    expect(dimming.dimmedCardIds.has('42')).toBe(false);
+    expect(dimming.dimmedCardIds.has('43')).toBe(true);
+    expect(dimming.dimmedCardIds.has('44')).toBe(true);
   });
 
   it('dims a suit icon when its Ace is played, even if other suit cards remain', () => {

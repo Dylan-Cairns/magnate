@@ -94,6 +94,7 @@ function applySequenceStep(
     case 'launch-trade-token-flights':
     case 'launch-card-to-district-flight':
     case 'launch-deed-token-flights':
+    case 'launch-sell-token-flights':
       return { viewState, overlays };
     case 'apply-resource-payment':
       return {
@@ -127,15 +128,14 @@ function applySequenceStep(
         viewState: revealDeedCompletion(viewState, step.event),
         overlays,
       };
-    case 'apply-sell-resource-gains':
+    case 'land-sell-token':
+      if (elapsedMs < step.endMs) {
+        return { viewState, overlays };
+      }
       return {
-        viewState: applyResourceDeltas(
-          viewState,
-          step.gains.map((event) => ({
-            playerId: event.playerId,
-            delta: { [event.suit]: 1 },
-          }))
-        ),
+        viewState: applyResourceDelta(viewState, step.gain.playerId, {
+          [step.gain.suit]: 1,
+        }),
         overlays,
       };
     case 'apply-trade-token-loss':
@@ -605,20 +605,6 @@ function mergeResourceTokens(
     }
   }
   return merged;
-}
-
-function applyResourceDeltas(
-  state: GameState,
-  deltas: readonly {
-    playerId: PlayerId;
-    delta: Partial<Record<Suit, number>>;
-  }[]
-): GameState {
-  return deltas.reduce(
-    (updated, entry) =>
-      applyResourceDelta(updated, entry.playerId, entry.delta),
-    state
-  );
 }
 
 function applyResourceDelta(

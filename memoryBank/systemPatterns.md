@@ -278,6 +278,23 @@ Design expectations:
   flight gets an explicit sequence landing boundary where its visible resource
   count is incremented and its overlay copy is removed in the same scheduled
   React update; do not hold completed income overlays for a later batch apply.
+- Sell-card presentation should fly sale tokens from the sold hand card to the
+  player's resource rail before staging the sold card. The card keeps its hand
+  slot until every sale token lands, then the sold-card flight launches; sale
+  gains land one token at a time on explicit sequence landing steps.
+- Staggered resource flights must stay invisible during their animation delay.
+  Visible delayed copies previously accumulated at a shared source, so same-suit
+  tax/payment batches looked like the departing token slid out from under a
+  waiting stack; delayed flights now render only once their animation starts.
+- Human hand compaction should animate instead of snapping. Hand cards keep
+  stable identity keys and a layout-effect FLIP helper slides cards to their new
+  slot positions whenever a staged sell/play changes the visible hand. Cards not
+  present in both layouts are skipped, the removed card has no exit animation
+  because its flight copy carries it, and slides are skipped when animations are
+  disabled or the game key changes.
+- The bot hand fan may transition its spread transform when the hidden card
+  count changes; component-level CSS transitions should be disabled alongside
+  the animations preference.
 - Sequence-derived card visual commands should execute through command-specific
   DOM flight builders. A draw, sell, or card-to-district launch command already
   identifies the visual intent; hook-level execution should not rediscover that

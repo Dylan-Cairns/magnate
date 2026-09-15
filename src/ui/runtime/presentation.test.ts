@@ -447,7 +447,10 @@ describe('derivePresentationSnapshotFromSequence', () => {
       stepToDecision: () => next,
     });
     const sequence = buildAnimationSequence(transaction);
-    const sellGains = step(sequence, 'apply-sell-resource-gains');
+    const sellLandings = sequence.steps.filter(
+      (candidate) => candidate.type === 'land-sell-token'
+    );
+    const stageSoldCard = step(sequence, 'stage-sold-card');
     const commit = step(sequence, 'commit-view-state');
 
     const staged = derivePresentationSnapshotFromSequence({
@@ -455,18 +458,52 @@ describe('derivePresentationSnapshotFromSequence', () => {
       sequence,
       elapsedMs: 0,
     });
-    expect(staged.viewState.players[0].hand).toEqual(['7']);
+    expect(staged.viewState.players[0].hand).toEqual(['6', '7']);
     expect(resourceCount(staged.viewState, PLAYER_A, 'Moons')).toBe(0);
     expect(staged.viewState.deck.discard).toEqual([]);
 
-    const afterGain = derivePresentationSnapshotFromSequence({
+    const beforeFirstLanding = derivePresentationSnapshotFromSequence({
       transaction,
       sequence,
-      elapsedMs: sellGains.startMs,
+      elapsedMs: sellLandings[0].endMs - 1,
     });
-    expect(resourceCount(afterGain.viewState, PLAYER_A, 'Moons')).toBe(1);
-    expect(resourceCount(afterGain.viewState, PLAYER_A, 'Knots')).toBe(1);
-    expect(afterGain.viewState.deck.discard).toEqual([]);
+    expect(beforeFirstLanding.viewState.players[0].hand).toEqual(['6', '7']);
+    expect(resourceCount(beforeFirstLanding.viewState, PLAYER_A, 'Moons')).toBe(
+      0
+    );
+
+    const afterFirstLanding = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: sellLandings[0].endMs,
+    });
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_A, 'Moons')).toBe(
+      1
+    );
+    expect(resourceCount(afterFirstLanding.viewState, PLAYER_A, 'Knots')).toBe(
+      0
+    );
+    expect(afterFirstLanding.viewState.deck.discard).toEqual([]);
+
+    expect(sellLandings.at(-1)?.endMs).toBe(stageSoldCard.startMs);
+
+    const beforeStage = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: stageSoldCard.startMs - 1,
+    });
+    expect(beforeStage.viewState.players[0].hand).toEqual(['6', '7']);
+    expect(resourceCount(beforeStage.viewState, PLAYER_A, 'Knots')).toBe(0);
+
+    const stagedCard = derivePresentationSnapshotFromSequence({
+      transaction,
+      sequence,
+      elapsedMs: stageSoldCard.startMs,
+    });
+    expect(stagedCard.viewState.players[0].hand).toEqual(['7']);
+    expect(resourceCount(stagedCard.viewState, PLAYER_A, 'Moons')).toBe(1);
+    expect(resourceCount(stagedCard.viewState, PLAYER_A, 'Knots')).toBe(1);
+    expect(stagedCard.viewState.deck.discard).toEqual([]);
 
     const committed = derivePresentationSnapshotFromSequence({
       transaction,

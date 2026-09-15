@@ -37,6 +37,9 @@
   card at its next stack position. Deed purchases preview the gray incomplete
   card with zero progress; outright purchases preview a completed card. Ghosts
   and real cards share an edge-based halo independent of artwork filtering.
+  Resource targets distinguish gains from spends, and a gain into an empty suit
+  slot previews the incoming token with the same low-saturation ghost treatment
+  while an occupied suit chip keeps the shared halo.
   Soft halos have no added solid outline; hand cards use a stronger near halo
   to compensate for their warm panel background.
   Category headings do not trigger previews, and end turn highlights nothing.
@@ -328,6 +331,21 @@
   visible income choice resolution rather than normal turn ownership.
   Buy-deed and develop-outright sequences move/place the card into the district
   before launching and applying payment token removal.
+- Sell-card presentation now anchors sale-token flights on the sold card while
+  it is still in the hand, lands each gain on its own `land-sell-token` sequence
+  step, and only stages the card removal and discard flight after the final
+  token lands. Sell timing uses dedicated `sellFlightMs`/`sellFlightStaggerMs`
+  sequence durations, currently seeded from the tax flight timing. Delayed
+  resource flights now stay invisible until their stagger delay elapses
+  (`animation-fill-mode: forwards` with a transparent base style), so
+  staggered same-suit removals no longer render a waiting stack of copies above
+  the departing token.
+- Human hand cards now keep stable identity keys and slide left with a
+  layout-effect FLIP helper when a staged sell or card play compacts the visible
+  hand, instead of snapping. The slide skips cards that are not present across
+  both layouts, new-game resets, and disabled animations; the bot hand fan
+  transitions its spread when the hidden card count changes and honors the same
+  animations toggle.
 - Bridge runtime command surface is stable: `metadata`, `reset`, `legalActions`, `observation`, `step`, `serialize`.
 - Python policy surface is intentionally narrow: `random`, `heuristic`, `search`, `td-value`, `td-search`.
 - Self-play training uses checkpoint selection, accepted-generator gating, replay windows, and `td-lambda` value targets.
@@ -390,7 +408,14 @@
   and heuristic v2 use the ruleset's property pool); the Experimental TD profile
   is standard-only and hidden for extended games. Court art and the Court rank
   symbol are mapped, and the extended ruleset is selectable/evaluable through
-  bot-eval head-to-head configs.
+  bot-eval head-to-head configs. The deck map shows the four Courts below the
+  hexagon in a two-per-row grid of court glyph plus its three backed suit
+  tokens at district-divider size, with the row inset to the hexagon's outer
+  extents, keyed to the active game's ruleset so the row appears only in
+  extended games; an out-of-circulation Court dims like the map's numerals.
+  Deck-map dimming unions the visible presentation state with canonical
+  circulation, so a card staged out of hand before its discard commit (a sold
+  card in flight) no longer flashes dim.
 
 ## Remaining Work
 

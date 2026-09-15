@@ -50,3 +50,8 @@
   opacity: 0.97;
   filter: saturate(0.2) contrast(0.45);
 }
+
+.token-chip.is-token-ghost > .suit-token-face {
+  opacity: 0.97;
+  filter: saturate(0.2) contrast(0.45);
+}

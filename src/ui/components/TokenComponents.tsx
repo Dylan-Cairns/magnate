@@ -1,4 +1,7 @@
-import { useHighlightClass } from './ActionHighlights';
+import {
+  useResourceGainSuits,
+  useResourceHighlightClass,
+} from './ActionHighlights';
 import type { TradeProgress } from '../runtime/types';
 import { ProgressTracker } from './ProgressTracker';
 import { SUITS } from '../../engine/stateHelpers';
@@ -35,7 +38,8 @@ export function TokenRow({
   highlightResources?: boolean;
   tradeProgress?: TradeProgress;
 }) {
-  const highlightClass = useHighlightClass();
+  const resourceHighlightClass = useResourceHighlightClass();
+  const resourceGains = useResourceGainSuits();
   const entries = fixedSuitSlots
     ? SUITS.map((suit) => ({ suit, count: tokens[suit] ?? 0 }))
     : tokenEntries(tokens);
@@ -50,18 +54,34 @@ export function TokenRow({
         className ? ` ${className}` : ''
       }`}
     >
-      {entries.map(({ suit, count }) => (
-        <TokenChip
-          key={suit}
-          suit={suit}
-          count={count}
-          tradeProgress={
-            tradeProgress?.suit === suit ? tradeProgress : undefined
-          }
-          compact={compact}
-          className={`${highlightedSuits?.has(suit) ? 'is-income-highlighted' : ''}${highlightClass({ kind: 'resource', suit }, highlightResources)}`}
-        />
-      ))}
+      {entries.map(({ suit, count }) => {
+        const ghostGain =
+          highlightResources && count === 0 && resourceGains.has(suit);
+        if (ghostGain) {
+          return (
+            <TokenChip
+              key={suit}
+              suit={suit}
+              count={1}
+              compact={compact}
+              preview
+              className={`is-token-ghost${resourceHighlightClass(suit, highlightResources)}`}
+            />
+          );
+        }
+        return (
+          <TokenChip
+            key={suit}
+            suit={suit}
+            count={count}
+            tradeProgress={
+              tradeProgress?.suit === suit ? tradeProgress : undefined
+            }
+            compact={compact}
+            className={`${highlightedSuits?.has(suit) ? 'is-income-highlighted' : ''}${resourceHighlightClass(suit, highlightResources)}`}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -72,6 +92,7 @@ export function TokenChip({
   compact,
   className,
   showTooltip = true,
+  preview = false,
   tradeProgress,
 }: {
   suit: Suit;
@@ -79,15 +100,18 @@ export function TokenChip({
   compact?: boolean;
   className?: string;
   showTooltip?: boolean;
+  preview?: boolean;
   tradeProgress?: TradeProgress;
 }) {
   const isEmpty = count === 0 && !tradeProgress;
+  const showTooltipBubble = showTooltip && !preview;
   return (
     <span
-      className={`token-chip${showTooltip ? ' tooltip-trigger' : ''}${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
+      className={`token-chip${showTooltipBubble ? ' tooltip-trigger' : ''}${compact ? ' compact' : ''}${isEmpty ? ' empty' : ''}${
         className ? ` ${className}` : ''
       }`}
-      data-token-suit={suit}
+      data-token-suit={preview ? undefined : suit}
+      aria-hidden={preview ? true : undefined}
     >
       <SuitTokenFace suit={suit} empty={isEmpty} />
       {count > 1 && <span className="token-count">x{count}</span>}
@@ -102,7 +126,7 @@ export function TokenChip({
           />
         </span>
       ) : null}
-      {showTooltip ? <Tooltip>{suit}</Tooltip> : null}
+      {showTooltipBubble ? <Tooltip>{suit}</Tooltip> : null}
     </span>
   );
 }

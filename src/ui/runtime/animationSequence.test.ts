@@ -215,12 +215,31 @@ describe('buildAnimationSequence', () => {
     const sellSequence = buildAnimationSequence(makeSellCardTransaction());
     expect(stepTypes(sellSequence)).toEqual([
       'hold-previous-state',
+      'launch-sell-token-flights',
+      'land-sell-token',
+      'land-sell-token',
       'stage-sold-card',
-      'apply-sell-resource-gains',
       'commit-view-state',
     ]);
-    expect(step(sellSequence, 'apply-sell-resource-gains').startMs).toBe(
-      step(sellSequence, 'stage-sold-card').endMs
+    const sellFlights = step(sellSequence, 'launch-sell-token-flights');
+    const sellLandings = sellSequence.steps.filter(
+      (candidate) => candidate.type === 'land-sell-token'
+    );
+    expect(sellFlights.durationMs).toBe(0);
+    expect(sellFlights.flightSequenceDurationMs).toBe(
+      DEFAULT_ANIMATION_DURATIONS.sellFlightMs +
+        DEFAULT_ANIMATION_DURATIONS.sellFlightStaggerMs
+    );
+    expect(sellFlights.gains.map((gain) => gain.suit)).toEqual([
+      'Moons',
+      'Knots',
+    ]);
+    expect(sellLandings.map((landing) => landing.endMs)).toEqual([
+      sellFlights.startMs + DEFAULT_ANIMATION_DURATIONS.sellFlightMs,
+      sellFlights.startMs + sellFlights.flightSequenceDurationMs,
+    ]);
+    expect(step(sellSequence, 'stage-sold-card').startMs).toBe(
+      sellLandings.at(-1)?.endMs
     );
 
     const tradeSequence = buildAnimationSequence(makeTradeTransaction());
@@ -318,13 +337,13 @@ describe('buildAnimationSequence', () => {
 
     expect(stepTypes(sequence)).toEqual([
       'hold-previous-state',
+      'launch-sell-token-flights',
+      'land-sell-token',
+      'land-sell-token',
       'stage-sold-card',
-      'apply-sell-resource-gains',
       'commit-view-state',
     ]);
-    expect(sequence.commitMs).toBe(
-      step(sequence, 'apply-sell-resource-gains').endMs
-    );
+    expect(sequence.commitMs).toBe(step(sequence, 'stage-sold-card').endMs);
   });
 });
 

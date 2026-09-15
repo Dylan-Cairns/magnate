@@ -5,9 +5,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { GameAction, GameState } from '../../engine/types';
+import type { GameAction, GameState, Suit } from '../../engine/types';
 import {
   highlightTargetKey,
+  resourceGainSuits,
   sharedActionHighlightTargets,
   type HighlightTarget,
 } from '../actionHighlights';
@@ -95,6 +96,26 @@ export function useHighlightClass() {
     enabled && keys.has(highlightTargetKey(target))
       ? ' is-action-highlighted'
       : '';
+}
+
+export function useResourceHighlightClass() {
+  const { keys } = useContext(HighlightContext);
+  return (suit: Suit, enabled = true): string => {
+    if (!enabled) {
+      return '';
+    }
+    const highlighted =
+      keys.has(highlightTargetKey({ kind: 'resource', suit, effect: 'gain' })) ||
+      keys.has(
+        highlightTargetKey({ kind: 'resource', suit, effect: 'spend' })
+      );
+    return highlighted ? ' is-action-highlighted' : '';
+  };
+}
+
+export function useResourceGainSuits(): ReadonlySet<Suit> {
+  const { targets } = useContext(HighlightContext);
+  return useMemo(() => resourceGainSuits(targets), [targets]);
 }
 
 export function usePlacementGhost(districtId: string) {

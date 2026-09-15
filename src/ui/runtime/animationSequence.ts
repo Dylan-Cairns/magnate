@@ -14,6 +14,8 @@ import {
   PAYMENT_FLIGHT_STAGGER_MS,
   RESOURCE_FLIGHT_DURATION_MS,
   RESOURCE_FLIGHT_STAGGER_MS,
+  SELL_FLIGHT_DURATION_MS,
+  SELL_FLIGHT_STAGGER_MS,
   TURN_CYCLE_INCOME_FLIGHT_DURATION_MS,
   TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS,
   TURN_CYCLE_TAX_FLIGHT_DURATION_MS,
@@ -28,6 +30,8 @@ export type AnimationDurations = {
   actionResourceFlightStaggerMs: number;
   paymentFlightMs: number;
   paymentFlightStaggerMs: number;
+  sellFlightMs: number;
+  sellFlightStaggerMs: number;
   dieRollMs: number;
   taxDieRollMs: number;
   taxPreFlightHoldMs: number;
@@ -48,6 +52,8 @@ export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
   actionResourceFlightStaggerMs: RESOURCE_FLIGHT_STAGGER_MS,
   paymentFlightMs: PAYMENT_FLIGHT_DURATION_MS,
   paymentFlightStaggerMs: PAYMENT_FLIGHT_STAGGER_MS,
+  sellFlightMs: SELL_FLIGHT_DURATION_MS,
+  sellFlightStaggerMs: SELL_FLIGHT_STAGGER_MS,
   dieRollMs: 1000,
   taxDieRollMs: 1000,
   taxPreFlightHoldMs: 550,
@@ -83,12 +89,21 @@ export type AnimationStep =
     }
   | {
       id: string;
-      type: 'apply-sell-resource-gains';
+      type: 'launch-sell-token-flights';
       durationMs: number;
+      flightSequenceDurationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
         { type: 'sell-resource-gained' }
       >[];
+    }
+  | {
+      id: string;
+      type: 'land-sell-token';
+      durationMs: number;
+      gain: Extract<GamePresentationEvent, { type: 'sell-resource-gained' }>;
     }
   | {
       id: string;
@@ -346,16 +361,9 @@ export function buildAnimationSequence(
     });
   }
 
+  appendSellSteps(transaction, steps, durations);
+
   for (const event of transaction.events) {
-    if (event.type === 'card-sold') {
-      steps.push({
-        id: `stage-sold-card:${event.playerId}:${event.cardId}`,
-        type: 'stage-sold-card',
-        durationMs: durations.cardFlightMs + durations.commitBufferMs,
-        playerId: event.playerId,
-        cardId: event.cardId,
-      });
-    }
     if (
       event.type === 'income-choice-submitted' &&
       !deferIncomeChoiceSubmission
@@ -368,7 +376,6 @@ export function buildAnimationSequence(
   appendActionResourcePaymentSteps(transaction, steps, durations);
   appendTradeSteps(transaction, steps, durations);
   appendDeedDevelopmentSteps(transaction, steps, durations);
-  appendSellGainSteps(transaction, steps, durations);
 
   const incomeRoll = firstEvent(transaction, 'income-roll');
   if (incomeRoll) {
@@ -787,11 +794,16 @@ function appendDeedDevelopmentSteps(
   }
 }
 
-function appendSellGainSteps(
+function appendSellSteps(
   transaction: GameTransaction,
   steps: AnimationStep[],
   durations: AnimationDurations
 ): void {
+  const sold = firstEvent(transaction, 'card-sold');
+  if (!sold) {
+    return;
+  }
+
   const gains = transaction.events.filter(
     (
       event
@@ -800,14 +812,39 @@ function appendSellGainSteps(
       { type: 'sell-resource-gained' }
     > => event.type === 'sell-resource-gained'
   );
-  if (gains.length === 0) {
-    return;
+  if (gains.length > 0) {
+    steps.push({
+      id: `launch-sell-token-flights:${sold.playerId}:${sold.cardId}`,
+      type: 'launch-sell-token-flights',
+      durationMs: 0,
+      flightSequenceDurationMs: staggeredDuration(
+        gains.length,
+        durations.sellFlightMs,
+        durations.sellFlightStaggerMs
+      ),
+      flightDurationMs: durations.sellFlightMs,
+      flightStaggerMs: durations.sellFlightStaggerMs,
+      gains,
+    });
+    gains.forEach((gain, index) => {
+      steps.push({
+        id: `land-sell-token:${gain.playerId}:${gain.suit}:${String(gain.tokenIndex)}`,
+        type: 'land-sell-token',
+        durationMs:
+          index === 0
+            ? durations.sellFlightMs
+            : durations.sellFlightStaggerMs,
+        gain,
+      });
+    });
   }
+
   steps.push({
-    id: `apply-sell-resource-gains:${gains[0].playerId}:${gains[0].cardId}`,
-    type: 'apply-sell-resource-gains',
-    durationMs: durations.commitBufferMs,
-    gains,
+    id: `stage-sold-card:${sold.playerId}:${sold.cardId}`,
+    type: 'stage-sold-card',
+    durationMs: durations.cardFlightMs + durations.commitBufferMs,
+    playerId: sold.playerId,
+    cardId: sold.cardId,
   });
 }
 
