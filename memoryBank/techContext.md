@@ -65,10 +65,6 @@
 - Opt-in strategic variant `td-root-search-v2-800-visits` clones TD V2 Medium
   and changes only sampled worlds from 10 to 50. It provides 800 root visits
   without joining the default variant set.
-- Opt-in suffixes `-heuristic-root`, `-heuristic-rollout`, and
-  `-heuristic-root-rollout` select heuristic-v2 guidance for the named hooks at
-  the same 800-visit budget. Leaf remains TD-guided; when terminal rate is 1 it
-  is not invoked.
 - `strategic-forced-rollouts` accepts explicit position, repetition-ID, and
   action-local scenario-ID lists. It forces preserve/overwrite through one
   shared hidden-world/seed schedule under TD and heuristic-v2 rollout play,
@@ -155,7 +151,10 @@
 ## Known Gaps
 
 - Search baseline promotion thresholds still need repeated confirmation.
-- Browser TD deployment needs a current exported `td-root-search-v1` model pack committed under `public/model-packs/`; legacy checked-in browser model artifacts have been removed.
+- Browser TD deployment uses the committed step-9,000 `td-root-search-v1` pack
+  (`public/model-packs/td-hard-extra-data-primary-treatment-step-09000/`), which
+  is the `defaultPackId` in `public/model-packs/index.json`; legacy checked-in
+  browser model artifacts have been removed.
 - Direct TypeScript TD-root matchup throughput can still improve: bot-eval can load local model packs in Node and child-process workers, but each individual Node search decision remains synchronous.
 
 _Updated: 2026-07-29._

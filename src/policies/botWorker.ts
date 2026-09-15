@@ -27,11 +27,6 @@ import {
   createTdRootSearchRolloutGuidance,
   createTdRootSearchRootGuide,
 } from './tdRootSearchPolicy';
-import {
-  resolveTdRootSearchGuidanceConfig,
-  tdRootGuidanceKind,
-  tdRootGuidanceUsesWorkerModel,
-} from './tdRootGuidanceConfig';
 import type { ActionPolicy, SearchDecisionDiagnostics } from './types';
 import type {
   BotWorkerRequest,
@@ -59,7 +54,6 @@ interface SearchGuidanceFactories {
   createRootGuide?: RolloutSearchRootGuideFactory;
   rolloutGuidance?: RolloutSearchRuntimeGuidance;
   workerGuidance?: RolloutSearchWorkerGuidance;
-  guidanceKind?: SearchDecisionDiagnostics['guidance'];
 }
 
 interface SearchActionResult {
@@ -189,9 +183,6 @@ async function selectSearchAction(
         ...(guidance.workerGuidance
           ? { workerGuidance: guidance.workerGuidance }
           : {}),
-        ...(guidance.guidanceKind
-          ? { guidanceKind: guidance.guidanceKind }
-          : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
         ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
@@ -222,7 +213,6 @@ async function selectSearchAction(
     ...(guidance.rolloutGuidance
       ? { rolloutGuidance: guidance.rolloutGuidance }
       : {}),
-    ...(guidance.guidanceKind ? { guidanceKind: guidance.guidanceKind } : {}),
     ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
   });
   return { action, executionMode: 'synchronous' };
@@ -241,43 +231,15 @@ async function createGuidanceForSpec(
   }
   const modelIndexPath =
     spec.modelIndexPath ?? DEFAULT_TD_ROOT_MODEL_INDEX_PATH;
-  const guidanceConfig = resolveTdRootSearchGuidanceConfig(spec.guidance);
-  const needsRuntimeModel =
-    guidanceConfig.root === 'td' ||
-    (includeRuntimeGuidance && tdRootGuidanceUsesWorkerModel(guidanceConfig));
-  const model = needsRuntimeModel
-    ? await preloadTdRootBrowserModel(modelIndexPath)
-    : undefined;
+  const model = await preloadTdRootBrowserModel(modelIndexPath);
   return {
-    ...(guidanceConfig.root === 'td' && model
-      ? {
-          createRootGuide(input) {
-            return createTdRootSearchRootGuide({
-              ...input,
-              model,
-            });
-          },
-        }
+    createRootGuide(input) {
+      return createTdRootSearchRootGuide({ ...input, model });
+    },
+    ...(includeRuntimeGuidance
+      ? { rolloutGuidance: createTdRootSearchRolloutGuidance({ model }) }
       : {}),
-    ...(model && tdRootGuidanceUsesWorkerModel(guidanceConfig)
-      ? {
-          rolloutGuidance: createTdRootSearchRolloutGuidance({
-            model,
-            guidance: guidanceConfig,
-          }),
-        }
-      : {}),
-    ...(tdRootGuidanceUsesWorkerModel(guidanceConfig)
-      ? {
-          workerGuidance: {
-            kind: 'td-root' as const,
-            modelIndexPath,
-            rollout: guidanceConfig.rollout,
-            leaf: guidanceConfig.leaf,
-          },
-        }
-      : {}),
-    guidanceKind: tdRootGuidanceKind(guidanceConfig),
+    workerGuidance: { kind: 'td-root', modelIndexPath },
   };
 }
 

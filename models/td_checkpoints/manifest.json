@@ -1,8 +1,11 @@
 {
   "schemaVersion": 2,
   "generatedAtUtc": "2026-03-09T00:00:00Z",
-  "defaultWarmStart": "promoted",
-  "opponentPool": ["promoted"],
+  "defaultWarmStart": "experimental",
+  "opponentPool": [
+    "experimental",
+    "promoted"
+  ],
   "checkpoints": {
     "promoted": {
       "status": "promoted",
@@ -23,6 +26,19 @@
       "step": 10000,
       "value": "models/td_checkpoints/latest_experimental/value-step-0010000.pt",
       "opponent": "models/td_checkpoints/latest_experimental/opponent-step-0010000.pt"
+    },
+    "experimental": {
+      "status": "promoted",
+      "label": "TD Hard extra-data primary treatment step 9000",
+      "sourceRunId": "td-hard-extra-data-continuation-v1-primary-extra-data-treatment",
+      "step": 9000,
+      "generatedAtUtc": "2026-09-15T06:27:29.608778+00:00",
+      "value": "models/td_checkpoints/experimental/value-step-0009000.pt",
+      "opponent": "models/td_checkpoints/experimental/opponent-step-0009000.pt",
+      "sourceEvalArtifacts": [
+        "artifacts/ts-bot-evals/td-hard-extra-data-continuation-v1-primary-treatment-step-09000-vs-heuristic-v2-medium-120"
+      ]
     }
-  }
+  },
+  "updatedAtUtc": "2026-09-15T06:27:29.608778+00:00"
 }

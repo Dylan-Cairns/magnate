@@ -179,7 +179,7 @@ describe('rollout search core', () => {
         .map((entry) => entry.actionKey)
     );
     expect(diagnostics[0].rootActions[0].prior).toBe(0.8);
-    expect(diagnostics[0].guidance).toBe('custom');
+    expect(diagnostics[0].guidance).toBe('td-root');
   });
 
   it('uses heuristic v2 for configured root expansion order', () => {

@@ -43,16 +43,6 @@ describe('search execution mode validation', () => {
     expect(() =>
       validateSearchExecutionMode(TD_SPEC, 'resumable-paired-td', 1)
     ).toThrow('requires parallel search workers');
-    expect(() =>
-      validateSearchExecutionMode(
-        {
-          ...TD_SPEC,
-          guidance: { rollout: 'heuristic' },
-        },
-        'resumable-paired-td',
-        2
-      )
-    ).toThrow('requires TD rollout guidance');
   });
 
   it('rejects unknown structured-clone payload values', () => {
@@ -74,13 +64,6 @@ describe('search execution mode validation', () => {
   });
 
   it('leaves ineligible and synchronous search behavior unchanged', () => {
-    expect(
-      resolveEffectiveSearchExecutionMode(
-        { ...TD_SPEC, guidance: { rollout: 'heuristic' } },
-        undefined,
-        2
-      )
-    ).toBeUndefined();
     expect(
       resolveEffectiveSearchExecutionMode(
         { ...TD_SPEC, kind: 'search' },

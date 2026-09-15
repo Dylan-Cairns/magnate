@@ -1,6 +1,6 @@
 # Memory Bank Guide
 
-Use this guide with `AGENTS.md`..
+Use this guide with `AGENTS.md`.
 
 ## Core Files (always review)
 

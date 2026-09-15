@@ -20,12 +20,6 @@ import {
   type SearchPolicyOptions,
 } from './searchConfig';
 import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
-import {
-  resolveTdRootSearchGuidanceConfig,
-  tdRootGuidanceKind,
-  tdRootGuidanceUsesModel,
-  type TdRootSearchGuidanceConfig,
-} from './tdRootGuidanceConfig';
 import { encodeActionCandidates, encodeObservation } from './trainingEncoding';
 import type { ActionPolicy } from './types';
 
@@ -35,7 +29,6 @@ export type TdRootSearchPolicyOptions = SearchPolicyOptions & {
   modelIndexPath?: string;
   loadModel?: () => Promise<LoadedTdGuidanceModel>;
   rootPriorTemperature?: number;
-  guidance?: TdRootSearchGuidanceConfig;
 };
 
 const DEFAULT_ROOT_PRIOR_TEMPERATURE = 1.0;
@@ -47,7 +40,6 @@ export function createTdRootSearchPolicy(
   const rootPriorTemperature = resolveRootPriorTemperature(
     options.rootPriorTemperature ?? DEFAULT_ROOT_PRIOR_TEMPERATURE
   );
-  const guidanceConfig = resolveTdRootSearchGuidanceConfig(options.guidance);
   const configuredLoader =
     options.loadModel ??
     (() =>
@@ -80,15 +72,7 @@ export function createTdRootSearchPolicy(
         return candidateActions[0];
       }
 
-      const model = tdRootGuidanceUsesModel(guidanceConfig)
-        ? await getModel()
-        : undefined;
-      const rolloutGuidance = model
-        ? createTdRootSearchRolloutGuidance({
-            model,
-            guidance: guidanceConfig,
-          })
-        : undefined;
+      const model = await getModel();
       return selectRolloutSearchActionSync({
         state,
         view,
@@ -96,19 +80,14 @@ export function createTdRootSearchPolicy(
         config,
         random,
         ...(randomSeed ? { randomSeed } : {}),
-        ...(guidanceConfig.root === 'td' && model
-          ? {
-              createRootGuide(input) {
-                return createTdRootSearchRootGuide({
-                  ...input,
-                  model,
-                  rootPriorTemperature,
-                });
-              },
-            }
-          : {}),
-        ...(rolloutGuidance ? { rolloutGuidance } : {}),
-        guidanceKind: tdRootGuidanceKind(guidanceConfig),
+        createRootGuide(input) {
+          return createTdRootSearchRootGuide({
+            ...input,
+            model,
+            rootPriorTemperature,
+          });
+        },
+        rolloutGuidance: createTdRootSearchRolloutGuidance({ model }),
         onSearchDiagnostics,
         onProgress,
       });
@@ -171,34 +150,20 @@ export function createTdRootSearchRootGuide({
 
 export function createTdRootSearchRolloutGuidance({
   model,
-  guidance,
 }: {
   model: LoadedTdGuidanceModel;
-  guidance?: Pick<TdRootSearchGuidanceConfig, 'rollout' | 'leaf'>;
 }): RolloutSearchRuntimeGuidance {
-  const resolved = {
-    rollout: guidance?.rollout ?? 'td',
-    leaf: guidance?.leaf ?? 'td',
-  };
-  const runtimeGuidance: RolloutSearchRuntimeGuidance = {};
-  if (resolved.leaf === 'td') {
-    runtimeGuidance.evaluateLeaf = ({ state, rootPlayer }) =>
-      tdLeafValue({ state, rootPlayer, model });
-  }
-  if (resolved.rollout === 'td') {
-    runtimeGuidance.chooseRolloutAction = ({
-      state,
-      actions,
-      decisionPlayer,
-    }) =>
+  return {
+    evaluateLeaf: ({ state, rootPlayer }) =>
+      tdLeafValue({ state, rootPlayer, model }),
+    chooseRolloutAction: ({ state, actions, decisionPlayer }) =>
       chooseTdRolloutAction({
         state,
         actions,
         decisionPlayer,
         model,
-      });
-  }
-  return runtimeGuidance;
+      }),
+  };
 }
 
 function tdLeafValue({

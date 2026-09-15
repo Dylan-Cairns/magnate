@@ -11,10 +11,10 @@
 - Use `scripts.run_td_loop` for bootstrap or recalibration and `scripts.run_td_loop_selfplay` for forward self-play.
 - Keep promoted checkpoint registration portable through `models/td_checkpoints/manifest.json`.
 - Keep the Python training/eval runtime fail-fast and bridge-backed.
-- Compare the imported-data experiment's frozen step-9,000 primary-treatment
-  checkpoint with the historical heuristic-v2-medium result before deciding
-  whether its sealed final test is worth spending. Mixed replication still
-  blocks promotion.
+- The imported-data experiment's frozen step-9,000 primary-treatment
+  checkpoint is now promoted as the checked-in `experimental` manifest entry
+  and exported as the default browser TD model pack. Its sealed final test
+  remains unspent.
 
 ## Locked Decisions
 
@@ -48,7 +48,11 @@
   Terminal boards also persist, with session-ID-based history deduplication.
   Unfinished work after the last checkpoint may be replayed; full offline app
   loading remains outside this feature.
-- Browser play is functional with selectable bot profiles behind a shared async policy contract.
+- Browser play is functional with selectable bot profiles behind a shared async
+  policy contract. The browser catalog exposes exactly four profiles: Easy,
+  Medium, and Hard (`rollout-search-v2-*`, heuristic v2) and Experimental
+  (all-TD `td-root-search-v2-medium` using the default browser pack, now the
+  promoted step-9,000 checkpoint).
 - Local and CI JavaScript tooling now uses fnm with `.nvmrc` pinning Node
   22.23.1, an explicit Node 22 engine range, and a Corepack-managed Yarn
   4.15.0 pin matching the modern Yarn lockfile. Windows runtime helpers can recover the pinned fnm Node from
@@ -69,9 +73,9 @@
   p95 regression, and a 1.289x total speedup. The complete evidence and artifact
   location are documented in
   `docs/runbooks/td-outer-worker-shadow-benchmark.md`.
-- Eligible parallel browser TD-root searches with TD rollout guidance now
-  resolve omitted execution mode to the paired lockstep executor. Synchronous,
-  ordinary search, and heuristic-rollout paths remain unchanged. The browser
+- Eligible parallel browser TD-root searches now
+  resolve omitted execution mode to the paired lockstep executor. Synchronous
+  and ordinary heuristic rollout-search paths remain unchanged. The browser
   query `tdSearchExecutor=legacy` is the session rollback;
   `tdSearchExecutor=paired` is an explicit diagnostic selection, and invalid
   values fail rather than falling back. The paired worker path verifies that
@@ -210,7 +214,12 @@
   rollout with heuristic-v2 rollout increased harmful choices in the v1
   holdout, so that hybrid is not a general remedy.
 - Rollout-search and TD-root search use a deterministic root-search core with stable action keys, seeded world sampling, no-log simulation stepping, diagnostics, and optional worker-backed execution.
-- TD-root search is the canonical TD-guided browser rollout path and now supports per-hook guidance selection for experiments: root ranking/priors, rollout playout actions, and non-terminal leaf evaluation can each use either TD model guidance or the existing heuristic fallback. Omitted guidance config preserves the original all-TD behavior. It loads `td-root-search-v1` static model packs and fails fast when a requested TD-guided hook has no valid pack available.
+- TD-root search is the canonical TD-guided browser rollout path. Root
+  ranking/priors, rollout playout actions, and non-terminal leaf evaluation
+  always use the TD model; the former per-hook heuristic-mixing guidance config,
+  its catalog profile, and its bot-eval ablations have been removed. It loads
+  `td-root-search-v1` static model packs and fails fast when the pack is missing
+  or invalid.
 - Rollout-search simulations use no-log engine stepping so simulated playouts do
   not grow/copy human-readable game logs; real games and exported transcripts
   still use normal logged stepping.
@@ -387,10 +396,10 @@
 
 ## Immediate Next Steps
 
-1. Review the step-9,000 candidate's decisive win-rate gain (82.5% vs 73.3%)
-   and decide whether to override the development-replication promotion block,
-   register the candidate in `models/td_checkpoints/manifest.json`, or evaluate
-   it against the sealed 100-game final test first.
+1. The step-9,000 candidate (82.5% vs heuristic-v2 medium) is promoted as the
+   `experimental` manifest entry, is the default training warm start/opponent
+   pool entry, and is playable as the browser's Experimental profile. Decide
+   whether to spend the sealed 100-game final test on it.
 2. Write a short design and guardrail plan for enforcing fixed-D3 S4 symmetry
    in the opponent/action architecture, while preserving the existing replay,
    checkpoint, and browser-export contracts where practical.
@@ -407,4 +416,4 @@
 7. Keep docs aligned by replacing stale Memory Bank bullets rather than
    appending task history.
 
-_Updated: 2026-09-08._
+_Updated: 2026-09-15._

@@ -9,10 +9,6 @@ import {
   createTdRootSearchPolicy,
   type TdRootSearchPolicyOptions,
 } from './tdRootSearchPolicy';
-import type {
-  TdRootGuidanceSource,
-  TdRootSearchGuidanceConfig,
-} from './tdRootGuidanceConfig';
 import type { ActionPolicy } from './types';
 
 export type BotKind =
@@ -42,7 +38,6 @@ export interface TdRootSearchBotSpec {
   kind: 'td-root-search';
   config: SearchPolicyConfig;
   modelIndexPath?: string;
-  guidance?: TdRootSearchGuidanceConfig;
 }
 
 export type BotSpec =
@@ -70,7 +65,6 @@ export function createPolicyFromBotSpec(
       return createTdRootSearchPolicy({
         ...spec.config,
         modelIndexPath: spec.modelIndexPath,
-        guidance: spec.guidance,
         loadModel: overrides.tdRootSearchLoadModel,
       });
   }
@@ -100,10 +94,6 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
         modelIndexPath: optionalString(
           source.modelIndexPath,
           `${label}.modelIndexPath`
-        ),
-        guidance: parseOptionalTdRootGuidanceConfig(
-          source.guidance,
-          `${label}.guidance`
         ),
       });
     default:
@@ -189,34 +179,6 @@ function optionalSearchHeuristic(
     return value;
   }
   throw new Error(`${label} must be v1 or v2.`);
-}
-
-function parseOptionalTdRootGuidanceConfig(
-  value: unknown,
-  label: string
-): TdRootSearchGuidanceConfig | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  const source = requiredRecord(value, label);
-  return optionalObjectProperties({
-    root: optionalTdRootGuidanceSource(source.root, `${label}.root`),
-    rollout: optionalTdRootGuidanceSource(source.rollout, `${label}.rollout`),
-    leaf: optionalTdRootGuidanceSource(source.leaf, `${label}.leaf`),
-  });
-}
-
-function optionalTdRootGuidanceSource(
-  value: unknown,
-  label: string
-): TdRootGuidanceSource | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === 'td' || value === 'heuristic') {
-    return value;
-  }
-  throw new Error(`${label} must be td or heuristic.`);
 }
 
 function optionalObjectProperties<T extends object>(value: T): T {

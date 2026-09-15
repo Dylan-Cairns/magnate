@@ -54,13 +54,18 @@ const DEFAULT_BOT_DELAY_MS = 450;
 const BOT_DIAGNOSTICS_QUERY_KEY = 'botDiagnostics';
 const BOT_PROFILE_STORAGE_KEY = 'magnate:botProfileId';
 
+function sanitizeBotProfileId(id: string | undefined): BotProfileId {
+  return (
+    BOT_PROFILES.find((profile) => profile.id === id && profile.available)
+      ?.id ?? DEFAULT_BOT_PROFILE_ID
+  );
+}
+
 function readBotProfilePreference(): BotProfileId {
   if (typeof window === 'undefined') return DEFAULT_BOT_PROFILE_ID;
   try {
-    const stored = window.localStorage.getItem(BOT_PROFILE_STORAGE_KEY);
-    return (
-      BOT_PROFILES.find((profile) => profile.id === stored && profile.available)
-        ?.id ?? DEFAULT_BOT_PROFILE_ID
+    return sanitizeBotProfileId(
+      window.localStorage.getItem(BOT_PROFILE_STORAGE_KEY) ?? undefined
     );
   } catch {
     return DEFAULT_BOT_PROFILE_ID;
@@ -161,8 +166,10 @@ export function useGameController({
   const [awaitingResumeInput, setAwaitingResumeInput] = useState(
     Boolean(initialSave.save)
   );
-  const [botProfileId, setBotProfileId] = useState<BotProfileId>(
-    () => initialSave.save?.botProfileId ?? readBotProfilePreference()
+  const [botProfileId, setBotProfileId] = useState<BotProfileId>(() =>
+    sanitizeBotProfileId(
+      initialSave.save?.botProfileId ?? readBotProfilePreference()
+    )
   );
   useEffect(() => {
     persistBotProfilePreference(botProfileId);

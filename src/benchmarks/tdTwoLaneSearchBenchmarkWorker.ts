@@ -312,10 +312,7 @@ async function runDecision(
     workerGuidance: {
       kind: 'td-root',
       modelIndexPath: DEFAULT_TD_ROOT_MODEL_INDEX_PATH,
-      rollout: 'td',
-      leaf: 'td',
     },
-    guidanceKind: 'td-root',
     batchSize: batchSize(workers),
     parallelWorkers: workers,
     onSearchDiagnostics(value) {

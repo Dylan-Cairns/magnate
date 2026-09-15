@@ -792,16 +792,10 @@ def _td_root_bot_spec(
     full_games: dict[str, Any],
 ) -> dict[str, Any]:
     spec = _require_object(full_games, "botSpec")
-    guidance = _require_object(spec, "guidance")
     return {
         "id": bot_id,
         "kind": "td-root-search",
         "modelIndexPath": f"{model_index_path}?tdPackId={pack_id}",
-        "guidance": {
-            "root": _require_str(guidance, "root"),
-            "rollout": _require_str(guidance, "rollout"),
-            "leaf": _require_str(guidance, "leaf"),
-        },
         "config": {
             "worlds": _require_int(spec, "worlds"),
             "rollouts": _require_int(spec, "rollouts"),

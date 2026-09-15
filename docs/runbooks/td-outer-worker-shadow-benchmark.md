@@ -13,9 +13,8 @@ the authoritative lane reports `legacy` and the default lane reports
 
 ## Browser default and rollback
 
-Parallel `td-root-search` policies with TD rollout guidance now use paired
-execution by default. Synchronous search, ordinary rollout search, and
-TD-root policies with heuristic rollout guidance retain their prior execution
+Parallel `td-root-search` policies use paired execution by default.
+Synchronous search and ordinary rollout search retain their prior execution
 paths.
 
 To roll an affected browser session back to the legacy executor, add:
