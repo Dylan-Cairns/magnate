@@ -33,6 +33,7 @@ describe('deriveAnimationVisualCommands', () => {
     expect(drawFlight).toEqual({
       type: 'launch-draw-card-flight',
       atMs: step(sequence, 'draw-card-flight').startMs,
+      landingMs: step(sequence, 'draw-card-flight').endMs,
       playerId: PLAYER_A,
       cardId: '7',
     });

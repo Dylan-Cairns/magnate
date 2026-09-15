@@ -141,19 +141,6 @@
         var(--card-flight-start-scale-x, 1),
         var(--card-flight-start-scale-y, 1)
       );
-    opacity: 1;
-  }
-
-  88% {
-    transform: translate(
-        calc(-50% + var(--card-flight-dx)),
-        calc(-50% + var(--card-flight-dy))
-      )
-      scale(
-        var(--card-flight-end-scale-x, 1),
-        var(--card-flight-end-scale-y, 1)
-      );
-    opacity: 1;
   }
 
   100% {
@@ -165,6 +152,5 @@
         var(--card-flight-end-scale-x, 1),
         var(--card-flight-end-scale-y, 1)
       );
-    opacity: 0;
   }
 }

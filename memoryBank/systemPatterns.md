@@ -295,6 +295,12 @@ Design expectations:
 - The bot hand fan may transition its spread transform when the hidden card
   count changes; component-level CSS transitions should be disabled alongside
   the animations preference.
+- Draw-card presentation should keep the flight copy opaque until the visible
+  hand card is revealed, then remove the copy in the same snapshot update that
+  reveals the card. Card flights carry an optional presentation landing time
+  symmetric to resource flights, so reveal and copy removal batch into one
+  React commit instead of relying on a CSS fade that can finish before the
+  reveal and flash an empty hand slot.
 - Sequence-derived card visual commands should execute through command-specific
   DOM flight builders. A draw, sell, or card-to-district launch command already
   identifies the visual intent; hook-level execution should not rediscover that

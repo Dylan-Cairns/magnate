@@ -172,7 +172,13 @@ export function useGameAnimations() {
             if (flights.length === 0) {
               return;
             }
-            setCardFlights((existing) => [...existing, ...flights]);
+            setCardFlights((existing) => [
+              ...existing,
+              ...flights.map((flight) => ({
+                ...flight,
+                presentationLandingMs: command.landingMs,
+              })),
+            ]);
           });
           return;
         case 'launch-sold-card-flight':
@@ -459,6 +465,9 @@ export function useGameAnimations() {
           setResourceFlights((existing) =>
             resourceFlightsAfterPresentationTime(existing, atMs)
           );
+          setCardFlights((existing) =>
+            cardFlightsAfterPresentationTime(existing, atMs)
+          );
           setPresentationSnapshot(snapshot);
         }
       );
@@ -673,6 +682,17 @@ export function resourceFlightsAfterPresentationTime(
   flights: readonly ResourceFlight[],
   elapsedMs: number
 ): readonly ResourceFlight[] {
+  return flights.filter(
+    (flight) =>
+      flight.presentationLandingMs === undefined ||
+      flight.presentationLandingMs > elapsedMs
+  );
+}
+
+export function cardFlightsAfterPresentationTime(
+  flights: readonly CardFlight[],
+  elapsedMs: number
+): readonly CardFlight[] {
   return flights.filter(
     (flight) =>
       flight.presentationLandingMs === undefined ||
