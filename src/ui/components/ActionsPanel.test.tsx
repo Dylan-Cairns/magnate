@@ -142,6 +142,12 @@ describe('ActionsPanel', () => {
         ],
       })
     ).toContain('actions-panel is-active');
+    expect(
+      renderPanel({
+        isIncomeChoicePhase: true,
+        visibleActionItems: [],
+      })
+    ).not.toContain('actions-panel is-active');
   });
 
   it('hides bot wait text during a non-income turn-cycle lock', () => {
@@ -172,6 +178,7 @@ describe('ActionsPanel', () => {
     });
 
     expect(html).toContain('Choose Income');
+    expect(html).toContain('actions-panel is-active');
   });
 
   it('renders grouped income choices as card-summary submenu buttons', () => {
@@ -219,6 +226,7 @@ describe('ActionsPanel', () => {
 
     expect(html).toContain('Resolving income choices...');
     expect(html).not.toContain('No legal actions.');
+    expect(html).not.toContain('actions-panel is-active');
   });
 
   it.each([false, true])(

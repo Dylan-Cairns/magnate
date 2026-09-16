@@ -12,6 +12,8 @@ import {
   actionCategoryForItem,
   actionCategoryLabel,
   buildDevelopOutrightGroupPresentation,
+  hasVisibleIncomeChoiceActions,
+  isHumanInputActive,
 } from '../actionPanelModel';
 import type { ActionPickerState } from '../actionPickerModel';
 import {
@@ -125,15 +127,17 @@ export function ActionsPanel({
   ) => void;
 }) {
   const hoverProps = useActionHover();
-  const hasVisibleIncomeChoiceActions = visibleActionItems.some(
-    (item) =>
-      (item.kind === 'action' && item.action.type === 'choose-income-suit') ||
-      item.kind === 'income-choice-group'
-  );
   const humanInputOwned =
-    activePlayerId === humanPlayerId || hasVisibleIncomeChoiceActions;
-  const humanInputAvailable =
-    !terminal && !humanActionUiBlockedByAnimation && humanInputOwned;
+    activePlayerId === humanPlayerId ||
+    hasVisibleIncomeChoiceActions(visibleActionItems);
+  const humanInputAvailable = isHumanInputActive({
+    terminal,
+    activePlayerId,
+    humanPlayerId,
+    visibleActionItems,
+    humanActionUiBlockedByAnimation,
+    isIncomeChoicePhase,
+  });
 
   return (
     <section
