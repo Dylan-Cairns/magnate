@@ -41,6 +41,7 @@ export interface HeuristicV2SelectionContext {
   state: GameState;
   view: PlayerView;
   legalActions: readonly GameAction[];
+  deedPotentialBase?: number;
 }
 
 export interface HeuristicV2ScoredAction extends KeyedAction {
@@ -50,7 +51,10 @@ export interface HeuristicV2ScoredAction extends KeyedAction {
 }
 
 type HeuristicV2EvaluationContext = Partial<
-  Pick<HeuristicV2SelectionContext, 'state' | 'view' | 'legalActions'>
+  Pick<
+    HeuristicV2SelectionContext,
+    'state' | 'view' | 'legalActions' | 'deedPotentialBase'
+  >
 >;
 
 interface ResolvedHeuristicV2Context {
@@ -60,6 +64,7 @@ interface ResolvedHeuristicV2Context {
   positionContext: HeuristicV2PositionContext;
   tokenContext: TokenValueContextV2;
   earningPotential: number;
+  deedPotentialBase: number;
 }
 
 interface CachedHeuristicV2Score extends KeyedAction {
@@ -201,7 +206,13 @@ function scoreHeuristicV2ActionWithContext(
   const earningWeight = earningWeightForPhase(phase);
 
   return (
-    scoringWeight * scoringDeltaForAction(action, state, activePlayerId) +
+    scoringWeight *
+      scoringDeltaForAction(
+        action,
+        state,
+        activePlayerId,
+        resolved.deedPotentialBase
+      ) +
     earningWeight * earningDeltaForAction(action, resolved, projected) +
     TOKEN_VALUE_WEIGHT *
       tokenDeltaForActionV2(
@@ -297,6 +308,16 @@ function resolveContext(context: HeuristicV2EvaluationContext):
     activePlayerId
   );
   const access = suitAccessBySuitForPlayerV2(positionContext, activePlayerId);
+  const deedPotentialBase = context.deedPotentialBase ?? 0;
+  if (
+    !Number.isFinite(deedPotentialBase) ||
+    deedPotentialBase < 0 ||
+    deedPotentialBase > 1
+  ) {
+    throw new Error(
+      `Heuristic v2 deedPotentialBase must be in [0, 1]; received ${String(deedPotentialBase)}.`
+    );
+  }
   return {
     state,
     activePlayerId,
@@ -309,13 +330,15 @@ function resolveContext(context: HeuristicV2EvaluationContext):
       positionContext
     ),
     earningPotential: earningPotentialValueFromAccess(access),
+    deedPotentialBase,
   };
 }
 
 function scoringDeltaForAction(
   action: GameAction,
   state: GameState,
-  playerId: PlayerId
+  playerId: PlayerId,
+  deedPotentialBase: number
 ): number {
   if (!isDistrictAction(action)) {
     return 0;
@@ -327,12 +350,18 @@ function scoringDeltaForAction(
     return 0;
   }
   const opponentId = otherPlayerId(playerId);
-  const beforeMargin = potentialDistrictMargin(district, playerId, opponentId);
+  const beforeMargin = potentialDistrictMargin(
+    district,
+    playerId,
+    opponentId,
+    deedPotentialBase
+  );
   const afterDistrict = projectDistrictAction(district, action, playerId);
   const afterMargin = potentialDistrictMargin(
     afterDistrict,
     playerId,
-    opponentId
+    opponentId,
+    deedPotentialBase
   );
   return (
     Math.tanh(afterMargin / SCORING_SCALE) -
@@ -413,15 +442,19 @@ function requiresProjectedTokenContext(action: GameAction): boolean {
 function potentialDistrictMargin(
   district: DistrictState,
   playerId: PlayerId,
-  opponentId: PlayerId
+  opponentId: PlayerId,
+  deedPotentialBase: number
 ): number {
   return (
-    potentialStackScore(district.stacks[playerId]) -
-    potentialStackScore(district.stacks[opponentId])
+    potentialStackScore(district.stacks[playerId], deedPotentialBase) -
+    potentialStackScore(district.stacks[opponentId], deedPotentialBase)
   );
 }
 
-function potentialStackScore(stack: DistrictStack): number {
+function potentialStackScore(
+  stack: DistrictStack,
+  deedPotentialBase: number
+): number {
   const developedScore = districtScore(stack);
   if (!stack.deed) {
     return developedScore;
@@ -435,7 +468,11 @@ function potentialStackScore(stack: DistrictStack): number {
     return developedScore;
   }
   const completionRatio = clamp(stack.deed.progress / target, 0, 1);
-  const completionWeight = completionRatio * completionRatio;
+  // A newly bought deed already opens a control path; progress earns the rest
+  // of the potential quadratically, up to full credit on completion.
+  const completionWeight =
+    deedPotentialBase +
+    (1 - deedPotentialBase) * completionRatio * completionRatio;
   return (
     developedScore +
     incrementalDevelopedScore(stack.developed, card.id) * completionWeight

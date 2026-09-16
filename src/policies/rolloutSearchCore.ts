@@ -199,6 +199,13 @@ interface ScheduledVisit {
   actionKey: string;
 }
 
+interface SearchHeuristicContext {
+  state?: GameState;
+  view?: PlayerView;
+  legalActions?: readonly GameAction[];
+  deedPotentialBase?: number;
+}
+
 interface RolloutSearchFinalResult {
   action: GameAction;
   actionKey: string;
@@ -477,7 +484,8 @@ function* runRolloutSearchTaskResumableGenerator(
       nextAction = bestActionByHeuristic(
         actions,
         { state, view: toDecisionPlayerView(state, decisionPlayer) },
-        task.config.heuristic
+        task.config.heuristic,
+        task.config.deedPotentialBase
       )?.action;
     }
     if (!nextAction) {
@@ -571,6 +579,7 @@ function createRolloutSearchSession({
       view,
       candidateActions,
       heuristic: config.heuristic,
+      deedPotentialBase: config.deedPotentialBase,
     });
 
   return new RolloutSearchSession({
@@ -595,10 +604,12 @@ export function createHeuristicRolloutSearchRootGuide({
   view,
   candidateActions,
   heuristic = 'v1',
+  deedPotentialBase,
 }: Pick<RolloutSearchSelectionInput, 'state' | 'view' | 'candidateActions'> & {
   heuristic?: SearchHeuristicVersion;
+  deedPotentialBase?: number;
 }): RolloutSearchRootGuide {
-  const heuristicContext = { state, view };
+  const heuristicContext = { state, view, deedPotentialBase };
   return {
     rankedRootActions: rankActionsByHeuristic(
       candidateActions,
@@ -1011,7 +1022,8 @@ function chooseRolloutAction(
   const best = bestActionByHeuristic(
     actions,
     { state, view: toDecisionPlayerView(state, decisionPlayer) },
-    config.heuristic
+    config.heuristic,
+    config.deedPotentialBase
   );
   if (!best) {
     throw new Error('Rollout search could not select from legal actions.');
@@ -1021,18 +1033,19 @@ function chooseRolloutAction(
 
 function bestActionByHeuristic(
   actions: readonly GameAction[],
-  context: Parameters<typeof bestHeuristicAction>[1],
-  heuristic: SearchHeuristicVersion | undefined
+  context: SearchHeuristicContext,
+  heuristic: SearchHeuristicVersion | undefined,
+  deedPotentialBase: number | undefined
 ): KeyedAction | undefined {
   if (heuristic === 'v2') {
-    return bestHeuristicV2Action(actions, context);
+    return bestHeuristicV2Action(actions, { ...context, deedPotentialBase });
   }
   return bestHeuristicAction(actions, context);
 }
 
 function rankActionsByHeuristic(
   actions: readonly GameAction[],
-  context: Parameters<typeof rankHeuristicActions>[1],
+  context: SearchHeuristicContext,
   heuristic: SearchHeuristicVersion | undefined
 ): KeyedAction[] {
   if (heuristic === 'v2') {
@@ -1043,7 +1056,7 @@ function rankActionsByHeuristic(
 
 function priorsByHeuristic(
   actions: readonly GameAction[],
-  context: Parameters<typeof heuristicPriorsByKey>[1],
+  context: SearchHeuristicContext,
   heuristic: SearchHeuristicVersion | undefined
 ): Map<string, number> {
   if (heuristic === 'v2') {

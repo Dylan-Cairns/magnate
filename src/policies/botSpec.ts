@@ -122,7 +122,15 @@ function parseSearchConfig(value: unknown, label: string): SearchPolicyConfig {
     source.heuristic,
     `${label}.heuristic`
   );
-  return heuristic ? { ...config, heuristic } : config;
+  const deedPotentialBase = optionalProbability(
+    source.deedPotentialBase,
+    `${label}.deedPotentialBase`
+  );
+  return optionalObjectProperties({
+    ...config,
+    ...(heuristic ? { heuristic } : {}),
+    ...(deedPotentialBase !== undefined ? { deedPotentialBase } : {}),
+  });
 }
 
 function requiredRecord(
@@ -166,6 +174,16 @@ function requiredProbability(value: unknown, label: string): number {
     throw new Error(`${label} must be a finite number in [0, 1].`);
   }
   return value;
+}
+
+function optionalProbability(
+  value: unknown,
+  label: string
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return requiredProbability(value, label);
 }
 
 function optionalSearchHeuristic(

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "court-fix-deed-base-sweep-extended-v1",
+  "seedPrefix": "court-fix-deed-base-sweep-extended-v1",
+  "gamesPerSide": 40,
+  "opponent": {
+    "id": "v2-deed-base-000",
+    "kind": "search",
+    "config": {
+      "worlds": 10,
+      "rollouts": 1,
+      "depth": 40,
+      "maxRootActions": 16,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2",
+      "deedPotentialBase": 0
+    }
+  },
+  "candidates": [
+    {
+      "id": "v2-deed-base-015",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 1,
+        "depth": 40,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0,
+        "heuristic": "v2",
+        "deedPotentialBase": 0.15
+      }
+    },
+    {
+      "id": "v2-deed-base-020",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 1,
+        "depth": 40,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0,
+        "heuristic": "v2",
+        "deedPotentialBase": 0.2
+      }
+    },
+    {
+      "id": "v2-deed-base-025",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 1,
+        "depth": 40,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0,
+        "heuristic": "v2",
+        "deedPotentialBase": 0.25
+      }
+    },
+    {
+      "id": "v2-deed-base-030",
+      "kind": "search",
+      "config": {
+        "worlds": 10,
+        "rollouts": 1,
+        "depth": 40,
+        "maxRootActions": 16,
+        "rolloutEpsilon": 0,
+        "heuristic": "v2",
+        "deedPotentialBase": 0.3
+      }
+    }
+  ],
+  "ruleset": "extended"
+}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
 
 import {
   parseHeadToHeadConfig,
@@ -7,6 +8,37 @@ import {
 } from './config';
 
 describe('head-to-head config parsing', () => {
+  it('parses the checked-in court-fix benchmark configs', async () => {
+    const directory = 'configs/bot-eval/court-fix';
+    for (const file of [
+      'standard-medium-ab.json',
+      'extended-medium-ab.json',
+      'standard-hard-smoke.json',
+      'extended-hard-smoke.json',
+    ]) {
+      const payload: unknown = JSON.parse(
+        await readFile(`${directory}/${file}`, 'utf8')
+      );
+      const config = parseHeadToHeadConfig(payload);
+      expect(
+        config.candidate.kind === 'search' &&
+          config.candidate.config.deedPotentialBase
+      ).toBe(0.2);
+      expect(
+        config.opponent.kind === 'search' &&
+          config.opponent.config.deedPotentialBase
+      ).toBe(0);
+    }
+
+    const sweepPayload: unknown = JSON.parse(
+      await readFile(`${directory}/deed-base-sweep-extended.json`, 'utf8')
+    );
+    const sweep = parseRolloutSearchSweepConfig(sweepPayload);
+    expect(sweep.candidates.map((candidate) => candidate.config.deedPotentialBase)).toEqual(
+      [0.15, 0.2, 0.25, 0.3]
+    );
+  });
+
   it('resolves catalog profile references and arbitrary specs', () => {
     const config = parseHeadToHeadConfig({
       schemaVersion: 1,

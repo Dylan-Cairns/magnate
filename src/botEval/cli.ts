@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -8,6 +9,11 @@ import {
   type HeadToHeadArtifactOptions,
   writeHeadToHeadArtifacts,
 } from './artifacts';
+import { writeAtomic } from './artifactUtils';
+import {
+  buildDeedPotentialReport,
+  renderDeedPotentialReportMarkdown,
+} from './deedPotentialReport';
 import {
   parseHeadToHeadConfig,
   parseRolloutSearchSweepConfig,
@@ -82,6 +88,9 @@ async function main(): Promise<void> {
     case 'replay':
       await runReplayCommand(args);
       return;
+    case 'deed-potential-report':
+      await runDeedPotentialReportCommand(args);
+      return;
     case 'rollout-search-sweep':
       await runRolloutSearchSweepCommand(args);
       return;
@@ -102,7 +111,7 @@ async function main(): Promise<void> {
       return;
     default:
       throw new Error(
-        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry (--replay-dir <path> | --replay-list <path>) [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | replay --artifact <path> --game-id <id>'
+        'Usage: yarn bot:eval head-to-head --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | rollout-search-sweep --config <path> [--out-dir <path>] [--workers <positive-integer>] [--progress-interval-seconds <number>] | collect-td-replay --config <path> [--out-dir <path>] [--progress-interval-seconds <number>] | collect-td-replay-sharded --config <path> [--out-dir <path>] [--workers <positive-integer>] [--shard-games <positive-integer>] [--progress-interval-seconds <number>] | strategic-positions [--out-dir <path>] [--repetitions <positive-integer>] [--start-repetition <nonnegative-integer>] [--positions <comma-separated-ids>] [--variants <comma-separated-ids>] | strategic-forced-rollouts [--out-dir <path>] [--positions <comma-separated-ids>] [--repetitions <comma-separated-nonnegative-integers>] [--scenarios <comma-separated-nonnegative-integers>] | td-symmetry (--replay-dir <path> | --replay-list <path>) [--sample-size <positive-integer>] [--sampling-seed <text>] [--pack-id <id>] [--model-index-path <public-relative-path>] [--worst-case-limit <nonnegative-integer>] [--out-dir <path>] [--progress-interval-seconds <number>] | deed-potential-report --artifact <path> [--out-dir <path>] | replay --artifact <path> --game-id <id>'
       );
   }
 }
@@ -550,6 +559,28 @@ async function runReplayCommand(args: readonly string[]): Promise<void> {
   const artifact = await loadHeadToHeadArtifact(artifactPath);
   const result = await replayArtifactGame(artifact, gameId);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
+
+async function runDeedPotentialReportCommand(
+  args: readonly string[]
+): Promise<void> {
+  const flags = parseFlags(args);
+  const artifactPath = requiredFlag(flags, '--artifact');
+  const artifact = await loadHeadToHeadArtifact(artifactPath);
+  const report = buildDeedPotentialReport(artifact, path.resolve(artifactPath));
+  const markdown = renderDeedPotentialReportMarkdown(report);
+  const outputDirectory = flags.get('--out-dir');
+  if (outputDirectory) {
+    await mkdir(outputDirectory, { recursive: true });
+    const reportPath = path.join(outputDirectory, 'deed-potential-report.json');
+    const markdownPath = path.join(outputDirectory, 'deed-potential-report.md');
+    await writeAtomic(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    await writeAtomic(markdownPath, markdown);
+    process.stderr.write(
+      `[deed-potential-report] artifacts json=${path.resolve(reportPath)} markdown=${path.resolve(markdownPath)}\n`
+    );
+  }
+  process.stdout.write(markdown);
 }
 
 function parseFlags(args: readonly string[]): Map<string, string> {

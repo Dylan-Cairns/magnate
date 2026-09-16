@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "runLabel": "court-fix-extended-hard-smoke-v1",
+  "seedPrefix": "court-fix-extended-hard-smoke-v1",
+  "gamesPerSide": 10,
+  "candidate": {
+    "id": "v2-hard-deed-base-020",
+    "kind": "search",
+    "config": {
+      "worlds": 50,
+      "rollouts": 1,
+      "depth": 270,
+      "maxRootActions": 16,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2",
+      "deedPotentialBase": 0.2
+    }
+  },
+  "opponent": {
+    "id": "v2-hard-deed-base-000",
+    "kind": "search",
+    "config": {
+      "worlds": 50,
+      "rollouts": 1,
+      "depth": 270,
+      "maxRootActions": 16,
+      "rolloutEpsilon": 0,
+      "heuristic": "v2",
+      "deedPotentialBase": 0
+    }
+  },
+  "ruleset": "extended"
+}
