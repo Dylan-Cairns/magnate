@@ -81,19 +81,19 @@ Design expectations:
   scoring-margin deltas, future suit-access earning deltas, and contextual
   token-bank deltas. Do not reward generic resource hoarding or add one-off
   tactical constants.
-- A deed's district-score potential is
-  `base + (1 - base) * (progress / target)^2`, where `base` is
-  `SearchPolicyConfig.deedPotentialBase`. `0` reproduces the pre-floor behavior
-  and is the benchmark control arm; search policies default to
-  `DEFAULT_DEED_POTENTIAL_BASE = 0.2`, which restores scoring-path value for
-  newly bought deeds (notably income-free Courts) and for opponent fresh deeds.
-  The scorer's own default stays 0 so direct diagnostic callers are unchanged.
-  TD-root search is unaffected because its root, rollout, and leaf guidance all
-  come from the TD model.
-- Deed-potential experiments predeclare gates, paired seeds, and the extension
-  rule in `docs/design/court-deed-potential-floor.md`; benchmark configs live in
-  `configs/bot-eval/court-fix/` and are analyzed with
-  `yarn bot:eval deed-potential-report`.
+- Incomplete Courts are the one exception to the generic scoring path: because
+  they have no income channel, `src/policies/courtPotentialV2.ts` values
+  `buy-deed` and `develop-deed` on a Court as a feasibility-discounted district
+  swing (`swing × available / (available + remainingCost)`), added inside the
+  scoring weight and scaled by `SearchPolicyConfig.courtValueScale` (default 1,
+  0 disables). Completed Courts and `develop-outright` stay generic, and Court
+  deeds contribute zero to `potentialStackScore`, so nothing is double-counted.
+  Standard play cannot reach the term because the standard deck has no Courts.
+  TD-root search is unaffected because its guidance comes from the TD model.
+- Court-valuation experiments predeclare gates, paired seeds, and the extension
+  rule in `docs/design/court-valuation.md`; benchmark configs live in
+  `configs/bot-eval/court-valuation/` and are analyzed with
+  `yarn bot:eval court-value-report`.
 - District-potential scoring includes newly bought deeds; opponent deed defense
   pressure scales with completion progress. Non-completing deed progress should
   not receive full new-control-path credit.

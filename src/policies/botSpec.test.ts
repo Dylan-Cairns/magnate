@@ -85,7 +85,7 @@ describe('bot specs', () => {
     });
   });
 
-  it('parses a rollout-search spec with a deed potential base', () => {
+  it('parses a rollout-search spec with a court value scale', () => {
     expect(
       parseBotSpec({
         id: 'search-v2',
@@ -97,7 +97,7 @@ describe('bot specs', () => {
           maxRootActions: 3,
           rolloutEpsilon: 0,
           heuristic: 'v2',
-          deedPotentialBase: 0.2,
+          courtValueScale: 1.25,
         },
       })
     ).toEqual({
@@ -110,12 +110,12 @@ describe('bot specs', () => {
         maxRootActions: 3,
         rolloutEpsilon: 0,
         heuristic: 'v2',
-        deedPotentialBase: 0.2,
+        courtValueScale: 1.25,
       },
     });
   });
 
-  it('rejects out-of-range deed potential bases', () => {
+  it('rejects invalid court value scales', () => {
     expect(() =>
       parseBotSpec({
         id: 'broken-search',
@@ -126,10 +126,10 @@ describe('bot specs', () => {
           depth: 4,
           maxRootActions: 3,
           rolloutEpsilon: 0,
-          deedPotentialBase: 1.5,
+          courtValueScale: -0.5,
         },
       })
-    ).toThrow('deedPotentialBase');
+    ).toThrow('courtValueScale');
     expect(() =>
       parseBotSpec({
         id: 'broken-search',
@@ -140,10 +140,10 @@ describe('bot specs', () => {
           depth: 4,
           maxRootActions: 3,
           rolloutEpsilon: 0,
-          deedPotentialBase: 'high',
+          courtValueScale: 'high',
         },
       })
-    ).toThrow('deedPotentialBase');
+    ).toThrow('courtValueScale');
   });
 
   it('constructs policies for deterministic bot kinds', () => {

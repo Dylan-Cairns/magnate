@@ -19,8 +19,8 @@ canonical TypeScript engine.
   `yarn bot:eval strategic-forced-rollouts --repetitions 0 --positions known-hand-optionality-holdout-original,known-hand-optionality-holdout-mirror`
 - Replay one recorded game:
   `yarn bot:eval replay --artifact artifacts/ts-bot-evals/<run>/matchup.json --game-id pair-0001-candidate-as-a`
-- Deed potential benchmark report:
-  `yarn bot:eval deed-potential-report --artifact artifacts/ts-bot-evals/<run>/matchup.json [--out-dir <path>]`
+- Court value benchmark report:
+  `yarn bot:eval court-value-report --artifact artifacts/ts-bot-evals/<run>/matchup.json [--out-dir <path>]`
 - Heartbeat override for head-to-head, sweep, replay, and replay-export
   commands: append `--progress-interval-seconds 10` (`0` disables timed
   heartbeats). Strategic-position characterization reports per decision and does
@@ -129,15 +129,17 @@ td-lambda run, keep each export's `seedPrefix` globally unique because the
 sequence key is `(episodeId, playerId, timestep)`. Shards from one sharded
 export share one global seed sequence and can be passed together directly.
 
-## Deed Potential Report
+## Court Value Report
 
-`yarn bot:eval deed-potential-report --artifact <matchup.json> [--out-dir <path>]`
+`yarn bot:eval court-value-report --artifact <matchup.json> [--out-dir <path>]`
 replays a head-to-head artifact through canonical legal actions and reports
-paired discordant win margins (exact McNemar), deed buy/sell rates, and court
-buy/deed/completion/sell usage per bot. It evaluates the predeclared gates for
-the court deed potential floor experiment (see
-[the design note](../design/court-deed-potential-floor.md)); `--out-dir` writes
-`deed-potential-report.json` and `.md`.
+paired discordant win margins (exact McNemar), deed buy/sell rates, court
+buy/deed/completion/sell usage per bot, and court-decision diagnostics (how
+often a court action ranked top-1/top-4/top-16, and the mean swing, feasibility,
+and delta of the best court option). It evaluates the predeclared gates for the
+court valuation experiment (see
+[the design note](../design/court-valuation.md)); `--out-dir` writes
+`court-value-report.json` and `.md`.
 
 ## Sweeps And Workers
 

@@ -2,45 +2,56 @@ import { describe, expect, it } from 'vitest';
 
 import { createHeadToHeadArtifact } from './artifacts';
 import {
-  buildDeedPotentialReport,
-  evaluateDeedGates,
-  renderDeedPotentialReportMarkdown,
-  type DeedUsageSummary,
-} from './deedPotentialReport';
+  buildCourtValueReport,
+  evaluateCourtValueGates,
+  renderCourtValueReportMarkdown,
+  type CourtValueUsageSummary,
+} from './courtValueReport';
 import { runHeadToHead } from './matchup';
 import type { HeadToHeadConfig } from './types';
 
-describe('deed potential report', () => {
-  it('replays a head-to-head artifact into per-bot deed and court usage', async () => {
+describe('court value report', () => {
+  it('replays a head-to-head artifact into per-bot court usage and diagnostics', async () => {
     const artifact = await buildExtendedArtifact();
-    const report = buildDeedPotentialReport(artifact, 'matchup.json');
+    const report = buildCourtValueReport(artifact, 'matchup.json');
 
     expect(report.ruleset).toBe('extended');
     expect(report.totals.games).toBe(2);
     expect(report.totals.pairs).toBe(1);
     expect(report.perPair).toHaveLength(1);
-    expect(report.candidate.deedPotentialBase).toBe('0.2');
-    expect(report.opponent.deedPotentialBase).toBe('0');
+    expect(report.candidate.courtValueScale).toBe('1');
+    expect(report.opponent.courtValueScale).toBe('0');
 
-    const candidateUsage = report.usageByBotId['deed-report-candidate'];
-    const opponentUsage = report.usageByBotId['deed-report-opponent'];
+    const candidateUsage = report.usageByBotId['court-report-candidate'];
+    const opponentUsage = report.usageByBotId['court-report-opponent'];
     expect(candidateUsage.decisions).toBeGreaterThan(0);
     expect(opponentUsage.decisions).toBeGreaterThan(0);
-    expect(candidateUsage.buys).toBeGreaterThanOrEqual(0);
     expect(
       report.gates.find((gate) => gate.id === 'replay-integrity')?.status
     ).toBe('pass');
     expect(
       report.gates.some((gate) => gate.id === 'extended-court-utilization')
     ).toBe(true);
+    expect(
+      report.gates.some((gate) => gate.id === 'extended-court-follow-through')
+    ).toBe(true);
 
-    const markdown = renderDeedPotentialReportMarkdown(report);
-    expect(markdown).toContain('# Deed Potential Benchmark Report');
-    expect(markdown).toContain('deed-report-candidate');
+    const candidateDiagnostics =
+      report.courtDecisionsByBotId['court-report-candidate'];
+    expect(candidateDiagnostics.decisions).toBeGreaterThan(0);
+    expect(
+      candidateDiagnostics.decisionsWithCourtOption
+    ).toBeLessThanOrEqual(candidateDiagnostics.decisions);
+    expect(report.courtDecisionsByBotId['court-report-opponent']).toBeDefined();
+
+    const markdown = renderCourtValueReportMarkdown(report);
+    expect(markdown).toContain('# Court Value Benchmark Report');
+    expect(markdown).toContain('court-report-candidate');
+    expect(markdown).toContain('Court decision diagnostics');
   });
 
   it('gates standard non-inferiority and deed-buy behavior', () => {
-    const gates = evaluateDeedGates({
+    const gates = evaluateCourtValueGates({
       ruleset: 'standard',
       paired: {
         pairs: 60,
@@ -64,7 +75,7 @@ describe('deed potential report', () => {
   });
 
   it('fails standard non-inferiority when the paired interval breaches the margin', () => {
-    const gates = evaluateDeedGates({
+    const gates = evaluateCourtValueGates({
       ruleset: 'standard',
       paired: {
         pairs: 60,
@@ -84,7 +95,7 @@ describe('deed potential report', () => {
   });
 
   it('observes standard runs below the minimum pair count', () => {
-    const gates = evaluateDeedGates({
+    const gates = evaluateCourtValueGates({
       ruleset: 'standard',
       paired: {
         pairs: 10,
@@ -102,8 +113,8 @@ describe('deed potential report', () => {
     expect(gates[0].status).toBe('observe');
   });
 
-  it('gates extended improvement, court utilization, and court dumping', () => {
-    const passing = evaluateDeedGates({
+  it('gates extended improvement, utilization, follow-through, and dumping', () => {
+    const passing = evaluateCourtValueGates({
       ruleset: 'extended',
       paired: {
         pairs: 60,
@@ -127,9 +138,10 @@ describe('deed potential report', () => {
       'pass',
       'pass',
       'pass',
+      'pass',
     ]);
 
-    const failing = evaluateDeedGates({
+    const failing = evaluateCourtValueGates({
       ruleset: 'extended',
       paired: {
         pairs: 60,
@@ -148,13 +160,41 @@ describe('deed potential report', () => {
       'fail',
       'fail',
       'fail',
+      'fail',
     ]);
+  });
+
+  it('observes weak court follow-through below the pass ratio', () => {
+    const gates = evaluateCourtValueGates({
+      ruleset: 'extended',
+      paired: {
+        pairs: 60,
+        candidateWinsMorePairs: 20,
+        opponentWinsMorePairs: 20,
+        tiedPairs: 20,
+        meanWinMargin: 0,
+        meanWinMarginCi95: { low: -0.08, high: 0.08 },
+        mcnemarTwoSidedP: 1,
+      },
+      candidateUsage: usageFixture({
+        courtBuys: 8,
+        courtOutrights: 0,
+        courtCompletions: 3,
+        courtSellsWithLegalCourtBuild: 0,
+      }),
+      opponentUsage: usageFixture({}),
+    });
+
+    const followThrough = gates.find(
+      (gate) => gate.id === 'extended-court-follow-through'
+    );
+    expect(followThrough?.status).toBe('observe');
   });
 });
 
 function usageFixture(
-  overrides: Partial<DeedUsageSummary>
-): DeedUsageSummary {
+  overrides: Partial<CourtValueUsageSummary>
+): CourtValueUsageSummary {
   const decisions = overrides.decisions ?? 150;
   const buys = overrides.buys ?? 5;
   return {
@@ -176,11 +216,11 @@ function usageFixture(
 async function buildExtendedArtifact() {
   const config: HeadToHeadConfig = {
     schemaVersion: 1,
-    runLabel: 'deed-report-test',
-    seedPrefix: 'deed-report-test',
+    runLabel: 'court-report-test',
+    seedPrefix: 'court-report-test',
     gamesPerSide: 1,
     candidate: {
-      id: 'deed-report-candidate',
+      id: 'court-report-candidate',
       kind: 'search',
       config: {
         worlds: 1,
@@ -189,11 +229,11 @@ async function buildExtendedArtifact() {
         maxRootActions: 2,
         rolloutEpsilon: 0,
         heuristic: 'v2',
-        deedPotentialBase: 0.2,
+        courtValueScale: 1,
       },
     },
     opponent: {
-      id: 'deed-report-opponent',
+      id: 'court-report-opponent',
       kind: 'search',
       config: {
         worlds: 1,
@@ -202,7 +242,7 @@ async function buildExtendedArtifact() {
         maxRootActions: 2,
         rolloutEpsilon: 0,
         heuristic: 'v2',
-        deedPotentialBase: 0,
+        courtValueScale: 0,
       },
     },
     ruleset: 'extended',

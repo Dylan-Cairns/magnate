@@ -17,26 +17,38 @@ import type {
   PlayerId,
   Ruleset,
 } from '../engine/types';
+import { toPlayerView } from '../engine/view';
 import type { BotSpec } from '../policies/botSpec';
-import { DEFAULT_DEED_POTENTIAL_BASE } from '../policies/searchConfig';
+import {
+  courtActionBreakdown,
+  isCourtCard,
+} from '../policies/courtPotentialV2';
+import { createHeuristicV2PositionContext } from '../policies/heuristicV2PositionContext';
+import {
+  scoreHeuristicV2Actions,
+  type HeuristicV2ScoredAction,
+} from '../policies/heuristicScorerV2';
+import { DEFAULT_COURT_VALUE_SCALE } from '../policies/searchConfig';
 import { pairedDiscordantSummary, type PairedDiscordantSummary } from './stats';
 import type { HeadToHeadArtifact, PlayedGame } from './types';
 
 export const STANDARD_NONINFERIORITY_MARGIN = 0.07;
 export const MIN_DECISION_PAIRS = 30;
 export const DEED_BUY_RATE_RELATIVE_BAND = 0.2;
+export const COURT_FOLLOW_THROUGH_PASS_RATIO = 0.5;
+export const COURT_FOLLOW_THROUGH_OBSERVE_RATIO = 0.25;
 
 const COURT_CARD_IDS = new Set<CardId>(COURT_CARDS.map((card) => card.id));
 
-export type DeedGateStatus = 'pass' | 'fail' | 'observe';
+export type CourtValueGateStatus = 'pass' | 'fail' | 'observe';
 
-export interface DeedGateResult {
+export interface CourtValueGateResult {
   readonly id: string;
-  readonly status: DeedGateStatus;
+  readonly status: CourtValueGateStatus;
   readonly detail: string;
 }
 
-export interface DeedPairRecord {
+export interface CourtValuePairRecord {
   readonly pairId: string;
   readonly seed: string;
   readonly candidateWins: number;
@@ -45,7 +57,7 @@ export interface DeedPairRecord {
   readonly margin: number;
 }
 
-export interface DeedUsageSummary {
+export interface CourtValueUsageSummary {
   readonly botId: string;
   readonly decisions: number;
   readonly buys: number;
@@ -59,14 +71,27 @@ export interface DeedUsageSummary {
   readonly courtSellsWithLegalCourtBuild: number;
 }
 
-export interface DeedPotentialReport {
+export interface CourtDecisionDiagnostics {
+  readonly botId: string;
+  readonly decisions: number;
+  readonly decisionsWithCourtOption: number;
+  readonly chosenCourtActions: number;
+  readonly bestCourtRankTop1: number;
+  readonly bestCourtRankTop4: number;
+  readonly bestCourtRankTop16: number;
+  readonly meanBestCourtSwing: number;
+  readonly meanBestCourtFeasibility: number;
+  readonly meanBestCourtDelta: number;
+}
+
+export interface CourtValueReport {
   readonly artifactPath: string | null;
   readonly runLabel: string;
   readonly ruleset: Ruleset;
   readonly gitCommit: string | null;
   readonly gitDirty: boolean | null;
-  readonly candidate: { readonly id: string; readonly deedPotentialBase: string };
-  readonly opponent: { readonly id: string; readonly deedPotentialBase: string };
+  readonly candidate: { readonly id: string; readonly courtValueScale: string };
+  readonly opponent: { readonly id: string; readonly courtValueScale: string };
   readonly totals: {
     readonly games: number;
     readonly pairs: number;
@@ -79,12 +104,13 @@ export interface DeedPotentialReport {
     readonly averageTurns: number;
   };
   readonly paired: PairedDiscordantSummary;
-  readonly perPair: readonly DeedPairRecord[];
-  readonly usageByBotId: Readonly<Record<string, DeedUsageSummary>>;
-  readonly gates: readonly DeedGateResult[];
+  readonly perPair: readonly CourtValuePairRecord[];
+  readonly usageByBotId: Readonly<Record<string, CourtValueUsageSummary>>;
+  readonly courtDecisionsByBotId: Readonly<Record<string, CourtDecisionDiagnostics>>;
+  readonly gates: readonly CourtValueGateResult[];
 }
 
-interface MutableDeedUsage {
+interface MutableCourtUsage {
   botId: string;
   decisions: number;
   buys: number;
@@ -97,16 +123,35 @@ interface MutableDeedUsage {
   courtSellsWithLegalCourtBuild: number;
 }
 
-export function buildDeedPotentialReport(
+interface MutableCourtDecisionDiagnostics {
+  botId: string;
+  courtValueScale: number;
+  decisions: number;
+  decisionsWithCourtOption: number;
+  chosenCourtActions: number;
+  bestCourtRankTop1: number;
+  bestCourtRankTop4: number;
+  bestCourtRankTop16: number;
+  swingSum: number;
+  feasibilitySum: number;
+  deltaSum: number;
+  samples: number;
+}
+
+export function buildCourtValueReport(
   artifact: HeadToHeadArtifact,
   artifactPath?: string
-): DeedPotentialReport {
+): CourtValueReport {
   const ruleset: Ruleset = artifact.config.ruleset ?? 'standard';
   const perPair = collectPairRecords(artifact);
   const paired = pairedDiscordantSummary(
     perPair.map((record) => record.margin)
   );
   const usageByBotId = collectUsageByBotId(artifact, ruleset);
+  const courtDecisionsByBotId = collectCourtDecisionDiagnostics(
+    artifact,
+    ruleset
+  );
   const candidateUsage = requiredSummaryUsage(
     usageByBotId,
     artifact.config.candidate.id
@@ -115,7 +160,7 @@ export function buildDeedPotentialReport(
     usageByBotId,
     artifact.config.opponent.id
   );
-  const gates = evaluateDeedGates({
+  const gates = evaluateCourtValueGates({
     ruleset,
     paired,
     candidateUsage,
@@ -130,11 +175,11 @@ export function buildDeedPotentialReport(
     gitDirty: artifact.git.dirty,
     candidate: {
       id: artifact.config.candidate.id,
-      deedPotentialBase: describeDeedPotentialBase(artifact.config.candidate),
+      courtValueScale: describeCourtValueScale(artifact.config.candidate),
     },
     opponent: {
       id: artifact.config.opponent.id,
-      deedPotentialBase: describeDeedPotentialBase(artifact.config.opponent),
+      courtValueScale: describeCourtValueScale(artifact.config.opponent),
     },
     totals: {
       games: artifact.summary.totalGames,
@@ -150,6 +195,7 @@ export function buildDeedPotentialReport(
     paired,
     perPair,
     usageByBotId,
+    courtDecisionsByBotId,
     gates: [
       {
         id: 'replay-integrity',
@@ -161,13 +207,13 @@ export function buildDeedPotentialReport(
   };
 }
 
-export function evaluateDeedGates(input: {
+export function evaluateCourtValueGates(input: {
   ruleset: Ruleset;
   paired: PairedDiscordantSummary;
-  candidateUsage: DeedUsageSummary;
-  opponentUsage: DeedUsageSummary;
-}): DeedGateResult[] {
-  const gates: DeedGateResult[] = [];
+  candidateUsage: CourtValueUsageSummary;
+  opponentUsage: CourtValueUsageSummary;
+}): CourtValueGateResult[] {
+  const gates: CourtValueGateResult[] = [];
   const { paired, candidateUsage, opponentUsage } = input;
 
   if (input.ruleset === 'standard') {
@@ -222,18 +268,19 @@ export function evaluateDeedGates(input: {
     });
   }
 
-  const engagement = candidateUsage.courtBuys + candidateUsage.courtOutrights;
-  if (engagement > 0 && candidateUsage.courtCompletions > 0) {
+  const acquisitions =
+    candidateUsage.courtBuys + candidateUsage.courtOutrights;
+  if (acquisitions > 0 && candidateUsage.courtCompletions > 0) {
     gates.push({
       id: 'extended-court-utilization',
       status: 'pass',
-      detail: `candidate bought/developed ${String(engagement)} courts and completed ${String(candidateUsage.courtCompletions)}`,
+      detail: `candidate bought/developed ${String(acquisitions)} courts and completed ${String(candidateUsage.courtCompletions)}`,
     });
-  } else if (engagement > 0) {
+  } else if (acquisitions > 0) {
     gates.push({
       id: 'extended-court-utilization',
       status: 'observe',
-      detail: `candidate acquired ${String(engagement)} courts but completed none`,
+      detail: `candidate acquired ${String(acquisitions)} courts but completed none`,
     });
   } else {
     gates.push({
@@ -242,6 +289,8 @@ export function evaluateDeedGates(input: {
       detail: 'candidate never acquired a court',
     });
   }
+
+  gates.push(courtFollowThroughGate(candidateUsage));
 
   if (candidateUsage.courtSellsWithLegalCourtBuild === 0) {
     gates.push({
@@ -265,12 +314,46 @@ export function evaluateDeedGates(input: {
   return gates;
 }
 
+function courtFollowThroughGate(
+  candidateUsage: CourtValueUsageSummary
+): CourtValueGateResult {
+  const acquisitions =
+    candidateUsage.courtBuys + candidateUsage.courtOutrights;
+  if (acquisitions === 0) {
+    return {
+      id: 'extended-court-follow-through',
+      status: 'fail',
+      detail: 'candidate never acquired a court to follow through',
+    };
+  }
+  const ratio = candidateUsage.courtCompletions / acquisitions;
+  if (ratio >= COURT_FOLLOW_THROUGH_PASS_RATIO) {
+    return {
+      id: 'extended-court-follow-through',
+      status: 'pass',
+      detail: `candidate completed ${formatNumber(ratio)} of acquired courts`,
+    };
+  }
+  if (ratio >= COURT_FOLLOW_THROUGH_OBSERVE_RATIO) {
+    return {
+      id: 'extended-court-follow-through',
+      status: 'observe',
+      detail: `candidate completed only ${formatNumber(ratio)} of acquired courts`,
+    };
+  }
+  return {
+    id: 'extended-court-follow-through',
+    status: 'fail',
+    detail: `candidate completed only ${formatNumber(ratio)} of acquired courts`,
+  };
+}
+
 function deedBuyRateGate(
-  candidateUsage: DeedUsageSummary,
-  opponentUsage: DeedUsageSummary
-): DeedGateResult {
+  candidateUsage: CourtValueUsageSummary,
+  opponentUsage: CourtValueUsageSummary
+): CourtValueGateResult {
   if (opponentUsage.buyRate <= 0.001) {
-    const status: DeedGateStatus =
+    const status: CourtValueGateStatus =
       candidateUsage.buyRate <= 0.02 ? 'pass' : 'observe';
     return {
       id: 'standard-deed-buy-behavior',
@@ -291,7 +374,7 @@ function deedBuyRateGate(
 
 function collectPairRecords(
   artifact: HeadToHeadArtifact
-): DeedPairRecord[] {
+): CourtValuePairRecord[] {
   const candidateId = artifact.config.candidate.id;
   const byPairId = new Map<
     string,
@@ -341,8 +424,8 @@ function collectPairRecords(
 function collectUsageByBotId(
   artifact: HeadToHeadArtifact,
   ruleset: Ruleset
-): Record<string, DeedUsageSummary> {
-  const usageByBotId = new Map<string, MutableDeedUsage>();
+): Record<string, CourtValueUsageSummary> {
+  const usageByBotId = new Map<string, MutableCourtUsage>();
   for (const botId of [
     artifact.config.candidate.id,
     artifact.config.opponent.id,
@@ -351,7 +434,7 @@ function collectUsageByBotId(
   }
 
   for (const game of artifact.games) {
-    replayGameUsage(game, ruleset, usageByBotId);
+    replayGame(game, ruleset, usageByBotId, undefined);
   }
 
   return Object.fromEntries(
@@ -374,10 +457,69 @@ function collectUsageByBotId(
   );
 }
 
-function replayGameUsage(
+function collectCourtDecisionDiagnostics(
+  artifact: HeadToHeadArtifact,
+  ruleset: Ruleset
+): Record<string, CourtDecisionDiagnostics> {
+  const specsById = new Map<string, BotSpec>([
+    [artifact.config.candidate.id, artifact.config.candidate],
+    [artifact.config.opponent.id, artifact.config.opponent],
+  ]);
+  const diagnosticsByBotId = new Map<
+    string,
+    MutableCourtDecisionDiagnostics
+  >();
+  for (const [botId, spec] of specsById) {
+    if (isHeuristicV2SearchSpec(spec)) {
+      diagnosticsByBotId.set(
+        botId,
+        createMutableDiagnostics(
+          botId,
+          spec.config.courtValueScale ?? DEFAULT_COURT_VALUE_SCALE
+        )
+      );
+    }
+  }
+
+  for (const game of artifact.games) {
+    replayGame(game, ruleset, undefined, diagnosticsByBotId);
+  }
+
+  return Object.fromEntries(
+    [...diagnosticsByBotId.entries()].map(([botId, diagnostics]) => [
+      botId,
+      {
+        botId,
+        decisions: diagnostics.decisions,
+        decisionsWithCourtOption: diagnostics.decisionsWithCourtOption,
+        chosenCourtActions: diagnostics.chosenCourtActions,
+        bestCourtRankTop1: diagnostics.bestCourtRankTop1,
+        bestCourtRankTop4: diagnostics.bestCourtRankTop4,
+        bestCourtRankTop16: diagnostics.bestCourtRankTop16,
+        meanBestCourtSwing: safeMean(
+          diagnostics.swingSum,
+          diagnostics.samples
+        ),
+        meanBestCourtFeasibility: safeMean(
+          diagnostics.feasibilitySum,
+          diagnostics.samples
+        ),
+        meanBestCourtDelta: safeMean(
+          diagnostics.deltaSum,
+          diagnostics.samples
+        ),
+      },
+    ])
+  );
+}
+
+function replayGame(
   game: PlayedGame,
   ruleset: Ruleset,
-  usageByBotId: Map<string, MutableDeedUsage>
+  usageByBotId: Map<string, MutableCourtUsage> | undefined,
+  diagnosticsByBotId:
+    | Map<string, MutableCourtDecisionDiagnostics>
+    | undefined
 ): void {
   let state = createSession(game.seed, game.firstPlayer, ruleset);
   for (const decision of game.transcript) {
@@ -396,9 +538,21 @@ function replayGameUsage(
         `Report replay divergence in game ${game.gameId}: decision ${String(decision.decisionIndex)} action ${decision.actionKey} is not legal.`
       );
     }
-    const usage = requiredMutableUsage(usageByBotId, decision.botId);
-    usage.decisions += 1;
-    recordActionUsage(state, decisionPlayer, action, actions, usage);
+    if (usageByBotId) {
+      const usage = requiredMutableUsage(usageByBotId, decision.botId);
+      usage.decisions += 1;
+      recordActionUsage(state, decisionPlayer, action, actions, usage);
+    }
+    if (diagnosticsByBotId) {
+      recordCourtDecisionDiagnostics(
+        diagnosticsByBotId,
+        decision.botId,
+        state,
+        decisionPlayer,
+        actions,
+        action
+      );
+    }
     state = stepToDecision(state, action);
   }
   if (!isTerminal(state)) {
@@ -408,12 +562,88 @@ function replayGameUsage(
   }
 }
 
+function recordCourtDecisionDiagnostics(
+  diagnosticsByBotId: Map<string, MutableCourtDecisionDiagnostics>,
+  botId: string,
+  state: GameState,
+  decisionPlayer: PlayerId,
+  legalActions: readonly GameAction[],
+  chosenAction: GameAction
+): void {
+  const diagnostics = diagnosticsByBotId.get(botId);
+  if (!diagnostics) {
+    return;
+  }
+  diagnostics.decisions += 1;
+  const hasCourtOption = legalActions.some(isCourtBuildAction);
+  if (hasCourtOption) {
+    diagnostics.decisionsWithCourtOption += 1;
+  }
+  if (isCourtBuildAction(chosenAction)) {
+    diagnostics.chosenCourtActions += 1;
+  }
+  if (!hasCourtOption) {
+    return;
+  }
+
+  const scaled = scoreHeuristicV2Actions(legalActions, {
+    state,
+    view: toPlayerView(state, decisionPlayer),
+    courtValueScale: diagnostics.courtValueScale,
+  });
+  const bestCourt = scaled.find((candidate) =>
+    isCourtBuildAction(candidate.action)
+  );
+  if (!bestCourt) {
+    return;
+  }
+  const rank = bestCourt.rank;
+  if (rank === 0) {
+    diagnostics.bestCourtRankTop1 += 1;
+  }
+  if (rank < 4) {
+    diagnostics.bestCourtRankTop4 += 1;
+  }
+  if (rank < 16) {
+    diagnostics.bestCourtRankTop16 += 1;
+  }
+  accumulateCourtBreakdown(diagnostics, bestCourt, state, decisionPlayer);
+}
+
+function accumulateCourtBreakdown(
+  diagnostics: MutableCourtDecisionDiagnostics,
+  bestCourt: HeuristicV2ScoredAction,
+  state: GameState,
+  decisionPlayer: PlayerId
+): void {
+  const card = findDevelopableCard(
+    'cardId' in bestCourt.action ? bestCourt.action.cardId : ''
+  );
+  if (!isCourtCard(card)) {
+    return;
+  }
+  const breakdown = courtActionBreakdown(
+    bestCourt.action,
+    state,
+    decisionPlayer,
+    createHeuristicV2PositionContext(state, decisionPlayer),
+    diagnostics.courtValueScale
+  );
+  if (!breakdown) {
+    return;
+  }
+  diagnostics.swingSum += breakdown.swing;
+  diagnostics.feasibilitySum += breakdown.feasibility;
+  diagnostics.deltaSum += breakdown.delta;
+  diagnostics.samples += 1;
+}
+
 function recordActionUsage(
   state: GameState,
   playerId: PlayerId,
   action: GameAction,
   legalActions: readonly GameAction[],
-  usage: MutableDeedUsage
+  usage: MutableCourtUsage
 ): void {
   switch (action.type) {
     case 'buy-deed':
@@ -469,15 +699,15 @@ function isCourtBuildAction(action: GameAction): boolean {
   return COURT_CARD_IDS.has(action.cardId);
 }
 
-export function renderDeedPotentialReportMarkdown(
-  report: DeedPotentialReport
+export function renderCourtValueReportMarkdown(
+  report: CourtValueReport
 ): string {
   const lines: string[] = [
-    `# Deed Potential Benchmark Report: ${report.runLabel}`,
+    `# Court Value Benchmark Report: ${report.runLabel}`,
     '',
     `- Ruleset: ${report.ruleset}`,
-    `- Candidate: ${report.candidate.id} (deedPotentialBase=${report.candidate.deedPotentialBase})`,
-    `- Opponent: ${report.opponent.id} (deedPotentialBase=${report.opponent.deedPotentialBase})`,
+    `- Candidate: ${report.candidate.id} (courtValueScale=${report.candidate.courtValueScale})`,
+    `- Opponent: ${report.opponent.id} (courtValueScale=${report.opponent.courtValueScale})`,
     `- Git: ${report.gitCommit ?? 'unknown'}${report.gitDirty ? ' (dirty)' : ''}`,
     ...(report.artifactPath ? [`- Artifact: ${report.artifactPath}`] : []),
     '',
@@ -499,6 +729,18 @@ export function renderDeedPotentialReportMarkdown(
   for (const usage of Object.values(report.usageByBotId)) {
     lines.push(
       `| ${usage.botId} | ${String(usage.decisions)} | ${String(usage.buys)} | ${formatNumber(usage.buyRate)} | ${String(usage.sells)} | ${String(usage.courtBuys)} | ${String(usage.courtOutrights)} | ${String(usage.courtDeedDevelops)} | ${String(usage.courtCompletions)} | ${String(usage.courtSells)} | ${String(usage.courtSellsWithLegalCourtBuild)} |`
+    );
+  }
+  lines.push(
+    '',
+    '## Court decision diagnostics',
+    '',
+    '| bot | decisions | court-option decisions | chosen court actions | best court top-1 | top-4 | top-16 | mean swing | mean feasibility | mean delta |',
+    '|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|'
+  );
+  for (const diagnostics of Object.values(report.courtDecisionsByBotId)) {
+    lines.push(
+      `| ${diagnostics.botId} | ${String(diagnostics.decisions)} | ${String(diagnostics.decisionsWithCourtOption)} | ${String(diagnostics.chosenCourtActions)} | ${String(diagnostics.bestCourtRankTop1)} | ${String(diagnostics.bestCourtRankTop4)} | ${String(diagnostics.bestCourtRankTop16)} | ${formatNumber(diagnostics.meanBestCourtSwing)} | ${formatNumber(diagnostics.meanBestCourtFeasibility)} | ${formatNumber(diagnostics.meanBestCourtDelta)} |`
     );
   }
   lines.push('', '## Gates', '', '| gate | status | detail |', '|:---|:---|:---|');
@@ -540,7 +782,7 @@ function districtDeed(
   return district?.stacks[playerId].deed;
 }
 
-function createMutableUsage(botId: string): MutableDeedUsage {
+function createMutableUsage(botId: string): MutableCourtUsage {
   return {
     botId,
     decisions: 0,
@@ -555,35 +797,65 @@ function createMutableUsage(botId: string): MutableDeedUsage {
   };
 }
 
+function createMutableDiagnostics(
+  botId: string,
+  courtValueScale: number
+): MutableCourtDecisionDiagnostics {
+  return {
+    botId,
+    courtValueScale,
+    decisions: 0,
+    decisionsWithCourtOption: 0,
+    chosenCourtActions: 0,
+    bestCourtRankTop1: 0,
+    bestCourtRankTop4: 0,
+    bestCourtRankTop16: 0,
+    swingSum: 0,
+    feasibilitySum: 0,
+    deltaSum: 0,
+    samples: 0,
+  };
+}
+
+function isHeuristicV2SearchSpec(
+  spec: BotSpec
+): spec is Extract<BotSpec, { kind: 'search' }> {
+  return spec.kind === 'search' && spec.config.heuristic === 'v2';
+}
+
 function requiredMutableUsage(
-  usageByBotId: ReadonlyMap<string, MutableDeedUsage>,
+  usageByBotId: ReadonlyMap<string, MutableCourtUsage>,
   botId: string
-): MutableDeedUsage {
+): MutableCourtUsage {
   const usage = usageByBotId.get(botId);
   if (!usage) {
-    throw new Error(`Deed potential report is missing bot ${botId}.`);
+    throw new Error(`Court value report is missing bot ${botId}.`);
   }
   return usage;
 }
 
 function requiredSummaryUsage(
-  usageByBotId: Readonly<Record<string, DeedUsageSummary>>,
+  usageByBotId: Readonly<Record<string, CourtValueUsageSummary>>,
   botId: string
-): DeedUsageSummary {
+): CourtValueUsageSummary {
   const usage = usageByBotId[botId];
   if (!usage) {
-    throw new Error(`Deed potential report is missing bot ${botId}.`);
+    throw new Error(`Court value report is missing bot ${botId}.`);
   }
   return usage;
 }
 
-function describeDeedPotentialBase(spec: BotSpec): string {
+function describeCourtValueScale(spec: BotSpec): string {
   if (spec.kind !== 'search' && spec.kind !== 'td-root-search') {
     return 'n/a';
   }
-  return spec.config.deedPotentialBase === undefined
-    ? `default (${String(DEFAULT_DEED_POTENTIAL_BASE)})`
-    : String(spec.config.deedPotentialBase);
+  return spec.config.courtValueScale === undefined
+    ? `default (${String(DEFAULT_COURT_VALUE_SCALE)})`
+    : String(spec.config.courtValueScale);
+}
+
+function safeMean(sum: number, count: number): number {
+  return count > 0 ? sum / count : 0;
 }
 
 function formatNumber(value: number): string {

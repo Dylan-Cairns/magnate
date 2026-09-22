@@ -3,11 +3,12 @@
 ## Current Focus
 
 - Keep the TypeScript engine deterministic and canonical.
-- Run and analyze the predeclared court deed potential floor experiment
-  (`docs/design/court-deed-potential-floor.md`): heuristic v2 now threads
-  `deedPotentialBase` (default 0.2, control 0) through rollout search so fresh
-  deeds keep district-score potential. The owner runs the benchmark series; the
-  agent analyzes artifacts with `yarn bot:eval deed-potential-report`.
+- Court valuation attempt two is implemented and unbenchmarked
+  (`docs/design/court-valuation.md`): the failed flat deed floor was removed,
+  standard scoring is restored exactly, and a dedicated term now prices
+  incomplete Courts as a feasibility-discounted district swing
+  (`courtValueScale`, default 1, control 0). Next: run the predeclared
+  extended-hard A/B series with `yarn bot:eval court-value-report`.
 - Improve TD policy quality through the staged loop: collect, train, gate, promote.
 - Move district symmetry from training augmentation to an architecture
   intervention. Both controlled symmetry-training pilots improved heldout
@@ -19,11 +20,13 @@
 
 ## Current State
 
-- Court deed potential floor is implemented but not yet validated: heuristic v2
-  action scoring accepts `deedPotentialBase` (default 0.2, legacy control 0),
-  benchmark configs are checked in under `configs/bot-eval/court-fix/`, and
-  `yarn bot:eval deed-potential-report` emits the predeclared gate table. The
-  user-run standard/extended A/B series and hard smokes are unspent.
+- Court valuation attempt two is implemented and unbenchmarked. The flat
+  `deedPotentialBase` floor and its knob were deleted (restoring standard
+  scoring bit-for-bit), and incomplete Courts are now valued by
+  `src/policies/courtPotentialV2.ts` as `swing × feasibility × courtValueScale`
+  for buy-deed and develop-deed only; develop-outright and completed Courts stay
+  on the generic path. Deployed profiles default to `courtValueScale = 1`; the
+  benchmark control is 0. Configs live in `configs/bot-eval/court-valuation/`.
 - Browser play is functional and deterministic with four profiles:
   Easy/Medium/Hard (`rollout-search-v2-*` with heuristic v2, both rulesets) and
   Experimental (`td-root-search-v2-medium`, standard-ruleset only). Games
@@ -71,9 +74,11 @@
 
 ## Immediate Next Steps
 
-1. Owner runs the court-fix benchmark series (standard/extended medium A-B,
-   hard smokes) and hands artifacts back; agent emits the gate report and calls
-   pass/fail/observe, applying the predeclared extension rule if needed.
+1. Run the predeclared court-valuation benchmark: extended-hard A/B screen at
+   30 pairs (`configs/bot-eval/court-valuation/extended-hard-ab.json`), extend
+   once to 60 pairs if the point estimate is positive and the interval includes
+   0, then call gates with `yarn bot:eval court-value-report`. Do not spend the
+   standard smoke on gate calls; standard parity is structural.
 2. Decide whether to spend the sealed 100-game final test on the promoted
    step-9,000 candidate.
 3. Write a short design and guardrail plan for architectural fixed-D3 S4
