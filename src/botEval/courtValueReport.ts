@@ -69,6 +69,7 @@ export interface CourtValueUsageSummary {
   readonly courtCompletions: number;
   readonly courtSells: number;
   readonly courtSellsWithLegalCourtBuild: number;
+  readonly courtSellsWithLegalSameCardBuild: number;
 }
 
 export interface CourtDecisionDiagnostics {
@@ -121,6 +122,7 @@ interface MutableCourtUsage {
   courtCompletions: number;
   courtSells: number;
   courtSellsWithLegalCourtBuild: number;
+  courtSellsWithLegalSameCardBuild: number;
 }
 
 interface MutableCourtDecisionDiagnostics {
@@ -292,23 +294,25 @@ export function evaluateCourtValueGates(input: {
 
   gates.push(courtFollowThroughGate(candidateUsage));
 
-  if (candidateUsage.courtSellsWithLegalCourtBuild === 0) {
+  const sameCardSells = candidateUsage.courtSellsWithLegalSameCardBuild;
+  const coarseSells = candidateUsage.courtSellsWithLegalCourtBuild;
+  if (sameCardSells === 0) {
     gates.push({
       id: 'extended-court-dump',
       status: 'pass',
-      detail: 'candidate never sold a court while a court build was legal',
+      detail: `candidate never sold a court whose own buy was legal (coarse legal-build sells ${String(coarseSells)})`,
     });
-  } else if (candidateUsage.courtSellsWithLegalCourtBuild <= 2) {
+  } else if (sameCardSells <= 2) {
     gates.push({
       id: 'extended-court-dump',
       status: 'observe',
-      detail: `candidate sold a court with a legal court build ${String(candidateUsage.courtSellsWithLegalCourtBuild)} times`,
+      detail: `candidate sold a court whose own buy was legal ${String(sameCardSells)} times (coarse legal-build sells ${String(coarseSells)})`,
     });
   } else {
     gates.push({
       id: 'extended-court-dump',
       status: 'fail',
-      detail: `candidate sold a court with a legal court build ${String(candidateUsage.courtSellsWithLegalCourtBuild)} times`,
+      detail: `candidate sold a court whose own buy was legal ${String(sameCardSells)} times (coarse legal-build sells ${String(coarseSells)})`,
     });
   }
   return gates;
@@ -452,6 +456,8 @@ function collectUsageByBotId(
         courtCompletions: usage.courtCompletions,
         courtSells: usage.courtSells,
         courtSellsWithLegalCourtBuild: usage.courtSellsWithLegalCourtBuild,
+        courtSellsWithLegalSameCardBuild:
+          usage.courtSellsWithLegalSameCardBuild,
       },
     ])
   );
@@ -659,6 +665,13 @@ function recordActionUsage(
         if (legalActions.some(isCourtBuildAction)) {
           usage.courtSellsWithLegalCourtBuild += 1;
         }
+        if (
+          legalActions.some(
+            (candidate) => courtBuildCardId(candidate) === action.cardId
+          )
+        ) {
+          usage.courtSellsWithLegalSameCardBuild += 1;
+        }
       }
       return;
     case 'develop-deed': {
@@ -689,14 +702,18 @@ function recordActionUsage(
 }
 
 function isCourtBuildAction(action: GameAction): boolean {
+  return courtBuildCardId(action) !== undefined;
+}
+
+function courtBuildCardId(action: GameAction): CardId | undefined {
   if (
     action.type !== 'buy-deed' &&
     action.type !== 'develop-outright' &&
     action.type !== 'develop-deed'
   ) {
-    return false;
+    return undefined;
   }
-  return COURT_CARD_IDS.has(action.cardId);
+  return COURT_CARD_IDS.has(action.cardId) ? action.cardId : undefined;
 }
 
 export function renderCourtValueReportMarkdown(
@@ -723,12 +740,12 @@ export function renderCourtValueReportMarkdown(
     '',
     '## Deed and court usage',
     '',
-    '| bot | decisions | buys | buy rate | sells | court buys | court outrights | court deed develops | court completions | court sells | court sells with legal build |',
-    '|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
+    '| bot | decisions | buys | buy rate | sells | court buys | court outrights | court deed develops | court completions | court sells | court sells with legal build | court sells with legal same-card build |',
+    '|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
   ];
   for (const usage of Object.values(report.usageByBotId)) {
     lines.push(
-      `| ${usage.botId} | ${String(usage.decisions)} | ${String(usage.buys)} | ${formatNumber(usage.buyRate)} | ${String(usage.sells)} | ${String(usage.courtBuys)} | ${String(usage.courtOutrights)} | ${String(usage.courtDeedDevelops)} | ${String(usage.courtCompletions)} | ${String(usage.courtSells)} | ${String(usage.courtSellsWithLegalCourtBuild)} |`
+      `| ${usage.botId} | ${String(usage.decisions)} | ${String(usage.buys)} | ${formatNumber(usage.buyRate)} | ${String(usage.sells)} | ${String(usage.courtBuys)} | ${String(usage.courtOutrights)} | ${String(usage.courtDeedDevelops)} | ${String(usage.courtCompletions)} | ${String(usage.courtSells)} | ${String(usage.courtSellsWithLegalCourtBuild)} | ${String(usage.courtSellsWithLegalSameCardBuild)} |`
     );
   }
   lines.push(
@@ -794,6 +811,7 @@ function createMutableUsage(botId: string): MutableCourtUsage {
     courtCompletions: 0,
     courtSells: 0,
     courtSellsWithLegalCourtBuild: 0,
+    courtSellsWithLegalSameCardBuild: 0,
   };
 }
 

@@ -129,7 +129,8 @@ describe('court value report', () => {
         courtBuys: 4,
         courtOutrights: 1,
         courtCompletions: 3,
-        courtSellsWithLegalCourtBuild: 0,
+        courtSellsWithLegalCourtBuild: 3,
+        courtSellsWithLegalSameCardBuild: 0,
       }),
       opponentUsage: usageFixture({}),
     });
@@ -152,7 +153,10 @@ describe('court value report', () => {
         meanWinMarginCi95: { low: -0.15, high: 0.0166 },
         mcnemarTwoSidedP: 0.2,
       },
-      candidateUsage: usageFixture({ courtSellsWithLegalCourtBuild: 5 }),
+      candidateUsage: usageFixture({
+        courtSellsWithLegalCourtBuild: 7,
+        courtSellsWithLegalSameCardBuild: 5,
+      }),
       opponentUsage: usageFixture({}),
     });
 
@@ -162,6 +166,33 @@ describe('court value report', () => {
       'fail',
       'fail',
     ]);
+  });
+
+  it('observes same-card court dumps below the fail threshold', () => {
+    const gates = evaluateCourtValueGates({
+      ruleset: 'extended',
+      paired: {
+        pairs: 60,
+        candidateWinsMorePairs: 20,
+        opponentWinsMorePairs: 20,
+        tiedPairs: 20,
+        meanWinMargin: 0,
+        meanWinMarginCi95: { low: -0.08, high: 0.08 },
+        mcnemarTwoSidedP: 1,
+      },
+      candidateUsage: usageFixture({
+        courtBuys: 4,
+        courtOutrights: 1,
+        courtCompletions: 3,
+        courtSellsWithLegalCourtBuild: 6,
+        courtSellsWithLegalSameCardBuild: 2,
+      }),
+      opponentUsage: usageFixture({}),
+    });
+
+    const dump = gates.find((gate) => gate.id === 'extended-court-dump');
+    expect(dump?.status).toBe('observe');
+    expect(dump?.detail).toContain('coarse legal-build sells 6');
   });
 
   it('observes weak court follow-through below the pass ratio', () => {
@@ -210,6 +241,8 @@ function usageFixture(
     courtSells: overrides.courtSells ?? 0,
     courtSellsWithLegalCourtBuild:
       overrides.courtSellsWithLegalCourtBuild ?? 0,
+    courtSellsWithLegalSameCardBuild:
+      overrides.courtSellsWithLegalSameCardBuild ?? 0,
   };
 }
 

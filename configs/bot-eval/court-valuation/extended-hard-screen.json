@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "runLabel": "court-valuation-standard-hard-smoke-v1",
-  "seedPrefix": "court-valuation-standard-hard-smoke-v1",
+  "runLabel": "court-valuation-extended-hard-screen-v1",
+  "seedPrefix": "court-valuation-extended-hard-screen-v1",
   "gamesPerSide": 10,
   "candidate": {
     "id": "v2-court-scale-100",
     "kind": "search",
     "config": {
-      "worlds": 50,
+      "worlds": 25,
       "rollouts": 1,
       "depth": 270,
       "maxRootActions": 16,
@@ -20,7 +20,7 @@
     "id": "v2-court-scale-000",
     "kind": "search",
     "config": {
-      "worlds": 50,
+      "worlds": 25,
       "rollouts": 1,
       "depth": 270,
       "maxRootActions": 16,
@@ -29,5 +29,5 @@
       "courtValueScale": 0
     }
   },
-  "ruleset": "standard"
+  "ruleset": "extended"
 }
