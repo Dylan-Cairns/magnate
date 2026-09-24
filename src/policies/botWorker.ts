@@ -37,6 +37,7 @@ import type {
 interface BotWorkerGlobalScope {
   onmessage: ((event: MessageEvent<BotWorkerRequest>) => void) | null;
   postMessage(message: BotWorkerResponse): void;
+  close?: () => void;
 }
 
 const workerScope = globalThis as unknown as BotWorkerGlobalScope;
@@ -45,6 +46,7 @@ const cancelledRequestIds = new Set<number>();
 let searchWorkerPool: SearchWorkerPool | null = null;
 let searchWorkerPoolSize = 0;
 let searchWorkerPoolExecutionMode: SearchWorkerExecutionMode | undefined;
+let shuttingDown = false;
 
 type RolloutLikeSearchBotSpec =
   | Extract<BotSpec, { kind: 'search' }>
@@ -63,9 +65,14 @@ interface SearchActionResult {
 
 workerScope.onmessage = (event) => {
   void handleRequest(event.data).catch((error: unknown) => {
+    if (shuttingDown) {
+      return;
+    }
     const requestId =
       typeof event.data === 'object' && event.data !== null
-        ? event.data.requestId
+        ? event.data.type === 'shutdown'
+          ? -1
+          : event.data.requestId
         : -1;
     postError(requestId, error);
   });
@@ -75,6 +82,11 @@ async function handleRequest(request: BotWorkerRequest): Promise<void> {
   switch (request.type) {
     case 'cancel':
       cancelledRequestIds.add(request.requestId);
+      return;
+    case 'shutdown':
+      shuttingDown = true;
+      closeSearchWorkerPool();
+      workerScope.close?.();
       return;
     case 'select-action':
       await selectAction(request);
@@ -185,6 +197,7 @@ async function selectSearchAction(
           : {}),
         batchSize: resolveRolloutSearchBatchSize(request, workerCount),
         parallelWorkers: workerCount,
+        shouldCancel: () => cancelledRequestIds.has(request.requestId),
         ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
         runBatch(tasks, context) {
           return pool.runBatch(tasks, context);

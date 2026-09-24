@@ -107,7 +107,10 @@ import {
   initialSave,
   nextTestAction,
 } from '../__tests__/savedGameFixtures';
-import { transitionOpensHumanDecisionWindow } from '../gameControllerModel';
+import {
+  incomeChoiceActionsForPlayer,
+  transitionOpensHumanDecisionWindow,
+} from '../gameControllerModel';
 import { parseSavedGame, SAVED_GAME_KEY, type SavedGame } from '../savedGame';
 import { useGameController } from './useGameController';
 
@@ -320,5 +323,74 @@ describe('controller persistence', () => {
     expect(controller.storageError).toBeNull();
     controller.resetSession();
     expect(storage.get(SAVED_GAME_KEY)).toBe('untouched');
+  });
+});
+
+describe('controller resource policy', () => {
+  function advanceToBotDecision() {
+    let controller = render();
+    const botMustDecideNow = () =>
+      (controller.state.phase === 'ActionWindow' &&
+        controller.state.players[controller.state.activePlayerIndex]?.id ===
+          'PlayerB') ||
+      (controller.state.phase === 'CollectIncome' &&
+        incomeChoiceActionsForPlayer(legalActions(controller.state), 'PlayerB')
+          .length > 0);
+    for (let i = 0; i < 200 && !botMustDecideNow(); i += 1) {
+      const action = controller.humanActionsAcceptingInput[0];
+      if (!action) break;
+      controller.performHumanAction(action);
+      controller = render();
+    }
+    expect(botMustDecideNow()).toBe(true);
+    return controller;
+  }
+
+  it('defers bot decisions while the page is hidden and resumes when visible', async () => {
+    let visibilityState = 'hidden';
+    const listeners = new Set<() => void>();
+    vi.stubGlobal('document', {
+      get visibilityState() {
+        return visibilityState;
+      },
+      addEventListener(type: string, listener: () => void) {
+        if (type === 'visibilitychange') listeners.add(listener);
+      },
+      removeEventListener(type: string, listener: () => void) {
+        if (type === 'visibilitychange') listeners.delete(listener);
+      },
+    });
+
+    advanceToBotDecision();
+    await vi.runAllTimersAsync();
+    expect(bot.selectAction).not.toHaveBeenCalled();
+
+    visibilityState = 'visible';
+    for (const listener of listeners) {
+      listener();
+    }
+    render();
+    await vi.runAllTimersAsync();
+    expect(bot.selectAction).toHaveBeenCalled();
+
+    visibilityState = 'hidden';
+    for (const listener of listeners) {
+      listener();
+    }
+    render();
+    expect(bot.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the bot policy when restoring a terminal game', () => {
+    let save = initialSave('terminal-release');
+    for (let i = 0; i < 1000 && save.state.phase !== 'GameOver'; i += 1) {
+      save = advanceSave(save, nextTestAction(save));
+    }
+    expect(save.state.phase).toBe('GameOver');
+    storage.set(SAVED_GAME_KEY, JSON.stringify(save));
+
+    render();
+
+    expect(bot.close).toHaveBeenCalled();
   });
 });

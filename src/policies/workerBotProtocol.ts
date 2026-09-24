@@ -21,9 +21,19 @@ export interface BotWorkerCancelRequest {
   requestId: number;
 }
 
+/**
+ * Cooperative teardown: the worker closes its nested search pool and then
+ * closes itself. The owning policy falls back to `terminate()` if the worker
+ * does not process this request promptly.
+ */
+export interface BotWorkerShutdownRequest {
+  type: 'shutdown';
+}
+
 export type BotWorkerRequest =
   | BotWorkerSelectActionRequest
-  | BotWorkerCancelRequest;
+  | BotWorkerCancelRequest
+  | BotWorkerShutdownRequest;
 
 export interface BotWorkerSelectedActionResponse {
   type: 'selected-action';

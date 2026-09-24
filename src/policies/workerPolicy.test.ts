@@ -10,9 +10,15 @@ import { policyRandomSeedForState } from './policyRandom';
 import type { ActionSelectionContext } from './types';
 import {
   createWorkerBackedPolicy,
+  WORKER_IDLE_SHUTDOWN_MS,
+  WORKER_SHUTDOWN_GRACE_MS,
   type WorkerBackedPolicyWorker,
 } from './workerPolicy';
-import type { BotWorkerRequest, BotWorkerResponse } from './workerBotProtocol';
+import type {
+  BotWorkerRequest,
+  BotWorkerResponse,
+  BotWorkerSelectActionRequest,
+} from './workerBotProtocol';
 
 describe('worker-backed policy', () => {
   it('returns single legal actions without creating a worker', async () => {
@@ -88,7 +94,7 @@ describe('worker-backed policy', () => {
     );
 
     expect(workers).toHaveLength(1);
-    const request = workers[0].messages[0];
+    const request = selectActionRequest(workers[0]);
     expect(request).toMatchObject({
       type: 'select-action',
       requestId: 1,
@@ -122,7 +128,7 @@ describe('worker-backed policy', () => {
     });
 
     const selectedPromise = Promise.resolve(policy.selectAction(context));
-    const request = workers[0].messages[0];
+    const request = selectActionRequest(workers[0]);
 
     expect(request).toMatchObject({
       type: 'select-action',
@@ -169,39 +175,117 @@ describe('worker-backed policy', () => {
     const selectedPromise = Promise.resolve(policy.selectAction(context));
     workers[0].emit({
       type: 'selected-action',
-      requestId: workers[0].messages[0].requestId,
+      requestId: selectActionRequest(workers[0]).requestId,
       actionKey: 'not-a-legal-action',
     });
 
     await expect(selectedPromise).rejects.toThrow('illegal action key');
   });
 
-  it('supersedes pending work without letting stale responses select actions', async () => {
-    const workers: FakeWorker[] = [];
-    const { context, actions } = selectionFixture();
-    const policy = createWorkerBackedPolicy(searchSpec(), {
-      createWorker: () => pushWorker(workers),
-    });
+  it('supersedes pending work with a cooperative shutdown and a hard-stop fallback', async () => {
+    vi.useFakeTimers();
+    try {
+      const workers: FakeWorker[] = [];
+      const { context, actions } = selectionFixture();
+      const policy = createWorkerBackedPolicy(searchSpec(), {
+        createWorker: () => pushWorker(workers),
+      });
 
-    const stalePromise = Promise.resolve(policy.selectAction(context));
-    const freshPromise = Promise.resolve(policy.selectAction(context));
+      const stalePromise = Promise.resolve(policy.selectAction(context));
+      const freshPromise = Promise.resolve(policy.selectAction(context));
 
-    expect(workers).toHaveLength(2);
-    expect(workers[0].terminated).toBe(true);
-    await expect(stalePromise).resolves.toBeUndefined();
+      expect(workers).toHaveLength(2);
+      expect(workers[0].messages[workers[0].messages.length - 1]).toEqual({
+        type: 'shutdown',
+      });
+      expect(workers[0].terminated).toBe(false);
+      vi.advanceTimersByTime(WORKER_SHUTDOWN_GRACE_MS);
+      expect(workers[0].terminated).toBe(true);
+      await expect(stalePromise).resolves.toBeUndefined();
 
-    workers[0].emit({
-      type: 'selected-action',
-      requestId: workers[0].messages[0].requestId,
-      actionKey: actionStableKey(actions[0]),
-    });
-    workers[1].emit({
-      type: 'selected-action',
-      requestId: workers[1].messages[0].requestId,
-      actionKey: actionStableKey(actions[1]),
-    });
+      workers[0].emit({
+        type: 'selected-action',
+        requestId: selectActionRequest(workers[0]).requestId,
+        actionKey: actionStableKey(actions[0]),
+      });
+      workers[1].emit({
+        type: 'selected-action',
+        requestId: selectActionRequest(workers[1]).requestId,
+        actionKey: actionStableKey(actions[1]),
+      });
 
-    await expect(freshPromise).resolves.toBe(actions[1]);
+      await expect(freshPromise).resolves.toBe(actions[1]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shuts the worker down cooperatively when the policy closes', () => {
+    vi.useFakeTimers();
+    try {
+      const workers: FakeWorker[] = [];
+      const { context } = selectionFixture();
+      const policy = createWorkerBackedPolicy(searchSpec(), {
+        createWorker: () => pushWorker(workers),
+      });
+
+      void policy.selectAction(context);
+      policy.close();
+
+      expect(workers[0].messages[workers[0].messages.length - 1]).toEqual({
+        type: 'shutdown',
+      });
+      expect(workers[0].terminated).toBe(false);
+      vi.advanceTimersByTime(WORKER_SHUTDOWN_GRACE_MS);
+      expect(workers[0].terminated).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('tears down a warm worker after the idle timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const workers: FakeWorker[] = [];
+      const { context, actions } = selectionFixture();
+      const policy = createWorkerBackedPolicy(searchSpec(), {
+        createWorker: () => pushWorker(workers),
+      });
+
+      const selectedPromise = Promise.resolve(policy.selectAction(context));
+      const request = selectActionRequest(workers[0]);
+      workers[0].emit({
+        type: 'selected-action',
+        requestId: request.requestId,
+        actionKey: actionStableKey(actions[1]),
+      });
+      await expect(selectedPromise).resolves.toBe(actions[1]);
+
+      vi.advanceTimersByTime(WORKER_IDLE_SHUTDOWN_MS - 1);
+      expect(workers[0].terminated).toBe(false);
+
+      // A new decision resets the idle window before teardown.
+      const nextPromise = Promise.resolve(policy.selectAction(context));
+      vi.advanceTimersByTime(WORKER_IDLE_SHUTDOWN_MS);
+      expect(workers[0].terminated).toBe(false);
+
+      const nextRequest = selectActionRequest(workers[0], 1);
+      workers[0].emit({
+        type: 'selected-action',
+        requestId: nextRequest.requestId,
+        actionKey: actionStableKey(actions[0]),
+      });
+      await expect(nextPromise).resolves.toBe(actions[0]);
+
+      vi.advanceTimersByTime(WORKER_IDLE_SHUTDOWN_MS);
+      expect(workers[0].messages[workers[0].messages.length - 1]).toEqual({
+        type: 'shutdown',
+      });
+      vi.advanceTimersByTime(WORKER_SHUTDOWN_GRACE_MS);
+      expect(workers[0].terminated).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -231,6 +315,19 @@ function pushWorker(workers: FakeWorker[]): FakeWorker {
   const worker = new FakeWorker();
   workers.push(worker);
   return worker;
+}
+
+function selectActionRequest(
+  worker: FakeWorker,
+  index = 0
+): BotWorkerSelectActionRequest {
+  const message = worker.messages[index];
+  if (!message || message.type !== 'select-action') {
+    throw new Error(
+      `Expected a select-action request at index ${String(index)}.`
+    );
+  }
+  return message;
 }
 
 function searchSpec(): BotSpec {
