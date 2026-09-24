@@ -240,6 +240,7 @@ describe('ActionsPanel', () => {
         hideBotWaitMessageDuringTurnCycleLock,
       });
 
+      expect(html).not.toContain('actions-panel is-active');
       expect(html).not.toContain('No legal actions.');
       expect(html.includes('Bot is thinking...')).toBe(
         !hideBotWaitMessageDuringTurnCycleLock

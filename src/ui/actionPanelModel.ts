@@ -31,13 +31,18 @@ export function isHumanInputActive({
   humanActionUiBlockedByAnimation: boolean;
   isIncomeChoicePhase: boolean;
 }): boolean {
-  return (
-    !terminal &&
-    !humanActionUiBlockedByAnimation &&
-    (isIncomeChoicePhase
-      ? hasVisibleIncomeChoiceActions(visibleActionItems)
-      : activePlayerId === humanPlayerId)
-  );
+  if (terminal || humanActionUiBlockedByAnimation) {
+    return false;
+  }
+  // Canonical play can advance ahead of the displayed phase, so the human
+  // owning the turn is not enough: the bot's income choice on the human's turn
+  // must not light the human input area before any human actions exist.
+  if (visibleActionItems.length === 0) {
+    return false;
+  }
+  return isIncomeChoicePhase
+    ? hasVisibleIncomeChoiceActions(visibleActionItems)
+    : activePlayerId === humanPlayerId;
 }
 
 export function actionCategoryForItem(item: HumanActionListItem): string {
