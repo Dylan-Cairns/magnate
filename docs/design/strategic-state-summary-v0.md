@@ -178,11 +178,8 @@ results live in ignored artifacts and git history.
   prove model symmetry either way.
 - The replay-wide direct audit over 10,000 ordinary decisions under all 24
   fixed-D3 permutations did establish meaningful symmetry violation in the
-  deployed model and justified controlled augmentation experiments.
-- Both augmentation interventions (random S4, opponent-only complete orbit)
-  improved heldout metrics but failed the required symmetry gates and were not
-  promotion-eligible. Reserved repetitions 24-47 remain untouched for a future
-  candidate.
+  deployed model. The audit, augmentation outcomes, and the architecture plan
+  live in [the district-symmetry design note](district-symmetry.md).
 - Heuristic rollout's uncertain-draw resource-preservation blind spot is a
   separate diagnostic; heuristic-rollout substitution is not a general fix.
 
@@ -209,4 +206,5 @@ V0 does not change heuristic v2, rollout backup, TD encoding, model dimensions,
 or the bridge contract. It does not attempt horizon distributions, district
 outcome kernels, shared future-action allocation, or a calibrated match-equity
 model. The next district-symmetry step is an architecture change, not another
-augmentation weight or heuristic patch.
+augmentation weight or heuristic patch; see
+[the district-symmetry design note](district-symmetry.md).

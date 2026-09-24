@@ -98,8 +98,9 @@ that span collection runs must pass `--replay-key-mode run-qualified-canonical-v
 
 The extra-data continuation, district-symmetry pilot, and opponent-orbit pilot
 launchers remain under `scripts/` with frozen manifests under
-`configs/td-training/`. They are completed one-off experiments; their outcomes
-and promotion blocks are summarized in `memoryBank/activeContext.md`, with
+`configs/td-training/`. They are completed one-off experiments; outcomes and
+promotion blocks are summarized in `memoryBank/activeContext.md` (extra-data
+continuation) and `docs/design/district-symmetry.md` (district symmetry), with
 detailed artifacts ignored under `artifacts/`. Do not re-run them as part of
 normal loop work.
 
