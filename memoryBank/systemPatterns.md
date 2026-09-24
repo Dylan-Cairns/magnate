@@ -221,6 +221,16 @@ Design expectations:
 - Browser DOM lookup and flight construction stay outside the engine (for
   example `domTargets.ts`); sequence-derived visual commands carry the semantics
   needed to launch command-specific flights.
+- The actions menu is intentionally tooltip-free: `ActionsPanel` and every
+  `ActionPicker` variant render no `Tooltip` markup. Picker options are
+  self-describing through suit tokens and labels, and the popover's stacking
+  context sits above the tooltip layer, so reintroduced tooltips there would
+  render behind the popover.
+- Play-area lane stacks expose tooltips only on the topmost (front) card:
+  `DistrictLane` passes `showTooltip={index === laneCards.length - 1}` to
+  `CardTile`, and `CardTile`/`ProgressTracker` gate both the tooltip bubble and
+  the `tooltip-trigger` class on it. Covered cards stay tooltip-free so hovering
+  a stack always names the visible front card.
 - Structure is ownership-based: stateless components under
   `src/ui/components/`, controller logic under `src/ui/hooks/` (notably
   `useGameController` and `useGameAnimations`), and split style files under

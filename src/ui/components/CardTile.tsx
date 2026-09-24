@@ -28,6 +28,7 @@ export function CardTile({
   incomeHighlighted = false,
   highlightTarget,
   preview = false,
+  showTooltip = true,
 }: {
   cardId?: CardId;
   hidden?: boolean;
@@ -44,6 +45,7 @@ export function CardTile({
   incomeHighlighted?: boolean;
   highlightTarget?: HighlightTarget;
   preview?: boolean;
+  showTooltip?: boolean;
 }) {
   if (placeholder) {
     return (
@@ -87,6 +89,7 @@ export function CardTile({
       incomeHighlighted={incomeHighlighted}
       highlightTarget={highlightTarget}
       preview={preview}
+      showTooltip={showTooltip}
     />
   );
 }
@@ -105,6 +108,7 @@ function CardTileCard({
   incomeHighlighted = false,
   highlightTarget,
   preview = false,
+  showTooltip = true,
 }: {
   cardId: CardId;
   deedTokens?: Partial<Record<Suit, number>>;
@@ -119,11 +123,13 @@ function CardTileCard({
   incomeHighlighted?: boolean;
   highlightTarget?: HighlightTarget;
   preview?: boolean;
+  showTooltip?: boolean;
 }) {
   const highlightClass = useHighlightClass();
   const actionHighlight = highlightTarget
     ? highlightClass(highlightTarget)
     : '';
+  const tooltipsEnabled = !preview && showTooltip;
   const card = CARD_BY_ID[cardId];
   const cardImage = getCardImage(cardId);
   const suits = card.kind === 'Excuse' ? [] : [...card.suits];
@@ -167,7 +173,7 @@ function CardTileCard({
           deedTarget={deedTarget}
           animateDeedProgress={animateDeedProgress}
           cardId={cardId}
-          showTooltip={!preview}
+          showTooltip={tooltipsEnabled}
         />
       ) : (
         <span className="deed-progress-placeholder" aria-hidden="true" />
@@ -222,7 +228,7 @@ function CardTileCard({
 
   return (
     <div
-      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}${actionHighlight} tooltip-trigger`}
+      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}${actionHighlight}${tooltipsEnabled ? ' tooltip-trigger' : ''}`}
       data-card-id={preview ? undefined : cardId}
       data-in-development={inDevelopment ? 'true' : undefined}
       data-hand-owner-id={handOwnerId}
@@ -231,7 +237,7 @@ function CardTileCard({
     >
       {perspective === 'bot' ? imageBody : metadataRow}
       {perspective === 'bot' ? metadataRow : imageBody}
-      {!preview && (
+      {tooltipsEnabled && (
         <Tooltip
           placement={
             perspective === 'human' && handOwnerId === undefined

@@ -62,6 +62,26 @@ describe('CardTile', () => {
     expect(botHtml).not.toContain('tooltip-anchor tooltip-below');
   });
 
+  it('suppresses card and deed progress tooltips when showTooltip is false', () => {
+    const html = renderToStaticMarkup(
+      <CardTile cardId="29" showTooltip={false} />
+    );
+    const deedHtml = renderToStaticMarkup(
+      <CardTile
+        cardId="6"
+        inDevelopment
+        deedProgress={1}
+        deedTarget={2}
+        showTooltip={false}
+      />
+    );
+
+    expect(html).not.toContain('tooltip-trigger');
+    expect(html).not.toContain('tooltip-anchor');
+    expect(deedHtml).not.toContain('tooltip-trigger');
+    expect(deedHtml).not.toContain('tooltip-anchor');
+  });
+
   it('renders deed suit tokens without their own tooltips', () => {
     const html = renderToStaticMarkup(
       <CardTile
