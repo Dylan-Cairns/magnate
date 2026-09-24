@@ -192,6 +192,22 @@ describe('search state evaluator', () => {
     );
   });
 
+  it('prices a fresh court at no leaf option value', () => {
+    const fresh = courtEvalState({
+      resourcesA: makeResources({ Moons: 4, Waves: 4, Knots: 4 }),
+      progress: 0,
+    });
+
+    // The progress discount replaces the legacy generic curve's small fresh
+    // value with zero, so the court term can never make a fresh deed look like
+    // a nearly-complete one at a depth-limited leaf.
+    expect(
+      evaluateSearchLeafState(fresh, PLAYER_A, { courtValueScale: 1 })
+    ).toBeLessThan(
+      evaluateSearchLeafState(fresh, PLAYER_A, { courtValueScale: 0 })
+    );
+  });
+
   it('raises the leaf value as court feasibility improves', () => {
     const low = courtEvalState({
       resourcesA: makeResources({ Moons: 1, Waves: 1, Knots: 1 }),
@@ -372,15 +388,17 @@ function withDistrictStacks(
 
 function courtEvalState({
   resourcesA,
+  progress = 6,
 }: {
   resourcesA: ResourcePool;
+  progress?: number;
 }): GameState {
   return makeEvalState({
     ruleset: 'extended',
     resourcesA,
     districts: withDistrictStacks({
       D1: {
-        [PLAYER_A]: stack({ deed: { cardId: '41', progress: 0 } }),
+        [PLAYER_A]: stack({ deed: { cardId: '41', progress } }),
         [PLAYER_B]: stack({ developed: ['10'] }),
       },
     }),

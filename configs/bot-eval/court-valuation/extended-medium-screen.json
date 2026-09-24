@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "runLabel": "court-valuation-extended-medium-ab-v2",
-  "seedPrefix": "court-valuation-extended-medium-ab-v2",
-  "gamesPerSide": 30,
+  "runLabel": "court-valuation-extended-medium-screen-v1",
+  "seedPrefix": "court-valuation-extended-medium-screen-v1",
+  "gamesPerSide": 10,
   "candidate": {
     "id": "v2-court-scale-100",
     "kind": "search",

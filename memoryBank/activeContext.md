@@ -55,12 +55,33 @@
   [-0.405, +0.112], rejected buys -0.556 [-1.104, -0.007]. Verdict: keep
   `courtValueScale = 1`; buy discrimination is directionally right and
   recommended-buy softness is not significant.
-- The search leaf evaluator now shares the Court state value: at
-  `courtValueScale > 0`, `evaluateSearchLeafState` prices incomplete Courts with
-  `courtPotentialValueForPlayerV2` (swing × feasibility), while scale 0 keeps
-  the legacy generic curve as the control. This makes medium/easy coherent and
-  enables the medium A/B. The dump gate now uses the same-card metric with the
-  coarse count as a diagnostic.
+- The search leaf evaluator prices incomplete Courts through
+  `courtPotentialValueForPlayerV2` at `courtValueScale > 0`, while scale 0 keeps
+  the legacy generic curve as the control. Leaf v1 (the raw action value) failed
+  its medium gate (`court-valuation-extended-medium-ab-v1`: 25W-34L-1D, 41.7%,
+  paired margin -0.15 [-0.376, +0.076]) because a fresh deed was priced at
+  almost a completed Court's swing, switching medium play from the control's
+  outright path to 75 deed buys per 60 games. The leaf now applies a convex
+  progress discount (`progressRatio^2`): fresh deeds carry no option value and
+  value accrues as the deed is developed. The leaf v2 screen
+  (`court-valuation-extended-medium-screen-v1`, 10 pairs) came back 10W-10L
+  (paired margin 0.00, 2-2-6) with all behavioral gates passing, and the 30-pair
+  v2 validation (`court-valuation-extended-medium-ab-v2`: 29W-31L, 48.3%, paired
+  margin -0.033 [-0.253, +0.187]) failed the paired-improvement gate by rule
+  while removing the v1 regression (v1 margin -0.15); utilization,
+  follow-through (0.72), and dump gates pass. Term + calibrated leaf is
+  approximately neutral versus scale 0 at medium. The v2 CDC keeps the
+  decision-level verdict neutral (recommendations +0.019, recommended develops
+  +0.068, recommended buys -0.047, all n.s.; rejections -0.116 with CI
+  excluding 0; the negative buy bucket is carried by rejected buys the term
+  avoids). Pooled across both medium runs the scale-1 arm is 9-15 on discordant
+  pairs (p ≈ 0.31, pooled margin ≈ -0.05); at 30 pairs the CI half-width is
+  ≈0.22, so the gate certifies large effects only. Verdict (2026-09-24): keep
+  `courtValueScale = 1` everywhere; medium/easy are validated as no-harm, not
+  as strength gains. The next lever, if Courts ever need to add strength, is
+  the action term's recommended-buy pricing (hard -0.146, medium -0.047, both
+  n.s.), which requires a fresh hard screen.
+  The dump gate uses the same-card metric with the coarse count as a diagnostic.
 - The TD hard extra-data step-9,000 checkpoint is promoted as the `experimental`
   manifest entry, is the default training warm start and opponent-pool entry,
   and is deployed as the default browser pack
@@ -98,29 +119,20 @@
   thresholds from repeated runs.
 - Continue improving throughput for direct TypeScript TD-root matchups;
   individual Node search decisions remain synchronous.
-- Align `evaluateSearchLeafState` Court pricing with `courtPotentialV2`
-  (feasibility-discounted swing) so medium and easy profiles become coherent;
-  a medium A/B is then a meaningful fast test.
 - Continue shrinking untyped or dynamic payload handling in Python scripts as
   those surfaces are touched.
 
 ## Immediate Next Steps
 
-1. Run the medium validation A/B for the aligned Court leaf:
-   `configs/bot-eval/court-valuation/extended-medium-ab.json`, 30 pairs with
-   `--out-dir artifacts/ts-bot-evals/court-valuation-extended-medium-ab-v1`,
-   then call gates with `yarn bot:eval court-value-report`; at 30 pairs the
-   paired-improvement gate is a real call. Interrupted runs resume with
-   `--resume <out-dir>/checkpoint.json`.
-2. Decide whether to spend the sealed 100-game final test on the promoted
+1. Decide whether to spend the sealed 100-game final test on the promoted
    step-9,000 candidate.
-3. Write a short design and guardrail plan for architectural fixed-D3 S4
+2. Write a short design and guardrail plan for architectural fixed-D3 S4
    symmetry while preserving existing replay, checkpoint, and browser-export
    contracts.
-4. Continue self-play iterations with promoted manifest warm starts,
+3. Continue self-play iterations with promoted manifest warm starts,
    `td-lambda` value targets, checkpoint selection, replay windows, and
    generator gating.
-5. Keep docs aligned by replacing stale content rather than appending task
+4. Keep docs aligned by replacing stale content rather than appending task
    history.
 
-_Updated: 2026-09-22._
+_Updated: 2026-09-24._

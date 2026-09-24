@@ -12,6 +12,7 @@ describe('head-to-head config parsing', () => {
     const directory = 'configs/bot-eval/court-valuation';
     for (const file of [
       'extended-hard-screen.json',
+      'extended-medium-screen.json',
       'extended-medium-ab.json',
     ]) {
       const payload: unknown = JSON.parse(
@@ -46,13 +47,30 @@ describe('head-to-head config parsing', () => {
       await readFile(`${directory}/extended-medium-ab.json`, 'utf8')
     );
     const medium = parseHeadToHeadConfig(mediumPayload);
-    expect(medium.seedPrefix).toBe('court-valuation-extended-medium-ab-v1');
+    expect(medium.seedPrefix).toBe('court-valuation-extended-medium-ab-v2');
     expect(medium.gamesPerSide).toBe(30);
     expect(
       medium.candidate.kind === 'search' && medium.candidate.config.worlds
     ).toBe(10);
     expect(
       medium.candidate.kind === 'search' && medium.candidate.config.depth
+    ).toBe(40);
+
+    const mediumScreenPayload: unknown = JSON.parse(
+      await readFile(`${directory}/extended-medium-screen.json`, 'utf8')
+    );
+    const mediumScreen = parseHeadToHeadConfig(mediumScreenPayload);
+    expect(mediumScreen.seedPrefix).toBe(
+      'court-valuation-extended-medium-screen-v1'
+    );
+    expect(mediumScreen.gamesPerSide).toBe(10);
+    expect(
+      mediumScreen.candidate.kind === 'search' &&
+        mediumScreen.candidate.config.worlds
+    ).toBe(10);
+    expect(
+      mediumScreen.candidate.kind === 'search' &&
+        mediumScreen.candidate.config.depth
     ).toBe(40);
   });
 
