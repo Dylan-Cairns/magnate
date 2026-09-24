@@ -97,10 +97,10 @@
 }
 
 .status-badge--wood {
-  --status-ink: #f0d2ac;
+  --status-ink: #f0d4a2;
   --status-fill: rgba(39, 22, 13, 0.48);
-  --status-edge: rgba(221, 174, 116, 0.3);
-  --status-highlight: rgba(247, 204, 151, 0.07);
+  --status-edge: rgba(222, 178, 106, 0.3);
+  --status-highlight: rgba(247, 208, 140, 0.07);
 }
 
 .status-badge:focus-visible {
@@ -267,8 +267,17 @@
   gap: var(--section-gap);
   height: 100%;
   min-height: 0;
-  overflow: visible;
+  overflow: clip;
   padding-bottom: var(--space-1);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--lane-fade),
+    #000 calc(100% - var(--lane-fade)),
+    transparent 100%
+  );
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
 }
 
 .district-column {
@@ -440,6 +449,26 @@
   );
   flex: 0 0 auto;
   filter: drop-shadow(var(--card-stack-drop-shadow));
+}
+
+.lane-stack,
+.lane-card-animation-target,
+.placement-ghost {
+  --card-image-area-width: min(
+    clamp(6.81rem, 70cqw, 8.6rem),
+    calc(
+      22vh * var(--card-image-source-width) / var(--card-image-source-height)
+    )
+  );
+  --card-image-area-height: calc(
+    var(--card-image-area-width) * var(--card-image-source-height) /
+      var(--card-image-source-width)
+  );
+  --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
+  --card-height: calc(
+    (var(--card-padding) * 2) + var(--card-meta-height) + var(--card-meta-gap) +
+      var(--card-image-area-height)
+  );
 }
 
 .lane-stack-card {

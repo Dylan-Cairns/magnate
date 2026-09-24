@@ -14,6 +14,7 @@ import { selectHeuristicAction } from '../policies/heuristicScorer';
 export type DevFixtureId =
   | 'multi-income'
   | 'late-game'
+  | 'deep-lanes'
   | 'd6-moons'
   | 'd6-wyrms'
   | 'd6-knots'
@@ -22,6 +23,14 @@ export type DevFixtureId =
 const DEV_FIXTURE_PARAM = 'fixture';
 const LATE_GAME_FIXTURE_SEED = 'dev-late-6';
 const LATE_GAME_MAX_DECISIONS = 500;
+const DEEP_LANES_FIXTURE_SEED = 'dev-fixture-deep-lanes';
+const DEEP_LANE_COUNTS: readonly (readonly [number, number])[] = [
+  [8, 7],
+  [2, 2],
+  [1, 1],
+  [1, 1],
+  [0, 0],
+];
 const HUMAN_MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['6', '7'];
 const BOT_MULTI_INCOME_DEED_CARDS: readonly CardId[] = ['8'];
 const MULTI_INCOME_DEED_CARDS: readonly CardId[] = [
@@ -45,6 +54,7 @@ export function devFixtureIdFromSearch(search: string): DevFixtureId | null {
   if (
     fixtureId === 'multi-income' ||
     fixtureId === 'late-game' ||
+    fixtureId === 'deep-lanes' ||
     fixtureId === 'd6-moons' ||
     fixtureId === 'd6-wyrms' ||
     fixtureId === 'd6-knots' ||
@@ -64,6 +74,8 @@ export function createDevFixtureSession(
       return createMultiIncomeFixture(humanPlayerId);
     case 'late-game':
       return createLateGameFixture(humanPlayerId);
+    case 'deep-lanes':
+      return createDeepLanesFixture(humanPlayerId);
     case 'd6-moons':
       return createD6TaxFixture(humanPlayerId, 'Moons');
     case 'd6-wyrms':
@@ -177,6 +189,64 @@ function createD6TaxFixture(humanPlayerId: PlayerId, taxSuit: Suit): GameState {
     lastIncomeRoll: { die1: 1, die2: 5, rollId: 1 },
     lastTaxSuit: taxSuit,
   });
+}
+
+function createDeepLanesFixture(humanPlayerId: PlayerId): GameState {
+  const botPlayerId = otherPlayerId(humanPlayerId);
+  const state = newGame(DEEP_LANES_FIXTURE_SEED, {
+    firstPlayer: humanPlayerId,
+  });
+  const activePlayerIndex = state.players.findIndex(
+    (player) => player.id === humanPlayerId
+  );
+  if (activePlayerIndex < 0) {
+    throw new Error(`Unknown human player for dev fixture: ${humanPlayerId}`);
+  }
+
+  const available = [...state.deck.draw];
+  const takeCards = (count: number): CardId[] => {
+    if (available.length < count) {
+      throw new Error('Deep-lanes fixture ran out of cards.');
+    }
+    return available.splice(0, count);
+  };
+
+  const districts = state.districts.map((district, index) => {
+    const counts = DEEP_LANE_COUNTS[index];
+    if (!counts) {
+      throw new Error(`Missing deep-lane counts for ${district.id}.`);
+    }
+    const [botCount, humanCount] = counts;
+    return {
+      ...district,
+      stacks: {
+        ...district.stacks,
+        [botPlayerId]: {
+          ...district.stacks[botPlayerId],
+          developed: takeCards(botCount),
+        },
+        [humanPlayerId]: {
+          ...district.stacks[humanPlayerId],
+          developed: takeCards(humanCount),
+        },
+      },
+    };
+  });
+
+  return appendFixtureLog(
+    {
+      ...state,
+      deck: { ...state.deck, draw: available },
+      districts,
+      activePlayerIndex,
+      turn: 12,
+      phase: 'ActionWindow',
+      lastIncomeRoll: { die1: 4, die2: 6 },
+      cardPlayedThisTurn: false,
+    },
+    humanPlayerId,
+    'Dev fixture: deep district lanes'
+  );
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {

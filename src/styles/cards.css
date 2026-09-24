@@ -403,6 +403,7 @@
   display: grid;
   place-items: center;
   font-size: 0.88rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.52);
 }
 
 /* The SVG owns both the rim and the artwork. CSS only sizes the whole face. */
@@ -427,6 +428,7 @@
   flex: 0 0 1.02rem;
   margin: 0 0.15em;
   vertical-align: middle;
+  box-shadow: none;
 }
 
 .token-chip.empty {

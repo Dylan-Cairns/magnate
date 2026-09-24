@@ -13,7 +13,8 @@
 
 .die-scene-d10.is-glowing,
 .die-scene-d6.is-glowing {
-  filter: drop-shadow(0 0 3px var(--active-ring))
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4))
+    drop-shadow(0 0 3px var(--active-ring))
     drop-shadow(0 0 7px var(--active-glow-outer));
 }
 

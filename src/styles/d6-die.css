@@ -3,6 +3,7 @@
   height: 54px;
   perspective: 500px;
   flex: 0 0 auto;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
 
 .die-d6 {
