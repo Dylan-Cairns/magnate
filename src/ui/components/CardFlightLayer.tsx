@@ -28,12 +28,17 @@ export function CardFlightLayer({
           flight.renderHeight && flight.renderHeight > 0
             ? flight.renderHeight
             : flight.startHeight;
+        // Destination-rendered flights lay the card out at the target box, so
+        // scale uniformly: per-axis scaling would subtly distort the card
+        // artwork whenever the source and destination aspect ratios differ.
+        const destinationLayout = flight.renderWidth !== undefined;
         const startScaleX =
           renderWidth > 0 && Number.isFinite(flight.startWidth)
             ? flight.startWidth / renderWidth
             : 1;
-        const startScaleY =
-          renderHeight > 0 && Number.isFinite(flight.startHeight)
+        const startScaleY = destinationLayout
+          ? startScaleX
+          : renderHeight > 0 && Number.isFinite(flight.startHeight)
             ? flight.startHeight / renderHeight
             : 1;
         const endScaleX =
@@ -44,6 +49,18 @@ export function CardFlightLayer({
           renderHeight > 0 && Number.isFinite(flight.endHeight)
             ? flight.endHeight / renderHeight
             : 1;
+        // Adopt the destination card scope so the final frame has the same
+        // internals as the card it lands on. Both dimensions are needed:
+        // inherited custom properties keep the computed values from :root.
+        const endImageAreaWidth =
+          flight.endImageAreaWidth !== undefined && flight.endImageAreaWidth > 0
+            ? `${flight.endImageAreaWidth}px`
+            : undefined;
+        const endImageAreaHeight =
+          flight.endImageAreaHeight !== undefined &&
+          flight.endImageAreaHeight > 0
+            ? `${flight.endImageAreaHeight}px`
+            : undefined;
         return (
           <div
             key={flight.id}
@@ -60,6 +77,8 @@ export function CardFlightLayer({
                 '--card-flight-start-scale-y': `${Number.isFinite(startScaleY) ? startScaleY : 1}`,
                 '--card-flight-end-scale-x': `${Number.isFinite(endScaleX) ? endScaleX : 1}`,
                 '--card-flight-end-scale-y': `${Number.isFinite(endScaleY) ? endScaleY : 1}`,
+                '--card-image-area-width': endImageAreaWidth,
+                '--card-image-area-height': endImageAreaHeight,
                 width: `${renderWidth}px`,
                 height: `${renderHeight}px`,
               } as CSSProperties

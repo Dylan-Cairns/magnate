@@ -55,6 +55,27 @@ describe('CardFlightLayer', () => {
     expect(html).toContain('card-tile card-back');
   });
 
+  it('adopts the destination card image area and scales uniformly', () => {
+    const html = renderToStaticMarkup(
+      <CardFlightLayer
+        animationsEnabled
+        flights={[
+          {
+            ...BASE_FLIGHT,
+            startHeight: 90,
+            endImageAreaWidth: 86,
+            endImageAreaHeight: 133,
+          },
+        ]}
+      />
+    );
+
+    expect(html).toContain('--card-image-area-width:86px');
+    expect(html).toContain('--card-image-area-height:133px');
+    expect(html).toContain('--card-flight-start-scale-x:0.5');
+    expect(html).toContain('--card-flight-start-scale-y:0.5');
+  });
+
   it('renders nothing without flights', () => {
     expect(
       renderToStaticMarkup(

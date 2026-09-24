@@ -351,7 +351,12 @@ describe('flightPlans', () => {
       lane: () => lane,
       districtColumn: () => target,
       laneTargetCenter: () => ({ x: 400, y: 500 }),
-      laneCardSize: () => ({ width: 96, height: 140 }),
+      laneCardMetrics: () => ({
+        width: 96,
+        height: 140,
+        imageAreaWidth: 86,
+        imageAreaHeight: 133,
+      }),
     });
 
     expect(
@@ -383,6 +388,8 @@ describe('flightPlans', () => {
         endHeight: 140,
         renderWidth: 96,
         renderHeight: 140,
+        endImageAreaWidth: 86,
+        endImageAreaHeight: 133,
       },
     ]);
 
@@ -414,7 +421,7 @@ function makeTargets(
     districtColumn: () => null,
     laneFrame: () => null,
     laneTargetCenter: () => null,
-    laneCardSize: () => null,
+    laneCardMetrics: () => null,
     deckSource: () => null,
     discardTarget: () => null,
     handSource: () => null,

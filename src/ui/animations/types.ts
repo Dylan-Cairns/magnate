@@ -34,6 +34,14 @@ export type CardFlight = {
   endHeight: number;
   renderWidth?: number;
   renderHeight?: number;
+  /**
+   * Destination card scope metrics. When set, the flight lays its card out at
+   * the destination's image-area size so the final frame matches the real card
+   * exactly, whatever the lane size is. Both dimensions are propagated because
+   * custom properties inherit as computed values.
+   */
+  endImageAreaWidth?: number;
+  endImageAreaHeight?: number;
   delayMs: number;
   durationMs?: number;
   presentationLandingMs?: number;
