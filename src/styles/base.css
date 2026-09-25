@@ -6,14 +6,28 @@
   --velvet-speck-light: rgba(202, 220, 242, 0.018);
   --velvet-speck-dark: rgba(10, 15, 24, 0.095);
   --bg-center-glow: rgba(63, 108, 174, 0.2);
-  --panel: #080d18;
-  --side-rail-panel-fill: rgba(8, 13, 24, 0.5);
-  --panel-border: rgba(126, 98, 60, 0.26);
-  --panel-border-start: rgba(148, 110, 60, 0.45);
-  --panel-border-end: #2e2f35;
-  --container-shadow: 0 16px 36px rgba(0, 0, 0, 0.66);
-  --container-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.58);
-  --rail-panel-shadow: 0 5px 12px rgba(0, 0, 0, 0.72);
+  /* Depth ladder. Lighter reads as nearer, so every rung is a value step above
+     the surface behind it. Objects — cards, action rows, deck piles — share
+     the object rung's edge and shadow but keep their own fills, since they
+     range from near-white card faces to dark rows. Only the shadow differs by
+     rung; nothing else about a surface is allowed to imply height. */
+  --depth-field: #050a15;
+  --depth-panel: rgba(17, 26, 42, 0.55);
+  --depth-tray-start: #181f29;
+  --depth-tray-end: #262f3b;
+  --depth-tray-bg: linear-gradient(
+    180deg,
+    var(--depth-tray-start) 0%,
+    var(--depth-tray-end) 100%
+  );
+  --depth-overlay: #1b2330;
+  --depth-shadow-panel: 0 5px 12px rgba(0, 0, 0, 0.6);
+  --depth-shadow-tray: 0 6px 14px rgba(0, 0, 0, 0.66);
+  --depth-shadow-object: 0 7px 16px rgba(0, 0, 0, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.48);
+  --depth-shadow-overlay: 0 16px 36px rgba(0, 0, 0, 0.7);
+  /* One edge for every container. Gold is reserved for the active rung. */
+  --container-edge: rgba(126, 140, 160, 0.42);
   --font-display: 'Averia Serif Libre', Georgia, serif;
   --font-ui: 'Alegreya Sans', 'Trebuchet MS', sans-serif;
   --space-1: 0.2rem;
@@ -38,7 +52,12 @@
   --muted: #c8d0dc;
   --accent: #e3bc6c;
   --accent-soft: #f1d69b;
-  --heading-ink: #f4e0b2;
+  /* Headings keep the lightness they always had; only the hue moves, so the
+     type's size and weight relationships are untouched. */
+  --heading-ink: #d4dce7;
+  /* Chrome controls. Same blue family as the surfaces, so gold stays the one
+     warm signal and gets spent only on the active rung. */
+  --control-ink: #bfd7f5;
   /* Win and loss text, so results don't spend the gold accent. */
   --moss: #4fbf74;
   --rust: #e2685a;
@@ -56,30 +75,27 @@
   --active-glow: rgba(164, 119, 79, 0.34);
   --active-glow-outer: rgba(226, 191, 137, 0.3);
   --board-dashed: rgba(171, 139, 112, 0.34);
-  --wood-start: #140f0c;
-  --wood-end: #5b2f1e;
-  /* Granite is the third material: wood is the board's own structure, blue is
-     the field and its chrome, granite is where cards and records live. It
-     reads from its edge and grain more than from its value, which keeps it
-     dark enough that card faces hold their contrast against it. */
-  --granite-start: #232b35;
-  --granite-end: #151b23;
-  --granite-bg: linear-gradient(
-    150deg,
-    var(--granite-start) 0%,
-    var(--granite-end) 100%
-  );
-  --granite-edge: rgba(120, 134, 152, 0.45);
+  /* The band's brown is the Decktet's own brown, sampled from the leaves suit
+     symbol rather than mixed by hand: lit face #d99e6b, body #bb895c, shade
+     #926c47, all hue 28-30. A 34px strip can't carry a wide light-to-dark
+     sweep without reading as a rounded tube, so the band takes the token's
+     shade value and falls only 7 points - the same magnitude as the tray
+     rung's gradient, which is what keeps both reading as flat surfaces. */
+  --band-start: #926c47;
+  --band-end: #7c5c3c;
   --district-divider-bg: linear-gradient(
-    135deg,
-    var(--wood-start) 0%,
-    var(--wood-end) 100%
+    180deg,
+    var(--band-start) 0%,
+    var(--band-end) 100%
   );
-  --district-divider-border: rgba(122, 88, 48, 0.45);
+  /* The token rims its brown in its own lit face, so the band does too. */
+  --district-divider-border: rgba(217, 158, 107, 0.34);
   --card-inset-border: rgba(255, 255, 255, 0.24);
-  --card-back-border: rgba(48, 62, 86, 0.96);
-  --card-back-stripe-a: #646d7b;
-  --card-back-stripe-b: #101827;
+  /* The card's darkest value has to clear the tray's lightest value, or the
+     back reads as stripes with the container showing through. */
+  --card-back-border: rgba(96, 110, 132, 0.9);
+  --card-back-stripe-a: #6b7686;
+  --card-back-stripe-b: #28323f;
   --card-placeholder-border: rgba(140, 148, 153, 0.38);
   --card-placeholder-bg: rgba(31, 40, 53, 0.45);
   --action-border: #4a5d79;
@@ -116,7 +132,6 @@
   --chip-count-border: #788598;
   --chip-count-bg: #0f1728;
   --chip-count-text: #f4f7fb;
-  --shadow-popover: rgba(0, 0, 0, 0.72);
   --ring-cell-size: 150px;
   --ring-line: #1a2c4215;
   --ring-fill: #08111e1f;
@@ -166,11 +181,8 @@
   );
   --deck-pile-stack-step: 0.24rem;
   --deck-pile-fan-shift: 0.18rem;
-  --card-drop-shadow:
-    0 7px 16px rgba(0, 0, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.48);
+  --card-drop-shadow: var(--depth-shadow-object);
   --card-stack-drop-shadow: 0 9px 20px rgba(0, 0, 0, 0.66);
-  --card-stack-inner-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.22), 0 -1px 1px rgba(255, 255, 255, 0.06);
 }
 
 * {
@@ -290,7 +302,7 @@ h1 {
   tabular digits don't crowd letters.
 */
 .district-lane-score,
-.status-badge,
+.engraving,
 .deck-pile-count,
 .token-count,
 .deed-progress-value,

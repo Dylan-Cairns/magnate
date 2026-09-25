@@ -11,7 +11,7 @@
   width: max-content;
   max-width: min(18rem, calc(100vw - 1.5rem));
   padding: 0.42rem 0.55rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--container-edge);
   border-radius: 8px;
   background: rgba(10, 14, 22, 0.96);
   box-shadow:

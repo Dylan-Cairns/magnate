@@ -1,19 +1,8 @@
-/* Deck State holds the deck and discard piles, so it takes the same granite
-   as the hand panels rather than the blue chrome fill. */
+/* Deck State holds the deck and discard piles, so it takes the tray rung
+   rather than the panel fill. */
 .deck-state-panel {
-  border-color: var(--granite-edge);
-  background-color: transparent;
-  background-image:
-    var(--grain-texture), var(--grain-texture), var(--granite-bg);
-  background-size:
-    180px 180px,
-    300px 300px,
-    auto;
-  background-position:
-    0 0,
-    88px 56px,
-    center;
-  background-repeat: repeat, repeat, no-repeat;
+  border-color: var(--container-edge);
+  background: var(--depth-tray-bg);
 }
 
 .deck-piles {
@@ -205,7 +194,7 @@
   border: 1px solid var(--card-border);
   overflow: hidden;
   box-shadow:
-    var(--rail-panel-shadow),
+    var(--depth-shadow-object),
     inset 0 0 0 1px var(--card-inset-border);
 }
 
@@ -219,12 +208,12 @@
     var(--card-back-stripe-b) 8px,
     var(--card-back-stripe-b) 16px
   );
-  box-shadow: var(--rail-panel-shadow);
+  box-shadow: var(--depth-shadow-object);
 }
 
 .deck-pile-card-discard {
   background: linear-gradient(
-    135deg,
+    180deg,
     var(--card-bg-start) 0%,
     var(--card-bg-end) 100%
   );

@@ -10,15 +10,12 @@
 }
 
 .panel {
-  border: 1px solid transparent;
+  border: 1px solid var(--container-edge);
   border-radius: 10px;
-  background:
-    linear-gradient(var(--panel), var(--panel)) padding-box,
-    linear-gradient(135deg, var(--panel-border-start), var(--panel-border-end))
-      border-box;
+  background: var(--depth-panel);
   backdrop-filter: none;
   box-shadow:
-    var(--container-shadow),
+    var(--depth-shadow-panel),
     inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
@@ -47,10 +44,10 @@
 .brand-row > .panel {
   width: calc(100% * var(--side-column-panel-width-factor));
   justify-self: start;
-  background: var(--side-rail-panel-fill);
-  border-color: var(--panel-border);
+  background: var(--depth-panel);
+  border-color: var(--container-edge);
   box-shadow:
-    var(--rail-panel-shadow),
+    var(--depth-shadow-panel),
     inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
@@ -67,7 +64,7 @@
 .actions-panel.is-active {
   border-color: var(--active-border);
   box-shadow:
-    var(--rail-panel-shadow),
+    var(--depth-shadow-panel),
     0 0 0 1px var(--active-ring),
     0 0 18px var(--active-glow),
     0 0 32px var(--active-glow-outer),

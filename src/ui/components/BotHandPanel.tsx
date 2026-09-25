@@ -51,7 +51,7 @@ export function BotHandPanel({
       <header className="player-header">
         <h2>{title}</h2>
         <div className="player-score-wrap">
-          <span className="status-badge" tabIndex={0}>
+          <span className="engraving" tabIndex={0}>
             {districtScore} VP
           </span>
           <section

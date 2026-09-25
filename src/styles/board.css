@@ -1,18 +1,7 @@
 .player-panel {
-  border: 1px solid var(--granite-edge);
+  border: 1px solid var(--container-edge);
   border-radius: 10px;
-  background-color: transparent;
-  background-image:
-    var(--grain-texture), var(--grain-texture), var(--granite-bg);
-  background-size:
-    180px 180px,
-    300px 300px,
-    auto;
-  background-position:
-    0 0,
-    88px 56px,
-    center;
-  background-repeat: repeat, repeat, no-repeat;
+  background: var(--depth-tray-bg);
   backdrop-filter: none;
   padding: var(--panel-padding-compact);
   /* Keep the tray's block padding compact but put its header on the panel
@@ -24,7 +13,7 @@
   min-width: 0;
   justify-self: stretch;
   box-shadow:
-    var(--rail-panel-shadow),
+    var(--depth-shadow-tray),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   min-height: 0;
   overflow: visible;
@@ -36,7 +25,7 @@
 .player-panel.is-active {
   border-color: var(--active-border);
   box-shadow:
-    var(--rail-panel-shadow),
+    var(--depth-shadow-tray),
     0 0 0 1px var(--active-ring),
     0 0 18px var(--active-glow),
     0 0 32px var(--active-glow-outer),
@@ -71,11 +60,13 @@
   align-items: center;
 }
 
-.status-badge {
-  --status-ink: #dde4ee;
-  --status-fill: rgba(43, 51, 63, 0.7);
-  --status-edge: rgba(120, 134, 152, 0.5);
-  --status-highlight: rgba(200, 214, 234, 0.06);
+/* An engraving is cut into its container rather than laid on top of it, so it
+   sits at the container's own rung: no border, no drop shadow, just a
+   recessed fill and an incised lip. */
+.engraving {
+  --engraving-ink: #dde4ee;
+  --engraving-fill: rgba(9, 13, 19, 0.45);
+  --engraving-lip: rgba(255, 255, 255, 0.06);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -83,14 +74,12 @@
   height: 1.25rem;
   flex-shrink: 0;
   padding: 0 0.4rem;
-  border: 1px solid var(--status-edge);
   border-radius: 5px;
-  background: var(--status-fill);
+  background: var(--engraving-fill);
   box-shadow:
     inset 0 1px 3px rgba(0, 0, 0, 0.55),
-    inset 1px 0 2px rgba(0, 0, 0, 0.2),
-    inset 0 -1px 2px var(--status-highlight);
-  color: var(--status-ink);
+    inset 0 -1px 1px var(--engraving-lip);
+  color: var(--engraving-ink);
   font-family: var(--font-ui);
   font-size: 0.88rem;
   font-weight: 700;
@@ -101,16 +90,15 @@
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
 
-/* Last Turn is the one status chip that isn't a running counter, so it keeps
-   the blue treatment the others used to share. */
-.status-badge--blue {
-  --status-ink: #d5dfed;
-  --status-fill: rgba(13, 22, 36, 0.58);
-  --status-edge: rgba(158, 180, 209, 0.28);
-  --status-highlight: rgba(190, 211, 237, 0.07);
+/* Last Turn is the one engraving that isn't a running counter, so it keeps the
+   blue treatment the others used to share. */
+.engraving--blue {
+  --engraving-ink: #d5dfed;
+  --engraving-fill: rgba(13, 22, 36, 0.58);
+  --engraving-lip: rgba(190, 211, 237, 0.07);
 }
 
-.status-badge:focus-visible {
+.engraving:focus-visible {
   outline: 1px solid var(--accent-soft);
   outline-offset: 3px;
 }
@@ -120,7 +108,7 @@
   top: calc(100% + 0.36rem);
   right: 0;
   min-width: 12.8rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--container-edge);
   border-radius: 9px;
   padding: 0.42rem 0.52rem;
   background: rgba(10, 14, 22, 0.96);
@@ -397,7 +385,7 @@
   inset: 0;
   border-radius: inherit;
   box-shadow:
-    var(--rail-panel-shadow),
+    var(--depth-shadow-object),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   pointer-events: none;
   z-index: -1;
@@ -548,11 +536,11 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   justify-items: center;
-  border: 1px solid #586270;
+  border: 1px solid var(--container-edge);
   background-color: #171d24;
   background-image:
     var(--grain-texture), var(--grain-texture),
-    linear-gradient(145deg, #2b333f, #141a22);
+    linear-gradient(180deg, #2b333f, #141a22);
   background-size:
     180px 180px,
     300px 300px,
@@ -580,7 +568,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: var(--rail-panel-shadow);
+  box-shadow: var(--depth-shadow-object);
   pointer-events: none;
   z-index: -1;
 }

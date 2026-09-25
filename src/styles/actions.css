@@ -42,7 +42,7 @@
   right: 0.55rem;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--accent-soft);
+  color: var(--control-ink);
   font-weight: 700;
   opacity: 0.95;
 }
@@ -131,10 +131,10 @@
      base padding and insets its section labels to reach the content rail. */
   padding: var(--panel-padding);
   /* Match the rail panels' translucent fill so the menu doesn't read darker. */
-  background: var(--side-rail-panel-fill);
-  border: 1px solid var(--panel-border);
+  background: var(--depth-panel);
+  border: 1px solid var(--container-edge);
   backdrop-filter: blur(6px);
-  box-shadow: 0 10px 24px var(--shadow-popover);
+  box-shadow: var(--depth-shadow-overlay);
 }
 
 .trade-choice-list {
@@ -155,7 +155,7 @@
   font: inherit;
   cursor: pointer;
   padding: 0.5rem var(--row-inset);
-  box-shadow: var(--container-shadow-soft);
+  box-shadow: var(--depth-shadow-object);
 }
 
 .trade-choice-button {
@@ -171,7 +171,7 @@
   border-color: var(--accent-soft);
   box-shadow:
     0 0 0 1px rgba(120, 168, 246, 0.45),
-    var(--container-shadow-soft);
+    var(--depth-shadow-object);
 }
 
 .trade-cancel-button {

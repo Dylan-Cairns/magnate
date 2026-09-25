@@ -146,7 +146,7 @@ export function ActionsPanel({
       <div className="actions-heading">
         <h2>{terminal ? 'Game Over' : 'Actions'}</h2>
         {isLastTurn && (
-          <span className="status-badge status-badge--blue">Last Turn</span>
+          <span className="engraving engraving--blue">Last Turn</span>
         )}
       </div>
       <div className="actions-body">

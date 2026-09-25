@@ -74,7 +74,7 @@
   border-radius: 8px;
   border: 1px solid var(--action-border);
   background: var(--action-bg);
-  color: var(--accent-soft);
+  color: var(--control-ink);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -132,7 +132,7 @@
   height: 2px;
   top: 50%;
   border-radius: 999px;
-  background: var(--accent-soft);
+  background: var(--control-ink);
 }
 
 .close-x span:nth-child(1) {
@@ -151,7 +151,7 @@
   width: 1.18rem;
   height: 1.18rem;
   fill: none;
-  stroke: var(--accent-soft);
+  stroke: var(--control-ink);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -167,12 +167,12 @@
   top: calc(100% + 0.36rem);
   right: 0;
   width: min(20.5rem, calc(100vw - 2.5rem));
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--container-edge);
   border-radius: 10px;
-  background: var(--side-rail-panel-fill);
+  background: var(--depth-panel);
   backdrop-filter: blur(6px);
   box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.5),
+    var(--depth-shadow-overlay),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   padding: 0.62rem;
   display: grid;
@@ -181,7 +181,7 @@
 }
 
 .brand-options-link {
-  color: var(--accent-soft);
+  color: var(--control-ink);
   font-size: 0.92rem;
   line-height: 1.35;
   text-decoration: underline;
@@ -279,11 +279,11 @@
 .animation-controls .animation-toggle-row input {
   width: 0.92rem;
   height: 0.92rem;
-  accent-color: var(--accent-soft);
+  accent-color: var(--control-ink);
 }
 
 .game-credits {
-  border-top: 1px solid var(--panel-border);
+  border-top: 1px solid var(--container-edge);
   padding-top: 0.62rem;
   color: var(--ink);
   font-size: 0.86rem;
@@ -299,7 +299,7 @@
 }
 
 .game-credits a {
-  color: var(--accent-soft);
+  color: var(--control-ink);
   text-underline-offset: 0.14rem;
 }
 
@@ -312,7 +312,7 @@
   font: inherit;
   font-size: 0.86rem;
   font-weight: 600;
-  color: var(--accent-soft);
+  color: var(--control-ink);
   background: var(--action-bg);
   cursor: pointer;
   box-shadow: var(--button-shadow);
@@ -338,12 +338,12 @@
   bottom: calc(100% + 0.36rem);
   right: 0;
   width: 100%;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--container-edge);
   border-radius: 10px;
-  background: var(--side-rail-panel-fill);
+  background: var(--depth-panel);
   backdrop-filter: blur(6px);
   box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.5),
+    var(--depth-shadow-overlay),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   padding: 0.62rem;
   display: grid;

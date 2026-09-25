@@ -115,7 +115,7 @@
 }
 
 .bug-report-body a {
-  color: var(--accent-soft);
+  color: var(--control-ink);
   text-underline-offset: 0.14rem;
 }
 
@@ -125,7 +125,7 @@
   padding: 0;
   cursor: pointer;
   font: inherit;
-  color: var(--accent-soft);
+  color: var(--control-ink);
   text-decoration: underline;
   text-underline-offset: 0.14rem;
 }
@@ -143,7 +143,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--container-edge);
   border-radius: 999px;
   background: rgb(8, 12, 19);
   box-shadow:
