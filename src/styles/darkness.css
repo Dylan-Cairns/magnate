@@ -1,0 +1,155 @@
+/* The Darkness (Decktet) is canonically a blank card. A blank face reads as a
+   broken image in the digital UI, so the card renders a deliberate white face
+   with grey mist. The mist drifts and settles for a few seconds when the card is
+   played, developed, or sold, then freezes instead of looping for attention.
+
+   The look is a continuous procedural-noise field, not particles. `feTurbulence`
+   (the same inline-SVG technique the app already uses for its grain texture)
+   generates a tileable cloud pattern that is drawn into two oversized layers
+   drifting and rotating at different rates. Their interference makes the mist
+   reshape continuously, with no popping and no hotspots. Everything is pure CSS
+   and inline SVG: no images, no external assets, no runtime randomness. The mist
+   deliberately ignores `prefers-reduced-motion`; the in-app animations toggle is
+   the single opt-out, so players who want motion always get it. */
+
+.darkness-fog {
+  --fog-noise-a: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.018 0.014' numOctaves='5' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --fog-noise-b: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='480' height='480'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014 0.019' numOctaves='5' seed='29' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.card-tile.is-darkness .card-image-frame {
+  background: #ffffff;
+}
+
+.card-tile.is-darkness .card-image {
+  visibility: hidden;
+}
+
+.darkness-fog {
+  position: absolute;
+  inset: 0;
+  /* Below the in-development dimming overlay (`.card-image-frame::before`,
+     z-index 1) so a deed's mist is dimmed along with the rest of the card. */
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* The settled face: even grey density with a soft top light and a corner
+   vignette. It is always present, so the card reads as mist at rest and never as
+   blank, and it is the state the drift resolves to. */
+.darkness-fog__base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      78% 60% at 28% 72%,
+      rgba(158, 165, 179, 0.95),
+      rgba(158, 165, 179, 0) 74%
+    ),
+    radial-gradient(
+      70% 56% at 74% 64%,
+      rgba(138, 147, 163, 0.95),
+      rgba(138, 147, 163, 0) 76%
+    ),
+    radial-gradient(
+      86% 62% at 52% 92%,
+      rgba(168, 175, 189, 0.95),
+      rgba(168, 175, 189, 0) 78%
+    ),
+    radial-gradient(
+      78% 64% at 58% 20%,
+      rgba(146, 155, 171, 0.92),
+      rgba(146, 155, 171, 0) 80%
+    ),
+    radial-gradient(
+      120% 90% at 50% 0%,
+      rgba(255, 255, 255, 0.42),
+      rgba(255, 255, 255, 0) 52%
+    ),
+    radial-gradient(
+      155% 155% at 50% 52%,
+      rgba(255, 255, 255, 0) 52%,
+      rgba(96, 106, 126, 0.42) 100%
+    ),
+    #e2e7ee;
+}
+
+.darkness-fog__drift {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+/* The noise layers are much larger than the card and bleed past every edge, so
+   drifting them never reveals a border and coverage stays even. */
+.darkness-fog__cloud {
+  position: absolute;
+  inset: -70%;
+  background-repeat: repeat;
+  background-position: center;
+  background-size: 520px 520px;
+  filter: blur(3px) contrast(1.05);
+  will-change: transform;
+}
+
+.darkness-fog__cloud-a {
+  background-image: var(--fog-noise-a);
+  opacity: 0.5;
+}
+
+.darkness-fog__cloud-b {
+  background-image: var(--fog-noise-b);
+  background-size: 660px 660px;
+  opacity: 0.42;
+  filter: blur(5px) contrast(1);
+}
+
+/* Both layers drift slowly and decelerate (strong ease-out), so the mist comes
+   to rest rather than stopping abruptly. Different distances, directions, and
+   rotations keep the two noise fields interfering as they move. Duration is set
+   longhand because a custom property inside the `animation` shorthand does not
+   reliably resolve in this position. */
+.darkness-fog__drift.is-animated .darkness-fog__cloud-a {
+  animation-name: darkness-drift-a;
+  animation-duration: var(--darkness-stir-duration, 4000ms);
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+.darkness-fog__drift.is-animated .darkness-fog__cloud-b {
+  animation-name: darkness-drift-b;
+  animation-duration: var(--darkness-stir-duration, 4000ms);
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+}
+
+@keyframes darkness-drift-a {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1.06);
+  }
+
+  to {
+    transform: translate3d(10%, -14%, 0) rotate(4deg) scale(1);
+  }
+}
+
+@keyframes darkness-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+
+  to {
+    transform: translate3d(-12%, 10%, 0) rotate(-5deg) scale(1.08);
+  }
+}
+
+/* The discard pile renders card faces directly (not via CardTile); it keeps the
+   same white Darkness face with the settled mist. */
+.deck-pile-image-darkness {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+}

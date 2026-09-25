@@ -2,6 +2,7 @@
 @import './styles/layout.css';
 @import './styles/board.css';
 @import './styles/cards.css';
+@import './styles/darkness.css';
 @import './styles/flights.css';
 @import './styles/actions.css';
 @import './styles/scores.css';

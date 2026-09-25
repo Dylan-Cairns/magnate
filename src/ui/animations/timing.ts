@@ -22,3 +22,7 @@ export const TURN_CYCLE_INCOME_FLIGHT_DURATION_MS = 560;
 export const TURN_CYCLE_INCOME_FLIGHT_STAGGER_MS = 95;
 export const TURN_CYCLE_POST_INCOME_HOLD_MS = 220;
 export const DEED_PROGRESS_REVEAL_MS = 420;
+
+// The Darkness face fog stirs for this long after the card is played or
+// developed, then holds its settled frame so it never draws ongoing attention.
+export const DARKNESS_STIR_DURATION_MS = 5000;

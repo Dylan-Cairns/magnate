@@ -164,6 +164,7 @@ export function PlayerPanel({
                     }
                     handSlotKind="occupied"
                     animateDeedProgress={animateDeedProgress}
+                    animationsEnabled={animationsEnabled}
                   />
                 </div>
               );
