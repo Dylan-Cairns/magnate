@@ -194,10 +194,35 @@
      whole 3D scene (faces, borders and label included). */
   --die-d10-size: 100px;
   --die-d6-size: 54px;
+  /* Scrollbars reuse the chrome blue family so they read as part of every
+     surface rather than the OS default. The track stays transparent: the panel
+     fill behind it is already the right depth, and a second filled strip would
+     add a rung the depth ladder doesn't have. */
+  --scrollbar-thumb: rgba(126, 140, 160, 0.55);
+  --scrollbar-thumb-hover: rgba(160, 178, 202, 0.8);
 }
 
 * {
   box-sizing: border-box;
+  /* Chromium ignores scrollbar-color, so the color is carried by the WebKit
+     pseudo-elements below; this line is here for Firefox and other engines
+     that implement the standard properties. */
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/* Recolor every scrollbar to the UI's chrome blues, leaving the browser's
+   default footprint (no width/height overrides). */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 html,
