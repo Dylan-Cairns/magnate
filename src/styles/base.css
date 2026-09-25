@@ -111,9 +111,6 @@
   --row-inset: 0.5rem;
   --button-shadow: 0 2px 5px rgba(0, 0, 0, 0.34);
   --button-shadow-hover: 0 3px 7px rgba(0, 0, 0, 0.42);
-  --reset-turn-border: #60cc87;
-  --reset-turn-bg: #1f4a37;
-  --reset-turn-bg-hover: #296148;
   --card-padding: 0.42rem;
   --card-meta-height: 1.05rem;
   --card-meta-gap: 0.24rem;

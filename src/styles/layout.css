@@ -92,10 +92,13 @@
   flex-direction: column;
 }
 
+/* The reset row keeps a reserved slot below the scrolling list: no divider and
+   no extra padding, so it reads as the last row of the column, and it cannot be
+   squeezed out of view by a long action list. */
 .actions-footer {
+  flex: 0 0 auto;
+  display: grid;
   margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px dashed var(--divider-subtle);
 }
 
 .actions-heading {

@@ -24,7 +24,6 @@ import {
   type HumanActionListItem,
 } from '../actionPresentation';
 import { SUIT_TEXT_TOKEN } from '../suitIcons';
-import { ResetTurnConfirm } from './ResetTurnConfirm';
 import { SuitText } from './SuitText';
 import { TerminalScoreSummary } from './TerminalScoreSummary';
 
@@ -128,7 +127,6 @@ export function ActionsPanel({
   ) => void;
 }) {
   const hoverProps = useActionHover();
-  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const humanInputOwned =
     activePlayerId === humanPlayerId ||
     hasVisibleIncomeChoiceActions(visibleActionItems);
@@ -463,21 +461,12 @@ export function ActionsPanel({
                   key="reset-turn"
                   type="button"
                   className="action-button reset-turn-button"
-                  onClick={() => setResetConfirmOpen(true)}
+                  onClick={onResetTurn}
                 >
                   <span className="action-text">Reset turn</span>
                 </button>
               </div>
             ) : null}
-
-            <ResetTurnConfirm
-              open={canResetTurn && resetConfirmOpen}
-              onCancel={() => setResetConfirmOpen(false)}
-              onConfirm={() => {
-                setResetConfirmOpen(false);
-                onResetTurn();
-              }}
-            />
           </div>
         ) : hideBotWaitMessageDuringTurnCycleLock ? null : (
           <p className="empty-note">

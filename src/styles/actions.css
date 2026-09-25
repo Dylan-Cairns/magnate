@@ -53,15 +53,6 @@
   box-shadow: var(--button-shadow-hover);
 }
 
-.action-button.reset-turn-button {
-  border-color: var(--reset-turn-border);
-  background: var(--reset-turn-bg);
-}
-
-.action-button.reset-turn-button:hover {
-  background: var(--reset-turn-bg-hover);
-}
-
 .action-entry {
   display: grid;
   gap: 0;
