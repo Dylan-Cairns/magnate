@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -98,6 +98,9 @@ export function HistoryModal({
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'timestamp', desc: true },
   ]);
+  // `onClose` is an inline callback at the call site, so keep the listener
+  // registered for the modal's open lifetime while still calling the latest one.
+  const closeModal = useEffectEvent(onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -124,11 +127,11 @@ export function HistoryModal({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') closeModal();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open]);
 
   const table = useReactTable({
     data: games,

@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useEffectEvent, type RefObject } from 'react';
 
 type UseDismissableLayerOptions = {
   enabled: boolean;
@@ -17,6 +17,10 @@ export function useDismissableLayer({
   insideRefs,
   closeOnScroll = false,
 }: UseDismissableLayerOptions): void {
+  // The listeners are registered once per enabled/guard change; the event
+  // callback always sees the latest `onDismiss` without re-subscribing.
+  const dismiss = useEffectEvent(onDismiss);
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -32,12 +36,12 @@ export function useDismissableLayer({
         return;
       }
 
-      onDismiss();
+      dismiss();
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onDismiss();
+        dismiss();
       }
     };
 
@@ -45,7 +49,7 @@ export function useDismissableLayer({
     window.addEventListener('keydown', handleEscape);
 
     if (closeOnScroll) {
-      window.addEventListener('scroll', onDismiss, true);
+      window.addEventListener('scroll', dismiss, true);
     }
 
     return () => {
@@ -53,8 +57,8 @@ export function useDismissableLayer({
       window.removeEventListener('keydown', handleEscape);
 
       if (closeOnScroll) {
-        window.removeEventListener('scroll', onDismiss, true);
+        window.removeEventListener('scroll', dismiss, true);
       }
     };
-  }, [closeOnScroll, enabled, insideRefs, onDismiss]);
+  }, [closeOnScroll, enabled, insideRefs]);
 }
