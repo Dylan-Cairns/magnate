@@ -8,6 +8,9 @@
   /* Room for the rows' outward bleed, so row text stays on the content rail. */
   margin-inline: calc(var(--row-inset) * -1);
   padding: 0.08rem var(--row-inset);
+  /* Reserve the scrollbar's strip: overlay scrollbars otherwise paint over the
+     row surfaces, which bleed all the way to this list's edge. */
+  scrollbar-gutter: stable;
 }
 
 .action-button {
@@ -150,40 +153,33 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.trade-choice-button,
-.trade-cancel-button {
+.trade-choice-button {
   border: 1px solid var(--action-border);
   border-radius: 8px;
   color: var(--ink);
   font: inherit;
   cursor: pointer;
   padding: 0.5rem var(--row-inset);
-  box-shadow: var(--depth-shadow-object);
-}
-
-.trade-choice-button {
   background: var(--action-bg);
   text-align: left;
+  box-shadow: var(--button-shadow);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .trade-choice-button:hover {
   background: var(--action-bg-hover);
+  border-color: #60789a;
+  box-shadow: var(--button-shadow-hover);
 }
 
 .trade-choice-button.is-selected {
   border-color: var(--accent-soft);
   box-shadow:
     0 0 0 1px rgba(120, 168, 246, 0.45),
-    var(--depth-shadow-object);
-}
-
-.trade-cancel-button {
-  background: var(--popover-cancel-bg);
-  text-align: center;
-}
-
-.trade-cancel-button:hover {
-  background: var(--popover-cancel-bg-hover);
+    var(--button-shadow);
 }
 
 .composite-picker-group {

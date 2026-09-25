@@ -39,10 +39,7 @@ import { ActionsPanel } from './ui/components/ActionsPanel';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
 import { BotHandPanel } from './ui/components/BotHandPanel';
 import { DeckPiles } from './ui/components/DeckPiles';
-import {
-  ResolutionWarningOverlay,
-  StartupPreloadOverlay,
-} from './ui/components/GameOverlays';
+import { StartupPreloadOverlay } from './ui/components/GameOverlays';
 import { DecktetSuitDiagram } from './ui/components/DecktetSuitDiagram';
 import { LogPanel } from './ui/components/LogPanel';
 import { OptionsBackdrop, OptionsMenu } from './ui/components/OptionsMenu';
@@ -67,9 +64,6 @@ const TRADE_POPOVER_GAP_PX = 8;
 const TRADE_POPOVER_CONTENT_TOP_REM = 0.8;
 const TRADE_POPOVER_BORDER_PX = 1;
 const VIEWPORT_PADDING_PX = 10;
-const RESOLUTION_WARNING_BASE_WIDTH_PX = 1280;
-const RESOLUTION_WARNING_BASE_HEIGHT_PX = 720;
-const RESOLUTION_WARNING_THRESHOLD_SCALE = 0.95;
 const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   completed: 0,
   total: 1,
@@ -79,6 +73,34 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
+/*
+  Below these viewport heights the log and deck map can no longer both fit in
+  the info column without squashing the log to a line or two, so they become
+  mutually exclusive. The threshold tracks the root font breakpoints in
+  responsive.css, which is what sets the panels' natural heights: 13px up to
+  1330px wide, 14px up to 1518px, and 16px only above that and above 820px
+  tall. The newest browser window on a 768px-high screen lands near these edges,
+  so the splits keep the map visible wherever it still fits.
+*/
+const INFO_PANEL_EXCLUSIVE_QUERY =
+  '(max-width: 1330px) and (max-height: 713px), ' +
+  '(min-width: 1331px) and (max-height: 758px), ' +
+  '(min-width: 1519px) and (min-height: 821px) and (max-height: 862px)';
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState<boolean>(() =>
+    typeof window === 'undefined' ? false : window.matchMedia(query).matches
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setMatches(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, [query]);
+
+  return matches;
+}
 
 function readBooleanPreference(key: string, defaultValue: boolean): boolean {
   if (typeof window === 'undefined') return defaultValue;
@@ -98,21 +120,6 @@ function persistBooleanPreference(key: string, value: boolean): void {
   } catch {
     // Ignore storage failures (e.g. private browsing restrictions).
   }
-}
-
-function shouldShowResolutionWarningOnLoad(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  const minimumWidthPx =
-    RESOLUTION_WARNING_BASE_WIDTH_PX * RESOLUTION_WARNING_THRESHOLD_SCALE;
-  const minimumHeightPx =
-    RESOLUTION_WARNING_BASE_HEIGHT_PX * RESOLUTION_WARNING_THRESHOLD_SCALE;
-  const resolutionWidth = window.screen?.width ?? window.innerWidth;
-  const resolutionHeight = window.screen?.height ?? window.innerHeight;
-  return (
-    resolutionWidth <= minimumWidthPx || resolutionHeight <= minimumHeightPx
-  );
 }
 
 export function App() {
@@ -136,9 +143,6 @@ export function App() {
   const [startupPreloadAttempt, setStartupPreloadAttempt] = useState<number>(0);
   const [startupPreloadProgress, setStartupPreloadProgress] =
     useState<StartupPreloadProgress>(STARTUP_PRELOAD_INITIAL_PROGRESS);
-  const [resolutionWarningOpen, setResolutionWarningOpen] = useState<boolean>(
-    shouldShowResolutionWarningOnLoad
-  );
   const {
     gameId,
     storageError,
@@ -245,6 +249,36 @@ export function App() {
   useEffect(() => {
     persistBooleanPreference(MAP_VISIBLE_KEY, mapVisible);
   }, [mapVisible]);
+
+  const infoPanelsExclusive = useMediaQuery(INFO_PANEL_EXCLUSIVE_QUERY);
+  // When the viewport is too short for both, only the log is shown. The map is
+  // hidden by derivation rather than by clearing its preference, so it comes
+  // back on its own when there is room again. Toggling a panel on turns the
+  // other off while the viewport stays short.
+  const logShown = logVisible;
+  const mapShown = mapVisible && !(infoPanelsExclusive && logShown);
+
+  const toggleLog = useCallback(() => {
+    if (logShown) {
+      setLogVisible(false);
+      return;
+    }
+    setLogVisible(true);
+    if (infoPanelsExclusive) {
+      setMapVisible(false);
+    }
+  }, [infoPanelsExclusive, logShown]);
+
+  const toggleMap = useCallback(() => {
+    if (mapShown) {
+      setMapVisible(false);
+      return;
+    }
+    setMapVisible(true);
+    if (infoPanelsExclusive) {
+      setLogVisible(false);
+    }
+  }, [infoPanelsExclusive, mapShown]);
 
   const isLastTurn = !terminal && (viewState.finalTurnsRemaining ?? 0) > 0;
   const score = useMemo(
@@ -612,10 +646,6 @@ export function App() {
           progress={startupPreloadProgress}
           onRetry={retryStartupPreload}
         />
-        <ResolutionWarningOverlay
-          open={resolutionWarningOpen}
-          onDismiss={() => setResolutionWarningOpen(false)}
-        />
       </div>
     );
   }
@@ -787,14 +817,14 @@ export function App() {
             </div>
 
             <div className="log-map-stack">
-              {logVisible && (
+              {logShown && (
                 <LogPanel
                   timelineLog={timelineLog}
                   humanPlayerId={HUMAN_PLAYER}
                   state={canonicalState}
                 />
               )}
-              {mapVisible && (
+              {mapShown && (
                 <DecktetSuitDiagram
                   ruleset={canonicalState.ruleset}
                   dimmedCardIds={dimmedCardIds}
@@ -826,10 +856,10 @@ export function App() {
               onAnimationsEnabledChange={setAnimationsEnabled}
               bugReportIssueUrl={getBugReportIssueUrl()}
               onBugReportDownload={handleDownloadBugReport}
-              logVisible={logVisible}
-              onToggleLog={() => setLogVisible((v) => !v)}
-              mapVisible={mapVisible}
-              onToggleMap={() => setMapVisible((v) => !v)}
+              logVisible={logShown}
+              onToggleLog={toggleLog}
+              mapVisible={mapShown}
+              onToggleMap={toggleMap}
               onHistoryOpen={() => setHistoryOpen(true)}
             />
           </aside>
@@ -842,11 +872,6 @@ export function App() {
 
         <OptionsBackdrop open={optionsMenuOpen} onClose={closeOptionsMenu} />
         <OptionsBackdrop open={newGameExpanded} onClose={closeNewGame} />
-
-        <ResolutionWarningOverlay
-          open={resolutionWarningOpen}
-          onDismiss={() => setResolutionWarningOpen(false)}
-        />
 
         <ResourceFlightLayer flights={resourceFlights} />
 
@@ -863,7 +888,6 @@ export function App() {
             tradeSourceGroups={tradeSourceGroups}
             onPickerChange={setActionPicker}
             onSelectAction={handlePickerSelection}
-            onClose={closeActionPicker}
           />
         ) : null}
       </div>

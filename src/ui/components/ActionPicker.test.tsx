@@ -52,7 +52,7 @@ const INCOME_ACTIONS: GameAction[] = [
 ];
 
 describe('ActionPicker', () => {
-  it('renders a positioned standard picker and cancel control', () => {
+  it('renders a positioned standard picker', () => {
     const html = renderToStaticMarkup(
       <ActionPicker
         picker={{ kind: 'trade', give: 'Moons', top: 12, left: 34 }}
@@ -61,7 +61,6 @@ describe('ActionPicker', () => {
         tradeSourceGroups={buildTradeSourceGroups(TRADE_ACTIONS)}
         onPickerChange={noop}
         onSelectAction={noop}
-        onClose={noop}
       />
     );
 
@@ -71,7 +70,6 @@ describe('ActionPicker', () => {
     expect(html).toContain('x3 for');
     expect(html).toContain('data-token-suit="Suns"');
     expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
-    expect(html).toContain('Cancel');
   });
 
   it('renders selected combined trade controls', () => {
@@ -89,7 +87,6 @@ describe('ActionPicker', () => {
         tradeSourceGroups={buildTradeSourceGroups(TRADE_ACTIONS)}
         onPickerChange={noop}
         onSelectAction={noop}
-        onClose={noop}
       />
     );
 
@@ -114,7 +111,6 @@ describe('ActionPicker', () => {
         tradeSourceGroups={[]}
         onPickerChange={noop}
         onSelectAction={noop}
-        onClose={noop}
       />
     );
 
@@ -142,7 +138,6 @@ describe('ActionPicker', () => {
         tradeSourceGroups={[]}
         onPickerChange={noop}
         onSelectAction={noop}
-        onClose={noop}
       />
     );
 
@@ -193,7 +188,6 @@ describe('ActionPicker', () => {
           tradeSourceGroups={buildTradeSourceGroups(TRADE_ACTIONS)}
           onPickerChange={noop}
           onSelectAction={noop}
-          onClose={noop}
         />
       );
 

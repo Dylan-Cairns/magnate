@@ -67,43 +67,6 @@ export function StartupPreloadOverlay({
   );
 }
 
-export function ResolutionWarningOverlay({
-  open,
-  onDismiss,
-}: {
-  open: boolean;
-  onDismiss: () => void;
-}) {
-  return open ? (
-    <div className="resolution-warning-overlay" role="presentation">
-      <section
-        className="app-bootstrap-card resolution-warning-modal"
-        role="dialog"
-        aria-labelledby="resolution-warning-title"
-      >
-        <h2 id="resolution-warning-title" className="app-bootstrap-title">
-          Display Warning
-        </h2>
-        <p className="app-bootstrap-copy resolution-warning-message">
-          The interface is tuned for landscape desktop displays. Below roughly
-          1280 x 720, parts of the board or panels may overlap or be difficult
-          to read.
-        </p>
-        <div className="resolution-warning-actions">
-          <button
-            type="button"
-            className="reset-button tooltip-trigger"
-            onClick={onDismiss}
-          >
-            OK
-            <Tooltip>Dismiss display warning</Tooltip>
-          </button>
-        </div>
-      </section>
-    </div>
-  ) : null;
-}
-
 function clamp(value: number, min: number, max: number): number {
   if (max < min) {
     return min;

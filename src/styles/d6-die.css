@@ -1,14 +1,14 @@
 .die-scene-d6 {
-  width: 54px;
-  height: 54px;
-  perspective: 500px;
+  width: var(--die-d6-size);
+  height: var(--die-d6-size);
+  perspective: calc(var(--die-d6-size) * 9.26);
   flex: 0 0 auto;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
 
 .die-d6 {
-  width: 54px;
-  height: 54px;
+  width: var(--die-d6-size);
+  height: var(--die-d6-size);
   position: relative;
   transform-style: preserve-3d;
   transition: transform 1s ease-in-out;
@@ -18,8 +18,8 @@
 
 .die-face {
   position: absolute;
-  width: 54px;
-  height: 54px;
+  width: var(--die-d6-size);
+  height: var(--die-d6-size);
   background-color: #dfe6ec;
   border: none;
   border-radius: 1px;
@@ -33,8 +33,8 @@
 }
 
 .die-suit-circle {
-  width: 46px;
-  height: 46px;
+  width: calc(var(--die-d6-size) * 0.8519);
+  height: calc(var(--die-d6-size) * 0.8519);
   border-radius: 50%;
   background-color: var(--suit-bg, #e4e7eb);
   display: flex;
@@ -43,27 +43,27 @@
 }
 
 .die-suit-icon {
-  width: calc(100% - 4px);
-  height: calc(100% - 4px);
+  width: calc(100% - var(--die-d6-size) * 0.074);
+  height: calc(100% - var(--die-d6-size) * 0.074);
   object-fit: contain;
 }
 
-/* Face positions — each face extends translateZ(27px) from die centre */
+/* Face positions — each face extends translateZ(half the die) from die centre */
 .die-face-d6-1 {
-  transform: rotateY(0deg) translateZ(27px);
+  transform: rotateY(0deg) translateZ(calc(var(--die-d6-size) / 2));
 } /* front  */
 .die-face-d6-2 {
-  transform: rotateY(180deg) translateZ(27px);
+  transform: rotateY(180deg) translateZ(calc(var(--die-d6-size) / 2));
 } /* back   */
 .die-face-d6-3 {
-  transform: rotateY(90deg) translateZ(27px);
+  transform: rotateY(90deg) translateZ(calc(var(--die-d6-size) / 2));
 } /* right  */
 .die-face-d6-4 {
-  transform: rotateY(-90deg) translateZ(27px);
+  transform: rotateY(-90deg) translateZ(calc(var(--die-d6-size) / 2));
 } /* left   */
 .die-face-d6-5 {
-  transform: rotateX(90deg) translateZ(27px);
+  transform: rotateX(90deg) translateZ(calc(var(--die-d6-size) / 2));
 } /* top    */
 .die-face-d6-6 {
-  transform: rotateX(-90deg) translateZ(27px);
+  transform: rotateX(-90deg) translateZ(calc(var(--die-d6-size) / 2));
 } /* bottom */

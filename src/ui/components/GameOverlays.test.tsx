@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import {
-  ResolutionWarningOverlay,
-  StartupPreloadOverlay,
-} from './GameOverlays';
+import { StartupPreloadOverlay } from './GameOverlays';
 
 const noop = () => {};
 
@@ -30,18 +27,5 @@ describe('StartupPreloadOverlay', () => {
     expect(html).toContain('width:100%');
     expect(html).toContain('5 / 5');
     expect(html).toContain('Retry');
-  });
-});
-
-describe('ResolutionWarningOverlay', () => {
-  it('renders only while open', () => {
-    expect(
-      renderToStaticMarkup(<ResolutionWarningOverlay open onDismiss={noop} />)
-    ).toContain('Display Warning');
-    expect(
-      renderToStaticMarkup(
-        <ResolutionWarningOverlay open={false} onDismiss={noop} />
-      )
-    ).toBe('');
   });
 });

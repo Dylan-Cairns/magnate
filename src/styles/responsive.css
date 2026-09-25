@@ -1,85 +1,93 @@
-@media (min-width: 981px) and (max-height: 820px) {
+/*
+  The three-column layout is the only layout; there is no stacked fallback. The
+  root font is the single knob that scales it, since the card, panel, gap and
+  chip sizes are all rem-based. The ladder keeps the layout proportional as the
+  window narrows. The app-shell's min-width (base.css) then stops it squishing
+  past the tablet width, offering a horizontal scroll instead.
+*/
+@media (max-height: 820px) {
   html {
     font-size: 14px;
   }
 }
 
-@media (min-width: 981px) and (max-width: 1518px) {
+@media (max-width: 1518px) {
   html {
     font-size: 14px;
   }
 }
 
-@media (min-width: 981px) and (max-width: 1330px) {
+@media (max-width: 1330px) {
   html {
     font-size: 13px;
   }
 }
 
-@media (max-width: 980px) {
-  .app-shell {
-    height: auto;
+/*
+  At this width the side columns are the layout's bottleneck. The two card
+  regions (the human hand, bottom-left, and the bot hand + deck pile pair,
+  top-right) now match the panels, so the panels' 0.8 factor — there only to
+  keep them narrower than a full-width card row — is dead space. Fill the
+  column with the panels and narrow the columns to what that content needs,
+  handing the difference to the board. The deck cards shrink with the top-right
+  pair, which is the widest row in the info column.
+*/
+@media (max-width: 1200px) {
+  :root {
+    /* Small enough that the deck panel's two max-content piles (plus the
+       discard fan's bleed) fit its half of the bot-info-row. */
+    --deck-pile-card-width: 4rem;
+    /* Sized so the info column's widest row (bot hand + deck piles) fits the
+       full-width panels above. */
+    --side-column-width: 19.6rem;
+    --side-column-panel-width-factor: 1;
   }
 
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
-    overflow: visible;
+  .info-pane > .bot-info-row {
+    grid-template-columns: minmax(6.8rem, 0.78fr) minmax(0, 1.52fr);
+    /* Tighten the pile gap so the deck and discard stay inside the panel. */
+    --bot-info-card-gap: 0.8rem;
   }
 
-  .actions-panel,
-  .log-panel {
-    min-height: initial;
-    height: auto;
+  /* The dice scale from the board's width (see .dice-float) while these gaps
+     are rem-based, so on a squeezed board the dice shrink but the spaces
+     between them do not, leaving the cluster looking strung out. Tie the gaps
+     to the die so the spacing keeps the desktop proportions at every size. The
+     ratios match what 1194px already produces, so only narrower boards tighten. */
+  .roll-value {
+    column-gap: calc(var(--die-d10-size) * 0.38);
   }
 
-  .action-list,
-  .log-list {
-    overflow: visible;
+  .roll-group {
+    gap: calc(var(--die-d10-size) * 0.19);
   }
 
-  .info-pane {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
+  /* Scale the hand to its narrower panel instead of overflowing it: the fan
+     reserves the three-card row, so redeclare the width chain against the
+     section's own inline size. */
+  .hand-section {
+    container-type: inline-size;
   }
 
-  .actions-pane > .panel,
-  .info-pane > .panel {
-    width: 100%;
-    justify-self: stretch;
-  }
-
-  .board-pane {
-    overflow: visible;
-  }
-
-  .trade-choice-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .corner-options-anchor {
-    width: 100%;
-    justify-self: stretch;
-  }
-
-  .corner-options-anchor .brand-options-menu {
-    top: auto;
-    bottom: calc(100% + 0.36rem);
-    left: auto;
-    right: 0;
-    width: min(20.5rem, calc(100vw - 1rem));
-  }
-
-  .token-rail {
-    display: block;
-  }
-
-  .token-rail-inner {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .token-row.fixed-suits.rail-resources-row {
-    flex-wrap: wrap;
+  .card-row-wrap.hand-fan {
+    --card-image-area-width: min(
+      calc(
+        (100cqw - (var(--card-row-gap) * 2)) / 3 - (var(--card-padding) * 2)
+      ),
+      6.81rem
+    );
+    --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
+    --card-height: calc(
+      (var(--card-padding) * 2) + var(--card-meta-height) +
+        (var(--card-meta-gap) + var(--card-image-area-height))
+    );
+    --card-image-area-height: calc(
+      var(--card-image-area-width) * var(--card-image-source-height) /
+        var(--card-image-source-width)
+    );
+    --hand-fan-step: calc(var(--card-width) - var(--hand-fan-overlap));
+    --three-card-row-width: calc(
+      (var(--card-width) * 3) + (var(--card-row-gap) * 2)
+    );
   }
 }

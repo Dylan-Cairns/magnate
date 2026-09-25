@@ -1,5 +1,5 @@
-/* Deck State holds the deck and discard piles, so it is cut from the same wood
-   as the hand trays - same fill, same grain. */
+/* Deck holds the draw and discard piles, so it is cut from the same wood as
+   the hand trays - same fill, same grain. */
 .deck-state-panel {
   border-color: var(--wood-edge);
   background-color: transparent;

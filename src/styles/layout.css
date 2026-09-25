@@ -30,6 +30,9 @@
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--section-gap);
   min-height: 0;
+  /* The dice scale off the board's own width (see .dice-float), since the
+     three-column layout can squeeze the board well below viewport width. */
+  container-type: inline-size;
 }
 
 .actions-pane {

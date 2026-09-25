@@ -28,7 +28,6 @@ export function ActionPicker({
   tradeSourceGroups,
   onPickerChange,
   onSelectAction,
-  onClose,
 }: {
   picker: ActionPickerState;
   pickerRef: RefObject<HTMLElement | null>;
@@ -36,7 +35,6 @@ export function ActionPicker({
   tradeSourceGroups: readonly TradeSourceGroup[];
   onPickerChange: Dispatch<SetStateAction<ActionPickerState | null>>;
   onSelectAction: (action: GameAction) => void;
-  onClose: () => void;
 }) {
   const title = actionPickerTitle(picker, SUIT_TEXT_TOKEN);
 
@@ -73,10 +71,6 @@ export function ActionPicker({
           onSelectAction={onSelectAction}
         />
       )}
-
-      <button type="button" className="trade-cancel-button" onClick={onClose}>
-        Cancel
-      </button>
     </section>
   );
 }

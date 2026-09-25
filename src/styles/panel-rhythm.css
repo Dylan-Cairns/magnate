@@ -12,3 +12,12 @@
 .panel .brand-options-link {
   margin-inline-start: calc(var(--row-inset) * -1);
 }
+
+/*
+  A trailing badge in a panel heading hangs out to --panel-padding on the right,
+  the mirror of the title's hang on the left (and of the flush VP badges in the
+  hand-tray headers), so both ends of the heading share one rail.
+*/
+.panel .deck-state-heading .engraving {
+  margin-inline-end: calc(var(--row-inset) * -1);
+}

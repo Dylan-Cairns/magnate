@@ -87,8 +87,7 @@
 }
 
 .card-back {
-  border-style: solid;
-  border-color: var(--card-back-border);
+  border: 1px solid var(--card-back-border);
   background: repeating-linear-gradient(
     135deg,
     var(--card-back-stripe-a) 0,
@@ -345,8 +344,10 @@
 }
 
 .card-side-token-rail .token-chip.compact {
-  width: var(--token-rail-chip-size);
-  height: var(--token-rail-chip-size);
+  /* Deed tokens travel between the player rails and these card-side rails, so
+     they share the board token size and stay matched through the flight. */
+  width: var(--board-token-size);
+  height: var(--board-token-size);
 }
 
 .card-side-token-rail .token-count {

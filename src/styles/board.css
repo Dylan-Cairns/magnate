@@ -237,6 +237,13 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  /* Size the dice from the board's own width rather than the viewport: at
+     1600px they stay at 100/54px, and they shrink in step as the board is
+     squeezed (78/42px at a 488px board) so the token rails keep their room.
+     The height term then takes over on short displays, where the dice's
+     vertical bulk — not width — is what starves the district lanes. */
+  --die-d10-size: clamp(40px, min(16cqw, 11.5vh), 100px);
+  --die-d6-size: clamp(26px, min(8.6cqw, 6.2vh), 54px);
 }
 
 .dice-float .roll-die-shell {
@@ -260,6 +267,10 @@
     rather than shrinking the dice.
   */
   padding-top: 8px;
+  /* The dice are a fixed-size 3D cluster whose faces and drop shadow spill a
+     little past their boxes; without a gutter the first token sits flush
+     against them and reads as an overlap. */
+  column-gap: var(--space-8);
 }
 
 .token-rail-group {
@@ -292,13 +303,15 @@
 
 .token-row.fixed-suits.rail-resources-row {
   display: flex;
-  flex-wrap: nowrap;
+  /* Wrap rather than spill: on a squeezed board an unbounded token row would
+     overflow its rail and paint over the info column. */
+  flex-wrap: wrap;
   gap: 0.24rem;
 }
 
 .rail-resources-row .token-chip.compact {
-  width: var(--token-rail-chip-size);
-  height: var(--token-rail-chip-size);
+  width: var(--board-token-size);
+  height: var(--board-token-size);
 }
 
 .rail-resources-row .token-count {
@@ -310,13 +323,13 @@
 
 .token-row.crowns-rail-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.24rem;
 }
 
 .crowns-rail-row .token-chip.compact {
-  width: var(--token-rail-chip-size);
-  height: var(--token-rail-chip-size);
+  width: var(--board-token-size);
+  height: var(--board-token-size);
 }
 
 .district-strip {
@@ -359,7 +372,10 @@
 .district-header {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* The id and marker columns keep their minimum content width and only the
+     marker set is allowed to wrap, so a narrow divider can never let the suits
+     land on top of the district id. */
+  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
   align-items: center;
   column-gap: 0.3rem;
   border: 1px solid var(--container-edge);
@@ -412,6 +428,7 @@
 .district-marker-tokens {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 /* Scoped past `.token-chip.compact` in cards.css, which loads later. */
@@ -502,11 +519,18 @@
 .lane-stack,
 .lane-card-animation-target,
 .placement-ghost {
+  /*
+    Fit the card to its lane. The old 6.81rem floor clipped cards once a lane
+    narrowed below it; instead the lane width caps the image, while
+    max(..., 70cqw) preserves the up-to-8.6rem growth on very wide lanes and
+    leaves the desktop sizing untouched.
+  */
   --card-image-area-width: min(
-    clamp(6.81rem, 70cqw, 8.6rem),
+    8.6rem,
     calc(
       22vh * var(--card-image-source-width) / var(--card-image-source-height)
-    )
+    ),
+    max(min(6.81rem, calc(100cqw - (var(--card-padding) * 2) - 2px)), 70cqw)
   );
   --card-image-area-height: calc(
     var(--card-image-area-width) * var(--card-image-source-height) /

@@ -33,8 +33,8 @@
 }
 
 .token-chip.compact.resource-flight-chip {
-  width: var(--token-rail-chip-size);
-  height: var(--token-rail-chip-size);
+  width: var(--board-token-size);
+  height: var(--board-token-size);
 }
 
 @keyframes resource-chip-flight {

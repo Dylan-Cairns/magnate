@@ -146,8 +146,6 @@
   --grain-scale-a: 320px;
   --grain-scale-b: 520px;
   --grain-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' seed='17' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.06'/%3E%3C/svg%3E");
-  --popover-cancel-bg: #101722;
-  --popover-cancel-bg-hover: #1a2538;
   --card-width: calc((var(--card-padding) * 2) + var(--card-image-area-width));
   --card-row-gap: 0.35rem;
   --three-card-row-width: calc(
@@ -170,6 +168,14 @@
   --player-panel-height: 15rem;
   --side-column-panel-width-factor: 0.8;
   --token-rail-chip-size: 3rem;
+  /* Every suit token on the board — player rails, card-side deed tokens and the
+     flight chips — scales down on short displays so the token rails hand
+     vertical room back to the district lanes, while the flight stays matched at
+     both ends. The width term takes over on narrow displays, where a token rail
+     wraps and each extra row costs the lanes a row of their own. Kept separate
+     from --token-rail-chip-size, which the card deed-progress overlay still
+     uses. */
+  --board-token-size: clamp(1.3rem, min(6vh, 3vw), 3rem);
   --deck-pile-card-width: 5.5rem;
   --deck-pile-card-padding: 0.26rem;
   --deck-pile-card-meta-height: 1rem;
@@ -184,6 +190,10 @@
   --deck-pile-fan-shift: 0.18rem;
   --card-drop-shadow: var(--depth-shadow-object);
   --card-stack-drop-shadow: 0 9px 20px rgba(0, 0, 0, 0.66);
+  /* Dice are built from these two lengths, so a single override scales the
+     whole 3D scene (faces, borders and label included). */
+  --die-d10-size: 100px;
+  --die-d6-size: 54px;
 }
 
 * {
@@ -271,6 +281,10 @@ body {
 .app-shell {
   height: 100vh;
   min-height: 100vh;
+  /* The three-column layout never collapses, so below the tablet width we keep
+     its proportions and let the page pan sideways rather than squishing the
+     board to nothing. 1024 matches the narrowest supported tablet in landscape. */
+  min-width: 1024px;
   padding: var(--page-padding);
   display: flex;
   flex-direction: column;
