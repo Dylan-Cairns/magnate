@@ -1,4 +1,5 @@
 import { useHighlightClass } from './ActionHighlights';
+import { memo } from 'react';
 import type { HighlightTarget } from '../actionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
@@ -14,7 +15,7 @@ import { Tooltip } from './Tooltip';
 
 export type CardPerspective = 'human' | 'bot';
 
-export function CardTile({
+export const CardTile = memo(function CardTile({
   cardId,
   hidden,
   deedTokens,
@@ -92,7 +93,7 @@ export function CardTile({
       showTooltip={showTooltip}
     />
   );
-}
+});
 
 function CardTileCard({
   cardId,

@@ -38,15 +38,26 @@ const MULTI_INCOME_DEED_CARDS: readonly CardId[] = [
   ...BOT_MULTI_INCOME_DEED_CARDS,
 ];
 
+/*
+  Fixtures are dev-server only by default. A production build can opt in at
+  build time with `VITE_ENABLE_DEV_FIXTURES=true`, which is how the
+  profiling/verification harness loads a deterministic board from a real
+  bundle. Vite statically replaces the flag, so the default deployed build
+  (unset) still tree-shakes the fixture code out.
+*/
+export const DEV_FIXTURES_ENABLED =
+  import.meta.env.DEV ||
+  import.meta.env.VITE_ENABLE_DEV_FIXTURES === 'true';
+
 export function devFixtureIdFromBrowserLocation(): DevFixtureId | null {
-  if (!import.meta.env.DEV || typeof window === 'undefined') {
+  if (!DEV_FIXTURES_ENABLED || typeof window === 'undefined') {
     return null;
   }
   return devFixtureIdFromSearch(window.location.search);
 }
 
 export function devFixtureIdFromSearch(search: string): DevFixtureId | null {
-  if (!import.meta.env.DEV) {
+  if (!DEV_FIXTURES_ENABLED) {
     return null;
   }
 

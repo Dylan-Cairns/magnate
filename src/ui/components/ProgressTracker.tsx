@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { DEED_PROGRESS_REVEAL_MS } from '../animations/timing';
 import {
   buildDeedProgressArcPath,
@@ -10,7 +10,7 @@ import {
 } from './deedProgress';
 import { Tooltip } from './Tooltip';
 
-export function ProgressTracker({
+export const ProgressTracker = memo(function ProgressTracker({
   deedProgress,
   deedTarget,
   animateDeedProgress = true,
@@ -151,4 +151,4 @@ export function ProgressTracker({
       {showTooltip && <Tooltip>{label}</Tooltip>}
     </div>
   );
-}
+});

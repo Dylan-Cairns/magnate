@@ -226,12 +226,18 @@
 }
 
 html,
-body,
-#root {
+body {
   margin: 0;
   height: 100%;
   min-height: 100%;
   background-color: var(--page-bg);
+  color: var(--ink);
+}
+
+/* The layered field is painted once, on <body>. `html` and `#root` stay
+   background-transparent so the same twelve layers (including two SVG-noise
+   textures) are not rasterized three times over. */
+body {
   background-image:
     var(--grain-texture), var(--grain-texture),
     radial-gradient(
@@ -293,7 +299,6 @@ body,
     calc(var(--ring-cell-size) / 2) calc(var(--ring-cell-size) / 2),
     center;
   background-blend-mode: normal;
-  color: var(--ink);
 }
 
 body {

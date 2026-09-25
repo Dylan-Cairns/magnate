@@ -5,6 +5,7 @@ import { CardRank } from './CardRank';
 import { SuitTokenFace } from './SuitTokenFace';
 import { TokenChip } from './TokenComponents';
 import { Tooltip } from './Tooltip';
+import { memo } from 'react';
 import React from 'react';
 
 // Clockwise from top-left
@@ -83,7 +84,7 @@ const CARD_BY_EDGE_KEY = new Map<string, CardId>(
   })
 );
 
-export function DecktetSuitDiagram({
+export const DecktetSuitDiagram = memo(function DecktetSuitDiagram({
   ruleset,
   dimmedCardIds,
   dimmedSuits,
@@ -198,4 +199,4 @@ export function DecktetSuitDiagram({
       ) : null}
     </section>
   );
-}
+});

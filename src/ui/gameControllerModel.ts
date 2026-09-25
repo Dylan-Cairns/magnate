@@ -1,5 +1,9 @@
 import { legalActions } from '../engine/actionBuilders';
-import { createDevFixtureSession, type DevFixtureId } from '../dev/fixtures';
+import {
+  createDevFixtureSession,
+  DEV_FIXTURES_ENABLED,
+  type DevFixtureId,
+} from '../dev/fixtures';
 import { createSession } from '../engine/session';
 import { newGame } from '../engine/game';
 import { isTerminal } from '../engine/scoring';
@@ -26,7 +30,10 @@ export function createBrowserSession(
   devFixtureId: DevFixtureId | null = null,
   ruleset: Ruleset = 'standard'
 ): GameState {
-  if (devFixtureId && import.meta.env.DEV) {
+  // Both the parsed id and the static build flag must allow fixtures; keeping
+  // the flag in this branch lets the bundler drop the fixture builders (and the
+  // late-game rollout) entirely from the default build.
+  if (devFixtureId && DEV_FIXTURES_ENABLED) {
     return createDevFixtureSession(devFixtureId, humanPlayerId);
   }
   return createSession(seed, humanPlayerId, ruleset);

@@ -71,7 +71,11 @@ await browser.close();
 
 The app exposes deterministic dev fixtures via `?fixture=<id>` (see
 `src/dev/fixtures.ts`); prefer them over clicking through a random game when a
-fixture matches the surface.
+fixture matches the surface. Fixtures are dev-server only by default; for
+profiling/verification against a real bundled app, build with the opt-in flag
+(`VITE_ENABLE_DEV_FIXTURES=true yarn build`) and serve the output, then use the
+same `?fixture=<id>` URLs. The default deployed build leaves the flag unset, so
+fixture code stays tree-shaken out.
 
 TypeScript (canonical engine, UI, bot evaluation):
 

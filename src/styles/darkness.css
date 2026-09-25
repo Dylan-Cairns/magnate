@@ -92,7 +92,6 @@
   background-position: center;
   background-size: 520px 520px;
   filter: blur(3px) contrast(1.05);
-  will-change: transform;
 }
 
 .darkness-fog__cloud-a {
@@ -113,6 +112,9 @@
    longhand because a custom property inside the `animation` shorthand does not
    reliably resolve in this position. */
 .darkness-fog__drift.is-animated .darkness-fog__cloud-a {
+  /* Promote only while a stir is actually running; a settled card would
+     otherwise hold a compositor layer for the whole game. */
+  will-change: transform;
   animation-name: darkness-drift-a;
   animation-duration: var(--darkness-stir-duration, 4000ms);
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
@@ -120,6 +122,7 @@
 }
 
 .darkness-fog__drift.is-animated .darkness-fog__cloud-b {
+  will-change: transform;
   animation-name: darkness-drift-b;
   animation-duration: var(--darkness-stir-duration, 4000ms);
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);

@@ -1,5 +1,5 @@
 import { usePlacementGhost } from './ActionHighlights';
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 
 import {
   CARD_BY_ID,
@@ -99,7 +99,7 @@ function DistrictLeadIcon() {
   );
 }
 
-function DistrictLane({
+const DistrictLane = memo(function DistrictLane({
   districtId,
   playerId,
   stack,
@@ -245,9 +245,9 @@ function DistrictLane({
       </div>
     </section>
   );
-}
+});
 
-export function DistrictColumn({
+export const DistrictColumn = memo(function DistrictColumn({
   district,
   humanPlayerId,
   botPlayerId,
@@ -329,9 +329,9 @@ export function DistrictColumn({
       />
     </article>
   );
-}
+});
 
-export function PlayerTokenRail({
+export const PlayerTokenRail = memo(function PlayerTokenRail({
   player,
   side,
   highlightedCrownSuits,
@@ -398,4 +398,4 @@ export function PlayerTokenRail({
       </div>
     </section>
   );
-}
+});

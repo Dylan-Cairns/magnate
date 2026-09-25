@@ -32,9 +32,26 @@
     var(--card-drop-shadow),
     inset 0 0 0 1px var(--card-inset-border),
     0 0 0 1px var(--active-ring),
-    0 0 20px var(--active-glow-outer),
-    inset 0 0 14px var(--active-glow);
-  animation: income-card-pulse 900ms ease-in-out infinite;
+    0 0 24px var(--active-glow-outer),
+    inset 0 0 18px var(--active-glow);
+}
+
+/* The breathing glow lives on a pseudo-element so only opacity/transform
+   animate; the card's box-shadow stays static instead of being repainted every
+   frame. The negative z-index keeps the halo around the card without painting
+   over its content or the card stacked above it. */
+.card-tile.is-income-highlighted::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 13px;
+  pointer-events: none;
+  z-index: -1;
+  box-shadow:
+    0 0 0 1px var(--active-ring),
+    0 0 26px var(--active-glow-outer),
+    inset 0 0 18px var(--active-glow);
+  animation: income-card-glow-pulse 900ms ease-in-out infinite;
 }
 
 .lane-stack-card .card-tile.is-income-highlighted::before {
@@ -52,24 +69,16 @@
   animation: income-card-outline-pulse 900ms ease-in-out infinite;
 }
 
-@keyframes income-card-pulse {
+@keyframes income-card-glow-pulse {
   0%,
   100% {
-    box-shadow:
-      var(--card-drop-shadow),
-      inset 0 0 0 1px var(--card-inset-border),
-      0 0 0 1px var(--active-ring),
-      0 0 20px var(--active-glow-outer),
-      inset 0 0 14px var(--active-glow);
+    opacity: 0.55;
+    transform: scale(1);
   }
 
   50% {
-    box-shadow:
-      var(--card-drop-shadow),
-      inset 0 0 0 1px var(--card-inset-border),
-      0 0 0 3px var(--active-ring),
-      0 0 28px var(--active-glow-outer),
-      inset 0 0 22px var(--active-glow);
+    opacity: 1;
+    transform: scale(1.012);
   }
 }
 

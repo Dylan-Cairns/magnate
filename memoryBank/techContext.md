@@ -52,6 +52,11 @@
   CI runs `yarn install --immutable`.
 - JS scripts: `dev`, `build`, `bridge`, `bot:eval`, `test`, `lint`,
   `typecheck`, `format`.
+- Dev fixtures (`?fixture=<id>`, `src/dev/fixtures.ts`) are dev-server only by
+  default; a production build can opt in at build time with
+  `VITE_ENABLE_DEV_FIXTURES=true`, which is used to profile/verify against a
+  real bundle. The default deployed build leaves the flag unset so the fixture
+  code is tree-shaken out.
 - Vite dev watching excludes the local Python environment, generated artifacts,
   and local test/tool caches.
 - GitHub Pages deploy (`.github/workflows/deploy_pages.yml`) reads the `.nvmrc`

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 
 import type { GameLogEntry, GameState, PlayerId } from '../../engine/types';
 import { visibleLogEntriesForPlayer } from '../../engine/view';
@@ -13,7 +13,7 @@ import {
 import { playerDisplayName } from '../playerDisplay';
 import { SUIT_TOKEN_BG } from './TokenComponents';
 
-export function LogPanel({
+export const LogPanel = memo(function LogPanel({
   timelineLog,
   humanPlayerId,
   state,
@@ -105,7 +105,7 @@ export function LogPanel({
       )}
     </section>
   );
-}
+});
 
 function LogSummary({ summary }: { summary: string }) {
   const text = formatLogSummary(summary);

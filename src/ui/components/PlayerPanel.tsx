@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 
 import type {
   FinalScore,
@@ -33,7 +33,7 @@ function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
   );
 }
 
-export function PlayerPanel({
+export const PlayerPanel = memo(function PlayerPanel({
   player,
   isActive,
   score,
@@ -183,4 +183,4 @@ export function PlayerPanel({
       </div>
     </section>
   );
-}
+});

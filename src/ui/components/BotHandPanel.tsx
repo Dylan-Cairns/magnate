@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 
 import type {
   FinalScore,
@@ -19,7 +19,7 @@ function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
   );
 }
 
-export function BotHandPanel({
+export const BotHandPanel = memo(function BotHandPanel({
   player,
   isActive,
   score,
@@ -123,4 +123,4 @@ export function BotHandPanel({
       </div>
     </section>
   );
-}
+});

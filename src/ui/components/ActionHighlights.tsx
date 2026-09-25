@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
   useState,
@@ -90,16 +91,21 @@ export function ActionHighlights({
     () => new Set(targets.map(highlightTargetKey)),
     [targets]
   );
+  // Keep the context value referentially stable unless its inputs change. Without
+  // this, every ActionHighlights render (including hover) hands every consumer a
+  // new value, re-rendering cards that did not change.
+  const hover = useCallback(
+    (actions: readonly GameAction[], source: HoverSource) =>
+      setHovered({ actions, state, picker, source }),
+    [state, picker]
+  );
+  const clear = useCallback(() => setHovered(null), []);
+  const value = useMemo(
+    () => ({ keys, targets, hover, clear }),
+    [keys, targets, hover, clear]
+  );
   return (
-    <HighlightContext.Provider
-      value={{
-        keys,
-        targets,
-        hover: (actions, source) =>
-          setHovered({ actions, state, picker, source }),
-        clear: () => setHovered(null),
-      }}
-    >
+    <HighlightContext.Provider value={value}>
       {children}
     </HighlightContext.Provider>
   );

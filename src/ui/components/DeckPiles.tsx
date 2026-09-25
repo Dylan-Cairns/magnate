@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useHighlightClass } from './ActionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
@@ -8,7 +9,7 @@ import { DarknessMistFace } from './DarknessMistFace';
 import { SuitText } from './SuitText';
 import { Tooltip } from './Tooltip';
 
-export function DeckPiles({
+export const DeckPiles = memo(function DeckPiles({
   drawCount,
   reshuffles,
   discard,
@@ -202,4 +203,4 @@ export function DeckPiles({
       </div>
     </section>
   );
-}
+});

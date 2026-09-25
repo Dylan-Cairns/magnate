@@ -58,7 +58,11 @@ export function derivePresentationSnapshotFromSequence({
     };
   }
 
-  let viewState = cloneGameState(transaction.previousState);
+  // Immutable structural sharing: every step returns new objects only along the
+  // branches it changes and reuses the rest of `previousState`. Cloning here
+  // would give every district/player a fresh identity on every snapshot tick,
+  // defeating memoization and forcing the whole board to restyle and re-render.
+  let viewState = transaction.previousState;
   let overlays = initialOverlays(transaction);
   for (const step of sequence.steps) {
     if (step.startMs > elapsedMs) {
@@ -637,39 +641,6 @@ function applyDeltaToResources(
     Leaves: Math.max(0, resources.Leaves + (delta.Leaves ?? 0)),
     Wyrms: Math.max(0, resources.Wyrms + (delta.Wyrms ?? 0)),
     Knots: Math.max(0, resources.Knots + (delta.Knots ?? 0)),
-  };
-}
-
-function cloneGameState(state: GameState): GameState {
-  return {
-    ...state,
-    deck: {
-      ...state.deck,
-      draw: [...state.deck.draw],
-      discard: [...state.deck.discard],
-    },
-    players: state.players.map((player) => ({
-      ...player,
-      hand: [...player.hand],
-      crowns: [...player.crowns],
-      resources: { ...player.resources },
-    })),
-    districts: state.districts.map((district) => ({
-      ...district,
-      markerSuitMask: [...district.markerSuitMask],
-      stacks: {
-        PlayerA: cloneDistrictStack(district.stacks.PlayerA),
-        PlayerB: cloneDistrictStack(district.stacks.PlayerB),
-      },
-    })),
-    log: [...state.log],
-    pendingIncomeChoices: state.pendingIncomeChoices?.map((choice) => ({
-      ...choice,
-      suits: [...choice.suits],
-    })),
-    submittedIncomeChoices: state.submittedIncomeChoices?.map((choice) => ({
-      ...choice,
-    })),
   };
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
+import type { CardId } from '../../engine/cards';
 import {
   createAnimationTimerRegistry,
   type AnimationTimerRegistry,
@@ -36,6 +37,12 @@ import { deriveGamePresentationEvents } from '../runtime/transactions';
 import type { GameTransaction } from '../runtime/types';
 
 const ANIMATIONS_STORAGE_KEY = 'magnate:animationsEnabled';
+
+// Frozen identities so overlay-free renders do not hand consumers a fresh
+// array every tick, which would defeat their memoization.
+const NO_HIGHLIGHT_CARD_IDS: readonly CardId[] = Object.freeze([]);
+const NO_HIGHLIGHT_CROWNS: readonly { playerId: PlayerId; suit: Suit }[] =
+  Object.freeze([]);
 
 type RunTransitionOptions = {
   transactionId: string;
@@ -586,8 +593,10 @@ export function useGameAnimations() {
     resourceFlights,
     cardFlights,
     tradeProgress: presentationSnapshot?.overlays.tradeProgress,
-    incomeHighlightCardIds: presentationOverlays?.incomeHighlightCardIds ?? [],
-    incomeHighlightCrowns: presentationOverlays?.incomeHighlightCrowns ?? [],
+    incomeHighlightCardIds:
+      presentationOverlays?.incomeHighlightCardIds ?? NO_HIGHLIGHT_CARD_IDS,
+    incomeHighlightCrowns:
+      presentationOverlays?.incomeHighlightCrowns ?? NO_HIGHLIGHT_CROWNS,
     diceVisualState: presentationOverlays?.dice ?? null,
     presentationSnapshot,
     presentedState,
