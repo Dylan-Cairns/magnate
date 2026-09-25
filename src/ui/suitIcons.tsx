@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 import knotsIcon from '../assets/icons/knots.svg';
 import leavesIcon from '../assets/icons/leaves.svg';
 import moonsIcon from '../assets/icons/moons.svg';
@@ -6,6 +8,20 @@ import wavesIcon from '../assets/icons/waves.svg';
 import wyrmsIcon from '../assets/icons/wyrms.svg';
 import type { Suit } from '../engine/types';
 import { reportImageRenderFailure } from './cardImages';
+
+// Shared opaque fills for suits. The artwork has transparent gaps between its
+// layers, so it only reads correctly sitting on its own fill rather than
+// whatever happens to be behind it — a white card face, the in-development
+// grey, a dark chip. Tokens, dice, deck-map nodes and the log all back the
+// artwork this way; SuitIcon does now too.
+export const SUIT_TOKEN_BG: Record<Suit, string> = {
+  Moons: '#e4e7eb',
+  Suns: '#f7cc95',
+  Waves: '#cfe3f5',
+  Leaves: '#dfc8b2',
+  Wyrms: '#bfe3b3',
+  Knots: '#f6f4bf',
+};
 
 export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
   Moons: moonsIcon,
@@ -56,6 +72,7 @@ export function SuitIcon({
       src={SUIT_ICON_BY_SUIT[suit]}
       alt={suit}
       className={`suit-icon${className ? ` ${className}` : ''}`}
+      style={{ '--suit-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
       onError={() =>
         reportImageRenderFailure(SUIT_ICON_BY_SUIT[suit], `${suit} token`)
       }

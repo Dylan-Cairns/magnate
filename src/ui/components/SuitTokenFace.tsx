@@ -1,16 +1,6 @@
 import type { Suit } from '../../engine/types';
 import { reportImageRenderFailure } from '../cardImages';
-import { SUIT_ICON_BY_SUIT } from '../suitIcons';
-
-// Shared opaque fills for tokens, animation copies, deck-map nodes, and suit dice.
-export const SUIT_TOKEN_BG: Record<Suit, string> = {
-  Moons: '#e4e7eb',
-  Suns: '#f7cc95',
-  Waves: '#cfe3f5',
-  Leaves: '#dfc8b2',
-  Wyrms: '#bfe3b3',
-  Knots: '#f6f4bf',
-};
+import { SUIT_ICON_BY_SUIT, SUIT_TOKEN_BG } from '../suitIcons';
 
 /** One coordinate system for the rim and artwork, shared with the deck map. */
 export function SuitTokenFace({

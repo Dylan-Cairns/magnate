@@ -98,6 +98,11 @@
   --action-border: #4a5d79;
   --action-bg: #1a2333;
   --action-bg-hover: #24334a;
+  /* The corner-row chrome buttons read as solid plates: a fill that steps
+     above the panel, and a rim darker than the fill rather than a light
+     outline. */
+  --chrome-button-bg: #1f2b3e;
+  --chrome-button-edge: rgba(8, 12, 20, 0.72);
   /* Horizontal padding inside a bordered row surface. Rows cancel it with a
      negative margin so their surface meets --panel-padding while their text
      stays on the --content-inset rail with labels and flat content. */

@@ -9,7 +9,7 @@ import type { ResourcePool, Suit } from '../../engine/types';
 import { SuitTokenFace } from './SuitTokenFace';
 import { Tooltip } from './Tooltip';
 
-export { SUIT_TOKEN_BG } from './SuitTokenFace';
+export { SUIT_TOKEN_BG } from '../suitIcons';
 
 export function tokenEntries(
   tokens: Partial<Record<Suit, number>> | ResourcePool
