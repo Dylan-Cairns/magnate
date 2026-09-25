@@ -16,6 +16,12 @@ export interface BotWorkerSelectActionRequest {
   searchExecutionMode?: SearchWorkerExecutionMode;
 }
 
+/**
+ * Cooperative cancellation for work the caller is abandoning. The worker stops
+ * scheduling new rollout batches but keeps its pool warm. Do not use this to
+ * shorten a decision that will still be applied; bot strength comes from the
+ * fixed per-profile visit budget.
+ */
 export interface BotWorkerCancelRequest {
   type: 'cancel';
   requestId: number;

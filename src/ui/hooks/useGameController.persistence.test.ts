@@ -346,39 +346,26 @@ describe('controller resource policy', () => {
     return controller;
   }
 
-  it('defers bot decisions while the page is hidden and resumes when visible', async () => {
-    let visibilityState = 'hidden';
-    const listeners = new Set<() => void>();
+  function stubHiddenPage() {
     vi.stubGlobal('document', {
-      get visibilityState() {
-        return visibilityState;
-      },
-      addEventListener(type: string, listener: () => void) {
-        if (type === 'visibilitychange') listeners.add(listener);
-      },
-      removeEventListener(type: string, listener: () => void) {
-        if (type === 'visibilitychange') listeners.delete(listener);
-      },
+      visibilityState: 'hidden',
+      addEventListener: () => {},
+      removeEventListener: () => {},
     });
+  }
 
-    advanceToBotDecision();
-    await vi.runAllTimersAsync();
-    expect(bot.selectAction).not.toHaveBeenCalled();
+  it('keeps making bot decisions while the page is hidden', async () => {
+    stubHiddenPage();
 
-    visibilityState = 'visible';
-    for (const listener of listeners) {
-      listener();
-    }
-    render();
+    const before = advanceToBotDecision();
     await vi.runAllTimersAsync();
+    const after = render();
+
     expect(bot.selectAction).toHaveBeenCalled();
-
-    visibilityState = 'hidden';
-    for (const listener of listeners) {
-      listener();
-    }
-    render();
-    expect(bot.close).toHaveBeenCalledTimes(1);
+    expect(after.actionHistory.length).toBeGreaterThan(
+      before.actionHistory.length
+    );
+    expect(after.error).toBeNull();
   });
 
   it('releases the bot policy when restoring a terminal game', () => {

@@ -31,13 +31,20 @@ export interface WorkerBackedPolicyOptions {
 }
 
 export interface WorkerBackedActionPolicy extends ActionPolicy {
+  /**
+   * Supersedes pending selections (they resolve `undefined`) and tears down the
+   * worker. Callers must invalidate their own in-flight decision guards before
+   * closing; the controller bumps its decision generation or changes state
+   * first, otherwise a superseded selection is indistinguishable from a policy
+   * failure.
+   */
   close(): void;
 }
 
 /** Grace period between a cooperative shutdown and a hard `terminate()`. */
 export const WORKER_SHUTDOWN_GRACE_MS = 250;
 /** Warm-pool lifetime without a bot decision before teardown. */
-export const WORKER_IDLE_SHUTDOWN_MS = 5 * 60_000;
+export const WORKER_IDLE_SHUTDOWN_MS = 10 * 60_000;
 
 interface PendingSelection {
   legalActions: readonly GameAction[];

@@ -87,8 +87,11 @@ export interface RolloutSearchParallelSelectionInput extends RolloutSearchSelect
   batchSize: number;
   parallelWorkers: number;
   /**
-   * Cooperative cancellation hook. Checked between rollout batches; when it
-   * returns true the search stops without selecting an action.
+   * Cooperative cancellation hook, checked between rollout batches. Reserved
+   * for callers that are discarding the decision entirely (for example a turn
+   * reset); it must never be used to shorten or weaken a decision whose action
+   * will be applied, because bounded search budgets are what keep bot strength
+   * deterministic.
    */
   shouldCancel?: () => boolean;
   runBatch: (

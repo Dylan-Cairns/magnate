@@ -171,7 +171,6 @@ export function shouldScheduleBotAction({
   isIncomeChoicePhase,
   botIncomeActionCount,
   startupPreloadReady,
-  pageVisible,
 }: {
   terminal: boolean;
   activePlayerId: PlayerId;
@@ -179,10 +178,9 @@ export function shouldScheduleBotAction({
   isIncomeChoicePhase: boolean;
   botIncomeActionCount: number;
   startupPreloadReady: boolean;
-  pageVisible: boolean;
 }): boolean {
   const hasBotIncomeAction = botIncomeActionCount > 0;
-  if (terminal || !startupPreloadReady || !pageVisible) {
+  if (terminal || !startupPreloadReady) {
     return false;
   }
   if (isIncomeChoicePhase) {
