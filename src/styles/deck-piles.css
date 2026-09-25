@@ -1,8 +1,19 @@
-/* Deck State holds the deck and discard piles, so it takes the tray rung
-   rather than the panel fill. */
+/* Deck State holds the deck and discard piles, so it is cut from the same wood
+   as the hand trays - same fill, same grain. */
 .deck-state-panel {
-  border-color: var(--container-edge);
-  background: var(--depth-tray-bg);
+  border-color: var(--wood-edge);
+  background-color: transparent;
+  background-image:
+    var(--grain-texture), var(--grain-texture), var(--wood-bg);
+  background-size:
+    180px 180px,
+    300px 300px,
+    auto;
+  background-position:
+    0 0,
+    88px 56px,
+    center;
+  background-repeat: repeat, repeat, no-repeat;
 }
 
 .deck-piles {
@@ -239,12 +250,6 @@
   display: flex;
   align-items: center;
   gap: 0.12rem;
-}
-
-.deck-pile-card-empty {
-  border-style: dashed;
-  border-color: var(--card-placeholder-border);
-  background: var(--card-placeholder-bg);
 }
 
 .deck-pile-image {

@@ -1,7 +1,20 @@
 .player-panel {
-  border: 1px solid var(--container-edge);
+  border: 1px solid var(--wood-edge);
   border-radius: 10px;
-  background: var(--depth-tray-bg);
+  /* The only container that keeps the board's grain, so the hand trays read as
+     sawn stock rather than as chrome sitting on top of the field. */
+  background-color: transparent;
+  background-image:
+    var(--grain-texture), var(--grain-texture), var(--wood-bg);
+  background-size:
+    180px 180px,
+    300px 300px,
+    auto;
+  background-position:
+    0 0,
+    88px 56px,
+    center;
+  background-repeat: repeat, repeat, no-repeat;
   backdrop-filter: none;
   padding: var(--panel-padding-compact);
   /* Keep the tray's block padding compact but put its header on the panel
@@ -349,20 +362,17 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   column-gap: 0.3rem;
-  border: 1px solid var(--district-divider-border);
+  border: 1px solid var(--container-edge);
   border-radius: 8px;
-  background-color: transparent;
-  background-image:
-    var(--grain-texture), var(--grain-texture), var(--district-divider-bg);
+  background-color: var(--stone-bg);
+  background-image: var(--grain-texture), var(--grain-texture);
   background-size:
     180px 180px,
-    300px 300px,
-    auto;
+    300px 300px;
   background-position:
     0 0,
-    88px 56px,
-    center;
-  background-repeat: repeat, repeat, no-repeat;
+    88px 56px;
+  background-repeat: repeat, repeat;
   padding: 0.24rem 0.4rem;
   z-index: 2;
   isolation: isolate;
@@ -384,9 +394,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow:
-    var(--depth-shadow-object),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: var(--depth-shadow-object);
   pointer-events: none;
   z-index: -1;
 }
@@ -537,19 +545,17 @@
   align-items: center;
   justify-items: center;
   border: 1px solid var(--container-edge);
-  background-color: #171d24;
-  background-image:
-    var(--grain-texture), var(--grain-texture),
-    linear-gradient(180deg, #2b333f, #141a22);
+  /* Same fill, border and grain as the rail it hangs off; only the shadow
+     separates them, so the tab reads as the lower rung. */
+  background-color: var(--stone-bg);
+  background-image: var(--grain-texture), var(--grain-texture);
   background-size:
     180px 180px,
-    300px 300px,
-    auto;
+    300px 300px;
   background-position:
     0 0,
-    88px 56px,
-    center;
-  background-repeat: repeat, repeat, no-repeat;
+    88px 56px;
+  background-repeat: repeat, repeat;
   padding: 0.05rem 0.2rem;
   color: rgba(178, 190, 206, 0.84);
   font-size: 0.9rem;
@@ -562,13 +568,14 @@
   isolation: isolate;
 }
 
-/* Inset by the border, so the shadow grazes the tab's own border. */
+/* Inset by the border, so the shadow grazes the tab's own border. One rung
+   below the rail's, which is what puts the tab underneath it. */
 .district-lane-score::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: var(--depth-shadow-object);
+  box-shadow: var(--depth-shadow-panel);
   pointer-events: none;
   z-index: -1;
 }

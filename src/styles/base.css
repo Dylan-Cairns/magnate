@@ -13,21 +13,31 @@
      rung; nothing else about a surface is allowed to imply height. */
   --depth-field: #050a15;
   --depth-panel: rgba(17, 26, 42, 0.55);
-  --depth-tray-start: #181f29;
-  --depth-tray-end: #262f3b;
-  --depth-tray-bg: linear-gradient(
-    180deg,
-    var(--depth-tray-start) 0%,
-    var(--depth-tray-end) 100%
+  /* Wood is the tray rung's fill. Only the three containers that actually hold
+     cards are cut from it, so they share one gradient and can never drift
+     apart. The sweep is deliberately narrow: a near-black stop is too dark to
+     hold a hue, so against the blue field it read as blue-black. */
+  --wood-start: #3a2015;
+  --wood-end: #5b2f1e;
+  --wood-bg: linear-gradient(
+    135deg,
+    var(--wood-start) 0%,
+    var(--wood-end) 100%
   );
-  --depth-overlay: #1b2330;
+  /* Stone: one flat grey for every structural piece — the district rails, the
+     lane score tabs that hang off them, and the history overlay. The warm
+     material stays reserved for the containers that hold cards. */
+  --stone-bg: #343c47;
   --depth-shadow-panel: 0 5px 12px rgba(0, 0, 0, 0.6);
   --depth-shadow-tray: 0 6px 14px rgba(0, 0, 0, 0.66);
   --depth-shadow-object: 0 7px 16px rgba(0, 0, 0, 0.6),
     0 2px 4px rgba(0, 0, 0, 0.48);
   --depth-shadow-overlay: 0 16px 36px rgba(0, 0, 0, 0.7);
-  /* One edge for every container. Gold is reserved for the active rung. */
+  /* One edge per material, at the same weight. Gold is reserved for the active
+     rung. */
   --container-edge: rgba(126, 140, 160, 0.42);
+  /* The wood containers rim in their own lit tone. */
+  --wood-edge: rgba(126, 98, 60, 0.42);
   --font-display: 'Averia Serif Libre', Georgia, serif;
   --font-ui: 'Alegreya Sans', 'Trebuchet MS', sans-serif;
   --space-1: 0.2rem;
@@ -75,29 +85,13 @@
   --active-glow: rgba(164, 119, 79, 0.34);
   --active-glow-outer: rgba(226, 191, 137, 0.3);
   --board-dashed: rgba(171, 139, 112, 0.34);
-  /* The band's brown is the Decktet's own brown, sampled from the leaves suit
-     symbol rather than mixed by hand: lit face #d99e6b, body #bb895c, shade
-     #926c47, all hue 28-30. A 34px strip can't carry a wide light-to-dark
-     sweep without reading as a rounded tube, so the band takes the token's
-     shade value and falls only 7 points - the same magnitude as the tray
-     rung's gradient, which is what keeps both reading as flat surfaces. */
-  --band-start: #926c47;
-  --band-end: #7c5c3c;
-  --district-divider-bg: linear-gradient(
-    180deg,
-    var(--band-start) 0%,
-    var(--band-end) 100%
-  );
-  /* The token rims its brown in its own lit face, so the band does too. */
-  --district-divider-border: rgba(217, 158, 107, 0.34);
   --card-inset-border: rgba(255, 255, 255, 0.24);
   /* The card's darkest value has to clear the tray's lightest value, or the
-     back reads as stripes with the container showing through. */
+     back reads as stripes with the container showing through. The dark stripe
+     now sits above the wood's light stop (23.7%) rather than below it. */
   --card-back-border: rgba(96, 110, 132, 0.9);
   --card-back-stripe-a: #6b7686;
-  --card-back-stripe-b: #28323f;
-  --card-placeholder-border: rgba(140, 148, 153, 0.38);
-  --card-placeholder-bg: rgba(31, 40, 53, 0.45);
+  --card-back-stripe-b: #333e4d;
   --action-border: #4a5d79;
   --action-bg: #1a2333;
   --action-bg-hover: #24334a;

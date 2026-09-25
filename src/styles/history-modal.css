@@ -17,7 +17,8 @@
   gap: var(--space-5);
   overflow: hidden;
   border-color: var(--container-edge);
-  background: var(--depth-overlay);
+  /* The same stone as the dividers: one grey for everything structural. */
+  background: var(--stone-bg);
   box-shadow: var(--depth-shadow-overlay);
 }
 
