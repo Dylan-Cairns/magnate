@@ -17,8 +17,7 @@ describe('DeckPiles', () => {
     expect(html).toContain('deck-pile-stack is-discard');
     expect(html).toContain('deck-pile-stack-card');
     expect(html).toContain('Shuffles 2/2');
-    expect(html).toContain('engraving');
-    expect(html).toContain('engraving tooltip-trigger');
+    expect(html).toContain('heading-note tooltip-trigger');
     expect(html).toContain('class="tooltip-anchor"');
     expect(html).not.toContain('Discarded Cards:');
     expect(html).not.toContain('>Discard pile<');

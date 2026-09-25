@@ -50,7 +50,7 @@ export function DeckPiles({
     <section className="panel deck-state-panel">
       <header className="deck-state-heading">
         <h2>Deck</h2>
-        <span className="engraving tooltip-trigger" tabIndex={0}>
+        <span className="heading-note tooltip-trigger" tabIndex={0}>
           Shuffles {shuffleNumber}/2
           <Tooltip placement="below-left">{shuffleTooltip}</Tooltip>
         </span>

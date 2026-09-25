@@ -103,15 +103,29 @@
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
 }
 
-/* Last Turn is the one engraving that isn't a running counter, so it keeps the
-   blue treatment the others used to share. */
-.engraving--blue {
-  --engraving-ink: #d5dfed;
-  --engraving-fill: rgba(13, 22, 36, 0.58);
-  --engraving-lip: rgba(190, 211, 237, 0.07);
+.engraving:focus-visible {
+  outline: 1px solid var(--accent-soft);
+  outline-offset: 3px;
 }
 
-.engraving:focus-visible {
+/* A heading note is plain right-aligned status text for readouts that aren't
+   counters worth a chip: the shuffle count and the final-round callout. The VP
+   engravings keep their cut treatment; these read as flat metadata instead. */
+.heading-note {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  line-height: 1rem;
+  white-space: nowrap;
+  cursor: default;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+}
+
+.heading-note:focus-visible {
   outline: 1px solid var(--accent-soft);
   outline-offset: 3px;
 }
