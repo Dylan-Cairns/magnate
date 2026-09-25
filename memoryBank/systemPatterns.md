@@ -213,6 +213,12 @@ Design expectations:
 - Accepted transitions enter one FIFO presentation backlog keyed by the
   canonical transaction ordinal. Only the head sequence schedules visuals, and
   rendering retains the last presented state between sequences.
+- Animations must drive composited properties (`transform`/`opacity`), never
+  layout properties. A layout property in `@keyframes` re-styles and re-lays-out
+  every frame; the per-turn dice roll bounce animating `top` alone accounted for
+  roughly 80% of the app's per-turn style recalculation. The bounce uses
+  `translateY` for that reason, and `will-change` must name the animated
+  property.
 - Human input is gated by a transaction-specific decision-window barrier, not by
   pending presentation. Later actions in the same human window use canonical
   legality immediately and may run ahead of visuals.

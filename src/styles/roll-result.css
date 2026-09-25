@@ -93,44 +93,49 @@
 @keyframes die-roll-bounce-a {
   0%,
   100% {
-    top: 0;
+    transform: translateY(0);
   }
   20% {
-    top: -18px;
+    transform: translateY(-18px);
   }
   42% {
-    top: 0;
+    transform: translateY(0);
   }
   62% {
-    top: -9px;
+    transform: translateY(-9px);
   }
   82% {
-    top: 0;
+    transform: translateY(0);
   }
 }
 
 @keyframes die-roll-bounce-b {
   0%,
   100% {
-    top: 0;
+    transform: translateY(0);
   }
   20% {
-    top: -18px;
+    transform: translateY(-18px);
   }
   42% {
-    top: 0;
+    transform: translateY(0);
   }
   62% {
-    top: -9px;
+    transform: translateY(-9px);
   }
   82% {
-    top: 0;
+    transform: translateY(0);
   }
 }
 
+/*
+  The bounce is expressed as a transform, not `top`: `top` is a layout property,
+  so animating it re-laid-out and re-styled the die every frame of the 1s roll
+  (and the roll fires every turn). `translateY` gives the identical arc but runs
+  on the compositor. Keep the `will-change` on the same property that animates.
+*/
 .die-roll-bounce-wrap {
   position: relative;
-  top: 0;
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
@@ -138,10 +143,10 @@
 
 .die-roll-bounce-wrap.is-rolling-a {
   animation: die-roll-bounce-a 1000ms ease-out 1;
-  will-change: top;
+  will-change: transform;
 }
 
 .die-roll-bounce-wrap.is-rolling-b {
   animation: die-roll-bounce-b 1000ms ease-out 1;
-  will-change: top;
+  will-change: transform;
 }
