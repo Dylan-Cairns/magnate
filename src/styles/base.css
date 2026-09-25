@@ -95,7 +95,9 @@
   --card-back-border: rgba(96, 110, 132, 0.9);
   --card-back-stripe-a: #6b7686;
   --card-back-stripe-b: #333e4d;
-  --action-border: #4a5d79;
+  /* Action rows sit on the panel edge rather than on a brighter rim of their
+     own; the gold highlight already carries "actionable". */
+  --action-border: var(--container-edge);
   --action-bg: #1a2333;
   --action-bg-hover: #24334a;
   /* The corner-row chrome buttons read as solid plates: a fill that steps

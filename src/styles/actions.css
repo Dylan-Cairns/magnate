@@ -99,6 +99,18 @@
   font-size: 0.88rem;
 }
 
+/* Panel-level empties get a quiet frame, the same dashed language as the empty
+   piles; inline notes ("None") stay as plain text. */
+.empty-note-block {
+  max-width: 34rem;
+  margin-inline: auto;
+  padding: 1.15rem 1rem;
+  border: 1px dashed var(--container-edge);
+  border-radius: 10px;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .action-entry-button {
   display: grid;
 }

@@ -59,7 +59,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transition:
     background-color 140ms ease,
-    border-color 140ms ease,
     box-shadow 140ms ease;
 }
 
@@ -326,7 +325,6 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transition:
     background-color 180ms ease,
-    border-color 180ms ease,
     color 180ms ease,
     box-shadow 140ms ease;
 }

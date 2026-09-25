@@ -36,7 +36,7 @@ export function LogPanel({
     <section className="panel log-panel">
       <h2>Log</h2>
       {recentLog.length === 0 ? (
-        <p className="empty-note">No actions yet.</p>
+        <p className="empty-note empty-note-block">No actions yet.</p>
       ) : (
         <ol className="log-list">
           {recentLogGroups.map((group, groupIndex) => (

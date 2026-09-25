@@ -338,7 +338,7 @@ function StandardPicker({
   );
 
   return options.length === 0 ? (
-    <p className="empty-note">No options available.</p>
+    <p className="empty-note empty-note-block">No options available.</p>
   ) : (
     <div className="trade-choice-list">
       {options.map((option) => (

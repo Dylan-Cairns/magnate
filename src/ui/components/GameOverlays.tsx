@@ -79,7 +79,6 @@ export function ResolutionWarningOverlay({
       <section
         className="app-bootstrap-card resolution-warning-modal"
         role="dialog"
-        aria-modal="true"
         aria-labelledby="resolution-warning-title"
       >
         <h2 id="resolution-warning-title" className="app-bootstrap-title">

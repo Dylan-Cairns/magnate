@@ -192,7 +192,7 @@ export function HistoryModal({
                 History could not be loaded. Close and reopen to retry.
               </p>
             ) : games.length === 0 ? (
-              <p className="history-empty">
+              <p className="empty-note empty-note-block">
                 No games recorded yet. Finish a game to see it here.
               </p>
             ) : (
