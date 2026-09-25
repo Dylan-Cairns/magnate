@@ -361,7 +361,21 @@ describe('flightPlans', () => {
 
     expect(
       buildSoldCardFlightFromDom(PLAYER_A, '6', makeIds('sell'), targets)
-    ).toMatchObject([{ id: 'sell-1', visual: 'face', cardId: '6' }]);
+    ).toMatchObject([
+      {
+        id: 'sell-1',
+        visual: 'face',
+        cardId: '6',
+        // Destination-size-first: the sold card renders at the discard box so it
+        // travels at constant size rather than shrinking to the pile.
+        renderWidth: 90,
+        renderHeight: 130,
+        startWidth: 80,
+        startHeight: 120,
+        endWidth: 90,
+        endHeight: 130,
+      },
+    ]);
 
     expect(
       buildCardToDistrictFlightFromDom(
@@ -395,7 +409,45 @@ describe('flightPlans', () => {
 
     expect(
       buildDrawCardFlightFromDom(PLAYER_A, '7', makeIds('draw'), targets)
-    ).toMatchObject([{ id: 'draw-1', variant: 'draw', visual: 'back' }]);
+    ).toMatchObject([
+      {
+        id: 'draw-1',
+        variant: 'draw',
+        visual: 'back',
+        // Destination-size-first matches the sale flight so both read the same.
+        renderWidth: 90,
+        renderHeight: 130,
+      },
+    ]);
+  });
+
+  it('falls back to source size when a destination box has no area', () => {
+    const hand = makeElement({
+      left: 10,
+      top: 20,
+      width: 80,
+      height: 120,
+      attributes: { 'data-hand-slot-kind': 'occupied' },
+    });
+    // An unmeasured empty hand slot reports a zero-area rect; the draw flight
+    // must still travel at a usable size instead of collapsing to nothing.
+    const emptySlot = makeElement({ width: 0, height: 0 });
+    const targets = makeTargets({
+      deckSource: () => hand,
+      handDrawTarget: () => emptySlot,
+    });
+
+    expect(
+      buildDrawCardFlightFromDom(PLAYER_A, '7', makeIds('draw'), targets)
+    ).toMatchObject([
+      {
+        id: 'draw-1',
+        renderWidth: 80,
+        renderHeight: 120,
+        endWidth: 80,
+        endHeight: 120,
+      },
+    ]);
   });
 });
 

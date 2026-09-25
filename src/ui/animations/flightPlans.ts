@@ -433,6 +433,17 @@ export function createCardFlight(
     delayMs?: number;
     durationMs?: number;
     variant?: 'play' | 'draw';
+    /**
+     * Render the flight at the destination's box and animate translate only, so
+     * the card travels at a constant apparent size instead of shrinking. This
+     * is the shared convention for card flights: the transient element is laid
+     * out at its landing size (like a container transform), and scale is
+     * reserved for the source-to-destination fit. Without it, a destination
+     * with a real box makes the card shrink over the flight while a zero-size
+     * destination leaves it at source size — two different motions for the same
+     * nominal timing.
+     */
+    renderAtDestination?: boolean;
   },
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight {
@@ -441,6 +452,17 @@ export function createCardFlight(
   const sourceSize = layoutSize(sourceElement, sourceRect);
   const sourceCenter = domTargets.elementCenter(sourceElement);
   const targetCenter = domTargets.elementCenter(targetElement);
+  // Destination-layout mode needs a real destination box; otherwise fall back
+  // to source sizing so the flight never collapses to nothing.
+  const destinationWidth = targetRect.width > 0 ? targetRect.width : undefined;
+  const destinationHeight =
+    targetRect.height > 0 ? targetRect.height : undefined;
+  const renderWidth = options?.renderAtDestination
+    ? (destinationWidth ?? sourceSize.width)
+    : undefined;
+  const renderHeight = options?.renderAtDestination
+    ? (destinationHeight ?? sourceSize.height)
+    : undefined;
   return {
     id: makeFlightId(),
     variant: options?.variant ?? 'play',
@@ -454,8 +476,10 @@ export function createCardFlight(
     endY: targetCenter.y,
     startWidth: sourceSize.width,
     startHeight: sourceSize.height,
-    endWidth: targetRect.width || sourceSize.width,
-    endHeight: targetRect.height || sourceSize.height,
+    endWidth: destinationWidth ?? sourceSize.width,
+    endHeight: destinationHeight ?? sourceSize.height,
+    renderWidth,
+    renderHeight,
     delayMs: options?.delayMs ?? 0,
     durationMs: options?.durationMs,
   };
@@ -542,6 +566,7 @@ export function buildSoldCardFlightFromDom(
         cardId: visual === 'face' ? cardId : undefined,
         isDeed: false,
         perspective,
+        renderAtDestination: true,
       },
       domTargets
     ),
@@ -645,6 +670,7 @@ export function buildDrawCardFlightFromDom(
       {
         cardId,
         variant: 'draw',
+        renderAtDestination: true,
       },
       domTargets
     ),

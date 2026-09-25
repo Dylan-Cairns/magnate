@@ -35,6 +35,44 @@ the dev server with Playwright/CDP, hard-reload before judging, measure the
 geometry you depend on, and screenshot. Iterate until it holds up, then hand off
 for the user's final visual sign-off.
 
+### Driving a browser (do not give up on this)
+
+The OpenCode `browser.*` tools require the desktop app's experimental browser.
+When that is not connected they fail with
+`[browser.disconnected] No desktop browser is connected` — that is a session
+setup state, not a reason to skip browser verification. Do not report that you
+"cannot use the browser". Use the repo's own established path instead, which
+needs no desktop app:
+
+1. Start the dev server in the background: `yarn dev`. Read its output for the
+   actual port (Vite prints `Local: http://localhost:<port>/`; if 5173/5174 are
+   taken it moves to 5175+). Do not assume 5173.
+2. Write a short throwaway Playwright script **inside the repo root** so Node
+   resolves `node_modules/playwright` (a script under the OS temp dir fails with
+   `ERR_MODULE_NOT_FOUND`). Launch `chromium` with `channel: 'chrome'` (Chrome
+   and Edge are installed; `channel: 'chrome'` avoids downloading a browser).
+3. Drive the real DOM, wait on concrete selectors (`.card-flight-layer`,
+   `[data-card-id]`, `.deck-pile-stack.is-discard`), measure geometry you depend
+   on, and screenshot. Delete the script — `git status` must be clean afterwards.
+4. To A/B a UI change, `git stash push -- <file>` the change, re-run the script
+   to capture the "before", then `git stash pop` and re-run for "after".
+
+Minimal working example (adjust port and selectors):
+
+```js
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto('http://localhost:5175/', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+// drive the app, then page.evaluate(...) to measure or page.screenshot(...)
+await browser.close();
+```
+
+The app exposes deterministic dev fixtures via `?fixture=<id>` (see
+`src/dev/fixtures.ts`); prefer them over clicking through a random game when a
+fixture matches the surface.
+
 TypeScript (canonical engine, UI, bot evaluation):
 
 - Focused test first: `yarn vitest run <test-file-or-pattern>`

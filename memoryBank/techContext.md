@@ -58,6 +58,12 @@
   `corepack enable`, `corepack install`
 - Install JS deps: `yarn install`
 - Dev server: `yarn dev`; bridge runtime: `yarn bridge`
+- Visual/UI browser verification: use Playwright with
+  `chromium.launch({ channel: 'chrome' })` against the `yarn dev` URL (read the
+  port from the server output). The OpenCode `browser.*` tools need the desktop
+  app's experimental browser and error with `[browser.disconnected]` when it is
+  not attached; that is a session state, not a blocker. Recipe and rationale:
+  `docs/AGENT_GUIDE.md` ("Driving a browser").
 - JS test / lint+typecheck / format: `yarn test`, `yarn lint`, `yarn format`
 - Python test: `.\.venv\Scripts\python -m pytest`
 - Python lint: `python -m ruff check scripts trainer trainer_tests`
