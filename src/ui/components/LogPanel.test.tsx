@@ -146,9 +146,69 @@ describe('LogPanel', () => {
     expect(html).toContain('[Bot] Income choice');
     expect(html).toContain('<span class="log-player">Seed: fixed-seed</span>');
     expect(html).toContain('<span class="log-player">Opponent: V2 Hard</span>');
+    expect(html).toContain('class="log-head-reveal"');
     expect(html).toContain('class="log-suit-code"');
     expect(html).toContain('>wa<');
     expect(html).toContain('fixed-seed');
+  });
+
+  it('enables the entrance animation unless animations are turned off', () => {
+    const animated = renderToStaticMarkup(
+      <LogPanel
+        timelineLog={LOG}
+        humanPlayerId="PlayerA"
+        state={makeGameState()}
+      />
+    );
+    expect(animated).toContain('class="log-list is-animated"');
+
+    const staticMarkup = renderToStaticMarkup(
+      <LogPanel
+        timelineLog={LOG}
+        humanPlayerId="PlayerA"
+        state={makeGameState()}
+        animationsEnabled={false}
+      />
+    );
+    expect(staticMarkup).not.toContain('is-animated');
+  });
+
+  it('keeps the existing row stable when a new entry is appended', () => {
+    const base: GameLogEntry[] = [
+      {
+        turn: 1,
+        player: 'PlayerA',
+        phase: 'ActionWindow',
+        summary: 'trade Moons for Knots',
+      },
+    ];
+    const renderPanel = (timelineLog: GameLogEntry[]) =>
+      renderToStaticMarkup(
+        <LogPanel
+          timelineLog={timelineLog}
+          humanPlayerId="PlayerA"
+          state={makeGameState()}
+        />
+      );
+
+    const before = renderPanel(base);
+    const appended: GameLogEntry[] = [
+      ...base,
+      {
+        turn: 1,
+        player: 'PlayerB',
+        phase: 'CollectIncome',
+        summary: 'income choice 6:Waves',
+      },
+    ];
+    const after = renderPanel(appended);
+
+    // The pre-existing row keeps its content when a new entry is appended, so
+    // its stable chronological key prevents a remount / re-animate.
+    expect(before).toContain('>Trade <');
+    expect(after).toContain('>Trade <');
+    // No inline animation delay: the burst cascade lives in CSS.
+    expect(after).not.toContain('animation-delay');
   });
 
   it('renders an empty state without entries', () => {

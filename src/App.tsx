@@ -854,6 +854,7 @@ export function App() {
                   timelineLog={timelineLog}
                   humanPlayerId={HUMAN_PLAYER}
                   state={canonicalState}
+                  animationsEnabled={animationsEnabled}
                 />
               )}
               {mapShown && (

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 import type { GameLogEntry, GameState, PlayerId } from '../../engine/types';
 import { visibleLogEntriesForPlayer } from '../../engine/view';
@@ -17,6 +17,7 @@ export function LogPanel({
   timelineLog,
   humanPlayerId,
   state,
+  animationsEnabled = true,
 }: {
   timelineLog: ReadonlyArray<GameLogEntry>;
   humanPlayerId: PlayerId;
@@ -24,6 +25,7 @@ export function LogPanel({
     GameState,
     'turn' | 'pendingIncomeChoices' | 'submittedIncomeChoices'
   >;
+  animationsEnabled?: boolean;
 }) {
   // Privacy follows canonical submissions even when presentation is still
   // showing the previous turn. Keep the full timeline for export and reveal.
@@ -32,28 +34,48 @@ export function LogPanel({
   ].reverse();
   const recentLogGroups = groupLogEntriesByTurn(recentLog);
 
+  // `timelineLog` is append-only and filtering preserves object identity, so
+  // the chronological index is a stable key. Index-based keys would shift on
+  // every prepend and remount the whole list each turn, replaying the entrance
+  // animation on existing rows.
+  const entryIds = new Map<GameLogEntry, number>();
+  timelineLog.forEach((entry, index) => {
+    entryIds.set(entry, index);
+  });
+
   return (
     <section className="panel log-panel">
       <h2>Log</h2>
       {recentLog.length === 0 ? (
         <p className="empty-note empty-note-block">No actions yet.</p>
       ) : (
-        <ol className="log-list">
+        <ol className={animationsEnabled ? 'log-list is-animated' : 'log-list'}>
           {recentLogGroups.map((group, groupIndex) => (
-            <li key={`${group.turn}-${groupIndex}`} className="log-turn-group">
+            <li
+              key={`group-${
+                entryIds.get(group.entries[group.entries.length - 1]) ??
+                `${group.turn}-${groupIndex}`
+              }`}
+              className="log-turn-group"
+            >
               <div className="log-turn-head">
-                <span className="log-turn">T{group.turn}</span>
-                <span className="log-player">
-                  {playerDisplayName(group.player, humanPlayerId)}
+                <span className="log-head-reveal">
+                  <span className="log-turn">T{group.turn}</span>
+                  <span className="log-player">
+                    {playerDisplayName(group.player, humanPlayerId)}
+                  </span>
                 </span>
               </div>
               <ol className="log-turn-entries">
                 {group.entries.map((entry, entryIndex) => {
                   const metaValue = metaSummaryLabel(entry.summary);
+                  const entryKey =
+                    entryIds.get(entry) ??
+                    `${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`;
                   if (metaValue !== null) {
                     return (
                       <li
-                        key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
+                        key={`entry-${entryKey}`}
                         className="log-turn-entry log-turn-entry-seed"
                       >
                         <div className="log-turn-head">
@@ -63,10 +85,7 @@ export function LogPanel({
                     );
                   }
                   return (
-                    <li
-                      key={`${entry.turn}-${entry.phase}-${entry.summary}-${entryIndex}`}
-                      className="log-turn-entry"
-                    >
+                    <li key={`entry-${entryKey}`} className="log-turn-entry">
                       <span className="log-summary">
                         <LogSummary
                           summary={

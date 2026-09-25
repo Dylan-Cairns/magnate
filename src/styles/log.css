@@ -59,6 +59,124 @@
   line-height: inherit;
 }
 
+/* A new row opens its height (0fr -> 1fr) and slides down, so entries below
+   move down smoothly instead of jumping. The height must animate, not just
+   opacity/position, or the list still reflows in a single frame. The row's
+   content is held invisible for the whole open (see the delayed content fade
+   below) so text is never revealed half-clipped while the row is growing.
+   Rows appended in a burst (the roll/tax/income group on an end-turn) land as
+   the last children of their turn group, so a cascade delay keyed off distance
+   from the group end staggers them without any render-time "what changed"
+   tracking (which React StrictMode's double render would defeat). */
+:root {
+  --log-entry-grow-ms: 220ms;
+  --log-entry-fade-ms: 120ms;
+}
+
+.log-list.is-animated .log-turn-entry {
+  display: grid;
+  grid-template-rows: 0fr;
+  animation: log-entry-grow var(--log-entry-grow-ms) ease-out both;
+}
+
+.log-list.is-animated .log-turn-entries > .log-turn-entry:nth-last-child(2) {
+  animation-delay: 45ms;
+}
+
+.log-list.is-animated .log-turn-entries > .log-turn-entry:nth-last-child(3) {
+  animation-delay: 90ms;
+}
+
+.log-list.is-animated .log-turn-entries > .log-turn-entry:nth-last-child(4) {
+  animation-delay: 135ms;
+}
+
+.log-list.is-animated
+  .log-turn-entries
+  > .log-turn-entry:nth-last-child(n + 5) {
+  animation-delay: 180ms;
+}
+
+.log-list.is-animated .log-turn-entry > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.log-head-reveal {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: start;
+  min-width: 0;
+}
+
+.log-list.is-animated .log-turn-group > .log-turn-head {
+  display: grid;
+  grid-template-rows: 0fr;
+  animation: log-entry-grow var(--log-entry-grow-ms) ease-out both;
+}
+
+.log-list.is-animated .log-turn-group > .log-turn-head > .log-head-reveal {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Content stays invisible while its row opens, then fades in once the height
+   has settled, so the text is never seen squished mid-grow. The fade delay is
+   the grow duration plus the row's cascade offset, keeping bursts in sync. */
+.log-list.is-animated .log-turn-entry .log-summary,
+.log-list.is-animated .log-turn-group > .log-turn-head .log-head-reveal {
+  animation: log-entry-fade var(--log-entry-fade-ms) ease-out both;
+  animation-delay: var(--log-entry-grow-ms);
+}
+
+.log-list.is-animated
+  .log-turn-entries
+  > .log-turn-entry:nth-last-child(2)
+  .log-summary {
+  animation-delay: calc(var(--log-entry-grow-ms) + 45ms);
+}
+
+.log-list.is-animated
+  .log-turn-entries
+  > .log-turn-entry:nth-last-child(3)
+  .log-summary {
+  animation-delay: calc(var(--log-entry-grow-ms) + 90ms);
+}
+
+.log-list.is-animated
+  .log-turn-entries
+  > .log-turn-entry:nth-last-child(4)
+  .log-summary {
+  animation-delay: calc(var(--log-entry-grow-ms) + 135ms);
+}
+
+.log-list.is-animated
+  .log-turn-entries
+  > .log-turn-entry:nth-last-child(n + 5)
+  .log-summary {
+  animation-delay: calc(var(--log-entry-grow-ms) + 180ms);
+}
+
+@keyframes log-entry-grow {
+  from {
+    grid-template-rows: 0fr;
+    transform: translateY(-0.35rem);
+  }
+  to {
+    grid-template-rows: 1fr;
+    transform: translateY(0);
+  }
+}
+
+@keyframes log-entry-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .log-summary {
   min-width: 0;
   align-self: start;
