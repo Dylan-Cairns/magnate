@@ -76,6 +76,29 @@ describe('CardFlightLayer', () => {
     expect(html).toContain('--card-flight-start-scale-y:0.5');
   });
 
+  it('marks destination-layout flights and leaves draw flights unmarked', () => {
+    const destination = renderToStaticMarkup(
+      <CardFlightLayer animationsEnabled flights={[BASE_FLIGHT]} />
+    );
+    expect(destination).toContain('card-flight is-destination');
+
+    const draw = renderToStaticMarkup(
+      <CardFlightLayer
+        animationsEnabled
+        flights={[
+          {
+            ...BASE_FLIGHT,
+            variant: 'draw',
+            renderWidth: undefined,
+            renderHeight: undefined,
+          },
+        ]}
+      />
+    );
+    expect(draw).toContain('card-flight is-draw');
+    expect(draw).not.toContain('is-destination');
+  });
+
   it('renders nothing without flights', () => {
     expect(
       renderToStaticMarkup(

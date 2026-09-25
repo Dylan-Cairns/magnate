@@ -147,6 +147,13 @@ describe('buildAnimationSequence', () => {
         DEFAULT_ANIMATION_DURATIONS.paymentFlightStaggerMs
     );
     expect(cardFlight.startMs).toBe(0);
+    // The placement commits when the flight step ends, so the flight carries
+    // the draw flight's settle buffer; without it the card animation is cut
+    // off before its final frame and pops to full size on landing.
+    expect(cardFlight.durationMs).toBe(
+      DEFAULT_ANIMATION_DURATIONS.cardFlightMs +
+        DEFAULT_ANIMATION_DURATIONS.commitBufferMs
+    );
     expect(placement.startMs).toBe(cardFlight.endMs);
     expect(payment.startMs).toBe(placement.endMs);
     expect(applyPayments.map((entry) => entry.suit)).toEqual([

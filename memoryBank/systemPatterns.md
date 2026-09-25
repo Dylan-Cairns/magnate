@@ -229,7 +229,13 @@ Design expectations:
   carries them as `endImageArea*`, and `CardFlightLayer` applies both as inline
   custom properties. Propagate both dimensions because custom properties inherit
   as computed values; the final flight frame must match the real card exactly so
-  the landing swap is seamless.
+  the landing swap is seamless. The `launch-card-to-district-flight` step carries
+  the same `commitBufferMs` settle buffer as `draw-card-flight`, because the
+  placement commit starts at the step's end and the CSS animation only begins on
+  the first frame after the flight mounts: without the buffer the animation is
+  removed before its final frame and the card pops to full size. Destination
+  flights also adopt the landed lane card's shadow (`is-destination`), since the
+  lane stack supplies the outer shadow through its own drop-shadow filter.
 - A source card that is transformed (the fanned human hand) reports a larger
   axis-aligned rect; flight construction uses the untransformed layout box
   (`offsetWidth`/`offsetHeight`) for the flight's start size so it matches the

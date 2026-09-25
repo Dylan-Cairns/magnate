@@ -712,7 +712,10 @@ function appendCardPlacementSteps(
       {
         id: `launch-card-to-district-flight:${event.playerId}:${event.cardId}:${event.districtId}`,
         type: 'launch-card-to-district-flight',
-        durationMs: durations.cardFlightMs,
+        // The placement commit starts at this step's end, so the flight needs
+        // the same settle buffer the draw flight has: without it the animation
+        // is cut off before its final frame and the card pops to full size.
+        durationMs: durations.cardFlightMs + durations.commitBufferMs,
         event,
       },
       {
