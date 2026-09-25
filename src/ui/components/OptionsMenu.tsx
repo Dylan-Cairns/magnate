@@ -99,10 +99,6 @@ export function OptionsMenu({
         onClick={onToggle}
       >
         <QuestionMarkIcon />
-        <span className="close-x" aria-hidden="true">
-          <span />
-          <span />
-        </span>
         <Tooltip>{open ? 'Close info' : 'Open info'}</Tooltip>
       </button>
       <NewGameButton

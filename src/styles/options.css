@@ -119,37 +119,13 @@
   color: rgba(240, 210, 172, 0.6);
 }
 
-.close-x {
-  position: absolute;
-  width: 0.72rem;
-  height: 0.72rem;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  transition: opacity 140ms ease;
-}
-
-.close-x span {
-  display: block;
-  position: absolute;
-  width: 100%;
-  height: 2px;
-  top: 50%;
-  border-radius: 999px;
-  background: var(--control-ink);
-}
-
-.close-x span:nth-child(1) {
-  transform: translateY(-50%) rotate(45deg);
-}
-
-.close-x span:nth-child(2) {
-  transform: translateY(-50%) rotate(-45deg);
-}
-
-.hamburger-button.is-open .close-x {
-  opacity: 1;
+/* Kept alongside the other toggle buttons: the info button shows its pressed
+   state through the surrounding chrome, not a swap to a close glyph. */
+.hamburger-button.is-open {
+  background: var(--action-bg-hover);
+  box-shadow:
+    var(--button-shadow-hover),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .hamburger-button-icon {
@@ -160,11 +136,6 @@
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: opacity 140ms ease;
-}
-
-.hamburger-button.is-open .hamburger-button-icon {
-  opacity: 0;
 }
 
 .brand-options-menu {
@@ -218,7 +189,13 @@
   bottom: calc(100% + 0.36rem);
   left: auto;
   right: 0;
-  width: 100%;
+  /* Prose, unlike the New Game form beside it, needs a readable measure; the
+     button column is too narrow and wraps the credits badly. */
+  width: min(30rem, calc(100vw - 2.5rem));
+  /* Anchored panels grow upward off the bottom row, so cap them against the
+     viewport and scroll rather than letting the top run off-screen. */
+  max-height: calc(100dvh - 7rem);
+  overflow-y: auto;
 }
 
 .options-backdrop {
