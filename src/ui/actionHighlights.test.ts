@@ -6,6 +6,7 @@ import {
 } from './actionPickerModel';
 import {
   actionHighlightTargets,
+  committedHighlightTargets,
   highlightTargetKey,
   resourceGainSuits,
   sharedActionHighlightTargets,
@@ -224,6 +225,41 @@ describe('action highlights', () => {
       'resource:gain:Knots',
       'pile:discard',
     ]);
+  });
+
+  it('keeps the hand card and destination ghost for a confirmed placement', () => {
+    expect(
+      committedHighlightTargets(
+        { type: 'buy-deed', cardId: '6', districtId: 'D1' },
+        { includePlacement: true }
+      ).map(highlightTargetKey)
+    ).toEqual(['hand-card:6', 'district-lane:D1:6:deed']);
+    expect(
+      committedHighlightTargets(
+        {
+          type: 'develop-outright',
+          cardId: '6',
+          districtId: 'D2',
+          payment: { Moons: 1, Knots: 1 },
+        },
+        { includePlacement: true }
+      ).map(highlightTargetKey)
+    ).toEqual(['hand-card:6', 'district-lane:D2:6:developed']);
+    expect(
+      committedHighlightTargets({ type: 'sell-card', cardId: '6' }).map(
+        highlightTargetKey
+      )
+    ).toEqual(['hand-card:6']);
+  });
+
+  it("never includes a placement ghost unless the human's action asks for it", () => {
+    expect(
+      committedHighlightTargets({
+        type: 'buy-deed',
+        cardId: '6',
+        districtId: 'D1',
+      }).map(highlightTargetKey)
+    ).toEqual(['hand-card:6']);
   });
 
   it('does not guess a destination for a grouped purchase', () => {

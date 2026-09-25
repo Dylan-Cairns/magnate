@@ -366,6 +366,7 @@ export function useGameController({
     presentationSnapshot,
     presentedState,
     presentingAction,
+    presentingActingPlayerId,
     activePlayerHighlightOverride,
     presentationPending,
     clearPresentationQueue,
@@ -883,6 +884,7 @@ export function useGameController({
       activePlayerHighlightOverride,
       presentationPending,
       presentingAction,
+      presentingActingPlayerId,
     },
   };
 }

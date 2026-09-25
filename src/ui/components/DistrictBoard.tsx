@@ -116,6 +116,13 @@ function DistrictLane({
 }) {
   const preview = usePlacementGhost(districtId);
   const ghost = playerId !== botPlayerId ? preview : undefined;
+  // The ghost is retired the moment the real card lands in the lane, so a
+  // confirmed placement holds the preview in place until the card replaces it.
+  const ghostPlaced =
+    ghost !== undefined &&
+    (ghost.placement === 'deed'
+      ? stack.deed?.cardId === ghost.cardId
+      : stack.developed.includes(ghost.cardId));
   const ghostProperty = ghost ? findDevelopableCard(ghost.cardId) : undefined;
   const ghostDeedTarget =
     ghost?.placement === 'deed' && ghostProperty
@@ -208,7 +215,7 @@ function DistrictLane({
             ))}
           </div>
         ) : null}
-        {ghost ? (
+        {ghost && !ghostPlaced ? (
           <div
             className="placement-ghost is-action-highlighted"
             aria-hidden="true"

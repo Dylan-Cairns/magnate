@@ -14,6 +14,7 @@ function renderResourceRow(tokens: ReturnType<typeof makeResources>): string {
   return renderToStaticMarkup(
     <ActionHighlights
       state={makeGameState()}
+      humanPlayerId="PlayerA"
       picker={{
         kind: 'trade-combined',
         selectedGive: 'Moons',

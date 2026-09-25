@@ -115,6 +115,23 @@ export function actionHighlightTargets(action: GameAction): HighlightTarget[] {
   }
 }
 
+// A confirmed human action keeps its hand card lit and its destination ghost
+// filled while the animation plays, so the card stays on top from hover through
+// the effect instead of snapping away when the picker closes. Placement is
+// opt-in and only the human's own action may request it; a bot's action never
+// produces a ghost.
+export function committedHighlightTargets(
+  action: GameAction,
+  options: { includePlacement?: boolean } = {}
+): HighlightTarget[] {
+  const includePlacement = options.includePlacement ?? false;
+  return actionHighlightTargets(action).filter(
+    (target) =>
+      target.kind === 'hand-card' ||
+      (includePlacement && target.kind === 'district-lane')
+  );
+}
+
 // A grouped entry previews only effects shared by every remaining option.
 export function sharedActionHighlightTargets(
   actions: readonly GameAction[]

@@ -473,6 +473,31 @@ describe('useGameAnimations scheduling helpers', () => {
     expect(onSettle).toHaveBeenCalledOnce();
   });
 
+  it('reports the acting player alongside the presenting action', () => {
+    const transaction = makeBuyDeedTransaction();
+    const sequence = buildAnimationSequence(transaction);
+    let animations = AnimationHarness();
+
+    animations.enqueueTransition({
+      transactionId: transaction.id,
+      previousState: transaction.previousState,
+      nextState: transaction.nextState,
+      action: transaction.action,
+      actingPlayerId: transaction.actingPlayerId,
+    });
+    animations = AnimationHarness();
+    expect(animations.presentingAction).toBe(transaction.action);
+    expect(animations.presentingActingPlayerId).toBe(
+      transaction.actingPlayerId
+    );
+
+    vi.advanceTimersByTime(sequence.durationMs);
+    vi.runAllTimers();
+    animations = AnimationHarness();
+    expect(animations.presentingAction).toBeNull();
+    expect(animations.presentingActingPlayerId).toBeNull();
+  });
+
   it('presents queued transitions in order without replacing the active sequence', () => {
     const first = makeBuyDeedTransaction();
     const second = makeTradeTransaction(first.nextState);

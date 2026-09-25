@@ -64,9 +64,14 @@ export function useGameAnimations() {
   const [presentationSnapshot, setPresentationSnapshot] =
     useState<PresentationSnapshot | null>(null);
   const [presentedState, setPresentedState] = useState<GameState | null>(null);
-  const [presentingAction, setPresentingAction] = useState<GameAction | null>(
-    null
-  );
+  // The presenting action and its acting player travel together so consumers can
+  // scope presentation-only effects (for example the human placement ghost) to
+  // the player who acted.
+  const [presenting, setPresenting] = useState<{
+    action: GameAction;
+    actingPlayerId: PlayerId;
+  } | null>(null);
+  const presentingAction = presenting?.action ?? null;
   const [presentationPending, setPresentationPending] =
     useState<boolean>(false);
   const [presentationTimers] = useState<AnimationTimerRegistry>(() =>
@@ -386,7 +391,7 @@ export function useGameAnimations() {
     setPresentationPending(false);
     setPresentationSnapshot(null);
     setPresentedState(null);
-    setPresentingAction(null);
+    setPresenting(null);
     clearAllFlights();
   }, [clearAllFlights, presentationTimers]);
   const finishPresentationQueue = useCallback(() => {
@@ -408,7 +413,7 @@ export function useGameAnimations() {
     setPresentationPending(false);
     setPresentationSnapshot(null);
     setPresentedState(null);
-    setPresentingAction(null);
+    setPresenting(null);
     clearAllFlights();
   }, [clearAllFlights, presentationTimers]);
   const startNextTransition = useCallback(() => {
@@ -441,7 +446,7 @@ export function useGameAnimations() {
       const settleMs = presentationSequence?.durationMs ?? 0;
       if (!presentationTransaction || !presentationSequence || settleMs <= 0) {
         setPresentedState(nextState);
-        setPresentingAction(null);
+        setPresenting(null);
         options.onInputUnlock?.();
         options.onSettle?.();
         continue;
@@ -455,7 +460,7 @@ export function useGameAnimations() {
       activeTransitionRef.current = activeTransition;
       setPresentationPending(true);
       setPresentedState(previousState);
-      setPresentingAction(action);
+      setPresenting({ action, actingPlayerId });
       presentationTimers.clearAll();
       scheduleSequenceVisuals(presentationTransaction, presentationSequence);
       setPresentationSnapshot(
@@ -514,7 +519,7 @@ export function useGameAnimations() {
         setResourceFlights([]);
         setCardFlights([]);
         setPresentationSnapshot(null);
-        setPresentingAction(null);
+        setPresenting(null);
         clearTurnCycleVisuals();
         settlePresentationTransition(activeTransition);
         activeTransitionRef.current = null;
@@ -534,7 +539,7 @@ export function useGameAnimations() {
     setPresentationPending(false);
     setPresentationSnapshot(null);
     setPresentedState(null);
-    setPresentingAction(null);
+    setPresenting(null);
   }, [clearTurnCycleVisuals, presentationTimers, scheduleSequenceVisuals]);
   useEffect(() => {
     startNextTransitionRef.current = startNextTransition;
@@ -587,6 +592,7 @@ export function useGameAnimations() {
     presentationSnapshot,
     presentedState,
     presentingAction,
+    presentingActingPlayerId: presenting?.actingPlayerId ?? null,
     activePlayerHighlightOverride:
       presentationOverlays?.activePlayerHighlightOverride ?? null,
     presentationPending,

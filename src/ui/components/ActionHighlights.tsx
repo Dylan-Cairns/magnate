@@ -5,9 +5,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { GameAction, GameState, Suit } from '../../engine/types';
+import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
 import {
-  actionHighlightTargets,
+  committedHighlightTargets,
   highlightTargetKey,
   resourceGainSuits,
   sharedActionHighlightTargets,
@@ -31,13 +31,17 @@ export function ActionHighlights({
   state,
   picker,
   legalActions,
+  humanPlayerId,
   committedAction,
+  committedActingPlayerId,
   children,
 }: {
   state: GameState;
   picker: ActionPickerState | null;
   legalActions: readonly GameAction[];
+  humanPlayerId: PlayerId;
   committedAction?: GameAction | null;
+  committedActingPlayerId?: PlayerId | null;
   children: ReactNode;
 }) {
   const [hovered, setHovered] = useState<{
@@ -46,16 +50,17 @@ export function ActionHighlights({
     picker: ActionPickerState | null;
     source: HoverSource;
   } | null>(null);
-  // A confirmed action keeps its hand card lit and raised while the action's
-  // animation plays, so the card stays on top from hover through the effect.
+  // Only the human player's own confirmed action keeps its hand card and
+  // destination ghost live while the animation plays, so the card stays on top
+  // from hover through the effect.
   const committedTargets = useMemo(
     () =>
       committedAction
-        ? actionHighlightTargets(committedAction).filter(
-            (target) => target.kind === 'hand-card'
-          )
+        ? committedHighlightTargets(committedAction, {
+            includePlacement: committedActingPlayerId === humanPlayerId,
+          })
         : [],
-    [committedAction]
+    [committedAction, committedActingPlayerId, humanPlayerId]
   );
   const targets = useMemo(() => {
     const withCommitted = (

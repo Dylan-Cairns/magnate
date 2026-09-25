@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import type { DistrictState, ObservedPlayerState } from '../../engine/types';
+import { makeGameState } from '../../engine/__tests__/fixtures';
+import { ActionHighlights } from './ActionHighlights';
 import { buildDeedProgressArcPath } from './deedProgress';
 import {
   DistrictColumn,
@@ -36,6 +38,134 @@ describe('DistrictColumn', () => {
       ...html.matchAll(/aria-label="District score: (\d+)[^"]*"/g),
     ].map((match) => Number.parseInt(match[1], 10));
     expect(laneScores).toEqual([4, 0]);
+  });
+
+  it('holds a confirmed placement ghost until the real card lands', () => {
+    const district: DistrictState = {
+      id: 'D1',
+      markerSuitMask: ['Moons'],
+      stacks: {
+        PlayerA: { developed: [] },
+        PlayerB: { developed: [] },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <ActionHighlights
+        state={makeGameState()}
+        picker={null}
+        legalActions={[]}
+        humanPlayerId="PlayerB"
+        committedAction={{ type: 'buy-deed', cardId: '6', districtId: 'D1' }}
+        committedActingPlayerId="PlayerB"
+      >
+        <DistrictColumn
+          district={district}
+          humanPlayerId="PlayerB"
+          botPlayerId="PlayerA"
+        />
+      </ActionHighlights>
+    );
+
+    expect(html).toContain('placement-ghost');
+  });
+
+  it('retires a confirmed deed ghost once the card is in the lane', () => {
+    const district: DistrictState = {
+      id: 'D1',
+      markerSuitMask: ['Moons'],
+      stacks: {
+        PlayerA: { developed: [] },
+        PlayerB: {
+          developed: [],
+          deed: { cardId: '6', progress: 0, tokens: {} },
+        },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <ActionHighlights
+        state={makeGameState()}
+        picker={null}
+        legalActions={[]}
+        humanPlayerId="PlayerB"
+        committedAction={{ type: 'buy-deed', cardId: '6', districtId: 'D1' }}
+        committedActingPlayerId="PlayerB"
+      >
+        <DistrictColumn
+          district={district}
+          humanPlayerId="PlayerB"
+          botPlayerId="PlayerA"
+        />
+      </ActionHighlights>
+    );
+
+    expect(html).not.toContain('placement-ghost');
+  });
+
+  it('retires a confirmed outright ghost once the card is developed', () => {
+    const district: DistrictState = {
+      id: 'D2',
+      markerSuitMask: ['Suns'],
+      stacks: {
+        PlayerA: { developed: [] },
+        PlayerB: { developed: ['6'] },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <ActionHighlights
+        state={makeGameState()}
+        picker={null}
+        legalActions={[]}
+        humanPlayerId="PlayerB"
+        committedAction={{
+          type: 'develop-outright',
+          cardId: '6',
+          districtId: 'D2',
+          payment: { Moons: 1, Knots: 1 },
+        }}
+        committedActingPlayerId="PlayerB"
+      >
+        <DistrictColumn
+          district={district}
+          humanPlayerId="PlayerB"
+          botPlayerId="PlayerA"
+        />
+      </ActionHighlights>
+    );
+
+    expect(html).not.toContain('placement-ghost');
+  });
+
+  it("does not show a placement ghost for another player's committed action", () => {
+    const district: DistrictState = {
+      id: 'D1',
+      markerSuitMask: ['Moons'],
+      stacks: {
+        PlayerA: { developed: [] },
+        PlayerB: { developed: [] },
+      },
+    };
+
+    const html = renderToStaticMarkup(
+      <ActionHighlights
+        state={makeGameState()}
+        picker={null}
+        legalActions={[]}
+        humanPlayerId="PlayerB"
+        committedAction={{ type: 'buy-deed', cardId: '6', districtId: 'D1' }}
+        committedActingPlayerId="PlayerA"
+      >
+        <DistrictColumn
+          district={district}
+          humanPlayerId="PlayerB"
+          botPlayerId="PlayerA"
+        />
+      </ActionHighlights>
+    );
+
+    expect(html).not.toContain('placement-ghost');
   });
 
   it('shows every suit on the Excuse district marker', () => {

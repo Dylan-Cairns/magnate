@@ -181,6 +181,7 @@ export function App() {
       activePlayerHighlightOverride,
       presentationPending,
       presentingAction,
+      presentingActingPlayerId,
     },
   } = useGameController({
     humanPlayerId: HUMAN_PLAYER,
@@ -666,7 +667,9 @@ export function App() {
       state={canonicalState}
       picker={actionPicker}
       legalActions={humanActionsAcceptingInput}
+      humanPlayerId={HUMAN_PLAYER}
       committedAction={presentingAction}
+      committedActingPlayerId={presentingActingPlayerId}
     >
       <div className="app-shell">
         {(storageError || historyError) && (
