@@ -37,7 +37,7 @@ describe('DeckPiles', () => {
     expect(html).toContain('deck-pile-stack is-discard');
     expect(html).toContain('deck-pile-animation-anchor');
     expect(html).toContain('discard-pile-animation-anchor');
-    expect(html).not.toContain('deck-pile-card-empty');
+    expect(html).toContain('deck-pile-card-empty deck-pile-stack-card');
     expect(html).toContain('Shuffles 2/2');
   });
 

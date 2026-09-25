@@ -61,12 +61,16 @@ export function DeckPiles({
             className={`deck-pile-stack is-deck ${deckOverlayShiftClass} tooltip-trigger`}
             aria-label="Cards remaining"
           >
-            {Array.from({ length: deckStackCount }).map((_, index) => (
-              <div
-                key={`deck-back-${index}`}
-                className="deck-pile-card deck-pile-card-back deck-pile-stack-card"
-              />
-            ))}
+            {deckStackCount === 0 ? (
+              <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
+            ) : (
+              Array.from({ length: deckStackCount }).map((_, index) => (
+                <div
+                  key={`deck-back-${index}`}
+                  className="deck-pile-card deck-pile-card-back deck-pile-stack-card"
+                />
+              ))
+            )}
             <div className="deck-pile-animation-anchor" aria-hidden="true" />
             <Tooltip>Cards remaining</Tooltip>
           </div>
@@ -124,7 +128,9 @@ export function DeckPiles({
                     </div>
                   );
                 })
-              ) : null}
+              ) : (
+                <div className="deck-pile-card deck-pile-card-empty deck-pile-stack-card" />
+              )}
               <div
                 className="discard-pile-animation-anchor"
                 aria-hidden="true"

@@ -5,7 +5,10 @@
   --velvet-weave-dark: rgba(0, 0, 0, 0.048);
   --velvet-speck-light: rgba(202, 220, 242, 0.018);
   --velvet-speck-dark: rgba(10, 15, 24, 0.095);
-  --bg-center-glow: rgba(63, 108, 174, 0.2);
+  /* The board's centre light. Kept deliberately low: it lifts the field right
+     where the district rails run, so every point it gains costs the rails that
+     much separation. */
+  --bg-center-glow: rgba(63, 108, 174, 0.22);
   /* Depth ladder. Lighter reads as nearer, so every rung is a value step above
      the surface behind it. Objects — cards, action rows, deck piles — share
      the object rung's edge and shadow but keep their own fills, since they
@@ -17,8 +20,8 @@
      cards are cut from it, so they share one gradient and can never drift
      apart. The sweep is deliberately narrow: a near-black stop is too dark to
      hold a hue, so against the blue field it read as blue-black. */
-  --wood-start: #3a2015;
-  --wood-end: #5b2f1e;
+  --wood-start: #2e1d14;
+  --wood-end: #4a2b1d;
   --wood-bg: linear-gradient(
     135deg,
     var(--wood-start) 0%,
@@ -27,7 +30,7 @@
   /* Stone: one flat grey for every structural piece — the district rails, the
      lane score tabs that hang off them, and the history overlay. The warm
      material stays reserved for the containers that hold cards. */
-  --stone-bg: #343c47;
+  --stone-bg: #2c333d;
   --depth-shadow-panel: 0 5px 12px rgba(0, 0, 0, 0.6);
   --depth-shadow-tray: 0 6px 14px rgba(0, 0, 0, 0.66);
   --depth-shadow-object: 0 7px 16px rgba(0, 0, 0, 0.6),
@@ -194,7 +197,7 @@ body,
     var(--grain-texture), var(--grain-texture),
     radial-gradient(
       ellipse 90% 70% at 50% 50%,
-      rgba(63, 108, 174, 0.29) 0%,
+      var(--bg-center-glow) 0%,
       rgba(38, 72, 122, 0.16) 34%,
       rgba(12, 23, 46, 0.05) 68%,
       rgba(8, 13, 24, 0) 80%
