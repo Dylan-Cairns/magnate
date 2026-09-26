@@ -11,6 +11,7 @@ import { districtScore } from '../../engine/scoring';
 import {
   developmentCost,
   findDevelopableCard,
+  SUITS,
 } from '../../engine/stateHelpers';
 import type {
   DistrictStack,
@@ -22,6 +23,7 @@ import type {
 import { CardTile, type CardPerspective } from './CardTile';
 import type { TradeProgress } from '../runtime/types';
 import { TokenRow } from './TokenComponents';
+import { Tooltip } from './Tooltip';
 
 function crownsToSuits(crowns: readonly CardId[]): Suit[] {
   const suits: Suit[] = [];
@@ -39,7 +41,7 @@ function suitMaskKey(suits: readonly Suit[]): string {
   return [...suits].sort().join('|');
 }
 
-function districtMarkerName(markerSuitMask: readonly Suit[]): string {
+export function districtMarkerName(markerSuitMask: readonly Suit[]): string {
   if (markerSuitMask.length === 0) {
     return EXCUSE_CARD.name;
   }
@@ -58,6 +60,43 @@ function markerSuitTokens(
     tokens[suit] = 1;
   }
   return tokens;
+}
+
+// The Excuse district accepts any suit, so it shows every suit.
+function allSuitTokens(): Partial<Record<Suit, number>> {
+  const tokens: Partial<Record<Suit, number>> = {};
+  for (const suit of SUITS) {
+    tokens[suit] = 1;
+  }
+  return tokens;
+}
+
+type DistrictLeadState = 'leading' | 'trailing' | 'tied';
+
+function districtLeadState(
+  score: number,
+  opponentScore: number
+): DistrictLeadState {
+  if (score > opponentScore) {
+    return 'leading';
+  }
+  if (score < opponentScore) {
+    return 'trailing';
+  }
+  return 'tied';
+}
+
+function DistrictLeadIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="district-lead-icon"
+      fill="currentColor"
+    >
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+    </svg>
+  );
 }
 
 function DistrictLane({
@@ -206,8 +245,8 @@ export function DistrictColumn({
   const markerName = districtMarkerName(district.markerSuitMask);
   const botDistrictScore = districtScore(district.stacks[botPlayerId]);
   const humanDistrictScore = districtScore(district.stacks[humanPlayerId]);
-  const botLeadsDistrict = botDistrictScore > humanDistrictScore;
-  const humanLeadsDistrict = humanDistrictScore > botDistrictScore;
+  const botLead = districtLeadState(botDistrictScore, humanDistrictScore);
+  const humanLead = districtLeadState(humanDistrictScore, botDistrictScore);
 
   return (
     <article className="district-column" data-district-id={district.id}>
@@ -222,32 +261,31 @@ export function DistrictColumn({
 
       <div className="district-header-wrap">
         <span
-          className={`district-lane-score district-lane-score-bot${botLeadsDistrict ? ' is-leading' : ''}`}
-          aria-label={`District score: ${botDistrictScore}`}
+          className={`district-lane-score district-lane-score-bot${botLead === 'tied' ? '' : ` is-${botLead}`}`}
+          aria-label={`District score: ${botDistrictScore}, ${botLead}`}
         >
-          {botDistrictScore}
+          {botLead === 'leading' ? <DistrictLeadIcon /> : null}
+          <span className="district-score-value">{botDistrictScore}</span>
         </span>
-        <header className="district-header">
+        <header className="district-header tooltip-trigger" tabIndex={0}>
           <span className="district-id">{district.id}</span>
-          <strong className="district-marker-name">{markerName}</strong>
-          {district.markerSuitMask.length > 0 ? (
-            <TokenRow
-              className="district-marker-tokens"
-              tokens={markerSuitTokens(district.markerSuitMask)}
-              compact
-            />
-          ) : (
-            <span
-              className="district-marker-tokens district-marker-placeholder"
-              aria-hidden="true"
-            />
-          )}
+          <TokenRow
+            className="district-marker-tokens"
+            tokens={
+              district.markerSuitMask.length > 0
+                ? markerSuitTokens(district.markerSuitMask)
+                : allSuitTokens()
+            }
+            compact
+          />
+          <Tooltip>{markerName}</Tooltip>
         </header>
         <span
-          className={`district-lane-score district-lane-score-human${humanLeadsDistrict ? ' is-leading' : ''}`}
-          aria-label={`District score: ${humanDistrictScore}`}
+          className={`district-lane-score district-lane-score-human${humanLead === 'tied' ? '' : ` is-${humanLead}`}`}
+          aria-label={`District score: ${humanDistrictScore}, ${humanLead}`}
         >
-          {humanDistrictScore}
+          {humanLead === 'leading' ? <DistrictLeadIcon /> : null}
+          <span className="district-score-value">{humanDistrictScore}</span>
         </span>
       </div>
 
