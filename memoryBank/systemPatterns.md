@@ -229,6 +229,12 @@ Design expectations:
 - Browser DOM lookup and flight construction stay outside the engine (for
   example `domTargets.ts`); sequence-derived visual commands carry the semantics
   needed to launch command-specific flights.
+- Deed-token rail sides and order are shared presentation memory read by both
+  component render and animation flight planning, so render must not mutate it.
+  `planDeedTokenLayout` computes from a copy, `useDeedTokenLayout` records new
+  suits in a post-render effect, and non-render callers use the mutating
+  `commitDeedTokenLayout`. This keeps StrictMode double-renders and discarded
+  renders from corrupting the layout.
 - Flights that land inside a differently-sized card scope (hand to district lane)
   adopt the destination's resolved card metrics: `laneCardMetrics` measures the
   lane animation anchor's card size plus image-area width/height, the flight

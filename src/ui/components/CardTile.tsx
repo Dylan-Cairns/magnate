@@ -10,7 +10,7 @@ import { DarknessMistFace } from './DarknessMistFace';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import { ProgressTracker } from './ProgressTracker';
-import { layoutDeedTokensBySide } from './deedTokenLayout';
+import { useDeedTokenLayout } from './useDeedTokenLayout';
 import { Tooltip } from './Tooltip';
 
 export type CardPerspective = 'human' | 'bot';
@@ -146,7 +146,7 @@ function CardTileCard({
   const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
   const hasDeedTokens = deedTokenEntries.length > 0;
   const showDeedTokenRails = Boolean(inDevelopment) || hasDeedTokens;
-  const deedTokensBySide = layoutDeedTokensBySide(
+  const deedTokensBySide = useDeedTokenLayout(
     cardId,
     perspective,
     deedTokenEntries,
