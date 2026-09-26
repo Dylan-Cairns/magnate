@@ -1,10 +1,12 @@
-import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { Suit } from '../../engine/types';
 import '../../styles/d6-die.css';
-import { SUIT_TOKEN_BG } from './TokenComponents';
 import { reportImageRenderFailure } from '../cardImages';
-import { SUIT_ICON_BY_SUIT } from '../suitIcons';
+import {
+  SUIT_ICON_BY_SUIT,
+  SUIT_TOKEN_BG,
+} from '../suitIcons';
 
 const SUITS_BY_FACE: [Suit, Suit, Suit, Suit, Suit, Suit] = [
   'Moons',
@@ -98,7 +100,11 @@ export function D6Die({
             <div
               key={faceSuit}
               className={`die-face die-face-d6-${i + 1}`}
-              style={{ '--suit-bg': SUIT_TOKEN_BG[faceSuit] } as CSSProperties}
+              style={
+                {
+                  '--suit-bg': SUIT_TOKEN_BG[faceSuit],
+                } as CSSProperties
+              }
             >
               <div className="die-suit-circle">
                 <img

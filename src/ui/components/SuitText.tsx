@@ -27,6 +27,7 @@ export function SuitText({ text }: { text: string }) {
           suit={suit}
           count={1}
           compact
+          simplified
           className="inline-token-chip"
         />
       );

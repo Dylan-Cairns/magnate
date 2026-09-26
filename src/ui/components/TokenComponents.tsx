@@ -29,6 +29,7 @@ export function TokenRow({
   highlightResources = false,
   showTooltip = false,
   tradeProgress,
+  simplified = false,
 }: {
   tokens: Partial<Record<Suit, number>> | ResourcePool;
   compact?: boolean;
@@ -39,6 +40,7 @@ export function TokenRow({
   highlightResources?: boolean;
   showTooltip?: boolean;
   tradeProgress?: TradeProgress;
+  simplified?: boolean;
 }) {
   const resourceHighlightClass = useResourceHighlightClass();
   const resourceGains = useResourceGainSuits();
@@ -67,6 +69,7 @@ export function TokenRow({
               count={1}
               compact={compact}
               preview
+              simplified={simplified}
               className={`is-token-ghost${resourceHighlightClass(suit, highlightResources)}`}
             />
           );
@@ -81,6 +84,7 @@ export function TokenRow({
             }
             compact={compact}
             showTooltip={showTooltip}
+            simplified={simplified}
             className={`${highlightedSuits?.has(suit) ? 'is-income-highlighted' : ''}${resourceHighlightClass(suit, highlightResources)}`}
           />
         );
@@ -97,6 +101,7 @@ export function TokenChip({
   showTooltip = false,
   preview = false,
   tradeProgress,
+  simplified = false,
 }: {
   suit: Suit;
   count: number;
@@ -105,6 +110,7 @@ export function TokenChip({
   showTooltip?: boolean;
   preview?: boolean;
   tradeProgress?: TradeProgress;
+  simplified?: boolean;
 }) {
   const isEmpty = count === 0 && !tradeProgress;
   const showTooltipBubble = showTooltip && !preview;
@@ -116,7 +122,7 @@ export function TokenChip({
       data-token-suit={preview ? undefined : suit}
       aria-hidden={preview ? true : undefined}
     >
-      <SuitTokenFace suit={suit} empty={isEmpty} />
+      <SuitTokenFace suit={suit} simplified={simplified} />
       {count > 1 && <span className="token-count">x{count}</span>}
       {tradeProgress ? (
         <span className="trade-progress">

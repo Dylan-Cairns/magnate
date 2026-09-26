@@ -177,8 +177,8 @@
   height: 1em;
   object-fit: contain;
   flex: 0 0 auto;
-  /* The artwork has transparent gaps between its layers, so it needs its own
-     fill behind it to read correctly on anything but a white card face. */
+  /* The simplified mark leaves its negative space transparent, so it sits on
+     the suit's saturated field (--suit-bg) to read as a solid colour mass. */
   background-color: var(--suit-bg, transparent);
   border-radius: 50%;
 }

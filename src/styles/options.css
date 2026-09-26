@@ -21,6 +21,15 @@
 
 .brand-title-block {
   min-width: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 0.5rem;
+}
+
+.brand-title-block h1 {
+  grid-column: 1 / -1;
 }
 
 .brand-panel h1 {
@@ -29,6 +38,7 @@
 }
 
 .brand-subtitle {
+  grid-column: 1;
   margin: 0.05rem 0 0;
   color: var(--muted);
   font-size: 0.86rem;
@@ -37,7 +47,10 @@
 
 .brand-title-block .brand-options-link {
   display: inline-block;
-  margin-top: 0.2rem;
+  grid-column: 2;
+  justify-self: end;
+  margin-top: 0;
+  margin-inline-end: calc(var(--row-inset) * -1);
   font-size: 0.82rem;
 }
 
