@@ -44,7 +44,7 @@ Magnate is an unofficial, noncommercial fan implementation of the Decktet game
 with additional development by P.D. Magnus. The Decktet is created by P.D.
 Magnus; its card art and game material are used under a
 [Creative Commons Attribution-NonCommercial-ShareAlike](https://creativecommons.org/licenses/by-nc-sa/4.0/)
-license. Digital version by Dylan Cairns. The same credits appear in the in-app
+license. Digital game version by Dylan Cairns. The same credits appear in the in-app
 info menu.
 
 This project is licensed under CC BY-NC-SA 4.0; see [LICENSE](LICENSE). Bundled
