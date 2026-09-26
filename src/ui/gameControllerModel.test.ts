@@ -7,6 +7,7 @@ import {
   PLAYER_A,
   PLAYER_B,
 } from '../engine/__tests__/fixtures';
+import { legalActions } from '../engine/actionBuilders';
 import type { GameLogEntry } from '../engine/types';
 import {
   botDecisionResultIsCurrent,
@@ -17,6 +18,8 @@ import {
   humanDecisionWindowKeyForState,
   initialBrowserTimelineLog,
   makeBrowserSessionSeed,
+  planBotDecision,
+  resolveBotActingPlayerId,
   shouldScheduleBotAction,
   transitionOpensHumanDecisionWindow,
   withSeedLogPrefix,
@@ -305,6 +308,93 @@ describe('gameControllerModel', () => {
   it('formats Error instances and unknown thrown values', () => {
     expect(errorMessage(new Error('failed'))).toBe('failed');
     expect(errorMessage('failed')).toBe('failed');
+  });
+
+  it('plans a bot action only on the bot-owned action window', () => {
+    const botTurn = makeGameState({ activePlayerIndex: 1 });
+    const botPlan = planBotDecision(botTurn, PLAYER_B);
+    expect(botPlan.applicable).toBe(true);
+    expect(botPlan.incomeChoicePhase).toBe(false);
+    expect(botPlan.actingPlayerId).toBe(PLAYER_B);
+    expect(botPlan.view).not.toBeNull();
+    expect(botPlan.actions).toEqual(legalActions(botTurn));
+
+    const humanTurn = makeGameState();
+    const humanPlan = planBotDecision(humanTurn, PLAYER_B);
+    expect(humanPlan.applicable).toBe(false);
+    expect(humanPlan.incomeChoicePhase).toBe(false);
+    expect(humanPlan.actingPlayerId).toBe(PLAYER_A);
+    expect(humanPlan.view).toBeNull();
+  });
+
+  it('plans simultaneous income choices owned by the bot', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      activePlayerIndex: 1,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_B,
+          districtId: 'D2',
+          cardId: '8',
+          suits: ['Waves', 'Leaves'],
+        },
+      ],
+    });
+
+    const plan = planBotDecision(state, PLAYER_B);
+    expect(plan.applicable).toBe(true);
+    expect(plan.incomeChoicePhase).toBe(true);
+    expect(plan.actingPlayerId).toBeNull();
+    expect(plan.view).not.toBeNull();
+    expect(plan.actions.map((action) => action.type)).toEqual([
+      'choose-income-suit',
+      'choose-income-suit',
+    ]);
+  });
+
+  it('does not plan an income choice the bot has already submitted', () => {
+    const state = makeGameState({
+      phase: 'CollectIncome',
+      activePlayerIndex: 1,
+      pendingIncomeChoices: [
+        {
+          playerId: PLAYER_A,
+          districtId: 'D1',
+          cardId: '6',
+          suits: ['Moons', 'Suns'],
+        },
+      ],
+    });
+
+    const plan = planBotDecision(state, PLAYER_B);
+    expect(plan.applicable).toBe(false);
+    expect(plan.incomeChoicePhase).toBe(true);
+    expect(plan.view).toBeNull();
+    expect(plan.actions).toEqual([]);
+  });
+
+  it('never plans a bot decision once the game is over', () => {
+    const state = makeGameState({ phase: 'GameOver', activePlayerIndex: 1 });
+    const plan = planBotDecision(state, PLAYER_B);
+    expect(plan.applicable).toBe(false);
+    expect(plan.view).toBeNull();
+  });
+
+  it('resolves the acting player for income choices and turn-owner actions', () => {
+    const incomeChoice = {
+      type: 'choose-income-suit',
+      playerId: PLAYER_B,
+      districtId: 'D2',
+      cardId: '8',
+      suit: 'Waves',
+    } as const;
+    expect(resolveBotActingPlayerId(incomeChoice, null, PLAYER_B)).toBe(PLAYER_B);
+    expect(
+      resolveBotActingPlayerId({ type: 'end-turn' }, PLAYER_A, PLAYER_B)
+    ).toBe(PLAYER_A);
+    expect(resolveBotActingPlayerId({ type: 'end-turn' }, null, PLAYER_B)).toBe(
+      PLAYER_B
+    );
   });
 });
 

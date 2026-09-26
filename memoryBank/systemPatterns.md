@@ -262,6 +262,6 @@ Design expectations:
   a stack always names the visible front card.
 - Structure is ownership-based: stateless components under
   `src/ui/components/`, controller logic under `src/ui/hooks/` (notably
-  `useGameController` and `useGameAnimations`), and split style files under
-  `src/styles/`. Selector-bearing classes/IDs and `data-*` animation anchors are
-  compatibility surfaces.
+  `useGameController`, `useBotTurn`, and `useGameAnimations`), and split style
+  files under `src/styles/`. Selector-bearing classes/IDs and `data-*` animation
+  anchors are compatibility surfaces.

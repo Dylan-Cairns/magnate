@@ -1,5 +1,9 @@
 import { legalActions } from '../engine/actionBuilders';
 import {
+  toDecisionPlayerView,
+  turnOwnerIdForState,
+} from '../engine/decisionActor';
+import {
   createDevFixtureSession,
   DEV_FIXTURES_ENABLED,
   type DevFixtureId,
@@ -12,8 +16,10 @@ import type {
   GameLogEntry,
   GameState,
   PlayerId,
+  PlayerView,
   Ruleset,
 } from '../engine/types';
+import { toPlayerView } from '../engine/view';
 import { initialTurnCycleLogEntries } from './logTimeline';
 export {
   policyRandomForState as botRandomForState,
@@ -169,6 +175,73 @@ export function incomeChoiceActionsForPlayer(
     (action): action is Extract<GameAction, { type: 'choose-income-suit' }> =>
       action.type === 'choose-income-suit' && action.playerId === playerId
   );
+}
+
+export type BotDecisionPlan = {
+  /** The bot owns the current decision and has a legal action to submit. */
+  applicable: boolean;
+  incomeChoicePhase: boolean;
+  actions: readonly GameAction[];
+  /** Turn owner for a normal decision; null during simultaneous income choices. */
+  actingPlayerId: PlayerId | null;
+  /** Decision view for the bot, or null when the bot cannot act. */
+  view: PlayerView | null;
+};
+
+/**
+ * Shape the bot's next decision from canonical state. Pure: it reads legality
+ * and actor ownership but never mutates or selects randomness, so it can be
+ * tested without a scheduler or policy.
+ */
+export function planBotDecision(
+  state: GameState,
+  botPlayerId: PlayerId
+): BotDecisionPlan {
+  const incomeChoicePhase = state.phase === 'CollectIncome';
+  const actions = legalActions(state);
+  const incomeChoiceActions = incomeChoiceActionsForPlayer(actions, botPlayerId);
+  const actingPlayerId = incomeChoicePhase
+    ? null
+    : (turnOwnerIdForState(state) ?? null);
+  const applicable =
+    !isTerminal(state) &&
+    (incomeChoicePhase
+      ? incomeChoiceActions.length > 0
+      : actingPlayerId === botPlayerId);
+
+  if (!applicable) {
+    return {
+      applicable: false,
+      incomeChoicePhase,
+      actions: incomeChoicePhase ? incomeChoiceActions : actions,
+      actingPlayerId,
+      view: null,
+    };
+  }
+
+  return {
+    applicable: true,
+    incomeChoicePhase,
+    actions: incomeChoicePhase ? incomeChoiceActions : actions,
+    actingPlayerId,
+    view: incomeChoicePhase
+      ? toDecisionPlayerView(state, botPlayerId)
+      : toPlayerView(state, botPlayerId),
+  };
+}
+
+/**
+ * The player who should be recorded as acting for a bot selection: the income
+ * choice owner for simultaneous income, otherwise the turn owner.
+ */
+export function resolveBotActingPlayerId(
+  choice: GameAction,
+  actingPlayerId: PlayerId | null,
+  botPlayerId: PlayerId
+): PlayerId {
+  return choice.type === 'choose-income-suit'
+    ? choice.playerId
+    : (actingPlayerId ?? botPlayerId);
 }
 
 export function shouldScheduleBotAction({

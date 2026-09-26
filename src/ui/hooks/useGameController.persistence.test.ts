@@ -81,6 +81,7 @@ vi.mock('react', () => ({
   useCallback: <T>(callback: T, deps: unknown[]) =>
     hooks.memo(() => callback, deps),
   useEffect: hooks.effect,
+  useEffectEvent: <T>(callback: T) => callback,
 }));
 
 const animation = vi.hoisted(() => ({

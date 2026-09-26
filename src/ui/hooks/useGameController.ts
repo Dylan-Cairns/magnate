@@ -2,10 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from '../../engine/actionBuilders';
 import { devFixtureIdFromBrowserLocation } from '../../dev/fixtures';
-import {
-  toDecisionPlayerView,
-  turnOwnerIdForState,
-} from '../../engine/decisionActor';
 import { isTerminal } from '../../engine/scoring';
 import type {
   GameAction,
@@ -21,15 +17,11 @@ import {
   profilesForRuleset,
   resolveBotProfile,
 } from '../../policies/catalog';
-import type { SearchDecisionDiagnostics } from '../../policies/types';
 import type { BugReportActionEntry } from '../bugReport';
 import { prepareCanonicalActionDispatch } from '../canonicalActionDispatcher';
 import { clearAllDeedTokenLayouts } from '../components/deedTokenLayout';
 import {
   activePlayerIdForState,
-  botDecisionResultIsCurrent,
-  botRandomForState,
-  botRandomSeedForState,
   createBrowserSession,
   errorMessage,
   humanActionsAcceptingInputForState,
@@ -49,9 +41,9 @@ import {
   type TurnResetAnchor,
 } from '../turnReset';
 import { useGameAnimations } from './useGameAnimations';
+import { useBotTurn } from './useBotTurn';
 import { loadSavedGame, writeSavedGame, type SavedGame } from '../savedGame';
 
-const DEFAULT_BOT_DELAY_MS = 450;
 const BOT_DIAGNOSTICS_QUERY_KEY = 'botDiagnostics';
 const BOT_PROFILE_STORAGE_KEY = 'magnate:botProfileId';
 const RULESET_STORAGE_KEY = 'magnate:ruleset';
@@ -141,43 +133,6 @@ type UseGameControllerOptions = {
   startupPreloadReady: boolean;
 };
 
-function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
-  const rootActions = diagnostics.rootActions.map((entry) => ({
-    actionKey: entry.actionKey,
-    visits: entry.visits,
-    meanValue: roundDiagnosticNumber(entry.meanValue),
-    terminalRate: roundDiagnosticNumber(entry.terminalRate),
-    terminalRollouts: entry.terminalRollouts,
-    prior: roundDiagnosticNumber(entry.prior),
-  }));
-  console.info('[Magnate bot search]', {
-    heuristic: diagnostics.heuristic ?? 'v1',
-    stochasticSimulation: diagnostics.stochasticSimulation ?? null,
-    workers: diagnostics.parallelWorkers ?? 1,
-    batches: diagnostics.parallelBatches ?? null,
-    batchSize: diagnostics.parallelBatchSize ?? null,
-    legalRootActions: diagnostics.legalRootActions,
-    expandedRootActions: diagnostics.expandedRootActions,
-    rootVisits: diagnostics.rootVisitBudget,
-    simulatedActionSteps: diagnostics.simulatedActionSteps,
-    maxSimulatedActionSteps: diagnostics.maxSimulatedActionSteps,
-    terminalRollouts: diagnostics.terminalRollouts,
-    terminalRate: diagnostics.terminalRate,
-    selectedActionKey: diagnostics.selectedActionKey,
-    selectedActionVisits: diagnostics.selectedActionVisits,
-    selectedActionMeanValue: diagnostics.selectedActionMeanValue,
-    selectedActionTerminalRate: diagnostics.selectedActionTerminalRate,
-    rootActions,
-  });
-  if (rootActions.length > 0) {
-    console.table(rootActions);
-  }
-}
-
-function roundDiagnosticNumber(value: number): number {
-  return Number(value.toFixed(4));
-}
-
 export function useGameController({
   humanPlayerId,
   botPlayerId,
@@ -235,7 +190,6 @@ export function useGameController({
   const [actionHistory, setActionHistory] = useState<
     ReadonlyArray<BugReportActionEntry>
   >(initialSave.save?.actionHistory ?? []);
-  const [botThinking, setBotThinking] = useState<boolean>(false);
   const [humanInputBarrierOrdinal, setHumanInputBarrierOrdinal] = useState<
     number | null
   >(null);
@@ -249,7 +203,6 @@ export function useGameController({
   const nextActionOrdinalRef = useRef(0);
   const canonicalDispatchInProgressRef = useRef(false);
   const humanInputBarrierOrdinalRef = useRef<number | null>(null);
-  const botDecisionGenerationRef = useRef(0);
   const deferredIncomeLogContextRef = useRef<DeferredIncomeLogContext | null>(
     initialSave.save?.deferredIncomeLogContext ?? null
   );
@@ -531,150 +484,18 @@ export function useGameController({
       botIncomeActionCount: botIncomeActions.length,
       startupPreloadReady,
     });
-  const [prevShouldRunBot, setPrevShouldRunBot] = useState(false);
-
-  if (shouldRunBot !== prevShouldRunBot) {
-    setPrevShouldRunBot(shouldRunBot);
-    setBotThinking(shouldRunBot);
-  }
-
-  useEffect(() => {
-    const decisionGeneration = botDecisionGenerationRef.current + 1;
-    botDecisionGenerationRef.current = decisionGeneration;
-    if (!shouldRunBot) {
-      return;
-    }
-
-    let cancelled = false;
-    const botTurnDelayMs =
-      resolvedBotProfile.selected.turnDelayMs ?? DEFAULT_BOT_DELAY_MS;
-    const timerId = window.setTimeout(() => {
-      void (async () => {
-        const current = stateRef.current;
-        const currentActive = turnOwnerIdForState(current);
-        const currentLegalActions = legalActions(current);
-        const currentBotIncomeActions = incomeChoiceActionsForPlayer(
-          currentLegalActions,
-          botPlayerId
-        );
-        const isCurrentIncomeChoicePhase = current.phase === 'CollectIncome';
-        if (
-          cancelled ||
-          botDecisionGenerationRef.current !== decisionGeneration ||
-          isTerminal(current) ||
-          (isCurrentIncomeChoicePhase
-            ? currentBotIncomeActions.length === 0
-            : currentActive !== botPlayerId)
-        ) {
-          if (botDecisionGenerationRef.current === decisionGeneration) {
-            setBotThinking(false);
-          }
-          return;
-        }
-
-        const actions = isCurrentIncomeChoicePhase
-          ? currentBotIncomeActions
-          : currentLegalActions;
-        if (actions.length === 0) {
-          setError('Bot has no legal actions.');
-          setBotThinking(false);
-          return;
-        }
-
-        let choice: GameAction | null | undefined;
-        try {
-          const botView = isCurrentIncomeChoicePhase
-            ? toDecisionPlayerView(current, botPlayerId)
-            : toPlayerView(current, botPlayerId);
-          choice = await resolvedBotProfile.policy.selectAction({
-            state: current,
-            view: botView,
-            legalActions: actions,
-            random: botRandomForState(current, resolvedBotProfile.selected.id),
-            randomSeed: botRandomSeedForState(
-              current,
-              resolvedBotProfile.selected.id
-            ),
-            ...(collectBotDiagnostics
-              ? { onSearchDiagnostics: logBotSearchDiagnostics }
-              : {}),
-          });
-        } catch (err) {
-          if (
-            botDecisionResultIsCurrent({
-              cancelled,
-              decisionGeneration,
-              currentGeneration: botDecisionGenerationRef.current,
-              decisionState: current,
-              currentState: stateRef.current,
-            })
-          ) {
-            setError(`Bot action failed: ${errorMessage(err)}`);
-            setBotThinking(false);
-          }
-          return;
-        }
-
-        if (
-          !botDecisionResultIsCurrent({
-            cancelled,
-            decisionGeneration,
-            currentGeneration: botDecisionGenerationRef.current,
-            decisionState: current,
-            currentState: stateRef.current,
-          })
-        ) {
-          return;
-        }
-        if (!choice) {
-          setError('Bot policy could not select an action.');
-          setBotThinking(false);
-          return;
-        }
-
-        try {
-          dispatchAction(
-            current,
-            choice,
-            choice.type === 'choose-income-suit'
-              ? choice.playerId
-              : (currentActive ?? botPlayerId)
-          );
-        } catch (err) {
-          if (
-            !cancelled &&
-            botDecisionGenerationRef.current === decisionGeneration
-          ) {
-            setError(`Bot action failed: ${errorMessage(err)}`);
-          }
-        } finally {
-          if (
-            !cancelled &&
-            botDecisionGenerationRef.current === decisionGeneration &&
-            stateRef.current === current
-          ) {
-            setBotThinking(false);
-          }
-        }
-      })();
-    }, botTurnDelayMs);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timerId);
-    };
-  }, [
-    activePlayerId,
-    botPlayerId,
-    collectBotDiagnostics,
-    botIncomeActions.length,
-    dispatchAction,
-    resolvedBotProfile,
-    shouldRunBot,
+  const { botThinking, invalidatePendingDecision } = useBotTurn({
     state,
-    startupPreloadReady,
-    terminal,
-  ]);
+    stateRef,
+    shouldRunBot,
+    botPlayerId,
+    botProfileId: resolvedBotProfile.selected.id,
+    policy: resolvedBotProfile.policy,
+    turnDelayMs: resolvedBotProfile.selected.turnDelayMs,
+    collectDiagnostics: collectBotDiagnostics,
+    dispatchAction,
+    onError: setError,
+  });
 
   useEffect(() => {
     const policy = resolvedBotProfile.policy;
@@ -736,7 +557,7 @@ export function useGameController({
       deferredIncomeLogContextRef.current = null;
       humanInputBarrierOrdinalRef.current = null;
       setHumanInputBarrierOrdinal(null);
-      botDecisionGenerationRef.current += 1;
+      invalidatePendingDecision();
       closeActionPolicy(resolvedBotProfile.policy);
       clearPresentationQueue();
       clearAllFlights();
@@ -776,7 +597,6 @@ export function useGameController({
           deferredIncomeLogContext: null,
         });
         setError(null);
-        setBotThinking(false);
       } catch (err) {
         setError(`Failed to start game: ${errorMessage(err)}`);
       }
@@ -786,6 +606,7 @@ export function useGameController({
       clearAllFlights,
       clearPresentationQueue,
       humanPlayerId,
+      invalidatePendingDecision,
       persistCheckpoint,
       resolvedBotProfile.policy,
       ruleset,
@@ -806,7 +627,7 @@ export function useGameController({
 
     humanInputBarrierOrdinalRef.current = null;
     setHumanInputBarrierOrdinal(null);
-    botDecisionGenerationRef.current += 1;
+    invalidatePendingDecision();
     closeActionPolicy(resolvedBotProfile.policy);
     clearPresentationQueue();
     deferredIncomeLogContextRef.current = null;
@@ -826,7 +647,6 @@ export function useGameController({
       : [];
     setActionHistory(actionHistoryRef.current);
     setError(null);
-    setBotThinking(false);
     clearAllFlights();
     clearAllDeedTokenLayouts();
   }, [
@@ -836,6 +656,7 @@ export function useGameController({
     humanInputReady,
     botProfileId,
     humanPlayerId,
+    invalidatePendingDecision,
     resolvedBotProfile.policy,
     state,
     turnResetAnchor,
