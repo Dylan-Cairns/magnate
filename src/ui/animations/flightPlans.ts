@@ -444,6 +444,12 @@ export function createCardFlight(
      * nominal timing.
      */
     renderAtDestination?: boolean;
+    /**
+     * The landing destination is the discard pile, which renders its cards with
+     * the deck-pile card scope. CardFlightLayer remaps the flight card's scope
+     * to match the landed discard card instead of the board card.
+     */
+    discardDestination?: boolean;
   },
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight {
@@ -480,6 +486,7 @@ export function createCardFlight(
     endHeight: destinationHeight ?? sourceSize.height,
     renderWidth,
     renderHeight,
+    discardDestination: options?.discardDestination,
     delayMs: options?.delayMs ?? 0,
     durationMs: options?.durationMs,
   };
@@ -567,6 +574,7 @@ export function buildSoldCardFlightFromDom(
         isDeed: false,
         perspective,
         renderAtDestination: true,
+        discardDestination: true,
       },
       domTargets
     ),

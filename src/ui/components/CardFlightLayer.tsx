@@ -64,7 +64,7 @@ export function CardFlightLayer({
         return (
           <div
             key={flight.id}
-            className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${destinationLayout ? ' is-destination' : ''}`}
+            className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${destinationLayout ? ' is-destination' : ''}${flight.discardDestination ? ' is-discard-destination' : ''}`}
             style={
               {
                 '--card-flight-start-x': `${flight.startX}px`,

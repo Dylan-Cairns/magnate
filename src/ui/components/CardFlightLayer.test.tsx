@@ -99,6 +99,16 @@ describe('CardFlightLayer', () => {
     expect(draw).not.toContain('is-destination');
   });
 
+  it('marks discard-destination flights so the landed card scope is remapped', () => {
+    const html = renderToStaticMarkup(
+      <CardFlightLayer
+        animationsEnabled
+        flights={[{ ...BASE_FLIGHT, discardDestination: true }]}
+      />
+    );
+    expect(html).toContain('card-flight is-destination is-discard-destination');
+  });
+
   it('renders nothing without flights', () => {
     expect(
       renderToStaticMarkup(

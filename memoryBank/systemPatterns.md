@@ -246,8 +246,17 @@ Design expectations:
   placement commit starts at the step's end and the CSS animation only begins on
   the first frame after the flight mounts: without the buffer the animation is
   removed before its final frame and the card pops to full size. Destination
-  flights also adopt the landed lane card's shadow (`is-destination`), since the
-  lane stack supplies the outer shadow through its own drop-shadow filter.
+  flights that land where the outer shadow comes from a stack filter (district
+  lanes and the hand fan) keep only the card's inset rim (`is-destination`),
+  since the stack supplies the outer drop shadow.
+- Sold-card flights land on the discard pile, whose cards render with the
+  deck-pile card scope rather than the board card scope. The flight renders at
+  the discard box (`renderAtDestination`) and `CardFlightLayer` marks it
+  `is-discard-destination`; `flights.css` remaps `--card-padding`,
+  `--card-meta-height`, `--card-meta-gap` and `--card-image-area-*` to the
+  `--deck-pile-card-*` values and drops the lane stack shadow for the discard
+  card's own border and depth shadow, so the final frame matches the landed card
+  instead of overflowing it with board-card metrics.
 - A source card that is transformed (the fanned human hand) reports a larger
   axis-aligned rect; flight construction uses the untransformed layout box
   (`offsetWidth`/`offsetHeight`) for the flight's start size so it matches the

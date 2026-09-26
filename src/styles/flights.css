@@ -113,13 +113,40 @@
   min-height: 0;
 }
 
-/* A destination flight that lands in a district lane must match the landed
-   card's shadow: the lane stack supplies the outer shadow through its own
-   drop-shadow filter and the landed developed card keeps only its inset rim.
-   Deed (in-development) lane cards keep the base drop shadow, so this is scoped
-   away from them; draw and sold-card flights land in the hand and discard piles,
-   which keep the base shadow, and are excluded by the destination class. */
-.card-flight.is-destination .card-tile:not(.is-in-development) {
+/* A sold-card flight lands on the discard pile, whose cards render with the
+   deck-pile card scope rather than the board card scope. Remap the landed
+   card's scope to the discard card's metrics so the flight's last frame matches
+   the real card. The flight also drops the lane stack shadow and takes the
+   discard card's own border and depth shadow instead; the `- 2px` in the image
+   area is that border on each side. */
+.card-flight.is-discard-destination {
+  filter: none;
+}
+
+.card-flight.is-discard-destination .card-tile {
+  --card-padding: var(--deck-pile-card-padding);
+  --card-meta-height: var(--deck-pile-card-meta-height);
+  --card-meta-gap: var(--deck-pile-card-meta-gap);
+  --card-image-area-width: calc(
+    var(--deck-pile-card-width) - (var(--deck-pile-card-padding) * 2) - 2px
+  );
+  --card-image-area-height: calc(
+    var(--card-image-area-width) * var(--card-image-source-height) /
+      var(--card-image-source-width)
+  );
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+}
+
+/* Destination flights that land where the outer shadow comes from a stack
+   filter (district lanes, and the human hand fan, which casts the same
+   drop-shadow) must match the landed card's shadow: the stack supplies the
+   outer shadow, so the flight card keeps only its inset rim. Deed
+   (in-development) lane cards keep the base drop shadow, so this is scoped away
+   from them. Sold-card flights land on the discard pile, which uses the card's
+   own depth shadow, and are excluded. */
+.card-flight.is-destination:not(.is-discard-destination)
+  .card-tile:not(.is-in-development) {
   box-shadow: inset 0 0 0 1px var(--card-inset-border);
 }
 

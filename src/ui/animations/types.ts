@@ -42,6 +42,13 @@ export type CardFlight = {
    */
   endImageAreaWidth?: number;
   endImageAreaHeight?: number;
+  /**
+   * The flight lands on the discard pile, whose cards render with the deck-pile
+   * card scope rather than the board card scope. CardFlightLayer marks the
+   * flight so its final frame adopts the discard card's padding, meta strip and
+   * image-area metrics instead of the board card's.
+   */
+  discardDestination?: boolean;
   delayMs: number;
   durationMs?: number;
   presentationLandingMs?: number;

@@ -374,6 +374,9 @@ describe('flightPlans', () => {
         startHeight: 120,
         endWidth: 90,
         endHeight: 130,
+        // The discard pile renders cards with the deck-pile card scope, so the
+        // flight remaps its own scope to match the landed card.
+        discardDestination: true,
       },
     ]);
 
