@@ -14,6 +14,8 @@
   --container-shadow: 0 16px 36px rgba(0, 0, 0, 0.66);
   --container-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.58);
   --rail-panel-shadow: 0 5px 12px rgba(0, 0, 0, 0.72);
+  --font-display: 'Averia Serif Libre', Georgia, serif;
+  --font-ui: 'Alegreya Sans', 'Trebuchet MS', sans-serif;
   --space-1: 0.2rem;
   --space-2: 0.35rem;
   --space-3: 0.5rem;
@@ -224,7 +226,7 @@ body,
 }
 
 body {
-  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .app-shell {
@@ -237,11 +239,38 @@ body {
   background: transparent;
 }
 
+/*
+  Display role: page title, panel/section headings, district titles (the
+  district id and its marker name) and the resource-area titles.
+*/
+h1,
+h2,
+.district-id,
+.district-marker-name,
+.token-rail-group h3 {
+  font-family: var(--font-display);
+}
+
 h1 {
   margin: 0;
-  font-family: 'DM Serif Display', Georgia, serif;
   letter-spacing: 0.04em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+/*
+  Fixed-width digits only where numbers sit in columns or repeat across rows.
+  Prose (log, tooltips, action text) keeps proportional figures so the wider
+  tabular digits don't crowd letters.
+*/
+.district-lane-score,
+.status-badge,
+.deck-pile-count,
+.token-count,
+.deed-progress-value,
+.deed-progress-ring-value,
+.player-score-popover,
+.terminal-score-summary {
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .seed-input {

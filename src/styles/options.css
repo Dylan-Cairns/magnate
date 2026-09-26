@@ -25,7 +25,6 @@
 
 .brand-panel h1 {
   margin: 0;
-  font-family: 'Chakra Petch', 'Trebuchet MS', sans-serif;
   letter-spacing: 0.03em;
 }
 
@@ -242,8 +241,6 @@
 
 .bot-profile-controls label {
   font-size: 0.8rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--muted);
 }
 

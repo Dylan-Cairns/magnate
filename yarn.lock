@@ -1051,6 +1051,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource/alegreya-sans@npm:^5.3.0":
+  version: 5.3.0
+  resolution: "@fontsource/alegreya-sans@npm:5.3.0"
+  checksum: 10c0/5e93090ba0bba9fa2b3aeb4f9482e53fdc2f8f754a10c4e741d854793045e3f4f29a623a82aaf635e520fef356b6a738aa7b294f02b0b6ab4142bd6da58802d0
+  languageName: node
+  linkType: hard
+
+"@fontsource/averia-serif-libre@npm:^5.3.0":
+  version: 5.3.0
+  resolution: "@fontsource/averia-serif-libre@npm:5.3.0"
+  checksum: 10c0/b3cf27156ec2fe87b434c871222c59d315e8c7d34148a01e546e55e241f14255f98f8935d5bc1a17c3d336642e111c91c9d11d6eecdf858beed7d17d97c90e63
+  languageName: node
+  linkType: hard
+
 "@hono/node-server@npm:^1.19.9":
   version: 1.19.14
   resolution: "@hono/node-server@npm:1.19.14"
@@ -4579,6 +4593,8 @@ __metadata:
   dependencies:
     "@eslint/js": "npm:^9.34.0"
     "@floating-ui/react": "npm:^0.27.20"
+    "@fontsource/alegreya-sans": "npm:^5.3.0"
+    "@fontsource/averia-serif-libre": "npm:^5.3.0"
     "@tanstack/react-table": "npm:^8.21.3"
     "@types/node": "npm:^22.20.1"
     "@types/react": "npm:^19.2.14"
@@ -4593,6 +4609,7 @@ __metadata:
     eslint-plugin-react: "npm:^7.37.5"
     eslint-plugin-react-hooks: "npm:^7.1.1"
     globals: "npm:^16.3.0"
+    playwright: "npm:^1.63.0"
     prettier: "npm:^3.8.3"
     react: "npm:^19.2.4"
     react-dom: "npm:^19.2.4"
@@ -5165,6 +5182,26 @@ __metadata:
   version: 5.0.1
   resolution: "pkce-challenge@npm:5.0.1"
   checksum: 10c0/207f4cb976682f27e8324eb49cf71937c98fbb8341a0b8f6142bc6f664825b30e049a54a21b5c034e823ee3c3d412f10d74bd21de78e17452a6a496c2991f57c
+  languageName: node
+  linkType: hard
+
+"playwright-core@npm:1.63.0":
+  version: 1.63.0
+  resolution: "playwright-core@npm:1.63.0"
+  bin:
+    playwright-core: cli.js
+  checksum: 10c0/39c1ebae4029ca2e9371e00a5588d962038e24b6e0bdb7d0d27374dde04838f349b83ae0c8b3b648653d0935cba7fb9011f1201adaab9dd0db7801ad6c75e9aa
+  languageName: node
+  linkType: hard
+
+"playwright@npm:^1.63.0":
+  version: 1.63.0
+  resolution: "playwright@npm:1.63.0"
+  dependencies:
+    playwright-core: "npm:1.63.0"
+  bin:
+    playwright: cli.js
+  checksum: 10c0/d1fd048a89be27c9aba6757dc4f70eff4a5163b49f439ad691767be8b2a482327d0dd1928b4f73c8fe0d8b33aab2c9dc2670424ab60f112d9e98e91b94e3b090
   languageName: node
   linkType: hard
 

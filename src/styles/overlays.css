@@ -159,8 +159,6 @@
 
 .turn-cycle-label {
   color: var(--accent-soft);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .turn-cycle-banner-chip {
@@ -190,5 +188,4 @@
 
 .turn-cycle-winner-name {
   color: var(--accent-soft);
-  text-transform: uppercase;
 }
