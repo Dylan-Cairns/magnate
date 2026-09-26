@@ -13,6 +13,9 @@ the trained opponent through gated self-play.
 - Human vs bot in the browser with selectable profiles: Easy, Medium, and Hard
   rollout-search profiles for both rulesets, and an Experimental TD-root search
   profile for the standard ruleset only.
+- Action and submenu hovers preview the cards, resources, and destinations they
+  affect; placement ghosts distinguish incomplete deeds from completed
+  properties.
 - One deterministic TypeScript engine used by browser play, bot evaluation, and
   Python training through the Node bridge.
 - Python training and evaluation: collect, train, gate, and promote, with the

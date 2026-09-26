@@ -7,6 +7,7 @@ describe('GameCredits', () => {
   it('renders the Magnate, Decktet, and license credits', () => {
     const html = renderToStaticMarkup(<GameCredits />);
 
+    expect(html).toContain('Dylan Cairns');
     expect(html).toContain('Cristyn Magnus');
     expect(html).toContain('P.D. Magnus');
     expect(html).toContain('The Decktet');

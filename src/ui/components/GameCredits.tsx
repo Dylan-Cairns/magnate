@@ -20,6 +20,7 @@ export function GameCredits() {
           decktet.com
         </a>
       </p>
+      <p>Digital version by Dylan Cairns.</p>
       <p>
         This app is licensed CC BY-NC-SA 4.0.{' '}
         <a href="third-party-notices.txt" target="_blank" rel="noreferrer">
