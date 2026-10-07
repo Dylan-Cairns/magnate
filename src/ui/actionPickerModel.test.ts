@@ -140,12 +140,6 @@ describe('positioned picker model', () => {
         left: 2,
       },
       {
-        kind: 'develop-outright-district',
-        cardId: '6',
-        top: 1,
-        left: 2,
-      },
-      {
         kind: 'develop-outright-payment',
         cardId: '6',
         districtId: 'D1',
@@ -174,7 +168,6 @@ describe('positioned picker model', () => {
     ).toEqual([
       { kind: 'trade', give: 'Moons' },
       { kind: 'district', actionType: 'buy-deed', cardId: '6' },
-      { kind: 'develop-outright-district', cardId: '6' },
       { kind: 'develop-outright-payment', cardId: '6', districtId: 'D1' },
       { kind: 'deed-payment', cardId: '6', districtId: 'D1' },
     ]);

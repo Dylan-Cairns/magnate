@@ -15,6 +15,7 @@ import {
   buildHumanActionList,
   buildTradeSourceGroups,
   buildPickerOptions,
+  pickerGroupLabel,
   pickerStillLegal,
   pickerTitle,
   type ActionPickerQuery,
@@ -372,7 +373,7 @@ describe('picker helpers', () => {
     expect(pickerTitle(picker, SUIT_TEXT_TOKEN)).toBe('Trade {Moons}x3 for');
   });
 
-  it('builds district-then-payment picker options for develop-outright', () => {
+  it('builds payment picker options for a forced develop-outright district', () => {
     const actions: GameAction[] = [
       {
         type: 'develop-outright',
@@ -393,21 +394,6 @@ describe('picker helpers', () => {
         payment: { Moons: 3 },
       },
     ];
-
-    const districtPicker: ActionPickerQuery = {
-      kind: 'develop-outright-district',
-      cardId: '6',
-    };
-    const districtOptions = buildPickerOptions(
-      districtPicker,
-      actions,
-      SUIT_TEXT_TOKEN
-    );
-    expect(districtOptions.map((option) => option.label)).toEqual(['D1', 'D2']);
-    expect(pickerStillLegal(districtPicker, actions)).toBe(true);
-    expect(pickerTitle(districtPicker, SUIT_TEXT_TOKEN)).toMatch(
-      /^Develop .* in$/
-    );
 
     const paymentPicker: ActionPickerQuery = {
       kind: 'develop-outright-payment',
@@ -430,6 +416,7 @@ describe('picker helpers', () => {
     expect(pickerTitle(paymentPicker, SUIT_TEXT_TOKEN)).toMatch(
       /^Develop .* in D1 with$/
     );
+    expect(pickerStillLegal(paymentPicker, actions.slice(0, 1))).toBe(false);
   });
 
   it('builds income-choice picker options by card', () => {
@@ -478,6 +465,35 @@ describe('picker helpers', () => {
     expect(pickerTitle(picker, SUIT_TEXT_TOKEN)).toBe(
       'Choose income 2{Moons}{Knots} in D1'
     );
+  });
+});
+
+describe('pickerGroupLabel', () => {
+  it('names the dimension each standard picker chooses', () => {
+    expect(pickerGroupLabel({ kind: 'trade', give: 'Moons' })).toBe(
+      'Receive x1'
+    );
+    expect(
+      pickerGroupLabel({ kind: 'district', actionType: 'buy-deed', cardId: '6' })
+    ).toBe('District');
+    expect(
+      pickerGroupLabel({ kind: 'deed-payment', cardId: '6', districtId: 'D1' })
+    ).toBe('Payment');
+    expect(
+      pickerGroupLabel({
+        kind: 'develop-outright-payment',
+        cardId: '6',
+        districtId: 'D1',
+      })
+    ).toBe('Payment');
+    expect(
+      pickerGroupLabel({
+        kind: 'income-choice',
+        playerId: PLAYER_A,
+        cardId: '6',
+        districtId: 'D1',
+      })
+    ).toBe('Suit');
   });
 });
 

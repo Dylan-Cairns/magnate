@@ -46,7 +46,9 @@
 }
 
 .suit-diagram-courts {
-  --court-glyph-size: 1.35rem;
+  /* Matches the suit token's visible circle (r 26.5 of a 27 viewBox),
+     which is inset from the compact chip's 1.35rem box. */
+  --court-glyph-size: 1.25rem;
   display: grid;
   grid-template-columns: repeat(2, max-content);
   justify-content: space-between;
@@ -62,10 +64,6 @@
 
 .suit-diagram-court.is-dimmed {
   opacity: 0.25;
-}
-
-.suit-diagram-court .court-icon {
-  filter: brightness(0) invert(1);
 }
 
 .suit-diagram-court .card-rank-court-icon {

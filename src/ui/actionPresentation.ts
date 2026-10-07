@@ -57,10 +57,6 @@ export type ActionPickerQuery =
       cardId: CardId;
     }
   | {
-      kind: 'develop-outright-district';
-      cardId: CardId;
-    }
-  | {
       kind: 'develop-outright-payment';
       cardId: CardId;
       districtId: string;
@@ -325,20 +321,6 @@ export function pickerStillLegal(
     return options.length > 1;
   }
 
-  if (picker.kind === 'develop-outright-district') {
-    const districtIds = new Set<string>();
-    for (const action of actions) {
-      if (
-        action.type !== 'develop-outright' ||
-        action.cardId !== picker.cardId
-      ) {
-        continue;
-      }
-      districtIds.add(action.districtId);
-    }
-    return districtIds.size > 1;
-  }
-
   if (picker.kind !== 'develop-outright-payment') {
     return false;
   }
@@ -349,7 +331,7 @@ export function pickerStillLegal(
       action.cardId === picker.cardId &&
       action.districtId === picker.districtId
   );
-  return options.length > 0;
+  return options.length > 1;
 }
 
 export function buildPickerOptions(
@@ -414,25 +396,6 @@ export function buildPickerOptions(
       }));
   }
 
-  if (picker.kind === 'develop-outright-district') {
-    const firstActionByDistrict = new Map<string, DevelopOutrightAction>();
-    for (const action of actions) {
-      if (
-        action.type !== 'develop-outright' ||
-        action.cardId !== picker.cardId ||
-        firstActionByDistrict.has(action.districtId)
-      ) {
-        continue;
-      }
-      firstActionByDistrict.set(action.districtId, action);
-    }
-    return [...firstActionByDistrict.values()].map((action) => ({
-      id: `develop-outright-district:${picker.cardId}:${action.districtId}`,
-      label: action.districtId,
-      action,
-    }));
-  }
-
   if (picker.kind !== 'develop-outright-payment') {
     return [];
   }
@@ -471,10 +434,6 @@ export function pickerTitle(
     return `Buy deed ${cardSummary(picker.cardId, suitEmoji)} in`;
   }
 
-  if (picker.kind === 'develop-outright-district') {
-    return `Develop ${cardSummary(picker.cardId, suitEmoji)} in`;
-  }
-
   if (picker.kind !== 'develop-outright-payment') {
     return 'Select option';
   }
@@ -483,6 +442,21 @@ export function pickerTitle(
     picker.cardId,
     suitEmoji
   )} in ${picker.districtId} with`;
+}
+
+export function pickerGroupLabel(picker: ActionPickerQuery): string {
+  switch (picker.kind) {
+    case 'trade':
+      return 'Receive x1';
+    case 'district':
+      return 'District';
+    case 'deed-payment':
+      return 'Payment';
+    case 'develop-outright-payment':
+      return 'Payment';
+    case 'income-choice':
+      return 'Suit';
+  }
 }
 
 export function describeAction(

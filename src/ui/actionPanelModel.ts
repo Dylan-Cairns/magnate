@@ -1,8 +1,5 @@
 import type { GameAction, PlayerId } from '../engine/types';
-import {
-  paymentSignature,
-  type HumanActionListItem,
-} from './actionPresentation';
+import type { HumanActionListItem } from './actionPresentation';
 
 type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
 
@@ -83,28 +80,22 @@ export function actionCategoryLabel(category: string): string {
   }
 }
 
+// A card's outright develop options collapse to a single district in the button
+// label only when that district is forced; a forced payment is never promoted
+// while the district choice is still pending.
 export function buildDevelopOutrightGroupPresentation(
   options: readonly DevelopOutrightAction[]
 ): {
-  districtCount: number;
-  hasSinglePaymentPattern: boolean;
-  firstPayment?: DevelopOutrightAction['payment'];
+  singleDistrictId?: string;
 } {
-  const paymentOptions = new Map<string, DevelopOutrightAction>();
   const districtIds = new Set<string>();
 
   for (const option of options) {
     districtIds.add(option.districtId);
-    const paymentKey = paymentSignature(option.payment);
-    if (!paymentOptions.has(paymentKey)) {
-      paymentOptions.set(paymentKey, option);
-    }
   }
 
-  const firstPayment = paymentOptions.values().next().value?.payment;
   return {
-    districtCount: districtIds.size,
-    hasSinglePaymentPattern: paymentOptions.size === 1,
-    firstPayment,
+    singleDistrictId:
+      districtIds.size === 1 ? districtIds.values().next().value : undefined,
   };
 }

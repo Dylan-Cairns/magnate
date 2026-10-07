@@ -304,6 +304,7 @@ export const DistrictColumn = memo(function DistrictColumn({
                 : allSuitTokens()
             }
             compact
+            simplified
           />
           <Tooltip>{markerName}</Tooltip>
         </header>

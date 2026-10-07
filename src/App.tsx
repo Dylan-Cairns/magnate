@@ -585,15 +585,16 @@ export function App() {
     });
   };
 
-  const openDevelopOutrightDistrictOnlyPicker = (
-    cardId: CardId,
+  const openDevelopOutrightPaymentPicker = (
+    config: { cardId: CardId; districtId: string },
     trigger: HTMLButtonElement,
     optionCount: number
   ) => {
     const position = pickerPosition(trigger, optionCount);
     setActionPicker({
-      kind: 'develop-outright-district',
-      cardId,
+      kind: 'develop-outright-payment',
+      cardId: config.cardId,
+      districtId: config.districtId,
       ...position,
     });
   };
@@ -759,8 +760,8 @@ export function App() {
               onOpenDevelopOutrightCombinedPicker={
                 openDevelopOutrightCombinedPicker
               }
-              onOpenDevelopOutrightDistrictOnlyPicker={
-                openDevelopOutrightDistrictOnlyPicker
+              onOpenDevelopOutrightPaymentPicker={
+                openDevelopOutrightPaymentPicker
               }
               onOpenDeedPaymentPicker={openDeedPaymentPicker}
               onOpenIncomeChoicePicker={openIncomeChoicePicker}

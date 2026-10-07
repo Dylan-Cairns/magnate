@@ -7,6 +7,7 @@ import type {
 } from '../../engine/types';
 import { playerDisplayName, winnerDisplayName } from '../playerDisplay';
 import { CardTile } from './CardTile';
+import { LeaderCrown } from './LeaderCrown';
 
 function ScoreLine({ label, a, b }: { label: string; a: number; b: number }) {
   return (
@@ -37,6 +38,7 @@ export const BotHandPanel = memo(function BotHandPanel({
   animationsEnabled?: boolean;
 }) {
   const districtScore = score.districtPoints[player.id];
+  const isLeader = score.winner === player.id;
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
   const title = playerDisplayName(player.id, humanPlayerId);
   const winnerLabel = winnerDisplayName(score.winner, humanPlayerId);
@@ -51,6 +53,9 @@ export const BotHandPanel = memo(function BotHandPanel({
       <header className="player-header">
         <h2>{title}</h2>
         <div className="player-score-wrap">
+          {isLeader ? (
+            <LeaderCrown className="player-score-crown" />
+          ) : null}
           <span className="engraving" tabIndex={0}>
             {districtScore} VP
           </span>

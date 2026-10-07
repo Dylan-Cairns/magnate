@@ -81,9 +81,6 @@ export function actionsForOpenPicker(
         (action) =>
           action.type === 'buy-deed' && action.cardId === picker.cardId
       );
-    case 'develop-outright-district':
-      return buildDevelopOutrightCompositeOptions(actions, picker.cardId)
-        .outrightOptions;
     case 'develop-outright-payment':
       return buildDevelopOutrightCompositeOptions(
         actions,
@@ -226,12 +223,6 @@ export function toPickerQuery(
       kind: 'deed-payment',
       cardId: picker.cardId,
       districtId: picker.districtId,
-    };
-  }
-  if (picker.kind === 'develop-outright-district') {
-    return {
-      kind: 'develop-outright-district',
-      cardId: picker.cardId,
     };
   }
   if (picker.kind === 'develop-outright-payment') {

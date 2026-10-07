@@ -6,6 +6,12 @@ import moonsIcon from '../assets/icons/moons.svg';
 import sunsIcon from '../assets/icons/suns.svg';
 import wavesIcon from '../assets/icons/waves.svg';
 import wyrmsIcon from '../assets/icons/wyrms.svg';
+import knotsSimpleIcon from '../assets/icons/simplified/knots.svg';
+import leavesSimpleIcon from '../assets/icons/simplified/leaves.svg';
+import moonsSimpleIcon from '../assets/icons/simplified/moons.svg';
+import sunsSimpleIcon from '../assets/icons/simplified/suns.svg';
+import wavesSimpleIcon from '../assets/icons/simplified/waves.svg';
+import wyrmsSimpleIcon from '../assets/icons/simplified/wyrms.svg';
 import type { Suit } from '../engine/types';
 import { reportImageRenderFailure } from './cardImages';
 
@@ -32,8 +38,24 @@ export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
   Knots: knotsIcon,
 };
 
-export const ALL_SUIT_ICON_URLS: readonly string[] =
-  Object.values(SUIT_ICON_BY_SUIT);
+// Flat, two-tone suit marks taken from the Decktet's own simplified symbols
+// (the glyphs the printed cards use in their corners). They read clearly at
+// card/action sizes where the shaded emblem turns to mush. The artwork leaves
+// its negative space transparent, so it sits on the same pale SUIT_TOKEN_BG
+// field as the shaded emblems — the saturated colour is in the mark itself.
+export const SUIT_ICON_SIMPLIFIED_BY_SUIT: Record<Suit, string> = {
+  Moons: moonsSimpleIcon,
+  Suns: sunsSimpleIcon,
+  Waves: wavesSimpleIcon,
+  Leaves: leavesSimpleIcon,
+  Wyrms: wyrmsSimpleIcon,
+  Knots: knotsSimpleIcon,
+};
+
+export const ALL_SUIT_ICON_URLS: readonly string[] = [
+  ...Object.values(SUIT_ICON_BY_SUIT),
+  ...Object.values(SUIT_ICON_SIMPLIFIED_BY_SUIT),
+];
 
 export const SUIT_TEXT_TOKEN: Record<Suit, string> = {
   Moons: '{Moons}',
@@ -67,15 +89,14 @@ export function SuitIcon({
   suit: Suit;
   className?: string;
 }) {
+  const src = SUIT_ICON_SIMPLIFIED_BY_SUIT[suit];
   return (
     <img
-      src={SUIT_ICON_BY_SUIT[suit]}
+      src={src}
       alt={suit}
       className={`suit-icon${className ? ` ${className}` : ''}`}
       style={{ '--suit-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
-      onError={() =>
-        reportImageRenderFailure(SUIT_ICON_BY_SUIT[suit], `${suit} token`)
-      }
+      onError={() => reportImageRenderFailure(src, `${suit} token`)}
     />
   );
 }
