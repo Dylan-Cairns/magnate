@@ -182,7 +182,7 @@ export const DecktetSuitDiagram = memo(function DecktetSuitDiagram({
               className={`suit-diagram-court tooltip-trigger${dimmedCardIds.has(court.id) ? ' is-dimmed' : ''}`}
             >
               <span className="card-rank">
-                <CardRank cardId={court.id} />
+                <CardRank cardId={court.id} courtFilled />
               </span>
               {court.suits.map((suit) => (
                 <TokenChip
