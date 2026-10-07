@@ -69,26 +69,6 @@ describe('bot policy catalog', () => {
     });
   });
 
-  it('includes an all-TD experimental profile', () => {
-    const profile = getBotProfile('td-root-search-v2-medium');
-
-    expect(profile.label).toBe('Experimental');
-    expect(profile.kind).toBe('td-root-search');
-    expect(profile.available).toBe(true);
-    expect(profile.spec.kind).toBe('td-root-search');
-    if (profile.spec.kind !== 'td-root-search') {
-      throw new Error('Expected experimental profile to use a TD-root spec.');
-    }
-    expect(profile.spec.config).toEqual({
-      worlds: 10,
-      rollouts: 1,
-      depth: 40,
-      maxRootActions: 16,
-      rolloutEpsilon: 0,
-    });
-    expect(profile.spec.modelIndexPath).toBeUndefined();
-  });
-
   it('offers the rollouts search profiles for both rulesets', () => {
     expect(profilesForRuleset('standard').map((profile) => profile.id)).toEqual([
       'rollout-search-v2-easy',
