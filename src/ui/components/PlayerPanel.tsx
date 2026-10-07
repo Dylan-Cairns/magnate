@@ -8,6 +8,7 @@ import type {
 import { useHighlightClass } from './ActionHighlights';
 import { playerDisplayName, winnerDisplayName } from '../playerDisplay';
 import { CardTile, type CardPerspective } from './CardTile';
+import { LeaderCrown } from './LeaderCrown';
 
 const HAND_FAN_MAX_ANGLE_STEP_DEG = 4;
 const HAND_FAN_TOTAL_SPREAD_DEG = 10;
@@ -66,6 +67,7 @@ export const PlayerPanel = memo(function PlayerPanel({
   const cardPerspective: CardPerspective =
     player.id === botPlayerId ? 'bot' : 'human';
   const districtScore = score.districtPoints[player.id];
+  const isLeader = score.winner === player.id;
   const scoreHeadline = terminal ? 'Winner' : 'Leader';
   const title = playerDisplayName(player.id, humanPlayerId);
   const winnerLabel = winnerDisplayName(score.winner, humanPlayerId);
@@ -85,6 +87,9 @@ export const PlayerPanel = memo(function PlayerPanel({
       <header className="player-header">
         <h2>{title}</h2>
         <div className="player-score-wrap">
+          {isLeader ? (
+            <LeaderCrown className="player-score-crown" />
+          ) : null}
           <span className="engraving" tabIndex={0}>
             {districtScore} VP
           </span>

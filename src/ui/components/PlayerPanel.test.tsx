@@ -50,6 +50,67 @@ describe('PlayerPanel hand anchors', () => {
     expect(html).toContain('data-hand-slot-kind="empty"');
   });
 
+  it('marks the leading player with a crown', () => {
+    const player: ObservedPlayerState = {
+      id: 'PlayerA',
+      crowns: [],
+      resources: {
+        Moons: 0,
+        Suns: 0,
+        Waves: 0,
+        Leaves: 0,
+        Wyrms: 0,
+        Knots: 0,
+      },
+      hand: [],
+      handCount: 0,
+      handHidden: false,
+    };
+
+    const leaderHtml = renderToStaticMarkup(
+      <PlayerPanel
+        player={player}
+        isActive={false}
+        score={SCORE}
+        terminal={false}
+        handSlotCount={3}
+        humanPlayerId="PlayerA"
+        botPlayerId="PlayerB"
+      />
+    );
+    const trailingHtml = renderToStaticMarkup(
+      <PlayerPanel
+        player={{ ...player, id: 'PlayerB' }}
+        isActive={false}
+        score={SCORE}
+        terminal={false}
+        handSlotCount={3}
+        humanPlayerId="PlayerA"
+        botPlayerId="PlayerB"
+      />
+    );
+    const drawHtml = renderToStaticMarkup(
+      <PlayerPanel
+        player={player}
+        isActive={false}
+        score={{ ...SCORE, winner: 'Draw', decidedBy: 'draw' }}
+        terminal={false}
+        handSlotCount={3}
+        humanPlayerId="PlayerA"
+        botPlayerId="PlayerB"
+      />
+    );
+
+    // The crown sits just left of the VP badge for the leader only, outside
+    // the engraving.
+    expect(leaderHtml).toContain('player-score-crown');
+    expect(trailingHtml).not.toContain('player-score-crown');
+    expect(drawHtml).not.toContain('player-score-crown');
+    expect(leaderHtml.indexOf('player-score-crown')).toBeLessThan(
+      leaderHtml.indexOf('class="engraving"')
+    );
+  });
+
   it('renders hidden hand slot markers for hidden hands', () => {
     const player: ObservedPlayerState = {
       id: 'PlayerB',

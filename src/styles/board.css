@@ -108,6 +108,16 @@
   outline-offset: 3px;
 }
 
+/* The leader's crown sits just left of the VP badge, outside it, in the same
+   ink as the VP count. */
+.player-score-crown {
+  width: 0.72rem;
+  height: 0.72rem;
+  margin-right: 0.3rem;
+  flex-shrink: 0;
+  color: #dde4ee;
+}
+
 /* A heading note is plain right-aligned status text for readouts that aren't
    counters worth a chip: the shuffle count and the final-round callout. The VP
    engravings keep their cut treatment; these read as flat metadata instead. */
