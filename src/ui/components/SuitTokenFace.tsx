@@ -30,12 +30,14 @@ export function SuitTokenFace({
   y,
   size = '100%',
   simplified = false,
+  className,
 }: {
   suit: Suit;
   x?: number;
   y?: number;
   size?: number | string;
   simplified?: boolean;
+  className?: string;
 }) {
   const clipId = `suit-token-clip-${useId().replace(/:/g, '')}`;
   const artwork = simplified
@@ -45,7 +47,7 @@ export function SuitTokenFace({
   const artOffset = (FACE_VIEWBOX - artSize) / 2;
   return (
     <svg
-      className="suit-token-face"
+      className={`suit-token-face${className ? ` ${className}` : ''}`}
       viewBox={`0 0 ${FACE_VIEWBOX} ${FACE_VIEWBOX}`}
       x={x}
       y={y}
@@ -83,16 +85,14 @@ export function SuitTokenFace({
           return () => image.removeEventListener('error', onError);
         }}
       />
-      {!simplified && (
-        <circle
-          cx={FACE_CENTER}
-          cy={FACE_CENTER}
-          r={RING_RADIUS}
-          fill="none"
-          stroke={TOKEN_INK}
-          strokeWidth={RING_STROKE_WIDTH}
-        />
-      )}
+      <circle
+        cx={FACE_CENTER}
+        cy={FACE_CENTER}
+        r={RING_RADIUS}
+        fill="none"
+        stroke={TOKEN_INK}
+        strokeWidth={RING_STROKE_WIDTH}
+      />
     </svg>
   );
 }

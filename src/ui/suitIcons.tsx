@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 import knotsIcon from '../assets/icons/knots.svg';
 import leavesIcon from '../assets/icons/leaves.svg';
 import moonsIcon from '../assets/icons/moons.svg';
@@ -13,13 +11,13 @@ import sunsSimpleIcon from '../assets/icons/simplified/suns.svg';
 import wavesSimpleIcon from '../assets/icons/simplified/waves.svg';
 import wyrmsSimpleIcon from '../assets/icons/simplified/wyrms.svg';
 import type { Suit } from '../engine/types';
-import { reportImageRenderFailure } from './cardImages';
 
 // Shared opaque fills for suits. The artwork has transparent gaps between its
 // layers, so it only reads correctly sitting on its own fill rather than
 // whatever happens to be behind it — a white card face, the in-development
 // grey, a dark chip. Tokens, dice, deck-map nodes and the log all back the
-// artwork this way; SuitIcon does now too.
+// artwork this way; SuitTokenFace (and the card suit icons built on it) does
+// too, so every suit mark sits on its own fill.
 export const SUIT_TOKEN_BG: Record<Suit, string> = {
   Moons: '#e4e7eb',
   Suns: '#f7cc95',
@@ -81,25 +79,6 @@ export const SUIT_TOKEN_REGEX = new RegExp(
     .join('|'),
   'g'
 );
-
-export function SuitIcon({
-  suit,
-  className,
-}: {
-  suit: Suit;
-  className?: string;
-}) {
-  const src = SUIT_ICON_SIMPLIFIED_BY_SUIT[suit];
-  return (
-    <img
-      src={src}
-      alt={suit}
-      className={`suit-icon${className ? ` ${className}` : ''}`}
-      style={{ '--suit-bg': SUIT_TOKEN_BG[suit] } as CSSProperties}
-      onError={() => reportImageRenderFailure(src, `${suit} token`)}
-    />
-  );
-}
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

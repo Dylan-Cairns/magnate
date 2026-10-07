@@ -5,7 +5,7 @@ import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
 import { CardRank } from './CardRank';
-import { SuitIcon } from '../suitIcons';
+import { SuitIcon } from './SuitIcon';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import { ProgressTracker } from './ProgressTracker';
 import { useDeedTokenLayout } from './useDeedTokenLayout';

@@ -173,21 +173,13 @@
   justify-content: center;
 }
 
-.suit-icon {
-  display: inline-block;
-  width: 1em;
-  height: 1em;
-  object-fit: contain;
-  flex: 0 0 auto;
-  /* The simplified mark leaves its negative space transparent, so it sits on
-     the suit's saturated field (--suit-bg) to read as a solid colour mass. */
-  background-color: var(--suit-bg, transparent);
-  border-radius: 50%;
-}
-
+/* Card suit marks render through the shared SuitTokenFace, so the disc fill,
+   ring and artwork all come from the SVG; only the card size lives here. */
 .card-suit-icon {
+  display: inline-block;
   width: 0.92rem;
   height: 0.92rem;
+  flex: 0 0 auto;
 }
 
 .card-suit-placeholder {
