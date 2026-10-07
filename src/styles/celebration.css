@@ -1,0 +1,220 @@
+/*
+  End-game celebration layer. Purely decorative and non-interactive: it sits
+  under the flight layers, the options menu, and the history modal, and never
+  takes pointer events. Visibility is gated entirely by the no-animations
+  preference (GameCelebration returns null when animations are off), so there
+  is no prefers-reduced-motion branch here.
+*/
+.game-celebration {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.celebration-chip {
+  position: absolute;
+  top: -1.5rem;
+  left: var(--p-left);
+  width: var(--p-size);
+  height: var(--p-size);
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 32% 28%,
+    var(--p-tone-light) 0%,
+    var(--p-tone) 62%,
+    var(--p-tone-dark) 100%
+  );
+  box-shadow:
+    0 0 6px var(--p-tone-glow),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-duration: var(--p-duration);
+  animation-delay: var(--p-delay);
+  animation-fill-mode: both;
+}
+
+.is-win .celebration-chip {
+  animation-name: celebration-chip-fall;
+  animation-timing-function: cubic-bezier(0.3, 0.1, 0.6, 1);
+}
+
+.is-loss .celebration-chip {
+  animation-name: celebration-chip-settle;
+  animation-timing-function: ease-in;
+}
+
+.is-win .celebration-chip[data-tone='0'] {
+  --p-tone-light: #ffe6a8;
+  --p-tone: #e3bc6c;
+  --p-tone-dark: #8a6420;
+  --p-tone-glow: rgba(227, 188, 108, 0.55);
+}
+
+.is-win .celebration-chip[data-tone='1'] {
+  --p-tone-light: #fff2cc;
+  --p-tone: #f1d69b;
+  --p-tone-dark: #a8863a;
+  --p-tone-glow: rgba(241, 214, 155, 0.5);
+}
+
+.is-win .celebration-chip[data-tone='2'] {
+  --p-tone-light: #f6cf87;
+  --p-tone: #c99a45;
+  --p-tone-dark: #6f4d18;
+  --p-tone-glow: rgba(201, 154, 69, 0.5);
+}
+
+.is-loss .celebration-chip[data-tone='0'] {
+  --p-tone-light: #aeb8c6;
+  --p-tone: #6b7789;
+  --p-tone-dark: #333c4a;
+  --p-tone-glow: rgba(107, 119, 137, 0.4);
+}
+
+.is-loss .celebration-chip[data-tone='1'] {
+  --p-tone-light: #9aa5b4;
+  --p-tone: #5a6577;
+  --p-tone-dark: #2a323e;
+  --p-tone-glow: rgba(90, 101, 119, 0.36);
+}
+
+.is-loss .celebration-chip[data-tone='2'] {
+  --p-tone-light: #8b95a4;
+  --p-tone: #4d5767;
+  --p-tone-dark: #232a35;
+  --p-tone-glow: rgba(77, 87, 103, 0.32);
+}
+
+@keyframes celebration-chip-fall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+
+  6% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate3d(var(--p-drift), 108vh, 0) rotate(var(--p-spin));
+    opacity: 0;
+  }
+}
+
+@keyframes celebration-chip-settle {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0;
+  }
+
+  22% {
+    opacity: 0.72;
+  }
+
+  100% {
+    transform: translate3d(var(--p-drift), 112vh, 0)
+      rotate(calc(var(--p-spin) * 0.25));
+    opacity: 0;
+  }
+}
+
+.celebration-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 70% 55% at 50% 34%,
+    rgba(227, 188, 108, 0.16) 0%,
+    rgba(227, 188, 108, 0.05) 45%,
+    rgba(227, 188, 108, 0) 72%
+  );
+  opacity: 0;
+  animation: celebration-glow 4.2s ease-out both;
+}
+
+@keyframes celebration-glow {
+  0% {
+    opacity: 0;
+  }
+
+  16% {
+    opacity: 1;
+  }
+
+  76% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.celebration-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 85% 75% at 50% 42%,
+    rgba(20, 28, 42, 0) 0%,
+    rgba(8, 12, 20, 0.26) 68%,
+    rgba(4, 7, 12, 0.4) 100%
+  );
+  opacity: 0;
+  animation: celebration-veil 3s ease-in-out both;
+}
+
+@keyframes celebration-veil {
+  0% {
+    opacity: 0;
+  }
+
+  22% {
+    opacity: 1;
+  }
+
+  74% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+.celebration-draw-ring {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 3.6rem;
+  height: 3.6rem;
+  border: 2px solid var(--accent-soft);
+  border-radius: 999px;
+  opacity: 0;
+  animation: celebration-draw-pulse 2.6s ease-out both;
+}
+
+.celebration-draw-ring.is-delayed {
+  animation-delay: 0.5s;
+}
+
+@keyframes celebration-draw-pulse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+
+  30% {
+    opacity: 0.85;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.6);
+  }
+}

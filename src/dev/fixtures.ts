@@ -5,7 +5,7 @@ import {
   toDecisionPlayerView,
 } from '../engine/decisionActor';
 import { newGame } from '../engine/game';
-import { isTerminal } from '../engine/scoring';
+import { isTerminal, scoreLive } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import { advanceToDecision } from '../engine/turnFlow';
 import type { GameState, PlayerId, Suit } from '../engine/types';
@@ -14,6 +14,7 @@ import { selectHeuristicAction } from '../policies/heuristicScorer';
 export type DevFixtureId =
   | 'multi-income'
   | 'late-game'
+  | 'end-game-win'
   | 'deep-lanes'
   | 'd6-moons'
   | 'd6-wyrms'
@@ -23,6 +24,8 @@ export type DevFixtureId =
 const DEV_FIXTURE_PARAM = 'fixture';
 const LATE_GAME_FIXTURE_SEED = 'dev-late-6';
 const LATE_GAME_MAX_DECISIONS = 500;
+const END_GAME_WIN_FIXTURE_SEED = 'dev-end-win-2';
+const END_GAME_WIN_MAX_DECISIONS = 700;
 const DEEP_LANES_FIXTURE_SEED = 'dev-fixture-deep-lanes';
 const DEEP_LANE_COUNTS: readonly (readonly [number, number])[] = [
   [8, 7],
@@ -46,8 +49,7 @@ const MULTI_INCOME_DEED_CARDS: readonly CardId[] = [
   (unset) still tree-shakes the fixture code out.
 */
 export const DEV_FIXTURES_ENABLED =
-  import.meta.env.DEV ||
-  import.meta.env.VITE_ENABLE_DEV_FIXTURES === 'true';
+  import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEV_FIXTURES === 'true';
 
 export function devFixtureIdFromBrowserLocation(): DevFixtureId | null {
   if (!DEV_FIXTURES_ENABLED || typeof window === 'undefined') {
@@ -65,6 +67,7 @@ export function devFixtureIdFromSearch(search: string): DevFixtureId | null {
   if (
     fixtureId === 'multi-income' ||
     fixtureId === 'late-game' ||
+    fixtureId === 'end-game-win' ||
     fixtureId === 'deep-lanes' ||
     fixtureId === 'd6-moons' ||
     fixtureId === 'd6-wyrms' ||
@@ -85,6 +88,8 @@ export function createDevFixtureSession(
       return createMultiIncomeFixture(humanPlayerId);
     case 'late-game':
       return createLateGameFixture(humanPlayerId);
+    case 'end-game-win':
+      return createEndGameWinFixture(humanPlayerId);
     case 'deep-lanes':
       return createDeepLanesFixture(humanPlayerId);
     case 'd6-moons':
@@ -265,29 +270,83 @@ function otherPlayerId(playerId: PlayerId): PlayerId {
 }
 
 function createLateGameFixture(humanPlayerId: PlayerId): GameState {
-  let state = createSession(LATE_GAME_FIXTURE_SEED, humanPlayerId);
+  const state = rolloutHeuristicTo({
+    seed: LATE_GAME_FIXTURE_SEED,
+    humanPlayerId,
+    maxDecisions: LATE_GAME_MAX_DECISIONS,
+    label: 'Late-game dev fixture',
+    isTarget: (candidate) =>
+      (candidate.finalTurnsRemaining ?? 0) === 2 &&
+      candidate.phase === 'ActionWindow',
+  });
+
+  return appendFixtureLog(
+    state,
+    humanPlayerId,
+    'Dev fixture: late game rollout'
+  );
+}
+
+/*
+  A near-terminal board the human wins: the rollout stops on the human's own
+  final turn (finalTurnsRemaining === 1) after their card play, so End Turn is
+  available immediately. Ending that turn finalizes the game before the bot can
+  respond, and the human leads at that point, so the win is locked in — which is
+  what makes this fixture useful for exercising the end-game win celebration.
+*/
+function createEndGameWinFixture(humanPlayerId: PlayerId): GameState {
+  const state = rolloutHeuristicTo({
+    seed: END_GAME_WIN_FIXTURE_SEED,
+    humanPlayerId,
+    maxDecisions: END_GAME_WIN_MAX_DECISIONS,
+    label: 'End-game win dev fixture',
+    isTarget: (candidate) =>
+      candidate.finalTurnsRemaining === 1 &&
+      candidate.phase === 'ActionWindow' &&
+      candidate.cardPlayedThisTurn &&
+      decisionPlayerIdForState(candidate) === humanPlayerId,
+  });
+
+  if (scoreLive(state).winner !== humanPlayerId) {
+    throw new Error(
+      'End-game win dev fixture reached the human final turn without the human ahead.'
+    );
+  }
+
+  return appendFixtureLog(
+    state,
+    humanPlayerId,
+    'Dev fixture: final human turn, human ahead'
+  );
+}
+
+function rolloutHeuristicTo({
+  seed,
+  humanPlayerId,
+  maxDecisions,
+  label,
+  isTarget,
+}: {
+  seed: string;
+  humanPlayerId: PlayerId;
+  maxDecisions: number;
+  label: string;
+  isTarget: (state: GameState) => boolean;
+}): GameState {
+  let state = createSession(seed, humanPlayerId);
 
   for (
     let decisionCount = 0;
-    decisionCount < LATE_GAME_MAX_DECISIONS && !isTerminal(state);
+    decisionCount < maxDecisions && !isTerminal(state);
     decisionCount += 1
   ) {
-    if (
-      (state.finalTurnsRemaining ?? 0) === 2 &&
-      state.phase === 'ActionWindow'
-    ) {
-      return appendFixtureLog(
-        state,
-        humanPlayerId,
-        'Dev fixture: late game rollout'
-      );
+    if (isTarget(state)) {
+      return state;
     }
 
     const decisionPlayerId = decisionPlayerIdForState(state);
     if (decisionPlayerId !== 'PlayerA' && decisionPlayerId !== 'PlayerB') {
-      throw new Error(
-        'Late-game dev fixture could not resolve decision player.'
-      );
+      throw new Error(`${label} could not resolve decision player.`);
     }
 
     const actions = legalActionsForDecisionPlayer(state, decisionPlayerId);
@@ -297,16 +356,14 @@ function createLateGameFixture(humanPlayerId: PlayerId): GameState {
       legalActions: actions,
     });
     if (!action) {
-      throw new Error('Late-game dev fixture rollout had no selected action.');
+      throw new Error(`${label} rollout had no selected action.`);
     }
 
     state = stepToDecision(state, action);
   }
 
   throw new Error(
-    `Late-game dev fixture did not reach final turns within ${String(
-      LATE_GAME_MAX_DECISIONS
-    )} decisions.`
+    `${label} did not reach its target within ${String(maxDecisions)} decisions.`
   );
 }
 

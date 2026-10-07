@@ -39,6 +39,10 @@ import { ActionsPanel } from './ui/components/ActionsPanel';
 import { CardFlightLayer } from './ui/components/CardFlightLayer';
 import { BotHandPanel } from './ui/components/BotHandPanel';
 import { DeckPiles } from './ui/components/DeckPiles';
+import {
+  GameCelebration,
+  type CelebrationOutcome,
+} from './ui/components/GameCelebration';
 import { StartupPreloadOverlay } from './ui/components/GameOverlays';
 import { DecktetSuitDiagram } from './ui/components/DecktetSuitDiagram';
 import { LogPanel } from './ui/components/LogPanel';
@@ -70,6 +74,26 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   percent: 0,
   message: 'Loading card images...',
 };
+
+/*
+  How long each end-game celebration stays mounted. The CSS animations are
+  authored to finish inside these windows, so the layer can be unmounted
+  without cutting anything off.
+*/
+const CELEBRATION_DURATION_MS: Record<CelebrationOutcome, number> = {
+  win: 4200,
+  loss: 3000,
+  draw: 2600,
+};
+
+function celebrationOutcomeFor(
+  winner: string,
+  humanPlayerId: PlayerId
+): CelebrationOutcome {
+  if (winner === humanPlayerId) return 'win';
+  if (winner === 'Draw') return 'draw';
+  return 'loss';
+}
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
 const MAP_VISIBLE_KEY = 'magnate:mapVisible';
@@ -143,6 +167,9 @@ export function App() {
   const [startupPreloadAttempt, setStartupPreloadAttempt] = useState<number>(0);
   const [startupPreloadProgress, setStartupPreloadProgress] =
     useState<StartupPreloadProgress>(STARTUP_PRELOAD_INITIAL_PROGRESS);
+  const [celebration, setCelebration] = useState<{
+    outcome: CelebrationOutcome;
+  } | null>(null);
   const {
     gameId,
     storageError,
@@ -290,6 +317,33 @@ export function App() {
     () => districtWinnersByPlayer(viewState),
     [viewState]
   );
+
+  /*
+    Play the end-game celebration exactly once per game, on the first commit
+    where the game becomes terminal. prevTerminal starts at the mount-time
+    terminal value so a restored, already-finished game does not animate on
+    load. Adjusting state during render is the documented pattern for reacting
+    to a value change; the auto-dismiss timer lives in an effect because it
+    talks to a timer, an external system. The layer is additionally gated on
+    `terminal` at the render site, so a new game hides it immediately.
+  */
+  const [prevTerminal, setPrevTerminal] = useState(terminal);
+  if (terminal !== prevTerminal) {
+    setPrevTerminal(terminal);
+    if (terminal && animationsEnabled) {
+      setCelebration({
+        outcome: celebrationOutcomeFor(score.winner, HUMAN_PLAYER),
+      });
+    }
+  }
+  useEffect(() => {
+    if (!celebration) return;
+    const scheduled = celebration;
+    const timer = window.setTimeout(() => {
+      setCelebration((current) => (current === scheduled ? null : current));
+    }, CELEBRATION_DURATION_MS[scheduled.outcome]);
+    return () => window.clearTimeout(timer);
+  }, [celebration]);
 
   const [historyErrorGameId, setHistoryErrorGameId] = useState<string | null>(
     null
@@ -877,6 +931,11 @@ export function App() {
 
         <CardFlightLayer
           flights={cardFlights}
+          animationsEnabled={animationsEnabled}
+        />
+
+        <GameCelebration
+          outcome={terminal ? (celebration?.outcome ?? null) : null}
           animationsEnabled={animationsEnabled}
         />
 

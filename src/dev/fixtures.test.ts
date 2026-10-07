@@ -107,6 +107,25 @@ describe('dev fixtures', () => {
     expect(scoreLive(state).winner).toMatch(/PlayerA|PlayerB|Draw/);
   });
 
+  it('sets up a final human turn that the human wins by ending it', () => {
+    const state = createDevFixtureSession('end-game-win', 'PlayerA');
+
+    expect(state.phase).toBe('ActionWindow');
+    expect(state.finalTurnsRemaining).toBe(1);
+    expect(state.deck.reshuffles).toBe(2);
+    expect(isTerminal(state)).toBe(false);
+    expect(state.cardPlayedThisTurn).toBe(true);
+    expect(scoreLive(state).winner).toBe('PlayerA');
+
+    const endTurn = legalActions(state).find(
+      (action) => action.type === 'end-turn'
+    );
+    if (!endTurn) throw new Error('Missing fixture end-turn');
+    const finished = stepToDecision(state, endTurn);
+    expect(isTerminal(finished)).toBe(true);
+    expect(finished.finalScore?.winner).toBe('PlayerA');
+  });
+
   it('stacks a deep district lane for overflow layout checks', () => {
     const state = createDevFixtureSession('deep-lanes', 'PlayerA');
     const firstDistrict = state.districts.find(
@@ -128,6 +147,9 @@ describe('dev fixtures', () => {
       'multi-income'
     );
     expect(devFixtureIdFromSearch('?fixture=late-game')).toBe('late-game');
+    expect(devFixtureIdFromSearch('?fixture=end-game-win')).toBe(
+      'end-game-win'
+    );
     expect(devFixtureIdFromSearch('?fixture=deep-lanes')).toBe('deep-lanes');
     expect(devFixtureIdFromSearch('?fixture=unknown')).toBeNull();
     expect(devFixtureIdFromSearch('')).toBeNull();
