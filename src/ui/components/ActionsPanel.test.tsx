@@ -56,7 +56,7 @@ function renderPanel(
       onOpenTradePicker={noop}
       onOpenDistrictPicker={noop}
       onOpenDevelopOutrightCombinedPicker={noop}
-      onOpenDevelopOutrightDistrictOnlyPicker={noop}
+      onOpenDevelopOutrightPaymentPicker={noop}
       onOpenDeedPaymentPicker={noop}
       onOpenIncomeChoicePicker={noop}
       {...overrides}
@@ -179,6 +179,63 @@ describe('ActionsPanel', () => {
 
     expect(html).toContain('Choose Income');
     expect(html).toContain('actions-panel is-active');
+  });
+
+  it('shows a forced develop-outright district in the row label', () => {
+    const html = renderPanel({
+      visibleActionItems: [
+        {
+          kind: 'develop-outright-group',
+          cardId: '6',
+          options: [
+            {
+              type: 'develop-outright',
+              cardId: '6',
+              districtId: 'D1',
+              payment: { Moons: 2, Knots: 1 },
+            },
+            {
+              type: 'develop-outright',
+              cardId: '6',
+              districtId: 'D1',
+              payment: { Moons: 1, Knots: 2 },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain('action-button has-submenu');
+    expect(html).toContain('in D1');
+  });
+
+  it('omits the district from a multi-district develop-outright row', () => {
+    const html = renderPanel({
+      visibleActionItems: [
+        {
+          kind: 'develop-outright-group',
+          cardId: '6',
+          options: [
+            {
+              type: 'develop-outright',
+              cardId: '6',
+              districtId: 'D1',
+              payment: { Moons: 2, Knots: 1 },
+            },
+            {
+              type: 'develop-outright',
+              cardId: '6',
+              districtId: 'D2',
+              payment: { Moons: 2, Knots: 1 },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(html).toContain('action-button has-submenu');
+    expect(html).not.toContain('in D1');
+    expect(html).not.toContain('in D2');
   });
 
   it('renders grouped income choices as card-summary submenu buttons', () => {

@@ -50,7 +50,7 @@ describe('action highlights', () => {
       payment: { Moons: 1, Knots: 1 },
     }));
     const picker: ActionPickerState = {
-      kind: 'develop-outright-district',
+      kind: 'develop-outright-combined',
       cardId: '6',
       top: 0,
       left: 0,

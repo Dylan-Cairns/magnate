@@ -20,7 +20,6 @@ import {
   actionStableKey,
   cardSummary,
   describeAction,
-  formatTokens,
   type HumanActionListItem,
 } from '../actionPresentation';
 import { SUIT_TEXT_TOKEN } from '../suitIcons';
@@ -30,6 +29,11 @@ import { TerminalScoreSummary } from './TerminalScoreSummary';
 export type DistrictPickerConfig = {
   actionType: 'buy-deed';
   cardId: CardId;
+};
+
+export type DevelopOutrightPaymentPickerConfig = {
+  cardId: CardId;
+  districtId: string;
 };
 
 export type DeedPaymentPickerConfig = {
@@ -69,7 +73,7 @@ export function ActionsPanel({
   onOpenTradePicker,
   onOpenDistrictPicker,
   onOpenDevelopOutrightCombinedPicker,
-  onOpenDevelopOutrightDistrictOnlyPicker,
+  onOpenDevelopOutrightPaymentPicker,
   onOpenDeedPaymentPicker,
   onOpenIncomeChoicePicker,
 }: {
@@ -110,8 +114,8 @@ export function ActionsPanel({
     trigger: HTMLButtonElement,
     optionCount: number
   ) => void;
-  onOpenDevelopOutrightDistrictOnlyPicker: (
-    cardId: CardId,
+  onOpenDevelopOutrightPaymentPicker: (
+    config: DevelopOutrightPaymentPickerConfig,
     trigger: HTMLButtonElement,
     optionCount: number
   ) => void;
@@ -374,6 +378,7 @@ export function ActionsPanel({
 
                       const presentation =
                         buildDevelopOutrightGroupPresentation(item.options);
+                      const districtId = presentation.singleDistrictId;
 
                       return renderCategorizedAction(
                         `develop-outright-group-${item.cardId}`,
@@ -381,22 +386,29 @@ export function ActionsPanel({
                           type="button"
                           className="action-button has-submenu"
                           onClick={(event) => {
-                            if (
-                              (actionPicker?.kind ===
-                                'develop-outright-combined' ||
+                            if (districtId) {
+                              if (
                                 actionPicker?.kind ===
-                                  'develop-outright-district') &&
+                                  'develop-outright-payment' &&
+                                actionPicker.cardId === item.cardId &&
+                                actionPicker.districtId === districtId
+                              ) {
+                                onClosePicker();
+                                return;
+                              }
+                              onOpenDevelopOutrightPaymentPicker(
+                                { cardId: item.cardId, districtId },
+                                event.currentTarget,
+                                item.options.length
+                              );
+                              return;
+                            }
+                            if (
+                              actionPicker?.kind ===
+                                'develop-outright-combined' &&
                               actionPicker.cardId === item.cardId
                             ) {
                               onClosePicker();
-                              return;
-                            }
-                            if (presentation.hasSinglePaymentPattern) {
-                              onOpenDevelopOutrightDistrictOnlyPicker(
-                                item.cardId,
-                                event.currentTarget,
-                                presentation.districtCount
-                              );
                               return;
                             }
                             onOpenDevelopOutrightCombinedPicker(
@@ -409,9 +421,8 @@ export function ActionsPanel({
                           <span className="action-text">
                             <SuitText
                               text={
-                                presentation.hasSinglePaymentPattern &&
-                                presentation.firstPayment
-                                  ? `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} (${formatTokens(presentation.firstPayment, SUIT_TEXT_TOKEN)})`
+                                districtId
+                                  ? `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${districtId}`
                                   : `Develop ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`
                               }
                             />

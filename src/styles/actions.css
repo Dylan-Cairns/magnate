@@ -40,14 +40,19 @@
 }
 
 .action-button.has-submenu::after {
-  content: '>';
+  content: '';
   position: absolute;
-  right: 0.55rem;
-  top: 50%;
+  top: 45%;
+  right: 0.65rem;
+  width: 0.55rem;
+  height: 0.55rem;
   transform: translateY(-50%);
-  color: var(--control-ink);
-  font-weight: 700;
+  background-color: var(--control-ink);
   opacity: 0.95;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 3.5L10.5 8L6 12.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6 3.5L10.5 8L6 12.5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / contain no-repeat;
 }
 
 .action-button:hover {
@@ -149,8 +154,10 @@
   gap: 0.45rem;
 }
 
-.trade-choice-list.single-column {
-  grid-template-columns: minmax(0, 1fr);
+/* A group with a single choice spans the full row, matching every other
+   single-option group regardless of dimension. */
+.trade-choice-list > :only-child {
+  grid-column: 1 / -1;
 }
 
 .trade-choice-button {

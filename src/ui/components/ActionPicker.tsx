@@ -16,6 +16,7 @@ import {
   buildPickerOptions,
   formatTokens,
   paymentSignature,
+  pickerGroupLabel,
   type TradeSourceGroup,
 } from '../actionPresentation';
 import { SUIT_TEXT_TOKEN } from '../suitIcons';
@@ -209,7 +210,7 @@ function DevelopOutrightCombinedPicker({
         <div className="trade-choice-list">
           {districtOptions.map((option) => (
             <button
-              key={`develop-outright-district-${option.districtId}`}
+              key={`develop-outright-combined-district-${option.districtId}`}
               {...hoverProps(
                 outrightOptions.filter(
                   (action) =>
@@ -259,7 +260,7 @@ function DevelopOutrightCombinedPicker({
 
       <div className="composite-picker-group">
         <p className="composite-picker-label">Payment</p>
-        <div className="trade-choice-list single-column">
+        <div className="trade-choice-list">
           {paymentOptions.map(([paymentKey, option]) => (
             <button
               key={`develop-outright-payment-${paymentKey}`}
@@ -325,27 +326,27 @@ function StandardPicker({
   onSelectAction: (action: GameAction) => void;
 }) {
   const hoverProps = useActionHover('picker');
-  const options = buildPickerOptions(
-    toPickerQuery(picker),
-    legalActions,
-    SUIT_TEXT_TOKEN
-  );
+  const query = toPickerQuery(picker);
+  const options = buildPickerOptions(query, legalActions, SUIT_TEXT_TOKEN);
 
   return options.length === 0 ? (
     <p className="empty-note empty-note-block">No options available.</p>
   ) : (
-    <div className="trade-choice-list">
-      {options.map((option) => (
-        <button
-          key={option.id}
-          {...hoverProps([option.action])}
-          type="button"
-          className="trade-choice-button"
-          onClick={() => onSelectAction(option.action)}
-        >
-          <SuitText text={option.label} />
-        </button>
-      ))}
+    <div className="composite-picker-group">
+      <p className="composite-picker-label">{pickerGroupLabel(query)}</p>
+      <div className="trade-choice-list">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            {...hoverProps([option.action])}
+            type="button"
+            className="trade-choice-button"
+            onClick={() => onSelectAction(option.action)}
+          >
+            <SuitText text={option.label} />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

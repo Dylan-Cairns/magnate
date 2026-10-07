@@ -27,6 +27,10 @@ const OUTRIGHT_ACTIONS: GameAction[] = [
     payment: { Moons: 1, Knots: 2 },
   },
 ];
+const BUY_DEED_ACTIONS: GameAction[] = [
+  { type: 'buy-deed', cardId: '6', districtId: 'D1' },
+  { type: 'buy-deed', cardId: '6', districtId: 'D2' },
+];
 const INCOME_ACTIONS: GameAction[] = [
   {
     type: 'choose-income-suit',
@@ -70,6 +74,44 @@ describe('ActionPicker', () => {
     expect(html).toContain('x3 for');
     expect(html).toContain('data-token-suit="Suns"');
     expect(html).not.toMatch(/class="token-chip[^"]*tooltip-trigger/);
+  });
+
+  it('labels standard picker groups with their dimension', () => {
+    const districtHtml = renderToStaticMarkup(
+      <ActionPicker
+        picker={{
+          kind: 'district',
+          actionType: 'buy-deed',
+          cardId: '6',
+          top: 0,
+          left: 0,
+        }}
+        pickerRef={createRef<HTMLElement>()}
+        legalActions={BUY_DEED_ACTIONS}
+        tradeSourceGroups={[]}
+        onPickerChange={noop}
+        onSelectAction={noop}
+      />
+    );
+    expect(districtHtml).toContain('>District<');
+
+    const paymentHtml = renderToStaticMarkup(
+      <ActionPicker
+        picker={{
+          kind: 'develop-outright-payment',
+          cardId: '6',
+          districtId: 'D1',
+          top: 0,
+          left: 0,
+        }}
+        pickerRef={createRef<HTMLElement>()}
+        legalActions={OUTRIGHT_ACTIONS}
+        tradeSourceGroups={[]}
+        onPickerChange={noop}
+        onSelectAction={noop}
+      />
+    );
+    expect(paymentHtml).toContain('>Payment<');
   });
 
   it('renders selected combined trade controls', () => {
