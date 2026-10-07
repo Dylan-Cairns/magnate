@@ -87,9 +87,7 @@ export const PlayerPanel = memo(function PlayerPanel({
       <header className="player-header">
         <h2>{title}</h2>
         <div className="player-score-wrap">
-          {isLeader ? (
-            <LeaderCrown className="player-score-crown" />
-          ) : null}
+          {isLeader ? <LeaderCrown className="player-score-crown" /> : null}
           <span className="engraving" tabIndex={0}>
             {districtScore} VP
           </span>
@@ -169,7 +167,6 @@ export const PlayerPanel = memo(function PlayerPanel({
                     }
                     handSlotKind="occupied"
                     animateDeedProgress={animateDeedProgress}
-                    animationsEnabled={animationsEnabled}
                   />
                 </div>
               );

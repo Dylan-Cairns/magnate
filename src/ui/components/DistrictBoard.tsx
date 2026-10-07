@@ -105,9 +105,6 @@ const DistrictLane = memo(function DistrictLane({
   stack,
   botPlayerId,
   animateDeedProgress = true,
-  animationsEnabled = true,
-  darknessStirSignal,
-  darknessResetSignal,
   highlightedIncomeCardIds,
 }: {
   districtId: string;
@@ -115,9 +112,6 @@ const DistrictLane = memo(function DistrictLane({
   stack: DistrictStack;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
-  animationsEnabled?: boolean;
-  darknessStirSignal?: string;
-  darknessResetSignal?: string;
   highlightedIncomeCardIds?: ReadonlySet<CardId>;
 }) {
   const preview = usePlacementGhost(districtId);
@@ -214,10 +208,6 @@ const DistrictLane = memo(function DistrictLane({
                   inDevelopment={laneCard.inDevelopment}
                   perspective={perspective}
                   animateDeedProgress={animateDeedProgress}
-                  animationsEnabled={animationsEnabled}
-                  stirEnabled
-                  stirSignal={darknessStirSignal}
-                  stirResetSignal={darknessResetSignal}
                   incomeHighlighted={laneCard.incomeHighlighted}
                   showTooltip={index === laneCards.length - 1}
                 />
@@ -238,7 +228,6 @@ const DistrictLane = memo(function DistrictLane({
               deedTarget={ghostDeedTarget}
               preview
               animateDeedProgress={false}
-              animationsEnabled={animationsEnabled}
             />
           </div>
         ) : null}
@@ -252,18 +241,12 @@ export const DistrictColumn = memo(function DistrictColumn({
   humanPlayerId,
   botPlayerId,
   animateDeedProgress = true,
-  animationsEnabled = true,
-  darknessStirSignal,
-  darknessResetSignal,
   highlightedIncomeCardIds,
 }: {
   district: DistrictState;
   humanPlayerId: PlayerId;
   botPlayerId: PlayerId;
   animateDeedProgress?: boolean;
-  animationsEnabled?: boolean;
-  darknessStirSignal?: string;
-  darknessResetSignal?: string;
   highlightedIncomeCardIds?: ReadonlySet<CardId>;
 }) {
   const markerName = districtMarkerName(district.markerSuitMask);
@@ -280,9 +263,6 @@ export const DistrictColumn = memo(function DistrictColumn({
         stack={district.stacks[botPlayerId]}
         botPlayerId={botPlayerId}
         animateDeedProgress={animateDeedProgress}
-        animationsEnabled={animationsEnabled}
-        darknessStirSignal={darknessStirSignal}
-        darknessResetSignal={darknessResetSignal}
         highlightedIncomeCardIds={highlightedIncomeCardIds}
       />
 
@@ -323,9 +303,6 @@ export const DistrictColumn = memo(function DistrictColumn({
         stack={district.stacks[humanPlayerId]}
         botPlayerId={botPlayerId}
         animateDeedProgress={animateDeedProgress}
-        animationsEnabled={animationsEnabled}
-        darknessStirSignal={darknessStirSignal}
-        darknessResetSignal={darknessResetSignal}
         highlightedIncomeCardIds={highlightedIncomeCardIds}
       />
     </article>

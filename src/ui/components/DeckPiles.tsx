@@ -2,10 +2,8 @@ import { memo } from 'react';
 import { useHighlightClass } from './ActionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
-import { cardFaceEffect } from '../cardFaceEffects';
 import { SuitIcon, SUIT_TEXT_TOKEN } from '../suitIcons';
 import { CardRank } from './CardRank';
-import { DarknessMistFace } from './DarknessMistFace';
 import { SuitText } from './SuitText';
 import { Tooltip } from './Tooltip';
 
@@ -13,16 +11,10 @@ export const DeckPiles = memo(function DeckPiles({
   drawCount,
   reshuffles,
   discard,
-  animationsEnabled = true,
-  darknessStirSignal,
-  darknessResetSignal,
 }: {
   drawCount: number;
   reshuffles: number;
   discard: readonly CardId[];
-  animationsEnabled?: boolean;
-  darknessStirSignal?: string;
-  darknessResetSignal?: string;
 }) {
   const highlightClass = useHighlightClass();
   const deckStackCount = Math.min(3, drawCount);
@@ -123,30 +115,17 @@ export const DeckPiles = memo(function DeckPiles({
                           </>
                         )}
                       </div>
-                      {cardFaceEffect(CARD_BY_ID[cardId]) === 'darkness' ? (
-                        <div className="deck-pile-image deck-pile-image-darkness">
-                          <DarknessMistFace
-                            animationsEnabled={animationsEnabled}
-                            stirEnabled={
-                              index === discardStackCardIds.length - 1
-                            }
-                            stirSignal={darknessStirSignal}
-                            stirResetSignal={darknessResetSignal}
-                          />
-                        </div>
-                      ) : (
-                        <img
-                          className="deck-pile-image"
-                          src={getCardImage(cardId)}
-                          alt=""
-                          onError={() =>
-                            reportImageRenderFailure(
-                              getCardImage(cardId),
-                              'discard card image'
-                            )
-                          }
-                        />
-                      )}
+                      <img
+                        className="deck-pile-image"
+                        src={getCardImage(cardId)}
+                        alt=""
+                        onError={() =>
+                          reportImageRenderFailure(
+                            getCardImage(cardId),
+                            'discard card image'
+                          )
+                        }
+                      />
                     </div>
                   );
                 })

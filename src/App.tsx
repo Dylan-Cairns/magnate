@@ -357,33 +357,6 @@ export function App() {
     return byPlayer;
   }, [incomeHighlightCrowns]);
 
-  // A turn reset reverts state directly (no presentation), and it often happens
-  // right after the action it undoes. This ordinal forces the mist to stir afresh
-  // on reset even if a previous stir is still inside its cooldown.
-  const [darknessResetOrdinal, setDarknessResetOrdinal] = useState(0);
-  const darknessResetSignal =
-    darknessResetOrdinal > 0 ? `reset:${darknessResetOrdinal}` : undefined;
-
-  // A stable token that changes whenever an action involving The Darkness is
-  // presented, so its face mist can stir on play, develop, and sell. Null means
-  // no action is currently touching it.
-  const darknessStirSignal = useMemo(() => {
-    if (!presentingAction) {
-      return undefined;
-    }
-    const action = presentingAction;
-    switch (action.type) {
-      case 'sell-card':
-      case 'buy-deed':
-      case 'develop-outright':
-        return action.cardId === '27'
-          ? `${action.type}:${action.cardId}:${presentationPending ? 'pending' : 'settled'}`
-          : undefined;
-      default:
-        return undefined;
-    }
-  }, [presentingAction, presentationPending]);
-
   const humanActionItems = useMemo(
     () => buildHumanActionList(humanActionsAcceptingInput),
     [humanActionsAcceptingInput]
@@ -532,7 +505,6 @@ export function App() {
 
     closeActionPicker();
     resetTurn();
-    setDarknessResetOrdinal((ordinal) => ordinal + 1);
   };
 
   const openTradePicker = (
@@ -810,9 +782,6 @@ export function App() {
                   humanPlayerId={HUMAN_PLAYER}
                   botPlayerId={BOT_PLAYER}
                   animateDeedProgress={animateDeedProgress}
-                  animationsEnabled={animationsEnabled}
-                  darknessStirSignal={darknessStirSignal}
-                  darknessResetSignal={darknessResetSignal}
                   highlightedIncomeCardIds={incomeHighlightCardIdSet}
                 />
               ))}
@@ -843,9 +812,6 @@ export function App() {
                 drawCount={humanView.deck.drawCount}
                 reshuffles={humanView.deck.reshuffles}
                 discard={humanView.deck.discard}
-                animationsEnabled={animationsEnabled}
-                darknessStirSignal={darknessStirSignal}
-                darknessResetSignal={darknessResetSignal}
               />
             </div>
 

@@ -130,17 +130,4 @@ describe('CardTile', () => {
     );
     expect(html).toContain('>1/9<');
   });
-
-  it('renders the deliberate darkness face for The Darkness', () => {
-    const html = renderToStaticMarkup(<CardTile cardId="27" />);
-    expect(html).toContain('is-darkness');
-    expect(html).toContain('data-face-effect="darkness"');
-    expect(html).toContain('class="card-image"');
-  });
-
-  it('renders no face effect for other cards', () => {
-    const html = renderToStaticMarkup(<CardTile cardId="29" />);
-    expect(html).not.toContain('is-darkness');
-    expect(html).not.toContain('data-face-effect');
-  });
 });

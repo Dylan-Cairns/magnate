@@ -4,9 +4,7 @@ import type { HighlightTarget } from '../actionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import { getCardImage, reportImageRenderFailure } from '../cardImages';
-import { cardFaceEffect } from '../cardFaceEffects';
 import { CardRank } from './CardRank';
-import { DarknessMistFace } from './DarknessMistFace';
 import { SuitIcon } from '../suitIcons';
 import { TokenChip, tokenEntries } from './TokenComponents';
 import { ProgressTracker } from './ProgressTracker';
@@ -27,10 +25,6 @@ export const CardTile = memo(function CardTile({
   handCardId,
   handSlotKind,
   animateDeedProgress = true,
-  animationsEnabled = true,
-  stirEnabled = false,
-  stirSignal,
-  stirResetSignal,
   incomeHighlighted = false,
   highlightTarget,
   preview = false,
@@ -47,10 +41,6 @@ export const CardTile = memo(function CardTile({
   handCardId?: CardId;
   handSlotKind?: 'occupied' | 'hidden' | 'empty';
   animateDeedProgress?: boolean;
-  animationsEnabled?: boolean;
-  stirEnabled?: boolean;
-  stirSignal?: string;
-  stirResetSignal?: string;
   incomeHighlighted?: boolean;
   highlightTarget?: HighlightTarget;
   preview?: boolean;
@@ -83,10 +73,6 @@ export const CardTile = memo(function CardTile({
       handCardId={handCardId}
       handSlotKind={handSlotKind}
       animateDeedProgress={animateDeedProgress}
-      animationsEnabled={animationsEnabled}
-      stirEnabled={stirEnabled}
-      stirSignal={stirSignal}
-      stirResetSignal={stirResetSignal}
       incomeHighlighted={incomeHighlighted}
       highlightTarget={highlightTarget}
       preview={preview}
@@ -106,10 +92,6 @@ function CardTileCard({
   handCardId,
   handSlotKind,
   animateDeedProgress = true,
-  animationsEnabled = true,
-  stirEnabled = false,
-  stirSignal,
-  stirResetSignal,
   incomeHighlighted = false,
   highlightTarget,
   preview = false,
@@ -125,10 +107,6 @@ function CardTileCard({
   handCardId?: CardId;
   handSlotKind?: 'occupied' | 'hidden' | 'empty';
   animateDeedProgress?: boolean;
-  animationsEnabled?: boolean;
-  stirEnabled?: boolean;
-  stirSignal?: string;
-  stirResetSignal?: string;
   incomeHighlighted?: boolean;
   highlightTarget?: HighlightTarget;
   preview?: boolean;
@@ -141,7 +119,6 @@ function CardTileCard({
   const tooltipsEnabled = !preview && showTooltip;
   const card = CARD_BY_ID[cardId];
   const cardImage = getCardImage(cardId);
-  const faceEffect = cardFaceEffect(card);
   const suits = card.kind === 'Excuse' ? [] : [...card.suits];
   const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
   const hasDeedTokens = deedTokenEntries.length > 0;
@@ -200,17 +177,6 @@ function CardTileCard({
           alt=""
           onError={() => reportImageRenderFailure(cardImage, 'card image')}
         />
-        {faceEffect === 'darkness' ? (
-          <DarknessMistFace
-            deedTokens={deedTokens}
-            deedProgress={deedProgress}
-            inDevelopment={inDevelopment}
-            animationsEnabled={animationsEnabled}
-            stirEnabled={stirEnabled}
-            stirSignal={stirSignal}
-            stirResetSignal={stirResetSignal}
-          />
-        ) : null}
       </div>
       {showDeedTokenRails ? (
         <>
@@ -249,7 +215,7 @@ function CardTileCard({
 
   return (
     <div
-      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${faceEffect ? ` is-${faceEffect}` : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}${actionHighlight}${tooltipsEnabled ? ' tooltip-trigger' : ''}`}
+      className={`card-tile${perspective === 'bot' ? ' perspective-bot' : ''}${inDevelopment ? ' is-in-development' : ''}${incomeHighlighted ? ' is-income-highlighted' : ''}${actionHighlight}${tooltipsEnabled ? ' tooltip-trigger' : ''}`}
       data-card-id={preview ? undefined : cardId}
       data-in-development={inDevelopment ? 'true' : undefined}
       data-hand-owner-id={handOwnerId}

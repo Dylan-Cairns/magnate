@@ -61,13 +61,4 @@ describe('DeckPiles', () => {
     expect(html).toContain('<span class="card-rank">X</span>');
     expect(html).not.toContain('card-rank-court-icon');
   });
-
-  it('renders the darkness face for a discarded The Darkness', () => {
-    const html = renderToStaticMarkup(
-      <DeckPiles drawCount={5} reshuffles={0} discard={['27']} />
-    );
-
-    expect(html).toContain('deck-pile-image-darkness');
-    expect(html).toContain('data-face-effect="darkness"');
-  });
 });

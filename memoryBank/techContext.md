@@ -30,18 +30,8 @@
 - The Court rank symbol is `src/assets/icons/court.svg`, rendered by
   `src/ui/courtIcon.tsx` and used by `CardRank`; the Excuse keeps the `X`
   placeholder.
-- The Darkness is canonically a blank Decktet card, which reads as a broken
-  image on screen. `src/ui/cardFaceEffects.ts` maps it to a presentational face
-  effect; `DarknessMistFace` plus `src/styles/darkness.css` draw a white face
-  with grey fog that churns for ~5s when the card is played, developed, or sold,
-  then freezes. It is pure CSS plus inline SVG (no images or external assets):
-  an `feTurbulence` procedural-noise texture is tiled into two oversized layers
-  that drift and rotate slowly, over a settled gradient base, so the mist
-  shape-shifts and then rests without popping. The fog ignores
-  `prefers-reduced-motion`; the in-app animations toggle is the opt-out. The
-  blank WebP asset is hidden, not replaced. The discard
-  pile renders the same settled face via `DeckPiles`; board cards stir on arrival
-  and on play actions, hand cards stay settled.
+- The Darkness is canonically a blank Decktet card and renders as its blank
+  artwork like any other card.
 - The browser favicon is the Wyrms suit glyph, `src/assets/icons/wyrms.svg`,
   linked from `index.html` (Vite emits and hashes it at build).
 - Card facts are authored from the local Jacynth Decktet extraction rather than
