@@ -27,11 +27,16 @@
   `src/assets/decktet-card-art/`, named `decktet-card-<normalized-name>.webp`.
   The mapping and eager URL glob live in `src/ui/cardImages.ts`; startup
   preloads all playable cards. Court WebPs map to the extended IDs `"41"`-`"44"`.
+  Card art may also be SVG, which the resolver prefers over WebP; The Darkness
+  is the only vector card.
 - The Court rank symbol is `src/assets/icons/court.svg`, rendered by
   `src/ui/courtIcon.tsx` and used by `CardRank`; the Excuse keeps the `X`
   placeholder.
-- The Darkness is canonically a blank Decktet card and renders as its blank
-  artwork like any other card.
+- The Darkness is canonically a blank Decktet card, so it renders
+  `decktet-card-the-darkness.svg` instead of blank raster art that would read as
+  a missing asset: the Adaman rules illustration (P.D. Magnus, Decktet game
+  material) extracted as vector paths, centred in the 242 x 376 frame at low
+  opacity as a faint watermark.
 - The browser favicon is the Wyrms suit glyph, `src/assets/icons/wyrms.svg`,
   linked from `index.html` (Vite emits and hashes it at build).
 - Card facts are authored from the local Jacynth Decktet extraction rather than

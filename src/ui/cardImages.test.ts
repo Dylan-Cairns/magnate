@@ -11,10 +11,13 @@ import {
   preloadCardImageUrl,
 } from './cardImages';
 
-const ASSET_MODULES = import.meta.glob('../assets/decktet-card-art/*.webp', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
+const ASSET_MODULES = import.meta.glob(
+  '../assets/decktet-card-art/*.{webp,svg}',
+  {
+    eager: true,
+    import: 'default',
+  }
+) as Record<string, string>;
 
 const fileNameFromModuleKey = (key: string): string =>
   key.slice(key.lastIndexOf('/') + 1);
@@ -34,7 +37,9 @@ describe('cardImages', () => {
     for (const card of ALL_CARDS) {
       const fileName = CARD_IMAGE_FILE_BY_ID[card.id as CardId];
       expect(fileName).toBe(cardImageFileName(card.name));
-      expect(fileName).toMatch(/^decktet-card-[a-z0-9]+(?:-[a-z0-9]+)*\.webp$/);
+      expect(fileName).toMatch(
+        /^decktet-card-[a-z0-9]+(?:-[a-z0-9]+)*\.(?:webp|svg)$/
+      );
     }
     expect(cardImageFileName('The Chance Meeting')).toBe(
       'decktet-card-the-chance-meeting.webp'
@@ -96,6 +101,11 @@ describe('cardImages', () => {
     expect(getCardImageFile('30')).toBe('decktet-card-the-windfall.webp');
     expect(getCardImageFile('36')).toBe('decktet-card-the-excuse.webp');
     expect(getCardImageFile('37')).toBe('decktet-card-the-borderland.webp');
+  });
+
+  it('resolves The Darkness to its adapted pale vector illustration', () => {
+    expect(getCardImageFile('27')).toBe('decktet-card-the-darkness.svg');
+    expect(getCardImage('27')).toContain('decktet-card-the-darkness.svg');
   });
 
   it('rejects a decode failure and permits a subsequent preload attempt', async () => {

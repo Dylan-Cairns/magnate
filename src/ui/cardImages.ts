@@ -1,7 +1,7 @@
 import { ALL_CARDS, type CardId, type CardName } from '../engine/cards';
 
 const CARD_IMAGE_MODULES = import.meta.glob(
-  '../assets/decktet-card-art/*.webp',
+  '../assets/decktet-card-art/*.{webp,svg}',
   {
     eager: true,
     import: 'default',
@@ -10,19 +10,31 @@ const CARD_IMAGE_MODULES = import.meta.glob(
 
 const FILE_NAME_PREFIX = 'decktet-card-';
 
-export function cardImageFileName(cardName: string): string {
+// Card art is raster WebP for the illustrated cards. The Darkness is the one
+// exception: its canonical Decktet art is blank, so it uses an adapted pale
+// vector illustration (SVG) instead. Vector is preferred when both exist.
+const CARD_IMAGE_EXTENSIONS = ['svg', 'webp'] as const;
+
+function cardImageSlug(cardName: string): string {
   const slug = cardName.toLowerCase().replace(/ /g, '-');
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     throw new Error(`Unsupported card name for asset filename: ${cardName}`);
   }
-  return `${FILE_NAME_PREFIX}${slug}.webp`;
+  return slug;
+}
+
+function cardImageFileCandidates(cardName: string): readonly string[] {
+  const slug = cardImageSlug(cardName);
+  return CARD_IMAGE_EXTENSIONS.map(
+    (extension) => `${FILE_NAME_PREFIX}${slug}.${extension}`
+  );
 }
 
 function moduleKey(fileName: string): string {
   return `../assets/decktet-card-art/${fileName}`;
 }
 
-function resolveCardImageFile(fileName: string): string {
+function resolveCardImageUrl(fileName: string): string {
   const imageUrl = CARD_IMAGE_MODULES[moduleKey(fileName)];
   if (!imageUrl) {
     throw new Error(`Missing card image asset: ${fileName}`);
@@ -34,11 +46,28 @@ function fileNameFromModuleKey(key: string): string {
   return key.slice(key.lastIndexOf('/') + 1);
 }
 
-const EXPECTED_FILE_NAMES = new Set(
-  ALL_CARDS.map((card) => cardImageFileName(card.name))
+// Resolves the single art file for a card, preferring vector over raster.
+export function cardImageFileName(cardName: string): string {
+  const candidates = cardImageFileCandidates(cardName);
+  const matches = candidates.filter(
+    (fileName) => CARD_IMAGE_MODULES[moduleKey(fileName)] !== undefined
+  );
+  if (matches.length === 0) {
+    throw new Error(`Missing card image asset: ${candidates[0]}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(
+      `Multiple card image assets for ${cardName}: ${matches.join(', ')}`
+    );
+  }
+  return matches[0];
+}
+
+const CANDIDATE_FILE_NAMES = new Set(
+  ALL_CARDS.flatMap((card) => cardImageFileCandidates(card.name))
 );
 
-if (EXPECTED_FILE_NAMES.size !== ALL_CARDS.length) {
+if (CANDIDATE_FILE_NAMES.size !== ALL_CARDS.length * CARD_IMAGE_EXTENSIONS.length) {
   throw new Error('Duplicate card image filenames derived from card names.');
 }
 
@@ -46,13 +75,8 @@ const AVAILABLE_FILE_NAMES = new Set(
   Object.keys(CARD_IMAGE_MODULES).map(fileNameFromModuleKey)
 );
 
-for (const fileName of EXPECTED_FILE_NAMES) {
-  if (!AVAILABLE_FILE_NAMES.has(fileName)) {
-    throw new Error(`Missing card image asset: ${fileName}`);
-  }
-}
 for (const fileName of AVAILABLE_FILE_NAMES) {
-  if (!EXPECTED_FILE_NAMES.has(fileName)) {
+  if (!CANDIDATE_FILE_NAMES.has(fileName)) {
     throw new Error(`Unexpected card image asset: ${fileName}`);
   }
 }
@@ -66,7 +90,7 @@ export const CARD_IMAGE_FILE_BY_ID = Object.freeze(
 const CARD_IMAGE_BY_NAME = Object.fromEntries(
   ALL_CARDS.map((card) => [
     card.name,
-    resolveCardImageFile(cardImageFileName(card.name)),
+    resolveCardImageUrl(cardImageFileName(card.name)),
   ])
 ) as Record<CardName, string>;
 
