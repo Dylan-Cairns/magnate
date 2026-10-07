@@ -104,7 +104,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
       config: {
         worlds: 10,
         rollouts: 1,
-        depth: 40,
+        depth: 270,
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
       },
@@ -137,9 +137,7 @@ export function botProfileSupportsRuleset(
   return getBotProfile(id).supportedRulesets.includes(ruleset);
 }
 
-export function defaultBotProfileIdForRuleset(
-  ruleset: Ruleset
-): BotProfileId {
+export function defaultBotProfileIdForRuleset(ruleset: Ruleset): BotProfileId {
   const profiles = profilesForRuleset(ruleset);
   const defaultProfile = profiles.find(
     (profile) => profile.id === DEFAULT_BOT_PROFILE_ID
