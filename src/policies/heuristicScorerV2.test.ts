@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { legalActions } from '../engine/actionBuilders';
-import { toKeyedActions } from '../engine/actionSurface';
+import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
 import type { CardId } from '../engine/cards';
 import { rngFromSeed } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
@@ -21,7 +21,14 @@ import {
   rankHeuristicV2Actions,
   scoreHeuristicV2Action,
 } from './heuristicScorerV2';
-import { createHeuristicRolloutSearchRootGuide } from './rolloutSearchCore';
+import {
+  createHeuristicRolloutSearchRootGuide,
+  pruneDominatedRootActions,
+} from './rolloutSearchCore';
+import {
+  resourcePotentialDeltaForActionV2,
+  resourcePotentialV2,
+} from './resourcePotentialV2';
 
 describe('heuristic scorer v2', () => {
   it('values high-rank off-suit generator deeds as future earning access', () => {
@@ -79,7 +86,9 @@ describe('heuristic scorer v2', () => {
 
     expect(
       scoreHeuristicV2Action(developAceMoons, { state: strongMoons })
-    ).toBeLessThan(scoreHeuristicV2Action(developAceMoons, { state: weakMoons }));
+    ).toBeLessThan(
+      scoreHeuristicV2Action(developAceMoons, { state: weakMoons })
+    );
   });
 
   it('saturates scoring delta so overinvesting in a far-ahead district is weak', () => {
@@ -112,9 +121,9 @@ describe('heuristic scorer v2', () => {
       payment: { Moons: 2, Suns: 2 },
     };
 
-    expect(scoreHeuristicV2Action(flipCloseDistrict, { state })).toBeGreaterThan(
-      scoreHeuristicV2Action(overinvest, { state })
-    );
+    expect(
+      scoreHeuristicV2Action(flipCloseDistrict, { state })
+    ).toBeGreaterThan(scoreHeuristicV2Action(overinvest, { state }));
   });
 
   it('values near-complete deeds more than new deeds for scoring potential', () => {
@@ -171,9 +180,9 @@ describe('heuristic scorer v2', () => {
       }),
     });
 
-    expect(earningPotentialValueForPlayerV2(manyLooseResources, 'PlayerA')).toBe(
-      earningPotentialValueForPlayerV2(noLooseResources, 'PlayerA')
-    );
+    expect(
+      earningPotentialValueForPlayerV2(manyLooseResources, 'PlayerA')
+    ).toBe(earningPotentialValueForPlayerV2(noLooseResources, 'PlayerA'));
   });
 
   it('prefers developing a deed from surplus tokens over spending a scarce last token', () => {
@@ -203,9 +212,9 @@ describe('heuristic scorer v2', () => {
       tokens: { Wyrms: 1 },
     };
 
-    expect(scoreHeuristicV2Action(developWyrms, { state: surplus })).toBeGreaterThan(
-      scoreHeuristicV2Action(developWyrms, { state: scarce })
-    );
+    expect(
+      scoreHeuristicV2Action(developWyrms, { state: surplus })
+    ).toBeGreaterThan(scoreHeuristicV2Action(developWyrms, { state: scarce }));
   });
 
   it('prefers selling for suits that match stronger remaining demand', () => {
@@ -252,9 +261,9 @@ describe('heuristic scorer v2', () => {
       drawPrefix: ['0', '1', '4'],
     });
 
-    expect(
-      actionKeysForHeuristicV2RootRanking(secondHiddenAssignment)
-    ).toEqual(actionKeysForHeuristicV2RootRanking(firstHiddenAssignment));
+    expect(actionKeysForHeuristicV2RootRanking(secondHiddenAssignment)).toEqual(
+      actionKeysForHeuristicV2RootRanking(firstHiddenAssignment)
+    );
   });
 
   it('reproduces the restored standard-ruleset scores exactly', () => {
@@ -299,7 +308,7 @@ describe('heuristic scorer v2', () => {
       {
         action: { type: 'trade', give: 'Moons', receive: 'Suns' },
         state: standard,
-        expected: -0.0012565940034856005,
+        expected: -0.06125659400348561,
       },
     ];
 
@@ -378,9 +387,7 @@ describe('heuristic scorer v2', () => {
       payment: { Moons: 4, Waves: 3, Knots: 3 },
     };
 
-    expect(
-      scoreHeuristicV2Action(developCourtOutright, { state })
-    ).toBe(
+    expect(scoreHeuristicV2Action(developCourtOutright, { state })).toBe(
       scoreHeuristicV2Action(developCourtOutright, {
         state,
         courtValueScale: 0,
@@ -492,16 +499,112 @@ describe('heuristic scorer v2', () => {
       disabledGuide.rootPriorByKey.get(courtBuyActionKey) ?? 0
     );
   });
+
+  it('treats surplus-only trades as a strict loss and needed trades as progress', () => {
+    const state = surplusKnotsState(false);
+    const intoNeeded: GameAction = {
+      type: 'trade',
+      give: 'Knots',
+      receive: 'Waves',
+    };
+    const intoSurplus: GameAction = {
+      type: 'trade',
+      give: 'Knots',
+      receive: 'Suns',
+    };
+    const endTurn: GameAction = { type: 'end-turn' };
+
+    expect(
+      resourcePotentialDeltaForActionV2(intoNeeded, state, 'PlayerA')
+    ).toBeGreaterThan(0);
+    expect(
+      resourcePotentialDeltaForActionV2(intoSurplus, state, 'PlayerA')
+    ).toBeLessThan(0);
+    expect(scoreHeuristicV2Action(intoNeeded, { state })).toBeGreaterThan(
+      scoreHeuristicV2Action(endTurn, { state })
+    );
+    expect(scoreHeuristicV2Action(intoSurplus, { state })).toBeLessThan(
+      scoreHeuristicV2Action(endTurn, { state })
+    );
+  });
+
+  it('is monotone non-decreasing in each held suit toward a deed target', () => {
+    const withoutNeed = surplusKnotsState(false);
+    const withNeed = heuristicV2FixtureState({
+      resources: fixtureResources({ Knots: 4, Waves: 1 }),
+      hand: [],
+      districts: surplusDeedDistricts(),
+    });
+
+    expect(resourcePotentialV2(withNeed, 'PlayerA')).toBeGreaterThanOrEqual(
+      resourcePotentialV2(withoutNeed, 'PlayerA')
+    );
+  });
+
+  it('prunes no-unlock trades as dominated once the card is played', () => {
+    const state = surplusKnotsState(true);
+    const keys = pruneDominatedRootActions(
+      state,
+      'PlayerA',
+      legalActions(state)
+    ).map(actionStableKey);
+
+    expect(keys).toContain('trade:Knots:Waves');
+    expect(keys).toContain('trade:Knots:Wyrms');
+    expect(keys).toContain('end-turn');
+    expect(keys).not.toContain('trade:Knots:Suns');
+    expect(keys).not.toContain('trade:Knots:Moons');
+    expect(keys).not.toContain('trade:Knots:Leaves');
+  });
+
+  it('keeps every root action before the card is played', () => {
+    const state = surplusKnotsState(false);
+    const actions = legalActions(state);
+
+    expect(pruneDominatedRootActions(state, 'PlayerA', actions)).toEqual([
+      ...actions,
+    ]);
+  });
 });
 
 function randomReachableState(seed: string, plies: number): GameState {
   let state = createSession(seed, 'PlayerA');
-  const rng = rngFromSeed(seed.replace('typed-regression', 'typed-regression-roll'));
+  const rng = rngFromSeed(
+    seed.replace('typed-regression', 'typed-regression-roll')
+  );
   for (let ply = 0; ply < plies && !isTerminal(state); ply += 1) {
     const actions = legalActions(state);
     state = stepToDecision(state, actions[Math.floor(rng() * actions.length)]!);
   }
   return state;
+}
+
+function surplusDeedDistricts(): DistrictState[] {
+  return [
+    fixtureDistrict({
+      id: 'D0',
+      playerADeed: {
+        cardId: '22',
+        progress: 5,
+        tokens: { Wyrms: 4, Waves: 1 },
+      },
+    }),
+    fixtureDistrict({ id: 'D1' }),
+    fixtureDistrict({ id: 'D2' }),
+    fixtureDistrict({ id: 'D3' }),
+    fixtureDistrict({ id: 'D4' }),
+  ];
+}
+
+function surplusKnotsState(cardPlayedThisTurn: boolean): GameState {
+  return {
+    ...heuristicV2FixtureState({
+      resources: fixtureResources({ Knots: 4 }),
+      hand: [],
+      districts: surplusDeedDistricts(),
+    }),
+    cardPlayedThisTurn,
+  };
 }
 
 function heuristicV2FixtureState({

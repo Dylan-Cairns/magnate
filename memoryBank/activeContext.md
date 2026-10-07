@@ -44,11 +44,17 @@
   outcomes, constraints, and open architecture design live in
   `docs/design/district-symmetry.md`; reserved repetitions 24-47 and full-game
   promotion tests remain unspent.
-- Heuristic rollout's uncertain-draw resource-preservation blind spot remains a
-  separate diagnostic; substituting heuristic rollout is not a general fix.
+- Heuristic rollout's uncertain-draw resource-preservation blind spot has an
+  implemented, ungated candidate (target-anchored resource potential plus hard
+  root dominance); see `docs/design/heuristic-v2-resource-potential.md`.
+  Substituting heuristic rollout is still not a general fix.
 
 ## Remaining Work
 
+- Resource-potential candidate: Tier 1, T2.7, T2.9, T3.10 (post-card scope),
+  and T3.11 pass; T2.8 seed stability is unspent and pre-card no-unlock
+  conversions are out of scope. Promote or roll back per
+  `docs/design/heuristic-v2-resource-potential.md`.
 - Complete and implement the district-equivariant architecture described in
   `docs/design/district-symmetry.md` (fixed-D3 S4 symmetry by construction, not
   more augmentation weight or subjective action boosts).

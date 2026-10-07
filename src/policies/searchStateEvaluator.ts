@@ -4,7 +4,11 @@ import {
   scoreGame,
   scoreMarginsForPlayer,
 } from '../engine/scoring';
-import { developmentCost, findDevelopableCard, SUITS } from '../engine/stateHelpers';
+import {
+  developmentCost,
+  findDevelopableCard,
+  SUITS,
+} from '../engine/stateHelpers';
 import type {
   DistrictState,
   DistrictStack,
@@ -23,11 +27,13 @@ import {
   type HeuristicV2PositionContext,
 } from './heuristicV2PositionContext';
 import { DEFAULT_COURT_VALUE_SCALE } from './searchConfig';
+import { resourcePotentialV2 } from './resourcePotentialV2';
 import { resourceBankValueV2 } from './tokenValueV2';
 
 const LATE_GAME_DRAW_COUNT = 6;
 const TERMINAL_OUTCOME_BASE_VALUE = 0.72;
 const TERMINAL_MARGIN_VALUE = 1 - TERMINAL_OUTCOME_BASE_VALUE;
+const RESOURCE_POTENTIAL_SCALE = 1.5;
 
 export interface SearchLeafEvaluationOptions {
   courtValueScale?: number;
@@ -40,8 +46,7 @@ export function evaluateSearchLeafState(
 ): number {
   const opponent = otherPlayerId(rootPlayer);
   const lateGame = isLateGame(state);
-  const courtValueScale =
-    options.courtValueScale ?? DEFAULT_COURT_VALUE_SCALE;
+  const courtValueScale = options.courtValueScale ?? DEFAULT_COURT_VALUE_SCALE;
 
   const districtTerm = districtControlTerm(state, rootPlayer, opponent);
   const rankTerm = developedRankTerm(state, rootPlayer, opponent);
@@ -322,11 +327,19 @@ function resourceQualityTerm(
       resourceBankValueV2(state, opponent)) /
       3
   );
+  // Targets, not bank demand: the same potential the action term uses for
+  // resource-converting actions, so the two cannot disagree.
+  const potentialDiffTerm = Math.tanh(
+    (resourcePotentialV2(state, rootPlayer) -
+      resourcePotentialV2(state, opponent)) /
+      RESOURCE_POTENTIAL_SCALE
+  );
   return clamp(
-    0.35 * coverageDiff +
-      0.18 * resourceTotalTerm +
-      0.17 * taxExposureTerm +
-      0.3 * contextualBankTerm,
+    0.28 * coverageDiff +
+      0.14 * resourceTotalTerm +
+      0.14 * taxExposureTerm +
+      0.24 * contextualBankTerm +
+      0.2 * potentialDiffTerm,
     -1,
     1
   );

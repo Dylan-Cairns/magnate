@@ -10,6 +10,7 @@ import {
 } from '../engine/decisionActor';
 import { rngFromSeed, type RandomFn } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
+import { SUITS } from '../engine/stateHelpers';
 import { stepKnownLegalActionToDecisionForSimulation } from '../engine/session';
 import type {
   GameAction,
@@ -18,6 +19,8 @@ import type {
   PlayerView,
 } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
+import { isDistrictAction } from './policyProjection';
+import { resourcePotentialV2 } from './resourcePotentialV2';
 import {
   bestHeuristicAction,
   heuristicPriorsByKey,
@@ -223,16 +226,21 @@ interface RolloutSearchFinalResult {
 export function selectRolloutSearchActionSync(
   input: RolloutSearchSelectionInput
 ): GameAction | undefined {
-  if (input.candidateActions.length === 0) {
+  const candidateActions = pruneDominatedRootActions(
+    input.state,
+    input.view.activePlayerId,
+    input.candidateActions
+  );
+  if (candidateActions.length === 0) {
     return undefined;
   }
-  if (input.candidateActions.length === 1) {
-    return input.candidateActions[0];
+  if (candidateActions.length === 1) {
+    return candidateActions[0];
   }
 
-  const session = createRolloutSearchSession(input);
+  const session = createRolloutSearchSession({ ...input, candidateActions });
   if (!session) {
-    return rankHeuristicActions(input.candidateActions, {
+    return rankHeuristicActions(candidateActions, {
       state: input.state,
       view: input.view,
     })[0].action;
@@ -267,11 +275,16 @@ export function selectRolloutSearchActionSync(
 export async function selectRolloutSearchActionParallel(
   input: RolloutSearchParallelSelectionInput
 ): Promise<GameAction | undefined> {
-  if (input.candidateActions.length === 0) {
+  const candidateActions = pruneDominatedRootActions(
+    input.state,
+    input.view.activePlayerId,
+    input.candidateActions
+  );
+  if (candidateActions.length === 0) {
     return undefined;
   }
-  if (input.candidateActions.length === 1) {
-    return input.candidateActions[0];
+  if (candidateActions.length === 1) {
+    return candidateActions[0];
   }
   if (input.randomSeed === undefined) {
     throw new Error('Parallel rollout search requires a randomSeed.');
@@ -285,9 +298,9 @@ export async function selectRolloutSearchActionParallel(
     );
   }
 
-  const session = createRolloutSearchSession(input);
+  const session = createRolloutSearchSession({ ...input, candidateActions });
   if (!session) {
-    return rankHeuristicActions(input.candidateActions, {
+    return rankHeuristicActions(candidateActions, {
       state: input.state,
       view: input.view,
     })[0].action;
@@ -327,6 +340,68 @@ export async function selectRolloutSearchActionParallel(
   });
   input.onSearchDiagnostics?.(finalResult.diagnostics);
   return finalResult.action;
+}
+
+/*
+ * Hard root dominance. Once the turn's card has been committed, a trade that
+ * unlocks no new district action and strictly reduces the actor's resource
+ * material (both total tokens and target-anchored potential) cannot improve the
+ * position, so it is removed from the root candidate set. This prevents the
+ * value-destroying trade spiral seen in magnate-log-2026-10-04T16-10-35.json.
+ * It never prunes before the card is played, where a trade may still set up the
+ * turn's own placement.
+ */
+export function pruneDominatedRootActions(
+  state: GameState,
+  playerId: PlayerId,
+  actions: readonly GameAction[]
+): GameAction[] {
+  if (!state.cardPlayedThisTurn) {
+    return [...actions];
+  }
+  const potentialBefore = resourcePotentialV2(state, playerId);
+  const totalBefore = totalResourceTokens(state, playerId);
+  return actions.filter((action) => {
+    if (action.type !== 'trade') {
+      return true;
+    }
+    if (tradeUnlocksDistrictAction(state, playerId, action)) {
+      return true;
+    }
+    const after = stepKnownLegalActionToDecisionForSimulation(state, action);
+    const totalAfter = totalResourceTokens(after, playerId);
+    const potentialAfter = resourcePotentialV2(after, playerId);
+    return !(totalAfter < totalBefore && potentialAfter < potentialBefore);
+  });
+}
+
+function tradeUnlocksDistrictAction(
+  state: GameState,
+  playerId: PlayerId,
+  trade: GameAction
+): boolean {
+  const before = districtActionKeys(state, playerId);
+  const after = stepKnownLegalActionToDecisionForSimulation(state, trade);
+  return legalActionsForDecisionPlayer(after, playerId).some(
+    (candidate) =>
+      isDistrictAction(candidate) && !before.has(actionStableKey(candidate))
+  );
+}
+
+function districtActionKeys(state: GameState, playerId: PlayerId): Set<string> {
+  return new Set(
+    legalActionsForDecisionPlayer(state, playerId)
+      .filter(isDistrictAction)
+      .map(actionStableKey)
+  );
+}
+
+function totalResourceTokens(state: GameState, playerId: PlayerId): number {
+  const player = state.players.find((candidate) => candidate.id === playerId);
+  if (!player) {
+    throw new Error(`Root dominance missing player ${playerId}.`);
+  }
+  return SUITS.reduce((total, suit) => total + player.resources[suit], 0);
 }
 
 export function runRolloutSearchTask(

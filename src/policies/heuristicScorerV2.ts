@@ -5,7 +5,11 @@ import {
 } from '../engine/actionSurface';
 import type { CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
-import { developmentCost, findDevelopableCard, SUITS } from '../engine/stateHelpers';
+import {
+  developmentCost,
+  findDevelopableCard,
+  SUITS,
+} from '../engine/stateHelpers';
 import type {
   DistrictStack,
   DistrictState,
@@ -24,6 +28,7 @@ import {
   smoothstep,
 } from './policyProjection';
 import { courtActionBreakdown, isCourtCard } from './courtPotentialV2';
+import { resourcePotentialDeltaForActionV2 } from './resourcePotentialV2';
 import { DEFAULT_COURT_VALUE_SCALE } from './searchConfig';
 import {
   createHeuristicV2PositionContext,
@@ -77,6 +82,13 @@ const EXPECTED_GAME_TURNS = 42;
 const SCORING_SCALE = 5;
 const SMALL_ACTION_BASELINE = 0.05;
 const TOKEN_VALUE_WEIGHT = 0.02;
+/**
+ * Weight on the target-anchored resource potential for `trade`. Trades get no
+ * scoring or earning delta, so this is their only value signal; unlike the
+ * demand-bank term it only rewards conversions that close a concrete deed
+ * deficit, and it makes a 3:1 conversion into surplus a strict loss.
+ */
+const TRADE_RESOURCE_POTENTIAL_WEIGHT = 0.1;
 
 export function selectHeuristicV2Action(
   context: HeuristicV2SelectionContext
@@ -132,10 +144,10 @@ export function scoreHeuristicV2Actions(
   const scored = scoreKeyedHeuristicV2Actions(candidateActions, context);
   const priors = heuristicV2PriorsByScoredActions(scored);
   return scored.map((candidate, index) => ({
-      ...candidate,
-      prior: priors.get(candidate.actionKey) ?? 0,
-      rank: index,
-    }));
+    ...candidate,
+    prior: priors.get(candidate.actionKey) ?? 0,
+    rank: index,
+  }));
 }
 
 export function heuristicV2PriorsByKey(
@@ -199,7 +211,7 @@ function scoreHeuristicV2ActionWithContext(
   projected = projectedContextForAction(action, resolved)
 ): number {
   if (!resolved) {
-    return actionBaseline(action);
+    return actionBaseline(action, 0);
   }
 
   const { state, activePlayerId } = resolved;
@@ -215,7 +227,18 @@ function scoreHeuristicV2ActionWithContext(
       resolved.courtValueScale
     )?.delta ?? 0;
 
-  return (
+  const tradeResourceDelta =
+    action.type === 'trade'
+      ? TRADE_RESOURCE_POTENTIAL_WEIGHT *
+        resourcePotentialDeltaForActionV2(
+          action,
+          state,
+          activePlayerId,
+          resolved.positionContext
+        )
+      : 0;
+
+  const valueBeforeBaseline =
     scoringWeight *
       (scoringDeltaForAction(action, state, activePlayerId) + courtDelta) +
     earningWeight * earningDeltaForAction(action, resolved, projected) +
@@ -227,8 +250,9 @@ function scoreHeuristicV2ActionWithContext(
         resolved.tokenContext,
         projected
       ) +
-    actionBaseline(action)
-  );
+    tradeResourceDelta;
+
+  return valueBeforeBaseline + actionBaseline(action, valueBeforeBaseline);
 }
 
 export function earningPotentialValueForPlayerV2(
@@ -247,9 +271,7 @@ export function earningPotentialValueForPlayerV2(
   return SUITS.reduce((total, suit) => total + Math.log1p(access[suit]), 0);
 }
 
-function earningPotentialValueFromAccess(
-  access: SuitValueMap<number>
-): number {
+function earningPotentialValueFromAccess(access: SuitValueMap<number>): number {
   return SUITS.reduce((total, suit) => total + Math.log1p(access[suit]), 0);
 }
 
@@ -290,9 +312,9 @@ function scoreKeyedHeuristicV2Actions(
   );
 }
 
-function resolveContext(context: HeuristicV2EvaluationContext):
-  | ResolvedHeuristicV2Context
-  | undefined {
+function resolveContext(
+  context: HeuristicV2EvaluationContext
+): ResolvedHeuristicV2Context | undefined {
   const state = context.state;
   if (!state) {
     return undefined;
@@ -494,8 +516,21 @@ function gamePhase(state: GameState): number {
   return clamp(state.turn / EXPECTED_GAME_TURNS, 0, 1);
 }
 
-function actionBaseline(action: GameAction): number {
-  return action.type === 'end-turn' ? 0 : SMALL_ACTION_BASELINE;
+function actionBaseline(
+  action: GameAction,
+  valueBeforeBaseline: number
+): number {
+  if (action.type === 'end-turn') {
+    return 0;
+  }
+  // The "do something" prior exists to prefer progress over ending the turn. For
+  // a trade it is the whole value signal, so it must not outvote a
+  // value-destroying conversion. District actions carry their own scoring and
+  // earning value and keep the baseline unconditionally.
+  if (action.type === 'trade' && valueBeforeBaseline < 0) {
+    return 0;
+  }
+  return SMALL_ACTION_BASELINE;
 }
 
 function propertyCard(cardId: string): DevelopableCard | undefined {
