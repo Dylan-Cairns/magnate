@@ -1,6 +1,7 @@
+import { Winner } from '../engine/values';
 import { performance } from 'node:perf_hooks';
 
-import type { PlayerId } from '../engine/types';
+import { PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import type {
   ActionPolicy,
@@ -254,10 +255,10 @@ function validateInitialResults(
       candidateAsB.seed !== expected.seed ||
       candidateAsA.firstPlayer !== expected.firstPlayer ||
       candidateAsB.firstPlayer !== expected.firstPlayer ||
-      candidateAsA.botBySeat.PlayerA !== config.candidate.id ||
-      candidateAsA.botBySeat.PlayerB !== config.opponent.id ||
-      candidateAsB.botBySeat.PlayerA !== config.opponent.id ||
-      candidateAsB.botBySeat.PlayerB !== config.candidate.id
+      candidateAsA.botBySeat[PlayerId.PlayerA] !== config.candidate.id ||
+      candidateAsA.botBySeat[PlayerId.PlayerB] !== config.opponent.id ||
+      candidateAsB.botBySeat[PlayerId.PlayerA] !== config.opponent.id ||
+      candidateAsB.botBySeat[PlayerId.PlayerB] !== config.candidate.id
     ) {
       throw new Error(
         `Initial pair ${String(expected.pairNumber)} does not match its frozen game IDs, seed, first player, and seats.`
@@ -335,7 +336,7 @@ function summarizeHeadToHead(
     const candidateWon = game.finalScore.winner === candidateSeat;
     const candidateMovedFirst = candidateSeat === game.firstPlayer;
 
-    if (game.finalScore.winner === 'Draw') {
+    if (game.finalScore.winner === Winner.Draw) {
       draws += 1;
     } else if (candidateWon) {
       candidateWins += 1;
@@ -343,7 +344,7 @@ function summarizeHeadToHead(
       opponentWins += 1;
     }
 
-    if (candidateSeat === 'PlayerA') {
+    if (candidateSeat === PlayerId.PlayerA) {
       candidateGamesAsPlayerA += 1;
       candidateWinsAsPlayerA += candidateWon ? 1 : 0;
     } else {
@@ -443,11 +444,11 @@ function summarizeHeadToHead(
 }
 
 function seatForBot(game: PlayedGame, botId: string): PlayerId {
-  if (game.botBySeat.PlayerA === botId) {
-    return 'PlayerA';
+  if (game.botBySeat[PlayerId.PlayerA] === botId) {
+    return PlayerId.PlayerA;
   }
-  if (game.botBySeat.PlayerB === botId) {
-    return 'PlayerB';
+  if (game.botBySeat[PlayerId.PlayerB] === botId) {
+    return PlayerId.PlayerB;
   }
   throw new Error(`Game ${game.gameId} does not include bot ${botId}.`);
 }

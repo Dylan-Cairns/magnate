@@ -1,3 +1,5 @@
+import { ActionListItemKind, ActionPickerKind } from './ui/actionValues';
+import { Winner, ActionId } from './engine/values';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   botProfileSupportsRuleset,
@@ -8,7 +10,7 @@ import { recordGame } from './db/gameHistory';
 
 import type { CardId } from './engine/cards';
 import { districtWinnersByPlayer, scoreLive } from './engine/scoring';
-import type { GameAction, PlayerId, Suit } from './engine/types';
+import { type GameAction, PlayerId, type Suit } from './engine/types';
 import {
   buildHumanActionList,
   buildTradeSourceGroups,
@@ -45,7 +47,7 @@ import { BotHandPanel } from './ui/components/BotHandPanel';
 import { DeckPiles } from './ui/components/DeckPiles';
 import {
   GameCelebration,
-  type CelebrationOutcome,
+  CelebrationOutcome,
 } from './ui/components/GameCelebration';
 import { StartupPreloadOverlay } from './ui/components/GameOverlays';
 import { DecktetSuitDiagram } from './ui/components/DecktetSuitDiagram';
@@ -63,8 +65,8 @@ import {
 } from './ui/hooks/useGameController';
 import { useVisibleDiceState } from './ui/hooks/useVisibleDiceState';
 
-const HUMAN_PLAYER: PlayerId = 'PlayerA';
-const BOT_PLAYER: PlayerId = 'PlayerB';
+const HUMAN_PLAYER: PlayerId = PlayerId.PlayerA;
+const BOT_PLAYER: PlayerId = PlayerId.PlayerB;
 const PLAYER_HAND_SLOT_COUNT = 3;
 const TRADE_POPOVER_WIDTH_PX = 220;
 const TRADE_POPOVER_MIN_HEIGHT_PX = 188;
@@ -88,18 +90,18 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
   without cutting anything off.
 */
 const CELEBRATION_DURATION_MS: Record<CelebrationOutcome, number> = {
-  win: 4200,
-  loss: 3000,
-  draw: 2600,
+  [CelebrationOutcome.Win]: 4200,
+  [CelebrationOutcome.Loss]: 3000,
+  [CelebrationOutcome.Draw]: 2600,
 };
 
 function celebrationOutcomeFor(
   winner: string,
   humanPlayerId: PlayerId
 ): CelebrationOutcome {
-  if (winner === humanPlayerId) return 'win';
-  if (winner === 'Draw') return 'draw';
-  return 'loss';
+  if (winner === humanPlayerId) return CelebrationOutcome.Win;
+  if (winner === Winner.Draw) return CelebrationOutcome.Draw;
+  return CelebrationOutcome.Loss;
 }
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
@@ -426,7 +428,10 @@ export function App() {
   const hasMultipleTradeSources = tradeSourceGroups.length > 1;
   const isIncomeChoicePhase = isVisibleIncomeChoicePhase(viewState);
   const firstTradeGroupIndex = useMemo(
-    () => humanActionItems.findIndex((item) => item.kind === 'trade-group'),
+    () =>
+      humanActionItems.findIndex(
+        (item) => item.kind === ActionListItemKind.TradeGroup
+      ),
     [humanActionItems]
   );
   const visibleHumanActionItems = useMemo(() => {
@@ -435,7 +440,8 @@ export function App() {
     }
     return humanActionItems.filter(
       (item, index) =>
-        item.kind !== 'trade-group' || index === firstTradeGroupIndex
+        item.kind !== ActionListItemKind.TradeGroup ||
+        index === firstTradeGroupIndex
     );
   }, [firstTradeGroupIndex, hasMultipleTradeSources, humanActionItems]);
 
@@ -467,12 +473,12 @@ export function App() {
     if (actionPicker) closeActionPicker();
   } else if (actionPicker) {
     const isIllegal =
-      actionPicker.kind === 'trade-combined'
+      actionPicker.kind === ActionPickerKind.TradeCombined
         ? !tradeCompositePickerStillLegal(
             actionPicker,
             humanActionsAcceptingInput
           )
-        : actionPicker.kind === 'develop-outright-combined'
+        : actionPicker.kind === ActionPickerKind.DevelopOutrightCombined
           ? !developOutrightCompositePickerStillLegal(
               actionPicker,
               humanActionsAcceptingInput
@@ -575,7 +581,7 @@ export function App() {
     optionCount: number
   ) => {
     const position = pickerPosition(trigger, optionCount);
-    setActionPicker({ kind: 'trade', give, ...position });
+    setActionPicker({ kind: ActionPickerKind.Trade, give, ...position });
   };
 
   const openTradeCombinedPicker = (trigger: HTMLButtonElement) => {
@@ -584,14 +590,14 @@ export function App() {
       Math.max(2, tradeSourceGroups.length + 1)
     );
     setActionPicker({
-      kind: 'trade-combined',
+      kind: ActionPickerKind.TradeCombined,
       ...position,
     });
   };
 
   const openDistrictPicker = (
     config: {
-      actionType: 'buy-deed';
+      actionType: typeof ActionId.BuyDeed;
       cardId: CardId;
     },
     trigger: HTMLButtonElement,
@@ -613,7 +619,7 @@ export function App() {
   ) => {
     const position = pickerPosition(trigger, optionCount);
     setActionPicker({
-      kind: 'develop-outright-combined',
+      kind: ActionPickerKind.DevelopOutrightCombined,
       cardId,
       ...position,
     });
@@ -654,7 +660,7 @@ export function App() {
   ) => {
     const position = pickerPosition(trigger, optionCount);
     setActionPicker({
-      kind: 'income-choice',
+      kind: ActionPickerKind.IncomeChoice,
       playerId: config.playerId,
       cardId: config.cardId,
       districtId: config.districtId,

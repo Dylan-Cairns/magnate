@@ -1,3 +1,4 @@
+import { GamePhase, ActionId } from '../engine/values';
 import { legalActions } from '../engine/actionBuilders';
 import {
   toDecisionPlayerView,
@@ -11,12 +12,12 @@ import {
 import { createSession } from '../engine/session';
 import { newGame } from '../engine/game';
 import { isTerminal } from '../engine/scoring';
-import type {
-  GameAction,
-  GameLogEntry,
-  GameState,
-  PlayerId,
-  PlayerView,
+import {
+  type GameAction,
+  type GameLogEntry,
+  type GameState,
+  type PlayerId,
+  type PlayerView,
   Ruleset,
 } from '../engine/types';
 import { toPlayerView } from '../engine/view';
@@ -34,7 +35,7 @@ export function createBrowserSession(
   seed: string,
   humanPlayerId: PlayerId,
   devFixtureId: DevFixtureId | null = null,
-  ruleset: Ruleset = 'standard'
+  ruleset: Ruleset = Ruleset.Standard
 ): GameState {
   // Both the parsed id and the static build flag must allow fixtures; keeping
   // the flag in this branch lets the bundler drop the fixture builders (and the
@@ -46,7 +47,7 @@ export function createBrowserSession(
 }
 
 export function rulesetLabel(ruleset: Ruleset): string {
-  return ruleset === 'extended' ? 'Extended' : 'Standard';
+  return ruleset === Ruleset.Extended ? 'Extended' : 'Standard';
 }
 
 export function withSeedLogPrefix(
@@ -124,7 +125,7 @@ export function humanActionsAcceptingInputForState({
   }
 
   const actions = legalActions(state);
-  if (state.phase === 'CollectIncome') {
+  if (state.phase === GamePhase.CollectIncome) {
     return incomeChoiceActionsForPlayer(actions, humanPlayerId);
   }
 
@@ -143,7 +144,7 @@ export function humanDecisionWindowKeyForState(
   }
 
   const actions = legalActions(state);
-  if (state.phase === 'CollectIncome') {
+  if (state.phase === GamePhase.CollectIncome) {
     return incomeChoiceActionsForPlayer(actions, humanPlayerId).length > 0
       ? `income:${String(state.turn)}:${humanPlayerId}`
       : null;
@@ -170,10 +171,15 @@ export function transitionOpensHumanDecisionWindow(
 export function incomeChoiceActionsForPlayer(
   actions: readonly GameAction[],
   playerId: PlayerId
-): readonly Extract<GameAction, { type: 'choose-income-suit' }>[] {
+): readonly Extract<GameAction, { type: typeof ActionId.ChooseIncomeSuit }>[] {
   return actions.filter(
-    (action): action is Extract<GameAction, { type: 'choose-income-suit' }> =>
-      action.type === 'choose-income-suit' && action.playerId === playerId
+    (
+      action
+    ): action is Extract<
+      GameAction,
+      { type: typeof ActionId.ChooseIncomeSuit }
+    > =>
+      action.type === ActionId.ChooseIncomeSuit && action.playerId === playerId
   );
 }
 
@@ -197,9 +203,12 @@ export function planBotDecision(
   state: GameState,
   botPlayerId: PlayerId
 ): BotDecisionPlan {
-  const incomeChoicePhase = state.phase === 'CollectIncome';
+  const incomeChoicePhase = state.phase === GamePhase.CollectIncome;
   const actions = legalActions(state);
-  const incomeChoiceActions = incomeChoiceActionsForPlayer(actions, botPlayerId);
+  const incomeChoiceActions = incomeChoiceActionsForPlayer(
+    actions,
+    botPlayerId
+  );
   const actingPlayerId = incomeChoicePhase
     ? null
     : (turnOwnerIdForState(state) ?? null);
@@ -239,7 +248,7 @@ export function resolveBotActingPlayerId(
   actingPlayerId: PlayerId | null,
   botPlayerId: PlayerId
 ): PlayerId {
-  return choice.type === 'choose-income-suit'
+  return choice.type === ActionId.ChooseIncomeSuit
     ? choice.playerId
     : (actingPlayerId ?? botPlayerId);
 }

@@ -1,3 +1,5 @@
+import { ActionId, CardKind } from '../engine/values';
+import { IncomeTokenSourceKind } from './runtime/values';
 import { CARD_BY_ID, type CardId } from '../engine/cards';
 import { findDevelopableCard } from '../engine/stateHelpers';
 import type {
@@ -22,12 +24,12 @@ export interface TurnCycleIncomeToken {
   suit: Suit;
   source:
     | {
-        kind: 'district-card';
+        kind: typeof IncomeTokenSourceKind.DistrictCard;
         cardId: CardId;
         districtId: string;
       }
     | {
-        kind: 'crown';
+        kind: typeof IncomeTokenSourceKind.Crown;
         cardId: CardId;
       };
 }
@@ -53,7 +55,7 @@ export function deriveTurnCycleEvents(
   nextState: GameState,
   action?: GameAction
 ): TurnCycleEvents | null {
-  if (!action || action.type !== 'end-turn') {
+  if (!action || action.type !== ActionId.EndTurn) {
     return null;
   }
 
@@ -152,7 +154,7 @@ function resolveIncome(
       playerId,
       suit,
       source: {
-        kind: 'district-card',
+        kind: IncomeTokenSourceKind.DistrictCard,
         cardId,
         districtId,
       },
@@ -163,14 +165,14 @@ function resolveIncome(
     for (const player of state.players) {
       for (const crownId of player.crowns) {
         const crown = CARD_BY_ID[crownId];
-        if (crown.kind !== 'Crown') {
+        if (crown.kind !== CardKind.Crown) {
           continue;
         }
         tokens.push({
           playerId: player.id,
           suit: crown.suits[0],
           source: {
-            kind: 'crown',
+            kind: IncomeTokenSourceKind.Crown,
             cardId: crown.id,
           },
         });

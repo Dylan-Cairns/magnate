@@ -1,3 +1,4 @@
+import { CardKind } from '../../engine/values';
 import { useHighlightClass } from './ActionHighlights';
 import { memo } from 'react';
 import type { HighlightTarget } from '../actionHighlights';
@@ -119,7 +120,7 @@ function CardTileCard({
   const tooltipsEnabled = !preview && showTooltip;
   const card = CARD_BY_ID[cardId];
   const cardImage = getCardImage(cardId);
-  const suits = card.kind === 'Excuse' ? [] : [...card.suits];
+  const suits = card.kind === CardKind.Excuse ? [] : [...card.suits];
   const deedTokenEntries = deedTokens ? tokenEntries(deedTokens) : [];
   const hasDeedTokens = deedTokenEntries.length > 0;
   const showDeedTokenRails = Boolean(inDevelopment) || hasDeedTokens;

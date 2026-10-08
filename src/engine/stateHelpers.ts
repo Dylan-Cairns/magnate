@@ -1,14 +1,13 @@
 import { CARD_BY_ID, CardId, isDevelopableCard } from './cards';
-import type { DevelopableCard, GameState, PlayerId, Suit } from './types';
+import {
+  type DevelopableCard,
+  type GameState,
+  type PlayerId,
+  Suit,
+} from './types';
 
-export const SUITS: readonly Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
+import { SUITS } from './values';
+export { SUITS } from './values';
 
 function developmentTarget(card: DevelopableCard): number {
   if (card.rank === 1 && card.suits.length === 1) {
@@ -59,9 +58,7 @@ export function sumTokens(tokens: Partial<Record<Suit, number>>): number {
   return SUITS.reduce((total, suit) => total + (tokens[suit] ?? 0), 0);
 }
 
-export function deedCost(
-  card: DevelopableCard
-): Partial<Record<Suit, number>> {
+export function deedCost(card: DevelopableCard): Partial<Record<Suit, number>> {
   if (card.rank === 1) {
     return { [card.suits[0]]: 1 };
   }

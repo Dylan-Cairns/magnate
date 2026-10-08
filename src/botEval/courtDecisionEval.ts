@@ -1,3 +1,4 @@
+import { ActionId, Winner } from '../engine/values';
 import { actionStableKey } from '../engine/actionSurface';
 import { COURT_CARDS, type CardId } from '../engine/cards';
 import {
@@ -7,7 +8,12 @@ import {
 import { rngFromSeed } from '../engine/rng';
 import { isTerminal, scoreGame } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
-import type { GameAction, GameState, PlayerId, Ruleset } from '../engine/types';
+import {
+  type GameAction,
+  type GameState,
+  PlayerId,
+  Ruleset,
+} from '../engine/types';
 import { toPlayerView } from '../engine/view';
 import { courtActionBreakdown } from '../policies/courtPotentialV2';
 import { sampleHiddenWorldStates } from '../policies/determinization';
@@ -36,9 +42,14 @@ const MAX_PLAYOUT_STEPS = 1000;
 const MARGIN_EPSILON = 1e-9;
 const COURT_CARD_IDS = new Set<CardId>(COURT_CARDS.map((card) => card.id));
 
-const ACTION_TYPE_BUCKETS = ['buy-deed', 'develop-deed'] as const;
+const ACTION_TYPE_BUCKETS = [ActionId.BuyDeed, ActionId.DevelopDeed] as const;
 const SWING_BUCKETS = ['<=0', '0-0.15', '0.15-0.35', '>0.35'] as const;
-const FEASIBILITY_BUCKETS = ['<0.25', '0.25-0.5', '0.5-0.75', '>=0.75'] as const;
+const FEASIBILITY_BUCKETS = [
+  '<0.25',
+  '0.25-0.5',
+  '0.5-0.75',
+  '>=0.75',
+] as const;
 const PHASE_BUCKETS = ['early (1-14)', 'mid (15-28)', 'late (29+)'] as const;
 
 export interface CourtDecisionEvalInput {
@@ -164,7 +175,10 @@ export function courtDecisionEvalInputFromCheckpoint(
 }
 
 export function isTermCourtAction(action: GameAction): boolean {
-  if (action.type !== 'buy-deed' && action.type !== 'develop-deed') {
+  if (
+    action.type !== ActionId.BuyDeed &&
+    action.type !== ActionId.DevelopDeed
+  ) {
     return false;
   }
   return COURT_CARD_IDS.has(action.cardId);
@@ -193,7 +207,7 @@ export function buildCourtDecisionEvalReport(
   if (seed.trim() === '') {
     throw new Error('Court decision eval seed must be a non-empty string.');
   }
-  const ruleset = input.config.ruleset ?? 'standard';
+  const ruleset = input.config.ruleset ?? Ruleset.Standard;
 
   const collection = collectCourtDecisionPositions(input, ruleset);
   const evaluated = selectPositions(collection.positions, maxPositions);
@@ -323,10 +337,7 @@ export function summarizeCourtDecisionOutcomes(
   const meanMarginDelta = mean(deltas);
   const variance =
     outcomes.length > 1
-      ? deltas.reduce(
-          (sum, delta) => sum + (delta - meanMarginDelta) ** 2,
-          0
-        ) /
+      ? deltas.reduce((sum, delta) => sum + (delta - meanMarginDelta) ** 2, 0) /
         (outcomes.length - 1)
       : 0;
   const standardError = Math.sqrt(variance / outcomes.length);
@@ -343,13 +354,10 @@ export function summarizeCourtDecisionOutcomes(
       .length,
     nonCourtBetterPositions: deltas.filter((delta) => delta < -MARGIN_EPSILON)
       .length,
-    tiedPositions: deltas.filter(
-      (delta) => Math.abs(delta) <= MARGIN_EPSILON
-    ).length,
+    tiedPositions: deltas.filter((delta) => Math.abs(delta) <= MARGIN_EPSILON)
+      .length,
     meanCourtMargin: mean(outcomes.map((outcome) => outcome.courtMargin)),
-    meanNonCourtMargin: mean(
-      outcomes.map((outcome) => outcome.nonCourtMargin)
-    ),
+    meanNonCourtMargin: mean(outcomes.map((outcome) => outcome.nonCourtMargin)),
     meanCourtWinRate: mean(outcomes.map((outcome) => outcome.courtWinRate)),
     meanNonCourtWinRate: mean(
       outcomes.map((outcome) => outcome.nonCourtWinRate)
@@ -417,8 +425,8 @@ function collectCourtDecisionPositions(
           );
           if (
             !breakdown ||
-            (courtActionType !== 'buy-deed' &&
-              courtActionType !== 'develop-deed')
+            (courtActionType !== ActionId.BuyDeed &&
+              courtActionType !== ActionId.DevelopDeed)
           ) {
             skippedNoBreakdown += 1;
           } else {
@@ -500,8 +508,7 @@ function evaluateCourtDecisionPosition(
     nonCourtMarginSum += nonCourt.districtPointMargin;
     courtWinSum += court.winIndicator;
     nonCourtWinSum += nonCourt.winIndicator;
-    rankTotalDeltaSum +=
-      court.rankTotalMargin - nonCourt.rankTotalMargin;
+    rankTotalDeltaSum += court.rankTotalMargin - nonCourt.rankTotalMargin;
   }
   const count = Math.max(1, worldStates.length);
 
@@ -548,7 +555,8 @@ function playForcedActionToTerminal(
   }
 
   const finalScore = current.finalScore ?? scoreGame(current);
-  const opponent = rootPlayer === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  const opponent =
+    rootPlayer === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
   return {
     districtPointMargin:
       finalScore.districtPoints[rootPlayer] -
@@ -558,7 +566,7 @@ function playForcedActionToTerminal(
     winIndicator:
       finalScore.winner === rootPlayer
         ? 1
-        : finalScore.winner === 'Draw'
+        : finalScore.winner === Winner.Draw
           ? 0.5
           : 0,
   };

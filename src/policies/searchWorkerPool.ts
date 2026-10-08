@@ -1,3 +1,4 @@
+import { SearchWorkerMessageType } from './workerValues';
 import type { RolloutSearchWorkerContext } from './rolloutSearchCore';
 import type {
   SearchWorkerRequest,
@@ -153,7 +154,7 @@ export function createSearchWorkerPool({
       });
       try {
         poolWorker.worker.postMessage({
-          type: 'initialize-rollout-search',
+          type: SearchWorkerMessageType.InitializeRolloutSearch,
           requestId,
           context,
         });
@@ -175,7 +176,7 @@ export function createSearchWorkerPool({
       pendingByRequestId.set(requestId, { kind: 'batch', resolve, reject });
       try {
         poolWorker.worker.postMessage({
-          type: 'run-batch',
+          type: SearchWorkerMessageType.RunBatch,
           requestId,
           tasks: [...tasks],
           ...(executionMode ? { executionMode } : {}),
@@ -191,7 +192,7 @@ export function createSearchWorkerPool({
     poolWorker: PoolWorker,
     response: SearchWorkerResponse
   ): void {
-    if (response.type === 'error') {
+    if (response.type === SearchWorkerMessageType.Error) {
       const label =
         response.requestId === undefined
           ? ''
@@ -209,7 +210,7 @@ export function createSearchWorkerPool({
       return;
     }
     pendingByRequestId.delete(response.requestId);
-    if (response.type === 'initialized') {
+    if (response.type === SearchWorkerMessageType.Initialized) {
       if (pending.kind !== 'initialize') {
         failAll(
           new Error(

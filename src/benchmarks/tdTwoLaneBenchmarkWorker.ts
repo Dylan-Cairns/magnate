@@ -1,3 +1,4 @@
+import { PlayerId } from '../engine/values';
 import {
   decisionPlayerIdForState,
   legalActionsForDecisionPlayer,
@@ -208,7 +209,7 @@ async function collectInferenceRequests(
   ) {
     let state = createSession(
       `td-two-lane-benchmark:game:${String(gameIndex)}`,
-      gameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB'
+      gameIndex % 2 === 0 ? PlayerId.PlayerA : PlayerId.PlayerB
     );
     for (
       let decisionIndex = 0;
@@ -218,7 +219,10 @@ async function collectInferenceRequests(
       decisionIndex += 1
     ) {
       const activePlayer = decisionPlayerIdForState(state);
-      if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
+      if (
+        activePlayer !== PlayerId.PlayerA &&
+        activePlayer !== PlayerId.PlayerB
+      ) {
         throw new Error(
           'Could not resolve decision player while building benchmark corpus.'
         );

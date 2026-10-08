@@ -1,3 +1,4 @@
+import { ActionId, CardKind } from '../engine/values';
 import {
   actionStableKey,
   toKeyedActions,
@@ -15,18 +16,18 @@ import {
   sumTokens,
   SUITS,
 } from '../engine/stateHelpers';
-import type {
-  DistrictId,
-  DistrictStack,
-  DistrictState,
-  GameAction,
-  GameState,
+import {
+  type DistrictId,
+  type DistrictStack,
+  type DistrictState,
+  type GameAction,
+  type GameState,
   PlayerId,
-  PlayerState,
-  PlayerView,
-  DevelopableCard,
-  ResourcePool,
-  Suit,
+  type PlayerState,
+  type PlayerView,
+  type DevelopableCard,
+  type ResourcePool,
+  type Suit,
 } from '../engine/types';
 
 export interface HeuristicSelectionContext {
@@ -61,13 +62,13 @@ interface DistrictPlan {
 }
 
 const ACTION_BASE_SCORE: Record<GameAction['type'], number> = {
-  'develop-outright': 8,
-  'develop-deed': 6,
-  'buy-deed': 5,
-  'choose-income-suit': 4,
+  [ActionId.DevelopOutright]: 8,
+  [ActionId.DevelopDeed]: 6,
+  [ActionId.BuyDeed]: 5,
+  [ActionId.ChooseIncomeSuit]: 4,
   trade: -1,
-  'sell-card': 1,
-  'end-turn': 0,
+  [ActionId.SellCard]: 1,
+  [ActionId.EndTurn]: 0,
 };
 
 const TARGET_CONTROLLED_DISTRICTS = 3;
@@ -178,10 +179,13 @@ export function scoreHeuristicAction(
   const card = 'cardId' in action ? propertyCard(action.cardId) : undefined;
   const cardRank = card?.rank ?? 0;
 
-  if (action.type === 'develop-outright' || action.type === 'develop-deed') {
+  if (
+    action.type === ActionId.DevelopOutright ||
+    action.type === ActionId.DevelopDeed
+  ) {
     score += cardRank * 0.4;
   }
-  if (action.type === 'buy-deed') {
+  if (action.type === ActionId.BuyDeed) {
     score += cardRank * 0.25;
     if (cardRank === 2) {
       score -= 100.0;
@@ -190,10 +194,10 @@ export function scoreHeuristicAction(
       score -= 35.0 + cardRank;
     }
   }
-  if (action.type === 'sell-card') {
+  if (action.type === ActionId.SellCard) {
     score -= cardRank * 0.3;
   }
-  if (action.type === 'trade') {
+  if (action.type === ActionId.Trade) {
     if (action.give === action.receive) {
       score -= 10;
     }
@@ -230,7 +234,7 @@ function contextScore(
   const plan = districtPlan(state, activePlayerId);
   let score = resourceDeltaScore(action, activePlayer);
 
-  if (action.type === 'trade') {
+  if (action.type === ActionId.Trade) {
     score += tradeContextScore({
       action,
       state,
@@ -241,7 +245,7 @@ function contextScore(
     });
   }
 
-  if (action.type === 'buy-deed') {
+  if (action.type === ActionId.BuyDeed) {
     score += deedStartScore({
       action,
       state,
@@ -261,7 +265,7 @@ function contextScore(
     });
   }
 
-  if (action.type === 'choose-income-suit') {
+  if (action.type === ActionId.ChooseIncomeSuit) {
     score += incomeChoiceScore(action, state, activePlayerId);
   }
 
@@ -285,7 +289,10 @@ function resolveContext(context: HeuristicEvaluationContext):
   }
   const activePlayerId =
     context.view?.activePlayerId ?? state.players[state.activePlayerIndex]?.id;
-  if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
+  if (
+    activePlayerId !== PlayerId.PlayerA &&
+    activePlayerId !== PlayerId.PlayerB
+  ) {
     return undefined;
   }
   const activePlayer = state.players.find(
@@ -329,7 +336,7 @@ function resourceDeltaScore(action: GameAction, player: PlayerState): number {
       score -= Math.min(3.0, (afterCount - 2) * 0.7);
     }
   }
-  if (action.type === 'develop-outright') {
+  if (action.type === ActionId.DevelopOutright) {
     score += surplusTokenCount(action.payment, before) * 0.7;
   }
   return score;
@@ -343,7 +350,7 @@ function tradeContextScore({
   opponentId,
   plan,
 }: {
-  action: Extract<GameAction, { type: 'trade' }>;
+  action: Extract<GameAction, { type: typeof ActionId.Trade }>;
   state: GameState;
   activePlayerId: PlayerId;
   activePlayer: PlayerState;
@@ -404,8 +411,11 @@ function bestTradeUnlockScore({
       if (before[suit] > 0 || after[suit] <= 0) {
         continue;
       }
-      const developAction: Extract<GameAction, { type: 'develop-deed' }> = {
-        type: 'develop-deed',
+      const developAction: Extract<
+        GameAction,
+        { type: typeof ActionId.DevelopDeed }
+      > = {
+        type: ActionId.DevelopDeed,
         districtId: district.id,
         cardId: deed.cardId,
         tokens: { [suit]: 1 },
@@ -496,8 +506,11 @@ function bestUnlockedOutrightScore({
     if (!placementAllowed(card, district, activePlayerId)) {
       continue;
     }
-    const action: Extract<GameAction, { type: 'develop-outright' }> = {
-      type: 'develop-outright',
+    const action: Extract<
+      GameAction,
+      { type: typeof ActionId.DevelopOutright }
+    > = {
+      type: ActionId.DevelopOutright,
       cardId: card.id,
       districtId: district.id,
       payment,
@@ -539,8 +552,8 @@ function bestUnlockedBuyDeedScore({
     if (!placementAllowed(card, district, activePlayerId)) {
       continue;
     }
-    const action: Extract<GameAction, { type: 'buy-deed' }> = {
-      type: 'buy-deed',
+    const action: Extract<GameAction, { type: typeof ActionId.BuyDeed }> = {
+      type: ActionId.BuyDeed,
       cardId: card.id,
       districtId: district.id,
     };
@@ -565,7 +578,7 @@ function deedStartScore({
   activePlayerId,
   activePlayer,
 }: {
-  action: Extract<GameAction, { type: 'buy-deed' }>;
+  action: Extract<GameAction, { type: typeof ActionId.BuyDeed }>;
   state: GameState;
   activePlayerId: PlayerId;
   activePlayer: PlayerState;
@@ -633,10 +646,10 @@ function endgameActionScore(
     if (projected.winner === activePlayerId) {
       score += Math.min(4.0, card.rank * 0.3);
     }
-    if (action.type === 'buy-deed') {
+    if (action.type === ActionId.BuyDeed) {
       score -= 7.0 + card.rank * 0.6;
     }
-    if (action.type === 'develop-deed') {
+    if (action.type === ActionId.DevelopDeed) {
       const completion = projectedDevelopDeedCompletion(
         action,
         district,
@@ -652,16 +665,16 @@ function endgameActionScore(
         score -= 6.0 + remainingAfter * 0.4;
       }
     }
-    if (action.type === 'develop-outright' && districtPointDelta <= 0) {
+    if (action.type === ActionId.DevelopOutright && districtPointDelta <= 0) {
       score -= projected.winner === activePlayerId ? 0.5 : 2.5;
     }
   }
 
-  if (action.type === 'sell-card') {
+  if (action.type === ActionId.SellCard) {
     const card = propertyCard(action.cardId);
     score += (card?.rank ?? 0) * 0.15;
   }
-  if (action.type === 'trade') {
+  if (action.type === ActionId.Trade) {
     score -= 1.5;
   }
   return score;
@@ -677,7 +690,12 @@ function districtInvestmentScore({
 }: {
   action: Extract<
     GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+    {
+      type:
+        | typeof ActionId.BuyDeed
+        | typeof ActionId.DevelopDeed
+        | typeof ActionId.DevelopOutright;
+    }
   >;
   state: GameState;
   activePlayerId: PlayerId;
@@ -697,12 +715,12 @@ function districtInvestmentScore({
   }
 
   const deedCompletion =
-    action.type === 'develop-deed'
+    action.type === ActionId.DevelopDeed
       ? projectedDevelopDeedCompletion(action, district, activePlayerId)
       : undefined;
   const completesDeed = deedCompletion?.completes ?? false;
   const actionChangesControlPotential =
-    action.type !== 'develop-deed' || completesDeed;
+    action.type !== ActionId.DevelopDeed || completesDeed;
   const current = districtStatus(district, activePlayerId, opponentId);
   const projected = projectedDistrictStatus({
     action,
@@ -813,7 +831,7 @@ function districtInvestmentScore({
     score -= mainDistrict ? 2.0 : 5.0;
   }
 
-  if (action.type === 'develop-deed') {
+  if (action.type === ActionId.DevelopDeed) {
     const completion = deedCompletion;
     if (!completion) {
       return score;
@@ -852,7 +870,7 @@ function districtInvestmentScore({
 }
 
 function incomeChoiceScore(
-  action: Extract<GameAction, { type: 'choose-income-suit' }>,
+  action: Extract<GameAction, { type: typeof ActionId.ChooseIncomeSuit }>,
   state: GameState,
   activePlayerId: PlayerId
 ): number {
@@ -885,7 +903,12 @@ function projectedDistrictStatus({
 }: {
   action: Extract<
     GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+    {
+      type:
+        | typeof ActionId.BuyDeed
+        | typeof ActionId.DevelopDeed
+        | typeof ActionId.DevelopOutright;
+    }
   >;
   district: DistrictState;
   activePlayerId: PlayerId;
@@ -912,7 +935,12 @@ function projectedEventualDistrictMargin({
 }: {
   action: Extract<
     GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+    {
+      type:
+        | typeof ActionId.BuyDeed
+        | typeof ActionId.DevelopDeed
+        | typeof ActionId.DevelopOutright;
+    }
   >;
   district: DistrictState;
   activePlayerId: PlayerId;
@@ -931,17 +959,22 @@ function projectedEventualDistrictMargin({
 function projectedActiveStack(
   action: Extract<
     GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+    {
+      type:
+        | typeof ActionId.BuyDeed
+        | typeof ActionId.DevelopDeed
+        | typeof ActionId.DevelopOutright;
+    }
   >,
   stack: DistrictStack
 ): DistrictStack {
-  if (action.type === 'develop-outright') {
+  if (action.type === ActionId.DevelopOutright) {
     return {
       ...stack,
       developed: [...stack.developed, action.cardId],
     };
   }
-  if (action.type === 'develop-deed') {
+  if (action.type === ActionId.DevelopDeed) {
     const completion = projectedStackDevelopDeedCompletion(action, stack);
     if (!completion.completes) {
       return stack;
@@ -958,12 +991,20 @@ function projectedActiveStack(
 function projectedActivePotentialCardIds(
   action: Extract<
     GameAction,
-    { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+    {
+      type:
+        | typeof ActionId.BuyDeed
+        | typeof ActionId.DevelopDeed
+        | typeof ActionId.DevelopOutright;
+    }
   >,
   stack: DistrictStack
 ): CardId[] {
   const potential = [...stack.developed];
-  if (action.type === 'develop-outright' || action.type === 'buy-deed') {
+  if (
+    action.type === ActionId.DevelopOutright ||
+    action.type === ActionId.BuyDeed
+  ) {
     potential.push(action.cardId);
     return potential;
   }
@@ -974,7 +1015,7 @@ function projectedActivePotentialCardIds(
 }
 
 function projectedDevelopDeedCompletion(
-  action: Extract<GameAction, { type: 'develop-deed' }>,
+  action: Extract<GameAction, { type: typeof ActionId.DevelopDeed }>,
   district: DistrictState,
   activePlayerId: PlayerId
 ): { completes: boolean; progress: number; target: number } {
@@ -990,7 +1031,7 @@ function projectedDevelopDeedCompletion(
 }
 
 function projectedStackDevelopDeedCompletion(
-  action: Extract<GameAction, { type: 'develop-deed' }>,
+  action: Extract<GameAction, { type: typeof ActionId.DevelopDeed }>,
   stack: DistrictStack
 ): { completes: boolean; progress: number; target: number } {
   const card = propertyCard(action.cardId);
@@ -1268,24 +1309,24 @@ function resourceDeltaForAction(
   action: GameAction
 ): Partial<Record<Suit, number>> {
   switch (action.type) {
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return negateTokens(action.tokens);
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return negateTokens(action.payment);
-    case 'buy-deed': {
+    case ActionId.BuyDeed: {
       const card = propertyCard(action.cardId);
       return card ? negateTokens(deedCost(card)) : {};
     }
-    case 'trade':
+    case ActionId.Trade:
       return {
         [action.give]: -3,
         [action.receive]: 1,
       };
-    case 'sell-card':
+    case ActionId.SellCard:
       return sellCardDelta(action.cardId);
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return { [action.suit]: 1 };
-    case 'end-turn':
+    case ActionId.EndTurn:
       return {};
   }
 }
@@ -1362,7 +1403,7 @@ function lastTokenSpendCount(
 function crownSuitCounts(player: PlayerState): Partial<Record<Suit, number>> {
   return player.crowns.reduce<Partial<Record<Suit, number>>>((acc, cardId) => {
     const card = CARD_BY_ID[cardId];
-    if (card?.kind === 'Crown') {
+    if (card?.kind === CardKind.Crown) {
       const suit = card.suits[0];
       acc[suit] = (acc[suit] ?? 0) + 1;
     }
@@ -1370,16 +1411,19 @@ function crownSuitCounts(player: PlayerState): Partial<Record<Suit, number>> {
   }, {});
 }
 
-function isDistrictInvestment(
-  action: GameAction
-): action is Extract<
+function isDistrictInvestment(action: GameAction): action is Extract<
   GameAction,
-  { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+  {
+    type:
+      | typeof ActionId.BuyDeed
+      | typeof ActionId.DevelopDeed
+      | typeof ActionId.DevelopOutright;
+  }
 > {
   return (
-    action.type === 'buy-deed' ||
-    action.type === 'develop-deed' ||
-    action.type === 'develop-outright'
+    action.type === ActionId.BuyDeed ||
+    action.type === ActionId.DevelopDeed ||
+    action.type === ActionId.DevelopOutright
   );
 }
 
@@ -1399,7 +1443,7 @@ function propertyCard(cardId: string): DevelopableCard | undefined {
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }
 
 function isDefined<T>(value: T | undefined): value is T {

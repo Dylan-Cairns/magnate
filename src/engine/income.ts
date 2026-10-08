@@ -1,3 +1,4 @@
+import { CardKind } from './values';
 import { CARD_BY_ID } from './cards';
 import { findDevelopableCard } from './stateHelpers';
 import type { GameState, IncomeChoice, PlayerId, Rank, Suit } from './types';
@@ -48,7 +49,7 @@ function awardCrownIncome(
 
   player.crowns.forEach((cardId) => {
     const card = CARD_BY_ID[cardId];
-    if (card.kind === 'Crown') {
+    if (card.kind === CardKind.Crown) {
       addSuit(delta, card.suits[0], 1);
     }
   });
@@ -68,7 +69,9 @@ function awardAceIncome(
       }
     });
 
-    const deed = stack.deed ? findDevelopableCard(stack.deed.cardId) : undefined;
+    const deed = stack.deed
+      ? findDevelopableCard(stack.deed.cardId)
+      : undefined;
     if (deed?.rank === 1) {
       addSuit(delta, deed.suits[0], 1);
     }
@@ -91,7 +94,9 @@ function awardRankIncome(
       }
     });
 
-    const deed = stack.deed ? findDevelopableCard(stack.deed.cardId) : undefined;
+    const deed = stack.deed
+      ? findDevelopableCard(stack.deed.cardId)
+      : undefined;
     if (deed?.rank !== rank) {
       return;
     }

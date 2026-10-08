@@ -1,3 +1,4 @@
+import { Winner } from '../engine/values';
 import { actionStableKey } from '../engine/actionSurface';
 import {
   decisionPlayerIdForState,
@@ -5,7 +6,7 @@ import {
 } from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { stepToDecision } from '../engine/session';
-import type { GameAction, GameState, PlayerId } from '../engine/types';
+import { type GameAction, type GameState, PlayerId } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
 import type { ActionPolicy } from './types';
 import { encodeObservation } from './trainingEncoding';
@@ -113,7 +114,7 @@ function scoreActionInWorld({
   }
 
   const activePlayer = decisionPlayerIdForState(next);
-  if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
+  if (activePlayer !== PlayerId.PlayerA && activePlayer !== PlayerId.PlayerB) {
     throw new Error(
       'TD value policy could not resolve active player from next state.'
     );
@@ -127,7 +128,7 @@ function scoreActionInWorld({
 
 function terminalValue(state: GameState, rootPlayer: PlayerId): number {
   const winner = state.finalScore?.winner;
-  if (!winner || winner === 'Draw') {
+  if (!winner || winner === Winner.Draw) {
     return 0;
   }
   return winner === rootPlayer ? 1 : -1;

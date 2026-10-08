@@ -1,13 +1,18 @@
-import { CARD_BY_ID, propertyDeckForRuleset, type CardId } from '../engine/cards';
+import { CardKind } from '../engine/values';
+import {
+  CARD_BY_ID,
+  propertyDeckForRuleset,
+  type CardId,
+} from '../engine/cards';
 import { districtScore } from '../engine/scoring';
 import { findDevelopableCard, placementAllowed } from '../engine/stateHelpers';
-import type {
-  DevelopableCard,
-  DistrictState,
-  GameState,
+import {
+  type DevelopableCard,
+  type DistrictState,
+  type GameState,
   PlayerId,
-  PlayerState,
-  Rank,
+  type PlayerState,
+  type Rank,
   Suit,
 } from '../engine/types';
 import { clamp, otherPlayerId, smoothstep } from './policyProjection';
@@ -69,7 +74,7 @@ export function suitAccessBySuitForPlayerV2(
 
   for (const crownId of player.crowns) {
     const card = CARD_BY_ID[crownId];
-    if (card?.kind === 'Crown') {
+    if (card?.kind === CardKind.Crown) {
       access[card.suits[0]] += CROWN_ACCESS_WEIGHT;
     }
   }
@@ -245,8 +250,8 @@ function districtScoresById(
   const scores = new Map<string, Record<PlayerId, number>>();
   for (const district of state.districts) {
     scores.set(district.id, {
-      PlayerA: districtScore(district.stacks.PlayerA),
-      PlayerB: districtScore(district.stacks.PlayerB),
+      [PlayerId.PlayerA]: districtScore(district.stacks[PlayerId.PlayerA]),
+      [PlayerId.PlayerB]: districtScore(district.stacks[PlayerId.PlayerB]),
     });
   }
   return scores;
@@ -268,7 +273,10 @@ function informationSafeKnownPropertyIds(
     }
   }
   for (const district of state.districts) {
-    for (const candidatePlayerId of ['PlayerA', 'PlayerB'] as const) {
+    for (const candidatePlayerId of [
+      PlayerId.PlayerA,
+      PlayerId.PlayerB,
+    ] as const) {
       const stack = district.stacks[candidatePlayerId];
       for (const cardId of stack.developed) {
         known.add(cardId);
@@ -298,11 +306,11 @@ function gamePhaseForTokenDemand(state: GameState): number {
 
 function emptySuitValueMap<T>(create: (suit: Suit) => T): SuitValueMap<T> {
   return {
-    Moons: create('Moons'),
-    Suns: create('Suns'),
-    Waves: create('Waves'),
-    Leaves: create('Leaves'),
-    Wyrms: create('Wyrms'),
-    Knots: create('Knots'),
+    [Suit.Moons]: create(Suit.Moons),
+    [Suit.Suns]: create(Suit.Suns),
+    [Suit.Waves]: create(Suit.Waves),
+    [Suit.Leaves]: create(Suit.Leaves),
+    [Suit.Wyrms]: create(Suit.Wyrms),
+    [Suit.Knots]: create(Suit.Knots),
   };
 }

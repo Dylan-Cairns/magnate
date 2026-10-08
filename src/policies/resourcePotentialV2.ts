@@ -4,11 +4,11 @@ import {
   findDevelopableCard,
   SUITS,
 } from '../engine/stateHelpers';
-import type {
-  GameAction,
-  GameState,
-  PlayerId,
-  ResourcePool,
+import {
+  type GameAction,
+  type GameState,
+  type PlayerId,
+  type ResourcePool,
   Suit,
 } from '../engine/types';
 import { isCourtCard } from './courtPotentialV2';
@@ -153,11 +153,11 @@ function requiredResources(state: GameState, playerId: PlayerId): ResourcePool {
 
 function emptySuitValueMap<T>(create: (suit: Suit) => T): SuitValueMap<T> {
   return {
-    Moons: create('Moons'),
-    Suns: create('Suns'),
-    Waves: create('Waves'),
-    Leaves: create('Leaves'),
-    Wyrms: create('Wyrms'),
-    Knots: create('Knots'),
+    [Suit.Moons]: create(Suit.Moons),
+    [Suit.Suns]: create(Suit.Suns),
+    [Suit.Waves]: create(Suit.Waves),
+    [Suit.Leaves]: create(Suit.Leaves),
+    [Suit.Wyrms]: create(Suit.Wyrms),
+    [Suit.Knots]: create(Suit.Knots),
   };
 }

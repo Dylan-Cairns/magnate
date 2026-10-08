@@ -1,3 +1,6 @@
+import { PlayerId } from '../engine/values';
+import { BotProfileId } from '../policies/values';
+import { EffectiveSearchExecutionMode } from '../policies/workerValues';
 import { actionStableKey } from '../engine/actionSurface';
 import {
   decisionPlayerIdForState,
@@ -19,7 +22,7 @@ import {
   policyRandomForState,
   policyRandomSeedForState,
 } from '../policies/policyRandom';
-import type { SearchWorkerExecutionMode } from '../policies/searchWorkerProtocol';
+import { SearchWorkerExecutionMode } from '../policies/searchWorkerProtocol';
 import type { SearchDecisionDiagnostics } from '../policies/types';
 import {
   createWorkerBackedPolicy,
@@ -63,8 +66,6 @@ interface MismatchSample {
   pairedRootActions: SearchDecisionDiagnostics['rootActions'];
 }
 
-type EffectiveSearchExecutionMode = SearchWorkerExecutionMode | 'synchronous';
-
 self.onmessage = (event: MessageEvent<OuterShadowOptions>) => {
   void runBenchmark(event.data)
     .then((result) => self.postMessage({ ok: true, result }))
@@ -80,7 +81,7 @@ self.onmessage = (event: MessageEvent<OuterShadowOptions>) => {
 };
 
 async function runBenchmark(options: OuterShadowOptions) {
-  const profile = getBotProfile('td-root-search-v2-medium');
+  const profile = getBotProfile(BotProfileId.TdRootSearchV2Medium);
   if (profile.spec.kind !== 'td-root-search') {
     throw new Error('TD Medium catalog profile is not TD-root search.');
   }
@@ -93,7 +94,7 @@ async function runBenchmark(options: OuterShadowOptions) {
   const observedCandidateExecutionModes =
     new Set<EffectiveSearchExecutionMode>();
   const legacy = createWorkerBackedPolicy(spec, {
-    searchExecutionMode: 'legacy',
+    searchExecutionMode: SearchWorkerExecutionMode.Legacy,
     onSearchExecutionMode(mode) {
       observedLegacyExecutionModes.add(mode);
     },
@@ -201,13 +202,19 @@ async function runBenchmark(options: OuterShadowOptions) {
     const speedupPassed = speedup >= options.minimumSpeedup;
     const p95NonRegression = pairedTiming.p95Ms <= legacyTiming.p95Ms;
     const executionModeRouting = {
-      requestedLegacyOverride: 'legacy',
+      requestedLegacyOverride: SearchWorkerExecutionMode.Legacy,
       requestedCandidateOverride: null,
       observedLegacy: [...observedLegacyExecutionModes].sort(),
       observedCandidate: [...observedCandidateExecutionModes].sort(),
       passed:
-        setContainsOnly(observedLegacyExecutionModes, 'legacy') &&
-        setContainsOnly(observedCandidateExecutionModes, 'resumable-paired-td'),
+        setContainsOnly(
+          observedLegacyExecutionModes,
+          SearchWorkerExecutionMode.Legacy
+        ) &&
+        setContainsOnly(
+          observedCandidateExecutionModes,
+          SearchWorkerExecutionMode.ResumablePairedTd
+        ),
     };
 
     return {
@@ -224,10 +231,10 @@ async function runBenchmark(options: OuterShadowOptions) {
       policy: {
         profileId: profile.id,
         spec,
-        legacyExecutionMode: 'legacy',
-        candidateExecutionMode: 'resumable-paired-td',
+        legacyExecutionMode: SearchWorkerExecutionMode.Legacy,
+        candidateExecutionMode: SearchWorkerExecutionMode.ResumablePairedTd,
         candidateExecutionModeRequest: 'omitted-production-default',
-        authority: 'legacy',
+        authority: SearchWorkerExecutionMode.Legacy,
       },
       execution: {
         modeRouting: executionModeRouting,
@@ -310,7 +317,10 @@ async function runDecision(
   policy: WorkerBackedActionPolicy
 ): Promise<DecisionResult> {
   const decisionPlayer = decisionPlayerIdForState(state);
-  if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+  if (
+    decisionPlayer !== PlayerId.PlayerA &&
+    decisionPlayer !== PlayerId.PlayerB
+  ) {
     throw new Error('Outer shadow could not resolve decision player.');
   }
   const view = toDecisionPlayerView(state, decisionPlayer);
@@ -356,7 +366,7 @@ async function runShadowGame(
   const gameSeed = `td-outer-shadow:game:${String(gameIndex)}`;
   let state = createSession(
     gameSeed,
-    gameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB'
+    gameIndex % 2 === 0 ? PlayerId.PlayerA : PlayerId.PlayerB
   );
   let searchedDecisions = 0;
   let actionMismatchCount = 0;
@@ -369,7 +379,10 @@ async function runShadowGame(
     decisionIndex += 1
   ) {
     const decisionPlayer = decisionPlayerIdForState(state);
-    if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+    if (
+      decisionPlayer !== PlayerId.PlayerA &&
+      decisionPlayer !== PlayerId.PlayerB
+    ) {
       throw new Error('Outer shadow game could not resolve decision player.');
     }
     const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
@@ -451,7 +464,7 @@ async function collectDecisionStates(count: number): Promise<CorpusState[]> {
   for (let gameIndex = 0; gameIndex < gameCount; gameIndex += 1) {
     let state = createSession(
       `td-outer-shadow:source-game:${String(gameIndex)}`,
-      gameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB'
+      gameIndex % 2 === 0 ? PlayerId.PlayerA : PlayerId.PlayerB
     );
     const candidates: CorpusState[] = [];
     for (
@@ -460,7 +473,10 @@ async function collectDecisionStates(count: number): Promise<CorpusState[]> {
       decisionIndex += 1
     ) {
       const decisionPlayer = decisionPlayerIdForState(state);
-      if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+      if (
+        decisionPlayer !== PlayerId.PlayerA &&
+        decisionPlayer !== PlayerId.PlayerB
+      ) {
         throw new Error('Shadow corpus could not resolve decision player.');
       }
       const view = toDecisionPlayerView(state, decisionPlayer);

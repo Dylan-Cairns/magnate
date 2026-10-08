@@ -1,3 +1,4 @@
+import { GamePhase } from '../engine/values';
 import type { GameState, PlayerId } from '../engine/types';
 
 export interface TurnResetAnchor {
@@ -19,7 +20,7 @@ export function shouldCaptureTurnResetAnchor(
   if (activePlayerId !== humanPlayerId) {
     return false;
   }
-  if (state.phase !== 'ActionWindow') {
+  if (state.phase !== GamePhase.ActionWindow) {
     return false;
   }
   if (state.cardPlayedThisTurn) {
@@ -47,7 +48,7 @@ export function canUseTurnReset(
   if (activePlayerId !== humanPlayerId) {
     return false;
   }
-  if (state.phase !== 'ActionWindow') {
+  if (state.phase !== GamePhase.ActionWindow) {
     return false;
   }
   if (anchor.turn !== state.turn || anchor.playerId !== activePlayerId) {

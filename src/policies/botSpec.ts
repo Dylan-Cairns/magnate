@@ -1,8 +1,9 @@
+import { BotKind } from './values';
 import { heuristicPolicy } from './heuristicPolicy';
 import { randomPolicy } from './randomPolicy';
 import {
   createSearchPolicy,
-  type SearchHeuristicVersion,
+  SearchHeuristicVersion,
   type SearchPolicyConfig,
 } from './searchPolicy';
 import {
@@ -11,31 +12,25 @@ import {
 } from './tdRootSearchPolicy';
 import type { ActionPolicy } from './types';
 
-export type BotKind =
-  | 'random'
-  | 'heuristic'
-  | 'search'
-  | 'td-root-search';
-
 export interface RandomBotSpec {
   id: string;
-  kind: 'random';
+  kind: typeof BotKind.Random;
 }
 
 export interface HeuristicBotSpec {
   id: string;
-  kind: 'heuristic';
+  kind: typeof BotKind.Heuristic;
 }
 
 export interface SearchBotSpec {
   id: string;
-  kind: 'search';
+  kind: typeof BotKind.Search;
   config: SearchPolicyConfig;
 }
 
 export interface TdRootSearchBotSpec {
   id: string;
-  kind: 'td-root-search';
+  kind: typeof BotKind.TdRootSearch;
   config: SearchPolicyConfig;
   modelIndexPath?: string;
 }
@@ -55,13 +50,13 @@ export function createPolicyFromBotSpec(
   overrides: BotPolicyRuntimeOverrides = {}
 ): ActionPolicy {
   switch (spec.kind) {
-    case 'random':
+    case BotKind.Random:
       return randomPolicy;
-    case 'heuristic':
+    case BotKind.Heuristic:
       return heuristicPolicy;
-    case 'search':
+    case BotKind.Search:
       return createSearchPolicy(spec.config);
-    case 'td-root-search':
+    case BotKind.TdRootSearch:
       return createTdRootSearchPolicy({
         ...spec.config,
         modelIndexPath: spec.modelIndexPath,
@@ -76,17 +71,17 @@ export function parseBotSpec(value: unknown, label = 'bot spec'): BotSpec {
   const kind = requiredString(source.kind, `${label}.kind`);
 
   switch (kind) {
-    case 'random':
+    case BotKind.Random:
       return { id, kind };
-    case 'heuristic':
+    case BotKind.Heuristic:
       return { id, kind };
-    case 'search':
+    case BotKind.Search:
       return {
         id,
         kind,
         config: parseSearchConfig(source.config, `${label}.config`),
       };
-    case 'td-root-search':
+    case BotKind.TdRootSearch:
       return optionalObjectProperties({
         id,
         kind,
@@ -196,7 +191,10 @@ function optionalSearchHeuristic(
   if (value === undefined) {
     return undefined;
   }
-  if (value === 'v1' || value === 'v2') {
+  if (
+    value === SearchHeuristicVersion.V1 ||
+    value === SearchHeuristicVersion.V2
+  ) {
     return value;
   }
   throw new Error(`${label} must be v1 or v2.`);
@@ -207,3 +205,5 @@ function optionalObjectProperties<T extends object>(value: T): T {
     Object.entries(value).filter((_entry): boolean => _entry[1] !== undefined)
   ) as T;
 }
+
+export { BotKind } from './values';

@@ -1,15 +1,16 @@
+import { CardKind } from '../engine/values';
 import { CARD_BY_ID, type CardId } from '../engine/cards';
-import type { GameLogEntry, PlayerId, Suit } from '../engine/types';
+import { type GameLogEntry, type PlayerId, Suit } from '../engine/types';
 
 export type SuitLogCode = 'mo' | 'su' | 'wa' | 'le' | 'wy' | 'kn';
 
 const SUIT_LOG_CODE: Record<Suit, SuitLogCode> = {
-  Moons: 'mo',
-  Suns: 'su',
-  Waves: 'wa',
-  Leaves: 'le',
-  Wyrms: 'wy',
-  Knots: 'kn',
+  [Suit.Moons]: 'mo',
+  [Suit.Suns]: 'su',
+  [Suit.Waves]: 'wa',
+  [Suit.Leaves]: 'le',
+  [Suit.Wyrms]: 'wy',
+  [Suit.Knots]: 'kn',
 };
 const SUIT_NAME_PATTERN = /\b(Moons|Suns|Waves|Leaves|Wyrms|Knots)\b/g;
 const CARD_ACTION_PATTERN =
@@ -85,17 +86,17 @@ export function metaSummaryLabel(summary: string): string | null {
 export function suitCodeToSuit(value: SuitLogCode): Suit {
   switch (value) {
     case 'mo':
-      return 'Moons';
+      return Suit.Moons;
     case 'su':
-      return 'Suns';
+      return Suit.Suns;
     case 'wa':
-      return 'Waves';
+      return Suit.Waves;
     case 'le':
-      return 'Leaves';
+      return Suit.Leaves;
     case 'wy':
-      return 'Wyrms';
+      return Suit.Wyrms;
     case 'kn':
-      return 'Knots';
+      return Suit.Knots;
   }
 }
 
@@ -118,9 +119,9 @@ function formatCardIdForLog(rawCardId: string): string {
     return rawCardId;
   }
   if (
-    card.kind !== 'Property' &&
-    card.kind !== 'Court' &&
-    card.kind !== 'Crown'
+    card.kind !== CardKind.Property &&
+    card.kind !== CardKind.Court &&
+    card.kind !== CardKind.Crown
   ) {
     return rawCardId;
   }
@@ -130,12 +131,12 @@ function formatCardIdForLog(rawCardId: string): string {
 
 function suitNameToCode(value: string): SuitLogCode | null {
   if (
-    value !== 'Moons' &&
-    value !== 'Suns' &&
-    value !== 'Waves' &&
-    value !== 'Leaves' &&
-    value !== 'Wyrms' &&
-    value !== 'Knots'
+    value !== Suit.Moons &&
+    value !== Suit.Suns &&
+    value !== Suit.Waves &&
+    value !== Suit.Leaves &&
+    value !== Suit.Wyrms &&
+    value !== Suit.Knots
   ) {
     return null;
   }

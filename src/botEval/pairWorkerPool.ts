@@ -1,3 +1,4 @@
+import { PairWorkerMessageType } from './workerValues';
 import { fork, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -24,10 +25,7 @@ export interface RunPairedSeedJobsInChildPoolOptions {
     pairIndex: number,
     game: PlayedGame
   ) => void;
-  onPairCompleted?: (
-    workerId: number,
-    result: PairedSeedResult
-  ) => void;
+  onPairCompleted?: (workerId: number, result: PairedSeedResult) => void;
 }
 
 interface PoolWorker {
@@ -86,7 +84,7 @@ export async function runPairedSeedJobsInChildPool({
       settled = true;
       shuttingDown = true;
       for (const worker of pool) {
-        send(worker, { type: 'shutdown' });
+        send(worker, { type: PairWorkerMessageType.Shutdown });
       }
       resolve(results.sort((left, right) => left.pairIndex - right.pairIndex));
     }
@@ -103,7 +101,7 @@ export async function runPairedSeedJobsInChildPool({
         return;
       }
       worker.activePairIndex = job.pairIndex;
-      send(worker, { type: 'run-pair', job });
+      send(worker, { type: PairWorkerMessageType.RunPair, job });
     }
 
     function handleMessage(
@@ -111,16 +109,16 @@ export async function runPairedSeedJobsInChildPool({
       response: PairWorkerResponse
     ): void {
       switch (response.type) {
-        case 'ready':
+        case PairWorkerMessageType.Ready:
           dispatch(worker);
           return;
-        case 'heartbeat':
+        case PairWorkerMessageType.Heartbeat:
           onHeartbeat?.(worker.id, response.pairIndex, response.heartbeat);
           return;
-        case 'game-completed':
+        case PairWorkerMessageType.GameCompleted:
           onGameCompleted?.(worker.id, response.pairIndex, response.game);
           return;
-        case 'pair-completed':
+        case PairWorkerMessageType.PairCompleted:
           if (worker.activePairIndex !== response.result.pairIndex) {
             fail(
               new Error(
@@ -134,7 +132,7 @@ export async function runPairedSeedJobsInChildPool({
           onPairCompleted?.(worker.id, response.result);
           dispatch(worker);
           return;
-        case 'error':
+        case PairWorkerMessageType.Error:
           fail(
             new Error(
               `Pair worker ${String(worker.id)} failed${response.pairIndex === undefined ? '' : ` on pair ${String(response.pairIndex + 1)}`}: ${response.message}`
@@ -173,7 +171,7 @@ export async function runPairedSeedJobsInChildPool({
         }
       });
       send(worker, {
-        type: 'initialize',
+        type: PairWorkerMessageType.Initialize,
         config,
         progressIntervalMs,
       });

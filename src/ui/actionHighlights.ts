@@ -1,3 +1,4 @@
+import { ActionId } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import { findDevelopableCard, SUITS } from '../engine/stateHelpers';
 import type { DistrictId, GameAction, Suit } from '../engine/types';
@@ -61,7 +62,7 @@ function cardResources(
 
 export function actionHighlightTargets(action: GameAction): HighlightTarget[] {
   switch (action.type) {
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       return [
         { kind: 'hand-card', cardId: action.cardId },
         ...cardResources(action.cardId, 'spend'),
@@ -72,7 +73,7 @@ export function actionHighlightTargets(action: GameAction): HighlightTarget[] {
           placement: 'deed',
         },
       ];
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return [
         { kind: 'hand-card', cardId: action.cardId },
         ...resources(
@@ -86,7 +87,7 @@ export function actionHighlightTargets(action: GameAction): HighlightTarget[] {
           placement: 'developed',
         },
       ];
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return [
         { kind: 'played-card', cardId: action.cardId },
         ...resources(
@@ -94,23 +95,23 @@ export function actionHighlightTargets(action: GameAction): HighlightTarget[] {
           'spend'
         ),
       ];
-    case 'sell-card':
+    case ActionId.SellCard:
       return [
         { kind: 'hand-card', cardId: action.cardId },
         ...cardResources(action.cardId, 'gain'),
         { kind: 'pile', pile: 'discard' },
       ];
-    case 'trade':
+    case ActionId.Trade:
       return [
         ...resources([action.give], 'spend'),
         ...resources([action.receive], 'gain'),
       ];
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return [
         { kind: 'played-card', cardId: action.cardId },
         ...resources([action.suit], 'gain'),
       ];
-    case 'end-turn':
+    case ActionId.EndTurn:
       return [];
   }
 }

@@ -5,26 +5,28 @@ import { incomeForResult } from './income';
 import { rngFromSeed } from './rng';
 import { scoreGame } from './scoring';
 import { applyDelta } from './stateHelpers';
-import type {
+import {
   GamePhase,
-  GameState,
-  IncomeChoice,
-  IncomeRollResult,
-  PlayerId,
-  Rank,
+  type GameState,
+  type IncomeChoice,
+  type IncomeRollResult,
+  type PlayerId,
+  type Rank,
   Suit,
 } from './types';
 
-const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set(['GameOver']);
+const BASE_DECISION_PHASES: ReadonlySet<GamePhase> = new Set([
+  GamePhase.GameOver,
+]);
 
 const MAX_ADVANCE_STEPS = 32;
 const TAX_SUIT_BY_D6: readonly [Suit, Suit, Suit, Suit, Suit, Suit] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
+  Suit.Moons,
+  Suit.Suns,
+  Suit.Waves,
+  Suit.Leaves,
+  Suit.Wyrms,
+  Suit.Knots,
 ];
 
 export interface AdvanceToDecisionOptions {
@@ -54,7 +56,7 @@ function isDecisionPhase(
   state: GameState,
   options: AdvanceToDecisionOptions
 ): boolean {
-  if (state.phase === 'ActionWindow') {
+  if (state.phase === GamePhase.ActionWindow) {
     if (options.assumeActionWindowDecision) {
       return true;
     }
@@ -63,7 +65,7 @@ function isDecisionPhase(
   if (BASE_DECISION_PHASES.has(state.phase)) {
     return true;
   }
-  if (state.phase === 'CollectIncome') {
+  if (state.phase === GamePhase.CollectIncome) {
     return hasUnsubmittedIncomeChoices(state);
   }
   return false;
@@ -71,19 +73,19 @@ function isDecisionPhase(
 
 function advanceOnePhase(state: GameState): GameState {
   switch (state.phase) {
-    case 'StartTurn':
+    case GamePhase.StartTurn:
       return {
         ...state,
-        phase: 'TaxCheck',
+        phase: GamePhase.TaxCheck,
       };
-    case 'TaxCheck':
+    case GamePhase.TaxCheck:
       return resolveTaxCheck(state);
-    case 'CollectIncome':
+    case GamePhase.CollectIncome:
       return resolveCollectIncome(state);
-    case 'DrawCard':
+    case GamePhase.DrawCard:
       return resolveDrawPhase(state);
-    case 'ActionWindow':
-    case 'GameOver':
+    case GamePhase.ActionWindow:
+    case GamePhase.GameOver:
       return state;
   }
 }
@@ -117,7 +119,7 @@ function resolveTaxCheck(state: GameState): GameState {
 
   return {
     ...nextState,
-    phase: 'CollectIncome',
+    phase: GamePhase.CollectIncome,
   };
 }
 
@@ -140,7 +142,7 @@ function resolveCollectIncome(state: GameState): GameState {
     return {
       ...resolveSubmittedIncomeChoices(state),
       activePlayerIndex: findPlayerIndexById(state, returnPlayerId),
-      phase: 'ActionWindow',
+      phase: GamePhase.ActionWindow,
       cardPlayedThisTurn: false,
       pendingIncomeChoices: undefined,
       submittedIncomeChoices: undefined,
@@ -163,7 +165,7 @@ function resolveCollectIncome(state: GameState): GameState {
     return {
       ...state,
       players,
-      phase: 'CollectIncome',
+      phase: GamePhase.CollectIncome,
       pendingIncomeChoices: pendingChoices,
       submittedIncomeChoices: undefined,
       incomeChoiceReturnPlayerId: state.players[state.activePlayerIndex]?.id,
@@ -173,7 +175,7 @@ function resolveCollectIncome(state: GameState): GameState {
   return {
     ...state,
     players,
-    phase: 'ActionWindow',
+    phase: GamePhase.ActionWindow,
     cardPlayedThisTurn: false,
     pendingIncomeChoices: undefined,
     submittedIncomeChoices: undefined,
@@ -324,7 +326,7 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
     if (justEnteredFinalTurns) {
       return {
         ...handoff,
-        phase: 'StartTurn',
+        phase: GamePhase.StartTurn,
         finalTurnsRemaining: state.finalTurnsRemaining ?? 2,
       };
     }
@@ -335,21 +337,21 @@ function endTurn(state: GameState, justEnteredFinalTurns = false): GameState {
     if (remaining === 0) {
       return finalizeGame({
         ...handoff,
-        phase: 'GameOver',
+        phase: GamePhase.GameOver,
         finalTurnsRemaining: 0,
       });
     }
 
     return {
       ...handoff,
-      phase: 'StartTurn',
+      phase: GamePhase.StartTurn,
       finalTurnsRemaining: remaining,
     };
   }
 
   return {
     ...handoff,
-    phase: 'StartTurn',
+    phase: GamePhase.StartTurn,
     finalTurnsRemaining: undefined,
   };
 }

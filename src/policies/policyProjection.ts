@@ -1,20 +1,26 @@
+import { ActionId } from '../engine/values';
 import {
   developmentCost,
   findDevelopableCard,
   mergeTokens,
   sumTokens,
 } from '../engine/stateHelpers';
-import type {
-  DistrictStack,
-  DistrictState,
-  GameAction,
-  GameState,
+import {
+  type DistrictStack,
+  type DistrictState,
+  type GameAction,
+  type GameState,
   PlayerId,
 } from '../engine/types';
 
 export type DistrictAction = Extract<
   GameAction,
-  { type: 'buy-deed' | 'develop-deed' | 'develop-outright' }
+  {
+    type:
+      | typeof ActionId.BuyDeed
+      | typeof ActionId.DevelopDeed
+      | typeof ActionId.DevelopOutright;
+  }
 >;
 
 export function projectStateDistrictAction(
@@ -55,13 +61,13 @@ export function projectStackAction(
   stack: DistrictStack,
   action: DistrictAction
 ): DistrictStack {
-  if (action.type === 'develop-outright') {
+  if (action.type === ActionId.DevelopOutright) {
     return {
       ...stack,
       developed: [...stack.developed, action.cardId],
     };
   }
-  if (action.type === 'buy-deed') {
+  if (action.type === ActionId.BuyDeed) {
     return {
       ...stack,
       deed: {
@@ -98,14 +104,14 @@ export function projectStackAction(
 
 export function isDistrictAction(action: GameAction): action is DistrictAction {
   return (
-    action.type === 'buy-deed' ||
-    action.type === 'develop-deed' ||
-    action.type === 'develop-outright'
+    action.type === ActionId.BuyDeed ||
+    action.type === ActionId.DevelopDeed ||
+    action.type === ActionId.DevelopOutright
   );
 }
 
 export function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }
 
 export function smoothstep(value: number): number {

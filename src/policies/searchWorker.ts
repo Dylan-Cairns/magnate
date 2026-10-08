@@ -1,4 +1,8 @@
 import {
+  SearchWorkerMessageType,
+  SearchWorkerExecutionMode,
+} from './workerValues';
+import {
   runRolloutSearchTask,
   type RolloutSearchRuntimeGuidance,
   type RolloutSearchWorkerGuidance,
@@ -34,8 +38,8 @@ let rolloutSearchPairTdActions = false;
 workerScope.onmessage = (event) => {
   void handleRequest(event.data).catch((error: unknown) => {
     const requestId =
-      event.data.type === 'run-batch' ||
-      event.data.type === 'initialize-rollout-search'
+      event.data.type === SearchWorkerMessageType.RunBatch ||
+      event.data.type === SearchWorkerMessageType.InitializeRolloutSearch
         ? event.data.requestId
         : undefined;
     postError(requestId, error);
@@ -44,13 +48,13 @@ workerScope.onmessage = (event) => {
 
 async function handleRequest(request: SearchWorkerRequest): Promise<void> {
   switch (request.type) {
-    case 'shutdown':
+    case SearchWorkerMessageType.Shutdown:
       workerScope.close();
       return;
-    case 'run-batch':
+    case SearchWorkerMessageType.RunBatch:
       runBatch(request);
       return;
-    case 'initialize-rollout-search':
+    case SearchWorkerMessageType.InitializeRolloutSearch:
       await initializeRolloutSearch(request);
       return;
   }
@@ -66,7 +70,7 @@ async function initializeRolloutSearch(
   rolloutSearchModel = runtime.model;
   rolloutSearchPairTdActions = runtime.pairTdActions;
   workerScope.postMessage({
-    type: 'initialized',
+    type: SearchWorkerMessageType.Initialized,
     requestId: request.requestId,
   });
 }
@@ -79,21 +83,22 @@ function runBatch(request: SearchWorkerRunBatchRequest): void {
       );
     }
   }
-  if (request.executionMode === 'resumable-paired-td') {
+  if (request.executionMode === SearchWorkerExecutionMode.ResumablePairedTd) {
     assertPairedTdRolloutAvailable(
       rolloutSearchModel,
       rolloutSearchPairTdActions
     );
   }
   const results =
-    request.executionMode === 'resumable-paired-td' ||
-    request.executionMode === 'resumable-scalar'
+    request.executionMode === SearchWorkerExecutionMode.ResumablePairedTd ||
+    request.executionMode === SearchWorkerExecutionMode.ResumableScalar
       ? runRolloutSearchTaskBatchResumable(
           request.tasks,
           rolloutSearchWorldStates,
           rolloutSearchGuidance,
           rolloutSearchModel,
-          request.executionMode === 'resumable-paired-td' &&
+          request.executionMode ===
+            SearchWorkerExecutionMode.ResumablePairedTd &&
             rolloutSearchPairTdActions
         ).results
       : request.tasks.map((task) =>
@@ -105,7 +110,7 @@ function runBatch(request: SearchWorkerRunBatchRequest): void {
           )
         );
   workerScope.postMessage({
-    type: 'batch-result',
+    type: SearchWorkerMessageType.BatchResult,
     requestId: request.requestId,
     results: [...results],
   });
@@ -136,7 +141,7 @@ async function createRuntimeGuidance(
 function postError(requestId: number | undefined, error: unknown): void {
   const normalized = error instanceof Error ? error : new Error(String(error));
   workerScope.postMessage({
-    type: 'error',
+    type: SearchWorkerMessageType.Error,
     ...(requestId !== undefined ? { requestId } : {}),
     message: normalized.message,
     ...(normalized.stack ? { stack: normalized.stack } : {}),

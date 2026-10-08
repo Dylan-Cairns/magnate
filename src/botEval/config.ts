@@ -1,4 +1,5 @@
-import type { Ruleset } from '../engine/types';
+import { BotKind } from '../policies/values';
+import { Ruleset } from '../engine/types';
 import { getBotProfile } from '../policies/catalog';
 import { parseBotSpec, type BotSpec } from '../policies/botSpec';
 import {
@@ -80,7 +81,7 @@ export function parseRolloutSearchSweepConfig(
       candidate,
       `rollout-search sweep config.candidates[${String(index)}]`
     );
-    if (parsed.kind !== 'search') {
+    if (parsed.kind !== BotKind.Search) {
       throw new Error(
         `rollout-search sweep config.candidates[${String(index)}] must have kind search.`
       );
@@ -180,7 +181,7 @@ function parseBotReference(value: unknown, label: string): BotSpec {
 
 function parseTdReplayBotReference(value: unknown, label: string): BotSpec {
   const spec = parseBotReference(value, label);
-  if (spec.kind === 'td-root-search') {
+  if (spec.kind === BotKind.TdRootSearch) {
     throw new Error(
       `${label}.kind ${spec.kind} is not supported by collect-td-replay yet; use random, heuristic, or search.`
     );
@@ -241,7 +242,7 @@ function optionalRuleset(value: unknown, label: string): Ruleset | undefined {
   if (value === undefined) {
     return undefined;
   }
-  if (value === 'standard' || value === 'extended') {
+  if (value === Ruleset.Standard || value === Ruleset.Extended) {
     return value;
   }
   throw new Error(`${label} must be "standard" or "extended".`);

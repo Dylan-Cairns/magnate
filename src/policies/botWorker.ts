@@ -1,3 +1,8 @@
+import {
+  EffectiveSearchExecutionMode,
+  BotWorkerMessageType,
+} from './workerValues';
+import { BotKind, RolloutSearchGuidanceKind } from './values';
 import { actionStableKey } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
 import type { GameAction } from '../engine/types';
@@ -22,7 +27,7 @@ import {
   resolveEffectiveSearchExecutionMode,
   searchWorkerPoolConfigurationMatches,
 } from './searchExecutionMode';
-import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
+import { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 import {
   createTdRootSearchRolloutGuidance,
   createTdRootSearchRootGuide,
@@ -49,8 +54,8 @@ let searchWorkerPoolExecutionMode: SearchWorkerExecutionMode | undefined;
 let shuttingDown = false;
 
 type RolloutLikeSearchBotSpec =
-  | Extract<BotSpec, { kind: 'search' }>
-  | Extract<BotSpec, { kind: 'td-root-search' }>;
+  | Extract<BotSpec, { kind: typeof BotKind.Search }>
+  | Extract<BotSpec, { kind: typeof BotKind.TdRootSearch }>;
 
 interface SearchGuidanceFactories {
   createRootGuide?: RolloutSearchRootGuideFactory;
@@ -60,7 +65,9 @@ interface SearchGuidanceFactories {
 
 interface SearchActionResult {
   action: GameAction | undefined;
-  executionMode: SearchWorkerExecutionMode | 'synchronous';
+  executionMode:
+    | SearchWorkerExecutionMode
+    | typeof EffectiveSearchExecutionMode.Synchronous;
 }
 
 workerScope.onmessage = (event) => {
@@ -70,7 +77,7 @@ workerScope.onmessage = (event) => {
     }
     const requestId =
       typeof event.data === 'object' && event.data !== null
-        ? event.data.type === 'shutdown'
+        ? event.data.type === BotWorkerMessageType.Shutdown
           ? -1
           : event.data.requestId
         : -1;
@@ -80,15 +87,15 @@ workerScope.onmessage = (event) => {
 
 async function handleRequest(request: BotWorkerRequest): Promise<void> {
   switch (request.type) {
-    case 'cancel':
+    case BotWorkerMessageType.Cancel:
       cancelledRequestIds.add(request.requestId);
       return;
-    case 'shutdown':
+    case BotWorkerMessageType.Shutdown:
       shuttingDown = true;
       closeSearchWorkerPool();
       workerScope.close?.();
       return;
-    case 'select-action':
+    case BotWorkerMessageType.SelectAction:
       await selectAction(request);
       return;
   }
@@ -205,7 +212,7 @@ async function selectSearchAction(
       });
       return {
         action,
-        executionMode: executionMode ?? 'legacy',
+        executionMode: executionMode ?? SearchWorkerExecutionMode.Legacy,
       };
     } catch (error) {
       closeSearchWorkerPool();
@@ -228,7 +235,7 @@ async function selectSearchAction(
       : {}),
     ...(onSearchDiagnostics ? { onSearchDiagnostics } : {}),
   });
-  return { action, executionMode: 'synchronous' };
+  return { action, executionMode: EffectiveSearchExecutionMode.Synchronous };
 }
 
 async function createGuidanceForSpec(
@@ -239,7 +246,7 @@ async function createGuidanceForSpec(
     includeRuntimeGuidance: boolean;
   }
 ): Promise<SearchGuidanceFactories> {
-  if (spec.kind === 'search') {
+  if (spec.kind === BotKind.Search) {
     return {};
   }
   const modelIndexPath =
@@ -252,7 +259,7 @@ async function createGuidanceForSpec(
     ...(includeRuntimeGuidance
       ? { rolloutGuidance: createTdRootSearchRolloutGuidance({ model }) }
       : {}),
-    workerGuidance: { kind: 'td-root', modelIndexPath },
+    workerGuidance: { kind: RolloutSearchGuidanceKind.TdRoot, modelIndexPath },
   };
 }
 
@@ -335,17 +342,19 @@ function resolveRolloutSearchBatchSize(
 function isRolloutLikeSearchSpec(
   spec: BotSpec
 ): spec is RolloutLikeSearchBotSpec {
-  return spec.kind === 'search' || spec.kind === 'td-root-search';
+  return spec.kind === BotKind.Search || spec.kind === BotKind.TdRootSearch;
 }
 
 function postSelectedAction(response: {
   requestId: number;
   actionKey?: string;
   diagnostics?: SearchDecisionDiagnostics;
-  searchExecutionMode?: SearchWorkerExecutionMode | 'synchronous';
+  searchExecutionMode?:
+    | SearchWorkerExecutionMode
+    | typeof EffectiveSearchExecutionMode.Synchronous;
 }): void {
   workerScope.postMessage({
-    type: 'selected-action',
+    type: BotWorkerMessageType.SelectedAction,
     ...response,
   });
 }
@@ -353,7 +362,7 @@ function postSelectedAction(response: {
 function postError(requestId: number, error: unknown): void {
   const normalized = error instanceof Error ? error : new Error(String(error));
   workerScope.postMessage({
-    type: 'error',
+    type: BotWorkerMessageType.Error,
     requestId,
     message: normalized.message,
     ...(normalized.stack ? { stack: normalized.stack } : {}),

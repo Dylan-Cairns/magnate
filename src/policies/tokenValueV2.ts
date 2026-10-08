@@ -1,3 +1,4 @@
+import { ActionId } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import {
   applyDelta,
@@ -6,13 +7,13 @@ import {
   findDevelopableCard,
   SUITS,
 } from '../engine/stateHelpers';
-import type {
-  GameAction,
-  GameState,
-  PlayerId,
-  PlayerState,
-  DevelopableCard,
-  ResourcePool,
+import {
+  type GameAction,
+  type GameState,
+  type PlayerId,
+  type PlayerState,
+  type DevelopableCard,
+  type ResourcePool,
   Suit,
 } from '../engine/types';
 import {
@@ -168,11 +169,17 @@ export function tokenDeltaForActionV2(
   context = createTokenValueContextV2(state, playerId),
   projected?: ProjectedTokenValueContextV2
 ): number {
-  if (action.type === 'end-turn') {
+  if (action.type === ActionId.EndTurn) {
     return 0;
   }
-  if (action.type === 'trade' || action.type === 'choose-income-suit') {
-    const after = applyDelta(context.resources, resourceDeltaForActionV2(action));
+  if (
+    action.type === ActionId.Trade ||
+    action.type === ActionId.ChooseIncomeSuit
+  ) {
+    const after = applyDelta(
+      context.resources,
+      resourceDeltaForActionV2(action)
+    );
     return (
       resourceBankValueFromSuitValuesV2(after, context.suitValues).totalValue -
       context.totalValue
@@ -227,7 +234,7 @@ export function projectStateForTokenValueV2(
       }
     : withPlayer;
 
-  if (action.type !== 'sell-card') {
+  if (action.type !== ActionId.SellCard) {
     return withDistricts;
   }
 
@@ -244,21 +251,21 @@ export function resourceDeltaForActionV2(
   action: GameAction
 ): Partial<Record<Suit, number>> {
   switch (action.type) {
-    case 'buy-deed': {
+    case ActionId.BuyDeed: {
       const card = findDevelopableCard(action.cardId);
       return card ? negateTokens(deedCost(card)) : {};
     }
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return { [action.suit]: 1 };
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return negateTokens(action.tokens);
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return negateTokens(action.payment);
-    case 'end-turn':
+    case ActionId.EndTurn:
       return {};
-    case 'sell-card':
+    case ActionId.SellCard:
       return sellCardDelta(action.cardId);
-    case 'trade':
+    case ActionId.Trade:
       return {
         [action.give]: -3,
         [action.receive]: 1,
@@ -309,9 +316,7 @@ export function tradeLiquidityValueForSuitV2(
   return (completedSetBonus + remainderBonus) * sourceExpendability;
 }
 
-function demandBySuitForPlayer(
-  context: TokenDemandContextV2
-): DemandBySuit {
+function demandBySuitForPlayer(context: TokenDemandContextV2): DemandBySuit {
   const demand = emptySuitValueMap(() => ({
     earningDemand: 0,
     scoringDemand: 0,
@@ -377,7 +382,11 @@ function addHandDemand(
     if (!card) {
       continue;
     }
-    const placementWeight = playerHasLegalPlacement(positionContext, playerId, card)
+    const placementWeight = playerHasLegalPlacement(
+      positionContext,
+      playerId,
+      card
+    )
       ? 1
       : 0.25;
     addCardDemandToSuits(demand, {
@@ -406,8 +415,7 @@ function addUnknownPoolDemand(
     addCardDemandToSuits(demand, {
       card,
       earningDemand:
-        cardEarningDemandV2(positionContext, card) *
-        UNKNOWN_POOL_DEMAND_WEIGHT,
+        cardEarningDemandV2(positionContext, card) * UNKNOWN_POOL_DEMAND_WEIGHT,
       scoringDemand:
         bestCardScoringDemandV2(positionContext, playerId, card) *
         UNKNOWN_POOL_DEMAND_WEIGHT,
@@ -565,9 +573,9 @@ function projectPlayerForTokenValue(
   player: PlayerState
 ): PlayerState {
   if (
-    action.type !== 'buy-deed' &&
-    action.type !== 'develop-outright' &&
-    action.type !== 'sell-card'
+    action.type !== ActionId.BuyDeed &&
+    action.type !== ActionId.DevelopOutright &&
+    action.type !== ActionId.SellCard
   ) {
     return player;
   }
@@ -631,11 +639,11 @@ function requiredPlayer(state: GameState, playerId: PlayerId): PlayerState {
 
 function emptySuitValueMap<T>(create: (suit: Suit) => T): SuitValueMap<T> {
   return {
-    Moons: create('Moons'),
-    Suns: create('Suns'),
-    Waves: create('Waves'),
-    Leaves: create('Leaves'),
-    Wyrms: create('Wyrms'),
-    Knots: create('Knots'),
+    [Suit.Moons]: create(Suit.Moons),
+    [Suit.Suns]: create(Suit.Suns),
+    [Suit.Waves]: create(Suit.Waves),
+    [Suit.Leaves]: create(Suit.Leaves),
+    [Suit.Wyrms]: create(Suit.Wyrms),
+    [Suit.Knots]: create(Suit.Knots),
   };
 }

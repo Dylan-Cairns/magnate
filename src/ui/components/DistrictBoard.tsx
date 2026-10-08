@@ -1,3 +1,4 @@
+import { CardKind } from '../../engine/values';
 import { usePlacementGhost } from './ActionHighlights';
 import { memo, type CSSProperties } from 'react';
 
@@ -29,7 +30,7 @@ function crownsToSuits(crowns: readonly CardId[]): Suit[] {
   const suits: Suit[] = [];
   for (const crownId of crowns) {
     const card = CARD_BY_ID[crownId];
-    if (!card || card.kind !== 'Crown') {
+    if (!card || card.kind !== CardKind.Crown) {
       continue;
     }
     suits.push(card.suits[0]);

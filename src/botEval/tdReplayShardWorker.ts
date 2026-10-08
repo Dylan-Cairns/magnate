@@ -1,3 +1,4 @@
+import { TdReplayShardWorkerMessageType } from './workerValues';
 import { collectAndWriteTdReplayArtifacts } from './tdReplayArtifacts';
 import type {
   TdReplayShardWorkerRequest,
@@ -12,13 +13,13 @@ process.on('message', (request: TdReplayShardWorkerRequest) => {
   });
 });
 
-send({ type: 'ready' });
+send({ type: TdReplayShardWorkerMessageType.Ready });
 
 async function handleRequest(
   request: TdReplayShardWorkerRequest
 ): Promise<void> {
   switch (request.type) {
-    case 'run-shard': {
+    case TdReplayShardWorkerMessageType.RunShard: {
       if (activeShardIndex !== undefined) {
         throw new Error('TD replay shard worker received a job while busy.');
       }
@@ -39,7 +40,7 @@ async function handleRequest(
           progressIntervalMs: request.progressIntervalMs,
           onProgress(progress) {
             send({
-              type: 'progress',
+              type: TdReplayShardWorkerMessageType.Progress,
               shardIndex: request.shard.shardIndex,
               progress,
             });
@@ -48,7 +49,7 @@ async function handleRequest(
       );
       activeShardIndex = undefined;
       send({
-        type: 'shard-completed',
+        type: TdReplayShardWorkerMessageType.ShardCompleted,
         result: {
           shard: request.shard,
           written,
@@ -56,7 +57,7 @@ async function handleRequest(
       });
       return;
     }
-    case 'shutdown':
+    case TdReplayShardWorkerMessageType.Shutdown:
       process.disconnect();
       return;
   }
@@ -70,10 +71,9 @@ function send(response: TdReplayShardWorkerResponse): void {
 }
 
 function sendError(error: unknown, shardIndex?: number): void {
-  const normalized =
-    error instanceof Error ? error : new Error(String(error));
+  const normalized = error instanceof Error ? error : new Error(String(error));
   send({
-    type: 'error',
+    type: TdReplayShardWorkerMessageType.Error,
     ...(shardIndex === undefined ? {} : { shardIndex }),
     message: normalized.message,
     ...(normalized.stack ? { stack: normalized.stack } : {}),

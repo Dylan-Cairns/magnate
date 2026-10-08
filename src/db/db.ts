@@ -1,9 +1,10 @@
+import { WinnerDecider } from '../engine/values';
 import Dexie, { type Table } from 'dexie';
 
-import type { Ruleset } from '../engine/types';
+import { Ruleset } from '../engine/types';
 
-export type WinnerOutcome = 'player' | 'bot' | 'draw';
-export type WinnerDecider = 'districts' | 'rank-total' | 'resources' | 'draw';
+import type { WinnerOutcome } from './values';
+export { WinnerOutcome } from './values';
 
 export interface GameRecord {
   id?: number;
@@ -48,10 +49,12 @@ class MagnateDb extends Dexie {
           .table('games')
           .toCollection()
           .modify((game: { ruleset?: string }) => {
-            if (game.ruleset === 'regular') game.ruleset = 'standard';
+            if (game.ruleset === 'regular') game.ruleset = Ruleset.Standard;
           })
       );
   }
 }
 
 export const db = new MagnateDb();
+
+export { WinnerDecider } from '../engine/values';

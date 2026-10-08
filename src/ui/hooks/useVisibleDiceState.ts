@@ -1,3 +1,4 @@
+import { DicePhase } from '../runtime/values';
 import { useState } from 'react';
 
 import type { IncomeRollResult, Suit } from '../../engine/types';
@@ -68,7 +69,7 @@ function settledDiceVisualState(
   return {
     incomeRoll,
     taxSuit,
-    incomePhase: 'settled',
-    taxPhase: taxSuit ? 'settled' : 'dimmed',
+    incomePhase: DicePhase.Settled,
+    taxPhase: taxSuit ? DicePhase.Settled : DicePhase.Dimmed,
   };
 }

@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
-export type CelebrationOutcome = 'win' | 'loss' | 'draw';
+import { CelebrationOutcome } from '../outcomes';
+export { CelebrationOutcome } from '../outcomes';
 
 type ChipParticle = {
   /** Horizontal start, in percent of the viewport width. */
@@ -60,15 +61,23 @@ export function GameCelebration({
   }
 
   const chips =
-    outcome === 'win' ? WIN_CHIPS : outcome === 'loss' ? LOSS_CHIPS : [];
+    outcome === CelebrationOutcome.Win
+      ? WIN_CHIPS
+      : outcome === CelebrationOutcome.Loss
+        ? LOSS_CHIPS
+        : [];
 
   return (
     <div className={`game-celebration is-${outcome}`} aria-hidden="true">
-      {outcome === 'win' ? <span className="celebration-glow" /> : null}
+      {outcome === CelebrationOutcome.Win ? (
+        <span className="celebration-glow" />
+      ) : null}
 
-      {outcome === 'loss' ? <span className="celebration-veil" /> : null}
+      {outcome === CelebrationOutcome.Loss ? (
+        <span className="celebration-veil" />
+      ) : null}
 
-      {outcome === 'draw' ? (
+      {outcome === CelebrationOutcome.Draw ? (
         <>
           <span className="celebration-draw-ring" />
           <span className="celebration-draw-ring is-delayed" />

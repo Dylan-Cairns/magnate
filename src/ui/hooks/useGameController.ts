@@ -1,13 +1,14 @@
+import { GamePhase, ActionId } from '../../engine/values';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { legalActions } from '../../engine/actionBuilders';
 import { devFixtureIdFromBrowserLocation } from '../../dev/fixtures';
 import { isTerminal } from '../../engine/scoring';
-import type {
-  GameAction,
-  GameLogEntry,
-  GameState,
-  PlayerId,
+import {
+  type GameAction,
+  type GameLogEntry,
+  type GameState,
+  type PlayerId,
   Ruleset,
 } from '../../engine/types';
 import { toPlayerView } from '../../engine/view';
@@ -49,7 +50,7 @@ const BOT_PROFILE_STORAGE_KEY = 'magnate:botProfileId';
 const RULESET_STORAGE_KEY = 'magnate:ruleset';
 
 function sanitizeRuleset(value: string | undefined): Ruleset {
-  return value === 'extended' ? 'extended' : 'standard';
+  return value === Ruleset.Extended ? Ruleset.Extended : Ruleset.Standard;
 }
 
 function sanitizeBotProfileId(
@@ -63,13 +64,13 @@ function sanitizeBotProfileId(
 }
 
 function readRulesetPreference(): Ruleset {
-  if (typeof window === 'undefined') return 'standard';
+  if (typeof window === 'undefined') return Ruleset.Standard;
   try {
     return sanitizeRuleset(
       window.localStorage.getItem(RULESET_STORAGE_KEY) ?? undefined
     );
   } catch {
-    return 'standard';
+    return Ruleset.Standard;
   }
 }
 
@@ -451,7 +452,7 @@ export function useGameController({
       terminal,
       activePlayerId,
       botPlayerId,
-      isIncomeChoicePhase: state.phase === 'CollectIncome',
+      isIncomeChoicePhase: state.phase === GamePhase.CollectIncome,
       botIncomeActionCount: botIncomeActions.length,
       startupPreloadReady,
     });
@@ -487,7 +488,7 @@ export function useGameController({
   const performHumanAction = useCallback(
     (action: GameAction) => {
       const isHumanIncomeChoice =
-        action.type === 'choose-income-suit' &&
+        action.type === ActionId.ChooseIncomeSuit &&
         action.playerId === humanPlayerId;
       if (
         terminal ||
@@ -501,7 +502,7 @@ export function useGameController({
         dispatchAction(
           state,
           action,
-          action.type === 'choose-income-suit'
+          action.type === ActionId.ChooseIncomeSuit
             ? action.playerId
             : activePlayerId
         );

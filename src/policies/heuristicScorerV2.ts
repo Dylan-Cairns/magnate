@@ -1,3 +1,4 @@
+import { ActionId } from '../engine/values';
 import {
   actionStableKey,
   toKeyedActions,
@@ -10,15 +11,15 @@ import {
   findDevelopableCard,
   SUITS,
 } from '../engine/stateHelpers';
-import type {
-  DistrictStack,
-  DistrictState,
-  GameAction,
-  GameState,
+import {
+  type DistrictStack,
+  type DistrictState,
+  type GameAction,
+  type GameState,
   PlayerId,
-  PlayerState,
-  PlayerView,
-  DevelopableCard,
+  type PlayerState,
+  type PlayerView,
+  type DevelopableCard,
 } from '../engine/types';
 import {
   clamp,
@@ -228,7 +229,7 @@ function scoreHeuristicV2ActionWithContext(
     )?.delta ?? 0;
 
   const tradeResourceDelta =
-    action.type === 'trade'
+    action.type === ActionId.Trade
       ? TRADE_RESOURCE_POTENTIAL_WEIGHT *
         resourcePotentialDeltaForActionV2(
           action,
@@ -321,7 +322,10 @@ function resolveContext(
   }
   const activePlayerId =
     context.view?.activePlayerId ?? state.players[state.activePlayerIndex]?.id;
-  if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
+  if (
+    activePlayerId !== PlayerId.PlayerA &&
+    activePlayerId !== PlayerId.PlayerB
+  ) {
     return undefined;
   }
   const activePlayer = state.players.find(
@@ -449,9 +453,9 @@ function projectedContextForAction(
 
 function requiresProjectedTokenContext(action: GameAction): boolean {
   return (
-    action.type !== 'end-turn' &&
-    action.type !== 'trade' &&
-    action.type !== 'choose-income-suit'
+    action.type !== ActionId.EndTurn &&
+    action.type !== ActionId.Trade &&
+    action.type !== ActionId.ChooseIncomeSuit
   );
 }
 
@@ -520,14 +524,14 @@ function actionBaseline(
   action: GameAction,
   valueBeforeBaseline: number
 ): number {
-  if (action.type === 'end-turn') {
+  if (action.type === ActionId.EndTurn) {
     return 0;
   }
   // The "do something" prior exists to prefer progress over ending the turn. For
   // a trade it is the whole value signal, so it must not outvote a
   // value-destroying conversion. District actions carry their own scoring and
   // earning value and keep the baseline unconditionally.
-  if (action.type === 'trade' && valueBeforeBaseline < 0) {
+  if (action.type === ActionId.Trade && valueBeforeBaseline < 0) {
     return 0;
   }
   return SMALL_ACTION_BASELINE;

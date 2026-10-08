@@ -1,3 +1,4 @@
+import { BotKind, RolloutSearchGuidanceKind } from './values';
 import type { GameAction, GameState, PlayerView } from '../engine/types';
 import type { SearchHeuristicVersion } from './searchConfig';
 
@@ -11,8 +12,8 @@ export interface SearchRootActionDiagnostics {
 }
 
 export interface SearchDecisionDiagnostics {
-  kind: 'search';
-  guidance?: 'heuristic' | 'td-root';
+  kind: typeof BotKind.Search;
+  guidance?: RolloutSearchGuidanceKind;
   heuristic?: SearchHeuristicVersion;
   stochasticSimulation?: 'common-random-scenarios-v1';
   legalRootActions: number;

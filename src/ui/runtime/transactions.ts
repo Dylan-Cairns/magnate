@@ -1,15 +1,17 @@
+import { ActionId, SUITS } from '../../engine/values';
+import { GamePresentationEventType, IncomeTokenSourceKind } from './values';
 import { stepToDecision as defaultStepToDecision } from '../../engine/session';
 import {
   developmentCost,
   findDevelopableCard,
 } from '../../engine/stateHelpers';
-import type {
-  GameAction,
-  GameState,
-  IncomeChoice,
-  PlayerId,
-  ResourcePool,
-  SubmittedIncomeChoice,
+import {
+  type GameAction,
+  type GameState,
+  type IncomeChoice,
+  type PlayerId,
+  type ResourcePool,
+  type SubmittedIncomeChoice,
   Suit,
 } from '../../engine/types';
 import { deriveTurnCycleEvents } from '../turnCycleEvents';
@@ -62,18 +64,18 @@ export function deriveGamePresentationEvents(
 ): readonly GamePresentationEvent[] {
   const events: GamePresentationEvent[] = [
     {
-      type: 'action-started',
+      type: GamePresentationEventType.ActionStarted,
       action,
       actingPlayerId,
     },
   ];
 
-  if (action.type === 'end-turn') {
+  if (action.type === ActionId.EndTurn) {
     events.push(...deriveEndTurnEvents(previousState, nextState, action));
   }
-  if (action.type === 'sell-card') {
+  if (action.type === ActionId.SellCard) {
     events.push({
-      type: 'card-sold',
+      type: GamePresentationEventType.CardSold,
       playerId: actingPlayerId,
       cardId: action.cardId,
     });
@@ -86,31 +88,31 @@ export function deriveGamePresentationEvents(
       )
     );
   }
-  if (action.type === 'buy-deed') {
+  if (action.type === ActionId.BuyDeed) {
     events.push(
       ...deriveCardPlayEvents(
         previousState,
         nextState,
         action,
         actingPlayerId,
-        'buy-deed',
+        ActionId.BuyDeed,
         'deed'
       )
     );
   }
-  if (action.type === 'develop-outright') {
+  if (action.type === ActionId.DevelopOutright) {
     events.push(
       ...deriveCardPlayEvents(
         previousState,
         nextState,
         action,
         actingPlayerId,
-        'develop-outright',
+        ActionId.DevelopOutright,
         'developed'
       )
     );
   }
-  if (action.type === 'develop-deed') {
+  if (action.type === ActionId.DevelopDeed) {
     events.push(
       ...deriveDevelopDeedEvents(
         previousState,
@@ -120,9 +122,9 @@ export function deriveGamePresentationEvents(
       )
     );
   }
-  if (action.type === 'trade') {
+  if (action.type === ActionId.Trade) {
     events.push({
-      type: 'trade-resources-applied',
+      type: GamePresentationEventType.TradeResourcesApplied,
       playerId: actingPlayerId,
       give: action.give,
       receive: action.receive,
@@ -130,7 +132,7 @@ export function deriveGamePresentationEvents(
       receiveCount: 1,
     });
   }
-  if (action.type === 'choose-income-suit') {
+  if (action.type === ActionId.ChooseIncomeSuit) {
     events.push(...deriveIncomeChoiceEvents(previousState, nextState, action));
   }
 
@@ -138,28 +140,31 @@ export function deriveGamePresentationEvents(
   const nextPlayerId = activePlayerId(nextState);
   if (previousPlayerId !== nextPlayerId) {
     events.push({
-      type: 'active-player-changed',
+      type: GamePresentationEventType.ActivePlayerChanged,
       previousPlayerId,
       nextPlayerId,
     });
   }
   if (previousState.phase !== nextState.phase) {
     events.push({
-      type: 'phase-changed',
+      type: GamePresentationEventType.PhaseChanged,
       previousPhase: previousState.phase,
       nextPhase: nextState.phase,
     });
   }
-  events.push({ type: 'transaction-settled' });
+  events.push({ type: GamePresentationEventType.TransactionSettled });
   return events;
 }
 
 function deriveCardPlayEvents(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'buy-deed' | 'develop-outright' }>,
+  action: Extract<
+    GameAction,
+    { type: typeof ActionId.BuyDeed | typeof ActionId.DevelopOutright }
+  >,
   actingPlayerId: PlayerId,
-  reason: 'buy-deed' | 'develop-outright',
+  reason: typeof ActionId.BuyDeed | typeof ActionId.DevelopOutright,
   placement: 'deed' | 'developed'
 ): GamePresentationEvent[] {
   const payment = resourcePaymentForPlayer(
@@ -169,7 +174,7 @@ function deriveCardPlayEvents(
   );
   return [
     {
-      type: 'resource-payment-started',
+      type: GamePresentationEventType.ResourcePaymentStarted,
       playerId: actingPlayerId,
       reason,
       cardId: action.cardId,
@@ -177,7 +182,7 @@ function deriveCardPlayEvents(
       payment,
     },
     {
-      type: 'resource-payment-applied',
+      type: GamePresentationEventType.ResourcePaymentApplied,
       playerId: actingPlayerId,
       reason,
       cardId: action.cardId,
@@ -185,7 +190,7 @@ function deriveCardPlayEvents(
       payment,
     },
     {
-      type: 'card-played-to-district',
+      type: GamePresentationEventType.CardPlayedToDistrict,
       playerId: actingPlayerId,
       cardId: action.cardId,
       districtId: action.districtId,
@@ -197,7 +202,7 @@ function deriveCardPlayEvents(
 function deriveDevelopDeedEvents(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'develop-deed' }>,
+  action: Extract<GameAction, { type: typeof ActionId.DevelopDeed }>,
   actingPlayerId: PlayerId
 ): GamePresentationEvent[] {
   const payment = resourcePaymentForPlayer(
@@ -225,9 +230,9 @@ function deriveDevelopDeedEvents(
   }
   const events: GamePresentationEvent[] = [
     {
-      type: 'resource-payment-started',
+      type: GamePresentationEventType.ResourcePaymentStarted,
       playerId: actingPlayerId,
-      reason: 'develop-deed',
+      reason: ActionId.DevelopDeed,
       cardId: action.cardId,
       districtId: action.districtId,
       payment,
@@ -237,7 +242,7 @@ function deriveDevelopDeedEvents(
   for (const entry of tokenEntries(payment)) {
     for (let tokenIndex = 0; tokenIndex < entry.count; tokenIndex += 1) {
       events.push({
-        type: 'deed-token-paid',
+        type: GamePresentationEventType.DeedTokenPaid,
         playerId: actingPlayerId,
         districtId: action.districtId,
         cardId: action.cardId,
@@ -251,15 +256,15 @@ function deriveDevelopDeedEvents(
 
   events.push(
     {
-      type: 'resource-payment-applied',
+      type: GamePresentationEventType.ResourcePaymentApplied,
       playerId: actingPlayerId,
-      reason: 'develop-deed',
+      reason: ActionId.DevelopDeed,
       cardId: action.cardId,
       districtId: action.districtId,
       payment,
     },
     {
-      type: 'deed-progress-applied',
+      type: GamePresentationEventType.DeedProgressApplied,
       playerId: actingPlayerId,
       districtId: action.districtId,
       cardId: action.cardId,
@@ -271,7 +276,7 @@ function deriveDevelopDeedEvents(
   );
   if (completed) {
     events.push({
-      type: 'deed-completed',
+      type: GamePresentationEventType.DeedCompleted,
       playerId: actingPlayerId,
       districtId: action.districtId,
       cardId: action.cardId,
@@ -283,7 +288,7 @@ function deriveDevelopDeedEvents(
 function deriveSellResourceGainEvents(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'sell-card' }>,
+  action: Extract<GameAction, { type: typeof ActionId.SellCard }>,
   actingPlayerId: PlayerId
 ): GamePresentationEvent[] {
   const gains = resourceGainForPlayer(previousState, nextState, actingPlayerId);
@@ -291,7 +296,7 @@ function deriveSellResourceGainEvents(
   for (const entry of tokenEntries(gains)) {
     for (let tokenIndex = 0; tokenIndex < entry.count; tokenIndex += 1) {
       events.push({
-        type: 'sell-resource-gained',
+        type: GamePresentationEventType.SellResourceGained,
         playerId: actingPlayerId,
         cardId: action.cardId,
         suit: entry.suit,
@@ -305,7 +310,7 @@ function deriveSellResourceGainEvents(
 function deriveEndTurnEvents(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'end-turn' }>
+  action: Extract<GameAction, { type: typeof ActionId.EndTurn }>
 ): GamePresentationEvent[] {
   const events: GamePresentationEvent[] = [];
   const previousPlayer = previousState.players.find(
@@ -321,7 +326,7 @@ function deriveEndTurnEvents(
     nextPlayer.hand.length === previousPlayer.hand.length + 1
   ) {
     events.push({
-      type: 'draw-card',
+      type: GamePresentationEventType.DrawCard,
       playerId: previousPlayer.id,
       cardId: nextPlayer.hand[nextPlayer.hand.length - 1],
     });
@@ -333,7 +338,7 @@ function deriveEndTurnEvents(
   }
 
   events.push({
-    type: 'income-roll',
+    type: GamePresentationEventType.IncomeRoll,
     playerId: cycle.cycleOwner,
     turn: nextState.turn,
     roll: cycle.roll,
@@ -342,13 +347,13 @@ function deriveEndTurnEvents(
 
   if (cycle.tax) {
     events.push({
-      type: 'tax-resolved',
+      type: GamePresentationEventType.TaxResolved,
       suit: cycle.tax.suit,
     });
     for (const loss of cycle.tax.lossesByPlayer) {
       for (let tokenIndex = 0; tokenIndex < loss.count; tokenIndex += 1) {
         events.push({
-          type: 'tax-token-lost',
+          type: GamePresentationEventType.TaxTokenLost,
           playerId: loss.playerId,
           suit: cycle.tax.suit,
           tokenIndex,
@@ -359,7 +364,7 @@ function deriveEndTurnEvents(
 
   for (const token of cycle.incomeTokens) {
     events.push({
-      type: 'income-token-gained',
+      type: GamePresentationEventType.IncomeTokenGained,
       playerId: token.playerId,
       suit: token.suit,
       source: token.source,
@@ -368,7 +373,7 @@ function deriveEndTurnEvents(
 
   if (cycle.pendingChoices.length > 0) {
     events.push({
-      type: 'income-choice-required',
+      type: GamePresentationEventType.IncomeChoiceRequired,
       choices: cloneIncomeChoices(cycle.pendingChoices),
       returnPlayerId: nextState.incomeChoiceReturnPlayerId,
     });
@@ -380,11 +385,11 @@ function deriveEndTurnEvents(
 function deriveIncomeChoiceEvents(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'choose-income-suit' }>
+  action: Extract<GameAction, { type: typeof ActionId.ChooseIncomeSuit }>
 ): GamePresentationEvent[] {
   const events: GamePresentationEvent[] = [
     {
-      type: 'income-choice-submitted',
+      type: GamePresentationEventType.IncomeChoiceSubmitted,
       playerId: action.playerId,
       districtId: action.districtId,
       cardId: action.cardId,
@@ -413,11 +418,11 @@ function deriveIncomeChoiceEvents(
       continue;
     }
     events.push({
-      type: 'income-token-gained',
+      type: GamePresentationEventType.IncomeTokenGained,
       playerId: submission.playerId,
       suit: submission.suit,
       source: {
-        kind: 'income-choice',
+        kind: IncomeTokenSourceKind.IncomeChoice,
         cardId: submission.cardId,
         districtId: submission.districtId,
       },
@@ -429,15 +434,6 @@ function deriveIncomeChoiceEvents(
 function activePlayerId(state: GameState): PlayerId | null {
   return state.players[state.activePlayerIndex]?.id ?? null;
 }
-
-const SUITS: readonly Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
 
 function resourcePaymentForPlayer(
   previousState: GameState,
@@ -516,11 +512,11 @@ function cloneIncomeChoices(
 
 export function incomeTokenSourceKey(source: IncomeTokenSource): string {
   switch (source.kind) {
-    case 'district-card':
+    case IncomeTokenSourceKind.DistrictCard:
       return `district-card:${source.districtId}:${source.cardId}`;
-    case 'crown':
+    case IncomeTokenSourceKind.Crown:
       return `crown:${source.cardId}`;
-    case 'income-choice':
+    case IncomeTokenSourceKind.IncomeChoice:
       return `income-choice:${source.districtId}:${source.cardId}`;
   }
 }

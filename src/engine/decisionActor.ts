@@ -1,3 +1,4 @@
+import { GamePhase, ActionId } from './values';
 import { legalActions } from './actionBuilders';
 import type { GameAction, GameState, PlayerId, PlayerView } from './types';
 import { toPlayerView } from './view';
@@ -9,7 +10,7 @@ export function turnOwnerIdForState(state: GameState): PlayerId | undefined {
 export function decisionPlayerIdForState(
   state: GameState
 ): PlayerId | undefined {
-  if (state.phase === 'CollectIncome') {
+  if (state.phase === GamePhase.CollectIncome) {
     const pendingChoice = state.pendingIncomeChoices?.find(
       (choice) =>
         !state.submittedIncomeChoices?.some(
@@ -32,13 +33,13 @@ export function legalActionsForDecisionPlayer(
   playerId = decisionPlayerIdForState(state)
 ): readonly GameAction[] {
   const actions = legalActions(state);
-  if (state.phase !== 'CollectIncome' || playerId === undefined) {
+  if (state.phase !== GamePhase.CollectIncome || playerId === undefined) {
     return actions;
   }
 
   return actions.filter(
     (action) =>
-      action.type === 'choose-income-suit' && action.playerId === playerId
+      action.type === ActionId.ChooseIncomeSuit && action.playerId === playerId
   );
 }
 

@@ -1,6 +1,7 @@
+import { PlayerId, ActionId } from '../../engine/values';
 import { legalActions } from '../../engine/actionBuilders';
 import { createSession, stepToDecision } from '../../engine/session';
-import type { GameAction, Ruleset } from '../../engine/types';
+import { type GameAction, Ruleset } from '../../engine/types';
 import {
   DEFAULT_BOT_PROFILE_ID,
   resolveBotProfile,
@@ -11,18 +12,18 @@ import type { SavedGame } from '../savedGame';
 
 export function initialSave(
   seed = 'save-test',
-  ruleset: Ruleset = 'standard'
+  ruleset: Ruleset = Ruleset.Standard
 ): SavedGame {
-  const state = createSession(seed, 'PlayerA', ruleset);
+  const state = createSession(seed, PlayerId.PlayerA, ruleset);
   return {
     version: 1,
     gameId: 'test-session',
-    humanPlayerId: 'PlayerA',
+    humanPlayerId: PlayerId.PlayerA,
     botProfileId: DEFAULT_BOT_PROFILE_ID,
     state,
     timelineLog: initialBrowserTimelineLog(
       state,
-      'PlayerA',
+      PlayerId.PlayerA,
       resolveBotProfile(DEFAULT_BOT_PROFILE_ID).selected.label
     ),
     actionHistory: [],
@@ -36,7 +37,7 @@ export function advanceSave(save: SavedGame, action: GameAction): SavedGame {
     save.state,
     state,
     action,
-    'PlayerA',
+    PlayerId.PlayerA,
     save.deferredIncomeLogContext
   );
   return {
@@ -50,7 +51,7 @@ export function advanceSave(save: SavedGame, action: GameAction): SavedGame {
         turn: save.state.turn,
         phase: save.state.phase,
         actingPlayerId:
-          action.type === 'choose-income-suit'
+          action.type === ActionId.ChooseIncomeSuit
             ? action.playerId
             : save.state.players[save.state.activePlayerIndex].id,
         action,
@@ -63,10 +64,10 @@ export function advanceSave(save: SavedGame, action: GameAction): SavedGame {
 export function nextTestAction(save: SavedGame): GameAction {
   const actions = legalActions(save.state);
   const action =
-    actions.find((a) => a.type === 'end-turn') ??
-    actions.find((a) => a.type === 'choose-income-suit') ??
-    actions.find((a) => a.type === 'buy-deed') ??
-    actions.find((a) => a.type === 'sell-card');
+    actions.find((a) => a.type === ActionId.EndTurn) ??
+    actions.find((a) => a.type === ActionId.ChooseIncomeSuit) ??
+    actions.find((a) => a.type === ActionId.BuyDeed) ??
+    actions.find((a) => a.type === ActionId.SellCard);
   if (!action) throw new Error('No test action');
   return action;
 }

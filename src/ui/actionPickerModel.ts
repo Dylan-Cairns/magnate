@@ -1,3 +1,5 @@
+import { ActionPickerKind } from './actionValues';
+import { ActionId } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import type { GameAction, Suit } from '../engine/types';
 import {
@@ -7,8 +9,11 @@ import {
   type ActionPickerQuery,
 } from './actionPresentation';
 
-type TradeAction = Extract<GameAction, { type: 'trade' }>;
-type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
+type TradeAction = Extract<GameAction, { type: typeof ActionId.Trade }>;
+type DevelopOutrightAction = Extract<
+  GameAction,
+  { type: typeof ActionId.DevelopOutright }
+>;
 
 export type TradeCompositePicker = {
   selectedGive?: Suit;
@@ -32,12 +37,12 @@ export type ActionPickerState =
   | StandardActionPickerState
   | Positioned<
       TradeCompositePicker & {
-        kind: 'trade-combined';
+        kind: typeof ActionPickerKind.TradeCombined;
       }
     >
   | Positioned<
       DevelopOutrightCompositePicker & {
-        kind: 'develop-outright-combined';
+        kind: typeof ActionPickerKind.DevelopOutrightCombined;
       }
     >;
 
@@ -45,7 +50,7 @@ export function tradeActionsForPicker(
   actions: readonly GameAction[]
 ): TradeAction[] {
   return actions.filter(
-    (action): action is TradeAction => action.type === 'trade'
+    (action): action is TradeAction => action.type === ActionId.Trade
   );
 }
 
@@ -55,13 +60,13 @@ export function actionsForOpenPicker(
   actions: readonly GameAction[]
 ): GameAction[] {
   switch (picker.kind) {
-    case 'trade-combined':
+    case ActionPickerKind.TradeCombined:
       return tradeActionsForPicker(actions).filter(
         (action) =>
           (!picker.selectedGive || action.give === picker.selectedGive) &&
           (!picker.selectedReceive || action.receive === picker.selectedReceive)
       );
-    case 'develop-outright-combined':
+    case ActionPickerKind.DevelopOutrightCombined:
       return buildDevelopOutrightCompositeOptions(
         actions,
         picker.cardId
@@ -72,33 +77,33 @@ export function actionsForOpenPicker(
           (!picker.selectedPaymentKey ||
             paymentSignature(action.payment) === picker.selectedPaymentKey)
       );
-    case 'trade':
+    case ActionPickerKind.Trade:
       return tradeActionsForPicker(actions).filter(
         (action) => action.give === picker.give
       );
-    case 'district':
+    case ActionPickerKind.District:
       return actions.filter(
         (action) =>
-          action.type === 'buy-deed' && action.cardId === picker.cardId
+          action.type === ActionId.BuyDeed && action.cardId === picker.cardId
       );
-    case 'develop-outright-payment':
+    case ActionPickerKind.DevelopOutrightPayment:
       return buildDevelopOutrightCompositeOptions(
         actions,
         picker.cardId
       ).outrightOptions.filter(
         (action) => action.districtId === picker.districtId
       );
-    case 'deed-payment':
+    case ActionPickerKind.DeedPayment:
       return actions.filter(
         (action) =>
-          action.type === 'develop-deed' &&
+          action.type === ActionId.DevelopDeed &&
           action.cardId === picker.cardId &&
           action.districtId === picker.districtId
       );
-    case 'income-choice':
+    case ActionPickerKind.IncomeChoice:
       return actions.filter(
         (action) =>
-          action.type === 'choose-income-suit' &&
+          action.type === ActionId.ChooseIncomeSuit &&
           action.cardId === picker.cardId &&
           action.districtId === picker.districtId &&
           action.playerId === picker.playerId
@@ -146,7 +151,7 @@ export function buildDevelopOutrightCompositeOptions(
 } {
   const outrightOptions = actions.filter(
     (action): action is DevelopOutrightAction =>
-      action.type === 'develop-outright' && action.cardId === cardId
+      action.type === ActionId.DevelopOutright && action.cardId === cardId
   );
   const firstByDistrict = new Map<string, DevelopOutrightAction>();
   const firstByPayment = new Map<string, DevelopOutrightAction>();
@@ -215,33 +220,33 @@ export function developOutrightCompositePickerStillLegal(
 export function toPickerQuery(
   picker: StandardActionPickerState
 ): ActionPickerQuery {
-  if (picker.kind === 'trade') {
-    return { kind: 'trade', give: picker.give };
+  if (picker.kind === ActionPickerKind.Trade) {
+    return { kind: ActionPickerKind.Trade, give: picker.give };
   }
-  if (picker.kind === 'deed-payment') {
+  if (picker.kind === ActionPickerKind.DeedPayment) {
     return {
-      kind: 'deed-payment',
+      kind: ActionPickerKind.DeedPayment,
       cardId: picker.cardId,
       districtId: picker.districtId,
     };
   }
-  if (picker.kind === 'develop-outright-payment') {
+  if (picker.kind === ActionPickerKind.DevelopOutrightPayment) {
     return {
-      kind: 'develop-outright-payment',
+      kind: ActionPickerKind.DevelopOutrightPayment,
       cardId: picker.cardId,
       districtId: picker.districtId,
     };
   }
-  if (picker.kind === 'income-choice') {
+  if (picker.kind === ActionPickerKind.IncomeChoice) {
     return {
-      kind: 'income-choice',
+      kind: ActionPickerKind.IncomeChoice,
       playerId: picker.playerId,
       cardId: picker.cardId,
       districtId: picker.districtId,
     };
   }
   return {
-    kind: 'district',
+    kind: ActionPickerKind.District,
     actionType: picker.actionType,
     cardId: picker.cardId,
   };
@@ -251,10 +256,10 @@ export function actionPickerTitle(
   picker: ActionPickerState,
   suitTokens: Record<Suit, string>
 ): string {
-  if (picker.kind === 'trade-combined') {
+  if (picker.kind === ActionPickerKind.TradeCombined) {
     return 'Trade resources';
   }
-  if (picker.kind === 'develop-outright-combined') {
+  if (picker.kind === ActionPickerKind.DevelopOutrightCombined) {
     return `Develop ${cardSummary(picker.cardId, suitTokens)}`;
   }
   return pickerTitle(toPickerQuery(picker), suitTokens);

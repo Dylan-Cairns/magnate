@@ -1,3 +1,4 @@
+import { BotKind } from '../../policies/values';
 import type { HeadToHeadConfig } from '../types';
 
 export function testHeadToHeadConfig(gamesPerSide = 1): HeadToHeadConfig {
@@ -8,11 +9,11 @@ export function testHeadToHeadConfig(gamesPerSide = 1): HeadToHeadConfig {
     gamesPerSide,
     candidate: {
       id: 'heuristic-candidate',
-      kind: 'heuristic',
+      kind: BotKind.Heuristic,
     },
     opponent: {
       id: 'random-opponent',
-      kind: 'random',
+      kind: BotKind.Random,
     },
   };
 }

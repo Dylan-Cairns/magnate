@@ -1,3 +1,5 @@
+import { BotKind, SearchHeuristicVersion } from '../policies/values';
+import { Winner, ActionId } from '../engine/values';
 import { actionStableKey } from '../engine/actionSurface';
 import { COURT_CARDS, type CardId } from '../engine/cards';
 import {
@@ -11,9 +13,9 @@ import {
   findDevelopableCard,
   sumTokens,
 } from '../engine/stateHelpers';
-import type {
-  GameAction,
-  GameState,
+import {
+  type GameAction,
+  type GameState,
   PlayerId,
   Ruleset,
 } from '../engine/types';
@@ -100,14 +102,19 @@ export interface CourtValueReport {
     readonly opponentWins: number;
     readonly draws: number;
     readonly candidateWinRate: number;
-    readonly candidateWinRateCi95: { readonly low: number; readonly high: number };
+    readonly candidateWinRateCi95: {
+      readonly low: number;
+      readonly high: number;
+    };
     readonly sideGap: number;
     readonly averageTurns: number;
   };
   readonly paired: PairedDiscordantSummary;
   readonly perPair: readonly CourtValuePairRecord[];
   readonly usageByBotId: Readonly<Record<string, CourtValueUsageSummary>>;
-  readonly courtDecisionsByBotId: Readonly<Record<string, CourtDecisionDiagnostics>>;
+  readonly courtDecisionsByBotId: Readonly<
+    Record<string, CourtDecisionDiagnostics>
+  >;
   readonly gates: readonly CourtValueGateResult[];
 }
 
@@ -144,7 +151,7 @@ export function buildCourtValueReport(
   artifact: HeadToHeadArtifact,
   artifactPath?: string
 ): CourtValueReport {
-  const ruleset: Ruleset = artifact.config.ruleset ?? 'standard';
+  const ruleset: Ruleset = artifact.config.ruleset ?? Ruleset.Standard;
   const perPair = collectPairRecords(artifact);
   const paired = pairedDiscordantSummary(
     perPair.map((record) => record.margin)
@@ -218,16 +225,14 @@ export function evaluateCourtValueGates(input: {
   const gates: CourtValueGateResult[] = [];
   const { paired, candidateUsage, opponentUsage } = input;
 
-  if (input.ruleset === 'standard') {
+  if (input.ruleset === Ruleset.Standard) {
     if (paired.pairs < MIN_DECISION_PAIRS) {
       gates.push({
         id: 'standard-paired-noninferiority',
         status: 'observe',
         detail: `only ${String(paired.pairs)} pairs; at least ${String(MIN_DECISION_PAIRS)} required for a gate call`,
       });
-    } else if (
-      paired.meanWinMarginCi95.low > -STANDARD_NONINFERIORITY_MARGIN
-    ) {
+    } else if (paired.meanWinMarginCi95.low > -STANDARD_NONINFERIORITY_MARGIN) {
       gates.push({
         id: 'standard-paired-noninferiority',
         status: 'pass',
@@ -270,8 +275,7 @@ export function evaluateCourtValueGates(input: {
     });
   }
 
-  const acquisitions =
-    candidateUsage.courtBuys + candidateUsage.courtOutrights;
+  const acquisitions = candidateUsage.courtBuys + candidateUsage.courtOutrights;
   if (acquisitions > 0 && candidateUsage.courtCompletions > 0) {
     gates.push({
       id: 'extended-court-utilization',
@@ -321,8 +325,7 @@ export function evaluateCourtValueGates(input: {
 function courtFollowThroughGate(
   candidateUsage: CourtValueUsageSummary
 ): CourtValueGateResult {
-  const acquisitions =
-    candidateUsage.courtBuys + candidateUsage.courtOutrights;
+  const acquisitions = candidateUsage.courtBuys + candidateUsage.courtOutrights;
   if (acquisitions === 0) {
     return {
       id: 'extended-court-follow-through',
@@ -382,7 +385,13 @@ function collectPairRecords(
   const candidateId = artifact.config.candidate.id;
   const byPairId = new Map<
     string,
-    { seed: string; games: number; candidateWins: number; opponentWins: number; draws: number }
+    {
+      seed: string;
+      games: number;
+      candidateWins: number;
+      opponentWins: number;
+      draws: number;
+    }
   >();
 
   for (const game of artifact.games) {
@@ -396,7 +405,7 @@ function collectPairRecords(
       draws: 0,
     };
     record.games += 1;
-    if (game.finalScore.winner === 'Draw') {
+    if (game.finalScore.winner === Winner.Draw) {
       record.draws += 1;
     } else if (game.finalScore.winner === candidateSeat) {
       record.candidateWins += 1;
@@ -471,10 +480,7 @@ function collectCourtDecisionDiagnostics(
     [artifact.config.candidate.id, artifact.config.candidate],
     [artifact.config.opponent.id, artifact.config.opponent],
   ]);
-  const diagnosticsByBotId = new Map<
-    string,
-    MutableCourtDecisionDiagnostics
-  >();
+  const diagnosticsByBotId = new Map<string, MutableCourtDecisionDiagnostics>();
   for (const [botId, spec] of specsById) {
     if (isHeuristicV2SearchSpec(spec)) {
       diagnosticsByBotId.set(
@@ -502,18 +508,12 @@ function collectCourtDecisionDiagnostics(
         bestCourtRankTop1: diagnostics.bestCourtRankTop1,
         bestCourtRankTop4: diagnostics.bestCourtRankTop4,
         bestCourtRankTop16: diagnostics.bestCourtRankTop16,
-        meanBestCourtSwing: safeMean(
-          diagnostics.swingSum,
-          diagnostics.samples
-        ),
+        meanBestCourtSwing: safeMean(diagnostics.swingSum, diagnostics.samples),
         meanBestCourtFeasibility: safeMean(
           diagnostics.feasibilitySum,
           diagnostics.samples
         ),
-        meanBestCourtDelta: safeMean(
-          diagnostics.deltaSum,
-          diagnostics.samples
-        ),
+        meanBestCourtDelta: safeMean(diagnostics.deltaSum, diagnostics.samples),
       },
     ])
   );
@@ -523,9 +523,7 @@ function replayGame(
   game: PlayedGame,
   ruleset: Ruleset,
   usageByBotId: Map<string, MutableCourtUsage> | undefined,
-  diagnosticsByBotId:
-    | Map<string, MutableCourtDecisionDiagnostics>
-    | undefined
+  diagnosticsByBotId: Map<string, MutableCourtDecisionDiagnostics> | undefined
 ): void {
   let state = createSession(game.seed, game.firstPlayer, ruleset);
   for (const decision of game.transcript) {
@@ -652,13 +650,13 @@ function recordActionUsage(
   usage: MutableCourtUsage
 ): void {
   switch (action.type) {
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       usage.buys += 1;
       if (COURT_CARD_IDS.has(action.cardId)) {
         usage.courtBuys += 1;
       }
       return;
-    case 'sell-card':
+    case ActionId.SellCard:
       usage.sells += 1;
       if (COURT_CARD_IDS.has(action.cardId)) {
         usage.courtSells += 1;
@@ -674,7 +672,7 @@ function recordActionUsage(
         }
       }
       return;
-    case 'develop-deed': {
+    case ActionId.DevelopDeed: {
       if (!COURT_CARD_IDS.has(action.cardId)) {
         return;
       }
@@ -690,7 +688,7 @@ function recordActionUsage(
       }
       return;
     }
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       if (COURT_CARD_IDS.has(action.cardId)) {
         usage.courtOutrights += 1;
         usage.courtCompletions += 1;
@@ -707,9 +705,9 @@ function isCourtBuildAction(action: GameAction): boolean {
 
 function courtBuildCardId(action: GameAction): CardId | undefined {
   if (
-    action.type !== 'buy-deed' &&
-    action.type !== 'develop-outright' &&
-    action.type !== 'develop-deed'
+    action.type !== ActionId.BuyDeed &&
+    action.type !== ActionId.DevelopOutright &&
+    action.type !== ActionId.DevelopDeed
   ) {
     return undefined;
   }
@@ -760,7 +758,13 @@ export function renderCourtValueReportMarkdown(
       `| ${diagnostics.botId} | ${String(diagnostics.decisions)} | ${String(diagnostics.decisionsWithCourtOption)} | ${String(diagnostics.chosenCourtActions)} | ${String(diagnostics.bestCourtRankTop1)} | ${String(diagnostics.bestCourtRankTop4)} | ${String(diagnostics.bestCourtRankTop16)} | ${formatNumber(diagnostics.meanBestCourtSwing)} | ${formatNumber(diagnostics.meanBestCourtFeasibility)} | ${formatNumber(diagnostics.meanBestCourtDelta)} |`
     );
   }
-  lines.push('', '## Gates', '', '| gate | status | detail |', '|:---|:---|:---|');
+  lines.push(
+    '',
+    '## Gates',
+    '',
+    '| gate | status | detail |',
+    '|:---|:---|:---|'
+  );
   for (const gate of report.gates) {
     lines.push(`| ${gate.id} | ${gate.status} | ${gate.detail} |`);
   }
@@ -779,11 +783,11 @@ function pairIdForGame(game: PlayedGame): string {
 }
 
 function seatForBot(game: PlayedGame, botId: string): PlayerId {
-  if (game.botBySeat.PlayerA === botId) {
-    return 'PlayerA';
+  if (game.botBySeat[PlayerId.PlayerA] === botId) {
+    return PlayerId.PlayerA;
   }
-  if (game.botBySeat.PlayerB === botId) {
-    return 'PlayerB';
+  if (game.botBySeat[PlayerId.PlayerB] === botId) {
+    return PlayerId.PlayerB;
   }
   throw new Error(`Game ${game.gameId} does not include bot ${botId}.`);
 }
@@ -837,8 +841,11 @@ function createMutableDiagnostics(
 
 function isHeuristicV2SearchSpec(
   spec: BotSpec
-): spec is Extract<BotSpec, { kind: 'search' }> {
-  return spec.kind === 'search' && spec.config.heuristic === 'v2';
+): spec is Extract<BotSpec, { kind: typeof BotKind.Search }> {
+  return (
+    spec.kind === BotKind.Search &&
+    spec.config.heuristic === SearchHeuristicVersion.V2
+  );
 }
 
 function requiredMutableUsage(
@@ -864,7 +871,7 @@ function requiredSummaryUsage(
 }
 
 function describeCourtValueScale(spec: BotSpec): string {
-  if (spec.kind !== 'search' && spec.kind !== 'td-root-search') {
+  if (spec.kind !== BotKind.Search && spec.kind !== BotKind.TdRootSearch) {
     return 'n/a';
   }
   return spec.config.courtValueScale === undefined

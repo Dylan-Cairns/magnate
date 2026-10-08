@@ -1,3 +1,4 @@
+import { ActionId, GamePhase, CardKind } from './values';
 import { CARD_BY_ID } from './cards';
 import type { CardId } from './cards';
 import { legalActions } from './actionBuilders';
@@ -45,19 +46,19 @@ export function applyKnownLegalAction(
   options: ApplyActionOptions = {}
 ): GameState {
   switch (action.type) {
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return chooseIncomeSuit(state, action, options);
-    case 'end-turn':
+    case ActionId.EndTurn:
       return endTurn(state, options);
-    case 'trade':
+    case ActionId.Trade:
       return trade(state, action, options);
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return developDeed(state, action, options);
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return developOutright(state, action, options);
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       return buyDeed(state, action, options);
-    case 'sell-card':
+    case ActionId.SellCard:
       return sellCard(state, action, options);
   }
 
@@ -79,13 +80,13 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     return false;
   }
 
-  if (left.type === 'end-turn') {
+  if (left.type === ActionId.EndTurn) {
     return true;
   }
 
   if (
-    left.type === 'choose-income-suit' &&
-    right.type === 'choose-income-suit'
+    left.type === ActionId.ChooseIncomeSuit &&
+    right.type === ActionId.ChooseIncomeSuit
   ) {
     return (
       left.playerId === right.playerId &&
@@ -95,19 +96,22 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     );
   }
 
-  if (left.type === 'trade' && right.type === 'trade') {
+  if (left.type === ActionId.Trade && right.type === ActionId.Trade) {
     return left.give === right.give && left.receive === right.receive;
   }
 
-  if (left.type === 'sell-card' && right.type === 'sell-card') {
+  if (left.type === ActionId.SellCard && right.type === ActionId.SellCard) {
     return left.cardId === right.cardId;
   }
 
-  if (left.type === 'buy-deed' && right.type === 'buy-deed') {
+  if (left.type === ActionId.BuyDeed && right.type === ActionId.BuyDeed) {
     return left.cardId === right.cardId && left.districtId === right.districtId;
   }
 
-  if (left.type === 'develop-deed' && right.type === 'develop-deed') {
+  if (
+    left.type === ActionId.DevelopDeed &&
+    right.type === ActionId.DevelopDeed
+  ) {
     return (
       left.cardId === right.cardId &&
       left.districtId === right.districtId &&
@@ -115,7 +119,10 @@ function actionsEqual(left: GameAction, right: GameAction): boolean {
     );
   }
 
-  if (left.type === 'develop-outright' && right.type === 'develop-outright') {
+  if (
+    left.type === ActionId.DevelopOutright &&
+    right.type === ActionId.DevelopOutright
+  ) {
     return (
       left.cardId === right.cardId &&
       left.districtId === right.districtId &&
@@ -137,12 +144,17 @@ function endTurn(state: GameState, options: ApplyActionOptions): GameState {
   if (!state.cardPlayedThisTurn) {
     throw new Error('Cannot end turn before a card has been played.');
   }
-  return log({ ...state, phase: 'DrawCard' }, 'end turn', undefined, options);
+  return log(
+    { ...state, phase: GamePhase.DrawCard },
+    'end turn',
+    undefined,
+    options
+  );
 }
 
 function chooseIncomeSuit(
   state: GameState,
-  action: Extract<GameAction, { type: 'choose-income-suit' }>,
+  action: Extract<GameAction, { type: typeof ActionId.ChooseIncomeSuit }>,
   options: ApplyActionOptions
 ): GameState {
   const pendingChoices = state.pendingIncomeChoices ?? [];
@@ -176,7 +188,7 @@ function chooseIncomeSuit(
   const submitted = log(
     {
       ...state,
-      phase: 'CollectIncome',
+      phase: GamePhase.CollectIncome,
       submittedIncomeChoices,
     },
     `income choice ${action.cardId}:${action.suit}`,
@@ -196,7 +208,7 @@ function chooseIncomeSuit(
   return {
     ...resolveSubmittedIncomeChoices(submitted, submittedIncomeChoices),
     activePlayerIndex: findPlayerIndexById(state, returnPlayerId),
-    phase: 'ActionWindow',
+    phase: GamePhase.ActionWindow,
     cardPlayedThisTurn: false,
     pendingIncomeChoices: undefined,
     submittedIncomeChoices: undefined,
@@ -225,7 +237,7 @@ function incomeChoiceMatches(
 
 function isIncomeChoiceSubmitted(
   state: GameState,
-  action: Extract<GameAction, { type: 'choose-income-suit' }>
+  action: Extract<GameAction, { type: typeof ActionId.ChooseIncomeSuit }>
 ): boolean {
   return (state.submittedIncomeChoices ?? []).some((choice) =>
     incomeChoiceMatches(choice, action)
@@ -266,7 +278,7 @@ function resolveSubmittedIncomeChoices(
 
 function trade(
   state: GameState,
-  action: Extract<GameAction, { type: 'trade' }>,
+  action: Extract<GameAction, { type: typeof ActionId.Trade }>,
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
@@ -293,7 +305,7 @@ function trade(
 
 function developDeed(
   state: GameState,
-  action: Extract<GameAction, { type: 'develop-deed' }>,
+  action: Extract<GameAction, { type: typeof ActionId.DevelopDeed }>,
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
@@ -363,7 +375,7 @@ function developDeed(
 
 function developOutright(
   state: GameState,
-  action: Extract<GameAction, { type: 'develop-outright' }>,
+  action: Extract<GameAction, { type: typeof ActionId.DevelopOutright }>,
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
@@ -414,7 +426,7 @@ function developOutright(
     {
       ...updated,
       districts,
-      phase: 'ActionWindow',
+      phase: GamePhase.ActionWindow,
       cardPlayedThisTurn: true,
     },
     `develop outright ${action.cardId} to ${action.districtId}`,
@@ -425,7 +437,7 @@ function developOutright(
 
 function buyDeed(
   state: GameState,
-  action: Extract<GameAction, { type: 'buy-deed' }>,
+  action: Extract<GameAction, { type: typeof ActionId.BuyDeed }>,
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
@@ -459,7 +471,7 @@ function buyDeed(
     {
       ...updated,
       districts,
-      phase: 'ActionWindow',
+      phase: GamePhase.ActionWindow,
       cardPlayedThisTurn: true,
     },
     `buy deed ${action.cardId} in ${action.districtId}`,
@@ -470,14 +482,14 @@ function buyDeed(
 
 function sellCard(
   state: GameState,
-  action: Extract<GameAction, { type: 'sell-card' }>,
+  action: Extract<GameAction, { type: typeof ActionId.SellCard }>,
   options: ApplyActionOptions
 ): GameState {
   const player = state.players[state.activePlayerIndex];
   assertPlayerHasCard(player, action.cardId);
 
   const card = CARD_BY_ID[action.cardId];
-  if (card.kind !== 'Property' && card.kind !== 'Court') {
+  if (card.kind !== CardKind.Property && card.kind !== CardKind.Court) {
     throw new Error('Only property cards can be sold from hand.');
   }
 
@@ -491,7 +503,7 @@ function sellCard(
     {
       ...updated,
       deck,
-      phase: 'ActionWindow',
+      phase: GamePhase.ActionWindow,
       cardPlayedThisTurn: true,
     },
     `sell ${action.cardId}`,

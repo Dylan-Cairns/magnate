@@ -1,3 +1,4 @@
+import { ActionPickerKind } from '../actionValues';
 import { useActionHover } from './ActionHighlights';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 
@@ -50,7 +51,7 @@ export function ActionPicker({
         left: `${picker.left}px`,
       }}
     >
-      {picker.kind === 'trade-combined' ? (
+      {picker.kind === ActionPickerKind.TradeCombined ? (
         <TradeCombinedPicker
           picker={picker}
           legalActions={legalActions}
@@ -58,7 +59,7 @@ export function ActionPicker({
           onPickerChange={onPickerChange}
           onSelectAction={onSelectAction}
         />
-      ) : picker.kind === 'develop-outright-combined' ? (
+      ) : picker.kind === ActionPickerKind.DevelopOutrightCombined ? (
         <DevelopOutrightCombinedPicker
           picker={picker}
           legalActions={legalActions}
@@ -83,7 +84,10 @@ function TradeCombinedPicker({
   onPickerChange,
   onSelectAction,
 }: {
-  picker: Extract<ActionPickerState, { kind: 'trade-combined' }>;
+  picker: Extract<
+    ActionPickerState,
+    { kind: typeof ActionPickerKind.TradeCombined }
+  >;
   legalActions: readonly GameAction[];
   tradeSourceGroups: readonly TradeSourceGroup[];
   onPickerChange: Dispatch<SetStateAction<ActionPickerState | null>>;
@@ -127,7 +131,10 @@ function TradeCombinedPicker({
                   }
                 }
                 onPickerChange((current) => {
-                  if (!current || current.kind !== 'trade-combined') {
+                  if (
+                    !current ||
+                    current.kind !== ActionPickerKind.TradeCombined
+                  ) {
                     return current;
                   }
                   return { ...current, selectedGive: nextGive };
@@ -172,7 +179,10 @@ function TradeCombinedPicker({
                   }
                 }
                 onPickerChange((current) => {
-                  if (!current || current.kind !== 'trade-combined') {
+                  if (
+                    !current ||
+                    current.kind !== ActionPickerKind.TradeCombined
+                  ) {
                     return current;
                   }
                   return { ...current, selectedReceive: nextReceive };
@@ -194,7 +204,10 @@ function DevelopOutrightCombinedPicker({
   onPickerChange,
   onSelectAction,
 }: {
-  picker: Extract<ActionPickerState, { kind: 'develop-outright-combined' }>;
+  picker: Extract<
+    ActionPickerState,
+    { kind: typeof ActionPickerKind.DevelopOutrightCombined }
+  >;
   legalActions: readonly GameAction[];
   onPickerChange: Dispatch<SetStateAction<ActionPickerState | null>>;
   onSelectAction: (action: GameAction) => void;
@@ -241,7 +254,7 @@ function DevelopOutrightCombinedPicker({
                 onPickerChange((current) => {
                   if (
                     !current ||
-                    current.kind !== 'develop-outright-combined'
+                    current.kind !== ActionPickerKind.DevelopOutrightCombined
                   ) {
                     return current;
                   }
@@ -293,7 +306,7 @@ function DevelopOutrightCombinedPicker({
                 onPickerChange((current) => {
                   if (
                     !current ||
-                    current.kind !== 'develop-outright-combined'
+                    current.kind !== ActionPickerKind.DevelopOutrightCombined
                   ) {
                     return current;
                   }
@@ -320,7 +333,8 @@ function StandardPicker({
 }: {
   picker: Exclude<
     ActionPickerState,
-    { kind: 'trade-combined' } | { kind: 'develop-outright-combined' }
+    | { kind: typeof ActionPickerKind.TradeCombined }
+    | { kind: typeof ActionPickerKind.DevelopOutrightCombined }
   >;
   legalActions: readonly GameAction[];
   onSelectAction: (action: GameAction) => void;

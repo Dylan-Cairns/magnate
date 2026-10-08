@@ -1,3 +1,7 @@
+import {
+  EffectiveSearchExecutionMode,
+  BotWorkerMessageType,
+} from './workerValues';
 import { actionStableKey } from '../engine/actionSurface';
 import type { GameAction } from '../engine/types';
 import type { BotSpec } from './botSpec';
@@ -26,7 +30,9 @@ export interface WorkerBackedPolicyOptions {
    */
   searchExecutionMode?: SearchWorkerExecutionMode;
   onSearchExecutionMode?: (
-    mode: SearchWorkerExecutionMode | 'synchronous'
+    mode:
+      | SearchWorkerExecutionMode
+      | typeof EffectiveSearchExecutionMode.Synchronous
   ) => void;
 }
 
@@ -97,7 +103,7 @@ export function createWorkerBackedPolicy(
     current.onmessage = null;
     current.onerror = null;
     try {
-      current.postMessage({ type: 'shutdown' });
+      current.postMessage({ type: BotWorkerMessageType.Shutdown });
     } catch {
       current.terminate();
       return;
@@ -141,7 +147,7 @@ export function createWorkerBackedPolicy(
     pendingByRequestId.delete(response.requestId);
     scheduleIdleShutdown();
 
-    if (response.type === 'error') {
+    if (response.type === BotWorkerMessageType.Error) {
       pending.reject(new Error(response.message));
       return;
     }
@@ -212,7 +218,7 @@ export function createWorkerBackedPolicy(
 
         try {
           ensureWorker().postMessage({
-            type: 'select-action',
+            type: BotWorkerMessageType.SelectAction,
             requestId,
             spec,
             state: context.state,

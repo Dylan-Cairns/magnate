@@ -1,3 +1,5 @@
+import { PlayerId } from '../engine/values';
+import { TdReplayShardWorkerMessageType } from './workerValues';
 import { randomUUID } from 'node:crypto';
 import { fork, type ChildProcess } from 'node:child_process';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
@@ -24,11 +26,7 @@ import type {
   TdReplayShardWorkerRequest,
   TdReplayShardWorkerResponse,
 } from './tdReplayShardWorkerProtocol';
-import type {
-  GitMetadata,
-  TdReplayConfig,
-  TdReplaySummaryGame,
-} from './types';
+import type { GitMetadata, TdReplayConfig, TdReplaySummaryGame } from './types';
 
 export const TD_REPLAY_SHARDED_SUMMARY_SCHEMA_VERSION = 1;
 export const TD_REPLAY_SHARDED_ARTIFACT_TYPE = 'ts-td-replay-sharded';
@@ -123,7 +121,7 @@ export type TdReplayShardProgress =
       progress: TdReplayProgress;
     }
   | {
-      type: 'shard-completed';
+      type: typeof TdReplayShardWorkerMessageType.ShardCompleted;
       shard: TdReplayShardPlan;
       result: TdReplayShardResult;
     }
@@ -269,7 +267,11 @@ export async function collectAndWriteShardedTdReplayArtifacts(
       options.onProgress?.({ type: 'shard-progress', shard, progress });
     },
     onShardCompleted(shard, result) {
-      options.onProgress?.({ type: 'shard-completed', shard, result });
+      options.onProgress?.({
+        type: TdReplayShardWorkerMessageType.ShardCompleted,
+        shard,
+        result,
+      });
     },
   });
   const elapsedMs = performance.now() - startedAt;
@@ -320,8 +322,8 @@ function createShardedTdReplaySummary({
   elapsedMs: number;
 }): TdReplayShardedSummary {
   const winners: Record<FinalScore['winner'], number> = {
-    PlayerA: 0,
-    PlayerB: 0,
+    [PlayerId.PlayerA]: 0,
+    [PlayerId.PlayerB]: 0,
     Draw: 0,
   };
   const games = results
@@ -412,10 +414,7 @@ function runTdReplayShardJobsInChildPool({
   git: GitMetadata;
   nodeVersion: string;
   onShardStarted?: (shard: TdReplayShardPlan) => void;
-  onProgress?: (
-    shard: TdReplayShardPlan,
-    progress: TdReplayProgress
-  ) => void;
+  onProgress?: (shard: TdReplayShardPlan, progress: TdReplayProgress) => void;
   onShardCompleted?: (
     shard: TdReplayShardPlan,
     result: TdReplayShardResult
@@ -465,7 +464,7 @@ function runTdReplayShardJobsInChildPool({
       settled = true;
       shuttingDown = true;
       for (const worker of pool) {
-        send(worker, { type: 'shutdown' });
+        send(worker, { type: TdReplayShardWorkerMessageType.Shutdown });
       }
       resolve(
         results.sort(
@@ -488,7 +487,7 @@ function runTdReplayShardJobsInChildPool({
       worker.activeShardIndex = shard.shardIndex;
       onShardStarted?.(shard);
       send(worker, {
-        type: 'run-shard',
+        type: TdReplayShardWorkerMessageType.RunShard,
         config,
         shard,
         gameIndexTotal,
@@ -505,10 +504,10 @@ function runTdReplayShardJobsInChildPool({
       response: TdReplayShardWorkerResponse
     ): void {
       switch (response.type) {
-        case 'ready':
+        case TdReplayShardWorkerMessageType.Ready:
           dispatch(worker);
           return;
-        case 'progress': {
+        case TdReplayShardWorkerMessageType.Progress: {
           const shard = shards.find(
             (entry) => entry.shardIndex === response.shardIndex
           );
@@ -523,7 +522,7 @@ function runTdReplayShardJobsInChildPool({
           onProgress?.(shard, response.progress);
           return;
         }
-        case 'shard-completed':
+        case TdReplayShardWorkerMessageType.ShardCompleted:
           if (worker.activeShardIndex !== response.result.shard.shardIndex) {
             fail(
               new Error(
@@ -537,7 +536,7 @@ function runTdReplayShardJobsInChildPool({
           onShardCompleted?.(response.result.shard, response.result);
           dispatch(worker);
           return;
-        case 'error':
+        case TdReplayShardWorkerMessageType.Error:
           fail(
             new Error(
               `TD replay shard worker ${String(worker.id)} failed${response.shardIndex === undefined ? '' : ` on shard ${String(response.shardIndex)}`}: ${response.message}`

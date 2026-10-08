@@ -46,5 +46,19 @@ export default [
       },
     },
   },
+  {
+    files: [
+      'src/**/values.ts',
+      'src/**/workerValues.ts',
+      'src/ui/actionValues.ts',
+      'src/ui/outcomes.ts',
+    ],
+    rules: {
+      // These modules deliberately share a name between a constant and its
+      // derived type. TypeScript checks their binding validity; the JavaScript
+      // rule cannot distinguish the separate type and value namespaces.
+      'no-redeclare': 'off',
+    },
+  },
   eslintConfigPrettier,
 ];

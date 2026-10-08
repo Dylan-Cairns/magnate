@@ -1,3 +1,7 @@
+import {
+  AnimationVisualCommandType,
+  GamePresentationEventType,
+} from '../runtime/values';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { GameAction, GameState, PlayerId, Suit } from '../../engine/types';
@@ -177,7 +181,7 @@ export function useGameAnimations() {
       };
 
       switch (command.type) {
-        case 'launch-draw-card-flight':
+        case AnimationVisualCommandType.LaunchDrawCardFlight:
           scheduleAt(command.atMs, () => {
             const flights = buildDrawCardFlightFromDom(
               command.playerId,
@@ -196,7 +200,7 @@ export function useGameAnimations() {
             ]);
           });
           return;
-        case 'launch-sold-card-flight':
+        case AnimationVisualCommandType.LaunchSoldCardFlight:
           scheduleAt(command.atMs, () => {
             const flights = buildSoldCardFlightFromDom(
               command.playerId,
@@ -209,7 +213,7 @@ export function useGameAnimations() {
             setCardFlights((existing) => [...existing, ...flights]);
           });
           return;
-        case 'launch-sell-token-flights':
+        case AnimationVisualCommandType.LaunchSellTokenFlights:
           scheduleAt(command.atMs, () => {
             const flights = buildSellTokenFlightsFromDom(
               command.gains,
@@ -233,7 +237,7 @@ export function useGameAnimations() {
             ]);
           });
           return;
-        case 'launch-card-to-district-flight':
+        case AnimationVisualCommandType.LaunchCardToDistrictFlight:
           scheduleAt(command.atMs, () => {
             const flights = buildCardToDistrictFlightFromDom(
               command.event,
@@ -251,7 +255,7 @@ export function useGameAnimations() {
             );
           });
           return;
-        case 'launch-payment-token-flights':
+        case AnimationVisualCommandType.LaunchPaymentTokenFlights:
           scheduleAt(command.atMs, () => {
             const flights = buildPaymentFlightsFromDom(
               command.event,
@@ -268,7 +272,7 @@ export function useGameAnimations() {
             appendResourceFlightsWithCleanup(flights, command.durationMs);
           });
           return;
-        case 'launch-trade-token-flights':
+        case AnimationVisualCommandType.LaunchTradeTokenFlights:
           scheduleAt(command.atMs, () => {
             const flights = buildTradeFlightsFromDom(
               command.event,
@@ -292,7 +296,7 @@ export function useGameAnimations() {
             ]);
           });
           return;
-        case 'launch-deed-token-flights':
+        case AnimationVisualCommandType.LaunchDeedTokenFlights:
           scheduleAt(command.atMs, () => {
             const flights = buildDeedResourceFlightsFromDom(
               command.tokens,
@@ -304,7 +308,7 @@ export function useGameAnimations() {
             appendResourceFlightsWithCleanup(flights, command.durationMs);
           });
           return;
-        case 'pulse-tax-resources':
+        case AnimationVisualCommandType.PulseTaxResources:
           scheduleAt(command.startMs, () => {
             applyTaxPulseTargets(command.targets);
           });
@@ -312,7 +316,7 @@ export function useGameAnimations() {
             clearTaxPulseElements();
           });
           return;
-        case 'launch-tax-token-flights':
+        case AnimationVisualCommandType.LaunchTaxTokenFlights:
           scheduleAt(command.atMs, () => {
             const taxFlights = buildTaxLossFlightsFromDom(
               command.losses.map((loss) => ({
@@ -327,7 +331,7 @@ export function useGameAnimations() {
             appendResourceFlightsWithCleanup(taxFlights, command.durationMs);
           });
           return;
-        case 'launch-income-token-flights':
+        case AnimationVisualCommandType.LaunchIncomeTokenFlights:
           scheduleAt(command.atMs, () => {
             const incomeFlights = buildIncomeFlightsFromDom(
               command.gains.map(
@@ -663,22 +667,22 @@ function isAnimatedPresentationEvent(
   event: ReturnType<typeof deriveGamePresentationEvents>[number]
 ): boolean {
   return (
-    event.type === 'draw-card' ||
-    event.type === 'card-sold' ||
-    event.type === 'sell-resource-gained' ||
-    event.type === 'resource-payment-started' ||
-    event.type === 'resource-payment-applied' ||
-    event.type === 'card-played-to-district' ||
-    event.type === 'deed-token-paid' ||
-    event.type === 'deed-progress-applied' ||
-    event.type === 'deed-completed' ||
-    event.type === 'trade-resources-applied' ||
-    event.type === 'income-roll' ||
-    event.type === 'tax-resolved' ||
-    event.type === 'tax-token-lost' ||
-    event.type === 'income-token-gained' ||
-    event.type === 'income-choice-required' ||
-    event.type === 'income-choice-submitted'
+    event.type === GamePresentationEventType.DrawCard ||
+    event.type === GamePresentationEventType.CardSold ||
+    event.type === GamePresentationEventType.SellResourceGained ||
+    event.type === GamePresentationEventType.ResourcePaymentStarted ||
+    event.type === GamePresentationEventType.ResourcePaymentApplied ||
+    event.type === GamePresentationEventType.CardPlayedToDistrict ||
+    event.type === GamePresentationEventType.DeedTokenPaid ||
+    event.type === GamePresentationEventType.DeedProgressApplied ||
+    event.type === GamePresentationEventType.DeedCompleted ||
+    event.type === GamePresentationEventType.TradeResourcesApplied ||
+    event.type === GamePresentationEventType.IncomeRoll ||
+    event.type === GamePresentationEventType.TaxResolved ||
+    event.type === GamePresentationEventType.TaxTokenLost ||
+    event.type === GamePresentationEventType.IncomeTokenGained ||
+    event.type === GamePresentationEventType.IncomeChoiceRequired ||
+    event.type === GamePresentationEventType.IncomeChoiceSubmitted
   );
 }
 

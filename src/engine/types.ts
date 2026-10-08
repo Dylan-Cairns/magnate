@@ -1,9 +1,16 @@
+import {
+  Suit,
+  CardKind,
+  PlayerId,
+  Ruleset,
+  GamePhase,
+  Winner,
+  WinnerDecider,
+  ActionId,
+} from './values';
 import type { CardId, CardName } from './cards';
-export type Suit = 'Moons' | 'Suns' | 'Waves' | 'Leaves' | 'Wyrms' | 'Knots';
 
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-
-export type CardKind = 'Property' | 'Court' | 'Crown' | 'Pawn' | 'Excuse';
 
 export interface CardBase {
   id: CardId;
@@ -12,7 +19,7 @@ export interface CardBase {
 }
 
 export interface PropertyCard extends CardBase {
-  kind: 'Property';
+  kind: typeof CardKind.Property;
   rank: Exclude<Rank, 10>;
   suits: readonly Suit[];
 }
@@ -20,7 +27,7 @@ export interface PropertyCard extends CardBase {
 // Courts are the extended-deck property cards. They are developable like
 // properties but always rank 10 with three suits and never provide income.
 export interface CourtCard extends CardBase {
-  kind: 'Court';
+  kind: typeof CardKind.Court;
   rank: 10;
   suits: readonly [Suit, Suit, Suit];
 }
@@ -28,26 +35,21 @@ export interface CourtCard extends CardBase {
 export type DevelopableCard = PropertyCard | CourtCard;
 
 export interface CrownCard extends CardBase {
-  kind: 'Crown';
+  kind: typeof CardKind.Crown;
   rank: 10;
   suits: readonly [Suit];
 }
 
 export interface PawnCard extends CardBase {
-  kind: 'Pawn';
+  kind: typeof CardKind.Pawn;
   suits: readonly [Suit, Suit, Suit];
 }
 
 export interface ExcuseCard extends CardBase {
-  kind: 'Excuse';
+  kind: typeof CardKind.Excuse;
 }
 
-export type Card =
-  | PropertyCard
-  | CourtCard
-  | CrownCard
-  | PawnCard
-  | ExcuseCard;
+export type Card = PropertyCard | CourtCard | CrownCard | PawnCard | ExcuseCard;
 
 export interface DeckState {
   draw: CardId[];
@@ -67,9 +69,6 @@ export interface DistrictState {
 }
 
 export type DistrictLine = ReadonlyArray<DistrictState>;
-export type PlayerId = 'PlayerA' | 'PlayerB';
-
-export type Ruleset = 'standard' | 'extended';
 
 export type ResourcePool = Record<Suit, number>;
 
@@ -87,14 +86,6 @@ export interface PlayerState {
   crowns: CardId[];
   resources: ResourcePool;
 }
-
-export type GamePhase =
-  | 'StartTurn'
-  | 'TaxCheck'
-  | 'CollectIncome'
-  | 'ActionWindow'
-  | 'DrawCard'
-  | 'GameOver';
 
 export interface IncomeRollResult {
   die1: number;
@@ -123,9 +114,6 @@ export interface GameLogEntry {
   summary: string;
   details?: Record<string, unknown>;
 }
-
-export type Winner = PlayerId | 'Draw';
-export type WinnerDecider = 'districts' | 'rank-total' | 'resources' | 'draw';
 
 export interface FinalScore {
   districtPoints: Record<PlayerId, number>;
@@ -191,52 +179,43 @@ export interface GameState {
   log: ReadonlyArray<GameLogEntry>;
 }
 
-export type ActionId =
-  | 'buy-deed'
-  | 'choose-income-suit'
-  | 'develop-deed'
-  | 'develop-outright'
-  | 'end-turn'
-  | 'sell-card'
-  | 'trade';
-
 export interface BuyDeedAction {
-  type: 'buy-deed';
+  type: typeof ActionId.BuyDeed;
   cardId: CardId;
   districtId: DistrictId;
 }
 
 export interface DevelopDeedAction {
-  type: 'develop-deed';
+  type: typeof ActionId.DevelopDeed;
   districtId: DistrictId;
   cardId: CardId;
   tokens: Partial<Record<Suit, number>>;
 }
 
 export interface DevelopOutrightAction {
-  type: 'develop-outright';
+  type: typeof ActionId.DevelopOutright;
   cardId: CardId;
   districtId: DistrictId;
   payment: Partial<Record<Suit, number>>;
 }
 
 export interface SellCardAction {
-  type: 'sell-card';
+  type: typeof ActionId.SellCard;
   cardId: CardId;
 }
 
 export interface TradeAction {
-  type: 'trade';
+  type: typeof ActionId.Trade;
   give: Suit;
   receive: Suit;
 }
 
 export interface EndTurnAction {
-  type: 'end-turn';
+  type: typeof ActionId.EndTurn;
 }
 
 export interface ChooseIncomeSuitAction {
-  type: 'choose-income-suit';
+  type: typeof ActionId.ChooseIncomeSuit;
   playerId: PlayerId;
   districtId: DistrictId;
   cardId: CardId;
@@ -251,3 +230,14 @@ export type GameAction =
   | EndTurnAction
   | SellCardAction
   | TradeAction;
+
+export {
+  Suit,
+  CardKind,
+  PlayerId,
+  Ruleset,
+  GamePhase,
+  Winner,
+  WinnerDecider,
+  ActionId,
+} from './values';

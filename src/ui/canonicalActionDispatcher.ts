@@ -1,3 +1,4 @@
+import { ActionId } from '../engine/values';
 import { turnOwnerIdForState } from '../engine/decisionActor';
 import type { GameAction, GameState, PlayerId } from '../engine/types';
 import {
@@ -39,7 +40,7 @@ export function prepareCanonicalActionDispatch({
   }
 
   const expectedActorId =
-    action.type === 'choose-income-suit'
+    action.type === ActionId.ChooseIncomeSuit
       ? action.playerId
       : turnOwnerIdForState(currentState);
   if (expectedActorId !== actingPlayerId) {

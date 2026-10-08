@@ -1,6 +1,7 @@
+import { Ruleset, ActionId, GAME_PHASES, PLAYER_IDS } from '../engine/values';
 import { createSession, stepToDecision } from '../engine/session';
 import { isTerminal } from '../engine/scoring';
-import type { GameLogEntry, GameState, PlayerId } from '../engine/types';
+import { type GameLogEntry, type GameState, PlayerId } from '../engine/types';
 import { resolveBotProfile, type BotProfileId } from '../policies/catalog';
 import type { BugReportActionEntry } from './bugReport';
 import {
@@ -59,7 +60,8 @@ export function parseSavedGame(
   // Older saves predate the ruleset field; the legacy "regular" value maps to
   // standard.
   const storedRuleset = save.state.ruleset as string;
-  save.state.ruleset = storedRuleset === 'extended' ? 'extended' : 'standard';
+  save.state.ruleset =
+    storedRuleset === Ruleset.Extended ? Ruleset.Extended : Ruleset.Standard;
   resolveBotProfile(save.botProfileId, save.state.ruleset);
   let state = createSession(save.state.seed, humanPlayerId, save.state.ruleset);
   let previousState: GameState | null = null;
@@ -70,7 +72,7 @@ export function parseSavedGame(
       entry.turn !== state.turn ||
       entry.phase !== state.phase ||
       entry.actingPlayerId !==
-        (entry.action?.type === 'choose-income-suit'
+        (entry.action?.type === ActionId.ChooseIncomeSuit
           ? entry.action.playerId
           : state.players[state.activePlayerIndex]?.id)
     ) {
@@ -103,22 +105,14 @@ export function parseSavedGame(
       'Saved game does not match a supported decision checkpoint.'
     );
   }
-  const phases = [
-    'StartTurn',
-    'TaxCheck',
-    'CollectIncome',
-    'ActionWindow',
-    'DrawCard',
-    'GameOver',
-  ];
   if (
     save.timelineLog.some(
       (entry) =>
         !entry ||
         typeof entry.summary !== 'string' ||
         !Number.isSafeInteger(entry.turn) ||
-        !phases.includes(entry.phase) ||
-        !['PlayerA', 'PlayerB'].includes(entry.player)
+        !GAME_PHASES.includes(entry.phase) ||
+        !PLAYER_IDS.includes(entry.player)
     )
   ) {
     throw new Error('Invalid saved timeline.');

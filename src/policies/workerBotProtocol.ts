@@ -1,10 +1,14 @@
+import {
+  BotWorkerMessageType,
+  EffectiveSearchExecutionMode,
+} from './workerValues';
 import type { GameAction, GameState, PlayerView } from '../engine/types';
 import type { BotSpec } from './botSpec';
 import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 import type { SearchDecisionDiagnostics } from './types';
 
 export interface BotWorkerSelectActionRequest {
-  type: 'select-action';
+  type: typeof BotWorkerMessageType.SelectAction;
   requestId: number;
   spec: BotSpec;
   state: GameState;
@@ -23,7 +27,7 @@ export interface BotWorkerSelectActionRequest {
  * fixed per-profile visit budget.
  */
 export interface BotWorkerCancelRequest {
-  type: 'cancel';
+  type: typeof BotWorkerMessageType.Cancel;
   requestId: number;
 }
 
@@ -33,7 +37,7 @@ export interface BotWorkerCancelRequest {
  * does not process this request promptly.
  */
 export interface BotWorkerShutdownRequest {
-  type: 'shutdown';
+  type: typeof BotWorkerMessageType.Shutdown;
 }
 
 export type BotWorkerRequest =
@@ -42,15 +46,17 @@ export type BotWorkerRequest =
   | BotWorkerShutdownRequest;
 
 export interface BotWorkerSelectedActionResponse {
-  type: 'selected-action';
+  type: typeof BotWorkerMessageType.SelectedAction;
   requestId: number;
   actionKey?: string;
   diagnostics?: SearchDecisionDiagnostics;
-  searchExecutionMode?: SearchWorkerExecutionMode | 'synchronous';
+  searchExecutionMode?:
+    | SearchWorkerExecutionMode
+    | typeof EffectiveSearchExecutionMode.Synchronous;
 }
 
 export interface BotWorkerErrorResponse {
-  type: 'error';
+  type: typeof BotWorkerMessageType.Error;
   requestId: number;
   message: string;
   stack?: string;

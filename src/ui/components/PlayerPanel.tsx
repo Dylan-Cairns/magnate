@@ -1,8 +1,8 @@
 import { memo, type CSSProperties } from 'react';
 
-import type {
-  FinalScore,
-  ObservedPlayerState,
+import {
+  type FinalScore,
+  type ObservedPlayerState,
   PlayerId,
 } from '../../engine/types';
 import { useHighlightClass } from './ActionHighlights';
@@ -102,18 +102,18 @@ export const PlayerPanel = memo(function PlayerPanel({
             </p>
             <ScoreLine
               label="Districts"
-              a={score.districtPoints.PlayerA}
-              b={score.districtPoints.PlayerB}
+              a={score.districtPoints[PlayerId.PlayerA]}
+              b={score.districtPoints[PlayerId.PlayerB]}
             />
             <ScoreLine
               label="Rank Total"
-              a={score.rankTotals.PlayerA}
-              b={score.rankTotals.PlayerB}
+              a={score.rankTotals[PlayerId.PlayerA]}
+              b={score.rankTotals[PlayerId.PlayerB]}
             />
             <ScoreLine
               label="Resources"
-              a={score.resourceTotals.PlayerA}
-              b={score.resourceTotals.PlayerB}
+              a={score.resourceTotals[PlayerId.PlayerA]}
+              b={score.resourceTotals[PlayerId.PlayerB]}
             />
           </section>
         </div>

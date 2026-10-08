@@ -1,54 +1,39 @@
-import type { GameAction, PlayerId, PlayerView, Suit } from '../engine/types';
+import {
+  ACTION_IDS,
+  GAME_PHASES as PHASES,
+  PLAYER_IDS,
+  SUITS,
+} from '../engine/values';
+import {
+  type GameAction,
+  PlayerId,
+  type PlayerView,
+  Suit,
+} from '../engine/types';
 
-const SUITS: readonly Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
 const SUIT_INDEX = new Map<Suit, number>(
   SUITS.map((suit, index) => [suit, index])
 );
 
-const PHASES = [
-  'StartTurn',
-  'TaxCheck',
-  'CollectIncome',
-  'ActionWindow',
-  'DrawCard',
-  'GameOver',
-] as const;
 const PHASE_INDEX = new Map<string, number>(
   PHASES.map((phase, index) => [phase, index])
 );
 
-const ACTION_IDS = [
-  'buy-deed',
-  'choose-income-suit',
-  'develop-deed',
-  'develop-outright',
-  'end-turn',
-  'sell-card',
-  'trade',
-] as const;
 const ACTION_ID_INDEX = new Map<string, number>(
   ACTION_IDS.map((actionId, index) => [actionId, index])
 );
 
-const PLAYER_IDS: readonly PlayerId[] = ['PlayerA', 'PlayerB'];
 const PLAYER_INDEX = new Map<PlayerId, number>(
   PLAYER_IDS.map((id, index) => [id, index])
 );
 
 const CROWN_SUIT_BY_CARD_ID: Readonly<Record<string, Suit>> = {
-  '30': 'Knots',
-  '31': 'Leaves',
-  '32': 'Moons',
-  '33': 'Suns',
-  '34': 'Waves',
-  '35': 'Wyrms',
+  '30': Suit.Knots,
+  '31': Suit.Leaves,
+  '32': Suit.Moons,
+  '33': Suit.Suns,
+  '34': Suit.Waves,
+  '35': Suit.Wyrms,
 };
 
 const MAX_CARD_ID = 40.0;
@@ -71,42 +56,42 @@ export const ACTION_DISTRICT_ID_FEATURE_INDEX = 9;
 export const ACTION_HAS_DISTRICT_FEATURE_INDEX = 38;
 
 const PROPERTY_SUITS_BY_CARD_ID: Readonly<Record<string, readonly Suit[]>> = {
-  '0': ['Knots'],
-  '1': ['Leaves'],
-  '2': ['Moons'],
-  '3': ['Suns'],
-  '4': ['Waves'],
-  '5': ['Wyrms'],
-  '6': ['Moons', 'Knots'],
-  '7': ['Suns', 'Wyrms'],
-  '8': ['Waves', 'Leaves'],
-  '9': ['Moons', 'Waves'],
-  '10': ['Suns', 'Knots'],
-  '11': ['Leaves', 'Wyrms'],
-  '12': ['Wyrms', 'Knots'],
-  '13': ['Moons', 'Suns'],
-  '14': ['Waves', 'Leaves'],
-  '15': ['Suns', 'Waves'],
-  '16': ['Moons', 'Leaves'],
-  '17': ['Wyrms', 'Knots'],
-  '18': ['Moons', 'Waves'],
-  '19': ['Leaves', 'Knots'],
-  '20': ['Suns', 'Wyrms'],
-  '21': ['Suns', 'Knots'],
-  '22': ['Waves', 'Wyrms'],
-  '23': ['Moons', 'Leaves'],
-  '24': ['Wyrms', 'Knots'],
-  '25': ['Moons', 'Suns'],
-  '26': ['Waves', 'Leaves'],
-  '27': ['Waves', 'Wyrms'],
-  '28': ['Leaves', 'Knots'],
-  '29': ['Moons', 'Suns'],
+  '0': [Suit.Knots],
+  '1': [Suit.Leaves],
+  '2': [Suit.Moons],
+  '3': [Suit.Suns],
+  '4': [Suit.Waves],
+  '5': [Suit.Wyrms],
+  '6': [Suit.Moons, Suit.Knots],
+  '7': [Suit.Suns, Suit.Wyrms],
+  '8': [Suit.Waves, Suit.Leaves],
+  '9': [Suit.Moons, Suit.Waves],
+  '10': [Suit.Suns, Suit.Knots],
+  '11': [Suit.Leaves, Suit.Wyrms],
+  '12': [Suit.Wyrms, Suit.Knots],
+  '13': [Suit.Moons, Suit.Suns],
+  '14': [Suit.Waves, Suit.Leaves],
+  '15': [Suit.Suns, Suit.Waves],
+  '16': [Suit.Moons, Suit.Leaves],
+  '17': [Suit.Wyrms, Suit.Knots],
+  '18': [Suit.Moons, Suit.Waves],
+  '19': [Suit.Leaves, Suit.Knots],
+  '20': [Suit.Suns, Suit.Wyrms],
+  '21': [Suit.Suns, Suit.Knots],
+  '22': [Suit.Waves, Suit.Wyrms],
+  '23': [Suit.Moons, Suit.Leaves],
+  '24': [Suit.Wyrms, Suit.Knots],
+  '25': [Suit.Moons, Suit.Suns],
+  '26': [Suit.Waves, Suit.Leaves],
+  '27': [Suit.Waves, Suit.Wyrms],
+  '28': [Suit.Leaves, Suit.Knots],
+  '29': [Suit.Moons, Suit.Suns],
 };
 
 export function encodeObservation(view: PlayerView): number[] {
   const activePlayerId = view.activePlayerId;
   const opponentId: PlayerId =
-    activePlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+    activePlayerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
   const playersById = new Map(
     view.players.map((player) => [player.id, player])
   );
@@ -205,7 +190,7 @@ export function encodeActionInto(
 
   const playerId = payload.playerId;
   const playerIndex =
-    playerId === 'PlayerA' || playerId === 'PlayerB'
+    playerId === PlayerId.PlayerA || playerId === PlayerId.PlayerB
       ? (PLAYER_INDEX.get(playerId) ?? -1)
       : -1;
   writeOneHot(vector, 10, playerIndex, 2);
@@ -256,12 +241,12 @@ function districtStackFeatures(stack: {
 
 function crownSuitCounts(crowns: readonly string[] | undefined): number[] {
   const counts: Record<Suit, number> = {
-    Moons: 0,
-    Suns: 0,
-    Waves: 0,
-    Leaves: 0,
-    Wyrms: 0,
-    Knots: 0,
+    [Suit.Moons]: 0,
+    [Suit.Suns]: 0,
+    [Suit.Waves]: 0,
+    [Suit.Leaves]: 0,
+    [Suit.Wyrms]: 0,
+    [Suit.Knots]: 0,
   };
   for (const cardId of crowns ?? []) {
     const suit = CROWN_SUIT_BY_CARD_ID[cardId];
@@ -274,12 +259,12 @@ function crownSuitCounts(crowns: readonly string[] | undefined): number[] {
 
 function handSuitHistogram(hand: readonly string[] | undefined): number[] {
   const counts: Record<Suit, number> = {
-    Moons: 0,
-    Suns: 0,
-    Waves: 0,
-    Leaves: 0,
-    Wyrms: 0,
-    Knots: 0,
+    [Suit.Moons]: 0,
+    [Suit.Suns]: 0,
+    [Suit.Waves]: 0,
+    [Suit.Leaves]: 0,
+    [Suit.Wyrms]: 0,
+    [Suit.Knots]: 0,
   };
   for (const cardId of hand ?? []) {
     for (const suit of PROPERTY_SUITS_BY_CARD_ID[cardId] ?? []) {
@@ -379,12 +364,12 @@ function suitCountVector(
   normalizeBy: number
 ): number[] {
   const counts: Record<Suit, number> = {
-    Moons: 0,
-    Suns: 0,
-    Waves: 0,
-    Leaves: 0,
-    Wyrms: 0,
-    Knots: 0,
+    [Suit.Moons]: 0,
+    [Suit.Suns]: 0,
+    [Suit.Waves]: 0,
+    [Suit.Leaves]: 0,
+    [Suit.Wyrms]: 0,
+    [Suit.Knots]: 0,
   };
   for (const suit of suits) {
     counts[suit] += 1;
@@ -521,12 +506,12 @@ function asString(value: unknown): string {
 
 function suitOrUndefined(value: unknown): Suit | undefined {
   if (
-    value === 'Moons' ||
-    value === 'Suns' ||
-    value === 'Waves' ||
-    value === 'Leaves' ||
-    value === 'Wyrms' ||
-    value === 'Knots'
+    value === Suit.Moons ||
+    value === Suit.Suns ||
+    value === Suit.Waves ||
+    value === Suit.Leaves ||
+    value === Suit.Wyrms ||
+    value === Suit.Knots
   ) {
     return value;
   }

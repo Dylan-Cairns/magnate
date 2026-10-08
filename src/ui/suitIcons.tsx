@@ -10,7 +10,7 @@ import moonsSimpleIcon from '../assets/icons/simplified/moons.svg';
 import sunsSimpleIcon from '../assets/icons/simplified/suns.svg';
 import wavesSimpleIcon from '../assets/icons/simplified/waves.svg';
 import wyrmsSimpleIcon from '../assets/icons/simplified/wyrms.svg';
-import type { Suit } from '../engine/types';
+import { Suit } from '../engine/types';
 
 // Shared opaque fills for suits. The artwork has transparent gaps between its
 // layers, so it only reads correctly sitting on its own fill rather than
@@ -19,21 +19,21 @@ import type { Suit } from '../engine/types';
 // artwork this way; SuitTokenFace (and the card suit icons built on it) does
 // too, so every suit mark sits on its own fill.
 export const SUIT_TOKEN_BG: Record<Suit, string> = {
-  Moons: '#e4e7eb',
-  Suns: '#f7cc95',
-  Waves: '#cfe3f5',
-  Leaves: '#dfc8b2',
-  Wyrms: '#bfe3b3',
-  Knots: '#f6f4bf',
+  [Suit.Moons]: '#e4e7eb',
+  [Suit.Suns]: '#f7cc95',
+  [Suit.Waves]: '#cfe3f5',
+  [Suit.Leaves]: '#dfc8b2',
+  [Suit.Wyrms]: '#bfe3b3',
+  [Suit.Knots]: '#f6f4bf',
 };
 
 export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
-  Moons: moonsIcon,
-  Suns: sunsIcon,
-  Waves: wavesIcon,
-  Leaves: leavesIcon,
-  Wyrms: wyrmsIcon,
-  Knots: knotsIcon,
+  [Suit.Moons]: moonsIcon,
+  [Suit.Suns]: sunsIcon,
+  [Suit.Waves]: wavesIcon,
+  [Suit.Leaves]: leavesIcon,
+  [Suit.Wyrms]: wyrmsIcon,
+  [Suit.Knots]: knotsIcon,
 };
 
 // Flat, two-tone suit marks taken from the Decktet's own simplified symbols
@@ -42,12 +42,12 @@ export const SUIT_ICON_BY_SUIT: Record<Suit, string> = {
 // its negative space transparent, so it sits on the same pale SUIT_TOKEN_BG
 // field as the shaded emblems — the saturated colour is in the mark itself.
 export const SUIT_ICON_SIMPLIFIED_BY_SUIT: Record<Suit, string> = {
-  Moons: moonsSimpleIcon,
-  Suns: sunsSimpleIcon,
-  Waves: wavesSimpleIcon,
-  Leaves: leavesSimpleIcon,
-  Wyrms: wyrmsSimpleIcon,
-  Knots: knotsSimpleIcon,
+  [Suit.Moons]: moonsSimpleIcon,
+  [Suit.Suns]: sunsSimpleIcon,
+  [Suit.Waves]: wavesSimpleIcon,
+  [Suit.Leaves]: leavesSimpleIcon,
+  [Suit.Wyrms]: wyrmsSimpleIcon,
+  [Suit.Knots]: knotsSimpleIcon,
 };
 
 export const ALL_SUIT_ICON_URLS: readonly string[] = [
@@ -56,12 +56,12 @@ export const ALL_SUIT_ICON_URLS: readonly string[] = [
 ];
 
 export const SUIT_TEXT_TOKEN: Record<Suit, string> = {
-  Moons: '{Moons}',
-  Suns: '{Suns}',
-  Waves: '{Waves}',
-  Leaves: '{Leaves}',
-  Wyrms: '{Wyrms}',
-  Knots: '{Knots}',
+  [Suit.Moons]: `{${Suit.Moons}}`,
+  [Suit.Suns]: `{${Suit.Suns}}`,
+  [Suit.Waves]: `{${Suit.Waves}}`,
+  [Suit.Leaves]: `{${Suit.Leaves}}`,
+  [Suit.Wyrms]: `{${Suit.Wyrms}}`,
+  [Suit.Knots]: `{${Suit.Knots}}`,
 };
 
 export const SUIT_TOKEN_TO_SUIT: Record<string, Suit> = Object.freeze(

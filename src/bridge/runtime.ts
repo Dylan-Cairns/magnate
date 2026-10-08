@@ -1,3 +1,5 @@
+import { BridgeCommand, BridgeErrorCode } from './values';
+import { GamePhase, Ruleset } from '../engine/values';
 import {
   ACTION_IDS,
   actionStableKey,
@@ -8,7 +10,7 @@ import { createSession } from '../engine/session';
 import { applyAction } from '../engine/reducer';
 import { isTerminal } from '../engine/scoring';
 import { advanceToDecision } from '../engine/turnFlow';
-import type { GameAction, GameState, PlayerId } from '../engine/types';
+import { type GameAction, type GameState, PlayerId } from '../engine/types';
 import { toPlayerView } from '../engine/view';
 import {
   decisionPlayerIdForState,
@@ -16,8 +18,6 @@ import {
   toDecisionPlayerView,
 } from '../engine/decisionActor';
 import type {
-  BridgeCommand,
-  BridgeErrorCode,
   BridgeFailureEnvelope,
   BridgeLegalActionsResult,
   BridgeMetadataResult,
@@ -36,7 +36,7 @@ import {
 } from './protocol';
 
 const DEFAULT_RESET_SEED = 'bridge-default-seed';
-const DEFAULT_FIRST_PLAYER: PlayerId = 'PlayerA';
+const DEFAULT_FIRST_PLAYER: PlayerId = PlayerId.PlayerA;
 const SUPPORTED_SCHEMA_VERSION = 1;
 
 class RuntimeBridgeError extends Error {
@@ -75,17 +75,17 @@ export class MagnateBridgeRuntime {
 
   private execute(command: BridgeCommand, payload: unknown): unknown {
     switch (command) {
-      case 'metadata':
+      case BridgeCommand.Metadata:
         return this.metadata();
-      case 'reset':
+      case BridgeCommand.Reset:
         return this.reset(payload);
-      case 'legalActions':
+      case BridgeCommand.LegalActions:
         return this.legalActions(payload);
-      case 'observation':
+      case BridgeCommand.Observation:
         return this.observation(payload);
-      case 'step':
+      case BridgeCommand.Step:
         return this.step(payload);
-      case 'serialize':
+      case BridgeCommand.Serialize:
         return this.serialize(payload);
     }
   }
@@ -138,7 +138,7 @@ export class MagnateBridgeRuntime {
   private legalActions(payload: unknown): BridgeLegalActionsResult {
     if (payload !== undefined && !isObject(payload)) {
       throw new RuntimeBridgeError(
-        'INVALID_PAYLOAD',
+        BridgeErrorCode.InvalidPayload,
         'legalActions payload must be an object when provided.'
       );
     }
@@ -182,7 +182,10 @@ export class MagnateBridgeRuntime {
       this.state = advanceToDecision(applyAction(this.state, action));
     } catch (error) {
       if (error instanceof Error && error.message.includes('Illegal action')) {
-        throw new RuntimeBridgeError('ILLEGAL_ACTION', error.message);
+        throw new RuntimeBridgeError(
+          BridgeErrorCode.IllegalAction,
+          error.message
+        );
       }
       throw error;
     }
@@ -193,7 +196,7 @@ export class MagnateBridgeRuntime {
   private serialize(payload: unknown): { state: GameState } {
     if (payload !== undefined && !isObject(payload)) {
       throw new RuntimeBridgeError(
-        'INVALID_PAYLOAD',
+        BridgeErrorCode.InvalidPayload,
         'serialize payload must be an object when provided.'
       );
     }
@@ -211,7 +214,7 @@ export class MagnateBridgeRuntime {
       );
       if (!match) {
         throw new RuntimeBridgeError(
-          'ILLEGAL_ACTION',
+          BridgeErrorCode.IllegalAction,
           `Unknown legal action key: ${key}`
         );
       }
@@ -220,7 +223,7 @@ export class MagnateBridgeRuntime {
         const payloadKey = actionStableKey(payload.action);
         if (payloadKey !== key) {
           throw new RuntimeBridgeError(
-            'INVALID_PAYLOAD',
+            BridgeErrorCode.InvalidPayload,
             'step payload action and actionKey must refer to the same action.',
             { actionKey: key, payloadActionKey: payloadKey }
           );
@@ -237,7 +240,7 @@ export class MagnateBridgeRuntime {
       );
       if (!match) {
         throw new RuntimeBridgeError(
-          'ILLEGAL_ACTION',
+          BridgeErrorCode.IllegalAction,
           `Unknown legal action key: ${payloadKey}`
         );
       }
@@ -245,7 +248,7 @@ export class MagnateBridgeRuntime {
     }
 
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'step payload requires either action or actionKey.'
     );
   }
@@ -260,9 +263,12 @@ export class MagnateBridgeRuntime {
 
   private decisionPlayerId(): PlayerId {
     const decisionPlayerId = decisionPlayerIdForState(this.state);
-    if (decisionPlayerId !== 'PlayerA' && decisionPlayerId !== 'PlayerB') {
+    if (
+      decisionPlayerId !== PlayerId.PlayerA &&
+      decisionPlayerId !== PlayerId.PlayerB
+    ) {
       throw new RuntimeBridgeError(
-        'INTERNAL_ENGINE_ERROR',
+        BridgeErrorCode.InternalEngineError,
         'Could not resolve bridge decision player.'
       );
     }
@@ -271,7 +277,7 @@ export class MagnateBridgeRuntime {
 
   private decisionLegalActionsCanonical() {
     const decisionPlayerId = this.decisionPlayerId();
-    if (this.state.phase === 'CollectIncome') {
+    if (this.state.phase === GamePhase.CollectIncome) {
       return toKeyedActions(
         legalActionsForDecisionPlayer(this.state, decisionPlayerId)
       );
@@ -287,7 +293,7 @@ function parseEnvelope(raw: unknown): {
 } {
   if (!isObject(raw)) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'Request must be a JSON object.'
     );
   }
@@ -295,7 +301,7 @@ function parseEnvelope(raw: unknown): {
   const requestId = raw.requestId;
   if (typeof requestId !== 'string' || requestId.trim() === '') {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'Request field "requestId" must be a non-empty string.'
     );
   }
@@ -303,7 +309,7 @@ function parseEnvelope(raw: unknown): {
   const commandValue = raw.command;
   if (typeof commandValue !== 'string') {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'Request field "command" must be a string.'
     );
   }
@@ -322,7 +328,7 @@ function parseCommand(command: string): BridgeCommand {
   }
 
   throw new RuntimeBridgeError(
-    'INVALID_COMMAND',
+    BridgeErrorCode.InvalidCommand,
     `Unsupported command: ${command}`
   );
 }
@@ -334,7 +340,7 @@ function parseResetPayload(payload: unknown): BridgeResetPayload {
 
   if (!isObject(payload)) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'reset payload must be an object.'
     );
   }
@@ -342,7 +348,7 @@ function parseResetPayload(payload: unknown): BridgeResetPayload {
   const seed = payload.seed;
   if (seed !== undefined && typeof seed !== 'string') {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'reset.seed must be a string when provided.'
     );
   }
@@ -350,11 +356,11 @@ function parseResetPayload(payload: unknown): BridgeResetPayload {
   const firstPlayer = payload.firstPlayer;
   if (
     firstPlayer !== undefined &&
-    firstPlayer !== 'PlayerA' &&
-    firstPlayer !== 'PlayerB'
+    firstPlayer !== PlayerId.PlayerA &&
+    firstPlayer !== PlayerId.PlayerB
   ) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'reset.firstPlayer must be "PlayerA" or "PlayerB" when provided.'
     );
   }
@@ -365,7 +371,7 @@ function parseResetPayload(payload: unknown): BridgeResetPayload {
     typeof skipAdvanceToDecision !== 'boolean'
   ) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'reset.skipAdvanceToDecision must be a boolean when provided.'
     );
   }
@@ -385,7 +391,7 @@ function parseObservationPayload(payload: unknown): BridgeObservationPayload {
 
   if (!isObject(payload)) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'observation payload must be an object.'
     );
   }
@@ -393,11 +399,11 @@ function parseObservationPayload(payload: unknown): BridgeObservationPayload {
   const viewerId = payload.viewerId;
   if (
     viewerId !== undefined &&
-    viewerId !== 'PlayerA' &&
-    viewerId !== 'PlayerB'
+    viewerId !== PlayerId.PlayerA &&
+    viewerId !== PlayerId.PlayerB
   ) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'observation.viewerId must be "PlayerA" or "PlayerB" when provided.'
     );
   }
@@ -408,7 +414,7 @@ function parseObservationPayload(payload: unknown): BridgeObservationPayload {
     typeof includeLegalActionMask !== 'boolean'
   ) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'observation.includeLegalActionMask must be a boolean when provided.'
     );
   }
@@ -422,7 +428,7 @@ function parseObservationPayload(payload: unknown): BridgeObservationPayload {
 function parseStepPayload(payload: unknown): BridgeStepPayload {
   if (!isObject(payload)) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'step payload must be an object.'
     );
   }
@@ -432,14 +438,14 @@ function parseStepPayload(payload: unknown): BridgeStepPayload {
 
   if (action !== undefined && !isObject(action)) {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'step.action must be an object when provided.'
     );
   }
 
   if (actionKey !== undefined && typeof actionKey !== 'string') {
     throw new RuntimeBridgeError(
-      'INVALID_PAYLOAD',
+      BridgeErrorCode.InvalidPayload,
       'step.actionKey must be a string when provided.'
     );
   }
@@ -453,61 +459,64 @@ function parseStepPayload(payload: unknown): BridgeStepPayload {
 function parseSerializedState(candidate: unknown): GameState {
   if (!isObject(candidate)) {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'serializedState must be an object.'
     );
   }
 
   if (candidate.schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       `Unsupported schemaVersion: ${String(candidate.schemaVersion)}.`
     );
   }
 
   if (typeof candidate.seed !== 'string') {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'serializedState.seed must be a string.'
     );
   }
 
   if (!Array.isArray(candidate.players) || candidate.players.length !== 2) {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'serializedState.players must contain exactly 2 players.'
     );
   }
 
   if (!Array.isArray(candidate.districts)) {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'serializedState.districts must be an array.'
     );
   }
 
   if (typeof candidate.phase !== 'string') {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'serializedState.phase must be a string.'
     );
   }
 
   if (typeof candidate.activePlayerIndex !== 'number') {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'serializedState.activePlayerIndex must be a number.'
     );
   }
 
   // The Python training/eval bridge stays on the standard ruleset.
-  if (candidate.ruleset !== undefined && candidate.ruleset !== 'standard') {
+  if (
+    candidate.ruleset !== undefined &&
+    candidate.ruleset !== Ruleset.Standard
+  ) {
     throw new RuntimeBridgeError(
-      'STATE_DESERIALIZATION_FAILED',
+      BridgeErrorCode.StateDeserializationFailed,
       'The bridge supports the standard ruleset only.'
     );
   }
-  candidate.ruleset = 'standard';
+  candidate.ruleset = Ruleset.Standard;
 
   return candidate as unknown as GameState;
 }
@@ -545,14 +554,20 @@ function toBridgeError(error: unknown): RuntimeBridgeError {
 
   if (error instanceof Error) {
     if (error.message.includes('Illegal action')) {
-      return new RuntimeBridgeError('ILLEGAL_ACTION', error.message);
+      return new RuntimeBridgeError(
+        BridgeErrorCode.IllegalAction,
+        error.message
+      );
     }
 
-    return new RuntimeBridgeError('INTERNAL_ENGINE_ERROR', error.message);
+    return new RuntimeBridgeError(
+      BridgeErrorCode.InternalEngineError,
+      error.message
+    );
   }
 
   return new RuntimeBridgeError(
-    'INTERNAL_ENGINE_ERROR',
+    BridgeErrorCode.InternalEngineError,
     `Unknown error: ${String(error)}`
   );
 }

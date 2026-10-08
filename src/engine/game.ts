@@ -1,16 +1,17 @@
+import { GamePhase, Suit, CardKind } from './values';
 import { CARD_BY_ID } from './cards';
 import type { CardId } from './cards';
 import { initialSetup } from './deck';
-import type {
-  DistrictState,
-  GameState,
+import {
+  type DistrictState,
+  type GameState,
   PlayerId,
-  PlayerState,
-  ResourcePool,
+  type PlayerState,
+  type ResourcePool,
   Ruleset,
 } from './types';
 
-const PLAYER_IDS: readonly [PlayerId, PlayerId] = ['PlayerA', 'PlayerB'];
+import { PLAYER_IDS } from './values';
 
 export interface NewGameOptions {
   firstPlayer?: PlayerId;
@@ -18,22 +19,22 @@ export interface NewGameOptions {
 }
 
 export function newGame(seed: string, options: NewGameOptions = {}): GameState {
-  const ruleset = options.ruleset ?? 'standard';
+  const ruleset = options.ruleset ?? Ruleset.Standard;
   const setup = initialSetup(seed, ruleset);
-  const firstPlayer = options.firstPlayer ?? 'PlayerA';
+  const firstPlayer = options.firstPlayer ?? PlayerId.PlayerA;
 
   const players: readonly [PlayerState, PlayerState] = [
     createPlayerState(
-      'PlayerA',
-      setup.handsByPlayer.PlayerA,
-      setup.crownsByPlayer.PlayerA,
-      setup.startingResourcesByPlayer.PlayerA
+      PlayerId.PlayerA,
+      setup.handsByPlayer[PlayerId.PlayerA],
+      setup.crownsByPlayer[PlayerId.PlayerA],
+      setup.startingResourcesByPlayer[PlayerId.PlayerA]
     ),
     createPlayerState(
-      'PlayerB',
-      setup.handsByPlayer.PlayerB,
-      setup.crownsByPlayer.PlayerB,
-      setup.startingResourcesByPlayer.PlayerB
+      PlayerId.PlayerB,
+      setup.handsByPlayer[PlayerId.PlayerB],
+      setup.crownsByPlayer[PlayerId.PlayerB],
+      setup.startingResourcesByPlayer[PlayerId.PlayerB]
     ),
   ];
 
@@ -54,7 +55,7 @@ export function newGame(seed: string, options: NewGameOptions = {}): GameState {
     players,
     activePlayerIndex: playerIndexFor(firstPlayer),
     turn: 1,
-    phase: 'StartTurn',
+    phase: GamePhase.StartTurn,
     districts,
     cardPlayedThisTurn: false,
     finalTurnsRemaining: undefined,
@@ -84,12 +85,12 @@ function createPlayerState(
 
 function cloneResources(resources: ResourcePool): ResourcePool {
   return {
-    Moons: resources.Moons,
-    Suns: resources.Suns,
-    Waves: resources.Waves,
-    Leaves: resources.Leaves,
-    Wyrms: resources.Wyrms,
-    Knots: resources.Knots,
+    [Suit.Moons]: resources[Suit.Moons],
+    [Suit.Suns]: resources[Suit.Suns],
+    [Suit.Waves]: resources[Suit.Waves],
+    [Suit.Leaves]: resources[Suit.Leaves],
+    [Suit.Wyrms]: resources[Suit.Wyrms],
+    [Suit.Knots]: resources[Suit.Knots],
   };
 }
 
@@ -98,23 +99,23 @@ function districtFromMarker(
   districtId: string
 ): DistrictState {
   const marker = CARD_BY_ID[markerCardId];
-  if (marker.kind === 'Pawn') {
+  if (marker.kind === CardKind.Pawn) {
     return {
       id: districtId,
       markerSuitMask: [...marker.suits],
       stacks: {
-        PlayerA: { developed: [] },
-        PlayerB: { developed: [] },
+        [PlayerId.PlayerA]: { developed: [] },
+        [PlayerId.PlayerB]: { developed: [] },
       },
     };
   }
-  if (marker.kind === 'Excuse') {
+  if (marker.kind === CardKind.Excuse) {
     return {
       id: districtId,
       markerSuitMask: [],
       stacks: {
-        PlayerA: { developed: [] },
-        PlayerB: { developed: [] },
+        [PlayerId.PlayerA]: { developed: [] },
+        [PlayerId.PlayerB]: { developed: [] },
       },
     };
   }

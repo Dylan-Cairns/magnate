@@ -1,3 +1,10 @@
+import {
+  RuntimeModeType,
+  DicePhase,
+  IncomeTokenSourceKind,
+  GamePresentationEventType,
+} from './values';
+import { ActionId } from '../../engine/values';
 import type { CardId } from '../../engine/cards';
 import type {
   GameAction,
@@ -10,14 +17,18 @@ import type {
 } from '../../engine/types';
 
 export type ActionResourcePaymentReason =
-  | 'buy-deed'
-  | 'develop-outright'
-  | 'develop-deed';
+  | typeof ActionId.BuyDeed
+  | typeof ActionId.DevelopOutright
+  | typeof ActionId.DevelopDeed;
 
 export type RuntimeMode =
-  | { type: 'idle' }
-  | { type: 'animating'; transactionId: string; elapsedMs: number }
-  | { type: 'awaiting-input'; actorId: PlayerId };
+  | { type: typeof RuntimeModeType.Idle }
+  | {
+      type: typeof RuntimeModeType.Animating;
+      transactionId: string;
+      elapsedMs: number;
+    }
+  | { type: typeof RuntimeModeType.AwaitingInput; actorId: PlayerId };
 
 export type TradeProgress = {
   transactionId: string;
@@ -35,8 +46,14 @@ export type AnimationOverlayState = {
   dice: DiceVisualState | null;
 };
 
-export type IncomeDicePhase = 'rolling' | 'settled';
-export type TaxDicePhase = 'hidden' | 'rolling' | 'settled' | 'dimmed';
+export type IncomeDicePhase =
+  | typeof DicePhase.Rolling
+  | typeof DicePhase.Settled;
+export type TaxDicePhase =
+  | typeof DicePhase.Hidden
+  | typeof DicePhase.Rolling
+  | typeof DicePhase.Settled
+  | typeof DicePhase.Dimmed;
 
 export type DiceVisualState = {
   incomeRoll: IncomeRollResult;
@@ -59,45 +76,45 @@ export type GameRuntimeSnapshot = {
 
 export type IncomeTokenSource =
   | {
-      kind: 'district-card';
+      kind: typeof IncomeTokenSourceKind.DistrictCard;
       cardId: CardId;
       districtId: string;
     }
   | {
-      kind: 'crown';
+      kind: typeof IncomeTokenSourceKind.Crown;
       cardId: CardId;
     }
   | {
-      kind: 'income-choice';
+      kind: typeof IncomeTokenSourceKind.IncomeChoice;
       cardId: CardId;
       districtId: string;
     };
 
 export type GamePresentationEvent =
   | {
-      type: 'action-started';
+      type: typeof GamePresentationEventType.ActionStarted;
       action: GameAction;
       actingPlayerId: PlayerId;
     }
   | {
-      type: 'draw-card';
+      type: typeof GamePresentationEventType.DrawCard;
       playerId: PlayerId;
       cardId: CardId;
     }
   | {
-      type: 'card-sold';
+      type: typeof GamePresentationEventType.CardSold;
       playerId: PlayerId;
       cardId: CardId;
     }
   | {
-      type: 'sell-resource-gained';
+      type: typeof GamePresentationEventType.SellResourceGained;
       playerId: PlayerId;
       cardId: CardId;
       suit: Suit;
       tokenIndex: number;
     }
   | {
-      type: 'resource-payment-started';
+      type: typeof GamePresentationEventType.ResourcePaymentStarted;
       playerId: PlayerId;
       reason: ActionResourcePaymentReason;
       cardId: CardId;
@@ -105,7 +122,7 @@ export type GamePresentationEvent =
       payment: Partial<Record<Suit, number>>;
     }
   | {
-      type: 'resource-payment-applied';
+      type: typeof GamePresentationEventType.ResourcePaymentApplied;
       playerId: PlayerId;
       reason: ActionResourcePaymentReason;
       cardId: CardId;
@@ -113,14 +130,14 @@ export type GamePresentationEvent =
       payment: Partial<Record<Suit, number>>;
     }
   | {
-      type: 'card-played-to-district';
+      type: typeof GamePresentationEventType.CardPlayedToDistrict;
       playerId: PlayerId;
       cardId: CardId;
       districtId: string;
       placement: 'deed' | 'developed';
     }
   | {
-      type: 'deed-token-paid';
+      type: typeof GamePresentationEventType.DeedTokenPaid;
       playerId: PlayerId;
       districtId: string;
       cardId: CardId;
@@ -130,7 +147,7 @@ export type GamePresentationEvent =
       nextTokens: Partial<Record<Suit, number>>;
     }
   | {
-      type: 'deed-progress-applied';
+      type: typeof GamePresentationEventType.DeedProgressApplied;
       playerId: PlayerId;
       districtId: string;
       cardId: CardId;
@@ -140,13 +157,13 @@ export type GamePresentationEvent =
       completed: boolean;
     }
   | {
-      type: 'deed-completed';
+      type: typeof GamePresentationEventType.DeedCompleted;
       playerId: PlayerId;
       districtId: string;
       cardId: CardId;
     }
   | {
-      type: 'trade-resources-applied';
+      type: typeof GamePresentationEventType.TradeResourcesApplied;
       playerId: PlayerId;
       give: Suit;
       receive: Suit;
@@ -154,52 +171,52 @@ export type GamePresentationEvent =
       receiveCount: number;
     }
   | {
-      type: 'income-roll';
+      type: typeof GamePresentationEventType.IncomeRoll;
       playerId: PlayerId;
       turn: number;
       roll: IncomeRollResult;
       incomeRank: number;
     }
   | {
-      type: 'tax-resolved';
+      type: typeof GamePresentationEventType.TaxResolved;
       suit: Suit;
     }
   | {
-      type: 'tax-token-lost';
+      type: typeof GamePresentationEventType.TaxTokenLost;
       playerId: PlayerId;
       suit: Suit;
       tokenIndex: number;
     }
   | {
-      type: 'income-token-gained';
+      type: typeof GamePresentationEventType.IncomeTokenGained;
       playerId: PlayerId;
       suit: Suit;
       source: IncomeTokenSource;
     }
   | {
-      type: 'income-choice-required';
+      type: typeof GamePresentationEventType.IncomeChoiceRequired;
       choices: readonly IncomeChoice[];
       returnPlayerId: PlayerId | undefined;
     }
   | {
-      type: 'income-choice-submitted';
+      type: typeof GamePresentationEventType.IncomeChoiceSubmitted;
       playerId: PlayerId;
       districtId: string;
       cardId: CardId;
       suit: Suit;
     }
   | {
-      type: 'active-player-changed';
+      type: typeof GamePresentationEventType.ActivePlayerChanged;
       previousPlayerId: PlayerId | null;
       nextPlayerId: PlayerId | null;
     }
   | {
-      type: 'phase-changed';
+      type: typeof GamePresentationEventType.PhaseChanged;
       previousPhase: GameState['phase'];
       nextPhase: GameState['phase'];
     }
   | {
-      type: 'transaction-settled';
+      type: typeof GamePresentationEventType.TransactionSettled;
     };
 
 export type GameTransaction = {

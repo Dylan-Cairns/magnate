@@ -3,7 +3,7 @@ import {
   decisionPlayerIdForState,
   toDecisionPlayerView,
 } from '../engine/decisionActor';
-import type { GameAction, GameState, PlayerId } from '../engine/types';
+import { type GameAction, type GameState, PlayerId } from '../engine/types';
 import {
   DEFAULT_TD_ROOT_MODEL_INDEX_PATH,
   preloadTdRootBrowserModel,
@@ -176,7 +176,7 @@ function tdLeafValue({
   model: LoadedTdGuidanceModel;
 }): number {
   const activePlayer = decisionPlayerIdForState(state);
-  if (activePlayer !== 'PlayerA' && activePlayer !== 'PlayerB') {
+  if (activePlayer !== PlayerId.PlayerA && activePlayer !== PlayerId.PlayerB) {
     throw new Error('TD root search leaf could not resolve active player.');
   }
   const view = toDecisionPlayerView(state, activePlayer);

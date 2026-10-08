@@ -1,3 +1,4 @@
+import { PlayerId } from '../engine/values';
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
@@ -139,8 +140,8 @@ export function createTdReplaySummaryFromGames(
   }
 ): TdReplaySummary {
   const winners: TdReplaySummary['results']['winners'] = {
-    PlayerA: 0,
-    PlayerB: 0,
+    [PlayerId.PlayerA]: 0,
+    [PlayerId.PlayerB]: 0,
     Draw: 0,
   };
   let turnTotal = 0;
@@ -261,7 +262,7 @@ function validateValueTransition(
       `value row ${rowNumber} nextObservation`
     );
   }
-  if (row.playerId !== 'PlayerA' && row.playerId !== 'PlayerB') {
+  if (row.playerId !== PlayerId.PlayerA && row.playerId !== PlayerId.PlayerB) {
     throw new Error(
       `Invalid value row ${String(rowNumber)}: playerId must be PlayerA or PlayerB.`
     );
@@ -288,7 +289,7 @@ function validateOpponentSample(
   rowNumber: number
 ): void {
   validateVector(row.observation, OBSERVATION_DIM, `opponent row ${rowNumber}`);
-  if (row.playerId !== 'PlayerA' && row.playerId !== 'PlayerB') {
+  if (row.playerId !== PlayerId.PlayerA && row.playerId !== PlayerId.PlayerB) {
     throw new Error(
       `Invalid opponent row ${String(rowNumber)}: playerId must be PlayerA or PlayerB.`
     );

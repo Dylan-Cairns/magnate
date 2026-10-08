@@ -1,9 +1,10 @@
+import { GamePhase } from './values';
 import { findDevelopableCard } from './stateHelpers';
-import type {
-  DistrictId,
-  DistrictStack,
-  FinalScore,
-  GameState,
+import {
+  type DistrictId,
+  type DistrictStack,
+  type FinalScore,
+  type GameState,
   PlayerId,
   Winner,
   WinnerDecider,
@@ -23,30 +24,30 @@ export interface PlayerScoreMargins {
 }
 
 export function isTerminal(state: GameState): boolean {
-  return state.phase === 'GameOver';
+  return state.phase === GamePhase.GameOver;
 }
 
 export function scoreGame(state: GameState): FinalScore {
   const districtWinners = districtWinnersByPlayer(state);
   const districtPoints = {
-    PlayerA: districtWinners.PlayerA.length,
-    PlayerB: districtWinners.PlayerB.length,
+    [PlayerId.PlayerA]: districtWinners[PlayerId.PlayerA].length,
+    [PlayerId.PlayerB]: districtWinners[PlayerId.PlayerB].length,
   };
   const rankTotals = createPlayerCounter();
 
   state.districts.forEach((district) => {
     const districtRankTotals = {
-      PlayerA: rankTotal(district.stacks.PlayerA),
-      PlayerB: rankTotal(district.stacks.PlayerB),
+      [PlayerId.PlayerA]: rankTotal(district.stacks[PlayerId.PlayerA]),
+      [PlayerId.PlayerB]: rankTotal(district.stacks[PlayerId.PlayerB]),
     };
 
-    rankTotals.PlayerA += districtRankTotals.PlayerA;
-    rankTotals.PlayerB += districtRankTotals.PlayerB;
+    rankTotals[PlayerId.PlayerA] += districtRankTotals[PlayerId.PlayerA];
+    rankTotals[PlayerId.PlayerB] += districtRankTotals[PlayerId.PlayerB];
   });
 
   const resourceTotals = {
-    PlayerA: resourceTotal(state, 'PlayerA'),
-    PlayerB: resourceTotal(state, 'PlayerB'),
+    [PlayerId.PlayerA]: resourceTotal(state, PlayerId.PlayerA),
+    [PlayerId.PlayerB]: resourceTotal(state, PlayerId.PlayerB),
   };
 
   const winner = decideWinner(districtPoints, rankTotals, resourceTotals);
@@ -80,8 +81,7 @@ export function scoreMarginsForPlayer(
 
   return {
     districtPointMargin:
-      finalScore.districtPoints[playerId] -
-      finalScore.districtPoints[opponent],
+      finalScore.districtPoints[playerId] - finalScore.districtPoints[opponent],
     districtScoreMargins,
     districtScoreMarginTotal: districtScoreMargins.reduce(
       (total, entry) => total + entry.margin,
@@ -90,8 +90,7 @@ export function scoreMarginsForPlayer(
     rankTotalMargin:
       finalScore.rankTotals[playerId] - finalScore.rankTotals[opponent],
     resourceMargin:
-      finalScore.resourceTotals[playerId] -
-      finalScore.resourceTotals[opponent],
+      finalScore.resourceTotals[playerId] - finalScore.resourceTotals[opponent],
   };
 }
 
@@ -102,14 +101,16 @@ export function districtWinnersByPlayer(
 
   state.districts.forEach((district) => {
     const districtScores = {
-      PlayerA: districtScore(district.stacks.PlayerA),
-      PlayerB: districtScore(district.stacks.PlayerB),
+      [PlayerId.PlayerA]: districtScore(district.stacks[PlayerId.PlayerA]),
+      [PlayerId.PlayerB]: districtScore(district.stacks[PlayerId.PlayerB]),
     };
 
-    if (districtScores.PlayerA > districtScores.PlayerB) {
-      winners.PlayerA.push(district.id);
-    } else if (districtScores.PlayerB > districtScores.PlayerA) {
-      winners.PlayerB.push(district.id);
+    if (districtScores[PlayerId.PlayerA] > districtScores[PlayerId.PlayerB]) {
+      winners[PlayerId.PlayerA].push(district.id);
+    } else if (
+      districtScores[PlayerId.PlayerB] > districtScores[PlayerId.PlayerA]
+    ) {
+      winners[PlayerId.PlayerB].push(district.id);
     }
   });
 
@@ -155,20 +156,22 @@ function decideWinner(
   rankTotals: Record<PlayerId, number>,
   resourceTotals: Record<PlayerId, number>
 ): Winner {
-  if (districtPoints.PlayerA !== districtPoints.PlayerB) {
-    return districtPoints.PlayerA > districtPoints.PlayerB
-      ? 'PlayerA'
-      : 'PlayerB';
+  if (districtPoints[PlayerId.PlayerA] !== districtPoints[PlayerId.PlayerB]) {
+    return districtPoints[PlayerId.PlayerA] > districtPoints[PlayerId.PlayerB]
+      ? PlayerId.PlayerA
+      : PlayerId.PlayerB;
   }
-  if (rankTotals.PlayerA !== rankTotals.PlayerB) {
-    return rankTotals.PlayerA > rankTotals.PlayerB ? 'PlayerA' : 'PlayerB';
+  if (rankTotals[PlayerId.PlayerA] !== rankTotals[PlayerId.PlayerB]) {
+    return rankTotals[PlayerId.PlayerA] > rankTotals[PlayerId.PlayerB]
+      ? PlayerId.PlayerA
+      : PlayerId.PlayerB;
   }
-  if (resourceTotals.PlayerA !== resourceTotals.PlayerB) {
-    return resourceTotals.PlayerA > resourceTotals.PlayerB
-      ? 'PlayerA'
-      : 'PlayerB';
+  if (resourceTotals[PlayerId.PlayerA] !== resourceTotals[PlayerId.PlayerB]) {
+    return resourceTotals[PlayerId.PlayerA] > resourceTotals[PlayerId.PlayerB]
+      ? PlayerId.PlayerA
+      : PlayerId.PlayerB;
   }
-  return 'Draw';
+  return Winner.Draw;
 }
 
 function winnerReason(
@@ -176,34 +179,34 @@ function winnerReason(
   rankTotals: Record<PlayerId, number>,
   resourceTotals: Record<PlayerId, number>
 ): WinnerDecider {
-  if (districtPoints.PlayerA !== districtPoints.PlayerB) {
-    return 'districts';
+  if (districtPoints[PlayerId.PlayerA] !== districtPoints[PlayerId.PlayerB]) {
+    return WinnerDecider.Districts;
   }
-  if (rankTotals.PlayerA !== rankTotals.PlayerB) {
-    return 'rank-total';
+  if (rankTotals[PlayerId.PlayerA] !== rankTotals[PlayerId.PlayerB]) {
+    return WinnerDecider.RankTotal;
   }
-  if (resourceTotals.PlayerA !== resourceTotals.PlayerB) {
-    return 'resources';
+  if (resourceTotals[PlayerId.PlayerA] !== resourceTotals[PlayerId.PlayerB]) {
+    return WinnerDecider.Resources;
   }
-  return 'draw';
+  return WinnerDecider.Draw;
 }
 
 function createPlayerCounter(): Record<PlayerId, number> {
   return {
-    PlayerA: 0,
-    PlayerB: 0,
+    [PlayerId.PlayerA]: 0,
+    [PlayerId.PlayerB]: 0,
   };
 }
 
 function createPlayerDistrictList(): Record<PlayerId, DistrictId[]> {
   return {
-    PlayerA: [],
-    PlayerB: [],
+    [PlayerId.PlayerA]: [],
+    [PlayerId.PlayerB]: [],
   };
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }
 
 function isDefined<T>(value: T | undefined): value is T {

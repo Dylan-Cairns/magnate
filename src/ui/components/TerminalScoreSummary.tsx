@@ -1,3 +1,4 @@
+import { WinnerDecider } from '../../engine/values';
 import { useEffect, useRef } from 'react';
 
 import type { FinalScore, PlayerId } from '../../engine/types';
@@ -30,7 +31,8 @@ export function TerminalScoreSummary({
       aria-label="Final score breakdown"
     >
       <p className="score-result terminal-score-winner">
-        Winner: <strong>{winnerDisplayName(score.winner, humanPlayerId)}</strong>
+        Winner:{' '}
+        <strong>{winnerDisplayName(score.winner, humanPlayerId)}</strong>
       </p>
       <p className="score-line terminal-score-decider">
         <span>Decided By</span>
@@ -85,13 +87,13 @@ export function TerminalScoreSummary({
 
 function deciderLabel(decidedBy: FinalScore['decidedBy']): string {
   switch (decidedBy) {
-    case 'districts':
+    case WinnerDecider.Districts:
       return 'Districts';
-    case 'rank-total':
+    case WinnerDecider.RankTotal:
       return 'Total Properties';
-    case 'resources':
+    case WinnerDecider.Resources:
       return 'Resources';
-    case 'draw':
+    case WinnerDecider.Draw:
       return 'Tie';
   }
 }

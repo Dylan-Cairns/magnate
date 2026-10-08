@@ -34,6 +34,9 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 - Keep engine behavior deterministic (seeded RNG only).
 - Keep rule semantics in TypeScript; UI and Python consume engine legality and
   observations, never re-derive rules.
+- Define shared finite string values in subsystem-owned `as const` objects;
+  derive their types and use named members in consumers. Preserve serialized
+  spellings and explicit compatibility orders during refactors.
 - Keep the bridge contract stable (`memoryBank/bridgeInterfaceContract.md`);
   breaking changes require a contract version bump.
 - Use the project `.venv` for any Python command in this repo. Training and

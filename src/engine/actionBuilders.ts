@@ -1,3 +1,4 @@
+import { ActionId } from './values';
 import { CARD_BY_ID, isDevelopableCard } from './cards';
 import {
   SUITS,
@@ -7,15 +8,15 @@ import {
   enumerateOutrightPayments,
   placementAllowed,
 } from './stateHelpers';
-import type { GameAction, GamePhase, GameState } from './types';
+import { type GameAction, GamePhase, type GameState } from './types';
 
 type PhaseBuilderMap = Partial<
   Record<GamePhase, (state: GameState) => GameAction[]>
 >;
 
 const builders: PhaseBuilderMap = {
-  CollectIncome: collectIncomeChoiceActions,
-  ActionWindow: actionWindowActions,
+  [GamePhase.CollectIncome]: collectIncomeChoiceActions,
+  [GamePhase.ActionWindow]: actionWindowActions,
 };
 
 export function legalActions(state: GameState): readonly GameAction[] {
@@ -27,7 +28,7 @@ function actionWindowActions(state: GameState): GameAction[] {
   const trades = tradeActions(state);
   const develops = developActions(state);
   if (state.cardPlayedThisTurn) {
-    return [...trades, ...develops, { type: 'end-turn' as const }];
+    return [...trades, ...develops, { type: ActionId.EndTurn }];
   }
 
   return [...trades, ...develops, ...playActions(state)];
@@ -35,13 +36,13 @@ function actionWindowActions(state: GameState): GameAction[] {
 
 function tradeActions(
   state: GameState
-): Extract<GameAction, { type: 'trade' }>[] {
+): Extract<GameAction, { type: typeof ActionId.Trade }>[] {
   const player = state.players[state.activePlayerIndex];
   return SUITS.flatMap((give) =>
     player.resources[give] < 3
       ? []
       : SUITS.filter((receive) => receive !== give).map((receive) => ({
-          type: 'trade' as const,
+          type: ActionId.Trade,
           give,
           receive,
         }))
@@ -50,7 +51,7 @@ function tradeActions(
 
 function developActions(
   state: GameState
-): Extract<GameAction, { type: 'develop-deed' }>[] {
+): Extract<GameAction, { type: typeof ActionId.DevelopDeed }>[] {
   const player = state.players[state.activePlayerIndex];
   const playerId = player.id;
 
@@ -71,7 +72,7 @@ function developActions(
     return card.suits
       .filter((suit) => player.resources[suit] > 0)
       .map((suit) => ({
-        type: 'develop-deed' as const,
+        type: ActionId.DevelopDeed,
         districtId: district.id,
         cardId: deed.cardId,
         tokens: { [suit]: 1 },
@@ -93,7 +94,7 @@ function collectIncomeChoiceActions(state: GameState): GameAction[] {
     )
     .flatMap((choice) =>
       choice.suits.map((suit) => ({
-        type: 'choose-income-suit' as const,
+        type: ActionId.ChooseIncomeSuit,
         playerId: choice.playerId,
         districtId: choice.districtId,
         cardId: choice.cardId,
@@ -116,7 +117,7 @@ function playActions(state: GameState): GameAction[] {
       return [];
     }
 
-    const sell = { type: 'sell-card' as const, cardId };
+    const sell = { type: ActionId.SellCard, cardId };
     const placements = state.districts.filter((district) =>
       placementAllowed(card, district, playerId)
     );
@@ -126,7 +127,7 @@ function playActions(state: GameState): GameAction[] {
       ? placements
           .filter((district) => !district.stacks[playerId]?.deed)
           .map((district) => ({
-            type: 'buy-deed' as const,
+            type: ActionId.BuyDeed,
             cardId,
             districtId: district.id,
           }))
@@ -134,7 +135,7 @@ function playActions(state: GameState): GameAction[] {
 
     const developOutright = placements.flatMap((district) =>
       enumerateOutrightPayments(card, player.resources).map((payment) => ({
-        type: 'develop-outright' as const,
+        type: ActionId.DevelopOutright,
         cardId,
         districtId: district.id,
         payment,

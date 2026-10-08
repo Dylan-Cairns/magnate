@@ -1,3 +1,4 @@
+import { BotKind, SearchHeuristicVersion } from './values';
 import type { SearchPolicyConfig } from './searchConfig';
 import type {
   SearchDecisionDiagnostics,
@@ -133,9 +134,9 @@ export function createSearchDecisionDiagnostics({
     );
   }
   return {
-    kind: 'search',
+    kind: BotKind.Search,
     guidance,
-    heuristic: config.heuristic ?? 'v1',
+    heuristic: config.heuristic ?? SearchHeuristicVersion.V1,
     stochasticSimulation: 'common-random-scenarios-v1',
     legalRootActions,
     expandedRootActions,

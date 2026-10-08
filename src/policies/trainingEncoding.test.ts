@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createHash } from 'node:crypto';
 
 import { legalActions } from '../engine/actionBuilders';
+import { legalActionsCanonical } from '../engine/actionSurface';
 import { createSession } from '../engine/session';
 import { toPlayerView } from '../engine/view';
 
@@ -14,6 +16,20 @@ import {
 } from './trainingEncoding';
 
 describe('training encoding', () => {
+  it('preserves the pre-refactor seeded observation and canonical action encodings', () => {
+    const state = createSession('value-refactor-compatibility', 'PlayerA');
+    const encoded = {
+      observation: encodeObservation(toPlayerView(state, 'PlayerA')),
+      actions: encodeActionCandidates(
+        legalActionsCanonical(state).map((entry) => entry.action)
+      ),
+    };
+    // Captured before moving the value definitions; independent of shared constants.
+    expect(
+      createHash('sha256').update(JSON.stringify(encoded)).digest('hex')
+    ).toBe('d6f7bac21fb9cb1ab0e701c538765aefc3eb267ce97065f20c939ebb930f16de');
+  });
+
   it('encodes active-player view with stable observation dimension', () => {
     const state = createSession('encoding-test-seed', 'PlayerA');
     const view = toPlayerView(state, 'PlayerA');

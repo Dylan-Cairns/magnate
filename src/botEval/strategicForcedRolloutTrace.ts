@@ -1,3 +1,5 @@
+import { BotKind, SearchHeuristicVersion } from '../policies/values';
+import { ActionId } from '../engine/values';
 import { createHash } from 'node:crypto';
 
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
@@ -8,12 +10,12 @@ import {
 } from '../engine/decisionActor';
 import { rngFromSeed } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
-import type {
-  FinalScore,
-  GameAction,
-  GameState,
+import {
+  type FinalScore,
+  type GameAction,
+  type GameState,
   PlayerId,
-  ResourcePool,
+  type ResourcePool,
 } from '../engine/types';
 import { sampleHiddenWorldStates } from '../policies/determinization';
 import { scoreHeuristicV2Actions } from '../policies/heuristicScorerV2';
@@ -341,7 +343,7 @@ interface OptionalityContext {
 }
 
 function optionalityContext(position: StrategicPositionV0): OptionalityContext {
-  if (position.perspectivePlayerId !== 'PlayerA') {
+  if (position.perspectivePlayerId !== PlayerId.PlayerA) {
     throw new Error(
       `Optionality trace ${position.id} must use the PlayerA catalog perspective.`
     );
@@ -369,8 +371,8 @@ function optionalityContext(position: StrategicPositionV0): OptionalityContext {
   const preserveAction = actionForStableKey(legalActions, preserve.actionKey);
   const overwriteAction = actionForStableKey(legalActions, overwrite.actionKey);
   if (
-    preserveAction.type !== 'develop-outright' ||
-    overwriteAction.type !== 'develop-outright'
+    preserveAction.type !== ActionId.DevelopOutright ||
+    overwriteAction.type !== ActionId.DevelopOutright
   ) {
     throw new Error(
       `Optionality position ${position.id} focus actions must be outright developments.`
@@ -508,7 +510,8 @@ function runOneTrace({
   const targetDevelopedInValuableLane =
     finalState.districts
       .find((district) => district.id === context.valuableDistrictId)
-      ?.stacks.PlayerA.developed.includes(context.targetCardId) ?? false;
+      ?.stacks[PlayerId.PlayerA].developed.includes(context.targetCardId) ??
+    false;
   const targetInitiallyHeldByOpponent =
     targetLocation(worldStates[worldIndex], context.targetCardId) ===
     'PlayerB-hand';
@@ -525,7 +528,8 @@ function runOneTrace({
       steps.find((step) => proposalsDiverge(step))?.stepIndex ?? null,
     firstPlayerAProposalDivergenceStepIndex:
       steps.find(
-        (step) => step.decisionPlayer === 'PlayerA' && proposalsDiverge(step)
+        (step) =>
+          step.decisionPlayer === PlayerId.PlayerA && proposalsDiverge(step)
       )?.stepIndex ?? null,
     targetEverHeldByPlayerA,
     targetOpportunitySeen,
@@ -551,8 +555,8 @@ function compactStep({
   context: OptionalityContext;
   model: LoadedTdGuidanceModel;
 }): StrategicForcedRolloutStepV0 {
-  const playerABefore = player(step.stateBefore, 'PlayerA');
-  const playerAAfter = player(step.stateAfter, 'PlayerA');
+  const playerABefore = player(step.stateBefore, PlayerId.PlayerA);
+  const playerAAfter = player(step.stateAfter, PlayerId.PlayerA);
   return {
     stepIndex: step.stepIndex,
     decisionPlayer: step.decisionPlayer,
@@ -665,13 +669,19 @@ function targetLegalDistricts(
   decisionPlayer: PlayerId,
   targetCardId: CardId
 ): string[] {
-  if (decisionPlayer !== 'PlayerA') {
+  if (decisionPlayer !== PlayerId.PlayerA) {
     return [];
   }
   return legalActionsForDecisionPlayer(state, decisionPlayer)
     .filter(
-      (action): action is Extract<GameAction, { type: 'develop-outright' }> =>
-        action.type === 'develop-outright' && action.cardId === targetCardId
+      (
+        action
+      ): action is Extract<
+        GameAction,
+        { type: typeof ActionId.DevelopOutright }
+      > =>
+        action.type === ActionId.DevelopOutright &&
+        action.cardId === targetCardId
     )
     .map((action) => action.districtId)
     .filter((districtId, index, values) => values.indexOf(districtId) === index)
@@ -688,7 +698,7 @@ function targetLocation(state: GameState, targetCardId: CardId): string {
     }
   }
   for (const district of state.districts) {
-    for (const playerId of ['PlayerA', 'PlayerB'] as const) {
+    for (const playerId of [PlayerId.PlayerA, PlayerId.PlayerB] as const) {
       const stack = district.stacks[playerId];
       if (stack.developed.includes(targetCardId)) {
         return `${playerId}-developed:${district.id}`;
@@ -710,19 +720,19 @@ function targetLocation(state: GameState, targetCardId: CardId): string {
 
 function actionLabel(action: GameAction, context: OptionalityContext): string {
   switch (action.type) {
-    case 'end-turn':
+    case ActionId.EndTurn:
       return 'End turn';
-    case 'trade':
+    case ActionId.Trade:
       return `Trade ${action.give} for ${action.receive}`;
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return `Choose ${action.suit} income for ${CARD_BY_ID[action.cardId].name}`;
-    case 'sell-card':
+    case ActionId.SellCard:
       return `Sell ${CARD_BY_ID[action.cardId].name}`;
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       return `Buy deed for ${CARD_BY_ID[action.cardId].name} in ${semanticDistrict(action.districtId, context)}`;
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return `Develop deed ${CARD_BY_ID[action.cardId].name} in ${semanticDistrict(action.districtId, context)}`;
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return `Develop ${CARD_BY_ID[action.cardId].name} in ${semanticDistrict(action.districtId, context)}`;
   }
 }
@@ -744,7 +754,8 @@ function hiddenAssignmentFingerprint(
   state: GameState,
   rootPlayer: PlayerId
 ): string {
-  const opponent = rootPlayer === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  const opponent =
+    rootPlayer === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
   const payload = JSON.stringify({
     opponentHand: player(state, opponent).hand,
     draw: state.deck.draw,
@@ -809,14 +820,14 @@ function defaultTraceRuntime(): {
   if (
     !variant ||
     variant.descriptor.kind !== 'bot-spec' ||
-    variant.descriptor.spec.kind !== 'td-root-search'
+    variant.descriptor.spec.kind !== BotKind.TdRootSearch
   ) {
     throw new Error('The 800-visit TD strategic variant is unavailable.');
   }
   return {
     config: {
       ...structuredClone(variant.descriptor.spec.config),
-      heuristic: 'v2',
+      heuristic: SearchHeuristicVersion.V2,
     },
     modelIndexPath:
       variant.descriptor.spec.modelIndexPath ??
@@ -831,7 +842,7 @@ function validateTraceConfig(config: SearchPolicyConfig): void {
   if (config.rollouts !== 1) {
     throw new Error('Forced rollout tracing requires rollouts=1.');
   }
-  if (config.heuristic !== 'v2') {
+  if (config.heuristic !== SearchHeuristicVersion.V2) {
     throw new Error('Forced rollout tracing requires heuristic v2.');
   }
   for (const [label, value] of [

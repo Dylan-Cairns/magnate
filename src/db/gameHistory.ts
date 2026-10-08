@@ -1,5 +1,7 @@
-import type { FinalScore, PlayerId, Ruleset } from '../engine/types';
-import { db, type GameRecord, type WinnerOutcome } from './db';
+import { Winner } from '../engine/values';
+import { type FinalScore, PlayerId, type Ruleset } from '../engine/types';
+import { db, type GameRecord } from './db';
+import { WinnerOutcome } from './values';
 
 export interface RecordGameParams {
   sessionId: string;
@@ -13,14 +15,14 @@ export interface RecordGameParams {
 export async function recordGame(params: RecordGameParams): Promise<void> {
   const { score, humanPlayerId, botProfileId, botLabel, ruleset } = params;
   const botPlayerId: PlayerId =
-    humanPlayerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+    humanPlayerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 
   const winner: WinnerOutcome =
     score.winner === humanPlayerId
-      ? 'player'
-      : score.winner === 'Draw'
-        ? 'draw'
-        : 'bot';
+      ? WinnerOutcome.Player
+      : score.winner === Winner.Draw
+        ? WinnerOutcome.Draw
+        : WinnerOutcome.Bot;
 
   const record: GameRecord = {
     sessionId: params.sessionId,

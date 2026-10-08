@@ -1,11 +1,12 @@
-import type {
-  Card,
-  CourtCard,
-  CrownCard,
-  DevelopableCard,
-  ExcuseCard,
-  PawnCard,
-  PropertyCard,
+import { CardKind } from './values';
+import {
+  type Card,
+  type CourtCard,
+  type CrownCard,
+  type DevelopableCard,
+  type ExcuseCard,
+  type PawnCard,
+  type PropertyCard,
   Ruleset,
   Suit,
 } from './types';
@@ -21,12 +22,12 @@ export type CardId = string;
 
 // Aces are grouped by suit in ASCII order.
 const ACE_SUITS = [
-  'Knots',
-  'Leaves',
-  'Moons',
-  'Suns',
-  'Waves',
-  'Wyrms',
+  Suit.Knots,
+  Suit.Leaves,
+  Suit.Moons,
+  Suit.Suns,
+  Suit.Waves,
+  Suit.Wyrms,
 ] as const satisfies readonly Suit[];
 
 // Numeral properties are grouped by rank; each rank has three cards.
@@ -34,93 +35,93 @@ const NUMERALS_BY_RANK = [
   {
     rank: 2,
     cards: [
-      { name: 'The Author', suits: ['Moons', 'Knots'] },
-      { name: 'The Desert', suits: ['Suns', 'Wyrms'] },
-      { name: 'The Origin', suits: ['Waves', 'Leaves'] },
+      { name: 'The Author', suits: [Suit.Moons, Suit.Knots] },
+      { name: 'The Desert', suits: [Suit.Suns, Suit.Wyrms] },
+      { name: 'The Origin', suits: [Suit.Waves, Suit.Leaves] },
     ],
   },
   {
     rank: 3,
     cards: [
-      { name: 'The Journey', suits: ['Moons', 'Waves'] },
-      { name: 'The Painter', suits: ['Suns', 'Knots'] },
-      { name: 'The Savage', suits: ['Leaves', 'Wyrms'] },
+      { name: 'The Journey', suits: [Suit.Moons, Suit.Waves] },
+      { name: 'The Painter', suits: [Suit.Suns, Suit.Knots] },
+      { name: 'The Savage', suits: [Suit.Leaves, Suit.Wyrms] },
     ],
   },
   {
     rank: 4,
     cards: [
-      { name: 'The Battle', suits: ['Wyrms', 'Knots'] },
-      { name: 'The Mountain', suits: ['Moons', 'Suns'] },
-      { name: 'The Sailor', suits: ['Waves', 'Leaves'] },
+      { name: 'The Battle', suits: [Suit.Wyrms, Suit.Knots] },
+      { name: 'The Mountain', suits: [Suit.Moons, Suit.Suns] },
+      { name: 'The Sailor', suits: [Suit.Waves, Suit.Leaves] },
     ],
   },
   {
     rank: 5,
     cards: [
-      { name: 'The Discovery', suits: ['Suns', 'Waves'] },
-      { name: 'The Forest', suits: ['Moons', 'Leaves'] },
-      { name: 'The Soldier', suits: ['Wyrms', 'Knots'] },
+      { name: 'The Discovery', suits: [Suit.Suns, Suit.Waves] },
+      { name: 'The Forest', suits: [Suit.Moons, Suit.Leaves] },
+      { name: 'The Soldier', suits: [Suit.Wyrms, Suit.Knots] },
     ],
   },
   {
     rank: 6,
     cards: [
-      { name: 'The Lunatic', suits: ['Moons', 'Waves'] },
-      { name: 'The Market', suits: ['Leaves', 'Knots'] },
-      { name: 'The Penitent', suits: ['Suns', 'Wyrms'] },
+      { name: 'The Lunatic', suits: [Suit.Moons, Suit.Waves] },
+      { name: 'The Market', suits: [Suit.Leaves, Suit.Knots] },
+      { name: 'The Penitent', suits: [Suit.Suns, Suit.Wyrms] },
     ],
   },
   {
     rank: 7,
     cards: [
-      { name: 'The Castle', suits: ['Suns', 'Knots'] },
-      { name: 'The Cave', suits: ['Waves', 'Wyrms'] },
-      { name: 'The Chance Meeting', suits: ['Moons', 'Leaves'] },
+      { name: 'The Castle', suits: [Suit.Suns, Suit.Knots] },
+      { name: 'The Cave', suits: [Suit.Waves, Suit.Wyrms] },
+      { name: 'The Chance Meeting', suits: [Suit.Moons, Suit.Leaves] },
     ],
   },
   {
     rank: 8,
     cards: [
-      { name: 'The Betrayal', suits: ['Wyrms', 'Knots'] },
-      { name: 'The Diplomat', suits: ['Moons', 'Suns'] },
-      { name: 'The Mill', suits: ['Waves', 'Leaves'] },
+      { name: 'The Betrayal', suits: [Suit.Wyrms, Suit.Knots] },
+      { name: 'The Diplomat', suits: [Suit.Moons, Suit.Suns] },
+      { name: 'The Mill', suits: [Suit.Waves, Suit.Leaves] },
     ],
   },
   {
     rank: 9,
     cards: [
-      { name: 'The Darkness', suits: ['Waves', 'Wyrms'] },
-      { name: 'The Merchant', suits: ['Leaves', 'Knots'] },
-      { name: 'The Pact', suits: ['Moons', 'Suns'] },
+      { name: 'The Darkness', suits: [Suit.Waves, Suit.Wyrms] },
+      { name: 'The Merchant', suits: [Suit.Leaves, Suit.Knots] },
+      { name: 'The Pact', suits: [Suit.Moons, Suit.Suns] },
     ],
   },
 ] as const;
 
 // Crowns are defined as name-to-suit pairs.
 const CROWNS = [
-  { name: 'The Windfall', suit: 'Knots' },
-  { name: 'The End', suit: 'Leaves' },
-  { name: 'The Huntress', suit: 'Moons' },
-  { name: 'The Bard', suit: 'Suns' },
-  { name: 'The Sea', suit: 'Waves' },
-  { name: 'The Calamity', suit: 'Wyrms' },
+  { name: 'The Windfall', suit: Suit.Knots },
+  { name: 'The End', suit: Suit.Leaves },
+  { name: 'The Huntress', suit: Suit.Moons },
+  { name: 'The Bard', suit: Suit.Suns },
+  { name: 'The Sea', suit: Suit.Waves },
+  { name: 'The Calamity', suit: Suit.Wyrms },
 ] as const;
 
 // Pawns are defined as name-to-suit-set entries.
 const PAWNS = [
-  { name: 'The Borderland', suits: ['Waves', 'Leaves', 'Wyrms'] },
-  { name: 'The Harvest', suits: ['Moons', 'Suns', 'Leaves'] },
-  { name: 'The Light Keeper', suits: ['Suns', 'Waves', 'Knots'] },
-  { name: 'The Watchman', suits: ['Moons', 'Wyrms', 'Knots'] },
+  { name: 'The Borderland', suits: [Suit.Waves, Suit.Leaves, Suit.Wyrms] },
+  { name: 'The Harvest', suits: [Suit.Moons, Suit.Suns, Suit.Leaves] },
+  { name: 'The Light Keeper', suits: [Suit.Suns, Suit.Waves, Suit.Knots] },
+  { name: 'The Watchman', suits: [Suit.Moons, Suit.Wyrms, Suit.Knots] },
 ] as const;
 
 // Courts are the four three-suit extended-deck property cards.
 const COURTS = [
-  { name: 'The Consul', suits: ['Moons', 'Waves', 'Knots'] },
-  { name: 'The Island', suits: ['Suns', 'Waves', 'Wyrms'] },
-  { name: 'The Rite', suits: ['Moons', 'Leaves', 'Wyrms'] },
-  { name: 'The Window', suits: ['Suns', 'Leaves', 'Knots'] },
+  { name: 'The Consul', suits: [Suit.Moons, Suit.Waves, Suit.Knots] },
+  { name: 'The Island', suits: [Suit.Suns, Suit.Waves, Suit.Wyrms] },
+  { name: 'The Rite', suits: [Suit.Moons, Suit.Leaves, Suit.Wyrms] },
+  { name: 'The Window', suits: [Suit.Suns, Suit.Leaves, Suit.Knots] },
 ] as const;
 
 const EXCUSE_NAME = 'The Excuse' as const;
@@ -143,7 +144,7 @@ const compareAscii = (a: string, b: string): number =>
 
 const aceSpecs: CardSpec[] = [...ACE_SUITS].sort(compareAscii).map((suit) => ({
   name: `Ace of ${suit}`,
-  kind: 'Property',
+  kind: CardKind.Property,
   rank: 1,
   suits: [suit],
 }));
@@ -155,7 +156,7 @@ const numeralSpecs: CardSpec[] = [...NUMERALS_BY_RANK]
       .sort((a, b) => compareAscii(a.name, b.name))
       .map((card) => ({
         name: card.name,
-        kind: 'Property' as const,
+        kind: CardKind.Property,
         rank: group.rank,
         suits: card.suits,
       }))
@@ -165,13 +166,13 @@ const crownSpecs: CardSpec[] = [...CROWNS]
   .sort((a, b) => compareAscii(a.suit, b.suit))
   .map((card) => ({
     name: card.name,
-    kind: 'Crown',
+    kind: CardKind.Crown,
     suits: [card.suit],
   }));
 
 const excuseSpec: CardSpec = {
   name: EXCUSE_NAME,
-  kind: 'Excuse',
+  kind: CardKind.Excuse,
   suits: [],
 };
 
@@ -179,7 +180,7 @@ const pawnSpecs: CardSpec[] = [...PAWNS]
   .sort((a, b) => compareAscii(a.name, b.name))
   .map((card) => ({
     name: card.name,
-    kind: 'Pawn',
+    kind: CardKind.Pawn,
     suits: card.suits,
   }));
 
@@ -187,7 +188,7 @@ const courtSpecs: CardSpec[] = [...COURTS]
   .sort((a, b) => compareAscii(a.name, b.name))
   .map((card) => ({
     name: card.name,
-    kind: 'Court',
+    kind: CardKind.Court,
     suits: card.suits,
   }));
 
@@ -204,51 +205,51 @@ const CARD_SPECS: readonly CardSpec[] = [
 
 const toCard = (id: CardId, spec: CardSpec): Card => {
   switch (spec.kind) {
-    case 'Excuse': {
+    case CardKind.Excuse: {
       const card: ExcuseCard = {
         id,
         name: spec.name,
-        kind: 'Excuse',
+        kind: CardKind.Excuse,
       };
       return card;
     }
-    case 'Pawn': {
+    case CardKind.Pawn: {
       const card: PawnCard = {
         id,
         name: spec.name,
-        kind: 'Pawn',
+        kind: CardKind.Pawn,
         suits: spec.suits as readonly [Suit, Suit, Suit],
       };
       return card;
     }
-    case 'Crown': {
+    case CardKind.Crown: {
       const card: CrownCard = {
         id,
         name: spec.name,
-        kind: 'Crown',
+        kind: CardKind.Crown,
         rank: 10,
         suits: spec.suits as readonly [Suit],
       };
       return card;
     }
-    case 'Court': {
+    case CardKind.Court: {
       const card: CourtCard = {
         id,
         name: spec.name,
-        kind: 'Court',
+        kind: CardKind.Court,
         rank: 10,
         suits: spec.suits as readonly [Suit, Suit, Suit],
       };
       return card;
     }
-    case 'Property': {
+    case CardKind.Property: {
       if (spec.rank === undefined) {
         throw new Error(`Property card ${spec.name} is missing a rank.`);
       }
       const card: PropertyCard = {
         id,
         name: spec.name,
-        kind: 'Property',
+        kind: CardKind.Property,
         rank: spec.rank,
         suits: spec.suits,
       };
@@ -299,31 +300,31 @@ function assertCatalog(cards: readonly Card[]): void {
     names.add(card.name);
 
     switch (card.kind) {
-      case 'Excuse':
+      case CardKind.Excuse:
         excuses += 1;
         break;
-      case 'Pawn': {
+      case CardKind.Pawn: {
         pawns += 1;
         if (card.suits.length !== 3 || new Set(card.suits).size !== 3) {
           throw new Error(`Pawn ${card.name} must have three distinct suits.`);
         }
         break;
       }
-      case 'Crown': {
+      case CardKind.Crown: {
         crowns += 1;
         if (card.suits.length !== 1) {
           throw new Error(`Crown ${card.name} must have exactly one suit.`);
         }
         break;
       }
-      case 'Court': {
+      case CardKind.Court: {
         courts += 1;
         if (card.suits.length !== 3 || new Set(card.suits).size !== 3) {
           throw new Error(`Court ${card.name} must have three distinct suits.`);
         }
         break;
       }
-      case 'Property': {
+      case CardKind.Property: {
         if (new Set(card.suits).size !== card.suits.length) {
           throw new Error(`Property ${card.name} has duplicate suits.`);
         }
@@ -387,17 +388,17 @@ export const CARD_BY_ID: Record<CardId, Card> = ALL_CARDS.reduce(
 export function isDevelopableCard(
   card: Card | undefined
 ): card is DevelopableCard {
-  return card?.kind === 'Property' || card?.kind === 'Court';
+  return card?.kind === CardKind.Property || card?.kind === CardKind.Court;
 }
 
 export const PROPERTY_CARDS = ALL_CARDS.filter(
-  (c): c is PropertyCard => c.kind === 'Property'
+  (c): c is PropertyCard => c.kind === CardKind.Property
 );
 export const COURT_CARDS = ALL_CARDS.filter(
-  (c): c is CourtCard => c.kind === 'Court'
+  (c): c is CourtCard => c.kind === CardKind.Court
 );
 export const CROWN_CARDS = ALL_CARDS.filter(
-  (c): c is CrownCard => c.kind === 'Crown'
+  (c): c is CrownCard => c.kind === CardKind.Crown
 );
 
 // Deck of developable property cards for the selected ruleset. The standard
@@ -405,14 +406,14 @@ export const CROWN_CARDS = ALL_CARDS.filter(
 export function propertyDeckForRuleset(
   ruleset: Ruleset
 ): readonly DevelopableCard[] {
-  if (ruleset === 'extended') {
+  if (ruleset === Ruleset.Extended) {
     return [...PROPERTY_CARDS, ...COURT_CARDS];
   }
   return PROPERTY_CARDS;
 }
 export const PAWN_CARDS = ALL_CARDS.filter(
-  (c): c is PawnCard => c.kind === 'Pawn'
+  (c): c is PawnCard => c.kind === CardKind.Pawn
 );
 export const EXCUSE_CARD = ALL_CARDS.find(
-  (c): c is ExcuseCard => c.kind === 'Excuse'
+  (c): c is ExcuseCard => c.kind === CardKind.Excuse
 )!;

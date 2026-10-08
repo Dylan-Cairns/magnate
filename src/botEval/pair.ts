@@ -1,13 +1,9 @@
 import { performance } from 'node:perf_hooks';
 
-import type { PlayerId } from '../engine/types';
+import { PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import type { ActionPolicy } from '../policies/types';
-import {
-  playGame,
-  type PlayGameHeartbeat,
-  type RuntimeBot,
-} from './playGame';
+import { playGame, type PlayGameHeartbeat, type RuntimeBot } from './playGame';
 import type { HeadToHeadConfig, PlayedGame } from './types';
 
 export interface PairedSeedJob {
@@ -37,7 +33,9 @@ export interface PlayPairedSeedOptions {
   onGameCompleted?: (game: PlayedGame) => void;
 }
 
-export function createPairedSeedJobs(config: HeadToHeadConfig): PairedSeedJob[] {
+export function createPairedSeedJobs(
+  config: HeadToHeadConfig
+): PairedSeedJob[] {
   return Array.from({ length: config.gamesPerSide }, (_, pairIndex) =>
     createPairedSeedJob(config, pairIndex)
   );
@@ -69,8 +67,8 @@ export async function playPairedSeed({
     firstPlayer: job.firstPlayer,
     ruleset: config.ruleset,
     botBySeat: {
-      PlayerA: bots.candidate,
-      PlayerB: bots.opponent,
+      [PlayerId.PlayerA]: bots.candidate,
+      [PlayerId.PlayerB]: bots.opponent,
     },
     maxDecisions: config.maxDecisionsPerGame,
     now,
@@ -84,8 +82,8 @@ export async function playPairedSeed({
     firstPlayer: job.firstPlayer,
     ruleset: config.ruleset,
     botBySeat: {
-      PlayerA: bots.opponent,
-      PlayerB: bots.candidate,
+      [PlayerId.PlayerA]: bots.opponent,
+      [PlayerId.PlayerB]: bots.candidate,
     },
     maxDecisions: config.maxDecisionsPerGame,
     now,
@@ -108,7 +106,7 @@ function createPairedSeedJob(
     pairIndex,
     pairNumber,
     seed: `${config.seedPrefix}-${String(pairNumber).padStart(4, '0')}`,
-    firstPlayer: pairIndex % 2 === 0 ? 'PlayerA' : 'PlayerB',
+    firstPlayer: pairIndex % 2 === 0 ? PlayerId.PlayerA : PlayerId.PlayerB,
   };
 }
 

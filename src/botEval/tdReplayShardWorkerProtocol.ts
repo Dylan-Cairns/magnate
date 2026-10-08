@@ -1,9 +1,6 @@
+import { TdReplayShardWorkerMessageType } from './workerValues';
 import type { TdReplayProgress } from './tdReplay';
-import type {
-  GitMetadata,
-  TdReplayConfig,
-  TdReplaySummary,
-} from './types';
+import type { GitMetadata, TdReplayConfig, TdReplaySummary } from './types';
 
 export interface TdReplayShardPlan {
   shardIndex: number;
@@ -25,7 +22,7 @@ export interface TdReplayShardResult {
 
 export type TdReplayShardWorkerRequest =
   | {
-      type: 'run-shard';
+      type: typeof TdReplayShardWorkerMessageType.RunShard;
       config: TdReplayConfig;
       shard: TdReplayShardPlan;
       gameIndexTotal: number;
@@ -36,24 +33,24 @@ export type TdReplayShardWorkerRequest =
       nodeVersion: string;
     }
   | {
-      type: 'shutdown';
+      type: typeof TdReplayShardWorkerMessageType.Shutdown;
     };
 
 export type TdReplayShardWorkerResponse =
   | {
-      type: 'ready';
+      type: typeof TdReplayShardWorkerMessageType.Ready;
     }
   | {
-      type: 'progress';
+      type: typeof TdReplayShardWorkerMessageType.Progress;
       shardIndex: number;
       progress: TdReplayProgress;
     }
   | {
-      type: 'shard-completed';
+      type: typeof TdReplayShardWorkerMessageType.ShardCompleted;
       result: TdReplayShardResult;
     }
   | {
-      type: 'error';
+      type: typeof TdReplayShardWorkerMessageType.Error;
       shardIndex?: number;
       message: string;
       stack?: string;

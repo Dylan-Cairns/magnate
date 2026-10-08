@@ -30,6 +30,7 @@ troubleshooting and the optional Python environment.
 
 - **Web app and engine:**
   [memoryBank/systemPatterns.md](memoryBank/systemPatterns.md) (architecture),
+  including ownership of shared finite values and compatibility ordering,
   [memoryBank/magnateRules.md](memoryBank/magnateRules.md) (rules reference),
   [docs/AGENT_GUIDE.md](docs/AGENT_GUIDE.md) (reading map by surface).
 - **Bot training and evaluation:**

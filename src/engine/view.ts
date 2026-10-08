@@ -1,17 +1,18 @@
-import type {
-  DistrictStack,
-  FinalScore,
-  DistrictState,
-  GameLogEntry,
-  GameState,
-  IncomeChoice,
-  IncomeRollResult,
-  ObservedPlayerState,
+import { Suit } from './values';
+import {
+  type DistrictStack,
+  type FinalScore,
+  type DistrictState,
+  type GameLogEntry,
+  type GameState,
+  type IncomeChoice,
+  type IncomeRollResult,
+  type ObservedPlayerState,
   PlayerId,
-  PlayerState,
-  PlayerView,
-  ResourcePool,
-  SubmittedIncomeChoice,
+  type PlayerState,
+  type PlayerView,
+  type ResourcePool,
+  type SubmittedIncomeChoice,
 } from './types';
 
 export function toPlayerView(state: GameState, viewerId: PlayerId): PlayerView {
@@ -117,8 +118,8 @@ function cloneDistrict(district: DistrictState): DistrictState {
     id: district.id,
     markerSuitMask: [...district.markerSuitMask],
     stacks: {
-      PlayerA: cloneStack(district.stacks.PlayerA),
-      PlayerB: cloneStack(district.stacks.PlayerB),
+      [PlayerId.PlayerA]: cloneStack(district.stacks[PlayerId.PlayerA]),
+      [PlayerId.PlayerB]: cloneStack(district.stacks[PlayerId.PlayerB]),
     },
   };
 }
@@ -139,12 +140,12 @@ function cloneStack(stack: DistrictStack): DistrictStack {
 
 function cloneResources(resources: ResourcePool): ResourcePool {
   return {
-    Moons: resources.Moons,
-    Suns: resources.Suns,
-    Waves: resources.Waves,
-    Leaves: resources.Leaves,
-    Wyrms: resources.Wyrms,
-    Knots: resources.Knots,
+    [Suit.Moons]: resources[Suit.Moons],
+    [Suit.Suns]: resources[Suit.Suns],
+    [Suit.Waves]: resources[Suit.Waves],
+    [Suit.Leaves]: resources[Suit.Leaves],
+    [Suit.Wyrms]: resources[Suit.Wyrms],
+    [Suit.Knots]: resources[Suit.Knots],
   };
 }
 
@@ -207,16 +208,16 @@ function cloneFinalScore(
   }
   return {
     districtPoints: {
-      PlayerA: score.districtPoints.PlayerA,
-      PlayerB: score.districtPoints.PlayerB,
+      [PlayerId.PlayerA]: score.districtPoints[PlayerId.PlayerA],
+      [PlayerId.PlayerB]: score.districtPoints[PlayerId.PlayerB],
     },
     rankTotals: {
-      PlayerA: score.rankTotals.PlayerA,
-      PlayerB: score.rankTotals.PlayerB,
+      [PlayerId.PlayerA]: score.rankTotals[PlayerId.PlayerA],
+      [PlayerId.PlayerB]: score.rankTotals[PlayerId.PlayerB],
     },
     resourceTotals: {
-      PlayerA: score.resourceTotals.PlayerA,
-      PlayerB: score.resourceTotals.PlayerB,
+      [PlayerId.PlayerA]: score.resourceTotals[PlayerId.PlayerA],
+      [PlayerId.PlayerB]: score.resourceTotals[PlayerId.PlayerB],
     },
     winner: score.winner,
     decidedBy: score.decidedBy,

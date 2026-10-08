@@ -1,3 +1,4 @@
+import { ActionId } from '../../engine/values';
 import {
   createContext,
   useCallback,
@@ -79,7 +80,7 @@ export function ActionHighlights({
     );
     if (hovered?.state !== state || hovered.picker !== picker)
       return withCommitted(persistent);
-    if (hovered.actions.some((action) => action.type === 'end-turn'))
+    if (hovered.actions.some((action) => action.type === ActionId.EndTurn))
       return withCommitted([]);
     const temporary = sharedActionHighlightTargets(hovered.actions);
     // A picker option can preview replacing a selected district or trade source.
@@ -135,10 +136,10 @@ export function useResourceHighlightClass() {
       return '';
     }
     const highlighted =
-      keys.has(highlightTargetKey({ kind: 'resource', suit, effect: 'gain' })) ||
       keys.has(
-        highlightTargetKey({ kind: 'resource', suit, effect: 'spend' })
-      );
+        highlightTargetKey({ kind: 'resource', suit, effect: 'gain' })
+      ) ||
+      keys.has(highlightTargetKey({ kind: 'resource', suit, effect: 'spend' }));
     return highlighted ? ' is-action-highlighted' : '';
   };
 }

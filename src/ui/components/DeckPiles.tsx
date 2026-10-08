@@ -1,3 +1,4 @@
+import { CardKind } from '../../engine/values';
 import { memo } from 'react';
 import { useHighlightClass } from './ActionHighlights';
 import { CARD_BY_ID, type CardId } from '../../engine/cards';
@@ -33,11 +34,11 @@ export const DeckPiles = memo(function DeckPiles({
   const discardCardDetails = visibleDiscardCards.map((cardId) => {
     const card = CARD_BY_ID[cardId];
     const rank =
-      card.kind === 'Property' || card.kind === 'Crown'
+      card.kind === CardKind.Property || card.kind === CardKind.Crown
         ? String(card.rank)
         : card.kind;
     const suitTokenText =
-      card.kind === 'Excuse'
+      card.kind === CardKind.Excuse
         ? ''
         : card.suits.map((suit) => SUIT_TEXT_TOKEN[suit]).join(' ');
     return {
@@ -90,7 +91,9 @@ export const DeckPiles = memo(function DeckPiles({
                   const isTopCard = index === discardStackCardIds.length - 1;
                   const topCard = isTopCard ? CARD_BY_ID[cardId] : null;
                   const topSuits =
-                    topCard && topCard.kind !== 'Excuse' ? topCard.suits : [];
+                    topCard && topCard.kind !== CardKind.Excuse
+                      ? topCard.suits
+                      : [];
                   return (
                     <div
                       key={`discard-${cardId}-${index}`}

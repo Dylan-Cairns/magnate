@@ -1,3 +1,5 @@
+import { ActionListItemKind, ActionPickerKind } from '../actionValues';
+import { ActionId } from '../../engine/values';
 import { useActionHover } from './ActionHighlights';
 import { useEffect, useState, type ReactNode } from 'react';
 
@@ -27,7 +29,7 @@ import { SuitText } from './SuitText';
 import { TerminalScoreSummary } from './TerminalScoreSummary';
 
 export type DistrictPickerConfig = {
-  actionType: 'buy-deed';
+  actionType: typeof ActionId.BuyDeed;
   cardId: CardId;
 };
 
@@ -203,9 +205,9 @@ export function ActionsPanel({
                         <div
                           className="action-entry-button"
                           {...hoverProps(
-                            item.kind === 'action'
+                            item.kind === ActionListItemKind.Action
                               ? [item.action]
-                              : item.kind === 'trade-group' &&
+                              : item.kind === ActionListItemKind.TradeGroup &&
                                   hasMultipleTradeSources
                                 ? []
                                 : item.options
@@ -253,7 +255,7 @@ export function ActionsPanel({
                         />
                       );
 
-                    if (item.kind === 'trade-group') {
+                    if (item.kind === ActionListItemKind.TradeGroup) {
                       if (hasMultipleTradeSources) {
                         return renderCategorizedAction(
                           'trade-source-group',
@@ -261,7 +263,10 @@ export function ActionsPanel({
                             type="button"
                             className="action-button has-submenu"
                             onClick={(event) => {
-                              if (actionPicker?.kind === 'trade-combined') {
+                              if (
+                                actionPicker?.kind ===
+                                ActionPickerKind.TradeCombined
+                              ) {
                                 onClosePicker();
                                 return;
                               }
@@ -291,7 +296,7 @@ export function ActionsPanel({
                           className="action-button has-submenu"
                           onClick={(event) => {
                             if (
-                              actionPicker?.kind === 'trade' &&
+                              actionPicker?.kind === ActionPickerKind.Trade &&
                               actionPicker.give === item.give
                             ) {
                               onClosePicker();
@@ -313,7 +318,7 @@ export function ActionsPanel({
                       );
                     }
 
-                    if (item.kind === 'buy-deed-group') {
+                    if (item.kind === ActionListItemKind.BuyDeedGroup) {
                       if (item.options.length === 1) {
                         const [onlyOption] = item.options;
                         return renderDirectAction(
@@ -325,19 +330,22 @@ export function ActionsPanel({
                       return renderPickerGroupAction(
                         `buy-deed-group-${item.cardId}`,
                         `Buy deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)}`,
-                        actionPicker?.kind === 'district' &&
-                          actionPicker.actionType === 'buy-deed' &&
+                        actionPicker?.kind === ActionPickerKind.District &&
+                          actionPicker.actionType === ActionId.BuyDeed &&
                           actionPicker.cardId === item.cardId,
                         (trigger) =>
                           onOpenDistrictPicker(
-                            { actionType: 'buy-deed', cardId: item.cardId },
+                            {
+                              actionType: ActionId.BuyDeed,
+                              cardId: item.cardId,
+                            },
                             trigger,
                             item.options.length
                           )
                       );
                     }
 
-                    if (item.kind === 'develop-deed-group') {
+                    if (item.kind === ActionListItemKind.DevelopDeedGroup) {
                       if (item.options.length === 1) {
                         const [onlyOption] = item.options;
                         return renderDirectAction(
@@ -349,7 +357,7 @@ export function ActionsPanel({
                       return renderPickerGroupAction(
                         `develop-deed-group-${item.cardId}-${item.districtId}`,
                         `Develop deed ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`,
-                        actionPicker?.kind === 'deed-payment' &&
+                        actionPicker?.kind === ActionPickerKind.DeedPayment &&
                           actionPicker.cardId === item.cardId &&
                           actionPicker.districtId === item.districtId,
                         (trigger) =>
@@ -364,7 +372,7 @@ export function ActionsPanel({
                       );
                     }
 
-                    if (item.kind === 'develop-outright-group') {
+                    if (item.kind === ActionListItemKind.DevelopOutrightGroup) {
                       if (item.options.length === 1) {
                         const [onlyOption] = item.options;
                         return renderCategorizedAction(
@@ -389,7 +397,7 @@ export function ActionsPanel({
                             if (districtId) {
                               if (
                                 actionPicker?.kind ===
-                                  'develop-outright-payment' &&
+                                  ActionPickerKind.DevelopOutrightPayment &&
                                 actionPicker.cardId === item.cardId &&
                                 actionPicker.districtId === districtId
                               ) {
@@ -405,7 +413,7 @@ export function ActionsPanel({
                             }
                             if (
                               actionPicker?.kind ===
-                                'develop-outright-combined' &&
+                                ActionPickerKind.DevelopOutrightCombined &&
                               actionPicker.cardId === item.cardId
                             ) {
                               onClosePicker();
@@ -431,11 +439,11 @@ export function ActionsPanel({
                       );
                     }
 
-                    if (item.kind === 'income-choice-group') {
+                    if (item.kind === ActionListItemKind.IncomeChoiceGroup) {
                       return renderPickerGroupAction(
                         `income-choice-group-${item.playerId}-${item.districtId}-${item.cardId}`,
                         `Choose income ${cardSummary(item.cardId, SUIT_TEXT_TOKEN)} in ${item.districtId}`,
-                        actionPicker?.kind === 'income-choice' &&
+                        actionPicker?.kind === ActionPickerKind.IncomeChoice &&
                           actionPicker.playerId === item.playerId &&
                           actionPicker.cardId === item.cardId &&
                           actionPicker.districtId === item.districtId,

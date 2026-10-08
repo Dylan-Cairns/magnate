@@ -1,3 +1,4 @@
+import { SearchHeuristicVersion } from './values';
 export interface SearchPolicyConfig {
   worlds: number;
   rollouts: number;
@@ -14,7 +15,6 @@ export interface SearchPolicyConfig {
   courtValueScale?: number;
 }
 
-export type SearchHeuristicVersion = 'v1' | 'v2';
 export type SearchPolicyOptions = Partial<SearchPolicyConfig>;
 
 export const DEFAULT_COURT_VALUE_SCALE = 1;
@@ -25,7 +25,7 @@ export const DEFAULT_SEARCH_POLICY_CONFIG: SearchPolicyConfig = {
   depth: 12,
   maxRootActions: 6,
   rolloutEpsilon: 0.04,
-  heuristic: 'v1',
+  heuristic: SearchHeuristicVersion.V1,
   courtValueScale: DEFAULT_COURT_VALUE_SCALE,
 };
 
@@ -64,7 +64,10 @@ export function resolveSearchConfig(
       `Search policy rolloutEpsilon must be in [0, 1]; received ${String(rolloutEpsilon)}.`
     );
   }
-  if (heuristic !== 'v1' && heuristic !== 'v2') {
+  if (
+    heuristic !== SearchHeuristicVersion.V1 &&
+    heuristic !== SearchHeuristicVersion.V2
+  ) {
     throw new Error(
       `Search policy heuristic must be v1 or v2; received ${String(heuristic)}.`
     );
@@ -99,3 +102,5 @@ function integerWithFloor(value: number, floor: number): number {
   }
   return rounded;
 }
+
+export { SearchHeuristicVersion } from './values';

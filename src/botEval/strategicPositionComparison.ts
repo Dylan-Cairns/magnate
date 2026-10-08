@@ -1,3 +1,4 @@
+import { BotProfileId, BotKind } from '../policies/values';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 
@@ -157,9 +158,13 @@ export interface StrategicVariantCatalogOptionsV0 {
 export function createStrategicComparisonVariantCatalogV0(
   options: StrategicVariantCatalogOptionsV0 = {}
 ): StrategicComparisonVariantV0[] {
-  const hard = structuredClone(getBotProfile('rollout-search-v2-hard').spec);
-  const td = structuredClone(getBotProfile('td-root-search-v2-medium').spec);
-  if (td.kind !== 'td-root-search') {
+  const hard = structuredClone(
+    getBotProfile(BotProfileId.RolloutSearchV2Hard).spec
+  );
+  const td = structuredClone(
+    getBotProfile(BotProfileId.TdRootSearchV2Medium).spec
+  );
+  if (td.kind !== BotKind.TdRootSearch) {
     throw new Error('TD V2 Medium must use a TD-root-search bot spec.');
   }
   if (options.tdModelIndexPath !== undefined) {

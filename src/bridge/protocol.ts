@@ -10,26 +10,13 @@ import type { KeyedAction } from '../engine/actionSurface';
 export const BRIDGE_CONTRACT_NAME = 'magnate_bridge' as const;
 export const BRIDGE_CONTRACT_VERSION = 'v1' as const;
 
-export const BRIDGE_COMMANDS = [
-  'metadata',
-  'reset',
-  'step',
-  'legalActions',
-  'observation',
-  'serialize',
-] as const;
-
-export type BridgeCommand = (typeof BRIDGE_COMMANDS)[number];
-
-export const BRIDGE_ERROR_CODES = [
-  'INVALID_COMMAND',
-  'INVALID_PAYLOAD',
-  'ILLEGAL_ACTION',
-  'STATE_DESERIALIZATION_FAILED',
-  'INTERNAL_ENGINE_ERROR',
-] as const;
-
-export type BridgeErrorCode = (typeof BRIDGE_ERROR_CODES)[number];
+import type { BridgeCommand, BridgeErrorCode } from './values';
+export {
+  BridgeCommand,
+  BridgeErrorCode,
+  BRIDGE_COMMANDS,
+  BRIDGE_ERROR_CODES,
+} from './values';
 
 export interface BridgeRequestEnvelope {
   requestId: string;

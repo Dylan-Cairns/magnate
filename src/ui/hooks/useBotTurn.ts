@@ -1,3 +1,4 @@
+import { SearchHeuristicVersion } from '../../policies/values';
 import {
   useCallback,
   useEffect,
@@ -32,7 +33,7 @@ function logBotSearchDiagnostics(diagnostics: SearchDecisionDiagnostics): void {
     prior: roundDiagnosticNumber(entry.prior),
   }));
   console.info('[Magnate bot search]', {
-    heuristic: diagnostics.heuristic ?? 'v1',
+    heuristic: diagnostics.heuristic ?? SearchHeuristicVersion.V1,
     stochasticSimulation: diagnostics.stochasticSimulation ?? null,
     workers: diagnostics.parallelWorkers ?? 1,
     batches: diagnostics.parallelBatches ?? null,

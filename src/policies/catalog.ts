@@ -1,13 +1,8 @@
-import type { Ruleset } from '../engine/types';
-import { createPolicyFromBotSpec, type BotKind, type BotSpec } from './botSpec';
+import { BotProfileId, SearchHeuristicVersion } from './values';
+import { Ruleset } from '../engine/types';
+import { createPolicyFromBotSpec, BotKind, type BotSpec } from './botSpec';
 import type { ActionPolicy } from './types';
 import { createWorkerBackedPolicy } from './workerPolicy';
-
-export type BotProfileId =
-  | 'rollout-search-v2-easy'
-  | 'rollout-search-v2-medium'
-  | 'rollout-search-v2-hard'
-  | 'td-root-search-v2-medium';
 
 export interface BotProfile {
   id: BotProfileId;
@@ -29,78 +24,78 @@ export interface ResolvedBotProfile {
 
 export const BOT_PROFILES: readonly BotProfile[] = [
   createBotProfile({
-    id: 'rollout-search-v2-easy',
+    id: BotProfileId.RolloutSearchV2Easy,
     label: 'Easy',
     description: '',
     available: true,
-    supportedRulesets: ['standard', 'extended'],
+    supportedRulesets: [Ruleset.Standard, Ruleset.Extended],
     turnDelayMs: 0,
     spec: {
-      id: 'rollout-search-v2-easy',
-      kind: 'search',
+      id: BotProfileId.RolloutSearchV2Easy,
+      kind: BotKind.Search,
       config: {
         worlds: 20,
         rollouts: 1,
         depth: 80,
         maxRootActions: 10,
         rolloutEpsilon: 0.0,
-        heuristic: 'v2',
+        heuristic: SearchHeuristicVersion.V2,
       },
     },
     createPolicy: createWorkerBackedPolicy,
   }),
   createBotProfile({
-    id: 'rollout-search-v2-medium',
+    id: BotProfileId.RolloutSearchV2Medium,
     label: 'Medium',
     description: '',
     available: true,
-    supportedRulesets: ['standard', 'extended'],
+    supportedRulesets: [Ruleset.Standard, Ruleset.Extended],
     turnDelayMs: 0,
     spec: {
-      id: 'rollout-search-v2-medium',
-      kind: 'search',
+      id: BotProfileId.RolloutSearchV2Medium,
+      kind: BotKind.Search,
       config: {
         worlds: 10,
         rollouts: 1,
         depth: 40,
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
-        heuristic: 'v2',
+        heuristic: SearchHeuristicVersion.V2,
       },
     },
     createPolicy: createWorkerBackedPolicy,
   }),
   createBotProfile({
-    id: 'rollout-search-v2-hard',
+    id: BotProfileId.RolloutSearchV2Hard,
     label: 'Hard',
     description: '',
     available: true,
-    supportedRulesets: ['standard', 'extended'],
+    supportedRulesets: [Ruleset.Standard, Ruleset.Extended],
     turnDelayMs: 0,
     spec: {
-      id: 'rollout-search-v2-hard',
-      kind: 'search',
+      id: BotProfileId.RolloutSearchV2Hard,
+      kind: BotKind.Search,
       config: {
         worlds: 50,
         rollouts: 1,
         depth: 270,
         maxRootActions: 16,
         rolloutEpsilon: 0.0,
-        heuristic: 'v2',
+        heuristic: SearchHeuristicVersion.V2,
       },
     },
     createPolicy: createWorkerBackedPolicy,
   }),
   createBotProfile({
-    id: 'td-root-search-v2-medium',
+    id: BotProfileId.TdRootSearchV2Medium,
     label: 'Experimental',
     description: '',
     available: true,
-    supportedRulesets: ['standard'],
+    supportedRulesets: [Ruleset.Standard],
     turnDelayMs: 0,
     spec: {
-      id: 'td-root-search-v2-medium',
-      kind: 'td-root-search',
+      id: BotProfileId.TdRootSearchV2Medium,
+      kind: BotKind.TdRootSearch,
       config: {
         worlds: 10,
         rollouts: 1,
@@ -113,7 +108,8 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   }),
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-search-v2-easy';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId =
+  BotProfileId.RolloutSearchV2Easy;
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);
@@ -182,3 +178,5 @@ function createBotProfile(
     policy: (createPolicy ?? createPolicyFromBotSpec)(profileConfig.spec),
   };
 }
+
+export { BotProfileId } from './values';

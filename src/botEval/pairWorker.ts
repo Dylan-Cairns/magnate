@@ -1,3 +1,4 @@
+import { PairWorkerMessageType } from './workerValues';
 import { validateHeadToHeadConfig } from './matchup';
 import {
   createRuntimePairBots,
@@ -26,7 +27,7 @@ process.on('message', (request: PairWorkerRequest) => {
 
 async function handleRequest(request: PairWorkerRequest): Promise<void> {
   switch (request.type) {
-    case 'initialize':
+    case PairWorkerMessageType.Initialize:
       if (config) {
         throw new Error('Pair worker was initialized more than once.');
       }
@@ -34,9 +35,9 @@ async function handleRequest(request: PairWorkerRequest): Promise<void> {
       config = request.config;
       bots = createRuntimePairBots(config);
       progressIntervalMs = request.progressIntervalMs;
-      send({ type: 'ready' });
+      send({ type: PairWorkerMessageType.Ready });
       return;
-    case 'run-pair': {
+    case PairWorkerMessageType.RunPair: {
       if (!config || !bots) {
         throw new Error('Pair worker received a job before initialization.');
       }
@@ -51,24 +52,24 @@ async function handleRequest(request: PairWorkerRequest): Promise<void> {
         progressIntervalMs,
         onHeartbeat(heartbeat) {
           send({
-            type: 'heartbeat',
+            type: PairWorkerMessageType.Heartbeat,
             pairIndex: request.job.pairIndex,
             heartbeat,
           });
         },
         onGameCompleted(game) {
           send({
-            type: 'game-completed',
+            type: PairWorkerMessageType.GameCompleted,
             pairIndex: request.job.pairIndex,
             game,
           });
         },
       });
       activePairIndex = undefined;
-      send({ type: 'pair-completed', result });
+      send({ type: PairWorkerMessageType.PairCompleted, result });
       return;
     }
-    case 'shutdown':
+    case PairWorkerMessageType.Shutdown:
       process.disconnect();
       return;
   }
@@ -82,10 +83,9 @@ function send(response: PairWorkerResponse): void {
 }
 
 function sendError(error: unknown, pairIndex?: number): void {
-  const normalized =
-    error instanceof Error ? error : new Error(String(error));
+  const normalized = error instanceof Error ? error : new Error(String(error));
   send({
-    type: 'error',
+    type: PairWorkerMessageType.Error,
     ...(pairIndex === undefined ? {} : { pairIndex }),
     message: normalized.message,
     ...(normalized.stack ? { stack: normalized.stack } : {}),

@@ -1,3 +1,9 @@
+import { ActionId } from '../../engine/values';
+import {
+  AnimationStepType,
+  GamePresentationEventType,
+  IncomeTokenSourceKind,
+} from './values';
 import type { CardId } from '../../engine/cards';
 import { SUITS } from '../../engine/stateHelpers';
 import type {
@@ -70,158 +76,167 @@ export const DEFAULT_ANIMATION_DURATIONS: AnimationDurations = {
 export type AnimationStep =
   | {
       id: string;
-      type: 'hold-previous-state';
+      type: typeof AnimationStepType.HoldPreviousState;
       durationMs: number;
     }
   | {
       id: string;
-      type: 'draw-card-flight';
-      durationMs: number;
-      playerId: PlayerId;
-      cardId: CardId;
-    }
-  | {
-      id: string;
-      type: 'stage-sold-card';
+      type: typeof AnimationStepType.DrawCardFlight;
       durationMs: number;
       playerId: PlayerId;
       cardId: CardId;
     }
   | {
       id: string;
-      type: 'launch-sell-token-flights';
+      type: typeof AnimationStepType.StageSoldCard;
+      durationMs: number;
+      playerId: PlayerId;
+      cardId: CardId;
+    }
+  | {
+      id: string;
+      type: typeof AnimationStepType.LaunchSellTokenFlights;
       durationMs: number;
       flightSequenceDurationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
-        { type: 'sell-resource-gained' }
+        { type: typeof GamePresentationEventType.SellResourceGained }
       >[];
     }
   | {
       id: string;
-      type: 'land-sell-token';
+      type: typeof AnimationStepType.LandSellToken;
       durationMs: number;
-      gain: Extract<GamePresentationEvent, { type: 'sell-resource-gained' }>;
+      gain: Extract<
+        GamePresentationEvent,
+        { type: typeof GamePresentationEventType.SellResourceGained }
+      >;
     }
   | {
       id: string;
-      type: 'launch-payment-token-flights';
+      type: typeof AnimationStepType.LaunchPaymentTokenFlights;
       durationMs: number;
       flightSequenceDurationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'resource-payment-started' }
+        { type: typeof GamePresentationEventType.ResourcePaymentStarted }
       >;
     }
   | {
       id: string;
-      type: 'apply-resource-payment-token';
+      type: typeof AnimationStepType.ApplyResourcePaymentToken;
       durationMs: number;
       playerId: PlayerId;
       suit: Suit;
     }
   | {
       id: string;
-      type: 'apply-resource-payment';
+      type: typeof AnimationStepType.ApplyResourcePayment;
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'resource-payment-applied' }
+        { type: typeof GamePresentationEventType.ResourcePaymentApplied }
       >;
     }
   | {
       id: string;
-      type: 'launch-card-to-district-flight';
+      type: typeof AnimationStepType.LaunchCardToDistrictFlight;
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'card-played-to-district' }
+        { type: typeof GamePresentationEventType.CardPlayedToDistrict }
       >;
     }
   | {
       id: string;
-      type: 'place-card-in-district';
+      type: typeof AnimationStepType.PlaceCardInDistrict;
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'card-played-to-district' }
+        { type: typeof GamePresentationEventType.CardPlayedToDistrict }
       >;
     }
   | {
       id: string;
-      type: 'launch-deed-token-flights';
+      type: typeof AnimationStepType.LaunchDeedTokenFlights;
       durationMs: number;
       tokens: readonly Extract<
         GamePresentationEvent,
-        { type: 'deed-token-paid' }
+        { type: typeof GamePresentationEventType.DeedTokenPaid }
       >[];
     }
   | {
       id: string;
-      type: 'apply-deed-tokens';
+      type: typeof AnimationStepType.ApplyDeedTokens;
       durationMs: number;
       tokens: readonly Extract<
         GamePresentationEvent,
-        { type: 'deed-token-paid' }
+        { type: typeof GamePresentationEventType.DeedTokenPaid }
       >[];
     }
   | {
       id: string;
-      type: 'apply-deed-progress';
+      type: typeof AnimationStepType.ApplyDeedProgress;
       durationMs: number;
-      event: Extract<GamePresentationEvent, { type: 'deed-progress-applied' }>;
+      event: Extract<
+        GamePresentationEvent,
+        { type: typeof GamePresentationEventType.DeedProgressApplied }
+      >;
     }
   | {
       id: string;
-      type: 'reveal-deed-completion';
+      type: typeof AnimationStepType.RevealDeedCompletion;
       durationMs: number;
-      event: Extract<GamePresentationEvent, { type: 'deed-completed' }>;
+      event: Extract<
+        GamePresentationEvent,
+        { type: typeof GamePresentationEventType.DeedCompleted }
+      >;
     }
   | {
       id: string;
-      type: 'launch-trade-token-flights';
+      type: typeof AnimationStepType.LaunchTradeTokenFlights;
       durationMs: number;
       flightSequenceDurationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'trade-resources-applied' }
+        { type: typeof GamePresentationEventType.TradeResourcesApplied }
       >;
     }
   | {
       id: string;
-      type: 'apply-trade-token-loss';
+      type: typeof AnimationStepType.ApplyTradeTokenLoss;
       durationMs: number;
       playerId: PlayerId;
       suit: Suit;
     }
   | {
       id: string;
-      type: 'land-trade-token';
+      type: typeof AnimationStepType.LandTradeToken;
       durationMs: number;
       landed: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'trade-resources-applied' }
+        { type: typeof GamePresentationEventType.TradeResourcesApplied }
       >;
     }
   | {
       id: string;
-      type: 'apply-trade-token-gain';
+      type: typeof AnimationStepType.ApplyTradeTokenGain;
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'trade-resources-applied' }
+        { type: typeof GamePresentationEventType.TradeResourcesApplied }
       >;
     }
   | {
       id: string;
-      type: 'roll-income-dice';
+      type: typeof AnimationStepType.RollIncomeDice;
       durationMs: number;
       playerId: PlayerId;
       turn: number;
@@ -230,90 +245,96 @@ export type AnimationStep =
     }
   | {
       id: string;
-      type: 'roll-tax-die';
+      type: typeof AnimationStepType.RollTaxDie;
       durationMs: number;
       suit: Suit;
     }
   | {
       id: string;
-      type: 'hold-before-tax-flights';
+      type: typeof AnimationStepType.HoldBeforeTaxFlights;
       durationMs: number;
     }
   | {
       id: string;
-      type: 'launch-tax-token-flights';
+      type: typeof AnimationStepType.LaunchTaxTokenFlights;
       durationMs: number;
       flightSequenceDurationMs: number;
       losses: readonly Extract<
         GamePresentationEvent,
-        { type: 'tax-token-lost' }
+        { type: typeof GamePresentationEventType.TaxTokenLost }
       >[];
     }
   | {
       id: string;
-      type: 'apply-tax-token-loss';
+      type: typeof AnimationStepType.ApplyTaxTokenLoss;
       durationMs: number;
-      loss: Extract<GamePresentationEvent, { type: 'tax-token-lost' }>;
+      loss: Extract<
+        GamePresentationEvent,
+        { type: typeof GamePresentationEventType.TaxTokenLost }
+      >;
     }
   | {
       id: string;
-      type: 'stage-gap';
-      durationMs: number;
-    }
-  | {
-      id: string;
-      type: 'hold-before-income-flights';
+      type: typeof AnimationStepType.StageGap;
       durationMs: number;
     }
   | {
       id: string;
-      type: 'highlight-income-sources';
+      type: typeof AnimationStepType.HoldBeforeIncomeFlights;
+      durationMs: number;
+    }
+  | {
+      id: string;
+      type: typeof AnimationStepType.HighlightIncomeSources;
       durationMs: number;
       cardIds: readonly CardId[];
       crowns: readonly { playerId: PlayerId; suit: Suit }[];
     }
   | {
       id: string;
-      type: 'launch-income-token-flights';
+      type: typeof AnimationStepType.LaunchIncomeTokenFlights;
       durationMs: number;
       flightSequenceDurationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
-        { type: 'income-token-gained' }
+        { type: typeof GamePresentationEventType.IncomeTokenGained }
       >[];
     }
   | {
       id: string;
-      type: 'land-income-token';
+      type: typeof AnimationStepType.LandIncomeToken;
       durationMs: number;
-      gain: Extract<GamePresentationEvent, { type: 'income-token-gained' }>;
+      gain: Extract<
+        GamePresentationEvent,
+        { type: typeof GamePresentationEventType.IncomeTokenGained }
+      >;
     }
   | {
       id: string;
-      type: 'post-income-hold';
+      type: typeof AnimationStepType.PostIncomeHold;
       durationMs: number;
     }
   | {
       id: string;
-      type: 'reveal-income-choice-request';
+      type: typeof AnimationStepType.RevealIncomeChoiceRequest;
       durationMs: number;
       choices: readonly IncomeChoice[];
       returnPlayerId: PlayerId | undefined;
     }
   | {
       id: string;
-      type: 'reveal-income-choice-submission';
+      type: typeof AnimationStepType.RevealIncomeChoiceSubmission;
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'income-choice-submitted' }
+        { type: typeof GamePresentationEventType.IncomeChoiceSubmitted }
       >;
     }
   | {
       id: string;
-      type: 'commit-view-state';
+      type: typeof AnimationStepType.CommitViewState;
       durationMs: number;
     };
 
@@ -335,26 +356,30 @@ export function buildAnimationSequence(
   durations: AnimationDurations = DEFAULT_ANIMATION_DURATIONS
 ): AnimationSequence {
   const steps: AnimationStep[] = [
-    { id: 'hold-previous-state', type: 'hold-previous-state', durationMs: 0 },
+    {
+      id: AnimationStepType.HoldPreviousState,
+      type: AnimationStepType.HoldPreviousState,
+      durationMs: 0,
+    },
   ];
-  const drawEvent = firstEvent(transaction, 'draw-card');
+  const drawEvent = firstEvent(transaction, GamePresentationEventType.DrawCard);
   const incomeChoiceSubmissions = transaction.events.filter(
     (
       event
     ): event is Extract<
       GamePresentationEvent,
-      { type: 'income-choice-submitted' }
-    > => event.type === 'income-choice-submitted'
+      { type: typeof GamePresentationEventType.IncomeChoiceSubmitted }
+    > => event.type === GamePresentationEventType.IncomeChoiceSubmitted
   );
   const deferIncomeChoiceSubmission = transaction.events.some(
     (event) =>
-      event.type === 'income-token-gained' &&
-      event.source.kind === 'income-choice'
+      event.type === GamePresentationEventType.IncomeTokenGained &&
+      event.source.kind === IncomeTokenSourceKind.IncomeChoice
   );
   if (drawEvent) {
     steps.push({
       id: `draw-card-flight:${drawEvent.playerId}:${drawEvent.cardId}`,
-      type: 'draw-card-flight',
+      type: AnimationStepType.DrawCardFlight,
       durationMs: durations.cardFlightMs + durations.commitBufferMs,
       playerId: drawEvent.playerId,
       cardId: drawEvent.cardId,
@@ -365,7 +390,7 @@ export function buildAnimationSequence(
 
   for (const event of transaction.events) {
     if (
-      event.type === 'income-choice-submitted' &&
+      event.type === GamePresentationEventType.IncomeChoiceSubmitted &&
       !deferIncomeChoiceSubmission
     ) {
       appendIncomeChoiceSubmissionStep(steps, event);
@@ -377,11 +402,14 @@ export function buildAnimationSequence(
   appendTradeSteps(transaction, steps, durations);
   appendDeedDevelopmentSteps(transaction, steps, durations);
 
-  const incomeRoll = firstEvent(transaction, 'income-roll');
+  const incomeRoll = firstEvent(
+    transaction,
+    GamePresentationEventType.IncomeRoll
+  );
   if (incomeRoll) {
     steps.push({
       id: `roll-income-dice:${incomeRoll.roll.rollId ?? `${incomeRoll.roll.die1}-${incomeRoll.roll.die2}`}`,
-      type: 'roll-income-dice',
+      type: AnimationStepType.RollIncomeDice,
       durationMs: durations.dieRollMs,
       playerId: incomeRoll.playerId,
       turn: incomeRoll.turn,
@@ -393,15 +421,20 @@ export function buildAnimationSequence(
   const taxLosses = transaction.events.filter(
     (
       event
-    ): event is Extract<GamePresentationEvent, { type: 'tax-token-lost' }> =>
-      event.type === 'tax-token-lost'
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: typeof GamePresentationEventType.TaxTokenLost }
+    > => event.type === GamePresentationEventType.TaxTokenLost
   );
-  const taxResolved = firstEvent(transaction, 'tax-resolved');
+  const taxResolved = firstEvent(
+    transaction,
+    GamePresentationEventType.TaxResolved
+  );
   const taxSuit = taxResolved?.suit ?? taxLosses[0]?.suit;
   if (taxSuit) {
     steps.push({
       id: `roll-tax-die:${taxSuit}`,
-      type: 'roll-tax-die',
+      type: AnimationStepType.RollTaxDie,
       durationMs: durations.taxDieRollMs,
       suit: taxSuit,
     });
@@ -413,13 +446,13 @@ export function buildAnimationSequence(
       durations.taxFlightStaggerMs
     );
     steps.push({
-      id: 'hold-before-tax-flights',
-      type: 'hold-before-tax-flights',
+      id: AnimationStepType.HoldBeforeTaxFlights,
+      type: AnimationStepType.HoldBeforeTaxFlights,
       durationMs: durations.taxPreFlightHoldMs,
     });
     steps.push({
-      id: 'launch-tax-token-flights',
-      type: 'launch-tax-token-flights',
+      id: AnimationStepType.LaunchTaxTokenFlights,
+      type: AnimationStepType.LaunchTaxTokenFlights,
       durationMs: 0,
       flightSequenceDurationMs,
       losses: taxLosses,
@@ -428,7 +461,7 @@ export function buildAnimationSequence(
       const isLastLoss = index === taxLosses.length - 1;
       steps.push({
         id: `apply-tax-token-loss:${loss.playerId}:${loss.suit}:${String(loss.tokenIndex)}`,
-        type: 'apply-tax-token-loss',
+        type: AnimationStepType.ApplyTaxTokenLoss,
         durationMs: isLastLoss
           ? durations.taxFlightMs
           : durations.taxFlightStaggerMs,
@@ -442,16 +475,17 @@ export function buildAnimationSequence(
       event
     ): event is Extract<
       GamePresentationEvent,
-      { type: 'income-token-gained' }
-    > => event.type === 'income-token-gained'
+      { type: typeof GamePresentationEventType.IncomeTokenGained }
+    > => event.type === GamePresentationEventType.IncomeTokenGained
   );
   if (
     (taxSuit || taxLosses.length > 0) &&
-    (incomeGains.length > 0 || hasEvent(transaction, 'income-choice-required'))
+    (incomeGains.length > 0 ||
+      hasEvent(transaction, GamePresentationEventType.IncomeChoiceRequired))
   ) {
     steps.push({
-      id: 'stage-gap',
-      type: 'stage-gap',
+      id: AnimationStepType.StageGap,
+      type: AnimationStepType.StageGap,
       durationMs: durations.stageGapMs,
     });
   }
@@ -463,8 +497,8 @@ export function buildAnimationSequence(
       durations.incomeFlightStaggerMs
     );
     steps.push({
-      id: 'hold-before-income-flights',
-      type: 'hold-before-income-flights',
+      id: AnimationStepType.HoldBeforeIncomeFlights,
+      type: AnimationStepType.HoldBeforeIncomeFlights,
       durationMs: durations.incomePreFlightHoldMs,
     });
     if (deferIncomeChoiceSubmission) {
@@ -474,16 +508,16 @@ export function buildAnimationSequence(
     }
     if (targets.cardIds.length > 0 || targets.crowns.length > 0) {
       steps.push({
-        id: 'highlight-income-sources',
-        type: 'highlight-income-sources',
+        id: AnimationStepType.HighlightIncomeSources,
+        type: AnimationStepType.HighlightIncomeSources,
         durationMs: 0,
         cardIds: targets.cardIds,
         crowns: targets.crowns,
       });
     }
     steps.push({
-      id: 'launch-income-token-flights',
-      type: 'launch-income-token-flights',
+      id: AnimationStepType.LaunchIncomeTokenFlights,
+      type: AnimationStepType.LaunchIncomeTokenFlights,
       durationMs: 0,
       flightSequenceDurationMs,
       flightDurationMs: durations.incomeFlightMs,
@@ -493,7 +527,7 @@ export function buildAnimationSequence(
     incomeGains.forEach((gain, index) => {
       steps.push({
         id: `land-income-token:${gain.playerId}:${gain.suit}:${String(index)}`,
-        type: 'land-income-token',
+        type: AnimationStepType.LandIncomeToken,
         durationMs:
           index === 0
             ? durations.incomeFlightMs
@@ -502,17 +536,17 @@ export function buildAnimationSequence(
       });
     });
     steps.push({
-      id: 'post-income-hold',
-      type: 'post-income-hold',
+      id: AnimationStepType.PostIncomeHold,
+      type: AnimationStepType.PostIncomeHold,
       durationMs: durations.postIncomeHoldMs,
     });
   }
 
   for (const event of transaction.events) {
-    if (event.type === 'income-choice-required') {
+    if (event.type === GamePresentationEventType.IncomeChoiceRequired) {
       steps.push({
-        id: 'reveal-income-choice-request',
-        type: 'reveal-income-choice-request',
+        id: AnimationStepType.RevealIncomeChoiceRequest,
+        type: AnimationStepType.RevealIncomeChoiceRequest,
         durationMs: 0,
         choices: event.choices,
         returnPlayerId: event.returnPlayerId,
@@ -521,8 +555,8 @@ export function buildAnimationSequence(
   }
 
   steps.push({
-    id: 'commit-view-state',
-    type: 'commit-view-state',
+    id: AnimationStepType.CommitViewState,
+    type: AnimationStepType.CommitViewState,
     durationMs: durations.commitBufferMs,
   });
 
@@ -547,11 +581,11 @@ function scheduleSteps(
     transactionId,
     durationMs: cursorMs,
     commitMs:
-      scheduled.find((step) => step.type === 'commit-view-state')?.startMs ??
-      cursorMs,
+      scheduled.find((step) => step.type === AnimationStepType.CommitViewState)
+        ?.startMs ?? cursorMs,
     inputUnlockMs:
-      scheduled.find((step) => step.type === 'commit-view-state')?.startMs ??
-      cursorMs,
+      scheduled.find((step) => step.type === AnimationStepType.CommitViewState)
+        ?.startMs ?? cursorMs,
     steps: scheduled,
   };
 }
@@ -577,10 +611,10 @@ function appendActionResourcePaymentSteps(
       event
     ): event is Extract<
       GamePresentationEvent,
-      { type: 'resource-payment-started' }
+      { type: typeof GamePresentationEventType.ResourcePaymentStarted }
     > =>
-      event.type === 'resource-payment-started' &&
-      event.reason !== 'develop-deed'
+      event.type === GamePresentationEventType.ResourcePaymentStarted &&
+      event.reason !== ActionId.DevelopDeed
   );
   for (const start of starts) {
     const paymentTokens = SUITS.flatMap((suit) =>
@@ -593,7 +627,7 @@ function appendActionResourcePaymentSteps(
     );
     steps.push({
       id: `launch-payment-token-flights:${start.reason}:${start.playerId}:${start.cardId}:${start.districtId}`,
-      type: 'launch-payment-token-flights',
+      type: AnimationStepType.LaunchPaymentTokenFlights,
       durationMs: 0,
       flightSequenceDurationMs,
       flightDurationMs: durations.paymentFlightMs,
@@ -605,9 +639,9 @@ function appendActionResourcePaymentSteps(
         event
       ): event is Extract<
         GamePresentationEvent,
-        { type: 'resource-payment-applied' }
+        { type: typeof GamePresentationEventType.ResourcePaymentApplied }
       > =>
-        event.type === 'resource-payment-applied' &&
+        event.type === GamePresentationEventType.ResourcePaymentApplied &&
         event.reason === start.reason &&
         event.playerId === start.playerId &&
         event.cardId === start.cardId &&
@@ -618,7 +652,7 @@ function appendActionResourcePaymentSteps(
         const isLastToken = index === paymentTokens.length - 1;
         steps.push({
           id: `apply-resource-payment-token:${apply.reason}:${apply.playerId}:${apply.cardId}:${apply.districtId}:${suit}:${String(index)}`,
-          type: 'apply-resource-payment-token',
+          type: AnimationStepType.ApplyResourcePaymentToken,
           durationMs: isLastToken
             ? durations.paymentFlightMs + durations.commitBufferMs
             : durations.paymentFlightStaggerMs,
@@ -635,14 +669,17 @@ function appendTradeSteps(
   steps: AnimationStep[],
   durations: AnimationDurations
 ): void {
-  const trade = firstEvent(transaction, 'trade-resources-applied');
+  const trade = firstEvent(
+    transaction,
+    GamePresentationEventType.TradeResourcesApplied
+  );
   if (!trade) {
     return;
   }
 
   steps.push({
     id: `launch-trade-token-flights:${trade.playerId}:${trade.give}:${trade.receive}`,
-    type: 'launch-trade-token-flights',
+    type: AnimationStepType.LaunchTradeTokenFlights,
     durationMs: 0,
     flightSequenceDurationMs: staggeredDuration(
       trade.giveCount,
@@ -661,7 +698,7 @@ function appendTradeSteps(
       atMs: launchMs,
       step: {
         id: `apply-trade-token-loss:${trade.playerId}:${trade.give}:${index}`,
-        type: 'apply-trade-token-loss',
+        type: AnimationStepType.ApplyTradeTokenLoss,
         durationMs: 0,
         playerId: trade.playerId,
         suit: trade.give,
@@ -671,7 +708,7 @@ function appendTradeSteps(
       atMs: launchMs + durations.paymentFlightMs,
       step: {
         id: `land-trade-token:${trade.playerId}:${index}`,
-        type: 'land-trade-token',
+        type: AnimationStepType.LandTradeToken,
         durationMs: 0,
         landed: index + 1,
         event: trade,
@@ -688,7 +725,7 @@ function appendTradeSteps(
   });
   steps.push({
     id: `apply-trade-token-gain:${trade.playerId}:${trade.receive}`,
-    type: 'apply-trade-token-gain',
+    type: AnimationStepType.ApplyTradeTokenGain,
     durationMs: durations.commitBufferMs,
     event: trade,
   });
@@ -704,14 +741,14 @@ function appendCardPlacementSteps(
       event
     ): event is Extract<
       GamePresentationEvent,
-      { type: 'card-played-to-district' }
-    > => event.type === 'card-played-to-district'
+      { type: typeof GamePresentationEventType.CardPlayedToDistrict }
+    > => event.type === GamePresentationEventType.CardPlayedToDistrict
   );
   for (const event of placements) {
     steps.push(
       {
         id: `launch-card-to-district-flight:${event.playerId}:${event.cardId}:${event.districtId}`,
-        type: 'launch-card-to-district-flight',
+        type: AnimationStepType.LaunchCardToDistrictFlight,
         // The placement commit starts at this step's end, so the flight needs
         // the same settle buffer the draw flight has: without it the animation
         // is cut off before its final frame and the card pops to full size.
@@ -720,7 +757,7 @@ function appendCardPlacementSteps(
       },
       {
         id: `place-card-in-district:${event.playerId}:${event.cardId}:${event.districtId}`,
-        type: 'place-card-in-district',
+        type: AnimationStepType.PlaceCardInDistrict,
         durationMs: 0,
         event,
       }
@@ -738,15 +775,15 @@ function appendDeedDevelopmentSteps(
       event
     ): event is Extract<
       GamePresentationEvent,
-      { type: 'resource-payment-applied' }
+      { type: typeof GamePresentationEventType.ResourcePaymentApplied }
     > =>
-      event.type === 'resource-payment-applied' &&
-      event.reason === 'develop-deed'
+      event.type === GamePresentationEventType.ResourcePaymentApplied &&
+      event.reason === ActionId.DevelopDeed
   );
   if (deedPayment) {
     steps.push({
       id: `apply-resource-payment:${deedPayment.reason}:${deedPayment.playerId}:${deedPayment.cardId}:${deedPayment.districtId}`,
-      type: 'apply-resource-payment',
+      type: AnimationStepType.ApplyResourcePayment,
       durationMs: 0,
       event: deedPayment,
     });
@@ -755,13 +792,15 @@ function appendDeedDevelopmentSteps(
   const deedTokens = transaction.events.filter(
     (
       event
-    ): event is Extract<GamePresentationEvent, { type: 'deed-token-paid' }> =>
-      event.type === 'deed-token-paid'
+    ): event is Extract<
+      GamePresentationEvent,
+      { type: typeof GamePresentationEventType.DeedTokenPaid }
+    > => event.type === GamePresentationEventType.DeedTokenPaid
   );
   if (deedTokens.length > 0) {
     steps.push({
-      id: 'launch-deed-token-flights',
-      type: 'launch-deed-token-flights',
+      id: AnimationStepType.LaunchDeedTokenFlights,
+      type: AnimationStepType.LaunchDeedTokenFlights,
       durationMs: staggeredDuration(
         deedTokens.length,
         durations.actionResourceFlightMs,
@@ -770,26 +809,26 @@ function appendDeedDevelopmentSteps(
       tokens: deedTokens,
     });
     steps.push({
-      id: 'apply-deed-tokens',
-      type: 'apply-deed-tokens',
+      id: AnimationStepType.ApplyDeedTokens,
+      type: AnimationStepType.ApplyDeedTokens,
       durationMs: durations.commitBufferMs,
       tokens: deedTokens,
     });
   }
 
   for (const event of transaction.events) {
-    if (event.type === 'deed-progress-applied') {
+    if (event.type === GamePresentationEventType.DeedProgressApplied) {
       steps.push({
         id: `apply-deed-progress:${event.playerId}:${event.cardId}:${event.districtId}`,
-        type: 'apply-deed-progress',
+        type: AnimationStepType.ApplyDeedProgress,
         durationMs: durations.deedProgressRevealMs,
         event,
       });
     }
-    if (event.type === 'deed-completed') {
+    if (event.type === GamePresentationEventType.DeedCompleted) {
       steps.push({
         id: `reveal-deed-completion:${event.playerId}:${event.cardId}:${event.districtId}`,
-        type: 'reveal-deed-completion',
+        type: AnimationStepType.RevealDeedCompletion,
         durationMs: 0,
         event,
       });
@@ -802,7 +841,7 @@ function appendSellSteps(
   steps: AnimationStep[],
   durations: AnimationDurations
 ): void {
-  const sold = firstEvent(transaction, 'card-sold');
+  const sold = firstEvent(transaction, GamePresentationEventType.CardSold);
   if (!sold) {
     return;
   }
@@ -812,13 +851,13 @@ function appendSellSteps(
       event
     ): event is Extract<
       GamePresentationEvent,
-      { type: 'sell-resource-gained' }
-    > => event.type === 'sell-resource-gained'
+      { type: typeof GamePresentationEventType.SellResourceGained }
+    > => event.type === GamePresentationEventType.SellResourceGained
   );
   if (gains.length > 0) {
     steps.push({
       id: `launch-sell-token-flights:${sold.playerId}:${sold.cardId}`,
-      type: 'launch-sell-token-flights',
+      type: AnimationStepType.LaunchSellTokenFlights,
       durationMs: 0,
       flightSequenceDurationMs: staggeredDuration(
         gains.length,
@@ -832,11 +871,9 @@ function appendSellSteps(
     gains.forEach((gain, index) => {
       steps.push({
         id: `land-sell-token:${gain.playerId}:${gain.suit}:${String(gain.tokenIndex)}`,
-        type: 'land-sell-token',
+        type: AnimationStepType.LandSellToken,
         durationMs:
-          index === 0
-            ? durations.sellFlightMs
-            : durations.sellFlightStaggerMs,
+          index === 0 ? durations.sellFlightMs : durations.sellFlightStaggerMs,
         gain,
       });
     });
@@ -844,7 +881,7 @@ function appendSellSteps(
 
   steps.push({
     id: `stage-sold-card:${sold.playerId}:${sold.cardId}`,
-    type: 'stage-sold-card',
+    type: AnimationStepType.StageSoldCard,
     durationMs: durations.cardFlightMs + durations.commitBufferMs,
     playerId: sold.playerId,
     cardId: sold.cardId,
@@ -871,7 +908,7 @@ function hasEvent<TType extends GamePresentationEvent['type']>(
 function highlightTargetsForIncomeEvents(
   incomeEvents: readonly Extract<
     GamePresentationEvent,
-    { type: 'income-token-gained' }
+    { type: typeof GamePresentationEventType.IncomeTokenGained }
   >[]
 ): {
   cardIds: readonly CardId[];
@@ -882,10 +919,10 @@ function highlightTargetsForIncomeEvents(
   const seenCardIds = new Set<CardId>();
   const seenCrowns = new Set<string>();
   for (const event of incomeEvents) {
-    if (event.source.kind === 'income-choice') {
+    if (event.source.kind === IncomeTokenSourceKind.IncomeChoice) {
       continue;
     }
-    if (event.source.kind === 'crown') {
+    if (event.source.kind === IncomeTokenSourceKind.Crown) {
       const key = `${event.playerId}:${event.suit}`;
       if (!seenCrowns.has(key)) {
         seenCrowns.add(key);
@@ -903,11 +940,14 @@ function highlightTargetsForIncomeEvents(
 
 function appendIncomeChoiceSubmissionStep(
   steps: AnimationStep[],
-  event: Extract<GamePresentationEvent, { type: 'income-choice-submitted' }>
+  event: Extract<
+    GamePresentationEvent,
+    { type: typeof GamePresentationEventType.IncomeChoiceSubmitted }
+  >
 ): void {
   steps.push({
     id: `reveal-income-choice-submission:${event.playerId}:${event.districtId}:${event.cardId}`,
-    type: 'reveal-income-choice-submission',
+    type: AnimationStepType.RevealIncomeChoiceSubmission,
     durationMs: 0,
     event,
   });

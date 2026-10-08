@@ -1,36 +1,36 @@
 import type { CardId } from '../cards';
-import type {
-  DeckState,
-  DeedState,
-  DistrictState,
-  DistrictStack,
-  GameAction,
+import {
+  type DeckState,
+  type DeedState,
+  type DistrictState,
+  type DistrictStack,
+  type GameAction,
   GamePhase,
-  GameState,
-  IncomeChoice,
-  IncomeRollResult,
+  type GameState,
+  type IncomeChoice,
+  type IncomeRollResult,
   PlayerId,
-  PlayerState,
-  ResourcePool,
+  type PlayerState,
+  type ResourcePool,
   Ruleset,
-  SubmittedIncomeChoice,
+  type SubmittedIncomeChoice,
   Suit,
 } from '../types';
 import { legalActions } from '../actionBuilders';
 
-export const PLAYER_A = 'PlayerA' as const;
-export const PLAYER_B = 'PlayerB' as const;
+export const PLAYER_A = PlayerId.PlayerA;
+export const PLAYER_B = PlayerId.PlayerB;
 
 export function makeResources(
   overrides: Partial<Record<Suit, number>> = {}
 ): ResourcePool {
   return {
-    Moons: overrides.Moons ?? 0,
-    Suns: overrides.Suns ?? 0,
-    Waves: overrides.Waves ?? 0,
-    Leaves: overrides.Leaves ?? 0,
-    Wyrms: overrides.Wyrms ?? 0,
-    Knots: overrides.Knots ?? 0,
+    [Suit.Moons]: overrides[Suit.Moons] ?? 0,
+    [Suit.Suns]: overrides[Suit.Suns] ?? 0,
+    [Suit.Waves]: overrides[Suit.Waves] ?? 0,
+    [Suit.Leaves]: overrides[Suit.Leaves] ?? 0,
+    [Suit.Wyrms]: overrides[Suit.Wyrms] ?? 0,
+    [Suit.Knots]: overrides[Suit.Knots] ?? 0,
   };
 }
 
@@ -65,10 +65,10 @@ export function makeDistrict(
 
 export function makeDefaultDistricts(): DistrictState[] {
   return [
-    makeDistrict('D1', ['Moons']),
-    makeDistrict('D2', ['Suns']),
-    makeDistrict('D3', ['Waves']),
-    makeDistrict('D4', ['Leaves']),
+    makeDistrict('D1', [Suit.Moons]),
+    makeDistrict('D2', [Suit.Suns]),
+    makeDistrict('D3', [Suit.Waves]),
+    makeDistrict('D4', [Suit.Leaves]),
     makeDistrict('D5', []),
   ];
 }
@@ -103,7 +103,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     schemaVersion: 1,
     seed: overrides.seed ?? 'test-seed',
     rngCursor: overrides.rngCursor ?? 0,
-    ruleset: overrides.ruleset ?? 'standard',
+    ruleset: overrides.ruleset ?? Ruleset.Standard,
     deck: overrides.deck ?? {
       draw: ['6', '7', '8'],
       discard: [],
@@ -112,7 +112,7 @@ export function makeGameState(overrides: GameStateOverrides = {}): GameState {
     players,
     activePlayerIndex: overrides.activePlayerIndex ?? 0,
     turn: overrides.turn ?? 1,
-    phase: overrides.phase ?? 'ActionWindow',
+    phase: overrides.phase ?? GamePhase.ActionWindow,
     districts: overrides.districts ?? makeDefaultDistricts(),
     cardPlayedThisTurn: overrides.cardPlayedThisTurn ?? false,
     finalTurnsRemaining: overrides.finalTurnsRemaining,

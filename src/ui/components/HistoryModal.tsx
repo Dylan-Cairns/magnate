@@ -1,3 +1,5 @@
+import { WinnerDecider, Ruleset } from '../../engine/values';
+import { WinnerOutcome } from '../../db/values';
 import { useEffect, useEffectEvent, useState } from 'react';
 import {
   createColumnHelper,
@@ -23,21 +25,21 @@ function formatDate(ts: number) {
 }
 
 function formatWinner(winner: GameRecord['winner']) {
-  if (winner === 'player') return 'Victory';
-  if (winner === 'bot') return 'Defeat';
+  if (winner === WinnerOutcome.Player) return 'Victory';
+  if (winner === WinnerOutcome.Bot) return 'Defeat';
   return 'Draw';
 }
 
 function formatDecidedBy(decidedBy: GameRecord['decidedBy']) {
-  if (decidedBy === 'districts') return 'Districts';
-  if (decidedBy === 'rank-total') return 'Properties';
-  if (decidedBy === 'resources') return 'Resources';
+  if (decidedBy === WinnerDecider.Districts) return 'Districts';
+  if (decidedBy === WinnerDecider.RankTotal) return 'Properties';
+  if (decidedBy === WinnerDecider.Resources) return 'Resources';
   return '—';
 }
 
 function formatRuleset(ruleset: GameRecord['ruleset']) {
-  if (ruleset === 'extended') return 'Extended';
-  if (ruleset === 'standard') return 'Standard';
+  if (ruleset === Ruleset.Extended) return 'Extended';
+  if (ruleset === Ruleset.Standard) return 'Standard';
   return '—';
 }
 
@@ -142,8 +144,12 @@ export function HistoryModal({
     getSortedRowModel: getSortedRowModel(),
   });
 
-  const victories = games.filter((game) => game.winner === 'player').length;
-  const defeats = games.filter((game) => game.winner === 'bot').length;
+  const victories = games.filter(
+    (game) => game.winner === WinnerOutcome.Player
+  ).length;
+  const defeats = games.filter(
+    (game) => game.winner === WinnerOutcome.Bot
+  ).length;
   const draws = games.length - victories - defeats;
 
   if (!open) return null;

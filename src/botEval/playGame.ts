@@ -8,7 +8,7 @@ import {
 } from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
-import type { PlayerId, Ruleset } from '../engine/types';
+import { PlayerId, type Ruleset } from '../engine/types';
 import type { BotSpec } from '../policies/botSpec';
 import {
   policyRandomForState,
@@ -94,7 +94,10 @@ export async function playGame({
     }
 
     const activePlayerId = decisionPlayerIdForState(state);
-    if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
+    if (
+      activePlayerId !== PlayerId.PlayerA &&
+      activePlayerId !== PlayerId.PlayerB
+    ) {
       throw new Error(`Game ${gameId} could not resolve its active player.`);
     }
 
@@ -165,8 +168,8 @@ export async function playGame({
     seed,
     firstPlayer,
     botBySeat: {
-      PlayerA: botBySeat.PlayerA.spec.id,
-      PlayerB: botBySeat.PlayerB.spec.id,
+      [PlayerId.PlayerA]: botBySeat[PlayerId.PlayerA].spec.id,
+      [PlayerId.PlayerB]: botBySeat[PlayerId.PlayerB].spec.id,
     },
     transcript,
     finalScore: structuredClone(state.finalScore),

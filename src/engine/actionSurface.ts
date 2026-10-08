@@ -1,16 +1,8 @@
 import { legalActions } from './actionBuilders';
 import { SUITS } from './stateHelpers';
-import type { ActionId, GameAction, GameState, Suit } from './types';
+import { ActionId, type GameAction, type GameState, type Suit } from './types';
 
-export const ACTION_IDS: readonly ActionId[] = [
-  'buy-deed',
-  'choose-income-suit',
-  'develop-deed',
-  'develop-outright',
-  'end-turn',
-  'sell-card',
-  'trade',
-];
+export { ACTION_IDS } from './values';
 
 export interface KeyedAction {
   actionId: ActionId;
@@ -26,20 +18,20 @@ export function paymentSignature(
 
 export function actionStableKey(action: GameAction): string {
   switch (action.type) {
-    case 'end-turn':
-      return 'end-turn';
-    case 'trade':
-      return `trade:${action.give}:${action.receive}`;
-    case 'sell-card':
-      return `sell-card:${action.cardId}`;
-    case 'buy-deed':
-      return `buy-deed:${action.cardId}:${action.districtId}`;
-    case 'develop-deed':
-      return `develop-deed:${action.cardId}:${action.districtId}:${paymentSignature(action.tokens)}`;
-    case 'develop-outright':
-      return `develop-outright:${action.cardId}:${action.districtId}:${paymentSignature(action.payment)}`;
-    case 'choose-income-suit':
-      return `choose-income-suit:${action.playerId}:${action.districtId}:${action.cardId}:${action.suit}`;
+    case ActionId.EndTurn:
+      return ActionId.EndTurn;
+    case ActionId.Trade:
+      return `${ActionId.Trade}:${action.give}:${action.receive}`;
+    case ActionId.SellCard:
+      return `${ActionId.SellCard}:${action.cardId}`;
+    case ActionId.BuyDeed:
+      return `${ActionId.BuyDeed}:${action.cardId}:${action.districtId}`;
+    case ActionId.DevelopDeed:
+      return `${ActionId.DevelopDeed}:${action.cardId}:${action.districtId}:${paymentSignature(action.tokens)}`;
+    case ActionId.DevelopOutright:
+      return `${ActionId.DevelopOutright}:${action.cardId}:${action.districtId}:${paymentSignature(action.payment)}`;
+    case ActionId.ChooseIncomeSuit:
+      return `${ActionId.ChooseIncomeSuit}:${action.playerId}:${action.districtId}:${action.cardId}:${action.suit}`;
   }
 }
 

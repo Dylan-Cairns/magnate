@@ -1,3 +1,7 @@
+import {
+  SearchWorkerExecutionMode,
+  SearchWorkerMessageType,
+} from './workerValues';
 import type {
   RolloutSearchWorkerContext,
   RolloutSearchVisitResult,
@@ -6,26 +10,22 @@ import type {
 
 export type SearchWorkerTask = RolloutSearchWorkerTask;
 export type SearchWorkerResult = RolloutSearchVisitResult;
-export type SearchWorkerExecutionMode =
-  | 'legacy'
-  | 'resumable-scalar'
-  | 'resumable-paired-td';
 
 export interface SearchWorkerRunBatchRequest {
-  type: 'run-batch';
+  type: typeof SearchWorkerMessageType.RunBatch;
   requestId: number;
   tasks: SearchWorkerTask[];
   executionMode?: SearchWorkerExecutionMode;
 }
 
 export interface SearchWorkerInitializeRolloutSearchRequest {
-  type: 'initialize-rollout-search';
+  type: typeof SearchWorkerMessageType.InitializeRolloutSearch;
   requestId: number;
   context: RolloutSearchWorkerContext;
 }
 
 export interface SearchWorkerShutdownRequest {
-  type: 'shutdown';
+  type: typeof SearchWorkerMessageType.Shutdown;
 }
 
 export type SearchWorkerRequest =
@@ -34,18 +34,18 @@ export type SearchWorkerRequest =
   | SearchWorkerShutdownRequest;
 
 export interface SearchWorkerInitializedResponse {
-  type: 'initialized';
+  type: typeof SearchWorkerMessageType.Initialized;
   requestId: number;
 }
 
 export interface SearchWorkerBatchResultResponse {
-  type: 'batch-result';
+  type: typeof SearchWorkerMessageType.BatchResult;
   requestId: number;
   results: SearchWorkerResult[];
 }
 
 export interface SearchWorkerErrorResponse {
-  type: 'error';
+  type: typeof SearchWorkerMessageType.Error;
   requestId?: number;
   message: string;
   stack?: string;
@@ -55,3 +55,5 @@ export type SearchWorkerResponse =
   | SearchWorkerInitializedResponse
   | SearchWorkerBatchResultResponse
   | SearchWorkerErrorResponse;
+
+export { SearchWorkerExecutionMode } from './workerValues';

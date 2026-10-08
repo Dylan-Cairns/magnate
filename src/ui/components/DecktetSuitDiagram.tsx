@@ -1,6 +1,6 @@
 import type { CardId } from '../../engine/cards';
 import { COURT_CARDS, PROPERTY_CARDS } from '../../engine/cards';
-import type { Ruleset, Suit } from '../../engine/types';
+import { Ruleset, Suit } from '../../engine/types';
 import { CardRank } from './CardRank';
 import { SuitTokenFace } from './SuitTokenFace';
 import { TokenChip } from './TokenComponents';
@@ -8,24 +8,24 @@ import { Tooltip } from './Tooltip';
 import { memo } from 'react';
 import React from 'react';
 
-// Clockwise from top-left
-const SUITS: Suit[] = ['Moons', 'Suns', 'Waves', 'Leaves', 'Wyrms', 'Knots'];
+// Clockwise from top-left, matching the shared suit order.
+import { SUITS } from '../../engine/values';
 
 // [suitA, suitB, ranks] — numeral cards (ranks 2–9) only.
 // Three pairs have no numeral cards and are omitted: Moons/Wyrms, Suns/Leaves, Waves/Knots.
 const EDGES: [Suit, Suit, string][] = [
-  ['Moons', 'Suns', '4 8 9'],
-  ['Suns', 'Waves', '5'],
-  ['Waves', 'Leaves', '2 4 8'],
-  ['Leaves', 'Wyrms', '3'],
-  ['Wyrms', 'Knots', '4 5 8'],
-  ['Knots', 'Moons', '2'],
-  ['Moons', 'Waves', '3 6'],
-  ['Waves', 'Wyrms', '7 9'],
-  ['Leaves', 'Knots', '6 9'],
-  ['Knots', 'Suns', '3 7'],
-  ['Leaves', 'Moons', '5 7'],
-  ['Suns', 'Wyrms', '2 6'],
+  [Suit.Moons, Suit.Suns, '4 8 9'],
+  [Suit.Suns, Suit.Waves, '5'],
+  [Suit.Waves, Suit.Leaves, '2 4 8'],
+  [Suit.Leaves, Suit.Wyrms, '3'],
+  [Suit.Wyrms, Suit.Knots, '4 5 8'],
+  [Suit.Knots, Suit.Moons, '2'],
+  [Suit.Moons, Suit.Waves, '3 6'],
+  [Suit.Waves, Suit.Wyrms, '7 9'],
+  [Suit.Leaves, Suit.Knots, '6 9'],
+  [Suit.Knots, Suit.Suns, '3 7'],
+  [Suit.Leaves, Suit.Moons, '5 7'],
+  [Suit.Suns, Suit.Wyrms, '2 6'],
 ];
 
 const CX = 170;
@@ -145,12 +145,19 @@ export const DecktetSuitDiagram = memo(function DecktetSuitDiagram({
               }
             >
               {label.split(' ').map((part, j) => {
-                const cardId = CARD_BY_EDGE_KEY.get(`${suitA}|${suitB}|${part}`);
-                const isDimmed = cardId !== undefined && dimmedCardIds.has(cardId);
+                const cardId = CARD_BY_EDGE_KEY.get(
+                  `${suitA}|${suitB}|${part}`
+                );
+                const isDimmed =
+                  cardId !== undefined && dimmedCardIds.has(cardId);
                 return (
-                <tspan key={isDimmed ? `${j}d` : j} dx={j === 0 ? 0 : 8} opacity={isDimmed ? 0.25 : 1}>
-                  {part}
-                </tspan>
+                  <tspan
+                    key={isDimmed ? `${j}d` : j}
+                    dx={j === 0 ? 0 : 8}
+                    opacity={isDimmed ? 0.25 : 1}
+                  >
+                    {part}
+                  </tspan>
                 );
               })}
             </text>
@@ -174,7 +181,7 @@ export const DecktetSuitDiagram = memo(function DecktetSuitDiagram({
           );
         })}
       </svg>
-      {ruleset === 'extended' ? (
+      {ruleset === Ruleset.Extended ? (
         <div className="suit-diagram-courts" role="group" aria-label="Courts">
           {COURT_CARDS.map((court) => (
             <div

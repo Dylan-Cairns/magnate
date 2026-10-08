@@ -1,3 +1,4 @@
+import { PlayerId, Winner } from '../engine/values';
 import { mkdirSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -97,7 +98,10 @@ export function headToHeadConfigsMatch(
   return canonicalJson(left) === canonicalJson(right);
 }
 
-function parseCheckpointResult(value: unknown, index: number): PairedSeedResult {
+function parseCheckpointResult(
+  value: unknown,
+  index: number
+): PairedSeedResult {
   const label = `head-to-head checkpoint.results[${String(index)}]`;
   const source = requiredRecord(value, label);
   const pairIndex = source.pairIndex;
@@ -129,20 +133,29 @@ function parseCheckpointGame(value: unknown, label: string): PlayedGame {
   const source = requiredRecord(value, label);
   requiredCheckpointString(source.gameId, `${label}.gameId`);
   requiredCheckpointString(source.seed, `${label}.seed`);
-  if (source.firstPlayer !== 'PlayerA' && source.firstPlayer !== 'PlayerB') {
+  if (
+    source.firstPlayer !== PlayerId.PlayerA &&
+    source.firstPlayer !== PlayerId.PlayerB
+  ) {
     throw new Error(`${label}.firstPlayer must be PlayerA or PlayerB.`);
   }
   const botBySeat = requiredRecord(source.botBySeat, `${label}.botBySeat`);
-  requiredCheckpointString(botBySeat.PlayerA, `${label}.botBySeat.PlayerA`);
-  requiredCheckpointString(botBySeat.PlayerB, `${label}.botBySeat.PlayerB`);
+  requiredCheckpointString(
+    botBySeat[PlayerId.PlayerA],
+    `${label}.botBySeat.PlayerA`
+  );
+  requiredCheckpointString(
+    botBySeat[PlayerId.PlayerB],
+    `${label}.botBySeat.PlayerB`
+  );
   if (!Array.isArray(source.transcript)) {
     throw new Error(`${label}.transcript must be an array.`);
   }
   const finalScore = requiredRecord(source.finalScore, `${label}.finalScore`);
   if (
-    finalScore.winner !== 'PlayerA' &&
-    finalScore.winner !== 'PlayerB' &&
-    finalScore.winner !== 'Draw'
+    finalScore.winner !== PlayerId.PlayerA &&
+    finalScore.winner !== PlayerId.PlayerB &&
+    finalScore.winner !== Winner.Draw
   ) {
     throw new Error(`${label}.finalScore.winner is invalid.`);
   }
@@ -184,6 +197,9 @@ function canonicalJson(value: unknown): string {
     ([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)
   );
   return `{${entries
-    .map(([key, entryValue]) => `${JSON.stringify(key)}:${canonicalJson(entryValue)}`)
+    .map(
+      ([key, entryValue]) =>
+        `${JSON.stringify(key)}:${canonicalJson(entryValue)}`
+    )
     .join(',')}}`;
 }

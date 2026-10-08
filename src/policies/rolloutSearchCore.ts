@@ -1,3 +1,5 @@
+import { ActionId } from '../engine/values';
+import { RolloutSearchGuidanceKind } from './values';
 import {
   actionStableKey,
   toKeyedActions,
@@ -12,11 +14,11 @@ import { rngFromSeed, type RandomFn } from '../engine/rng';
 import { isTerminal } from '../engine/scoring';
 import { SUITS } from '../engine/stateHelpers';
 import { stepKnownLegalActionToDecisionForSimulation } from '../engine/session';
-import type {
-  GameAction,
-  GameState,
+import {
+  type GameAction,
+  type GameState,
   PlayerId,
-  PlayerView,
+  type PlayerView,
 } from '../engine/types';
 import { sampleHiddenWorldStates } from './determinization';
 import { isDistrictAction } from './policyProjection';
@@ -31,9 +33,9 @@ import {
   heuristicV2PriorsByKey,
   rankHeuristicV2Actions,
 } from './heuristicScorerV2';
-import type {
+import {
   SearchHeuristicVersion,
-  SearchPolicyConfig,
+  type SearchPolicyConfig,
 } from './searchConfig';
 import {
   createSearchDecisionDiagnostics,
@@ -63,10 +65,8 @@ export interface RolloutSearchRuntimeGuidance {
   }) => GameAction | undefined;
 }
 
-export type RolloutSearchGuidanceKind = 'heuristic' | 'td-root';
-
 export interface RolloutSearchTdRootWorkerGuidance {
-  kind: 'td-root';
+  kind: typeof RolloutSearchGuidanceKind.TdRoot;
   modelIndexPath: string;
 }
 
@@ -362,7 +362,7 @@ export function pruneDominatedRootActions(
   const potentialBefore = resourcePotentialV2(state, playerId);
   const totalBefore = totalResourceTokens(state, playerId);
   return actions.filter((action) => {
-    if (action.type !== 'trade') {
+    if (action.type !== ActionId.Trade) {
       return true;
     }
     if (tradeUnlocksDistrictAction(state, playerId, action)) {
@@ -541,7 +541,10 @@ function* runRolloutSearchTaskResumableGenerator(
 
   while (!isTerminal(state) && depth < task.config.depth) {
     const decisionPlayer = decisionPlayerIdForState(state);
-    if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+    if (
+      decisionPlayer !== PlayerId.PlayerA &&
+      decisionPlayer !== PlayerId.PlayerB
+    ) {
       break;
     }
     const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
@@ -681,8 +684,8 @@ function createRolloutSearchSession({
     workerGuidance,
     guidanceKind:
       createRootGuide || rolloutGuidance || workerGuidance
-        ? 'td-root'
-        : 'heuristic',
+        ? RolloutSearchGuidanceKind.TdRoot
+        : RolloutSearchGuidanceKind.Heuristic,
     rootRandomSeed: randomSeedForSession({ random, randomSeed }),
   });
 }
@@ -691,7 +694,7 @@ export function createHeuristicRolloutSearchRootGuide({
   state,
   view,
   candidateActions,
-  heuristic = 'v1',
+  heuristic = SearchHeuristicVersion.V1,
   courtValueScale,
 }: Pick<RolloutSearchSelectionInput, 'state' | 'view' | 'candidateActions'> & {
   heuristic?: SearchHeuristicVersion;
@@ -1036,7 +1039,10 @@ function runRollout(
 
   while (!isTerminal(state) && depth < config.depth) {
     const decisionPlayer = decisionPlayerIdForState(state);
-    if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+    if (
+      decisionPlayer !== PlayerId.PlayerA &&
+      decisionPlayer !== PlayerId.PlayerB
+    ) {
       break;
     }
     const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
@@ -1127,7 +1133,7 @@ function bestActionByHeuristic(
   heuristic: SearchHeuristicVersion | undefined,
   courtValueScale: number | undefined
 ): KeyedAction | undefined {
-  if (heuristic === 'v2') {
+  if (heuristic === SearchHeuristicVersion.V2) {
     return bestHeuristicV2Action(actions, { ...context, courtValueScale });
   }
   return bestHeuristicAction(actions, context);
@@ -1138,7 +1144,7 @@ function rankActionsByHeuristic(
   context: SearchHeuristicContext,
   heuristic: SearchHeuristicVersion | undefined
 ): KeyedAction[] {
-  if (heuristic === 'v2') {
+  if (heuristic === SearchHeuristicVersion.V2) {
     return rankHeuristicV2Actions(actions, context);
   }
   return rankHeuristicActions(actions, context);
@@ -1149,7 +1155,7 @@ function priorsByHeuristic(
   context: SearchHeuristicContext,
   heuristic: SearchHeuristicVersion | undefined
 ): Map<string, number> {
-  if (heuristic === 'v2') {
+  if (heuristic === SearchHeuristicVersion.V2) {
     return heuristicV2PriorsByKey(actions, context);
   }
   return heuristicPriorsByKey(actions, context);
@@ -1215,3 +1221,5 @@ function traceRolloutStep(
 function rolloutSearchWorkerContextId(randomSeed: string): string {
   return `${randomSeed}:rollout-search-worlds`;
 }
+
+export { RolloutSearchGuidanceKind } from './values';

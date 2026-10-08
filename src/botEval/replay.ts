@@ -1,3 +1,4 @@
+import { PlayerId } from '../engine/values';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import { POLICY_RANDOM_SCHEME_VERSION } from '../policies/policyRandom';
 import type { ActionPolicy } from '../policies/types';
@@ -43,13 +44,13 @@ export async function replayArtifactGame(
     seed: recorded.seed,
     firstPlayer: recorded.firstPlayer,
     botBySeat: {
-      PlayerA: runtimeBotFor(
-        recorded.botBySeat.PlayerA,
+      [PlayerId.PlayerA]: runtimeBotFor(
+        recorded.botBySeat[PlayerId.PlayerA],
         specsById,
         createPolicy
       ),
-      PlayerB: runtimeBotFor(
-        recorded.botBySeat.PlayerB,
+      [PlayerId.PlayerB]: runtimeBotFor(
+        recorded.botBySeat[PlayerId.PlayerB],
         specsById,
         createPolicy
       ),

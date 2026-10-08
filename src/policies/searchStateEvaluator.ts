@@ -1,3 +1,4 @@
+import { Winner, CardKind } from '../engine/values';
 import { CARD_BY_ID } from '../engine/cards';
 import {
   districtScore,
@@ -9,14 +10,14 @@ import {
   findDevelopableCard,
   SUITS,
 } from '../engine/stateHelpers';
-import type {
-  DistrictState,
-  DistrictStack,
-  GameState,
+import {
+  type DistrictState,
+  type DistrictStack,
+  type GameState,
   PlayerId,
-  PlayerState,
-  ResourcePool,
-  Suit,
+  type PlayerState,
+  type ResourcePool,
+  type Suit,
 } from '../engine/types';
 import {
   courtPotentialValueForPlayerV2,
@@ -76,7 +77,7 @@ export function evaluateSearchTerminalState(
   rootPlayer: PlayerId
 ): number {
   const finalScore = state.finalScore ?? scoreGame(state);
-  if (finalScore.winner === 'Draw') {
+  if (finalScore.winner === Winner.Draw) {
     return 0;
   }
 
@@ -355,7 +356,7 @@ function developedRankTotal(stack: DistrictStack): number {
 function crownSuitCounts(player: PlayerState): Partial<Record<Suit, number>> {
   return player.crowns.reduce<Partial<Record<Suit, number>>>((acc, cardId) => {
     const card = CARD_BY_ID[cardId];
-    if (card?.kind === 'Crown') {
+    if (card?.kind === CardKind.Crown) {
       const suit = card.suits[0];
       acc[suit] = (acc[suit] ?? 0) + 1;
     }
@@ -416,7 +417,7 @@ function isLateGame(state: GameState): boolean {
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

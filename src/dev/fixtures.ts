@@ -1,3 +1,4 @@
+import { GamePhase } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import {
   decisionPlayerIdForState,
@@ -8,7 +9,7 @@ import { newGame } from '../engine/game';
 import { isTerminal, scoreLive } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import { advanceToDecision } from '../engine/turnFlow';
-import type { GameState, PlayerId, Suit } from '../engine/types';
+import { type GameState, PlayerId, Suit } from '../engine/types';
 import { selectHeuristicAction } from '../policies/heuristicScorer';
 
 export type DevFixtureId =
@@ -93,13 +94,13 @@ export function createDevFixtureSession(
     case 'deep-lanes':
       return createDeepLanesFixture(humanPlayerId);
     case 'd6-moons':
-      return createD6TaxFixture(humanPlayerId, 'Moons');
+      return createD6TaxFixture(humanPlayerId, Suit.Moons);
     case 'd6-wyrms':
-      return createD6TaxFixture(humanPlayerId, 'Wyrms');
+      return createD6TaxFixture(humanPlayerId, Suit.Wyrms);
     case 'd6-knots':
-      return createD6TaxFixture(humanPlayerId, 'Knots');
+      return createD6TaxFixture(humanPlayerId, Suit.Knots);
     case 'd6-suns':
-      return createD6TaxFixture(humanPlayerId, 'Suns');
+      return createD6TaxFixture(humanPlayerId, Suit.Suns);
   }
 }
 
@@ -141,7 +142,7 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
     players,
     activePlayerIndex,
     turn: 3,
-    phase: 'CollectIncome',
+    phase: GamePhase.CollectIncome,
     districts: state.districts.map((district, index) => {
       const humanDeedCardId = HUMAN_MULTI_INCOME_DEED_CARDS[index];
       const botDeedCardId =
@@ -190,7 +191,7 @@ function createMultiIncomeFixture(humanPlayerId: PlayerId): GameState {
       {
         turn: 3,
         player: humanPlayerId,
-        phase: 'CollectIncome',
+        phase: GamePhase.CollectIncome,
         summary: 'Dev fixture: multiple partial-income choices',
       },
     ],
@@ -201,7 +202,7 @@ function createD6TaxFixture(humanPlayerId: PlayerId, taxSuit: Suit): GameState {
   const state = newGame('dev-fixture-d6', { firstPlayer: humanPlayerId });
   return advanceToDecision({
     ...state,
-    phase: 'CollectIncome',
+    phase: GamePhase.CollectIncome,
     lastIncomeRoll: { die1: 1, die2: 5, rollId: 1 },
     lastTaxSuit: taxSuit,
   });
@@ -256,7 +257,7 @@ function createDeepLanesFixture(humanPlayerId: PlayerId): GameState {
       districts,
       activePlayerIndex,
       turn: 12,
-      phase: 'ActionWindow',
+      phase: GamePhase.ActionWindow,
       lastIncomeRoll: { die1: 4, die2: 6 },
       cardPlayedThisTurn: false,
     },
@@ -266,7 +267,7 @@ function createDeepLanesFixture(humanPlayerId: PlayerId): GameState {
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }
 
 function createLateGameFixture(humanPlayerId: PlayerId): GameState {
@@ -277,7 +278,7 @@ function createLateGameFixture(humanPlayerId: PlayerId): GameState {
     label: 'Late-game dev fixture',
     isTarget: (candidate) =>
       (candidate.finalTurnsRemaining ?? 0) === 2 &&
-      candidate.phase === 'ActionWindow',
+      candidate.phase === GamePhase.ActionWindow,
   });
 
   return appendFixtureLog(
@@ -302,7 +303,7 @@ function createEndGameWinFixture(humanPlayerId: PlayerId): GameState {
     label: 'End-game win dev fixture',
     isTarget: (candidate) =>
       candidate.finalTurnsRemaining === 1 &&
-      candidate.phase === 'ActionWindow' &&
+      candidate.phase === GamePhase.ActionWindow &&
       candidate.cardPlayedThisTurn &&
       decisionPlayerIdForState(candidate) === humanPlayerId,
   });
@@ -345,7 +346,10 @@ function rolloutHeuristicTo({
     }
 
     const decisionPlayerId = decisionPlayerIdForState(state);
-    if (decisionPlayerId !== 'PlayerA' && decisionPlayerId !== 'PlayerB') {
+    if (
+      decisionPlayerId !== PlayerId.PlayerA &&
+      decisionPlayerId !== PlayerId.PlayerB
+    ) {
       throw new Error(`${label} could not resolve decision player.`);
     }
 

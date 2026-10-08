@@ -1,3 +1,4 @@
+import { CardKind, Winner, ActionId } from '../engine/values';
 import { toKeyedActions } from '../engine/actionSurface';
 import {
   ALL_CARDS,
@@ -19,17 +20,17 @@ import {
   placementAllowed,
   sumTokens,
 } from '../engine/stateHelpers';
-import type {
-  DistrictId,
-  DistrictStack,
-  GameAction,
+import {
+  type DistrictId,
+  type DistrictStack,
+  type GameAction,
   GamePhase,
-  GameState,
+  type GameState,
   PlayerId,
-  Rank,
-  ResourcePool,
+  type Rank,
+  type ResourcePool,
   Suit,
-  WinnerDecider,
+  type WinnerDecider,
 } from '../engine/types';
 import { toPlayerView } from '../engine/view';
 
@@ -301,7 +302,7 @@ export function strategicStateSummaryV0(
       phase: view.phase,
       turnOwnerId,
       cardPlayedThisTurn: view.cardPlayedThisTurn,
-      isTerminal: view.phase === 'GameOver',
+      isTerminal: view.phase === GamePhase.GameOver,
     },
     clock: {
       drawCount: view.deck.drawCount,
@@ -342,7 +343,7 @@ export function strategicActionDeltasV0(
   state: GameState,
   perspectivePlayerId: PlayerId
 ): readonly StrategicActionDeltaV0[] {
-  if (state.phase !== 'ActionWindow') {
+  if (state.phase !== GamePhase.ActionWindow) {
     throw new Error(
       `Strategic action deltas require ActionWindow; received ${state.phase}.`
     );
@@ -380,7 +381,8 @@ export function strategicActionDeltasV0(
       currentOutcomeBefore: before.score.currentLexicographicOutcome,
       currentOutcomeAfter: after.score.currentLexicographicOutcome,
       cardPlayAvailableAfterAction:
-        nextState.phase === 'ActionWindow' && !nextState.cardPlayedThisTurn,
+        nextState.phase === GamePhase.ActionWindow &&
+        !nextState.cardPlayedThisTurn,
       playedCardDestination: playedCardDestination(
         candidate.action,
         state.deck.reshuffles
@@ -555,7 +557,7 @@ function cardKnowledgeFacts({
     .filter(isDefined)
     .map((card) => card.id);
   const board = state.districts.flatMap((district) =>
-    (['PlayerA', 'PlayerB'] as const).flatMap((playerId) => {
+    ([PlayerId.PlayerA, PlayerId.PlayerB] as const).flatMap((playerId) => {
       const stack = district.stacks[playerId];
       return [...stack.developed, ...(stack.deed ? [stack.deed.cardId] : [])];
     })
@@ -612,7 +614,7 @@ function crownSuitCounts(cardIds: readonly CardId[]): SuitCountsV0 {
     // Crown identities are public, but malformed non-Crowns should not create
     // invented income. incomeForResult remains the canonical behavior.
     const crown = CARD_BY_ID[cardId];
-    if (crown?.kind === 'Crown') {
+    if (crown?.kind === CardKind.Crown) {
       counts[crown.suits[0]] += 1;
     }
   }
@@ -644,12 +646,12 @@ function suitCounts(
 
 function mutableSuitCounts(): Record<Suit, number> {
   return {
-    Moons: 0,
-    Suns: 0,
-    Waves: 0,
-    Leaves: 0,
-    Wyrms: 0,
-    Knots: 0,
+    [Suit.Moons]: 0,
+    [Suit.Suns]: 0,
+    [Suit.Waves]: 0,
+    [Suit.Leaves]: 0,
+    [Suit.Wyrms]: 0,
+    [Suit.Knots]: 0,
   };
 }
 
@@ -681,7 +683,7 @@ function relativeOutcome(
   winner: ReturnType<typeof scoreGame>['winner'],
   perspectivePlayerId: PlayerId
 ): RelativeOutcomeV0 {
-  if (winner === 'Draw') {
+  if (winner === Winner.Draw) {
     return 'tied';
   }
   return winner === perspectivePlayerId ? 'ahead' : 'behind';
@@ -711,7 +713,7 @@ function assertTerminalScoreConsistency(
   liveScore: ReturnType<typeof scoreGame>
 ): void {
   if (
-    state.phase === 'GameOver' &&
+    state.phase === GamePhase.GameOver &&
     (!state.finalScore || !sameFinalScore(state.finalScore, liveScore))
   ) {
     throw new Error(
@@ -727,12 +729,16 @@ function sameFinalScore(
   return (
     left.winner === right.winner &&
     left.decidedBy === right.decidedBy &&
-    left.districtPoints.PlayerA === right.districtPoints.PlayerA &&
-    left.districtPoints.PlayerB === right.districtPoints.PlayerB &&
-    left.rankTotals.PlayerA === right.rankTotals.PlayerA &&
-    left.rankTotals.PlayerB === right.rankTotals.PlayerB &&
-    left.resourceTotals.PlayerA === right.resourceTotals.PlayerA &&
-    left.resourceTotals.PlayerB === right.resourceTotals.PlayerB
+    left.districtPoints[PlayerId.PlayerA] ===
+      right.districtPoints[PlayerId.PlayerA] &&
+    left.districtPoints[PlayerId.PlayerB] ===
+      right.districtPoints[PlayerId.PlayerB] &&
+    left.rankTotals[PlayerId.PlayerA] === right.rankTotals[PlayerId.PlayerA] &&
+    left.rankTotals[PlayerId.PlayerB] === right.rankTotals[PlayerId.PlayerB] &&
+    left.resourceTotals[PlayerId.PlayerA] ===
+      right.resourceTotals[PlayerId.PlayerA] &&
+    left.resourceTotals[PlayerId.PlayerB] ===
+      right.resourceTotals[PlayerId.PlayerB]
   );
 }
 
@@ -741,7 +747,7 @@ function totalSuitCounts(counts: SuitCountsV0): number {
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }
 
 function districtMarginForAction(
@@ -771,11 +777,11 @@ function playedCardDestination(
   reshuffles: 0 | 1 | 2
 ): PlayedCardDestinationV0 {
   switch (action.type) {
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return 'developed';
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       return 'deed';
-    case 'sell-card':
+    case ActionId.SellCard:
       return reshuffles === 0 ? 'first-reshuffle-discard' : 'dead-discard';
     default:
       return null;

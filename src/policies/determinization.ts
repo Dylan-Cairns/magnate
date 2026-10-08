@@ -1,6 +1,6 @@
 import { propertyDeckForRuleset } from '../engine/cards';
 import { shuffleInPlace, type RandomFn } from '../engine/rng';
-import type { GameState, PlayerId, PlayerView } from '../engine/types';
+import { type GameState, PlayerId, type PlayerView } from '../engine/types';
 
 export function sampleHiddenWorldStates({
   state,
@@ -87,7 +87,7 @@ function requiredPlayerView(
 function districtPropertyCards(view: PlayerView): Set<string> {
   const cards = new Set<string>();
   for (const district of view.districts) {
-    for (const playerId of ['PlayerA', 'PlayerB'] as const) {
+    for (const playerId of [PlayerId.PlayerA, PlayerId.PlayerB] as const) {
       const stack = district.stacks[playerId];
       for (const cardId of stack.developed) {
         cards.add(cardId);
@@ -101,5 +101,5 @@ function districtPropertyCards(view: PlayerView): Set<string> {
 }
 
 function otherPlayerId(playerId: PlayerId): PlayerId {
-  return playerId === 'PlayerA' ? 'PlayerB' : 'PlayerA';
+  return playerId === PlayerId.PlayerA ? PlayerId.PlayerB : PlayerId.PlayerA;
 }

@@ -1,3 +1,4 @@
+import { DicePhase } from '../runtime/values';
 import type { DiceVisualState } from '../runtime/types';
 import { D6Die } from './D6Die';
 import { D10Die } from './D10Die';
@@ -21,9 +22,10 @@ export function RollResult({
     gameKey !== undefined ? `${gameKey}:${rollIdentity}` : rollIdentity;
   const die1Wins = dice.incomeRoll.die1 >= dice.incomeRoll.die2;
   const die2Wins = dice.incomeRoll.die2 > dice.incomeRoll.die1;
-  const incomeSettled = dice.incomePhase === 'settled';
-  const taxSettled = dice.taxPhase === 'settled';
-  const taxDimmed = dice.taxPhase === 'hidden' || dice.taxPhase === 'dimmed';
+  const incomeSettled = dice.incomePhase === DicePhase.Settled;
+  const taxSettled = dice.taxPhase === DicePhase.Settled;
+  const taxDimmed =
+    dice.taxPhase === DicePhase.Hidden || dice.taxPhase === DicePhase.Dimmed;
   const taxSuit = taxDimmed ? undefined : dice.taxSuit;
 
   return (

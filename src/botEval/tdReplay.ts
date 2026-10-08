@@ -1,3 +1,5 @@
+import { BotKind } from '../policies/values';
+import { Winner } from '../engine/values';
 import { performance } from 'node:perf_hooks';
 
 import { actionStableKey, toKeyedActions } from '../engine/actionSurface';
@@ -8,7 +10,7 @@ import {
 } from '../engine/decisionActor';
 import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
-import type { GameAction, GameState, PlayerId } from '../engine/types';
+import { type GameAction, type GameState, PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
 import {
   policyRandomForState,
@@ -138,8 +140,8 @@ export async function collectTdReplayGames(
 
   const startedAt = now();
   const botBySeat: Record<PlayerId, RuntimeBot> = {
-    PlayerA: createRuntimeBot(config.playerA, createPolicy),
-    PlayerB: createRuntimeBot(config.playerB, createPolicy),
+    [PlayerId.PlayerA]: createRuntimeBot(config.playerA, createPolicy),
+    [PlayerId.PlayerB]: createRuntimeBot(config.playerB, createPolicy),
   };
 
   for (let gameIndex = 0; gameIndex < config.games; gameIndex += 1) {
@@ -150,7 +152,8 @@ export async function collectTdReplayGames(
     const game = await collectTdReplayGame({
       gameId,
       seed,
-      firstPlayer: globalGameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB',
+      firstPlayer:
+        globalGameIndex % 2 === 0 ? PlayerId.PlayerA : PlayerId.PlayerB,
       botBySeat,
       maxDecisions:
         config.maxDecisionsPerGame ?? DEFAULT_MAX_DECISIONS_PER_GAME,
@@ -237,16 +240,16 @@ async function collectTdReplayGame({
   const valueTransitions: TdReplayValueTransitionPayload[] = [];
   const opponentSamples: TdReplayOpponentSamplePayload[] = [];
   const pendingObservationByPlayer: Record<PlayerId, number[] | null> = {
-    PlayerA: null,
-    PlayerB: null,
+    [PlayerId.PlayerA]: null,
+    [PlayerId.PlayerB]: null,
   };
   const pendingTimestepByPlayer: Record<PlayerId, number | null> = {
-    PlayerA: null,
-    PlayerB: null,
+    [PlayerId.PlayerA]: null,
+    [PlayerId.PlayerB]: null,
   };
   const nextTimestepByPlayer: Record<PlayerId, number> = {
-    PlayerA: 0,
-    PlayerB: 0,
+    [PlayerId.PlayerA]: 0,
+    [PlayerId.PlayerB]: 0,
   };
 
   function emitHeartbeatIfDue(): void {
@@ -372,7 +375,7 @@ async function collectTdReplayGame({
     throw new Error(`Terminal game ${gameId} is missing its final score.`);
   }
 
-  for (const playerId of ['PlayerA', 'PlayerB'] as const) {
+  for (const playerId of [PlayerId.PlayerA, PlayerId.PlayerB] as const) {
     const pendingObservation = pendingObservationByPlayer[playerId];
     if (pendingObservation === null) {
       continue;
@@ -399,8 +402,8 @@ async function collectTdReplayGame({
     seed,
     firstPlayer,
     botBySeat: {
-      PlayerA: botBySeat.PlayerA.spec.id,
-      PlayerB: botBySeat.PlayerB.spec.id,
+      [PlayerId.PlayerA]: botBySeat[PlayerId.PlayerA].spec.id,
+      [PlayerId.PlayerB]: botBySeat[PlayerId.PlayerB].spec.id,
     },
     decisions,
     finalScore: structuredClone(state.finalScore),
@@ -413,17 +416,23 @@ async function collectTdReplayGame({
 
 function activePlayerIdForState(state: GameState, gameId: string): PlayerId {
   const activePlayerId = decisionPlayerIdForState(state);
-  if (activePlayerId !== 'PlayerA' && activePlayerId !== 'PlayerB') {
+  if (
+    activePlayerId !== PlayerId.PlayerA &&
+    activePlayerId !== PlayerId.PlayerB
+  ) {
     throw new Error(`Game ${gameId} could not resolve its active player.`);
   }
   return activePlayerId;
 }
 
 function terminalReward(
-  winner: 'PlayerA' | 'PlayerB' | 'Draw',
+  winner:
+    | typeof PlayerId.PlayerA
+    | typeof PlayerId.PlayerB
+    | typeof Winner.Draw,
   playerId: PlayerId
 ): number {
-  if (winner === 'Draw') {
+  if (winner === Winner.Draw) {
     return 0.0;
   }
   return winner === playerId ? 1.0 : -1.0;
@@ -467,7 +476,7 @@ function actionProbabilitiesForDecision({
   }
 
   if (!diagnostics) {
-    if (bot.spec.kind === 'search') {
+    if (bot.spec.kind === BotKind.Search) {
       throw new Error(
         `Search bot ${bot.spec.id} did not emit search diagnostics for TD replay policy targets.`
       );

@@ -1,8 +1,14 @@
-import type {
-  DistrictStack,
-  GameState,
-  PlayerId,
-  ResourcePool,
+import { GamePhase, SUITS } from '../../engine/values';
+import {
+  AnimationStepType,
+  DicePhase,
+  GamePresentationEventType,
+} from './values';
+import {
+  type DistrictStack,
+  type GameState,
+  type PlayerId,
+  type ResourcePool,
   Suit,
 } from '../../engine/types';
 import type { CardId } from '../../engine/cards';
@@ -34,22 +40,13 @@ const EMPTY_OVERLAYS: AnimationOverlayState = {
   dice: null,
 };
 
-const SUITS: readonly Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
-
 export function derivePresentationSnapshotFromSequence({
   transaction,
   sequence,
   elapsedMs,
 }: DerivePresentationSnapshotFromSequenceOptions): PresentationSnapshot {
   const commitStep = sequence.steps.find(
-    (step) => step.type === 'commit-view-state'
+    (step) => step.type === AnimationStepType.CommitViewState
   );
   if (commitStep && elapsedMs >= commitStep.startMs) {
     return {
@@ -90,49 +87,49 @@ function applySequenceStep(
   elapsedMs: number
 ): PresentationSnapshot {
   switch (step.type) {
-    case 'hold-previous-state':
-    case 'launch-tax-token-flights':
-    case 'stage-gap':
-    case 'launch-income-token-flights':
-    case 'launch-payment-token-flights':
-    case 'launch-trade-token-flights':
-    case 'launch-card-to-district-flight':
-    case 'launch-deed-token-flights':
-    case 'launch-sell-token-flights':
+    case AnimationStepType.HoldPreviousState:
+    case AnimationStepType.LaunchTaxTokenFlights:
+    case AnimationStepType.StageGap:
+    case AnimationStepType.LaunchIncomeTokenFlights:
+    case AnimationStepType.LaunchPaymentTokenFlights:
+    case AnimationStepType.LaunchTradeTokenFlights:
+    case AnimationStepType.LaunchCardToDistrictFlight:
+    case AnimationStepType.LaunchDeedTokenFlights:
+    case AnimationStepType.LaunchSellTokenFlights:
       return { viewState, overlays };
-    case 'apply-resource-payment':
+    case AnimationStepType.ApplyResourcePayment:
       return {
         viewState: applyResourcePayment(viewState, step.event),
         overlays,
       };
-    case 'apply-resource-payment-token':
+    case AnimationStepType.ApplyResourcePaymentToken:
       return {
         viewState: applyResourceDelta(viewState, step.playerId, {
           [step.suit]: -1,
         }),
         overlays,
       };
-    case 'apply-deed-tokens':
+    case AnimationStepType.ApplyDeedTokens:
       return {
         viewState: applyDeedTokens(viewState, step.tokens),
         overlays,
       };
-    case 'place-card-in-district':
+    case AnimationStepType.PlaceCardInDistrict:
       return {
         viewState: placeCardInDistrict(viewState, step.event),
         overlays,
       };
-    case 'apply-deed-progress':
+    case AnimationStepType.ApplyDeedProgress:
       return {
         viewState: applyDeedProgress(viewState, step.event),
         overlays,
       };
-    case 'reveal-deed-completion':
+    case AnimationStepType.RevealDeedCompletion:
       return {
         viewState: revealDeedCompletion(viewState, step.event),
         overlays,
       };
-    case 'land-sell-token':
+    case AnimationStepType.LandSellToken:
       if (elapsedMs < step.endMs) {
         return { viewState, overlays };
       }
@@ -142,14 +139,14 @@ function applySequenceStep(
         }),
         overlays,
       };
-    case 'apply-trade-token-loss':
+    case AnimationStepType.ApplyTradeTokenLoss:
       return {
         viewState: applyResourceDelta(viewState, step.playerId, {
           [step.suit]: -1,
         }),
         overlays,
       };
-    case 'land-trade-token':
+    case AnimationStepType.LandTradeToken:
       return {
         viewState,
         overlays: {
@@ -163,14 +160,14 @@ function applySequenceStep(
           },
         },
       };
-    case 'apply-trade-token-gain':
+    case AnimationStepType.ApplyTradeTokenGain:
       return {
         viewState: applyResourceDelta(viewState, step.event.playerId, {
           [step.event.receive]: step.event.receiveCount,
         }),
         overlays: { ...overlays, tradeProgress: undefined },
       };
-    case 'draw-card-flight':
+    case AnimationStepType.DrawCardFlight:
       if (elapsedMs < step.endMs) {
         return { viewState, overlays };
       }
@@ -181,12 +178,12 @@ function applySequenceStep(
           activePlayerHighlightOverride: null,
         },
       };
-    case 'stage-sold-card':
+    case AnimationStepType.StageSoldCard:
       return {
         viewState: stageSoldCard(viewState, step),
         overlays,
       };
-    case 'roll-income-dice':
+    case AnimationStepType.RollIncomeDice:
       return {
         viewState: revealIncomeRoll(viewState, step),
         overlays: {
@@ -195,12 +192,12 @@ function applySequenceStep(
           dice: {
             incomeRoll: step.roll,
             taxSuit: undefined,
-            incomePhase: 'rolling',
-            taxPhase: 'hidden',
+            incomePhase: DicePhase.Rolling,
+            taxPhase: DicePhase.Hidden,
           },
         },
       };
-    case 'roll-tax-die':
+    case AnimationStepType.RollTaxDie:
       return {
         viewState: {
           ...viewState,
@@ -210,43 +207,43 @@ function applySequenceStep(
           ...overlays,
           dice: updateDiceVisualState(overlays.dice, {
             taxSuit: step.suit,
-            incomePhase: 'settled',
-            taxPhase: 'rolling',
+            incomePhase: DicePhase.Settled,
+            taxPhase: DicePhase.Rolling,
           }),
         },
       };
-    case 'hold-before-tax-flights':
+    case AnimationStepType.HoldBeforeTaxFlights:
       return {
         viewState,
         overlays: {
           ...overlays,
           dice: updateDiceVisualState(overlays.dice, {
             taxSuit: overlays.dice?.taxSuit,
-            incomePhase: 'settled',
-            taxPhase: 'settled',
+            incomePhase: DicePhase.Settled,
+            taxPhase: DicePhase.Settled,
           }),
         },
       };
-    case 'hold-before-income-flights':
+    case AnimationStepType.HoldBeforeIncomeFlights:
       return {
         viewState,
         overlays: {
           ...overlays,
           dice: updateDiceVisualState(overlays.dice, {
             taxSuit: overlays.dice?.taxSuit,
-            incomePhase: 'settled',
-            taxPhase: overlays.dice?.taxPhase ?? 'hidden',
+            incomePhase: DicePhase.Settled,
+            taxPhase: overlays.dice?.taxPhase ?? DicePhase.Hidden,
           }),
         },
       };
-    case 'apply-tax-token-loss':
+    case AnimationStepType.ApplyTaxTokenLoss:
       return {
         viewState: applyResourceDelta(viewState, step.loss.playerId, {
           [step.loss.suit]: -1,
         }),
         overlays,
       };
-    case 'highlight-income-sources':
+    case AnimationStepType.HighlightIncomeSources:
       return {
         viewState,
         overlays: {
@@ -255,7 +252,7 @@ function applySequenceStep(
           incomeHighlightCrowns: step.crowns,
         },
       };
-    case 'land-income-token':
+    case AnimationStepType.LandIncomeToken:
       if (elapsedMs < step.endMs) {
         return { viewState, overlays };
       }
@@ -265,7 +262,7 @@ function applySequenceStep(
         }),
         overlays,
       };
-    case 'post-income-hold':
+    case AnimationStepType.PostIncomeHold:
       return {
         viewState,
         overlays: {
@@ -274,17 +271,17 @@ function applySequenceStep(
           incomeHighlightCrowns: [],
         },
       };
-    case 'reveal-income-choice-request':
+    case AnimationStepType.RevealIncomeChoiceRequest:
       return {
         viewState: {
           ...viewState,
-          phase: 'CollectIncome',
+          phase: GamePhase.CollectIncome,
           pendingIncomeChoices: step.choices,
           incomeChoiceReturnPlayerId: step.returnPlayerId,
         },
         overlays,
       };
-    case 'reveal-income-choice-submission':
+    case AnimationStepType.RevealIncomeChoiceSubmission:
       return {
         viewState: {
           ...viewState,
@@ -300,7 +297,7 @@ function applySequenceStep(
         },
         overlays,
       };
-    case 'commit-view-state':
+    case AnimationStepType.CommitViewState:
       return {
         viewState: transaction.nextState,
         overlays: EMPTY_OVERLAYS,
@@ -310,7 +307,7 @@ function applySequenceStep(
 
 function initialOverlays(transaction: GameTransaction): AnimationOverlayState {
   const hasDraw = transaction.events.some(
-    (event) => event.type === 'draw-card'
+    (event) => event.type === GamePresentationEventType.DrawCard
   );
   return {
     ...EMPTY_OVERLAYS,
@@ -337,7 +334,7 @@ function stageSoldCard(
 ): GameState {
   return {
     ...viewState,
-    phase: 'ActionWindow',
+    phase: GamePhase.ActionWindow,
     cardPlayedThisTurn: true,
     players: viewState.players.map((player) =>
       player.id === event.playerId
@@ -375,7 +372,7 @@ function applyResourcePayment(
   state: GameState,
   event: Extract<
     GameTransaction['events'][number],
-    { type: 'resource-payment-applied' }
+    { type: typeof GamePresentationEventType.ResourcePaymentApplied }
   >
 ): GameState {
   return applyResourceDelta(
@@ -389,7 +386,7 @@ function placeCardInDistrict(
   state: GameState,
   event: Extract<
     GameTransaction['events'][number],
-    { type: 'card-played-to-district' }
+    { type: typeof GamePresentationEventType.CardPlayedToDistrict }
   >
 ): GameState {
   const currentStack = districtStackFor(
@@ -419,7 +416,7 @@ function placeCardInDistrict(
 
   return {
     ...state,
-    phase: 'ActionWindow',
+    phase: GamePhase.ActionWindow,
     cardPlayedThisTurn: true,
     players: state.players.map((player) =>
       player.id === event.playerId
@@ -442,7 +439,7 @@ function applyDeedProgress(
   state: GameState,
   event: Extract<
     GameTransaction['events'][number],
-    { type: 'deed-progress-applied' }
+    { type: typeof GamePresentationEventType.DeedProgressApplied }
   >
 ): GameState {
   const currentStack = districtStackFor(
@@ -471,7 +468,7 @@ function applyDeedTokens(
   state: GameState,
   tokens: readonly Extract<
     GameTransaction['events'][number],
-    { type: 'deed-token-paid' }
+    { type: typeof GamePresentationEventType.DeedTokenPaid }
   >[]
 ): GameState {
   if (tokens.length === 0) {
@@ -505,7 +502,10 @@ function applyDeedTokens(
 
 function revealDeedCompletion(
   state: GameState,
-  event: Extract<GameTransaction['events'][number], { type: 'deed-completed' }>
+  event: Extract<
+    GameTransaction['events'][number],
+    { type: typeof GamePresentationEventType.DeedCompleted }
+  >
 ): GameState {
   const currentStack = districtStackFor(
     state,
@@ -575,7 +575,7 @@ function replaceDistrictStack(
 function deedTokenPayment(
   deedTokens: readonly Extract<
     GameTransaction['events'][number],
-    { type: 'deed-token-paid' }
+    { type: typeof GamePresentationEventType.DeedTokenPaid }
   >[]
 ): Partial<Record<Suit, number>> {
   const tokens: Partial<Record<Suit, number>> = {};
@@ -635,12 +635,15 @@ function applyDeltaToResources(
 ): ResourcePool {
   return {
     ...resources,
-    Moons: Math.max(0, resources.Moons + (delta.Moons ?? 0)),
-    Suns: Math.max(0, resources.Suns + (delta.Suns ?? 0)),
-    Waves: Math.max(0, resources.Waves + (delta.Waves ?? 0)),
-    Leaves: Math.max(0, resources.Leaves + (delta.Leaves ?? 0)),
-    Wyrms: Math.max(0, resources.Wyrms + (delta.Wyrms ?? 0)),
-    Knots: Math.max(0, resources.Knots + (delta.Knots ?? 0)),
+    [Suit.Moons]: Math.max(0, resources[Suit.Moons] + (delta[Suit.Moons] ?? 0)),
+    [Suit.Suns]: Math.max(0, resources[Suit.Suns] + (delta[Suit.Suns] ?? 0)),
+    [Suit.Waves]: Math.max(0, resources[Suit.Waves] + (delta[Suit.Waves] ?? 0)),
+    [Suit.Leaves]: Math.max(
+      0,
+      resources[Suit.Leaves] + (delta[Suit.Leaves] ?? 0)
+    ),
+    [Suit.Wyrms]: Math.max(0, resources[Suit.Wyrms] + (delta[Suit.Wyrms] ?? 0)),
+    [Suit.Knots]: Math.max(0, resources[Suit.Knots] + (delta[Suit.Knots] ?? 0)),
   };
 }
 

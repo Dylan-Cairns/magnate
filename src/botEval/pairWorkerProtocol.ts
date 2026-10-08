@@ -1,41 +1,42 @@
+import { PairWorkerMessageType } from './workerValues';
 import type { PlayGameHeartbeat } from './playGame';
 import type { PairedSeedJob, PairedSeedResult } from './pair';
 import type { HeadToHeadConfig, PlayedGame } from './types';
 
 export type PairWorkerRequest =
   | {
-      type: 'initialize';
+      type: typeof PairWorkerMessageType.Initialize;
       config: HeadToHeadConfig;
       progressIntervalMs: number;
     }
   | {
-      type: 'run-pair';
+      type: typeof PairWorkerMessageType.RunPair;
       job: PairedSeedJob;
     }
   | {
-      type: 'shutdown';
+      type: typeof PairWorkerMessageType.Shutdown;
     };
 
 export type PairWorkerResponse =
   | {
-      type: 'ready';
+      type: typeof PairWorkerMessageType.Ready;
     }
   | {
-      type: 'heartbeat';
+      type: typeof PairWorkerMessageType.Heartbeat;
       pairIndex: number;
       heartbeat: PlayGameHeartbeat;
     }
   | {
-      type: 'game-completed';
+      type: typeof PairWorkerMessageType.GameCompleted;
       pairIndex: number;
       game: PlayedGame;
     }
   | {
-      type: 'pair-completed';
+      type: typeof PairWorkerMessageType.PairCompleted;
       result: PairedSeedResult;
     }
   | {
-      type: 'error';
+      type: typeof PairWorkerMessageType.Error;
       pairIndex?: number;
       message: string;
       stack?: string;

@@ -1,5 +1,6 @@
+import { BotKind } from './values';
 import type { BotSpec } from './botSpec';
-import type { SearchWorkerExecutionMode } from './searchWorkerProtocol';
+import { SearchWorkerExecutionMode } from './searchWorkerProtocol';
 
 export function validateSearchExecutionMode(
   spec: BotSpec,
@@ -8,16 +9,16 @@ export function validateSearchExecutionMode(
 ): asserts mode is SearchWorkerExecutionMode | undefined {
   if (
     mode !== undefined &&
-    mode !== 'legacy' &&
-    mode !== 'resumable-scalar' &&
-    mode !== 'resumable-paired-td'
+    mode !== SearchWorkerExecutionMode.Legacy &&
+    mode !== SearchWorkerExecutionMode.ResumableScalar &&
+    mode !== SearchWorkerExecutionMode.ResumablePairedTd
   ) {
     throw new Error(`Unsupported search execution mode: ${String(mode)}.`);
   }
-  if (mode === undefined || mode === 'legacy') {
+  if (mode === undefined || mode === SearchWorkerExecutionMode.Legacy) {
     return;
   }
-  if (spec.kind !== 'td-root-search') {
+  if (spec.kind !== BotKind.TdRootSearch) {
     throw new Error(
       `Search execution mode ${mode} requires a TD-root search policy.`
     );
@@ -38,10 +39,10 @@ export function resolveEffectiveSearchExecutionMode(
   if (requestedMode !== undefined) {
     return requestedMode;
   }
-  if (spec.kind !== 'td-root-search' || workerCount <= 1) {
+  if (spec.kind !== BotKind.TdRootSearch || workerCount <= 1) {
     return undefined;
   }
-  return 'resumable-paired-td';
+  return SearchWorkerExecutionMode.ResumablePairedTd;
 }
 
 export function searchWorkerPoolConfigurationMatches(

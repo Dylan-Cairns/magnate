@@ -1,5 +1,9 @@
+import {
+  IncomeTokenSourceKind,
+  GamePresentationEventType,
+} from '../runtime/values';
 import type { CardId } from '../../engine/cards';
-import type { PlayerId, Suit } from '../../engine/types';
+import { PlayerId, type Suit } from '../../engine/types';
 import type { CardPerspective } from '../components/CardTile';
 import {
   layoutDeedTokensBySide,
@@ -33,7 +37,7 @@ import type {
   ResourceFlight,
 } from './types';
 
-const BOT_PLAYER: PlayerId = 'PlayerB';
+const BOT_PLAYER: PlayerId = PlayerId.PlayerB;
 const DEFAULT_TOKEN_CHIP_SIZE_PX = 22;
 const DEFAULT_TOKEN_RAIL_GAP_PX = 2.56;
 
@@ -43,7 +47,7 @@ export type IncomeFlightToken = {
   source:
     | TurnCycleIncomeToken['source']
     | {
-        kind: 'income-choice';
+        kind: typeof IncomeTokenSourceKind.IncomeChoice;
         cardId: CardId;
         districtId: string;
       };
@@ -131,7 +135,7 @@ export function buildIncomeFlightsFromDom(
   const flights: ResourceFlight[] = [];
   for (const [index, token] of tokens.entries()) {
     const sourceElement =
-      token.source.kind === 'crown'
+      token.source.kind === IncomeTokenSourceKind.Crown
         ? domTargets.crownToken(token.playerId, token.suit)
         : domTargets.districtCard(
             token.playerId,
@@ -144,7 +148,7 @@ export function buildIncomeFlightsFromDom(
     }
 
     const source =
-      token.source.kind === 'crown'
+      token.source.kind === IncomeTokenSourceKind.Crown
         ? domTargets.tokenVisualCenter(sourceElement)
         : domTargets.elementCenter(sourceElement);
     const target = domTargets.tokenVisualCenter(targetElement);
@@ -167,7 +171,7 @@ export function buildIncomeFlightsFromDom(
 export function buildSellTokenFlightsFromDom(
   gains: readonly Extract<
     GamePresentationEvent,
-    { type: 'sell-resource-gained' }
+    { type: typeof GamePresentationEventType.SellResourceGained }
   >[],
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets,
@@ -203,7 +207,10 @@ export function buildSellTokenFlightsFromDom(
 }
 
 export function buildPaymentFlightsFromDom(
-  event: Extract<GamePresentationEvent, { type: 'resource-payment-started' }>,
+  event: Extract<
+    GamePresentationEvent,
+    { type: typeof GamePresentationEventType.ResourcePaymentStarted }
+  >,
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets,
   timing: PaymentFlightTiming = DEFAULT_PAYMENT_FLIGHT_TIMING
@@ -225,7 +232,10 @@ export function buildPaymentFlightsFromDom(
 }
 
 export function buildTradeFlightsFromDom(
-  event: Extract<GamePresentationEvent, { type: 'trade-resources-applied' }>,
+  event: Extract<
+    GamePresentationEvent,
+    { type: typeof GamePresentationEventType.TradeResourcesApplied }
+  >,
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets,
   timing: PaymentFlightTiming = DEFAULT_PAYMENT_FLIGHT_TIMING
@@ -289,7 +299,7 @@ function buildRemovalFlightsFromDom(
 export function buildDeedResourceFlightsFromDom(
   deedTokens: readonly Extract<
     GamePresentationEvent,
-    { type: 'deed-token-paid' }
+    { type: typeof GamePresentationEventType.DeedTokenPaid }
   >[],
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets
@@ -584,7 +594,10 @@ export function buildSoldCardFlightFromDom(
 }
 
 export function buildCardToDistrictFlightFromDom(
-  event: Extract<GamePresentationEvent, { type: 'card-played-to-district' }>,
+  event: Extract<
+    GamePresentationEvent,
+    { type: typeof GamePresentationEventType.CardPlayedToDistrict }
+  >,
   makeFlightId: () => string,
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight[] {

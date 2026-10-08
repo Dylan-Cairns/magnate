@@ -1,15 +1,21 @@
+import { ActionListItemKind } from './actionValues';
+import { ActionId } from '../engine/values';
 import type { GameAction, PlayerId } from '../engine/types';
 import type { HumanActionListItem } from './actionPresentation';
 
-type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
+type DevelopOutrightAction = Extract<
+  GameAction,
+  { type: typeof ActionId.DevelopOutright }
+>;
 
 export function hasVisibleIncomeChoiceActions(
   items: readonly HumanActionListItem[]
 ): boolean {
   return items.some(
     (item) =>
-      (item.kind === 'action' && item.action.type === 'choose-income-suit') ||
-      item.kind === 'income-choice-group'
+      (item.kind === ActionListItemKind.Action &&
+        item.action.type === ActionId.ChooseIncomeSuit) ||
+      item.kind === ActionListItemKind.IncomeChoiceGroup
   );
 }
 
@@ -44,36 +50,36 @@ export function isHumanInputActive({
 
 export function actionCategoryForItem(item: HumanActionListItem): string {
   switch (item.kind) {
-    case 'trade-group':
-      return 'trade';
-    case 'buy-deed-group':
-      return 'buy-deed';
-    case 'develop-deed-group':
-      return 'develop-deed';
-    case 'develop-outright-group':
-      return 'develop-outright';
-    case 'income-choice-group':
-      return 'choose-income-suit';
-    case 'action':
+    case ActionListItemKind.TradeGroup:
+      return ActionId.Trade;
+    case ActionListItemKind.BuyDeedGroup:
+      return ActionId.BuyDeed;
+    case ActionListItemKind.DevelopDeedGroup:
+      return ActionId.DevelopDeed;
+    case ActionListItemKind.DevelopOutrightGroup:
+      return ActionId.DevelopOutright;
+    case ActionListItemKind.IncomeChoiceGroup:
+      return ActionId.ChooseIncomeSuit;
+    case ActionListItemKind.Action:
       return item.action.type;
   }
 }
 
 export function actionCategoryLabel(category: string): string {
   switch (category) {
-    case 'trade':
+    case ActionId.Trade:
       return 'Trade';
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       return 'Buy Deed';
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return 'Develop Deed';
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return 'Develop Outright';
-    case 'sell-card':
+    case ActionId.SellCard:
       return 'Sell Card';
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return 'Choose Income';
-    case 'end-turn':
+    case ActionId.EndTurn:
       return 'End Turn';
     default:
       return category;

@@ -1,12 +1,12 @@
 import type { RefObject } from 'react';
 
-import type { Ruleset } from '../../engine/types';
+import { Ruleset } from '../../engine/types';
 import { profilesForRuleset, type BotProfileId } from '../../policies/catalog';
 import { Tooltip } from './Tooltip';
 
 const RULESET_OPTIONS: readonly { value: Ruleset; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'extended', label: 'Extended' },
+  { value: Ruleset.Standard, label: 'Standard' },
+  { value: Ruleset.Extended, label: 'Extended' },
 ];
 
 export function NewGameButton({

@@ -6,6 +6,28 @@
 - Determinism is required: seeded RNG, pure state transitions, no hidden global state.
 - UI and Python consume engine legality and observations; they never re-derive rules.
 
+## Shared Finite Values
+
+- Shared string vocabularies use exported `as const` objects and union types
+  derived from their values. Consumers use named members in comparisons,
+  constructors, discriminant types, and record keys; display labels remain
+  independently authored text.
+- Engine definitions live in dependency-free `src/engine/values.ts`, with
+  existing type import paths re-exported through `src/engine/types.ts`.
+  `SUITS`, `PLAYER_IDS`, `GAME_PHASES`, and `ACTION_IDS` preserve their explicit
+  compatibility orders. Dice mappings and the ASCII-sorted card catalog keep
+  their purpose-specific order.
+- Policy values and worker protocols live in `src/policies/values.ts` and
+  `workerValues.ts`; evaluation worker tags live in `src/botEval/workerValues.ts`.
+  Bridge commands/errors live in `src/bridge/values.ts`. UI presentation tags,
+  picker kinds, celebration outcomes, and stored winner outcomes belong to
+  their UI/database value modules. Equal spellings in different domains do not
+  imply a shared vocabulary.
+- Value modules must not initialize controllers, workers, components, or the
+  database. Literal expectations in compatibility tests and external JSON/Python
+  contracts stay independent of these definitions. Renaming a serialized value
+  still requires the applicable save/bridge/model compatibility decision.
+
 ## Engine Pattern
 
 Primary APIs:

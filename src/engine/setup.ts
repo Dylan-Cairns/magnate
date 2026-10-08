@@ -1,3 +1,4 @@
+import { Suit, CardKind } from './values';
 import type { CardId } from './cards';
 import {
   CARD_BY_ID,
@@ -9,7 +10,7 @@ import {
 } from './cards';
 import { createDeck } from './deckCore';
 import { rngFromSeed, shuffleInPlace } from './rng';
-import type { DeckState, PlayerId, ResourcePool, Ruleset } from './types';
+import { type DeckState, PlayerId, type ResourcePool, Ruleset } from './types';
 
 export interface SetupResult {
   deck: DeckState;
@@ -21,12 +22,12 @@ export interface SetupResult {
 
 export function initialSetup(
   seed: string,
-  ruleset: Ruleset = 'standard'
+  ruleset: Ruleset = Ruleset.Standard
 ): SetupResult {
   const rand = rngFromSeed(seed);
 
   const propertyPool =
-    ruleset === 'extended'
+    ruleset === Ruleset.Extended
       ? [...PROPERTY_CARDS, ...COURT_CARDS]
       : PROPERTY_CARDS;
   const draw = propertyPool.map((card) => card.id);
@@ -35,8 +36,8 @@ export function initialSetup(
   const crowns = CROWN_CARDS.map((card) => card.id);
   shuffleInPlace(crowns, rand);
 
-  const playerA: PlayerId = 'PlayerA';
-  const playerB: PlayerId = 'PlayerB';
+  const playerA: PlayerId = PlayerId.PlayerA;
+  const playerB: PlayerId = PlayerId.PlayerB;
 
   const dealMany = (pile: CardId[], count: number): CardId[] => {
     if (pile.length < count) {
@@ -63,12 +64,12 @@ export function initialSetup(
   };
 
   const createEmptyPool = (): ResourcePool => ({
-    Moons: 0,
-    Suns: 0,
-    Waves: 0,
-    Leaves: 0,
-    Wyrms: 0,
-    Knots: 0,
+    [Suit.Moons]: 0,
+    [Suit.Suns]: 0,
+    [Suit.Waves]: 0,
+    [Suit.Leaves]: 0,
+    [Suit.Wyrms]: 0,
+    [Suit.Knots]: 0,
   });
 
   const resourcesFromCrowns = (
@@ -77,7 +78,7 @@ export function initialSetup(
     const pool = createEmptyPool();
     crownIds.forEach((cardId) => {
       const card = CARD_BY_ID[cardId];
-      if (card.kind !== 'Crown') {
+      if (card.kind !== CardKind.Crown) {
         throw new Error(`Expected crown card during setup, got ${card.kind}.`);
       }
       const suit = card.suits[0];

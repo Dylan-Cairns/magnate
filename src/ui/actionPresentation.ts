@@ -1,3 +1,5 @@
+import { ActionListItemKind, ActionPickerKind } from './actionValues';
+import { ActionId, CardKind } from '../engine/values';
 import { CARD_BY_ID, type CardId } from '../engine/cards';
 import { actionStableKey, paymentSignature } from '../engine/actionSurface';
 import { SUITS } from '../engine/stateHelpers';
@@ -5,13 +7,19 @@ import type { GameAction, Suit } from '../engine/types';
 
 export { actionStableKey, paymentSignature };
 
-type TradeAction = Extract<GameAction, { type: 'trade' }>;
-type BuyDeedAction = Extract<GameAction, { type: 'buy-deed' }>;
-type DevelopDeedAction = Extract<GameAction, { type: 'develop-deed' }>;
-type DevelopOutrightAction = Extract<GameAction, { type: 'develop-outright' }>;
+type TradeAction = Extract<GameAction, { type: typeof ActionId.Trade }>;
+type BuyDeedAction = Extract<GameAction, { type: typeof ActionId.BuyDeed }>;
+type DevelopDeedAction = Extract<
+  GameAction,
+  { type: typeof ActionId.DevelopDeed }
+>;
+type DevelopOutrightAction = Extract<
+  GameAction,
+  { type: typeof ActionId.DevelopOutright }
+>;
 type ChooseIncomeSuitAction = Extract<
   GameAction,
-  { type: 'choose-income-suit' }
+  { type: typeof ActionId.ChooseIncomeSuit }
 >;
 type NonGroupedAction = Exclude<
   GameAction,
@@ -24,22 +32,30 @@ type NonGroupedAction = Exclude<
 type DirectAction = NonGroupedAction | ChooseIncomeSuitAction;
 
 export type HumanActionListItem =
-  | { kind: 'action'; action: DirectAction }
-  | { kind: 'trade-group'; give: Suit; options: TradeAction[] }
-  | { kind: 'buy-deed-group'; cardId: CardId; options: BuyDeedAction[] }
+  | { kind: typeof ActionListItemKind.Action; action: DirectAction }
   | {
-      kind: 'develop-deed-group';
+      kind: typeof ActionListItemKind.TradeGroup;
+      give: Suit;
+      options: TradeAction[];
+    }
+  | {
+      kind: typeof ActionListItemKind.BuyDeedGroup;
+      cardId: CardId;
+      options: BuyDeedAction[];
+    }
+  | {
+      kind: typeof ActionListItemKind.DevelopDeedGroup;
       cardId: CardId;
       districtId: string;
       options: DevelopDeedAction[];
     }
   | {
-      kind: 'develop-outright-group';
+      kind: typeof ActionListItemKind.DevelopOutrightGroup;
       cardId: CardId;
       options: DevelopOutrightAction[];
     }
   | {
-      kind: 'income-choice-group';
+      kind: typeof ActionListItemKind.IncomeChoiceGroup;
       playerId: ChooseIncomeSuitAction['playerId'];
       districtId: string;
       cardId: CardId;
@@ -48,26 +64,26 @@ export type HumanActionListItem =
 
 export type ActionPickerQuery =
   | {
-      kind: 'trade';
+      kind: typeof ActionPickerKind.Trade;
       give: Suit;
     }
   | {
-      kind: 'district';
-      actionType: 'buy-deed';
+      kind: typeof ActionPickerKind.District;
+      actionType: typeof ActionId.BuyDeed;
       cardId: CardId;
     }
   | {
-      kind: 'develop-outright-payment';
-      cardId: CardId;
-      districtId: string;
-    }
-  | {
-      kind: 'deed-payment';
+      kind: typeof ActionPickerKind.DevelopOutrightPayment;
       cardId: CardId;
       districtId: string;
     }
   | {
-      kind: 'income-choice';
+      kind: typeof ActionPickerKind.DeedPayment;
+      cardId: CardId;
+      districtId: string;
+    }
+  | {
+      kind: typeof ActionPickerKind.IncomeChoice;
       playerId: ChooseIncomeSuitAction['playerId'];
       cardId: CardId;
       districtId: string;
@@ -91,7 +107,7 @@ export function buildTradeSourceGroups(
   const byGive = new Map<Suit, TradeAction[]>();
 
   for (const action of actions) {
-    if (action.type !== 'trade') {
+    if (action.type !== ActionId.Trade) {
       continue;
     }
 
@@ -112,23 +128,25 @@ export function buildTradeSourceGroups(
 export function buildHumanActionList(
   actions: readonly GameAction[]
 ): HumanActionListItem[] {
-  const tradeItems: Extract<HumanActionListItem, { kind: 'trade-group' }>[] =
-    [];
+  const tradeItems: Extract<
+    HumanActionListItem,
+    { kind: typeof ActionListItemKind.TradeGroup }
+  >[] = [];
   const buyDeedItems: Extract<
     HumanActionListItem,
-    { kind: 'buy-deed-group' }
+    { kind: typeof ActionListItemKind.BuyDeedGroup }
   >[] = [];
   const developDeedItems: Extract<
     HumanActionListItem,
-    { kind: 'develop-deed-group' }
+    { kind: typeof ActionListItemKind.DevelopDeedGroup }
   >[] = [];
   const developOutrightItems: Extract<
     HumanActionListItem,
-    { kind: 'develop-outright-group' }
+    { kind: typeof ActionListItemKind.DevelopOutrightGroup }
   >[] = [];
   const incomeChoiceItems: Extract<
     HumanActionListItem,
-    { kind: 'income-choice-group' }
+    { kind: typeof ActionListItemKind.IncomeChoiceGroup }
   >[] = [];
   const nonGroupedByType = new Map<
     NonGroupedAction['type'],
@@ -152,7 +170,7 @@ export function buildHumanActionList(
   >();
 
   for (const action of actions) {
-    if (action.type === 'choose-income-suit') {
+    if (action.type === ActionId.ChooseIncomeSuit) {
       const groupKey = `${action.playerId}|${action.districtId}|${action.cardId}`;
       const existing = incomeChoiceGroups.get(groupKey);
       if (existing) {
@@ -169,19 +187,23 @@ export function buildHumanActionList(
       continue;
     }
 
-    if (action.type === 'trade') {
+    if (action.type === ActionId.Trade) {
       const existing = tradeGroups.get(action.give);
       if (existing) {
         existing.options.push(action);
       } else {
         const options = [action];
         tradeGroups.set(action.give, { options });
-        tradeItems.push({ kind: 'trade-group', give: action.give, options });
+        tradeItems.push({
+          kind: ActionListItemKind.TradeGroup,
+          give: action.give,
+          options,
+        });
       }
       continue;
     }
 
-    if (action.type === 'buy-deed') {
+    if (action.type === ActionId.BuyDeed) {
       const existing = buyDeedGroups.get(action.cardId);
       if (existing) {
         existing.options.push(action);
@@ -189,7 +211,7 @@ export function buildHumanActionList(
         const options = [action];
         buyDeedGroups.set(action.cardId, { options });
         buyDeedItems.push({
-          kind: 'buy-deed-group',
+          kind: ActionListItemKind.BuyDeedGroup,
           cardId: action.cardId,
           options,
         });
@@ -197,7 +219,7 @@ export function buildHumanActionList(
       continue;
     }
 
-    if (action.type === 'develop-deed') {
+    if (action.type === ActionId.DevelopDeed) {
       const groupKey = `${action.cardId}|${action.districtId}`;
       const existing = developDeedGroups.get(groupKey);
       if (existing) {
@@ -206,7 +228,7 @@ export function buildHumanActionList(
         const options = [action];
         developDeedGroups.set(groupKey, { options });
         developDeedItems.push({
-          kind: 'develop-deed-group',
+          kind: ActionListItemKind.DevelopDeedGroup,
           cardId: action.cardId,
           districtId: action.districtId,
           options,
@@ -215,7 +237,7 @@ export function buildHumanActionList(
       continue;
     }
 
-    if (action.type === 'develop-outright') {
+    if (action.type === ActionId.DevelopOutright) {
       const existing = developOutrightGroups.get(action.cardId);
 
       if (existing) {
@@ -224,7 +246,7 @@ export function buildHumanActionList(
         const options = [action];
         developOutrightGroups.set(action.cardId, { options });
         developOutrightItems.push({
-          kind: 'develop-outright-group',
+          kind: ActionListItemKind.DevelopOutrightGroup,
           cardId: action.cardId,
           options,
         });
@@ -240,19 +262,19 @@ export function buildHumanActionList(
     }
   }
 
-  const sellCardItems = toActionItems(nonGroupedByType.get('sell-card'));
-  const endTurnItems = toActionItems(nonGroupedByType.get('end-turn'));
-  const otherActionItems: Extract<HumanActionListItem, { kind: 'action' }>[] =
-    [];
+  const sellCardItems = toActionItems(nonGroupedByType.get(ActionId.SellCard));
+  const endTurnItems = toActionItems(nonGroupedByType.get(ActionId.EndTurn));
+  const otherActionItems: Extract<
+    HumanActionListItem,
+    { kind: typeof ActionListItemKind.Action }
+  >[] = [];
   const incomeGroups = [...incomeChoiceGroups.values()];
   const incomeActionItems =
-    incomeGroups.length > 1
-      ? []
-      : toActionItems(incomeGroups[0]?.options);
+    incomeGroups.length > 1 ? [] : toActionItems(incomeGroups[0]?.options);
   if (incomeGroups.length > 1) {
     incomeChoiceItems.push(
       ...incomeGroups.map((group) => ({
-        kind: 'income-choice-group' as const,
+        kind: ActionListItemKind.IncomeChoiceGroup,
         playerId: group.playerId,
         districtId: group.districtId,
         cardId: group.cardId,
@@ -262,7 +284,7 @@ export function buildHumanActionList(
   }
 
   for (const [type, grouped] of nonGroupedByType.entries()) {
-    if (type === 'sell-card' || type === 'end-turn') {
+    if (type === ActionId.SellCard || type === ActionId.EndTurn) {
       continue;
     }
     otherActionItems.push(...toActionItems(grouped));
@@ -285,27 +307,27 @@ export function pickerStillLegal(
   picker: ActionPickerQuery,
   actions: readonly GameAction[]
 ): boolean {
-  if (picker.kind === 'trade') {
+  if (picker.kind === ActionPickerKind.Trade) {
     return actions.some(
       (action): action is TradeAction =>
-        action.type === 'trade' && action.give === picker.give
+        action.type === ActionId.Trade && action.give === picker.give
     );
   }
 
-  if (picker.kind === 'deed-payment') {
+  if (picker.kind === ActionPickerKind.DeedPayment) {
     const options = actions.filter(
       (action): action is DevelopDeedAction =>
-        action.type === 'develop-deed' &&
+        action.type === ActionId.DevelopDeed &&
         action.cardId === picker.cardId &&
         action.districtId === picker.districtId
     );
     return options.length > 1;
   }
 
-  if (picker.kind === 'income-choice') {
+  if (picker.kind === ActionPickerKind.IncomeChoice) {
     const options = actions.filter(
       (action): action is ChooseIncomeSuitAction =>
-        action.type === 'choose-income-suit' &&
+        action.type === ActionId.ChooseIncomeSuit &&
         action.playerId === picker.playerId &&
         action.cardId === picker.cardId &&
         action.districtId === picker.districtId
@@ -313,21 +335,24 @@ export function pickerStillLegal(
     return options.length > 0;
   }
 
-  if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
+  if (
+    picker.kind === ActionPickerKind.District &&
+    picker.actionType === ActionId.BuyDeed
+  ) {
     const options = actions.filter(
       (action): action is BuyDeedAction =>
-        action.type === 'buy-deed' && action.cardId === picker.cardId
+        action.type === ActionId.BuyDeed && action.cardId === picker.cardId
     );
     return options.length > 1;
   }
 
-  if (picker.kind !== 'develop-outright-payment') {
+  if (picker.kind !== ActionPickerKind.DevelopOutrightPayment) {
     return false;
   }
 
   const options = actions.filter(
     (action): action is DevelopOutrightAction =>
-      action.type === 'develop-outright' &&
+      action.type === ActionId.DevelopOutright &&
       action.cardId === picker.cardId &&
       action.districtId === picker.districtId
   );
@@ -339,11 +364,11 @@ export function buildPickerOptions(
   actions: readonly GameAction[],
   suitEmoji: Record<Suit, string>
 ): PickerOption[] {
-  if (picker.kind === 'trade') {
+  if (picker.kind === ActionPickerKind.Trade) {
     return actions
       .filter(
         (action): action is TradeAction =>
-          action.type === 'trade' && action.give === picker.give
+          action.type === ActionId.Trade && action.give === picker.give
       )
       .map((action) => ({
         id: actionStableKey(action),
@@ -352,11 +377,11 @@ export function buildPickerOptions(
       }));
   }
 
-  if (picker.kind === 'deed-payment') {
+  if (picker.kind === ActionPickerKind.DeedPayment) {
     return actions
       .filter(
         (action): action is DevelopDeedAction =>
-          action.type === 'develop-deed' &&
+          action.type === ActionId.DevelopDeed &&
           action.cardId === picker.cardId &&
           action.districtId === picker.districtId
       )
@@ -367,11 +392,11 @@ export function buildPickerOptions(
       }));
   }
 
-  if (picker.kind === 'income-choice') {
+  if (picker.kind === ActionPickerKind.IncomeChoice) {
     return actions
       .filter(
         (action): action is ChooseIncomeSuitAction =>
-          action.type === 'choose-income-suit' &&
+          action.type === ActionId.ChooseIncomeSuit &&
           action.playerId === picker.playerId &&
           action.cardId === picker.cardId &&
           action.districtId === picker.districtId
@@ -383,11 +408,14 @@ export function buildPickerOptions(
       }));
   }
 
-  if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
+  if (
+    picker.kind === ActionPickerKind.District &&
+    picker.actionType === ActionId.BuyDeed
+  ) {
     return actions
       .filter(
         (action): action is BuyDeedAction =>
-          action.type === 'buy-deed' && action.cardId === picker.cardId
+          action.type === ActionId.BuyDeed && action.cardId === picker.cardId
       )
       .map((action) => ({
         id: actionStableKey(action),
@@ -396,14 +424,14 @@ export function buildPickerOptions(
       }));
   }
 
-  if (picker.kind !== 'develop-outright-payment') {
+  if (picker.kind !== ActionPickerKind.DevelopOutrightPayment) {
     return [];
   }
 
   return actions
     .filter(
       (action): action is DevelopOutrightAction =>
-        action.type === 'develop-outright' &&
+        action.type === ActionId.DevelopOutright &&
         action.cardId === picker.cardId &&
         action.districtId === picker.districtId
     )
@@ -418,23 +446,26 @@ export function pickerTitle(
   picker: ActionPickerQuery,
   suitEmoji: Record<Suit, string>
 ): string {
-  if (picker.kind === 'trade') {
+  if (picker.kind === ActionPickerKind.Trade) {
     return `Trade ${suitEmoji[picker.give]}x3 for`;
   }
 
-  if (picker.kind === 'deed-payment') {
+  if (picker.kind === ActionPickerKind.DeedPayment) {
     return `Develop deed ${cardSummary(picker.cardId, suitEmoji)} in ${picker.districtId} with`;
   }
 
-  if (picker.kind === 'income-choice') {
+  if (picker.kind === ActionPickerKind.IncomeChoice) {
     return `Choose income ${cardSummary(picker.cardId, suitEmoji)} in ${picker.districtId}`;
   }
 
-  if (picker.kind === 'district' && picker.actionType === 'buy-deed') {
+  if (
+    picker.kind === ActionPickerKind.District &&
+    picker.actionType === ActionId.BuyDeed
+  ) {
     return `Buy deed ${cardSummary(picker.cardId, suitEmoji)} in`;
   }
 
-  if (picker.kind !== 'develop-outright-payment') {
+  if (picker.kind !== ActionPickerKind.DevelopOutrightPayment) {
     return 'Select option';
   }
 
@@ -446,15 +477,15 @@ export function pickerTitle(
 
 export function pickerGroupLabel(picker: ActionPickerQuery): string {
   switch (picker.kind) {
-    case 'trade':
+    case ActionPickerKind.Trade:
       return 'Receive x1';
-    case 'district':
+    case ActionPickerKind.District:
       return 'District';
-    case 'deed-payment':
+    case ActionPickerKind.DeedPayment:
       return 'Payment';
-    case 'develop-outright-payment':
+    case ActionPickerKind.DevelopOutrightPayment:
       return 'Payment';
-    case 'income-choice':
+    case ActionPickerKind.IncomeChoice:
       return 'Suit';
   }
 }
@@ -464,25 +495,25 @@ export function describeAction(
   suitEmoji: Record<Suit, string>
 ): string {
   switch (action.type) {
-    case 'end-turn':
+    case ActionId.EndTurn:
       return 'End turn';
-    case 'trade':
+    case ActionId.Trade:
       return `Trade ${suitEmoji[action.give]}x3 for ${suitEmoji[action.receive]}x1`;
-    case 'sell-card':
+    case ActionId.SellCard:
       return `Sell ${cardSummary(action.cardId, suitEmoji)}`;
-    case 'buy-deed':
+    case ActionId.BuyDeed:
       return `Buy deed ${cardSummary(action.cardId, suitEmoji)} in ${action.districtId}`;
-    case 'develop-deed':
+    case ActionId.DevelopDeed:
       return `Develop deed ${cardSummary(action.cardId, suitEmoji)} in ${action.districtId} (${formatTokens(
         action.tokens,
         suitEmoji
       )})`;
-    case 'develop-outright':
+    case ActionId.DevelopOutright:
       return `Develop ${cardSummary(action.cardId, suitEmoji)} in ${action.districtId} (${formatTokens(
         action.payment,
         suitEmoji
       )})`;
-    case 'choose-income-suit':
+    case ActionId.ChooseIncomeSuit:
       return `Choose ${suitEmoji[action.suit]} income for ${cardSummary(
         action.cardId,
         suitEmoji
@@ -509,13 +540,15 @@ export function cardSummary(
 ): string {
   const card = CARD_BY_ID[cardId];
   const rank =
-    card.kind === 'Property' || card.kind === 'Crown' || card.kind === 'Court'
+    card.kind === CardKind.Property ||
+    card.kind === CardKind.Crown ||
+    card.kind === CardKind.Court
       ? String(card.rank)
-      : card.kind === 'Pawn'
+      : card.kind === CardKind.Pawn
         ? 'P'
         : 'X';
   const suits =
-    card.kind === 'Excuse'
+    card.kind === CardKind.Excuse
       ? ''
       : card.suits.map((suit) => suitEmoji[suit]).join('');
   return `${rank}${suits}`;
@@ -531,9 +564,11 @@ function tokenEntries(
 
 function toActionItems(
   actions: readonly DirectAction[] | undefined
-): Array<Extract<HumanActionListItem, { kind: 'action' }>> {
+): Array<
+  Extract<HumanActionListItem, { kind: typeof ActionListItemKind.Action }>
+> {
   if (!actions || actions.length === 0) {
     return [];
   }
-  return actions.map((action) => ({ kind: 'action', action }));
+  return actions.map((action) => ({ kind: ActionListItemKind.Action, action }));
 }

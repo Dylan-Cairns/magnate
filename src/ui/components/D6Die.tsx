@@ -1,29 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import type { Suit } from '../../engine/types';
+import { Suit } from '../../engine/types';
 import '../../styles/d6-die.css';
 import { reportImageRenderFailure } from '../cardImages';
-import {
-  SUIT_ICON_BY_SUIT,
-  SUIT_TOKEN_BG,
-} from '../suitIcons';
+import { SUIT_ICON_BY_SUIT, SUIT_TOKEN_BG } from '../suitIcons';
 
 const SUITS_BY_FACE: [Suit, Suit, Suit, Suit, Suit, Suit] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
+  Suit.Moons,
+  Suit.Suns,
+  Suit.Waves,
+  Suit.Leaves,
+  Suit.Wyrms,
+  Suit.Knots,
 ];
 
 const SUIT_TO_FACE: Record<Suit, number> = {
-  Moons: 1,
-  Suns: 2,
-  Waves: 3,
-  Leaves: 4,
-  Wyrms: 5,
-  Knots: 6,
+  [Suit.Moons]: 1,
+  [Suit.Suns]: 2,
+  [Suit.Waves]: 3,
+  [Suit.Leaves]: 4,
+  [Suit.Wyrms]: 5,
+  [Suit.Knots]: 6,
 };
 
 // rotateX/Y to bring each face toward the camera with a slight Y offset so it never looks flat.

@@ -1,9 +1,10 @@
-import type {
-  GameAction,
-  GameLogEntry,
-  GameState,
-  PlayerId,
-  ResourcePool,
+import { ActionId, GamePhase, SUITS as SUIT_ORDER } from '../engine/values';
+import {
+  type GameAction,
+  type GameLogEntry,
+  type GameState,
+  type PlayerId,
+  type ResourcePool,
   Suit,
 } from '../engine/types';
 import {
@@ -11,15 +12,6 @@ import {
   type TurnCycleTaxSummary,
 } from './turnCycleEvents';
 import { playerDisplayName } from './playerDisplay';
-
-const SUIT_ORDER: readonly Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
 
 export interface DeferredIncomeLogContext {
   turn: number;
@@ -63,7 +55,7 @@ export function initialTurnCycleLogEntries(
   return resolveTurnCycleEntries(
     initialState,
     sessionState,
-    { type: 'end-turn' },
+    { type: ActionId.EndTurn },
     humanPlayerId
   ).entries;
 }
@@ -88,7 +80,7 @@ export function transitionLogUpdate(
     };
   }
 
-  if (action.type === 'end-turn') {
+  if (action.type === ActionId.EndTurn) {
     const resolved = resolveTurnCycleEntries(
       previousState,
       nextState,
@@ -101,7 +93,7 @@ export function transitionLogUpdate(
     };
   }
 
-  if (action.type === 'choose-income-suit') {
+  if (action.type === ActionId.ChooseIncomeSuit) {
     const resolved = resolveDeferredIncomeEntries(
       nextState,
       deferredIncomeLogContext,
@@ -116,7 +108,7 @@ export function transitionLogUpdate(
   return {
     entries: engineEntries,
     deferredIncomeLogContext:
-      nextState.phase === 'CollectIncome' &&
+      nextState.phase === GamePhase.CollectIncome &&
       (nextState.pendingIncomeChoices?.length ?? 0) > 0
         ? deferredIncomeLogContext
         : null,
@@ -126,7 +118,7 @@ export function transitionLogUpdate(
 function resolveTurnCycleEntries(
   previousState: GameState,
   nextState: GameState,
-  action: Extract<GameAction, { type: 'end-turn' }>,
+  action: Extract<GameAction, { type: typeof ActionId.EndTurn }>,
   humanPlayerId: PlayerId
 ): TimelineLogUpdate {
   const cycle = deriveTurnCycleEvents(previousState, nextState, action);
@@ -145,7 +137,7 @@ function resolveTurnCycleEntries(
     taxEntries.push({
       turn: nextState.turn,
       player: cycle.cycleOwner,
-      phase: 'TaxCheck',
+      phase: GamePhase.TaxCheck,
       summary: taxSummary,
     });
   }
@@ -154,7 +146,7 @@ function resolveTurnCycleEntries(
     {
       turn: nextState.turn,
       player: cycle.cycleOwner,
-      phase: 'TaxCheck',
+      phase: GamePhase.TaxCheck,
       summary: `Roll d10 ${cycle.roll.die1}/${cycle.roll.die2} (income ${cycle.incomeRank})`,
     },
     ...taxEntries,
@@ -259,7 +251,7 @@ function resolveDeferredIncomeEntries(
   }
 
   if (
-    nextState.phase === 'CollectIncome' &&
+    nextState.phase === GamePhase.CollectIncome &&
     (nextState.pendingIncomeChoices?.length ?? 0) > 0
   ) {
     return {
@@ -296,7 +288,7 @@ function incomeEntries(
     (summary) => ({
       turn: nextState.turn,
       player,
-      phase: 'CollectIncome' as const,
+      phase: GamePhase.CollectIncome,
       summary,
     })
   );

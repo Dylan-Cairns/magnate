@@ -1,14 +1,15 @@
+import { ActionId, Ruleset, GamePhase } from '../engine/values';
 import { actionStableKey } from '../engine/actionSurface';
 import { PROPERTY_CARDS, type CardId } from '../engine/cards';
 import { legalActionsForDecisionPlayer } from '../engine/decisionActor';
 import { SUITS } from '../engine/stateHelpers';
-import type {
-  DeedState,
-  DistrictState,
-  GameAction,
-  GameState,
+import {
+  type DeedState,
+  type DistrictState,
+  type GameAction,
+  type GameState,
   PlayerId,
-  ResourcePool,
+  type ResourcePool,
   Suit,
 } from '../engine/types';
 
@@ -134,14 +135,14 @@ export function isStrategicOptionalityPositionV0(
 
 function strategicPositionRecipes(): StrategicPositionRecipe[] {
   const deedForkDistricts = [
-    district('D0', ['Waves', 'Leaves', 'Wyrms'], ['14']),
-    district('D1', ['Moons', 'Suns', 'Leaves'], ['15']),
-    district('D2', ['Suns', 'Waves', 'Knots'], [], ['17']),
-    district('D3', ['Moons', 'Wyrms', 'Knots'], [], ['19']),
+    district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['14']),
+    district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves], ['15']),
+    district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], [], ['17']),
+    district('D3', [Suit.Moons, Suit.Wyrms, Suit.Knots], [], ['19']),
     district('D4', [], [], ['25'], {
       cardId: '29',
       progress: 8,
-      tokens: { Moons: 8 },
+      tokens: { [Suit.Moons]: 8 },
     }),
   ];
 
@@ -160,23 +161,28 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         id: 'minimum-winning-coalition',
         turn: 34,
         ownHand: ['6', '7', '8'],
-        selfResources: { Moons: 1, Knots: 1 },
+        selfResources: { [Suit.Moons]: 1, [Suit.Knots]: 1 },
         districts: [
-          district('D0', ['Waves', 'Leaves', 'Wyrms'], ['26', '16'], ['1']),
-          district('D1', ['Moons', 'Suns', 'Leaves'], ['25']),
-          district('D2', ['Suns', 'Waves', 'Knots'], [], ['14']),
-          district('D3', ['Moons', 'Wyrms', 'Knots'], [], ['17']),
+          district(
+            'D0',
+            [Suit.Waves, Suit.Leaves, Suit.Wyrms],
+            ['26', '16'],
+            ['1']
+          ),
+          district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves], ['25']),
+          district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], [], ['14']),
+          district('D3', [Suit.Moons, Suit.Wyrms, Suit.Knots], [], ['17']),
           district('D4', []),
         ],
       }),
       focusActions: [
         focus('pivotal', 'Develop The Author in D4', {
-          type: 'develop-outright',
+          type: ActionId.DevelopOutright,
           cardId: '6',
           districtId: 'D4',
         }),
         focus('fortress', 'Develop The Author in D1', {
-          type: 'develop-outright',
+          type: ActionId.DevelopOutright,
           cardId: '6',
           districtId: 'D1',
         }),
@@ -202,23 +208,23 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         id: 'tie-denial-restores-match',
         turn: 36,
         ownHand: ['13', '7', '8'],
-        selfResources: { Moons: 2, Suns: 2 },
+        selfResources: { [Suit.Moons]: 2, [Suit.Suns]: 2 },
         districts: [
-          district('D0', ['Waves', 'Leaves', 'Wyrms'], ['26']),
-          district('D1', ['Moons', 'Suns', 'Leaves'], ['25']),
-          district('D2', ['Suns', 'Waves', 'Knots'], ['4'], ['14']),
-          district('D3', ['Moons', 'Wyrms', 'Knots'], ['5'], ['17']),
+          district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['26']),
+          district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves], ['25']),
+          district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], ['4'], ['14']),
+          district('D3', [Suit.Moons, Suit.Wyrms, Suit.Knots], ['5'], ['17']),
           district('D4', [], [], ['12']),
         ],
       }),
       focusActions: [
         focus('deny', 'Develop The Mountain in D4', {
-          type: 'develop-outright',
+          type: ActionId.DevelopOutright,
           cardId: '13',
           districtId: 'D4',
         }),
         focus('fortress', 'Develop The Mountain in D1', {
-          type: 'develop-outright',
+          type: ActionId.DevelopOutright,
           cardId: '13',
           districtId: 'D1',
         }),
@@ -244,15 +250,20 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         id: 'rank-tiebreak-conversion',
         turn: 43,
         ownHand: ['6', '7', '8'],
-        selfResources: { Moons: 1, Knots: 1 },
+        selfResources: { [Suit.Moons]: 1, [Suit.Knots]: 1 },
         reshuffles: 2,
         finalTurnsRemaining: 1,
         drawCount: 0,
         districts: [
-          district('D0', ['Waves', 'Leaves', 'Wyrms'], ['26']),
-          district('D1', ['Moons', 'Suns', 'Leaves'], ['25']),
-          district('D2', ['Suns', 'Waves', 'Knots'], ['4'], ['24', '12']),
-          district('D3', ['Moons', 'Wyrms', 'Knots'], ['11'], ['27']),
+          district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['26']),
+          district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves], ['25']),
+          district(
+            'D2',
+            [Suit.Suns, Suit.Waves, Suit.Knots],
+            ['4'],
+            ['24', '12']
+          ),
+          district('D3', [Suit.Moons, Suit.Wyrms, Suit.Knots], ['11'], ['27']),
           district(
             'D4',
             [],
@@ -265,12 +276,12 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
       }),
       focusActions: [
         focus('convert-rank', 'Develop The Author in D1', {
-          type: 'develop-outright',
+          type: ActionId.DevelopOutright,
           cardId: '6',
           districtId: 'D1',
         }),
         focus('sell', 'Sell The Author', {
-          type: 'sell-card',
+          type: ActionId.SellCard,
           cardId: '6',
         }),
       ],
@@ -297,17 +308,17 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         id: 'deed-fork-affordable',
         turn: 38,
         ownHand: ['7', '8', '9'],
-        selfResources: { Suns: 1 },
+        selfResources: { [Suit.Suns]: 1 },
         districts: deedForkDistricts,
       }),
       focusActions: [
         focus('complete-deed', 'Complete The Pact deed', {
-          type: 'develop-deed',
+          type: ActionId.DevelopDeed,
           cardId: '29',
           districtId: 'D4',
         }),
         focus('sell', 'Sell The Desert', {
-          type: 'sell-card',
+          type: ActionId.SellCard,
           cardId: '7',
         }),
       ],
@@ -333,12 +344,12 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         id: 'deed-fork-inaccessible',
         turn: 38,
         ownHand: ['7', '8', '9'],
-        selfResources: { Knots: 1 },
+        selfResources: { [Suit.Knots]: 1 },
         districts: deedForkDistricts,
       }),
       focusActions: [
         focus('sell', 'Sell The Desert', {
-          type: 'sell-card',
+          type: ActionId.SellCard,
           cardId: '7',
         }),
       ],
@@ -359,16 +370,16 @@ function strategicPositionRecipes(): StrategicPositionRecipe[] {
         turn: 24,
         ownHand: ['6', '7', '8'],
         districts: [
-          district('D0', ['Waves', 'Leaves', 'Wyrms']),
-          district('D1', ['Moons', 'Suns', 'Leaves']),
-          district('D2', ['Suns', 'Waves', 'Knots']),
-          district('D3', ['Moons', 'Wyrms', 'Knots']),
+          district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms]),
+          district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves]),
+          district('D2', [Suit.Suns, Suit.Waves, Suit.Knots]),
+          district('D3', [Suit.Moons, Suit.Wyrms, Suit.Knots]),
           district('D4', [], ['2', '13', '9'], ['29']),
         ],
       }),
       focusActions: [
         focus('sell', 'Sell The Author', {
-          type: 'sell-card',
+          type: ActionId.SellCard,
           cardId: '6',
         }),
       ],
@@ -409,8 +420,8 @@ function endpointOptionalityMirrorPair(
     ? ['14', '6', '0']
     : ['14', '25', '29'];
   const selfResources: Partial<Record<Suit, number>> = knownHand
-    ? { Waves: 2, Leaves: 2, Moons: 1 }
-    : { Waves: 2, Leaves: 2, Suns: 5, Wyrms: 5 };
+    ? { [Suit.Waves]: 2, [Suit.Leaves]: 2, [Suit.Moons]: 1 }
+    : { [Suit.Waves]: 2, [Suit.Leaves]: 2, [Suit.Suns]: 5, [Suit.Wyrms]: 5 };
   const unknownCardIds: readonly CardId[] = knownHand
     ? ['8', '26', '9', '18', '13', '25']
     : ['8', '26', '18', '20'];
@@ -453,7 +464,7 @@ function endpointOptionalityMirrorPair(
           'preserve-option',
           `Develop The Sailor in ${preserveDistrictId}`,
           {
-            type: 'develop-outright',
+            type: ActionId.DevelopOutright,
             cardId: '14',
             districtId: preserveDistrictId,
           }
@@ -462,7 +473,7 @@ function endpointOptionalityMirrorPair(
           'overwrite-option',
           `Develop The Sailor in ${overwriteDistrictId}`,
           {
-            type: 'develop-outright',
+            type: ActionId.DevelopOutright,
             cardId: '14',
             districtId: overwriteDistrictId,
           }
@@ -507,8 +518,8 @@ function knownHandOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
         id,
         turn: 31,
         ownHand: ['7', '8', '1'],
-        selfResources: { Suns: 1, Wyrms: 1, Waves: 1 },
-        opponentResources: { Moons: 2 },
+        selfResources: { [Suit.Suns]: 1, [Suit.Wyrms]: 1, [Suit.Waves]: 1 },
+        opponentResources: { [Suit.Moons]: 2 },
         unknownCardIds: ['12', '15', '16', '17', '23', '24'],
         opponentHandCount: 3,
         drawCount: 3,
@@ -520,7 +531,7 @@ function knownHandOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
           'preserve-option',
           `Develop The Desert in ${alternativeDistrictId}`,
           {
-            type: 'develop-outright',
+            type: ActionId.DevelopOutright,
             cardId: '7',
             districtId: alternativeDistrictId,
           }
@@ -529,7 +540,7 @@ function knownHandOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
           'overwrite-option',
           `Develop The Desert in ${valuableDistrictId}`,
           {
-            type: 'develop-outright',
+            type: ActionId.DevelopOutright,
             cardId: '7',
             districtId: valuableDistrictId,
           }
@@ -549,12 +560,12 @@ function knownHandOptionalityHoldoutDistricts(
   mirrored: boolean
 ): readonly DistrictState[] {
   const valuableLane = {
-    markerSuitMask: ['Waves', 'Leaves', 'Wyrms'] as const,
+    markerSuitMask: [Suit.Waves, Suit.Leaves, Suit.Wyrms] as const,
     playerADeveloped: ['22'] as const,
     playerBDeveloped: ['26'] as const,
   };
   const alternativeLane = {
-    markerSuitMask: ['Moons', 'Wyrms', 'Knots'] as const,
+    markerSuitMask: [Suit.Moons, Suit.Wyrms, Suit.Knots] as const,
     playerADeveloped: ['21'] as const,
     playerBDeveloped: ['25'] as const,
   };
@@ -567,8 +578,8 @@ function knownHandOptionalityHoldoutDistricts(
       d0Lane.playerADeveloped,
       d0Lane.playerBDeveloped
     ),
-    district('D1', ['Moons', 'Suns', 'Leaves'], ['2']),
-    district('D2', ['Suns', 'Waves', 'Knots'], ['0'], ['3']),
+    district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves], ['2']),
+    district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], ['0'], ['3']),
     district(
       'D3',
       d3Lane.markerSuitMask,
@@ -608,7 +619,12 @@ function unknownPoolOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
         id,
         turn: 31,
         ownHand: ['13', '17', '24'],
-        selfResources: { Moons: 2, Suns: 2, Leaves: 5, Knots: 5 },
+        selfResources: {
+          [Suit.Moons]: 2,
+          [Suit.Suns]: 2,
+          [Suit.Leaves]: 5,
+          [Suit.Knots]: 5,
+        },
         unknownCardIds: ['8', '14', '26', '19'],
         opponentHandCount: 3,
         drawCount: 1,
@@ -620,7 +636,7 @@ function unknownPoolOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
           'preserve-option',
           `Develop The Mountain in ${alternativeDistrictId}`,
           {
-            type: 'develop-outright',
+            type: ActionId.DevelopOutright,
             cardId: '13',
             districtId: alternativeDistrictId,
           }
@@ -629,7 +645,7 @@ function unknownPoolOptionalityHoldoutMirrorPair(): StrategicPositionRecipe[] {
           'overwrite-option',
           `Develop The Mountain in ${valuableDistrictId}`,
           {
-            type: 'develop-outright',
+            type: ActionId.DevelopOutright,
             cardId: '13',
             districtId: valuableDistrictId,
           }
@@ -649,20 +665,25 @@ function unknownPoolOptionalityHoldoutDistricts(
   mirrored: boolean
 ): readonly DistrictState[] {
   const valuableLane = {
-    markerSuitMask: ['Suns', 'Waves', 'Knots'] as const,
+    markerSuitMask: [Suit.Suns, Suit.Waves, Suit.Knots] as const,
     playerADeveloped: ['10'] as const,
     playerBDeveloped: ['9', '6'] as const,
   };
   const alternativeLane = {
-    markerSuitMask: ['Moons', 'Wyrms', 'Knots'] as const,
+    markerSuitMask: [Suit.Moons, Suit.Wyrms, Suit.Knots] as const,
     playerADeveloped: ['7'] as const,
     playerBDeveloped: ['12'] as const,
   };
   const d2Lane = mirrored ? alternativeLane : valuableLane;
   const d3Lane = mirrored ? valuableLane : alternativeLane;
   return [
-    district('D0', ['Waves', 'Leaves', 'Wyrms'], ['27'], ['11', '16']),
-    district('D1', ['Moons', 'Suns', 'Leaves'], ['15', '22'], ['25', '29']),
+    district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['27'], ['11', '16']),
+    district(
+      'D1',
+      [Suit.Moons, Suit.Suns, Suit.Leaves],
+      ['15', '22'],
+      ['25', '29']
+    ),
     district(
       'D2',
       d2Lane.markerSuitMask,
@@ -699,12 +720,12 @@ function endpointOptionalityDistricts(
   const valuableCardId: CardId = family === 'known-hand' ? '16' : '15';
   const alternativeCardId: CardId = family === 'known-hand' ? '15' : '16';
   const valuableLane = {
-    markerSuitMask: ['Moons', 'Suns', 'Leaves'] as const,
+    markerSuitMask: [Suit.Moons, Suit.Suns, Suit.Leaves] as const,
     playerADeveloped: [valuableCardId] as const,
     playerBDeveloped: ['10', '12'] as const,
   };
   const alternativeLane = {
-    markerSuitMask: ['Moons', 'Wyrms', 'Knots'] as const,
+    markerSuitMask: [Suit.Moons, Suit.Wyrms, Suit.Knots] as const,
     playerADeveloped: [alternativeCardId] as const,
     playerBDeveloped: ['7', '17'] as const,
   };
@@ -713,14 +734,14 @@ function endpointOptionalityDistricts(
 
   if (family === 'known-hand') {
     return [
-      district('D0', ['Waves', 'Leaves', 'Wyrms'], ['5']),
+      district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['5']),
       district(
         'D1',
         d1Lane.markerSuitMask,
         d1Lane.playerADeveloped,
         d1Lane.playerBDeveloped
       ),
-      district('D2', ['Suns', 'Waves', 'Knots'], ['3'], ['27']),
+      district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], ['3'], ['27']),
       district('D3', [], ['20'], ['19']),
       district(
         'D4',
@@ -732,14 +753,14 @@ function endpointOptionalityDistricts(
   }
 
   return [
-    district('D0', ['Waves', 'Leaves', 'Wyrms'], ['9', '6']),
+    district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['9', '6']),
     district(
       'D1',
       d1Lane.markerSuitMask,
       d1Lane.playerADeveloped,
       d1Lane.playerBDeveloped
     ),
-    district('D2', ['Suns', 'Waves', 'Knots'], ['0'], ['24']),
+    district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], ['0'], ['24']),
     district('D3', [], ['2'], ['5']),
     district(
       'D4',
@@ -754,23 +775,23 @@ function clockBoundaryRecipes(): StrategicPositionRecipe[] {
   const base = {
     turn: 28,
     ownHand: ['6', '7', '8'] as const,
-    selfResources: { Moons: 1, Knots: 1 },
+    selfResources: { [Suit.Moons]: 1, [Suit.Knots]: 1 },
     drawCount: 4,
     districts: [
-      district('D0', ['Waves', 'Leaves', 'Wyrms'], ['26', '16']),
-      district('D1', ['Moons', 'Suns', 'Leaves'], ['25']),
-      district('D2', ['Suns', 'Waves', 'Knots'], [], ['14']),
-      district('D3', ['Moons', 'Wyrms', 'Knots'], [], ['17']),
+      district('D0', [Suit.Waves, Suit.Leaves, Suit.Wyrms], ['26', '16']),
+      district('D1', [Suit.Moons, Suit.Suns, Suit.Leaves], ['25']),
+      district('D2', [Suit.Suns, Suit.Waves, Suit.Knots], [], ['14']),
+      district('D3', [Suit.Moons, Suit.Wyrms, Suit.Knots], [], ['17']),
       district('D4', []),
     ],
   } satisfies Omit<PositionStateRecipe, 'id' | 'reshuffles'>;
   const focusActions = [
     focus('sell', 'Sell The Desert', {
-      type: 'sell-card',
+      type: ActionId.SellCard,
       cardId: '7',
     }),
     focus('develop', 'Develop The Author in D4', {
-      type: 'develop-outright',
+      type: ActionId.DevelopOutright,
       cardId: '6',
       districtId: 'D4',
     }),
@@ -852,7 +873,7 @@ function resolvePositionRecipe(
     id: canonicalRecipe.id,
     title: canonicalRecipe.title,
     theme: canonicalRecipe.theme,
-    perspectivePlayerId: 'PlayerA',
+    perspectivePlayerId: PlayerId.PlayerA,
     thesis: canonicalRecipe.thesis,
     expectedFacts: [...canonicalRecipe.expectedFacts],
     pairId: canonicalRecipe.pairId ?? null,
@@ -982,7 +1003,10 @@ function validateOptionalityTrace(
       `Strategic optionality position ${recipe.id} references an unknown district.`
     );
   }
-  const legalActions = legalActionsForDecisionPlayer(recipe.state, 'PlayerA');
+  const legalActions = legalActionsForDecisionPlayer(
+    recipe.state,
+    PlayerId.PlayerA
+  );
   for (const [focusActionId, expectedDistrictId] of [
     [trace.preserveFocusActionId, trace.alternativeDistrictId],
     [trace.overwriteFocusActionId, trace.valuableDistrictId],
@@ -995,7 +1019,7 @@ function validateOptionalityTrace(
           (candidate) => actionStableKey(candidate) === focusAction.actionKey
         )
       : undefined;
-    if (action?.type !== 'develop-outright') {
+    if (action?.type !== ActionId.DevelopOutright) {
       throw new Error(
         `Strategic optionality position ${recipe.id} requires an outright-development focus ${focusActionId}.`
       );
@@ -1006,8 +1030,12 @@ function validateOptionalityTrace(
       );
     }
   }
-  const playerA = recipe.state.players.find((entry) => entry.id === 'PlayerA');
-  const playerB = recipe.state.players.find((entry) => entry.id === 'PlayerB');
+  const playerA = recipe.state.players.find(
+    (entry) => entry.id === PlayerId.PlayerA
+  );
+  const playerB = recipe.state.players.find(
+    (entry) => entry.id === PlayerId.PlayerB
+  );
   const targetInOwnHand = playerA?.hand.includes(trace.targetCardId) ?? false;
   const targetIsUnknown =
     (playerB?.hand.includes(trace.targetCardId) ?? false) ||
@@ -1031,7 +1059,7 @@ function focus(
 }
 
 function resolveActionKey(state: GameState, selector: ActionSelector): string {
-  const actions = legalActionsForDecisionPlayer(state, 'PlayerA').filter(
+  const actions = legalActionsForDecisionPlayer(state, PlayerId.PlayerA).filter(
     (action) => actionMatchesSelector(action, selector)
   );
   if (actions.length !== 1) {
@@ -1068,7 +1096,7 @@ function positionState(recipe: PositionStateRecipe): GameState {
     addUniqueCard(knownCards, cardId, `${recipe.id} own hand`);
   }
   for (const districtState of recipe.districts) {
-    for (const playerId of ['PlayerA', 'PlayerB'] as const) {
+    for (const playerId of [PlayerId.PlayerA, PlayerId.PlayerB] as const) {
       const stack = districtState.stacks[playerId];
       for (const cardId of stack.developed) {
         addUniqueCard(knownCards, cardId, `${recipe.id} board`);
@@ -1110,7 +1138,7 @@ function positionState(recipe: PositionStateRecipe): GameState {
     schemaVersion: 1,
     seed: `strategic-v0:${recipe.id}`,
     rngCursor: 0,
-    ruleset: 'standard',
+    ruleset: Ruleset.Standard,
     deck: {
       draw,
       discard,
@@ -1118,13 +1146,13 @@ function positionState(recipe: PositionStateRecipe): GameState {
     },
     players: [
       {
-        id: 'PlayerA',
+        id: PlayerId.PlayerA,
         hand: [...recipe.ownHand],
         crowns: ['30', '32', '34'],
         resources: resources(recipe.selfResources),
       },
       {
-        id: 'PlayerB',
+        id: PlayerId.PlayerB,
         hand: opponentHand,
         crowns: ['31', '33', '35'],
         resources: resources(recipe.opponentResources),
@@ -1132,7 +1160,7 @@ function positionState(recipe: PositionStateRecipe): GameState {
     ],
     activePlayerIndex: 0,
     turn: recipe.turn,
-    phase: 'ActionWindow',
+    phase: GamePhase.ActionWindow,
     districts: recipe.districts.map((districtState) =>
       structuredClone(districtState)
     ),
@@ -1154,11 +1182,11 @@ function district(
     id,
     markerSuitMask: [...markerSuitMask],
     stacks: {
-      PlayerA: {
+      [PlayerId.PlayerA]: {
         developed: [...playerADeveloped],
         ...(playerADeed ? { deed: structuredClone(playerADeed) } : {}),
       },
-      PlayerB: {
+      [PlayerId.PlayerB]: {
         developed: [...playerBDeveloped],
         ...(playerBDeed ? { deed: structuredClone(playerBDeed) } : {}),
       },

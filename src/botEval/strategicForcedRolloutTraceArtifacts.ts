@@ -1,3 +1,4 @@
+import { PlayerId, Winner } from '../engine/values';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -121,13 +122,13 @@ export function renderStrategicForcedRolloutTraceSummaryV0(
       for (const guide of TRACE_GUIDES) {
         const traces = tracesFor(position, rootFocusActionId, guide);
         const wins = traces.filter(
-          (entry) => entry.trace.finalScore.winner === 'PlayerA'
+          (entry) => entry.trace.finalScore.winner === PlayerId.PlayerA
         ).length;
         const draws = traces.filter(
-          (entry) => entry.trace.finalScore.winner === 'Draw'
+          (entry) => entry.trace.finalScore.winner === Winner.Draw
         ).length;
         const losses = traces.filter(
-          (entry) => entry.trace.finalScore.winner === 'PlayerB'
+          (entry) => entry.trace.finalScore.winner === PlayerId.PlayerB
         ).length;
         lines.push(
           `| ${escapeCell(position.positionId)} | ${rootFocusActionId} | ${guide} | ${String(traces.length)} | ${formatMeanScore(traces)} | ${String(wins)}/${String(draws)}/${String(losses)} | ${escapeCell(continuationStatusHistogram(traces))} |`
@@ -339,7 +340,7 @@ function firstContinuationRelevantProposalDivergence(
     );
     if (
       step.stepIndex <= 0 ||
-      step.decisionPlayer !== 'PlayerA' ||
+      step.decisionPlayer !== PlayerId.PlayerA ||
       !proposals ||
       proposals.td.actionKey === proposals.heuristicV2.actionKey ||
       !targetLocationCategory

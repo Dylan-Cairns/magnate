@@ -1,15 +1,7 @@
+import { GamePhase, SUITS as ALL_SUITS } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import { COURT_CARDS, PROPERTY_CARDS } from '../engine/cards';
-import type { GameState, Suit } from '../engine/types';
-
-const ALL_SUITS: Suit[] = [
-  'Moons',
-  'Suns',
-  'Waves',
-  'Leaves',
-  'Wyrms',
-  'Knots',
-];
+import { type GameState, Suit } from '../engine/types';
 
 const ACE_CARD_ID_BY_SUIT = new Map<Suit, CardId>(
   ALL_SUITS.map((suit) => [
@@ -45,7 +37,7 @@ export function awaitingIncomeChoiceCardIds(
 
 export function isVisibleIncomeChoicePhase(viewState: GameState): boolean {
   return (
-    viewState.phase === 'CollectIncome' &&
+    viewState.phase === GamePhase.CollectIncome &&
     (viewState.pendingIncomeChoices?.length ?? 0) > 0
   );
 }

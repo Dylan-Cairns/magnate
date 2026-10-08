@@ -1,3 +1,8 @@
+import {
+  AnimationVisualCommandType,
+  GamePresentationEventType,
+  AnimationStepType,
+} from './values';
 import type { CardId } from '../../engine/cards';
 import type { PlayerId, Suit } from '../../engine/types';
 import type { AnimationSequence } from './animationSequence';
@@ -5,93 +10,93 @@ import type { GamePresentationEvent } from './types';
 
 export type AnimationVisualCommand =
   | {
-      type: 'launch-draw-card-flight';
+      type: typeof AnimationVisualCommandType.LaunchDrawCardFlight;
       atMs: number;
       landingMs: number;
       playerId: PlayerId;
       cardId: CardId;
     }
   | {
-      type: 'launch-sold-card-flight';
+      type: typeof AnimationVisualCommandType.LaunchSoldCardFlight;
       atMs: number;
       playerId: PlayerId;
       cardId: CardId;
     }
   | {
-      type: 'launch-sell-token-flights';
+      type: typeof AnimationVisualCommandType.LaunchSellTokenFlights;
       atMs: number;
       durationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
-        { type: 'sell-resource-gained' }
+        { type: typeof GamePresentationEventType.SellResourceGained }
       >[];
     }
   | {
-      type: 'launch-card-to-district-flight';
+      type: typeof AnimationVisualCommandType.LaunchCardToDistrictFlight;
       atMs: number;
       durationMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'card-played-to-district' }
+        { type: typeof GamePresentationEventType.CardPlayedToDistrict }
       >;
     }
   | {
-      type: 'launch-payment-token-flights';
-      atMs: number;
-      durationMs: number;
-      flightDurationMs: number;
-      flightStaggerMs: number;
-      event: Extract<
-        GamePresentationEvent,
-        { type: 'resource-payment-started' }
-      >;
-    }
-  | {
-      type: 'launch-trade-token-flights';
+      type: typeof AnimationVisualCommandType.LaunchPaymentTokenFlights;
       atMs: number;
       durationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       event: Extract<
         GamePresentationEvent,
-        { type: 'trade-resources-applied' }
+        { type: typeof GamePresentationEventType.ResourcePaymentStarted }
       >;
     }
   | {
-      type: 'launch-deed-token-flights';
+      type: typeof AnimationVisualCommandType.LaunchTradeTokenFlights;
+      atMs: number;
+      durationMs: number;
+      flightDurationMs: number;
+      flightStaggerMs: number;
+      event: Extract<
+        GamePresentationEvent,
+        { type: typeof GamePresentationEventType.TradeResourcesApplied }
+      >;
+    }
+  | {
+      type: typeof AnimationVisualCommandType.LaunchDeedTokenFlights;
       atMs: number;
       durationMs: number;
       tokens: readonly Extract<
         GamePresentationEvent,
-        { type: 'deed-token-paid' }
+        { type: typeof GamePresentationEventType.DeedTokenPaid }
       >[];
     }
   | {
-      type: 'pulse-tax-resources';
+      type: typeof AnimationVisualCommandType.PulseTaxResources;
       startMs: number;
       endMs: number;
       targets: readonly { playerId: PlayerId; suit: Suit }[];
     }
   | {
-      type: 'launch-tax-token-flights';
+      type: typeof AnimationVisualCommandType.LaunchTaxTokenFlights;
       atMs: number;
       durationMs: number;
       losses: readonly Extract<
         GamePresentationEvent,
-        { type: 'tax-token-lost' }
+        { type: typeof GamePresentationEventType.TaxTokenLost }
       >[];
     }
   | {
-      type: 'launch-income-token-flights';
+      type: typeof AnimationVisualCommandType.LaunchIncomeTokenFlights;
       atMs: number;
       durationMs: number;
       flightDurationMs: number;
       flightStaggerMs: number;
       gains: readonly Extract<
         GamePresentationEvent,
-        { type: 'income-token-gained' }
+        { type: typeof GamePresentationEventType.IncomeTokenGained }
       >[];
     };
 
@@ -101,26 +106,26 @@ export function deriveAnimationVisualCommands(
   const commands: AnimationVisualCommand[] = [];
   for (const step of sequence.steps) {
     switch (step.type) {
-      case 'draw-card-flight':
+      case AnimationStepType.DrawCardFlight:
         commands.push({
-          type: 'launch-draw-card-flight',
+          type: AnimationVisualCommandType.LaunchDrawCardFlight,
           atMs: step.startMs,
           landingMs: step.endMs,
           playerId: step.playerId,
           cardId: step.cardId,
         });
         break;
-      case 'stage-sold-card':
+      case AnimationStepType.StageSoldCard:
         commands.push({
-          type: 'launch-sold-card-flight',
+          type: AnimationVisualCommandType.LaunchSoldCardFlight,
           atMs: step.startMs,
           playerId: step.playerId,
           cardId: step.cardId,
         });
         break;
-      case 'launch-sell-token-flights':
+      case AnimationStepType.LaunchSellTokenFlights:
         commands.push({
-          type: 'launch-sell-token-flights',
+          type: AnimationVisualCommandType.LaunchSellTokenFlights,
           atMs: step.startMs,
           durationMs: step.flightSequenceDurationMs,
           flightDurationMs: step.flightDurationMs,
@@ -128,17 +133,17 @@ export function deriveAnimationVisualCommands(
           gains: step.gains,
         });
         break;
-      case 'launch-card-to-district-flight':
+      case AnimationStepType.LaunchCardToDistrictFlight:
         commands.push({
-          type: 'launch-card-to-district-flight',
+          type: AnimationVisualCommandType.LaunchCardToDistrictFlight,
           atMs: step.startMs,
           durationMs: step.durationMs,
           event: step.event,
         });
         break;
-      case 'launch-payment-token-flights':
+      case AnimationStepType.LaunchPaymentTokenFlights:
         commands.push({
-          type: 'launch-payment-token-flights',
+          type: AnimationVisualCommandType.LaunchPaymentTokenFlights,
           atMs: step.startMs,
           durationMs: step.flightSequenceDurationMs,
           flightDurationMs: step.flightDurationMs,
@@ -146,9 +151,9 @@ export function deriveAnimationVisualCommands(
           event: step.event,
         });
         break;
-      case 'launch-trade-token-flights':
+      case AnimationStepType.LaunchTradeTokenFlights:
         commands.push({
-          type: 'launch-trade-token-flights',
+          type: AnimationVisualCommandType.LaunchTradeTokenFlights,
           atMs: step.startMs,
           durationMs: step.flightSequenceDurationMs,
           flightDurationMs: step.flightDurationMs,
@@ -156,9 +161,9 @@ export function deriveAnimationVisualCommands(
           event: step.event,
         });
         break;
-      case 'launch-deed-token-flights':
+      case AnimationStepType.LaunchDeedTokenFlights:
         commands.push({
-          type: 'launch-deed-token-flights',
+          type: AnimationVisualCommandType.LaunchDeedTokenFlights,
           atMs: step.startMs,
           durationMs: step.durationMs,
           tokens: step.tokens,
@@ -168,10 +173,10 @@ export function deriveAnimationVisualCommands(
   }
 
   const taxFlightStep = sequence.steps.find(
-    (step) => step.type === 'launch-tax-token-flights'
+    (step) => step.type === AnimationStepType.LaunchTaxTokenFlights
   );
   const taxPreFlightHoldStep = sequence.steps.find(
-    (step) => step.type === 'hold-before-tax-flights'
+    (step) => step.type === AnimationStepType.HoldBeforeTaxFlights
   );
   if (
     taxPreFlightHoldStep &&
@@ -179,7 +184,7 @@ export function deriveAnimationVisualCommands(
     taxFlightStep.losses.length > 0
   ) {
     commands.push({
-      type: 'pulse-tax-resources',
+      type: AnimationVisualCommandType.PulseTaxResources,
       startMs: taxPreFlightHoldStep.startMs,
       endMs: taxPreFlightHoldStep.endMs,
       targets: taxPulseTargets(taxFlightStep.losses),
@@ -187,7 +192,7 @@ export function deriveAnimationVisualCommands(
   }
   if (taxFlightStep && taxFlightStep.losses.length > 0) {
     commands.push({
-      type: 'launch-tax-token-flights',
+      type: AnimationVisualCommandType.LaunchTaxTokenFlights,
       atMs: taxFlightStep.startMs,
       durationMs: taxFlightStep.flightSequenceDurationMs,
       losses: taxFlightStep.losses,
@@ -195,11 +200,11 @@ export function deriveAnimationVisualCommands(
   }
 
   const incomeFlightStep = sequence.steps.find(
-    (step) => step.type === 'launch-income-token-flights'
+    (step) => step.type === AnimationStepType.LaunchIncomeTokenFlights
   );
   if (incomeFlightStep && incomeFlightStep.gains.length > 0) {
     commands.push({
-      type: 'launch-income-token-flights',
+      type: AnimationVisualCommandType.LaunchIncomeTokenFlights,
       atMs: incomeFlightStep.startMs,
       durationMs: incomeFlightStep.flightSequenceDurationMs,
       flightDurationMs: incomeFlightStep.flightDurationMs,
@@ -214,7 +219,10 @@ export function deriveAnimationVisualCommands(
 }
 
 function taxPulseTargets(
-  losses: readonly Extract<GamePresentationEvent, { type: 'tax-token-lost' }>[]
+  losses: readonly Extract<
+    GamePresentationEvent,
+    { type: typeof GamePresentationEventType.TaxTokenLost }
+  >[]
 ): readonly { playerId: PlayerId; suit: Suit }[] {
   const targets: Array<{ playerId: PlayerId; suit: Suit }> = [];
   const seen = new Set<string>();
@@ -233,7 +241,7 @@ function taxPulseTargets(
 }
 
 function visualCommandStartMs(command: AnimationVisualCommand): number {
-  return command.type === 'pulse-tax-resources'
+  return command.type === AnimationVisualCommandType.PulseTaxResources
     ? command.startMs
     : command.atMs;
 }

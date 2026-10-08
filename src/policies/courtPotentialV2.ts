@@ -1,3 +1,4 @@
+import { ActionId, CardKind, Ruleset } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import { districtScore } from '../engine/scoring';
 import {
@@ -50,7 +51,7 @@ const EXPECTED_GAME_TURNS = 42;
 const SCORING_SCALE = 5;
 
 export interface CourtActionBreakdown {
-  readonly actionType: 'buy-deed' | 'develop-deed';
+  readonly actionType: typeof ActionId.BuyDeed | typeof ActionId.DevelopDeed;
   readonly cardId: CardId;
   readonly completes: boolean;
   readonly swing: number;
@@ -75,7 +76,7 @@ interface CourtDeedValuation {
 export function isCourtCard(
   card: DevelopableCard | undefined
 ): card is CourtCard {
-  return card?.kind === 'Court';
+  return card?.kind === CardKind.Court;
 }
 
 /**
@@ -95,7 +96,7 @@ export function courtPotentialValueForPlayerV2(
   positionContext: HeuristicV2PositionContext,
   courtValueScale: number
 ): number | undefined {
-  if (state.ruleset !== 'extended') {
+  if (state.ruleset !== Ruleset.Extended) {
     return undefined;
   }
   const player = state.players.find((candidate) => candidate.id === playerId);
@@ -126,10 +127,13 @@ export function courtActionBreakdown(
   positionContext: HeuristicV2PositionContext,
   courtValueScale: number
 ): CourtActionBreakdown | undefined {
-  if (action.type !== 'buy-deed' && action.type !== 'develop-deed') {
+  if (
+    action.type !== ActionId.BuyDeed &&
+    action.type !== ActionId.DevelopDeed
+  ) {
     return undefined;
   }
-  if (state.ruleset !== 'extended') {
+  if (state.ruleset !== Ruleset.Extended) {
     return undefined;
   }
   const card = findDevelopableCard(action.cardId);
@@ -144,7 +148,8 @@ export function courtActionBreakdown(
     return undefined;
   }
 
-  const spend = action.type === 'buy-deed' ? deedCost(card) : action.tokens;
+  const spend =
+    action.type === ActionId.BuyDeed ? deedCost(card) : action.tokens;
   const before = courtDeedValuation(
     district,
     district.stacks[playerId],
@@ -170,7 +175,7 @@ export function courtActionBreakdown(
     cardId: action.cardId,
     completes: after === undefined,
     swing: reference.swing,
-    entryCost: action.type === 'buy-deed' ? sumTokens(spend) : 0,
+    entryCost: action.type === ActionId.BuyDeed ? sumTokens(spend) : 0,
     turnsLeft: reference.turnsLeft,
     remainingCost: reference.remainingCost,
     availableTokens: reference.availableTokens,
@@ -199,8 +204,7 @@ function courtDeedValuation(
   if (remainingCost <= 0) {
     return undefined;
   }
-  const progressRatio =
-    target > 0 ? clamp(deed.progress / target, 0, 1) : 0;
+  const progressRatio = target > 0 ? clamp(deed.progress / target, 0, 1) : 0;
 
   const access = suitAccessBySuitForPlayerV2(positionContext, playerId);
   let stock = 0;
@@ -211,8 +215,7 @@ function courtDeedValuation(
   }
 
   const turnsLeft = turnsLeftForState(positionContext.state);
-  const availableTokens =
-    stock + flow * turnsLeft * COURT_FEASIBILITY_HAIRCUT;
+  const availableTokens = stock + flow * turnsLeft * COURT_FEASIBILITY_HAIRCUT;
   const feasibility =
     availableTokens <= 0
       ? 0
@@ -253,9 +256,7 @@ function courtCompletionSwing(
 function turnsLeftForState(state: GameState): number {
   const exact = state.finalTurnsRemaining;
   const raw =
-    exact !== undefined
-      ? exact
-      : Math.max(0, EXPECTED_GAME_TURNS - state.turn);
+    exact !== undefined ? exact : Math.max(0, EXPECTED_GAME_TURNS - state.turn);
   return Math.min(COURT_HORIZON_CAP, Math.max(0, raw));
 }
 

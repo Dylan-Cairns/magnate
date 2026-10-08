@@ -1,4 +1,4 @@
-import type { PlayerId, Winner } from '../engine/types';
+import { type PlayerId, Winner } from '../engine/types';
 
 export function playerDisplayName(
   playerId: PlayerId,
@@ -11,6 +11,6 @@ export function winnerDisplayName(
   winner: Winner,
   humanPlayerId: PlayerId
 ): string {
-  if (winner === 'Draw') return 'Draw';
+  if (winner === Winner.Draw) return 'Draw';
   return playerDisplayName(winner, humanPlayerId);
 }

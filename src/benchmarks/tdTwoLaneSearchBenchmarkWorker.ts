@@ -1,3 +1,6 @@
+import { PlayerId } from '../engine/values';
+import { BotProfileId, RolloutSearchGuidanceKind } from '../policies/values';
+import { SearchWorkerExecutionMode } from '../policies/workerValues';
 import { actionStableKey } from '../engine/actionSurface';
 import {
   decisionPlayerIdForState,
@@ -92,15 +95,15 @@ async function runBenchmark(options: SearchBenchmarkOptions) {
   ]);
   const scalarPool = createSearchWorkerPool({
     workerCount: options.workers,
-    executionMode: 'legacy',
+    executionMode: SearchWorkerExecutionMode.Legacy,
   });
   const pairedPool = createSearchWorkerPool({
     workerCount: options.workers,
-    executionMode: 'resumable-paired-td',
+    executionMode: SearchWorkerExecutionMode.ResumablePairedTd,
   });
   const resumableScalarPool = createSearchWorkerPool({
     workerCount: options.workers,
-    executionMode: 'resumable-scalar',
+    executionMode: SearchWorkerExecutionMode.ResumableScalar,
   });
 
   try {
@@ -240,7 +243,7 @@ async function runBenchmark(options: SearchBenchmarkOptions) {
       },
       options,
       search: {
-        profile: 'td-root-search-v2-medium',
+        profile: BotProfileId.TdRootSearchV2Medium,
         config: MEDIUM_CONFIG,
         rootVisitBudget: rolloutSearchRootBudget(
           MEDIUM_CONFIG,
@@ -289,7 +292,10 @@ async function runDecision(
   workers: number
 ): Promise<DecisionResult> {
   const decisionPlayer = decisionPlayerIdForState(state);
-  if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+  if (
+    decisionPlayer !== PlayerId.PlayerA &&
+    decisionPlayer !== PlayerId.PlayerB
+  ) {
     throw new Error('Search benchmark could not resolve decision player.');
   }
   const view = toDecisionPlayerView(state, decisionPlayer);
@@ -310,7 +316,7 @@ async function runDecision(
       return createTdRootSearchRootGuide({ ...input, model });
     },
     workerGuidance: {
-      kind: 'td-root',
+      kind: RolloutSearchGuidanceKind.TdRoot,
       modelIndexPath: DEFAULT_TD_ROOT_MODEL_INDEX_PATH,
     },
     batchSize: batchSize(workers),
@@ -350,7 +356,7 @@ async function collectDecisionStates(count: number): Promise<GameState[]> {
   ) {
     let state = createSession(
       `td-two-lane-search-corpus:game:${String(gameIndex)}`,
-      gameIndex % 2 === 0 ? 'PlayerA' : 'PlayerB'
+      gameIndex % 2 === 0 ? PlayerId.PlayerA : PlayerId.PlayerB
     );
     for (
       let decisionIndex = 0;
@@ -358,7 +364,10 @@ async function collectDecisionStates(count: number): Promise<GameState[]> {
       decisionIndex += 1
     ) {
       const decisionPlayer = decisionPlayerIdForState(state);
-      if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+      if (
+        decisionPlayer !== PlayerId.PlayerA &&
+        decisionPlayer !== PlayerId.PlayerB
+      ) {
         throw new Error('Could not resolve benchmark corpus decision player.');
       }
       const view = toDecisionPlayerView(state, decisionPlayer);
@@ -430,7 +439,7 @@ async function runTranscript(
   model: LoadedTdGuidanceModel,
   workers: number
 ) {
-  let state = createSession(seed, 'PlayerA');
+  let state = createSession(seed, PlayerId.PlayerA);
   const actionKeys: string[] = [];
   const diagnostics: SearchDecisionDiagnostics[] = [];
   for (
@@ -439,7 +448,10 @@ async function runTranscript(
     decisionIndex += 1
   ) {
     const decisionPlayer = decisionPlayerIdForState(state);
-    if (decisionPlayer !== 'PlayerA' && decisionPlayer !== 'PlayerB') {
+    if (
+      decisionPlayer !== PlayerId.PlayerA &&
+      decisionPlayer !== PlayerId.PlayerB
+    ) {
       throw new Error(
         'Transcript benchmark could not resolve decision player.'
       );
