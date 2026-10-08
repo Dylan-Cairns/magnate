@@ -46,8 +46,13 @@
   Dice paint above their label: the roll bounce lifts a die ~18px, past the rest
   pose and into the label band, and it must cover the label on the way.
 */
-.roll-group .die-scene-d10,
-.roll-group .die-scene-d6 {
+.die-glow {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.roll-group .die-glow-d10,
+.roll-group .die-glow-d6 {
   position: relative;
   z-index: 1;
 }
@@ -58,12 +63,12 @@
   d10s keeps the three dice reading as one cluster; its label gap stays larger
   than Income's because both labels sit on the shared heading line.
 */
-.roll-group .die-scene-d6 {
+.roll-group .die-glow-d6 {
   align-self: center;
 }
 
-.die-scene-d10.is-glowing,
-.die-scene-d6.is-glowing {
+.die-glow-d10.is-glowing,
+.die-glow-d6.is-glowing {
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4))
     drop-shadow(0 0 3px var(--active-ring))
     drop-shadow(0 0 7px var(--active-glow-outer));
@@ -78,15 +83,15 @@
   }
 }
 
-.die-scene-d10.is-dimmed {
+.die-glow-d10.is-dimmed {
   animation: die-dim 900ms ease-in-out 1 forwards;
 }
 
-.die-scene-d6 {
+.die-glow-d6 {
   transition: opacity 600ms ease-in-out;
 }
 
-.die-scene-d6.is-dimmed {
+.die-glow-d6.is-dimmed {
   opacity: 0.65;
 }
 

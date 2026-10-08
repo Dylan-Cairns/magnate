@@ -85,42 +85,46 @@ export function D6Die({
 
   return (
     <div
-      className={`die-scene-d6${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
-      aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
+      className={`die-glow die-glow-d6${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
     >
-      <div className={`die-roll-bounce-wrap${bounceClass}`}>
-        <div
-          className="die-d6"
-          style={{
-            transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
-            transition: animationsEnabled ? undefined : 'none',
-          }}
-        >
-          {SUITS_BY_FACE.map((faceSuit, i) => (
-            <div
-              key={faceSuit}
-              className={`die-face die-face-d6-${i + 1}`}
-              style={
-                {
-                  '--suit-bg': SUIT_TOKEN_BG[faceSuit],
-                } as CSSProperties
-              }
-            >
-              <div className="die-suit-circle">
-                <img
-                  src={SUIT_ICON_BY_SUIT[faceSuit]}
-                  alt=""
-                  className="die-suit-icon"
-                  onError={() =>
-                    reportImageRenderFailure(
-                      SUIT_ICON_BY_SUIT[faceSuit],
-                      `${faceSuit} die face`
-                    )
-                  }
-                />
+      <div
+        className="die-scene-d6"
+        aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
+      >
+        <div className={`die-roll-bounce-wrap${bounceClass}`}>
+          <div
+            className="die-d6"
+            style={{
+              transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+              transition: animationsEnabled ? undefined : 'none',
+            }}
+          >
+            {SUITS_BY_FACE.map((faceSuit, i) => (
+              <div
+                key={faceSuit}
+                className={`die-face die-face-d6-${i + 1}`}
+                style={
+                  {
+                    '--suit-bg': SUIT_TOKEN_BG[faceSuit],
+                  } as CSSProperties
+                }
+              >
+                <div className="die-suit-circle">
+                  <img
+                    src={SUIT_ICON_BY_SUIT[faceSuit]}
+                    alt=""
+                    className="die-suit-icon"
+                    onError={() =>
+                      reportImageRenderFailure(
+                        SUIT_ICON_BY_SUIT[faceSuit],
+                        `${faceSuit} die face`
+                      )
+                    }
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

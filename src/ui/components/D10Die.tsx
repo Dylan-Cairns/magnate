@@ -68,23 +68,27 @@ export function D10Die({
 
   return (
     <div
-      className={`die-scene-d10${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
-      aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
+      className={`die-glow die-glow-d10${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
     >
-      <div className={`die-roll-bounce-wrap${bounceClass}`}>
-        <div className="die-d10-viewport">
-          <div
-            className="die-d10"
-            style={{
-              transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
-              transition: animationsEnabled ? undefined : 'none',
-            }}
-          >
-            {Array.from({ length: 10 }, (_, i) => (
-              <div key={i} className={`die-face-d10 die-face-d10-${i}`}>
-                <span className="die-face-number">{i + 1}</span>
-              </div>
-            ))}
+      <div
+        className="die-scene-d10"
+        aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
+      >
+        <div className={`die-roll-bounce-wrap${bounceClass}`}>
+          <div className="die-d10-viewport">
+            <div
+              className="die-d10"
+              style={{
+                transform: `rotateX(${rotX}deg) rotateY(${rotY}deg) rotateZ(${rotZ}deg)`,
+                transition: animationsEnabled ? undefined : 'none',
+              }}
+            >
+              {Array.from({ length: 10 }, (_, i) => (
+                <div key={i} className={`die-face-d10 die-face-d10-${i}`}>
+                  <span className="die-face-number">{i + 1}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -5,13 +5,22 @@
   translate_z 17 | translate_y 4 | side_angle 72deg | tilt 45deg
 */
 
+/*
+  The shadow lives on this wrapper, not on .die-scene-d10: putting a filter and
+  a perspective on the same element flattens the 3D faces before the filter is
+  applied, which clips the shadow. Keeping perspective on the scene and the
+  filter one level out avoids that.
+*/
+.die-glow-d10 {
+  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.45));
+}
+
 .die-scene-d10 {
   width: var(--die-d10-size);
   height: var(--die-d10-size);
   perspective: calc(var(--die-d10-size) * 6);
   overflow: visible;
   flex: 0 0 auto;
-  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.45));
 }
 
 .die-d10-viewport {

@@ -1,9 +1,13 @@
+/* Shadow wrapper — see the d10 note for why the filter isn't on the scene. */
+.die-glow-d6 {
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
 .die-scene-d6 {
   width: var(--die-d6-size);
   height: var(--die-d6-size);
   perspective: calc(var(--die-d6-size) * 9.26);
   flex: 0 0 auto;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
 
 .die-d6 {

@@ -25,10 +25,10 @@ describe('RollResult', () => {
 
     expect(html).toContain('aria-label="d10: 4"');
     expect(html).toContain('aria-label="d10: 7"');
-    expect(html).toContain('die-scene-d10 is-dimmed');
-    expect(html).toContain('die-scene-d10 is-glowing');
+    expect(html).toContain('die-glow-d10 is-dimmed');
+    expect(html).toContain('die-glow-d10 is-glowing');
     expect(html).not.toContain('is-pulsing');
-    expect(html).toContain('die-scene-d6 is-dimmed');
+    expect(html).toContain('die-glow-d6 is-dimmed');
   });
 
   it('renders a settled tax die with a steady glow', () => {
@@ -44,7 +44,7 @@ describe('RollResult', () => {
     );
 
     expect(html).toContain('aria-label="d6: Moons"');
-    expect(html).toContain('die-scene-d6 is-glowing');
+    expect(html).toContain('die-glow-d6 is-glowing');
     expect(html).not.toContain('is-pulsing');
   });
 
@@ -60,8 +60,8 @@ describe('RollResult', () => {
       />
     );
 
-    expect(html).toContain('die-scene-d6 is-dimmed');
-    expect(html).not.toContain('die-scene-d6 is-glowing');
+    expect(html).toContain('die-glow-d6 is-dimmed');
+    expect(html).not.toContain('die-glow-d6 is-glowing');
   });
 
   it('undims the tax die when its own roll begins', () => {
@@ -78,7 +78,7 @@ describe('RollResult', () => {
 
     expect(html).toContain('aria-label="d6: Moons"');
     expect(html).toContain('class="die-scene-d6"');
-    expect(html).not.toContain('die-scene-d6 is-dimmed');
-    expect(html).not.toContain('die-scene-d6 is-glowing');
+    expect(html).not.toContain('die-glow-d6 is-dimmed');
+    expect(html).not.toContain('die-glow-d6 is-glowing');
   });
 });
