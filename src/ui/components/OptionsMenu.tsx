@@ -124,11 +124,11 @@ export function OptionsMenu({
           className="brand-options-menu"
           aria-label="Info"
         >
+          <GameCredits />
           <BugReportInstructions
             issueUrl={bugReportIssueUrl}
             onDownload={onBugReportDownload}
           />
-          <GameCredits />
         </section>
       ) : null}
     </div>
