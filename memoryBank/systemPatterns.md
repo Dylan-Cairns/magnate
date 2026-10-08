@@ -47,6 +47,10 @@ Design expectations:
   deterministic `rollout-search-v2-*` profiles with heuristic v2; Experimental
   is `td-root-search-v2-medium` and is standard-ruleset only. Unknown or
   unavailable profiles throw; there is no silent fallback.
+- Easy is the fresh-browser default; existing saves and opponent preferences
+  retain their chosen profile. New Game keeps ruleset, opponent, and animation
+  choices in a UI draft. Start Game validates the ruleset/profile pair, then
+  replaces the session and autosave together; dismissing setup discards the draft.
 - Policy randomness is injected by the controller (seed-derived where
   determinism matters), not hard-coded to `Math.random`.
 - Browser model-backed policies load static model packs:

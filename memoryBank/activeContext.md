@@ -23,7 +23,8 @@
   Easy/Medium/Hard (`rollout-search-v2-*` with heuristic v2, both rulesets) and
   Experimental (`td-root-search-v2-medium`, standard-ruleset only). Games
   support standard and extended rulesets, autosave/restore, and local game
-  history. Paired TD rollout inference is the browser default, with
+  history. Easy is the fresh-browser default, and New Game setup changes apply
+  only on Start Game. Paired TD rollout inference is the browser default, with
   `?tdSearchExecutor=legacy` as the session rollback.
 - Court valuation attempt two is implemented and settled at
   `courtValueScale = 1`: the failed flat deed floor was removed, standard
@@ -80,4 +81,4 @@
 4. Keep docs aligned by replacing stale content rather than appending task
    history.
 
-_Updated: 2026-09-24._
+_Updated: 2026-10-08._

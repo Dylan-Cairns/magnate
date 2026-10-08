@@ -133,6 +133,12 @@ type UseGameControllerOptions = {
   startupPreloadReady: boolean;
 };
 
+export interface NewGameSetup {
+  ruleset: Ruleset;
+  botProfileId: BotProfileId;
+  animationsEnabled: boolean;
+}
+
 export function useGameController({
   humanPlayerId,
   botPlayerId,
@@ -174,7 +180,8 @@ export function useGameController({
       createBrowserSession(
         makeBrowserSessionSeed(),
         humanPlayerId,
-        devFixtureIdFromBrowserLocation()
+        devFixtureIdFromBrowserLocation(),
+        ruleset
       )
   );
   const [timelineLog, setTimelineLog] = useState<ReadonlyArray<GameLogEntry>>(
@@ -230,42 +237,6 @@ export function useGameController({
     });
   }, [botProfileId, gameId, humanPlayerId, persistCheckpoint]);
 
-  const changeBotProfile = useCallback(
-    (profileId: BotProfileId) => {
-      resolveBotProfile(profileId, ruleset);
-      persistBotProfilePreference(profileId);
-      setBotProfileId(profileId);
-      if (checkpointRef.current)
-        persistCheckpoint({
-          ...checkpointRef.current,
-          botProfileId: profileId,
-        });
-    },
-    [persistCheckpoint, ruleset]
-  );
-  const changeRuleset = useCallback(
-    (nextRuleset: Ruleset) => {
-      setRulesetState(nextRuleset);
-      persistRulesetPreference(nextRuleset);
-      if (
-        !profilesForRuleset(nextRuleset).some(
-          (profile) => profile.id === botProfileId
-        )
-      ) {
-        const fallback = defaultBotProfileIdForRuleset(nextRuleset);
-        resolveBotProfile(fallback, nextRuleset);
-        persistBotProfilePreference(fallback);
-        setBotProfileId(fallback);
-        if (checkpointRef.current) {
-          persistCheckpoint({
-            ...checkpointRef.current,
-            botProfileId: fallback,
-          });
-        }
-      }
-    },
-    [botProfileId, persistCheckpoint]
-  );
   const commitCanonicalTransition = useCallback(
     (previousState: GameState, nextState: GameState, action: GameAction) => {
       const timelineUpdate = transitionLogUpdate(
@@ -428,8 +399,8 @@ export function useGameController({
     [humanPlayerId, viewState]
   );
   const resolvedBotProfile = useMemo(
-    () => resolveBotProfile(botProfileId),
-    [botProfileId]
+    () => resolveBotProfile(botProfileId, state.ruleset),
+    [botProfileId, state.ruleset]
   );
   const collectBotDiagnostics = browserBotDiagnosticsEnabled();
   const humanActionsAcceptingInput = useMemo(
@@ -549,40 +520,47 @@ export function useGameController({
   );
 
   const resetSession = useCallback(
-    (specifiedSeed?: string) => {
+    (specifiedSeed?: string, setup?: NewGameSetup) => {
       const seed = specifiedSeed?.trim() || makeBrowserSessionSeed();
-      setTurnResetAnchor(null);
-      setTurnResetTimelineAnchor(null);
-      setTurnResetActionHistoryAnchor(null);
-      deferredIncomeLogContextRef.current = null;
-      humanInputBarrierOrdinalRef.current = null;
-      setHumanInputBarrierOrdinal(null);
-      invalidatePendingDecision();
-      closeActionPolicy(resolvedBotProfile.policy);
-      clearPresentationQueue();
-      clearAllFlights();
-      clearAllDeedTokenLayouts();
+      const nextRuleset = setup?.ruleset ?? ruleset;
+      const nextBotProfileId = setup?.botProfileId ?? botProfileId;
 
       try {
+        const nextBotProfile = resolveBotProfile(nextBotProfileId, nextRuleset);
         const initialState = createBrowserSession(
           seed,
           humanPlayerId,
           devFixtureIdFromBrowserLocation(),
-          ruleset
+          nextRuleset
         );
-        stateRef.current = initialState;
         const nextGameId = crypto.randomUUID();
+        const initialTimelineLog = initialBrowserTimelineLog(
+          initialState,
+          humanPlayerId,
+          nextBotProfile.selected.label
+        );
+        setTurnResetAnchor(null);
+        setTurnResetTimelineAnchor(null);
+        setTurnResetActionHistoryAnchor(null);
+        deferredIncomeLogContextRef.current = null;
+        humanInputBarrierOrdinalRef.current = null;
+        setHumanInputBarrierOrdinal(null);
+        invalidatePendingDecision();
+        closeActionPolicy(resolvedBotProfile.policy);
+        clearPresentationQueue();
+        clearAllFlights();
+        clearAllDeedTokenLayouts();
+        if (setup) setAnimationsEnabled(setup.animationsEnabled);
+        setRulesetState(nextRuleset);
+        setBotProfileId(nextBotProfileId);
+        stateRef.current = initialState;
         setGameId(nextGameId);
         setAwaitingResumeInput(false);
         storageBlockedRef.current = false;
         nextActionOrdinalRef.current = 0;
         canonicalDispatchInProgressRef.current = false;
         setState(initialState);
-        timelineLogRef.current = initialBrowserTimelineLog(
-          initialState,
-          humanPlayerId,
-          resolveBotProfile(botProfileId).selected.label
-        );
+        timelineLogRef.current = initialTimelineLog;
         setTimelineLog(timelineLogRef.current);
         actionHistoryRef.current = [];
         setActionHistory([]);
@@ -590,7 +568,7 @@ export function useGameController({
           version: 1,
           gameId: nextGameId,
           humanPlayerId,
-          botProfileId,
+          botProfileId: nextBotProfileId,
           state: initialState,
           timelineLog: timelineLogRef.current,
           actionHistory: [],
@@ -610,6 +588,7 @@ export function useGameController({
       persistCheckpoint,
       resolvedBotProfile.policy,
       ruleset,
+      setAnimationsEnabled,
     ]
   );
 
@@ -679,9 +658,7 @@ export function useGameController({
     botThinking,
     botProfileId,
     botStatusText: resolvedBotProfile.statusText,
-    setBotProfileId: changeBotProfile,
     ruleset,
-    setRuleset: changeRuleset,
     humanActionsAcceptingInput,
     humanInputBlockedByPresentation: !humanInputReady,
     canResetTurn,

@@ -5,6 +5,9 @@ A single-player, web-playable implementation of the Decktet game
 deterministic TypeScript engine shared by the browser UI and a Python training
 stack that improves the bot through gated self-play.
 
+New players start against Easy. The New Game menu offers other opponents and
+both rulesets; setup changes take effect when Start Game is clicked.
+
 ## Quickstart
 
 Requires [fnm](https://github.com/Schniz/fnm) with shell integration. From the

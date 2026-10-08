@@ -113,7 +113,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   }),
 ];
 
-export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-search-v2-hard';
+export const DEFAULT_BOT_PROFILE_ID: BotProfileId = 'rollout-search-v2-easy';
 
 export function getBotProfile(id: string): BotProfile {
   const match = BOT_PROFILES.find((profile) => profile.id === id);

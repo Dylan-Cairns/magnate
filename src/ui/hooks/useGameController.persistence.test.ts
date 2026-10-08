@@ -89,19 +89,26 @@ const animation = vi.hoisted(() => ({
   clearAllFlights: vi.fn(),
   clearPresentationQueue: vi.fn(),
   enqueueTransition: vi.fn(),
+  setEnabled: vi.fn((enabled: boolean) => {
+    animation.enabled = enabled;
+  }),
 }));
 vi.mock('./useGameAnimations', () => ({ useGameAnimations: () => animation }));
 
 const bot = vi.hoisted(() => ({ selectAction: vi.fn(), close: vi.fn() }));
-vi.mock('../../policies/catalog', async (original) => ({
-  ...(await original<typeof import('../../policies/catalog')>()),
-  resolveBotProfile: (id: string) => ({
-    selected: { id, label: id, turnDelayMs: 0 },
-    policy: bot,
-  }),
-}));
+vi.mock('../../policies/catalog', async (original) => {
+  const catalog = await original<typeof import('../../policies/catalog')>();
+  return {
+    ...catalog,
+    resolveBotProfile: (id: string, ruleset?: Ruleset) => ({
+      ...catalog.resolveBotProfile(id, ruleset),
+      policy: bot,
+    }),
+  };
+});
 
 import { legalActions } from '../../engine/actionBuilders';
+import type { Ruleset } from '../../engine/types';
 import { DEFAULT_BOT_PROFILE_ID } from '../../policies/catalog';
 import {
   advanceSave,
@@ -155,18 +162,30 @@ afterEach(() => {
 });
 
 describe('controller persistence', () => {
+  it('starts a fresh browser with Easy and a restorable save', () => {
+    const controller = render();
+    expect(controller.botProfileId).toBe('rollout-search-v2-easy');
+    expect(stored().botProfileId).toBe('rollout-search-v2-easy');
+    expect(stored().state).toEqual(controller.state);
+  });
+
   it.each([undefined, 'broken'])(
     'restores the chosen opponent without a usable game save (%s)',
     (save) => {
       if (save !== undefined) storage.set(SAVED_GAME_KEY, save);
       const controller = render();
-      controller.setBotProfileId('rollout-search-v2-easy');
+      controller.resetSession('preferred-opponent', {
+        ruleset: 'standard',
+        botProfileId: 'rollout-search-v2-medium',
+        animationsEnabled: false,
+      });
+      render();
       expect(storage.get('magnate:botProfileId')).toBe(
-        'rollout-search-v2-easy'
+        'rollout-search-v2-medium'
       );
       hooks.unmount();
       if (save === undefined) storage.delete(SAVED_GAME_KEY);
-      expect(render().botProfileId).toBe('rollout-search-v2-easy');
+      expect(render().botProfileId).toBe('rollout-search-v2-medium');
     }
   );
 
@@ -176,11 +195,69 @@ describe('controller persistence', () => {
   });
 
   it('keeps the saved game opponent when restoring an existing session', () => {
-    const save = initialSave();
+    const save = { ...initialSave(), botProfileId: 'rollout-search-v2-medium' };
     storage.set(SAVED_GAME_KEY, JSON.stringify(save));
     storage.set('magnate:botProfileId', 'rollout-search-v2-hard');
     expect(render().botProfileId).toBe(save.botProfileId);
     expect(storage.get('magnate:botProfileId')).toBe(save.botProfileId);
+  });
+
+  it('uses the preferred ruleset when creating a session without a saved game', () => {
+    storage.set('magnate:ruleset', 'extended');
+    const controller = render();
+    expect(controller.ruleset).toBe('extended');
+    expect(controller.state.ruleset).toBe('extended');
+    expect(stored().state).toEqual(controller.state);
+  });
+
+  it('commits a replacement ruleset and opponent together and restores them', () => {
+    storage.set(SAVED_GAME_KEY, JSON.stringify(initialSave('old', 'extended')));
+    let controller = render();
+    const oldId = controller.gameId;
+    controller.resetSession('replacement-standard', {
+      ruleset: 'standard',
+      botProfileId: 'td-root-search-v2-medium',
+      animationsEnabled: false,
+    });
+    controller = render();
+    expect(controller.error).toBeNull();
+    expect(controller.gameId).not.toBe(oldId);
+    expect(stored().state.seed).toBe('replacement-standard');
+    expect(stored().state.ruleset).toBe('standard');
+    expect(stored().botProfileId).toBe('td-root-search-v2-medium');
+    expect(storage.get('magnate:ruleset')).toBe('standard');
+    expect(storage.get('magnate:botProfileId')).toBe(
+      'td-root-search-v2-medium'
+    );
+    const replacement = stored();
+    hooks.unmount();
+    controller = render();
+    expect(controller.storageError).toBeNull();
+    expect(controller.state).toEqual(replacement.state);
+    expect(controller.botProfileId).toBe(replacement.botProfileId);
+  });
+
+  it('rejects an incompatible setup without changing the active session or save', () => {
+    storage.set(
+      SAVED_GAME_KEY,
+      JSON.stringify(initialSave('original', 'extended'))
+    );
+    const controller = render();
+    const original = stored();
+    vi.clearAllMocks();
+    controller.resetSession('invalid', {
+      ruleset: 'extended',
+      botProfileId: 'td-root-search-v2-medium',
+      animationsEnabled: true,
+    });
+    const after = render();
+    expect(after.error).toContain('not available for the extended ruleset');
+    expect(after.gameId).toBe(controller.gameId);
+    expect(after.state).toEqual(controller.state);
+    expect(after.botProfileId).toBe(controller.botProfileId);
+    expect(stored()).toEqual(original);
+    expect(bot.close).not.toHaveBeenCalled();
+    expect(animation.setEnabled).not.toHaveBeenCalled();
   });
 
   it('preserves the window through actions and reset, then restores without presentation', () => {
@@ -280,13 +357,17 @@ describe('controller persistence', () => {
     expect(controller.storageError).toContain('Autosave is paused');
     expect(storage.get(SAVED_GAME_KEY)).toBe('broken');
     const oldId = controller.gameId;
-    controller.resetSession('replacement');
+    controller.resetSession('replacement', {
+      ruleset: 'extended',
+      botProfileId: 'rollout-search-v2-medium',
+      animationsEnabled: false,
+    });
     controller = render();
     expect(controller.storageError).toBeNull();
     expect(stored().state.seed).toBe('replacement');
     expect(controller.gameId).not.toBe(oldId);
-    controller.setBotProfileId('rollout-search-v2-easy');
-    expect(stored().botProfileId).toBe('rollout-search-v2-easy');
+    expect(stored().state.ruleset).toBe('extended');
+    expect(stored().botProfileId).toBe('rollout-search-v2-medium');
   });
 
   it('replaces the unfinished checkpoint on completion and restores the final board', async () => {

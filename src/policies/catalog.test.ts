@@ -89,7 +89,10 @@ describe('bot policy catalog', () => {
       false
     );
     expect(defaultBotProfileIdForRuleset('extended')).toBe(
-      'rollout-search-v2-hard'
+      'rollout-search-v2-easy'
+    );
+    expect(defaultBotProfileIdForRuleset('standard')).toBe(
+      'rollout-search-v2-easy'
     );
     expect(() =>
       resolveBotProfile('td-root-search-v2-medium', 'extended')

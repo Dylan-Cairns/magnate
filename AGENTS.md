@@ -72,7 +72,8 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
 
 - Browser play supports the standard and extended rulesets with four profiles:
   Easy/Medium/Hard (`rollout-search-v2-*`, both rulesets) and Experimental
-  (`td-root-search-v2-medium`, standard only). Autosave and local game history
+  (`td-root-search-v2-medium`, standard only). Easy is the fresh-browser default;
+  New Game choices apply only on Start Game. Autosave and local game history
   are browser-local; there is no gameplay backend.
 - Training is TD-focused and runs `collect -> train -> promotion eval`;
   bootstrap/recalibration uses `python -m scripts.run_td_loop`, ongoing

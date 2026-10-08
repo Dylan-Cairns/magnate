@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getBotProfile } from './policies/catalog';
+import {
+  botProfileSupportsRuleset,
+  defaultBotProfileIdForRuleset,
+  getBotProfile,
+} from './policies/catalog';
 import { recordGame } from './db/gameHistory';
 
 import type { CardId } from './engine/cards';
@@ -53,7 +57,10 @@ import { DistrictColumn, PlayerTokenRail } from './ui/components/DistrictBoard';
 import { PlayerPanel } from './ui/components/PlayerPanel';
 import { RollResult } from './ui/components/RollResult';
 import { useDismissableLayer } from './ui/hooks/useDismissableLayer';
-import { useGameController } from './ui/hooks/useGameController';
+import {
+  useGameController,
+  type NewGameSetup,
+} from './ui/hooks/useGameController';
 import { useVisibleDiceState } from './ui/hooks/useVisibleDiceState';
 
 const HUMAN_PLAYER: PlayerId = 'PlayerA';
@@ -152,7 +159,8 @@ export function App() {
   );
   const [optionsMenuOpen, setOptionsMenuOpen] = useState<boolean>(false);
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
-  const [newGameExpanded, setNewGameExpanded] = useState<boolean>(false);
+  const [newGameSetup, setNewGameSetup] = useState<NewGameSetup | null>(null);
+  const newGameExpanded = newGameSetup !== null;
   const [logVisible, setLogVisible] = useState<boolean>(() =>
     readBooleanPreference(LOG_VISIBLE_KEY, true)
   );
@@ -184,10 +192,7 @@ export function App() {
     viewActivePlayerId,
     botThinking,
     botProfileId,
-    botStatusText,
-    setBotProfileId,
     ruleset,
-    setRuleset,
     humanActionsAcceptingInput,
     humanInputBlockedByPresentation,
     canResetTurn,
@@ -198,7 +203,6 @@ export function App() {
       quietIncomeRollId,
       enabled: animationsEnabled,
       animateDeedProgress,
-      setEnabled: setAnimationsEnabled,
       resourceFlights,
       cardFlights,
       tradeProgress,
@@ -223,7 +227,7 @@ export function App() {
   const seedInputRef = useRef<HTMLInputElement | null>(null);
   const closeActionPicker = useCallback(() => setActionPicker(null), []);
   const closeOptionsMenu = useCallback(() => setOptionsMenuOpen(false), []);
-  const closeNewGame = useCallback(() => setNewGameExpanded(false), []);
+  const closeNewGame = useCallback(() => setNewGameSetup(null), []);
   const visualActivePlayerId =
     activePlayerHighlightOverride ?? viewActivePlayerId;
   const retryStartupPreload = useCallback(() => {
@@ -499,27 +503,32 @@ export function App() {
     insideRefs: newGameLayerRefs,
   });
 
-  const resetGame = (seed?: string) => {
+  const resetGame = (seed?: string, setup?: NewGameSetup) => {
     closeActionPicker();
     closeOptionsMenu();
     closeNewGame();
-    resetSession(seed);
+    resetSession(seed, setup);
   };
 
   const handleStartNewGame = () => {
+    if (!newGameSetup) return;
     const specifiedSeed = seedInputRef.current?.value.trim() ?? '';
     if (seedInputRef.current) {
       seedInputRef.current.value = '';
     }
-    resetGame(specifiedSeed || undefined);
+    resetGame(specifiedSeed || undefined, newGameSetup);
+  };
+
+  const openNewGame = () => {
+    closeOptionsMenu();
+    setNewGameSetup({ ruleset, botProfileId, animationsEnabled });
   };
 
   const handleNewGameToggle = () => {
     if (newGameExpanded) {
       closeNewGame();
     } else {
-      closeOptionsMenu();
-      setNewGameExpanded(true);
+      openNewGame();
     }
   };
 
@@ -528,8 +537,7 @@ export function App() {
   };
 
   const handleChangeSetup = () => {
-    closeOptionsMenu();
-    setNewGameExpanded(true);
+    openNewGame();
   };
 
   const handleDownloadBugReport = () => {
@@ -889,10 +897,15 @@ export function App() {
 
             <OptionsMenu
               open={optionsMenuOpen}
-              botProfileId={botProfileId}
-              botStatusText={botStatusText}
-              ruleset={ruleset}
-              animationsEnabled={animationsEnabled}
+              botProfileId={newGameSetup?.botProfileId ?? botProfileId}
+              botStatusText={
+                getBotProfile(newGameSetup?.botProfileId ?? botProfileId)
+                  .description
+              }
+              ruleset={newGameSetup?.ruleset ?? ruleset}
+              animationsEnabled={
+                newGameSetup?.animationsEnabled ?? animationsEnabled
+              }
               menuRef={optionsMenuRef}
               buttonRef={optionsMenuButtonRef}
               seedInputRef={seedInputRef}
@@ -905,9 +918,29 @@ export function App() {
               }}
               onNewGameToggle={handleNewGameToggle}
               onNewGameStart={handleStartNewGame}
-              onBotProfileChange={setBotProfileId}
-              onRulesetChange={setRuleset}
-              onAnimationsEnabledChange={setAnimationsEnabled}
+              onBotProfileChange={(botProfileId) =>
+                setNewGameSetup((setup) => setup && { ...setup, botProfileId })
+              }
+              onRulesetChange={(ruleset) =>
+                setNewGameSetup(
+                  (setup) =>
+                    setup && {
+                      ...setup,
+                      ruleset,
+                      botProfileId: botProfileSupportsRuleset(
+                        setup.botProfileId,
+                        ruleset
+                      )
+                        ? setup.botProfileId
+                        : defaultBotProfileIdForRuleset(ruleset),
+                    }
+                )
+              }
+              onAnimationsEnabledChange={(animationsEnabled) =>
+                setNewGameSetup(
+                  (setup) => setup && { ...setup, animationsEnabled }
+                )
+              }
               bugReportIssueUrl={getBugReportIssueUrl()}
               onBugReportDownload={handleDownloadBugReport}
               logVisible={logShown}
