@@ -508,6 +508,7 @@ export function createCardFlightToPoint(
     endImageAreaWidth?: number;
     endImageAreaHeight?: number;
     variant?: 'play' | 'draw';
+    stacked?: boolean;
   },
   domTargets: AnimationDomTargets = browserAnimationDomTargets
 ): CardFlight {
@@ -521,6 +522,7 @@ export function createCardFlightToPoint(
     cardId: options?.cardId,
     isDeed: options?.isDeed ?? false,
     perspective: options?.perspective ?? 'human',
+    stacked: options?.stacked ?? false,
     startX: sourceCenter.x,
     startY: sourceCenter.y,
     endX: target.x,
@@ -599,6 +601,9 @@ export function buildCardToDistrictFlightFromDom(
   const targetCardMetrics = laneElement
     ? domTargets.laneCardMetrics(laneElement, sourceElement)
     : null;
+  const stacked = laneElement
+    ? domTargets.laneCardCount(laneElement) > 0
+    : false;
   const districtColumn = domTargets.districtColumn(event.districtId);
   const fallbackTargetElement =
     (laneElement ? domTargets.laneFrame(laneElement) : null) ??
@@ -637,6 +642,7 @@ export function buildCardToDistrictFlightFromDom(
         cardId: event.cardId,
         isDeed: event.placement === 'deed',
         perspective,
+        stacked,
         endWidth: targetCardMetrics?.width,
         endHeight: targetCardMetrics?.height,
         endImageAreaWidth:

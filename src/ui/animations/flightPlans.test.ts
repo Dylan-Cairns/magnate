@@ -424,6 +424,37 @@ describe('flightPlans', () => {
     ]);
   });
 
+  it('marks a lane flight as stacked when the lane already holds cards', () => {
+    const hand = makeElement({ width: 80, height: 120 });
+    const lane = makeElement({ classNames: ['is-human'] });
+    const targets = makeTargets({
+      handSource: () => hand,
+      lane: () => lane,
+      laneTargetCenter: () => ({ x: 400, y: 500 }),
+      laneCardMetrics: () => ({
+        width: 96,
+        height: 140,
+        imageAreaWidth: 86,
+        imageAreaHeight: 133,
+      }),
+      laneCardCount: () => 2,
+    });
+
+    expect(
+      buildCardToDistrictFlightFromDom(
+        {
+          type: 'card-played-to-district',
+          playerId: PLAYER_A,
+          cardId: '6',
+          districtId: 'D1',
+          placement: 'developed',
+        },
+        makeIds('lane'),
+        targets
+      )
+    ).toMatchObject([{ stacked: true, perspective: 'human' }]);
+  });
+
   it('falls back to source size when a destination box has no area', () => {
     const hand = makeElement({
       left: 10,
@@ -476,6 +507,7 @@ function makeTargets(
     districtColumn: () => null,
     laneFrame: () => null,
     laneTargetCenter: () => null,
+    laneCardCount: () => 0,
     laneCardMetrics: () => null,
     deckSource: () => null,
     discardTarget: () => null,

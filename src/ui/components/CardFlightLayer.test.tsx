@@ -109,6 +109,16 @@ describe('CardFlightLayer', () => {
     expect(html).toContain('card-flight is-destination is-discard-destination');
   });
 
+  it('marks a stacked destination flight so it carries the inter-card shadow', () => {
+    const html = renderToStaticMarkup(
+      <CardFlightLayer
+        animationsEnabled
+        flights={[{ ...BASE_FLIGHT, stacked: true }]}
+      />
+    );
+    expect(html).toContain('card-flight is-destination is-stacked');
+  });
+
   it('renders nothing without flights', () => {
     expect(
       renderToStaticMarkup(

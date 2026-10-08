@@ -248,7 +248,12 @@ Design expectations:
   removed before its final frame and the card pops to full size. Destination
   flights that land where the outer shadow comes from a stack filter (district
   lanes and the hand fan) keep only the card's inset rim (`is-destination`),
-  since the stack supplies the outer drop shadow.
+  since the stack supplies the outer drop shadow. A flight that lands on top of a
+  non-empty lane is also marked `is-stacked` and carries the lane's inter-card
+  shadow (`.lane-stack-card:not(:first-child)`, downward in bot lanes and upward
+  in human lanes), so the final frame matches the settled card instead of popping
+  to a different shadow; in-development cards take the same inter-card shadow
+  because the lane rule overrides their base shadow.
 - Sold-card flights land on the discard pile, whose cards render with the
   deck-pile card scope rather than the board card scope. The flight renders at
   the discard box (`renderAtDestination`) and `CardFlightLayer` marks it

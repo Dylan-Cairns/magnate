@@ -338,6 +338,7 @@ describe('useGameAnimations scheduling helpers', () => {
       imageAreaHeight: 133,
     });
     vi.spyOn(browserAnimationDomTargets, 'laneFrame').mockReturnValue(null);
+    vi.spyOn(browserAnimationDomTargets, 'laneCardCount').mockReturnValue(0);
     vi.spyOn(browserAnimationDomTargets, 'laneTargetCenter').mockReturnValue({
       x: 400,
       y: 500,

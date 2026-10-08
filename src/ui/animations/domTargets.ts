@@ -72,6 +72,7 @@ export interface AnimationDomTargets {
     laneElement: HTMLElement,
     cardHeightPx: number
   ): Point | null;
+  laneCardCount(laneElement: HTMLElement): number;
   laneCardMetrics(
     laneElement: HTMLElement,
     fallbackElement?: HTMLElement
@@ -447,6 +448,8 @@ export function createAnimationDomTargets(
       laneElement.querySelector<HTMLElement>('.lane-stack-frame'),
     laneTargetCenter: (laneElement, cardHeightPx) =>
       laneTargetCenter(environment, laneElement, cardHeightPx),
+    laneCardCount: (laneElement) =>
+      laneElement.querySelectorAll('.lane-stack-card').length,
     laneCardMetrics: (laneElement, fallbackElement) =>
       laneCardMetrics(environment, laneElement, fallbackElement),
     deckSource: () =>

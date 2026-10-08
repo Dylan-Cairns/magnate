@@ -49,6 +49,13 @@ export type CardFlight = {
    * image-area metrics instead of the board card's.
    */
   discardDestination?: boolean;
+  /**
+   * The flight lands on top of a non-empty district lane. Landed top cards carry
+   * the stack's inter-card shadow (`.lane-stack-card:not(:first-child)`) on top
+   * of the stack filter, so the flight reproduces it to match the card it lands
+   * on. A first card in an empty lane has no such shadow.
+   */
+  stacked?: boolean;
   delayMs: number;
   durationMs?: number;
   presentationLandingMs?: number;

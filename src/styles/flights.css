@@ -150,6 +150,26 @@
   box-shadow: inset 0 0 0 1px var(--card-inset-border);
 }
 
+/* A flight landing on top of a non-empty lane also lands on the inter-card
+   shadow the lane paints on every card above the first
+   (`.lane-stack-card:not(:first-child)`, downward in bot lanes, upward in human
+   lanes). Reproduce it, otherwise the settled card gains a shadow the flight
+   never showed and appears to shift. This must follow the rule above so it wins
+   on source order, and it covers in-development cards too, since the landed
+   deed loses the base shadow to the same lane rule. */
+.card-flight.is-destination.is-stacked:not(.is-discard-destination) .card-tile {
+  box-shadow:
+    0 -2px 4px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px var(--card-inset-border);
+}
+
+.card-flight.is-destination.is-stacked:not(.is-discard-destination)
+  .card-tile.perspective-bot {
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.24),
+    inset 0 0 0 1px var(--card-inset-border);
+}
+
 @keyframes played-card-flight {
   0% {
     transform: translate(-50%, -50%)
