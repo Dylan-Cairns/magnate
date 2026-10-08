@@ -239,6 +239,10 @@ export function useGameAnimations() {
           return;
         case AnimationVisualCommandType.LaunchCardToDistrictFlight:
           scheduleAt(command.atMs, () => {
+            // DocumentTimeline.currentTime is the last rendered frame's time,
+            // which can be stale while the bot thinks or the tab is idle.
+            // performance.now() shares its time origin and stays current.
+            const animationStartTimeMs = performance.now();
             const flights = buildCardToDistrictFlightFromDom(
               command.event,
               makeCardFlightId
@@ -249,6 +253,7 @@ export function useGameAnimations() {
             appendCardFlightsWithCleanup(
               flights.map((flight) => ({
                 ...flight,
+                animationStartTimeMs,
                 presentationLandingMs: command.atMs + command.durationMs,
               })),
               command.durationMs

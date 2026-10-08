@@ -324,6 +324,14 @@ describe('useGameAnimations scheduling helpers', () => {
   });
 
   it('removes the card-to-district flight at its sequence landing time', () => {
+    // A static page may retain an old document-timeline frame while the bot
+    // thinks. Launch must use the current clock or the flight starts finished.
+    vi.stubGlobal('document', {
+      timeline: { currentTime: 1_000 },
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    });
+    vi.spyOn(performance, 'now').mockReturnValue(5_000);
     vi.spyOn(browserAnimationDomTargets, 'isAvailable').mockReturnValue(true);
     vi.spyOn(browserAnimationDomTargets, 'handSource').mockReturnValue(
       makeFakeCardElement()
@@ -362,6 +370,7 @@ describe('useGameAnimations scheduling helpers', () => {
     });
     animations = AnimationHarness();
     expect(animations.cardFlights).toHaveLength(1);
+    expect(animations.cardFlights[0]?.animationStartTimeMs).toBe(5_000);
     expect(animations.cardFlights[0]?.presentationLandingMs).toBe(
       flightStep.endMs
     );

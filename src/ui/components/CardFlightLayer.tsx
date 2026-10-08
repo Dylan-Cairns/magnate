@@ -64,6 +64,16 @@ export function CardFlightLayer({
         return (
           <div
             key={flight.id}
+            ref={(element) => {
+              if (element && flight.animationStartTimeMs !== undefined) {
+                // React/layout work can delay mounting beyond the settle buffer.
+                // Keep the CSS flight on its launch clock so the sequence's
+                // landing swap cannot cut off a newly started animation.
+                for (const animation of element.getAnimations()) {
+                  animation.startTime = flight.animationStartTimeMs;
+                }
+              }
+            }}
             className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${destinationLayout ? ' is-destination' : ''}${flight.discardDestination ? ' is-discard-destination' : ''}${flight.stacked ? ' is-stacked' : ''}`}
             style={
               {

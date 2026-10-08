@@ -58,8 +58,7 @@ Detailed workflow: `docs/AGENT_GUIDE.md`
   "worth confirming" items into tasks. If something seems worth investigating
   beyond the request, ask first and let the user decide. If you notice a
   suspected defect incidentally, report it — investigating it is the user's call,
-  not yours. If an automated run does not reach its goal on the first attempt,
-  stop and report rather than iterating unprompted.
+  not yours.
 - Do not build a bespoke harness for a one-off task. Write one short throwaway
   script, run it, delete it; only generalize after a third use.
 - Skip checks the change cannot affect — CSS-only changes do not need vitest.

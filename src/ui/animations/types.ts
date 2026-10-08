@@ -58,5 +58,7 @@ export type CardFlight = {
   stacked?: boolean;
   delayMs: number;
   durationMs?: number;
+  /** Current performance time at launch, before React mounts the flight. */
+  animationStartTimeMs?: number;
   presentationLandingMs?: number;
 };

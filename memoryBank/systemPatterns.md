@@ -272,9 +272,12 @@ Design expectations:
   as computed values; the final flight frame must match the real card exactly so
   the landing swap is seamless. The `launch-card-to-district-flight` step carries
   the same `commitBufferMs` settle buffer as `draw-card-flight`, because the
-  placement commit starts at the step's end and the CSS animation only begins on
-  the first frame after the flight mounts: without the buffer the animation is
-  removed before its final frame and the card pops to full size. Destination
+  placement commit starts at the step's end. District flights capture
+  `performance.now()` before construction and set the CSS animation's start time
+  when mounted. It shares the document timeline's time origin but stays current
+  when its last rendered frame is stale after idle time or bot search. This keeps
+  React/layout work from delaying the flight past the landing swap;
+  the settle buffer still leaves room for the final frame to paint. Destination
   flights that land where the outer shadow comes from a stack filter (district
   lanes and the hand fan) keep only the card's inset rim (`is-destination`),
   since the stack supplies the outer drop shadow. A flight that lands on top of a
