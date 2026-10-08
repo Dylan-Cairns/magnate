@@ -13,6 +13,7 @@ import {
 } from './tdValueModelPack';
 import {
   fetchJson,
+  fetchJsonCached,
   optionalRecord,
   optionalStringOrNull,
   parseTensor,
@@ -599,7 +600,10 @@ export async function loadTdRootModelFromManifestUrl(
     manifest.model.weightsPath,
     absoluteManifestUrl
   ).toString();
-  const weightsPayload = await fetchJson(weightsUrl);
+  const weightsPayload = await fetchJsonCached(
+    weightsUrl,
+    `${manifest.packId}@${manifest.createdAtUtc}`
+  );
   const weights = parseTdRootWeightsFile(weightsPayload);
   return {
     valueScorer: createTdRootValueNetwork(manifest, weights),

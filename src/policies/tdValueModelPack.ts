@@ -1,6 +1,7 @@
 import { ENCODING_VERSION, OBSERVATION_DIM } from './trainingEncoding';
 import {
   fetchJson,
+  fetchJsonCached,
   optionalRecord,
   optionalStringOrNull,
   parseTensor,
@@ -190,7 +191,10 @@ export async function loadTdValueModelFromManifestUrl(
     manifest.model.weightsPath,
     absoluteManifestUrl
   ).toString();
-  const weightsPayload = await fetchJson(weightsUrl);
+  const weightsPayload = await fetchJsonCached(
+    weightsUrl,
+    `${manifest.packId}@${manifest.createdAtUtc}`
+  );
   const scorer = createTdValueNetworkFromWeights(
     manifest,
     parseWeightsFile(weightsPayload)

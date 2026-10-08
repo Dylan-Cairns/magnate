@@ -60,6 +60,63 @@ export async function fetchJson(url: string): Promise<unknown> {
   return response.json();
 }
 
+/**
+ * Cache Storage name shared by every realm (window, bot worker, search workers)
+ * so a model pack is downloaded once per browser, not once per worker.
+ */
+export const SHARED_JSON_CACHE_NAME = 'magnate-model-pack-json-v1';
+
+/**
+ * Fetches JSON through the origin-scoped Cache Storage. The bot worker and its
+ * search workers all load the same model pack; browsers do not keep the
+ * multi-megabyte JSON weights file in the HTTP cache, so without this each
+ * worker re-downloads it. `cacheVersion` pins the entry to the pack contents so
+ * a re-exported pack with the same path cannot serve stale weights.
+ *
+ * Environments without Cache Storage (Node tooling, older browsers, storage
+ * disabled) fall back to a plain fetch.
+ */
+export async function fetchJsonCached(
+  url: string,
+  cacheVersion: string
+): Promise<unknown> {
+  const cache = await openSharedJsonCache();
+  const cacheKey = cache
+    ? `${url}${url.includes('?') ? '&' : '?'}v=${encodeURIComponent(cacheVersion)}`
+    : null;
+  if (cache && cacheKey) {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return cached.json();
+    }
+  }
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch JSON from ${url}: status=${String(response.status)} ${response.statusText}`
+    );
+  }
+  if (cache && cacheKey) {
+    try {
+      await cache.put(cacheKey, response.clone());
+    } catch {
+      // Shared-cache writes are best-effort; the load still succeeds.
+    }
+  }
+  return response.json();
+}
+
+async function openSharedJsonCache(): Promise<Cache | null> {
+  if (typeof caches === 'undefined') {
+    return null;
+  }
+  try {
+    return await caches.open(SHARED_JSON_CACHE_NAME);
+  } catch {
+    return null;
+  }
+}
+
 export function selectPack<TEntry extends ModelPackIndexEntryBase>(
   packs: readonly TEntry[],
   defaultPackId: string | null

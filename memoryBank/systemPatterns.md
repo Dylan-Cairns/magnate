@@ -53,7 +53,10 @@ Design expectations:
   `public/model-packs/index.json` selects the default pack, each pack provides
   `manifest.json` + `weights.json`, and the loader validates
   schema/checkpoint/encoding/dimension compatibility before use. URL resolution
-  must work from both the main window and Web Workers under `base: './'`.
+  must work from both the main window and Web Workers under `base: './'`. The
+  `weights.json` fetch goes through an origin-scoped Cache Storage entry keyed by
+  pack id and creation time, so the bot worker and its search workers download a
+  multi-megabyte pack once per browser rather than once per worker.
 - Search algorithms reuse one deterministic root-search core: stable action
   keys, seeded world sampling, no-log simulation stepping, diagnostics, and
   optional worker-backed execution. Rollout-search and TD-root search share the
