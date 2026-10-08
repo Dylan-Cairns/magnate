@@ -1,7 +1,8 @@
 import type { RefObject } from 'react';
 
 import { Ruleset } from '../../engine/types';
-import { profilesForRuleset, type BotProfileId } from '../../policies/catalog';
+import { profilesForRuleset } from '../../policies/catalog';
+import { BotProfileId } from '../../policies/values';
 import { Tooltip } from './Tooltip';
 
 const RULESET_OPTIONS: readonly { value: Ruleset; label: string }[] = [
@@ -98,7 +99,9 @@ export function NewGameButton({
             >
               {profilesForRuleset(ruleset).map((profile) => (
                 <option key={profile.id} value={profile.id}>
-                  {profile.label}
+                  {profile.id === BotProfileId.TdRootSearchV2Medium
+                    ? `${profile.label} (slow)`
+                    : profile.label}
                 </option>
               ))}
             </select>
