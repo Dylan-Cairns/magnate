@@ -135,6 +135,9 @@ export function HistoryModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // TanStack v8 uses mutable table state. This build does not enable React
+  // Compiler; revisit this exception before enabling compiler optimizations.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: games,
     columns: COLUMNS,
