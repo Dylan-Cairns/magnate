@@ -1,7 +1,7 @@
 import { GamePhase, SUITS as ALL_SUITS } from '../engine/values';
 import type { CardId } from '../engine/cards';
 import { COURT_CARDS, PROPERTY_CARDS } from '../engine/cards';
-import { type GameState, Suit } from '../engine/types';
+import { type GameState, type PlayerId, Suit } from '../engine/types';
 
 const ACE_CARD_ID_BY_SUIT = new Map<Suit, CardId>(
   ALL_SUITS.map((suit) => [
@@ -19,12 +19,14 @@ export type DeckMapDimming = {
 };
 
 export function awaitingIncomeChoiceCardIds(
-  viewState: GameState
+  viewState: GameState,
+  humanPlayerId: PlayerId
 ): readonly CardId[] {
   const submissions = viewState.submittedIncomeChoices ?? [];
   return (viewState.pendingIncomeChoices ?? [])
     .filter(
       (choice) =>
+        choice.playerId === humanPlayerId &&
         !submissions.some(
           (submission) =>
             submission.playerId === choice.playerId &&

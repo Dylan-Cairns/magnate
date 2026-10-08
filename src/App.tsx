@@ -398,7 +398,7 @@ export function App() {
     terminal,
   });
   const awaitingIncomeChoiceCardIdList = useMemo(
-    () => awaitingIncomeChoiceCardIds(viewState),
+    () => awaitingIncomeChoiceCardIds(viewState, HUMAN_PLAYER),
     [viewState]
   );
   const incomeHighlightCardIdSet = useMemo(

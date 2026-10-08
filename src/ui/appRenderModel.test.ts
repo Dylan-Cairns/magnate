@@ -13,7 +13,7 @@ import {
 } from './appRenderModel';
 
 describe('app render model', () => {
-  it('highlights only deed income choices that are still awaiting input', () => {
+  it('highlights only human deed income choices that are still awaiting input', () => {
     const viewState = makeGameState({
       phase: 'CollectIncome',
       pendingIncomeChoices: [
@@ -40,7 +40,14 @@ describe('app render model', () => {
       ],
     });
 
-    expect(awaitingIncomeChoiceCardIds(viewState)).toEqual(['8']);
+    expect(
+      awaitingIncomeChoiceCardIds(
+        { ...viewState, submittedIncomeChoices: [] },
+        PLAYER_A
+      )
+    ).toEqual(['6']);
+    expect(awaitingIncomeChoiceCardIds(viewState, PLAYER_A)).toEqual([]);
+    expect(awaitingIncomeChoiceCardIds(viewState, 'PlayerB')).toEqual(['8']);
   });
 
   it('uses the visible state, not a canonical pending phase, for income-choice display', () => {
