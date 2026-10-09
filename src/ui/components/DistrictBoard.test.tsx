@@ -67,7 +67,7 @@ describe('DistrictColumn', () => {
       </ActionHighlights>
     );
 
-    expect(html).toContain('placement-ghost');
+    expect(html).toContain('lane-stack-card placement-ghost');
   });
 
   it('retires a confirmed deed ghost once the card is in the lane', () => {

@@ -254,8 +254,12 @@ function stackStepForLane(
     }
   }
 
-  const topStackCard = laneElement.querySelector<HTMLElement>(
-    '.lane-stack-card:last-child'
+  const topStackCard = lastMatch(
+    Array.from(
+      laneElement.querySelectorAll<HTMLElement>(
+        '.lane-stack-card:not(.placement-ghost)'
+      )
+    )
   );
   if (topStackCard) {
     const stackPosition = Number.parseFloat(
@@ -292,8 +296,12 @@ function laneTargetCenter(
   }
 
   const isBotLane = laneElement.classList.contains('is-bot');
-  const topCard = laneElement.querySelector<HTMLElement>(
-    '.lane-stack-card:last-child .card-tile'
+  const topCard = lastMatch(
+    Array.from(
+      laneElement.querySelectorAll<HTMLElement>(
+        '.lane-stack-card:not(.placement-ghost) .card-tile'
+      )
+    )
   );
   if (topCard) {
     const center = elementCenter(topCard);
@@ -449,7 +457,8 @@ export function createAnimationDomTargets(
     laneTargetCenter: (laneElement, cardHeightPx) =>
       laneTargetCenter(environment, laneElement, cardHeightPx),
     laneCardCount: (laneElement) =>
-      laneElement.querySelectorAll('.lane-stack-card').length,
+      laneElement.querySelectorAll('.lane-stack-card:not(.placement-ghost)')
+        .length,
     laneCardMetrics: (laneElement, fallbackElement) =>
       laneCardMetrics(environment, laneElement, fallbackElement),
     deckSource: () =>

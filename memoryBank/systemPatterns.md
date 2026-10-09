@@ -286,6 +286,14 @@ Design expectations:
   in human lanes), so the final frame matches the settled card instead of popping
   to a different shadow; in-development cards take the same inter-card shadow
   because the lane rule overrides their base shadow.
+- The placement ghost and the invisible `.lane-card-animation-target` both render
+  through the lane-card path inside the lane stack (`.lane-stack-card.placement-ghost`
+  and `.lane-card-animation-target`), sharing the real card's container, centering,
+  stack shadow and paint layer; only the ghost's desaturation/opacity and action
+  glow are layered on. Rendering the preview as a separately-positioned element
+  let its suit tokens land a sub-pixel off the card it becomes. `laneCardCount`
+  and the stack-step/target fallbacks ignore `.placement-ghost` so a preview never
+  counts as a stacked card.
 - Sold-card flights land on the discard pile, whose cards render with the
   deck-pile card scope rather than the board card scope. The flight renders at
   the discard box (`renderAtDestination`) and `CardFlightLayer` marks it

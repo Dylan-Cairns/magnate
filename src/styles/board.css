@@ -507,27 +507,11 @@
   align-items: flex-end;
 }
 
-.lane-card-animation-target,
-.placement-ghost {
-  position: absolute;
-  left: 50%;
+.lane-card-animation-target {
   width: var(--card-width);
   height: var(--card-height);
   pointer-events: none;
-  transform: translateX(-50%);
-}
-
-.lane-card-animation-target {
   visibility: hidden;
-}
-
-.district-lane.is-human .lane-card-animation-target,
-.district-lane.is-human .placement-ghost {
-  top: calc(var(--stack-position) * var(--card-stack-step));
-}
-
-.district-lane.is-bot .lane-card-animation-target {
-  bottom: calc(var(--stack-position) * var(--card-stack-step));
 }
 
 .lane-stack {
@@ -541,9 +525,7 @@
   filter: drop-shadow(var(--card-stack-drop-shadow));
 }
 
-.lane-stack,
-.lane-card-animation-target,
-.placement-ghost {
+.lane-stack {
   /*
     Fit the card to its lane. The old 6.81rem floor clipped cards once a lane
     narrowed below it; instead the lane width caps the image, while
@@ -568,17 +550,20 @@
   );
 }
 
-.lane-stack-card {
+.lane-stack-card,
+.lane-card-animation-target {
   position: absolute;
   left: 0;
   z-index: var(--stack-z);
 }
 
-.lane-stack.is-human .lane-stack-card {
+.lane-stack.is-human .lane-stack-card,
+.lane-stack.is-human .lane-card-animation-target {
   top: calc(var(--stack-position) * var(--card-stack-step));
 }
 
-.lane-stack.is-bot .lane-stack-card {
+.lane-stack.is-bot .lane-stack-card,
+.lane-stack.is-bot .lane-card-animation-target {
   bottom: calc(var(--stack-position) * var(--card-stack-step));
 }
 

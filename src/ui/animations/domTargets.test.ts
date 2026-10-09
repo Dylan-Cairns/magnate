@@ -199,6 +199,20 @@ describe('domTargets', () => {
     expect(targets.developingCard('6')).toBe(genericCard);
   });
 
+  it('excludes the placement ghost from the lane card count', () => {
+    const realCard = makeElement();
+    const ghostCard = makeElement();
+    const lane = makeElement({
+      queryAll: new Map([
+        ['.lane-stack-card', [realCard, ghostCard]],
+        ['.lane-stack-card:not(.placement-ghost)', [realCard]],
+      ]),
+    });
+    const targets = createAnimationDomTargets(makeEnvironment());
+
+    expect(targets.laneCardCount(lane)).toBe(1);
+  });
+
   it('centers deed token slots around the rail midpoint', () => {
     const rail = makeElement({ left: 10, top: 20, width: 30, height: 100 });
 

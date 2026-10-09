@@ -42,11 +42,11 @@
 }
 
 /* The ghost occupies the next stack position without changing layout or hit targets. */
-.placement-ghost {
-  z-index: 1;
+.lane-stack-card.placement-ghost {
+  pointer-events: none;
 }
 
-.placement-ghost > .card-tile {
+.lane-stack-card.placement-ghost > .card-tile {
   opacity: 0.97;
   filter: saturate(0.2) contrast(0.45);
 }

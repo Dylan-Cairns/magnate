@@ -143,6 +143,7 @@ const DistrictLane = memo(function DistrictLane({
     deedTarget?: number;
     inDevelopment?: boolean;
     incomeHighlighted?: boolean;
+    ghost?: boolean;
   }> = stack.developed.map((cardId, index) => ({
     key: `developed-${cardId}-${index}`,
     cardId,
@@ -162,6 +163,25 @@ const DistrictLane = memo(function DistrictLane({
     });
   }
 
+  // The ghost preview renders through the same lane-card path as a real card
+  // (same container, positioning and stack shadow) so it cannot diverge from
+  // the card it becomes; only the ghost treatment is layered on top.
+  const showGhost = ghost !== undefined && !ghostPlaced;
+  if (showGhost) {
+    laneCards.push({
+      key: `ghost-${ghost.cardId}`,
+      cardId: ghost.cardId,
+      deedProgress: ghostDeedTarget !== undefined ? 0 : undefined,
+      deedTarget: ghostDeedTarget,
+      inDevelopment: ghost.placement === 'deed',
+      ghost: true,
+    });
+  }
+
+  // The next slot is where the new card lands: after the real cards, before the
+  // preview-only ghost entry.
+  const landingPosition = laneCards.length - (showGhost ? 1 : 0);
+  const topCardIndex = landingPosition - 1;
   const laneStyle = {
     '--stack-count': laneCards.length,
   } as CSSProperties;
@@ -175,63 +195,49 @@ const DistrictLane = memo(function DistrictLane({
         className={`lane-stack-frame${playerId === botPlayerId ? ' is-bot' : ''}`}
       >
         <div
-          className="lane-card-animation-target"
-          aria-hidden="true"
-          data-card-flight-target="true"
-          style={{ '--stack-position': laneCards.length } as CSSProperties}
-        />
-        {laneCards.length > 0 ? (
-          <div
-            className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`}
-            style={laneStyle}
-          >
-            {laneCards.map((laneCard, index) => (
-              <div
-                key={laneCard.key}
-                className="lane-stack-card"
-                style={
-                  {
-                    '--stack-position': index,
-                    '--stack-z': index + 1,
-                  } as CSSProperties
+          className={`lane-stack ${playerId === botPlayerId ? 'is-bot' : 'is-human'}`}
+          style={laneStyle}
+        >
+          {laneCards.map((laneCard, index) => (
+            <div
+              key={laneCard.key}
+              className={`lane-stack-card${laneCard.ghost ? ' placement-ghost is-action-highlighted' : ''}`}
+              aria-hidden={laneCard.ghost ? 'true' : undefined}
+              style={
+                {
+                  '--stack-position': index,
+                  '--stack-z': index + 1,
+                } as CSSProperties
+              }
+            >
+              <CardTile
+                cardId={laneCard.cardId}
+                highlightTarget={
+                  !laneCard.ghost && playerId !== botPlayerId
+                    ? { kind: 'played-card', cardId: laneCard.cardId }
+                    : undefined
                 }
-              >
-                <CardTile
-                  cardId={laneCard.cardId}
-                  highlightTarget={
-                    playerId !== botPlayerId
-                      ? { kind: 'played-card', cardId: laneCard.cardId }
-                      : undefined
-                  }
-                  deedTokens={laneCard.deedTokens}
-                  deedProgress={laneCard.deedProgress}
-                  deedTarget={laneCard.deedTarget}
-                  inDevelopment={laneCard.inDevelopment}
-                  perspective={perspective}
-                  animateDeedProgress={animateDeedProgress}
-                  incomeHighlighted={laneCard.incomeHighlighted}
-                  showTooltip={index === laneCards.length - 1}
-                />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {ghost && !ghostPlaced ? (
+                deedTokens={laneCard.deedTokens}
+                deedProgress={laneCard.deedProgress}
+                deedTarget={laneCard.deedTarget}
+                inDevelopment={laneCard.inDevelopment}
+                perspective={perspective}
+                animateDeedProgress={
+                  laneCard.ghost ? false : animateDeedProgress
+                }
+                incomeHighlighted={laneCard.incomeHighlighted}
+                preview={laneCard.ghost}
+                showTooltip={!laneCard.ghost && index === topCardIndex}
+              />
+            </div>
+          ))}
           <div
-            className="placement-ghost is-action-highlighted"
+            className="lane-card-animation-target"
             aria-hidden="true"
-            style={{ '--stack-position': laneCards.length } as CSSProperties}
-          >
-            <CardTile
-              cardId={ghost.cardId}
-              inDevelopment={ghost.placement === 'deed'}
-              deedProgress={ghostDeedTarget !== undefined ? 0 : undefined}
-              deedTarget={ghostDeedTarget}
-              preview
-              animateDeedProgress={false}
-            />
-          </div>
-        ) : null}
+            data-card-flight-target="true"
+            style={{ '--stack-position': landingPosition } as CSSProperties}
+          />
+        </div>
       </div>
     </section>
   );
