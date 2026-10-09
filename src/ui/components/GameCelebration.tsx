@@ -47,7 +47,6 @@ function createChips(count: number, seed: number): readonly ChipParticle[] {
 }
 
 const WIN_CHIPS = createChips(30, 0x9e3779b9);
-const LOSS_CHIPS = createChips(11, 0x85ebca6b);
 
 export function GameCelebration({
   outcome,
@@ -60,21 +59,12 @@ export function GameCelebration({
     return null;
   }
 
-  const chips =
-    outcome === CelebrationOutcome.Win
-      ? WIN_CHIPS
-      : outcome === CelebrationOutcome.Loss
-        ? LOSS_CHIPS
-        : [];
+  const chips = outcome === CelebrationOutcome.Win ? WIN_CHIPS : [];
 
   return (
     <div className={`game-celebration is-${outcome}`} aria-hidden="true">
       {outcome === CelebrationOutcome.Win ? (
         <span className="celebration-glow" />
-      ) : null}
-
-      {outcome === CelebrationOutcome.Loss ? (
-        <span className="celebration-veil" />
       ) : null}
 
       {outcome === CelebrationOutcome.Draw ? (
@@ -87,7 +77,7 @@ export function GameCelebration({
       {chips.map((chip, index) => (
         <span
           key={index}
-          className={`celebration-chip${outcome === 'loss' ? ' is-settling' : ''}`}
+          className="celebration-chip"
           data-tone={chip.tone}
           style={chipStyle(chip)}
         />

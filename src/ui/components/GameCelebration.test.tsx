@@ -29,18 +29,7 @@ describe('GameCelebration', () => {
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain('celebration-glow');
     expect(html).toContain('celebration-chip');
-    expect(html).not.toContain('celebration-veil');
     expect(html).not.toContain('celebration-draw-ring');
-  });
-
-  it('renders a subdued loss layer', () => {
-    const html = renderToStaticMarkup(
-      <GameCelebration outcome="loss" animationsEnabled />
-    );
-
-    expect(html).toContain('game-celebration is-loss');
-    expect(html).toContain('celebration-veil');
-    expect(html).toContain('is-settling');
   });
 
   it('renders a neutral draw layer with rings and no chips', () => {

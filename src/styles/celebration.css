@@ -41,11 +41,6 @@
   animation-timing-function: cubic-bezier(0.3, 0.1, 0.6, 1);
 }
 
-.is-loss .celebration-chip {
-  animation-name: celebration-chip-settle;
-  animation-timing-function: ease-in;
-}
-
 .is-win .celebration-chip[data-tone='0'] {
   --p-tone-light: #ffe6a8;
   --p-tone: #e3bc6c;
@@ -67,27 +62,6 @@
   --p-tone-glow: rgba(201, 154, 69, 0.5);
 }
 
-.is-loss .celebration-chip[data-tone='0'] {
-  --p-tone-light: #aeb8c6;
-  --p-tone: #6b7789;
-  --p-tone-dark: #333c4a;
-  --p-tone-glow: rgba(107, 119, 137, 0.4);
-}
-
-.is-loss .celebration-chip[data-tone='1'] {
-  --p-tone-light: #9aa5b4;
-  --p-tone: #5a6577;
-  --p-tone-dark: #2a323e;
-  --p-tone-glow: rgba(90, 101, 119, 0.36);
-}
-
-.is-loss .celebration-chip[data-tone='2'] {
-  --p-tone-light: #8b95a4;
-  --p-tone: #4d5767;
-  --p-tone-dark: #232a35;
-  --p-tone-glow: rgba(77, 87, 103, 0.32);
-}
-
 @keyframes celebration-chip-fall {
   0% {
     transform: translate3d(0, 0, 0) rotate(0deg);
@@ -104,23 +78,6 @@
 
   100% {
     transform: translate3d(var(--p-drift), 108vh, 0) rotate(var(--p-spin));
-    opacity: 0;
-  }
-}
-
-@keyframes celebration-chip-settle {
-  0% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
-    opacity: 0;
-  }
-
-  22% {
-    opacity: 0.72;
-  }
-
-  100% {
-    transform: translate3d(var(--p-drift), 112vh, 0)
-      rotate(calc(var(--p-spin) * 0.25));
     opacity: 0;
   }
 }
@@ -148,37 +105,6 @@
   }
 
   76% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}
-
-.celebration-veil {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    ellipse 85% 75% at 50% 42%,
-    rgba(20, 28, 42, 0) 0%,
-    rgba(8, 12, 20, 0.26) 68%,
-    rgba(4, 7, 12, 0.4) 100%
-  );
-  opacity: 0;
-  animation: celebration-veil 3s ease-in-out both;
-}
-
-@keyframes celebration-veil {
-  0% {
-    opacity: 0;
-  }
-
-  22% {
-    opacity: 1;
-  }
-
-  74% {
     opacity: 1;
   }
 

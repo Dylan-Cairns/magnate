@@ -87,21 +87,20 @@ const STARTUP_PRELOAD_INITIAL_PROGRESS: StartupPreloadProgress = {
 /*
   How long each end-game celebration stays mounted. The CSS animations are
   authored to finish inside these windows, so the layer can be unmounted
-  without cutting anything off.
+  without cutting anything off. Losing has no celebration, so it has no entry.
 */
 const CELEBRATION_DURATION_MS: Record<CelebrationOutcome, number> = {
   [CelebrationOutcome.Win]: 4200,
-  [CelebrationOutcome.Loss]: 3000,
   [CelebrationOutcome.Draw]: 2600,
 };
 
 function celebrationOutcomeFor(
   winner: string,
   humanPlayerId: PlayerId
-): CelebrationOutcome {
+): CelebrationOutcome | null {
   if (winner === humanPlayerId) return CelebrationOutcome.Win;
   if (winner === Winner.Draw) return CelebrationOutcome.Draw;
-  return CelebrationOutcome.Loss;
+  return null;
 }
 
 const LOG_VISIBLE_KEY = 'magnate:logVisible';
@@ -337,9 +336,10 @@ export function App() {
   if (terminal !== prevTerminal) {
     setPrevTerminal(terminal);
     if (terminal && animationsEnabled) {
-      setCelebration({
-        outcome: celebrationOutcomeFor(score.winner, HUMAN_PLAYER),
-      });
+      const outcome = celebrationOutcomeFor(score.winner, HUMAN_PLAYER);
+      if (outcome) {
+        setCelebration({ outcome });
+      }
     }
   }
   useEffect(() => {
