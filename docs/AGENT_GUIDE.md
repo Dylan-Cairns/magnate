@@ -57,6 +57,12 @@ needs no desktop app:
 4. To A/B a UI change, `git stash push -- <file>` the change, re-run the script
    to capture the "before", then `git stash pop` and re-run for "after".
 
+For Firefox compositor defects, verify the pixels in the displayed window.
+Automated Firefox screenshots can redraw the document in software and hide
+filter clipping visible on screen, even in a headed browser. Compare actual
+screen captures after the animation and again after idle; record the Firefox
+version and `about:support` Graphics → Compositing value.
+
 Minimal working example (adjust port and selectors):
 
 ```js

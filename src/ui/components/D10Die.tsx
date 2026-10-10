@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import '../../styles/d10-die.css';
 
 const SIDE_ANGLE = 72; // 360 / 5 faces
@@ -70,6 +70,7 @@ export function D10Die({
     <div
       className={`die-glow die-glow-d10${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
     >
+      {glowing && <D10Glow />}
       <div
         className="die-scene-d10"
         aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
@@ -93,5 +94,55 @@ export function D10Die({
         </div>
       </div>
     </div>
+  );
+}
+
+function D10Glow() {
+  const filterId = useId();
+
+  return (
+    <svg
+      className="die-d10-glow"
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <filter
+          id={filterId}
+          x="-100%"
+          y="-100%"
+          width="300%"
+          height="300%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feDropShadow
+            dx="0"
+            dy="6"
+            stdDeviation="10"
+            floodColor="black"
+            floodOpacity="0.4"
+          />
+          <feDropShadow
+            dx="0"
+            dy="0"
+            stdDeviation="3"
+            style={{ floodColor: 'var(--active-ring)' }}
+          />
+          <feDropShadow
+            dx="0"
+            dy="0"
+            stdDeviation="7"
+            style={{ floodColor: 'var(--active-glow-outer)' }}
+          />
+          <feComposite in2="SourceAlpha" operator="out" />
+        </filter>
+      </defs>
+      <polygon
+        points="50,17 90,40 91,62 50,80 9,62 10,40"
+        fill="white"
+        filter={`url(#${filterId})`}
+      />
+    </svg>
   );
 }

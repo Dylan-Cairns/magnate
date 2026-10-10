@@ -67,7 +67,12 @@
   align-self: center;
 }
 
-.die-glow-d10.is-glowing,
+.die-glow-d10.is-glowing {
+  /* Its halo paints separately in 2D; filtering the 3D subtree lets Firefox
+     intermittently clip the glow after the roll settles. */
+  filter: none;
+}
+
 .die-glow-d6.is-glowing {
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.4))
     drop-shadow(0 0 3px var(--active-ring))

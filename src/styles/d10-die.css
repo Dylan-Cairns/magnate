@@ -15,6 +15,17 @@
   filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.45));
 }
 
+/* Settled dice share this silhouette at every face value. Paint the halo
+   independently of the perspective scene so its bounds stay strictly 2D. */
+.die-d10-glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
 .die-scene-d10 {
   width: var(--die-d10-size);
   height: var(--die-d10-size);
