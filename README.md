@@ -1,12 +1,7 @@
 # Magnate
 
-A single-player, web-playable implementation of the Decktet game
-[Magnate](https://decktet.wikidot.com/game:magnate). Rules live in a
-deterministic TypeScript engine shared by the browser UI and a Python training
-stack that improves the bot through gated self-play.
+A single-player, web-playable implementation of the Decktet game [Magnate](https://decktet.wikidot.com/game:magnate).
 
-New players start against Easy. The New Game menu offers other opponents and
-both rulesets; setup changes take effect when Start Game is clicked.
 
 ## Quickstart
 
@@ -30,7 +25,6 @@ troubleshooting and the optional Python environment.
 
 - **Web app and engine:**
   [memoryBank/systemPatterns.md](memoryBank/systemPatterns.md) (architecture),
-  including ownership of shared finite values and compatibility ordering,
   [memoryBank/magnateRules.md](memoryBank/magnateRules.md) (rules reference),
   [docs/AGENT_GUIDE.md](docs/AGENT_GUIDE.md) (reading map by surface).
 - **Bot training and evaluation:**
