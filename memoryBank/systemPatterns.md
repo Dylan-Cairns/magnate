@@ -278,14 +278,25 @@ Design expectations:
   when its last rendered frame is stale after idle time or bot search. This keeps
   React/layout work from delaying the flight past the landing swap;
   the settle buffer still leaves room for the final frame to paint. Destination
-  flights that land where the outer shadow comes from a stack filter (district
-  lanes and the hand fan) keep only the card's inset rim (`is-destination`),
-  since the stack supplies the outer drop shadow. A flight that lands on top of a
-  non-empty lane is also marked `is-stacked` and carries the lane's inter-card
-  shadow (`.lane-stack-card:not(:first-child)`, downward in bot lanes and upward
-  in human lanes), so the final frame matches the settled card instead of popping
-  to a different shadow; in-development cards take the same inter-card shadow
-  because the lane rule overrides their base shadow.
+  flights keep only the card's inset rim on the tile; their outer shadow lives on
+  the non-scaled `.card-flight` container as `filter` drop shadows, and the card
+  itself runs the source→destination size fit on an inner `.card-flight-scale`
+  wrapper. Separating them keeps the shadow's blur and offset at the destination's
+  metric for the whole flight, so it never grows or shrinks with the scale (which
+  would read as a darker/tighter in-flight shadow that snapped at the landing
+  swap). The human player's own placement lands on a slot its ghost already
+  fills for the whole flight, and the ghost renders through the lane-card path,
+  so the lane's stack filter paints the outer shadow and the ghost paints the
+  inter-card shadow. That flight therefore carries *no* outer shadow
+  (`.is-destination:not(.is-bot)` in `flights.css`): any copy on the lone flight
+  card is a second single-card shadow whose blur spills past the card edge onto
+  the neighbouring existing card for the last frames of the flight and snaps
+  back at the swap. Bot flights have no ghost, so they paint the landed card's
+  own shadow instead — the lane stack shadow on an empty lane or the hand fan,
+  the inter-card shadow (`.lane-stack-card:not(:first-child)`, downward in bot
+  lanes) when marked `is-stacked`, or a non-stacked deed's depth shadow plus the
+  stack shadow. `CardFlightLayer` syncs the animation start time across the
+  subtree (container translate and inner scale).
 - The placement ghost and the invisible `.lane-card-animation-target` both render
   through the lane-card path inside the lane stack (`.lane-stack-card.placement-ghost`
   and `.lane-card-animation-target`), sharing the real card's container, centering,
@@ -299,9 +310,9 @@ Design expectations:
   the discard box (`renderAtDestination`) and `CardFlightLayer` marks it
   `is-discard-destination`; `flights.css` remaps `--card-padding`,
   `--card-meta-height`, `--card-meta-gap` and `--card-image-area-*` to the
-  `--deck-pile-card-*` values and drops the lane stack shadow for the discard
-  card's own border and depth shadow, so the final frame matches the landed card
-  instead of overflowing it with board-card metrics.
+  `--deck-pile-card-*` values and swaps the lane stack shadow for the discard
+  card's own depth shadow (as container filters), so the final frame matches the
+  landed card instead of overflowing it with board-card metrics.
 - A source card that is transformed (the fanned human hand) reports a larger
   axis-aligned rect; flight construction uses the untransformed layout box
   (`offsetWidth`/`offsetHeight`) for the flight's start size so it matches the

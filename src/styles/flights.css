@@ -89,6 +89,13 @@
   z-index: 145;
 }
 
+/* The container carries the outer shadow and animates translate only; the card
+   is scaled on an inner wrapper. Separating them keeps the shadow's blur and
+   offset at the destination's metric for the whole flight, so the in-flight
+   shadow matches the card it lands on whatever the source→destination size fit
+   (scale would otherwise grow/shrink the shadow and it would snap at the swap).
+   Shadows live on the container as filters so they track the (scaled) card's
+   silhouette with an unscaled blur, exactly like the landed card's shadow. */
 .card-flight {
   position: absolute;
   left: var(--card-flight-start-x);
@@ -107,20 +114,35 @@
   animation-name: draw-card-flight;
 }
 
+.card-flight-scale {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  animation-name: played-card-flight-scale;
+  animation-duration: var(--card-flight-duration-ms);
+  animation-timing-function: linear;
+  animation-delay: var(--card-flight-delay-ms);
+  animation-fill-mode: forwards;
+}
+
+/* Inside a flight every card keeps only its inset rim: the outer shadow lives
+   on the non-scaled container so it always matches the destination card. */
 .card-flight .card-tile {
   width: 100%;
   height: 100%;
   min-height: 0;
+  box-shadow: inset 0 0 0 1px var(--card-inset-border);
 }
 
 /* A sold-card flight lands on the discard pile, whose cards render with the
    deck-pile card scope rather than the board card scope. Remap the landed
    card's scope to the discard card's metrics so the flight's last frame matches
-   the real card. The flight also drops the lane stack shadow and takes the
-   discard card's own border and depth shadow instead; the `- 2px` in the image
-   area is that border on each side. */
+   the real card, and take the discard card's own depth shadow
+   (`--depth-shadow-object`) on the container. The `- 2px` in the image area is
+   the border on each side. */
 .card-flight.is-discard-destination {
-  filter: none;
+  filter: drop-shadow(0 7px 16px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.48));
 }
 
 .card-flight.is-discard-destination .card-tile {
@@ -138,76 +160,75 @@
   border-radius: 8px;
 }
 
-/* Destination flights that land where the outer shadow comes from a stack
-   filter (district lanes, and the human hand fan, which casts the same
-   drop-shadow) must match the landed card's shadow: the stack supplies the
-   outer shadow, so the flight card keeps only its inset rim. Deed
-   (in-development) lane cards keep the base drop shadow, so this is scoped away
-   from them. Sold-card flights land on the discard pile, which uses the card's
-   own depth shadow, and are excluded. */
-.card-flight.is-destination:not(.is-discard-destination)
-  .card-tile:not(.is-in-development) {
-  box-shadow: inset 0 0 0 1px var(--card-inset-border);
+/* A human placement lands on a slot its ghost already fills, and the ghost
+   renders through the lane-card path (so the lane's stack filter paints the
+   outer shadow) and, as a card above the first, paints the inter-card shadow
+   too. The flight card must not paint a second copy of any of that: stacked or
+   not, the duplicate is a single-card shadow whose blur spills onto the
+   neighbouring existing card (darkening it for the last frames of the flight)
+   before snapping back at the swap. The lane/ghost therefore supplies the human
+   destination's whole shadow and the flight carries none.
+
+   Bot destinations have no ghost, so their flights paint the landed card's own
+   shadow: the inter-card shadow when the lane is stacked, the deed's depth
+   shadow on a fresh slot, or the default stack shadow otherwise. */
+.card-flight.is-destination.is-stacked.is-bot:not(.is-discard-destination) {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.24));
 }
 
-/* A flight landing on top of a non-empty lane also lands on the inter-card
-   shadow the lane paints on every card above the first
-   (`.lane-stack-card:not(:first-child)`, downward in bot lanes, upward in human
-   lanes). Reproduce it, otherwise the settled card gains a shadow the flight
-   never showed and appears to shift. This must follow the rule above so it wins
-   on source order, and it covers in-development cards too, since the landed
-   deed loses the base shadow to the same lane rule. */
-.card-flight.is-destination.is-stacked:not(.is-discard-destination) .card-tile {
-  box-shadow:
-    0 -2px 4px rgba(0, 0, 0, 0.24),
-    inset 0 0 0 1px var(--card-inset-border);
+/* A non-stacked bot deed lands with its own depth shadow (`--card-drop-shadow`,
+   i.e. `--depth-shadow-object`) under the lane's stack filter. */
+.card-flight.is-destination.is-deed.is-bot:not(.is-discard-destination):not(
+    .is-stacked
+  ) {
+  filter: drop-shadow(0 7px 16px rgba(0, 0, 0, 0.6))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.48))
+    drop-shadow(var(--card-stack-drop-shadow));
 }
 
-.card-flight.is-destination.is-stacked:not(.is-discard-destination)
-  .card-tile.perspective-bot {
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.24),
-    inset 0 0 0 1px var(--card-inset-border);
+.card-flight.is-destination:not(.is-bot):not(.is-discard-destination) {
+  filter: none;
 }
 
 @keyframes played-card-flight {
   0% {
-    transform: translate(-50%, -50%)
-      scale(
-        var(--card-flight-start-scale-x, 1),
-        var(--card-flight-start-scale-y, 1)
-      );
+    transform: translate(-50%, -50%);
   }
 
   100% {
     transform: translate(
-        calc(-50% + var(--card-flight-dx)),
-        calc(-50% + var(--card-flight-dy))
-      )
-      scale(
-        var(--card-flight-end-scale-x, 1),
-        var(--card-flight-end-scale-y, 1)
-      );
+      calc(-50% + var(--card-flight-dx)),
+      calc(-50% + var(--card-flight-dy))
+    );
   }
 }
 
 @keyframes draw-card-flight {
   0% {
-    transform: translate(-50%, -50%)
-      scale(
-        var(--card-flight-start-scale-x, 1),
-        var(--card-flight-start-scale-y, 1)
-      );
+    transform: translate(-50%, -50%);
   }
 
   100% {
     transform: translate(
-        calc(-50% + var(--card-flight-dx)),
-        calc(-50% + var(--card-flight-dy))
-      )
-      scale(
-        var(--card-flight-end-scale-x, 1),
-        var(--card-flight-end-scale-y, 1)
-      );
+      calc(-50% + var(--card-flight-dx)),
+      calc(-50% + var(--card-flight-dy))
+    );
+  }
+}
+
+/* The card scales on its own layer so the container's outer shadow does not. */
+@keyframes played-card-flight-scale {
+  0% {
+    transform: scale(
+      var(--card-flight-start-scale-x, 1),
+      var(--card-flight-start-scale-y, 1)
+    );
+  }
+
+  100% {
+    transform: scale(
+      var(--card-flight-end-scale-x, 1),
+      var(--card-flight-end-scale-y, 1)
+    );
   }
 }

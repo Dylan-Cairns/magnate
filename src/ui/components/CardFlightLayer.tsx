@@ -68,13 +68,16 @@ export function CardFlightLayer({
               if (element && flight.animationStartTimeMs !== undefined) {
                 // React/layout work can delay mounting beyond the settle buffer.
                 // Keep the CSS flight on its launch clock so the sequence's
-                // landing swap cannot cut off a newly started animation.
-                for (const animation of element.getAnimations()) {
+                // landing swap cannot cut off a newly started animation. The
+                // card scales on a child, so sync the subtree too.
+                for (const animation of element.getAnimations({
+                  subtree: true,
+                })) {
                   animation.startTime = flight.animationStartTimeMs;
                 }
               }
             }}
-            className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${destinationLayout ? ' is-destination' : ''}${flight.discardDestination ? ' is-discard-destination' : ''}${flight.stacked ? ' is-stacked' : ''}`}
+            className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${destinationLayout ? ' is-destination' : ''}${flight.discardDestination ? ' is-discard-destination' : ''}${flight.stacked ? ' is-stacked' : ''}${flight.isDeed ? ' is-deed' : ''}${flight.perspective === 'bot' ? ' is-bot' : ''}`}
             style={
               {
                 '--card-flight-start-x': `${flight.startX}px`,
@@ -94,16 +97,18 @@ export function CardFlightLayer({
               } as CSSProperties
             }
           >
-            {flight.visual === 'face' && flight.cardId ? (
-              <CardTile
-                cardId={flight.cardId}
-                perspective={flight.perspective}
-                inDevelopment={flight.isDeed}
-                animateDeedProgress={animationsEnabled}
-              />
-            ) : (
-              <CardTile hidden />
-            )}
+            <div className="card-flight-scale">
+              {flight.visual === 'face' && flight.cardId ? (
+                <CardTile
+                  cardId={flight.cardId}
+                  perspective={flight.perspective}
+                  inDevelopment={flight.isDeed}
+                  animateDeedProgress={animationsEnabled}
+                />
+              ) : (
+                <CardTile hidden />
+              )}
+            </div>
           </div>
         );
       })}

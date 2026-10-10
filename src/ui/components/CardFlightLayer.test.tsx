@@ -119,6 +119,18 @@ describe('CardFlightLayer', () => {
     expect(html).toContain('card-flight is-destination is-stacked');
   });
 
+  it('scales the card on an inner layer and marks deed/bot flights', () => {
+    const html = renderToStaticMarkup(
+      <CardFlightLayer
+        animationsEnabled
+        flights={[{ ...BASE_FLIGHT, perspective: 'bot' }]}
+      />
+    );
+    expect(html).toContain('card-flight-scale');
+    expect(html).toContain('is-deed');
+    expect(html).toContain('is-bot');
+  });
+
   it('renders nothing without flights', () => {
     expect(
       renderToStaticMarkup(
