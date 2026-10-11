@@ -232,6 +232,9 @@ Design expectations:
 
 ## UI Presentation Pattern
 
+- Partial-income actions always use one submenu per player/card/district, even
+  when only one card remains. Suit choices stay inside that submenu so resolving
+  another card does not change the remaining card's interaction.
 - Canonical `state` drives legality, bot scheduling, bug reports, and
   persistence. React renders from a controller-provided `viewState`/player view
   so already-committed results cannot leak into visible UI ahead of animation.
@@ -284,8 +287,9 @@ Design expectations:
   when its last rendered frame is stale after idle time or bot search. This keeps
   React/layout work from delaying the flight past the landing swap;
   the settle buffer still leaves room for the final frame to paint. Destination
-  flights keep only the card's inset rim on the tile; their outer shadow lives on
-  the non-scaled `.card-flight` container as `filter` drop shadows, and the card
+  flights generally keep only the card's inset rim on the tile; their outer
+  shadow lives on the non-scaled `.card-flight` container as `filter` drop
+  shadows, and the card
   itself runs the source→destination size fit on an inner `.card-flight-scale`
   wrapper. Separating them keeps the shadow's blur and offset at the destination's
   metric for the whole flight, so it never grows or shrinks with the scale (which
@@ -301,7 +305,11 @@ Design expectations:
   own shadow instead — the lane stack shadow on an empty lane or the hand fan,
   the inter-card shadow (`.lane-stack-card:not(:first-child)`, downward in bot
   lanes) when marked `is-stacked`, or a non-stacked deed's depth shadow plus the
-  stack shadow. `CardFlightLayer` syncs the animation start time across the
+  stack shadow. A bot deed entering an empty lane keeps the deed's parallel
+  box shadows on its tile beneath the container's single stack filter, matching
+  the settled lane's paint hierarchy. Chaining those depth shadows as filters
+  shadows earlier shadows too and darkens the flight at the swap.
+  `CardFlightLayer` syncs the animation start time across the
   subtree (container translate and inner scale).
 - Destination flights anchor at the destination's top-left layout box, rather
   than computing their final position by translating from a rounded source

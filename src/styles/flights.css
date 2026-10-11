@@ -178,8 +178,9 @@
   transform: none;
 }
 
-/* Inside a flight every card keeps only its inset rim: the outer shadow lives
-   on the non-scaled container so it always matches the destination card. */
+/* Flights normally keep only the inset rim, with their outer shadow on the
+   non-scaled container. Empty-lane bot deeds restore their box shadows below
+   to match the settled card's paint hierarchy. */
 .card-flight .card-tile {
   width: 100%;
   height: 100%;
@@ -229,14 +230,22 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.24));
 }
 
-/* A non-stacked bot deed lands with its own depth shadow (`--card-drop-shadow`,
-   i.e. `--depth-shadow-object`) under the lane's stack filter. */
+/* Match the empty lane's paint hierarchy: parallel box shadows on the rounded
+   card, then one outer stack filter. Chained drop shadows also shadow earlier
+   shadows, making the flight darker than the settled deed at the swap. */
 .card-flight.is-destination.is-deed.is-bot:not(.is-discard-destination):not(
     .is-stacked
   ) {
-  filter: drop-shadow(0 7px 16px rgba(0, 0, 0, 0.6))
-    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.48))
-    drop-shadow(var(--card-stack-drop-shadow));
+  filter: drop-shadow(var(--card-stack-drop-shadow));
+}
+
+.card-flight.is-destination.is-deed.is-bot:not(.is-discard-destination):not(
+    .is-stacked
+  )
+  .card-tile {
+  box-shadow:
+    var(--card-drop-shadow),
+    inset 0 0 0 1px var(--card-inset-border);
 }
 
 .card-flight.is-destination:not(.is-bot):not(.is-discard-destination) {

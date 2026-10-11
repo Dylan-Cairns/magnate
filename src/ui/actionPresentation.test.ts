@@ -207,7 +207,7 @@ describe('buildHumanActionList', () => {
     expect(outrightGroups[0].options).toHaveLength(actions.length);
   });
 
-  it('keeps income choices flat when only one income card is pending', () => {
+  it('keeps a submenu group when only one income card is pending', () => {
     const actions: GameAction[] = [
       {
         type: 'choose-income-suit',
@@ -228,8 +228,13 @@ describe('buildHumanActionList', () => {
     const grouped = buildHumanActionList(actions);
 
     expect(grouped).toEqual([
-      { kind: 'action', action: actions[0] },
-      { kind: 'action', action: actions[1] },
+      {
+        kind: 'income-choice-group',
+        playerId: PLAYER_A,
+        districtId: 'D1',
+        cardId: '6',
+        options: actions,
+      },
     ]);
   });
 
@@ -474,7 +479,11 @@ describe('pickerGroupLabel', () => {
       'Receive x1'
     );
     expect(
-      pickerGroupLabel({ kind: 'district', actionType: 'buy-deed', cardId: '6' })
+      pickerGroupLabel({
+        kind: 'district',
+        actionType: 'buy-deed',
+        cardId: '6',
+      })
     ).toBe('District');
     expect(
       pickerGroupLabel({ kind: 'deed-payment', cardId: '6', districtId: 'D1' })

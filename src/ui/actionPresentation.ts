@@ -268,20 +268,15 @@ export function buildHumanActionList(
     HumanActionListItem,
     { kind: typeof ActionListItemKind.Action }
   >[] = [];
-  const incomeGroups = [...incomeChoiceGroups.values()];
-  const incomeActionItems =
-    incomeGroups.length > 1 ? [] : toActionItems(incomeGroups[0]?.options);
-  if (incomeGroups.length > 1) {
-    incomeChoiceItems.push(
-      ...incomeGroups.map((group) => ({
-        kind: ActionListItemKind.IncomeChoiceGroup,
-        playerId: group.playerId,
-        districtId: group.districtId,
-        cardId: group.cardId,
-        options: group.options,
-      }))
-    );
-  }
+  incomeChoiceItems.push(
+    ...[...incomeChoiceGroups.values()].map((group) => ({
+      kind: ActionListItemKind.IncomeChoiceGroup,
+      playerId: group.playerId,
+      districtId: group.districtId,
+      cardId: group.cardId,
+      options: group.options,
+    }))
+  );
 
   for (const [type, grouped] of nonGroupedByType.entries()) {
     if (type === ActionId.SellCard || type === ActionId.EndTurn) {
@@ -297,7 +292,6 @@ export function buildHumanActionList(
     ...developDeedItems,
     ...tradeItems,
     ...incomeChoiceItems,
-    ...incomeActionItems,
     ...otherActionItems,
     ...endTurnItems,
   ];
