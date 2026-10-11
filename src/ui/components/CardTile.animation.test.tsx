@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const hookHarness = vi.hoisted(() => {
   let cursor = 0;
   let slots: unknown[] = [];
+  let deferEffects = false;
+  let pendingEffects: Array<() => void | (() => void)> = [];
 
   return {
     beginRender() {
@@ -12,6 +14,17 @@ const hookHarness = vi.hoisted(() => {
     resetMount() {
       cursor = 0;
       slots = [];
+      deferEffects = false;
+      pendingEffects = [];
+    },
+    deferPassiveEffects() {
+      deferEffects = true;
+    },
+    flushPassiveEffects() {
+      const effects = pendingEffects;
+      pendingEffects = [];
+      effects.forEach((run) => run());
+      deferEffects = false;
     },
     useRef<T>(initialValue: T) {
       const index = cursor;
@@ -42,6 +55,13 @@ const hookHarness = vi.hoisted(() => {
       return [slots[index] as T, setValue] as const;
     },
     useEffect(run: () => void | (() => void)) {
+      if (deferEffects) {
+        pendingEffects.push(run);
+        return;
+      }
+      run();
+    },
+    useLayoutEffect(run: () => void | (() => void)) {
       run();
     },
   };
@@ -52,6 +72,7 @@ vi.mock('react', async (importOriginal) => {
   return {
     ...actual,
     useEffect: hookHarness.useEffect,
+    useLayoutEffect: hookHarness.useLayoutEffect,
     useRef: hookHarness.useRef,
     useState: hookHarness.useState,
   };
@@ -88,6 +109,23 @@ afterEach(() => {
 });
 
 describe('CardTile deed progress animation', () => {
+  it('cannot retreat on the next sequence when a frame precedes passive cleanup', () => {
+    renderCard(0);
+    renderCard(2);
+    flushAnimationFrames(0);
+    flushAnimationFrames(100);
+    renderCard(2);
+
+    hookHarness.deferPassiveEffects();
+    const committedHtml = renderCard(2, false);
+    // A browser can run a frame after the commit but before passive effects.
+    flushAnimationFrames(150);
+    hookHarness.flushPassiveEffects();
+
+    expect(renderCard(2)).toBe(committedHtml);
+    expect(animationFrames.size).toBe(0);
+  });
+
   it('finishes at presentation commit even if the browser has not run the first frame', () => {
     renderCard(0);
     renderCard(2);

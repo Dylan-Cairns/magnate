@@ -26,7 +26,7 @@ describe('bot policy catalog', () => {
       'Easy',
       'Medium',
       'Hard',
-      'Experimental',
+      'Experimental RL (slow)',
     ]);
     expect(
       BOT_PROFILES.every(

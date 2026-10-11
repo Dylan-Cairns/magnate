@@ -66,7 +66,7 @@ Design expectations:
 - Bot and human action selection sit behind a shared async `ActionPolicy`
   contract so policy swaps do not change controller flow.
 - Bot profiles resolve through `src/policies/catalog.ts`. Easy/Medium/Hard are
-  deterministic `rollout-search-v2-*` profiles with heuristic v2; Experimental
+  deterministic `rollout-search-v2-*` profiles with heuristic v2; Experimental RL (slow)
   is `td-root-search-v2-medium` and is standard-ruleset only. Unknown or
   unavailable profiles throw; there is no silent fallback.
 - Easy is the fresh-browser default; existing saves and opponent preferences
@@ -251,6 +251,10 @@ Design expectations:
   roughly 80% of the app's per-turn style recalculation. The bounce uses
   `translateY` for that reason, and `will-change` must name the animated
   property.
+- Deed progress synchronizes its animated ratio and cancels its frame loop in
+  layout effects at presentation boundaries. Passive cleanup allows a stale
+  frame to overwrite committed progress and expose a retreating arc when the
+  next sequence starts.
 - A settled winning d10 paints its halo on a separate 2D SVG silhouette with
   explicit filter bounds; its 3D scene has no ancestor filter while glowing.
   Filtering the 3D faces directly lets Firefox intermittently clip the glow.

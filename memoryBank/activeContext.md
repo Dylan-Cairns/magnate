@@ -21,7 +21,7 @@
 
 - Browser play is functional and deterministic with four profiles:
   Easy/Medium/Hard (`rollout-search-v2-*` with heuristic v2, both rulesets) and
-  Experimental (`td-root-search-v2-medium`, standard-ruleset only). Games
+  Experimental RL (slow) (`td-root-search-v2-medium`, standard-ruleset only). Games
   support standard and extended rulesets, autosave/restore, and local game
   history. Easy is the fresh-browser default, and New Game setup changes apply
   only on Start Game. Paired TD rollout inference is the browser default, with

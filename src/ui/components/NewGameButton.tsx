@@ -99,9 +99,7 @@ export function NewGameButton({
             >
               {profilesForRuleset(ruleset).map((profile) => (
                 <option key={profile.id} value={profile.id}>
-                  {profile.id === BotProfileId.TdRootSearchV2Medium
-                    ? `${profile.label} (slow)`
-                    : profile.label}
+                  {profile.label}
                 </option>
               ))}
             </select>

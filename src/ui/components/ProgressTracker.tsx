@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { DEED_PROGRESS_REVEAL_MS } from '../animations/timing';
 import {
   buildDeedProgressArcPath,
@@ -55,11 +55,14 @@ export const ProgressTracker = memo(function ProgressTracker({
     }
   }
 
-  useEffect(() => {
+  // Sync and cancel before the browser can run another frame after a visible
+  // commit. A passive effect lets an old tween overwrite the snapped ratio,
+  // which the next presentation sequence would expose as a retreating arc.
+  useLayoutEffect(() => {
     animatedRatioRef.current = animatedDeedProgressRatio;
   }, [animatedDeedProgressRatio]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (animationFrameRef.current !== null) {
       window.cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;

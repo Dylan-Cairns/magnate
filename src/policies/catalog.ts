@@ -88,7 +88,7 @@ export const BOT_PROFILES: readonly BotProfile[] = [
   }),
   createBotProfile({
     id: BotProfileId.TdRootSearchV2Medium,
-    label: 'Experimental',
+    label: 'Experimental RL (slow)',
     description: '',
     available: true,
     supportedRulesets: [Ruleset.Standard],
