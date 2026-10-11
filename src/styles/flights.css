@@ -114,6 +114,29 @@
   animation-name: draw-card-flight;
 }
 
+/* Anchor destination flights at the landing box. Subtracting a rounded
+   source position from a rounded translation otherwise leaves a fractional
+   offset at the swap, even when their intended destination is identical. */
+.card-flight.is-destination {
+  left: var(--card-flight-end-left);
+  top: var(--card-flight-end-top);
+  will-change: auto;
+  animation-name: destination-card-flight;
+}
+
+@keyframes destination-card-flight {
+  from {
+    transform: translate(
+      calc(0px - var(--card-flight-dx)),
+      calc(0px - var(--card-flight-dy))
+    );
+  }
+
+  to {
+    transform: none;
+  }
+}
+
 .card-flight-scale {
   width: 100%;
   height: 100%;
@@ -123,6 +146,36 @@
   animation-timing-function: linear;
   animation-delay: var(--card-flight-delay-ms);
   animation-fill-mode: forwards;
+}
+
+/* Finish at the normal paint transform, rather than retaining a scaled layer.
+   District cards paint through the lane filter; an identity filter gives the
+   overlay the same antialiasing without duplicating the ghost's shadow. */
+.card-flight.is-destination .card-flight-scale {
+  animation-name: destination-card-flight-scale;
+}
+
+.card-flight.is-destination:not(.is-discard-destination) .card-flight-scale {
+  filter: opacity(1);
+}
+
+@keyframes destination-card-flight-scale {
+  from {
+    transform: scale(
+      var(--card-flight-start-scale-x, 1),
+      var(--card-flight-start-scale-y, 1)
+    );
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.card-flight.is-destination.is-flight-landed,
+.card-flight.is-destination.is-flight-landed .card-flight-scale {
+  animation: none;
+  transform: none;
 }
 
 /* Inside a flight every card keeps only its inset rim: the outer shadow lives

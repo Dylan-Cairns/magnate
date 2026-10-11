@@ -293,7 +293,7 @@ Design expectations:
   swap). The human player's own placement lands on a slot its ghost already
   fills for the whole flight, and the ghost renders through the lane-card path,
   so the lane's stack filter paints the outer shadow and the ghost paints the
-  inter-card shadow. That flight therefore carries *no* outer shadow
+  inter-card shadow. That flight therefore carries _no_ outer shadow
   (`.is-destination:not(.is-bot)` in `flights.css`): any copy on the lone flight
   card is a second single-card shadow whose blur spills past the card edge onto
   the neighbouring existing card for the last frames of the flight and snaps
@@ -303,6 +303,13 @@ Design expectations:
   lanes) when marked `is-stacked`, or a non-stacked deed's depth shadow plus the
   stack shadow. `CardFlightLayer` syncs the animation start time across the
   subtree (container translate and inner scale).
+- Destination flights anchor at the destination's top-left layout box, rather
+  than computing their final position by translating from a rounded source
+  center. At CSS motion completion they retire both forwards-filled transform
+  animations and the promotion hint; an identity filter on district flights
+  matches the lane's filtered antialiasing without adding a second shadow.
+  The sequence still owns removal and the landing commit. New deed flights
+  include the same zero-progress badge as the ghost and landed deed.
 - The placement ghost and the invisible `.lane-card-animation-target` both render
   through the lane-card path inside the lane stack (`.lane-stack-card.placement-ghost`
   and `.lane-card-animation-target`), sharing the real card's container, centering,

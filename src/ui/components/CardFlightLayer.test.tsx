@@ -49,10 +49,20 @@ describe('CardFlightLayer', () => {
     expect(html).toContain('--card-flight-start-scale-y:0.5');
     expect(html).toContain('--card-flight-end-scale-x:1');
     expect(html).toContain('--card-flight-end-scale-y:1');
+    expect(html).toContain('--card-flight-end-left:0px');
+    expect(html).toContain('--card-flight-end-top:-20px');
     expect(html).toContain('width:100px');
     expect(html).toContain('height:200px');
     expect(html).toContain('data-card-id="6"');
     expect(html).toContain('card-tile card-back');
+  });
+
+  it('keeps the new deed progress badge visible through its landing flight', () => {
+    const html = renderToStaticMarkup(
+      <CardFlightLayer animationsEnabled flights={[BASE_FLIGHT]} />
+    );
+    expect(html).toContain('class="deed-progress');
+    expect(html).toContain('0/2');
   });
 
   it('adopts the destination card image area and scales uniformly', () => {

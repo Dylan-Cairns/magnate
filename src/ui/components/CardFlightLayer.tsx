@@ -1,4 +1,8 @@
 import type { CSSProperties } from 'react';
+import {
+  developmentCost,
+  findDevelopableCard,
+} from '../../engine/stateHelpers';
 
 import { CARD_FLIGHT_DURATION_MS } from '../animations/timing';
 import type { CardFlight } from '../animations/types';
@@ -32,6 +36,10 @@ export function CardFlightLayer({
         // scale uniformly: per-axis scaling would subtly distort the card
         // artwork whenever the source and destination aspect ratios differ.
         const destinationLayout = flight.renderWidth !== undefined;
+        const deedProperty =
+          flight.isDeed && flight.cardId
+            ? findDevelopableCard(flight.cardId)
+            : undefined;
         const startScaleX =
           renderWidth > 0 && Number.isFinite(flight.startWidth)
             ? flight.startWidth / renderWidth
@@ -78,10 +86,20 @@ export function CardFlightLayer({
               }
             }}
             className={`card-flight${flight.variant === 'draw' ? ' is-draw' : ''}${destinationLayout ? ' is-destination' : ''}${flight.discardDestination ? ' is-discard-destination' : ''}${flight.stacked ? ' is-stacked' : ''}${flight.isDeed ? ' is-deed' : ''}${flight.perspective === 'bot' ? ' is-bot' : ''}`}
+            onAnimationEnd={(event) => {
+              if (destinationLayout && event.target === event.currentTarget) {
+                // A finished, forwards-filled transform animation can retain
+                // its raster layer even at identity. Retire only the motion;
+                // the presentation sequence still owns the card's removal.
+                event.currentTarget.classList.add('is-flight-landed');
+              }
+            }}
             style={
               {
                 '--card-flight-start-x': `${flight.startX}px`,
                 '--card-flight-start-y': `${flight.startY}px`,
+                '--card-flight-end-left': `${flight.endX - renderWidth / 2}px`,
+                '--card-flight-end-top': `${flight.endY - renderHeight / 2}px`,
                 '--card-flight-dx': `${dx}px`,
                 '--card-flight-dy': `${dy}px`,
                 '--card-flight-delay-ms': `${flight.delayMs}ms`,
@@ -103,6 +121,10 @@ export function CardFlightLayer({
                   cardId={flight.cardId}
                   perspective={flight.perspective}
                   inDevelopment={flight.isDeed}
+                  deedProgress={deedProperty ? 0 : undefined}
+                  deedTarget={
+                    deedProperty ? developmentCost(deedProperty) : undefined
+                  }
                   animateDeedProgress={animationsEnabled}
                 />
               ) : (
