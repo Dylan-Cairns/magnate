@@ -18,9 +18,21 @@ describe('RollResult', () => {
     );
   });
 
+  it('suppresses settled halos before the initial animated roll finishes', () => {
+    const html = renderToStaticMarkup(
+      <RollResult
+        dice={{ ...BASE_DICE, taxSuit: 'Moons', taxPhase: 'settled' }}
+        gameKey="new-game"
+      />
+    );
+
+    expect(html).not.toContain('is-glowing');
+    expect(html).not.toContain('class="die-d10-glow"');
+  });
+
   it('renders the winning d10 with a steady glow and dims the loser', () => {
     const html = renderToStaticMarkup(
-      <RollResult dice={BASE_DICE} gameKey="seed" />
+      <RollResult dice={BASE_DICE} gameKey="seed" animationsEnabled={false} />
     );
 
     expect(html).toContain('aria-label="d10: 4"');
@@ -39,6 +51,7 @@ describe('RollResult', () => {
           taxSuit: 'Moons',
           taxPhase: 'settled',
         }}
+        animationsEnabled={false}
         gameKey="seed"
       />
     );

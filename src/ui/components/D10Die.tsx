@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import '../../styles/d10-die.css';
+import { useDieMotion } from '../hooks/useDieMotion';
 
 const SIDE_ANGLE = 72; // 360 / 5 faces
 const TILT = 45; // degrees the die leans back at rest
@@ -40,6 +41,12 @@ export function D10Die({
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
   const [bounceNonce, setBounceNonce] = useState(0);
+  const { motionRef, moving } = useDieMotion(
+    rollTrigger,
+    bounceNonce,
+    animationsEnabled
+  );
+  const showGlow = glowing && !moving;
 
   useEffect(() => {
     if (result === undefined || rollTrigger === undefined) {
@@ -68,14 +75,14 @@ export function D10Die({
 
   return (
     <div
-      className={`die-glow die-glow-d10${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      className={`die-glow die-glow-d10${showGlow ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
     >
-      {glowing && <D10Glow />}
+      {showGlow && <D10Glow />}
       <div
         className="die-scene-d10"
         aria-label={result !== undefined ? `d10: ${result}` : 'd10'}
       >
-        <div className={`die-roll-bounce-wrap${bounceClass}`}>
+        <div ref={motionRef} className={`die-roll-bounce-wrap${bounceClass}`}>
           <div className="die-d10-viewport">
             <div
               className="die-d10"

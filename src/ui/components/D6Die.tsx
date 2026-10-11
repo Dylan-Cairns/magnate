@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Suit } from '../../engine/types';
 import '../../styles/d6-die.css';
+import { useDieMotion } from '../hooks/useDieMotion';
 import { reportImageRenderFailure } from '../cardImages';
 import { SUIT_ICON_BY_SUIT, SUIT_TOKEN_BG } from '../suitIcons';
 
@@ -55,6 +56,12 @@ export function D6Die({
   const [rotY, setRotY] = useState(INITIAL_ROT.y);
   const [rotZ, setRotZ] = useState(0);
   const [bounceNonce, setBounceNonce] = useState(0);
+  const { motionRef, moving } = useDieMotion(
+    rollTrigger,
+    bounceNonce,
+    animationsEnabled
+  );
+  const showGlow = glowing && !moving;
 
   useEffect(() => {
     if (suit === undefined || rollTrigger === undefined) {
@@ -82,13 +89,13 @@ export function D6Die({
 
   return (
     <div
-      className={`die-glow die-glow-d6${glowing ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
+      className={`die-glow die-glow-d6${showGlow ? ' is-glowing' : ''}${dimmed ? ' is-dimmed' : ''}`}
     >
       <div
         className="die-scene-d6"
         aria-label={suit !== undefined ? `d6: ${suit}` : 'd6'}
       >
-        <div className={`die-roll-bounce-wrap${bounceClass}`}>
+        <div ref={motionRef} className={`die-roll-bounce-wrap${bounceClass}`}>
           <div
             className="die-d6"
             style={{

@@ -251,6 +251,9 @@ Design expectations:
 - A settled winning d10 paints its halo on a separate 2D SVG silhouette with
   explicit filter bounds; its 3D scene has no ancestor filter while glowing.
   Filtering the 3D faces directly lets Firefox intermittently clip the glow.
+  Both dice suppress their glow until their own CSS rotation and bounce finish,
+  even if the presentation phase is already settled (for example, New Game).
+  Motion completion observes browser animations rather than adding a timer.
 - Human input is gated by a transaction-specific decision-window barrier, not by
   pending presentation. Later actions in the same human window use canonical
   legality immediately and may run ahead of visuals.
