@@ -129,6 +129,44 @@ describe('drawOne', () => {
     expect(result.rngCursor).toBe(4);
   });
 
+  it('starts final turns on the last successful draw of the second deck', () => {
+    const result = drawOne({
+      deck: { draw: ['6'], discard: ['7'], reshuffles: 1 },
+      seed: 'last-draw',
+      rngCursor: 10,
+    });
+
+    expect(result.cardId).toBe('6');
+    expect(result.deck).toEqual({ draw: [], discard: ['7'], reshuffles: 2 });
+    expect(result.finalTurnsRemaining).toBe(2);
+    expect(result.rngCursor).toBe(10);
+  });
+
+  it('does not start final turns on the last draw of the first deck', () => {
+    const result = drawOne({
+      deck: { draw: ['6'], discard: ['7'], reshuffles: 0 },
+      seed: 'first-deck-last-draw',
+      rngCursor: 10,
+    });
+
+    expect(result.cardId).toBe('6');
+    expect(result.deck.reshuffles).toBe(0);
+    expect(result.finalTurnsRemaining).toBeUndefined();
+  });
+
+  it('starts final turns when the reshuffled deck contains only one card', () => {
+    const result = drawOne({
+      deck: { draw: [], discard: ['6'], reshuffles: 0 },
+      seed: 'single-card-reshuffle',
+      rngCursor: 10,
+    });
+
+    expect(result.cardId).toBe('6');
+    expect(result.deck).toEqual({ draw: [], discard: [], reshuffles: 2 });
+    expect(result.finalTurnsRemaining).toBe(2);
+    expect(result.rngCursor).toBe(11);
+  });
+
   it('marks second exhaustion and no card draw when no reshuffle is available', () => {
     const result = drawOne({
       deck: { draw: [], discard: [], reshuffles: 1 },

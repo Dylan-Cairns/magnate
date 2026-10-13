@@ -14,6 +14,7 @@ import { legalActions } from './actionBuilders';
 import { applyAction } from './reducer';
 import { rngFromSeed } from './rng';
 import { advanceToDecision } from './turnFlow';
+import { Ruleset } from './types';
 
 describe('advanceToDecision', () => {
   it('returns the same state when already at a decision phase', () => {
@@ -120,7 +121,7 @@ describe('advanceToDecision', () => {
     expect(advanced.deck.draw).toEqual(['7', '8']);
   });
 
-  it('on first second-exhaustion draw, enters final-turn countdown and continues', () => {
+  it('counts a turn with a failed draw as a final turn when exhaustion was not yet marked', () => {
     const state = makeGameState({
       phase: 'DrawCard',
       turn: 10,
@@ -138,7 +139,7 @@ describe('advanceToDecision', () => {
     expect(advanced.turn).toBe(11);
     expect(advanced.activePlayerIndex).toBe(1);
     expect(advanced.deck.reshuffles).toBe(2);
-    expect(advanced.finalTurnsRemaining).toBe(2);
+    expect(advanced.finalTurnsRemaining).toBe(1);
   });
 
   it('ends the game when final-turn countdown reaches zero on DrawCard', () => {
@@ -187,50 +188,79 @@ describe('advanceToDecision', () => {
     expect(advanced.finalScore).toBeDefined();
   });
 
-  it('consumes both final turns before reaching GameOver after second exhaustion', () => {
-    const state = makeGameState({
-      phase: 'DrawCard',
-      turn: 20,
-      activePlayerIndex: 0,
-      deck: { draw: [], discard: [], reshuffles: 1 },
-      finalTurnsRemaining: undefined,
-      players: [
-        makePlayer(PLAYER_A, { crowns: [], resources: makeResources() }),
-        makePlayer(PLAYER_B, { crowns: [], resources: makeResources() }),
-      ] as const,
-    });
+  it.each([
+    [Ruleset.Standard, 0],
+    [Ruleset.Standard, 1],
+    [Ruleset.Extended, 0],
+    [Ruleset.Extended, 1],
+  ] as const)(
+    'gives both players one final turn with three cards (%s, last drawer %i)',
+    (ruleset, lastDrawerIndex) => {
+      const nextPlayerIndex = 1 - lastDrawerIndex;
+      const state = makeGameState({
+        phase: 'DrawCard',
+        turn: 20,
+        ruleset,
+        activePlayerIndex: lastDrawerIndex,
+        deck: { draw: ['10'], discard: [], reshuffles: 1 },
+        finalTurnsRemaining: undefined,
+        players: [
+          makePlayer(PLAYER_A, {
+            hand: lastDrawerIndex === 0 ? ['6', '7'] : ['6', '7', '8'],
+            crowns: [],
+            resources: makeResources(),
+          }),
+          makePlayer(PLAYER_B, {
+            hand: lastDrawerIndex === 1 ? ['11', '12'] : ['11', '12', '13'],
+            crowns: [],
+            resources: makeResources(),
+          }),
+        ] as const,
+      });
 
-    const enteredFinalTurns = advanceToDecision(state);
-    expect(enteredFinalTurns.phase).toBe('ActionWindow');
-    expect(enteredFinalTurns.activePlayerIndex).toBe(1);
-    expect(enteredFinalTurns.finalTurnsRemaining).toBe(2);
+      const enteredFinalTurns = advanceToDecision(state);
+      expect(enteredFinalTurns.phase).toBe('ActionWindow');
+      expect(enteredFinalTurns.activePlayerIndex).toBe(nextPlayerIndex);
+      expect(enteredFinalTurns.finalTurnsRemaining).toBe(2);
+      expect(
+        enteredFinalTurns.players.map((player) => player.hand.length)
+      ).toEqual([3, 3]);
+      expect(enteredFinalTurns.players[lastDrawerIndex].hand).toContain('10');
 
-    const playerBAfterPlay = applyAction(
-      enteredFinalTurns,
-      findLegalActionByType(enteredFinalTurns, 'sell-card')
-    );
-    const playerBAfterEnd = applyAction(
-      playerBAfterPlay,
-      findLegalActionByType(playerBAfterPlay, 'end-turn')
-    );
-    const afterPlayerBDraw = advanceToDecision(playerBAfterEnd);
-    expect(afterPlayerBDraw.phase).toBe('ActionWindow');
-    expect(afterPlayerBDraw.activePlayerIndex).toBe(0);
-    expect(afterPlayerBDraw.finalTurnsRemaining).toBe(1);
+      const playerBAfterPlay = applyAction(
+        enteredFinalTurns,
+        findLegalActionByType(enteredFinalTurns, 'sell-card')
+      );
+      const playerBAfterEnd = applyAction(
+        playerBAfterPlay,
+        findLegalActionByType(playerBAfterPlay, 'end-turn')
+      );
+      const afterPlayerBDraw = advanceToDecision(playerBAfterEnd);
+      expect(afterPlayerBDraw.phase).toBe('ActionWindow');
+      expect(afterPlayerBDraw.activePlayerIndex).toBe(lastDrawerIndex);
+      expect(afterPlayerBDraw.finalTurnsRemaining).toBe(1);
+      expect(afterPlayerBDraw.players[lastDrawerIndex].hand).toHaveLength(3);
+      expect(afterPlayerBDraw.players[nextPlayerIndex].hand).toHaveLength(2);
 
-    const playerAAfterPlay = applyAction(
-      afterPlayerBDraw,
-      findLegalActionByType(afterPlayerBDraw, 'sell-card')
-    );
-    const playerAAfterEnd = applyAction(
-      playerAAfterPlay,
-      findLegalActionByType(playerAAfterPlay, 'end-turn')
-    );
-    const afterPlayerADraw = advanceToDecision(playerAAfterEnd);
-    expect(afterPlayerADraw.phase).toBe('GameOver');
-    expect(afterPlayerADraw.finalTurnsRemaining).toBe(0);
-    expect(afterPlayerADraw.finalScore).toBeDefined();
-  });
+      const playerAAfterPlay = applyAction(
+        afterPlayerBDraw,
+        findLegalActionByType(afterPlayerBDraw, 'sell-card')
+      );
+      const playerAAfterEnd = applyAction(
+        playerAAfterPlay,
+        findLegalActionByType(playerAAfterPlay, 'end-turn')
+      );
+      expect(
+        playerAAfterEnd.players.map((player) => player.hand.length)
+      ).toEqual([2, 2]);
+      const afterPlayerADraw = advanceToDecision(playerAAfterEnd);
+      expect(afterPlayerADraw.phase).toBe('GameOver');
+      expect(afterPlayerADraw.finalTurnsRemaining).toBe(0);
+      expect(afterPlayerADraw.finalScore).toBeDefined();
+      expect(afterPlayerADraw.turn).toBe(23);
+      expect(afterPlayerADraw.deck.discard).toHaveLength(6);
+    }
+  );
 });
 
 describe('tax and income resolution', () => {

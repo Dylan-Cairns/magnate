@@ -150,7 +150,10 @@ Design expectations:
 - Decision phases are where external actors choose actions: `CollectIncome`
   with unsubmitted income choices and `ActionWindow`.
 - Draw/exhaustion handling and the final-turn countdown are part of phase
-  resolution; exhaustion is canonical in `deck.reshuffles`.
+  resolution; exhaustion is canonical in `deck.reshuffles`. The last successful
+  draw from the second deck starts two final turns; the drawing turn does not
+  consume the countdown. A failed draw counts as a final turn even when loading
+  an older state that has not yet marked the second exhaustion.
 - Card-play gating is explicit (`cardPlayedThisTurn`): exactly one card-play
   action per turn. The `ActionWindow` surface is `trade` / `develop-deed` /
   card plays pre-card and `trade` / `develop-deed` / `end-turn` post-card.

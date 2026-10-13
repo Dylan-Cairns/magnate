@@ -592,7 +592,7 @@ describe('strategic position catalog v2', () => {
         knownState = playSaleTurn(knownState);
         expect(decisionPlayerIdForState(knownState)).toBe('PlayerA');
         expect(knownState.phase).toBe('ActionWindow');
-        expect(knownState.finalTurnsRemaining).toBe(2);
+        expect(knownState.finalTurnsRemaining).toBe(1);
         expect(knownState.players[0].resources.Waves).toBeGreaterThanOrEqual(1);
         expect(knownState.players[0].resources.Leaves).toBeGreaterThanOrEqual(
           1
@@ -626,7 +626,7 @@ describe('strategic position catalog v2', () => {
         unknownState = playSaleTurn(unknownState);
         expect(decisionPlayerIdForState(unknownState)).toBe('PlayerA');
         expect(unknownState.phase).toBe('ActionWindow');
-        expect(unknownState.finalTurnsRemaining).toBe(2);
+        expect(unknownState.finalTurnsRemaining).toBe(1);
         expect(unknownState.players[0].resources.Leaves).toBeGreaterThanOrEqual(
           5
         );
@@ -665,7 +665,7 @@ describe('strategic position catalog v2', () => {
         knownState = playSaleTurn(knownState);
         expect(decisionPlayerIdForState(knownState)).toBe('PlayerA');
         expect(knownState.phase).toBe('ActionWindow');
-        expect(knownState.finalTurnsRemaining).toBe(2);
+        expect(knownState.finalTurnsRemaining).toBe(1);
         expect(knownState.players[0].resources.Moons).toBeGreaterThanOrEqual(1);
         expect(knownState.players[0].resources.Knots).toBeGreaterThanOrEqual(1);
 
@@ -704,7 +704,7 @@ describe('strategic position catalog v2', () => {
         unknownState = playSaleTurn(unknownState);
         expect(decisionPlayerIdForState(unknownState)).toBe('PlayerA');
         expect(unknownState.phase).toBe('ActionWindow');
-        expect(unknownState.finalTurnsRemaining).toBe(2);
+        expect(unknownState.finalTurnsRemaining).toBe(1);
         expect(unknownState.players[0].resources.Suns).toBeGreaterThanOrEqual(
           1
         );

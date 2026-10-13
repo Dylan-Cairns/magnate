@@ -116,7 +116,7 @@ Results:
 
 - Draw 1 card; your turn ends.
 - First time the draw pile is exhausted: shuffle the discard pile to form a new draw pile.
-- Second time the draw pile is exhausted: each player takes one final turn; then the game ends.
+- Drawing the last card from the second draw pile starts the final round. Each player then takes one final turn, starting with a full three-card hand and playing one card without drawing; then the game ends.
 
 ## 7. Victory
 

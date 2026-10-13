@@ -22,11 +22,17 @@ export function drawOne(context: DrawContext): DrawResult {
 
   const topDraw = drawTop(deck);
   if (topDraw.cardId) {
+    const exhaustedSecondDeck =
+      deck.reshuffles === 1 && topDraw.deck.draw.length === 0;
     return {
       cardId: topDraw.cardId,
-      deck: topDraw.deck,
+      deck: exhaustedSecondDeck
+        ? { ...topDraw.deck, reshuffles: 2 }
+        : topDraw.deck,
       rngCursor,
-      finalTurnsRemaining,
+      finalTurnsRemaining: exhaustedSecondDeck
+        ? (finalTurnsRemaining ?? 2)
+        : finalTurnsRemaining,
     };
   }
 
