@@ -1,3 +1,4 @@
+import { botCandidateActions } from './policyUtils';
 import {
   EffectiveSearchExecutionMode,
   BotWorkerMessageType,
@@ -193,11 +194,12 @@ export function createWorkerBackedPolicy(
 
   return {
     selectAction(context) {
-      if (context.legalActions.length === 0) {
+      const candidates = botCandidateActions(context.legalActions);
+      if (candidates.length === 0) {
         return undefined;
       }
-      if (context.legalActions.length === 1) {
-        return context.legalActions[0];
+      if (candidates.length === 1) {
+        return candidates[0];
       }
 
       if (pendingByRequestId.size > 0) {
@@ -210,7 +212,7 @@ export function createWorkerBackedPolicy(
 
       return new Promise<GameAction | undefined>((resolve, reject) => {
         pendingByRequestId.set(requestId, {
-          legalActions: context.legalActions,
+          legalActions: candidates,
           onSearchDiagnostics: context.onSearchDiagnostics,
           resolve,
           reject,
@@ -223,7 +225,7 @@ export function createWorkerBackedPolicy(
             spec,
             state: context.state,
             view: context.view,
-            legalActions: [...context.legalActions],
+            legalActions: candidates,
             randomSeed: randomSeedForContext(context, spec),
             ...(context.onSearchDiagnostics
               ? { collectDiagnostics: true }

@@ -1,4 +1,5 @@
 import { ActionId, CardKind } from '../engine/values';
+import { botCandidateActions } from './policyUtils';
 import {
   actionStableKey,
   toKeyedActions,
@@ -81,7 +82,8 @@ const SAFE_CONTROL_MARGIN_WHILE_EXPANDING = 4;
 export function selectHeuristicAction(
   context: HeuristicSelectionContext
 ): GameAction | undefined {
-  return bestHeuristicAction(context.legalActions, context)?.action;
+  return bestHeuristicAction(botCandidateActions(context.legalActions), context)
+    ?.action;
 }
 
 export function bestHeuristicAction(

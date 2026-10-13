@@ -22,6 +22,7 @@ import {
 import type { LoadedTdGuidanceModel } from './tdGuidanceModel';
 import { encodeActionCandidates, encodeObservation } from './trainingEncoding';
 import type { ActionPolicy } from './types';
+import { botCandidateActions } from './policyUtils';
 
 export type TdRootSearchPolicyConfig = SearchPolicyConfig;
 
@@ -59,12 +60,13 @@ export function createTdRootSearchPolicy(
     async selectAction({
       state,
       view,
-      legalActions: candidateActions,
+      legalActions,
       random,
       randomSeed,
       onSearchDiagnostics,
       onProgress,
     }) {
+      const candidateActions = botCandidateActions(legalActions);
       if (candidateActions.length === 0) {
         return undefined;
       }

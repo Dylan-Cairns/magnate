@@ -1,11 +1,13 @@
 import type { ActionPolicy } from './types';
+import { botCandidateActions } from './policyUtils';
 
 export const randomPolicy: ActionPolicy = {
   selectAction({ legalActions, random }) {
-    if (legalActions.length === 0) {
+    const candidates = botCandidateActions(legalActions);
+    if (candidates.length === 0) {
       return undefined;
     }
-    const index = Math.floor(random() * legalActions.length);
-    return legalActions[index];
+    const index = Math.floor(random() * candidates.length);
+    return candidates[index];
   },
 };

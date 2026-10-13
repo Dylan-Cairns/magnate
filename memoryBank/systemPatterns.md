@@ -65,6 +65,9 @@ Design expectations:
   derive legality and decisions through canonical engine APIs.
 - Bot and human action selection sit behind a shared async `ActionPolicy`
   contract so policy swaps do not change controller flow.
+- TypeScript bots omit rank-2 deed purchases through `botCandidateActions`,
+  including random exploration and serial/paired search rollouts. This policy
+  pruning leaves engine legality, replay, bridge actions, and encoding unchanged.
 - Bot profiles resolve through `src/policies/catalog.ts`. Easy/Medium/Hard are
   deterministic `rollout-search-v2-*` profiles with heuristic v2; Experimental RL (slow)
   is `td-root-search-v2-medium` and is standard-ruleset only. Unknown or

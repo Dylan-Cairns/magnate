@@ -1,4 +1,5 @@
 import { ActionId } from '../engine/values';
+import { botCandidateActions } from './policyUtils';
 import { RolloutSearchGuidanceKind } from './values';
 import {
   actionStableKey,
@@ -356,12 +357,13 @@ export function pruneDominatedRootActions(
   playerId: PlayerId,
   actions: readonly GameAction[]
 ): GameAction[] {
+  const candidates = botCandidateActions(actions);
   if (!state.cardPlayedThisTurn) {
-    return [...actions];
+    return candidates;
   }
   const potentialBefore = resourcePotentialV2(state, playerId);
   const totalBefore = totalResourceTokens(state, playerId);
-  return actions.filter((action) => {
+  return candidates.filter((action) => {
     if (action.type !== ActionId.Trade) {
       return true;
     }
@@ -547,7 +549,9 @@ function* runRolloutSearchTaskResumableGenerator(
     ) {
       break;
     }
-    const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
+    const actions = botCandidateActions(
+      legalActionsForDecisionPlayer(state, decisionPlayer)
+    );
     if (actions.length === 0) {
       break;
     }
@@ -1045,7 +1049,9 @@ function runRollout(
     ) {
       break;
     }
-    const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
+    const actions = botCandidateActions(
+      legalActionsForDecisionPlayer(state, decisionPlayer)
+    );
     if (actions.length === 0) {
       break;
     }

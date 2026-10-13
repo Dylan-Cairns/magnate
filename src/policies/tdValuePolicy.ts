@@ -14,7 +14,11 @@ import {
   DEFAULT_TD_VALUE_MODEL_INDEX_PATH,
   preloadTdValueBrowserModel,
 } from './modelRuntimeCache';
-import { cachedAsyncLoader, forcedAction } from './policyUtils';
+import {
+  botCandidateActions,
+  cachedAsyncLoader,
+  forcedAction,
+} from './policyUtils';
 import { type TdValueScorer } from './tdValueModelPack';
 
 const DEFAULT_TD_VALUE_WORLDS = 8;
@@ -39,12 +43,8 @@ export function createTdValuePolicy(
   const getModel = cachedAsyncLoader(configuredLoader);
 
   return {
-    async selectAction({
-      view,
-      state,
-      legalActions: candidateActions,
-      random,
-    }) {
+    async selectAction({ view, state, legalActions, random }) {
+      const candidateActions = botCandidateActions(legalActions);
       const forced = forcedAction(candidateActions);
       if (forced !== null) {
         return forced;
