@@ -23,6 +23,52 @@ import {
 import { SUIT_TEXT_TOKEN } from './suitIcons';
 
 describe('buildHumanActionList', () => {
+  it('hides rank-2 deed purchases while retaining outright builds and higher-rank deeds', () => {
+    const state = makeGameState({
+      phase: 'ActionWindow',
+      players: [
+        makePlayer(PLAYER_A, {
+          hand: ['6', '7', '8', '9'],
+          resources: makeResources({
+            Moons: 3,
+            Suns: 3,
+            Waves: 3,
+            Leaves: 3,
+            Wyrms: 3,
+            Knots: 3,
+          }),
+        }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+    const actions = legalActions(state);
+    const grouped = buildHumanActionList(actions);
+
+    for (const cardId of ['6', '7', '8']) {
+      expect(
+        actions.some(
+          (action) => action.type === 'buy-deed' && action.cardId === cardId
+        )
+      ).toBe(true);
+      expect(
+        grouped.some(
+          (item) => item.kind === 'buy-deed-group' && item.cardId === cardId
+        )
+      ).toBe(false);
+      expect(
+        grouped.some(
+          (item) =>
+            item.kind === 'develop-outright-group' && item.cardId === cardId
+        )
+      ).toBe(true);
+    }
+    expect(
+      grouped.some(
+        (item) => item.kind === 'buy-deed-group' && item.cardId === '9'
+      )
+    ).toBe(true);
+  });
+
   it('groups trade actions by give suit', () => {
     const state = makeGameState({
       phase: 'ActionWindow',
@@ -147,8 +193,8 @@ describe('buildHumanActionList', () => {
       phase: 'ActionWindow',
       players: [
         makePlayer(PLAYER_A, {
-          hand: ['6'],
-          resources: makeResources({ Moons: 3, Knots: 3, Suns: 3 }),
+          hand: ['9'],
+          resources: makeResources({ Moons: 3, Knots: 3, Suns: 3, Waves: 3 }),
         }),
         makePlayer(PLAYER_B),
       ] as const,

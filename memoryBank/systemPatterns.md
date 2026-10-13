@@ -235,6 +235,9 @@ Design expectations:
 
 ## UI Presentation Pattern
 
+- The human action menu omits rank-2 deed purchases because outright development
+  costs the same and completes the property immediately. Engine legality and
+  policy/bridge action surfaces retain these purchases.
 - Partial-income actions always use one submenu per player/card/district, even
   when only one card remains. Suit choices stay inside that submenu so resolving
   another card does not change the remaining card's interaction.

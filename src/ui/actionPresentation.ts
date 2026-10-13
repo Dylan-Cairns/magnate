@@ -204,6 +204,10 @@ export function buildHumanActionList(
     }
 
     if (action.type === ActionId.BuyDeed) {
+      // Rank-2 deeds cost the same as building outright; omit the inferior UI choice.
+      if (CARD_BY_ID[action.cardId].rank === 2) {
+        continue;
+      }
       const existing = buyDeedGroups.get(action.cardId);
       if (existing) {
         existing.options.push(action);
