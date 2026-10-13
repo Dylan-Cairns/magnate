@@ -37,8 +37,8 @@ export function scoreGame(state: GameState): FinalScore {
 
   state.districts.forEach((district) => {
     const districtRankTotals = {
-      [PlayerId.PlayerA]: rankTotal(district.stacks[PlayerId.PlayerA]),
-      [PlayerId.PlayerB]: rankTotal(district.stacks[PlayerId.PlayerB]),
+      [PlayerId.PlayerA]: districtScore(district.stacks[PlayerId.PlayerA]),
+      [PlayerId.PlayerB]: districtScore(district.stacks[PlayerId.PlayerB]),
     };
 
     rankTotals[PlayerId.PlayerA] += districtRankTotals[PlayerId.PlayerA];
@@ -130,13 +130,6 @@ export function districtScore(stack: DistrictStack): number {
       return sum + additionalMatches;
     }, 0);
   return base + aceBonus;
-}
-
-function rankTotal(stack: DistrictStack): number {
-  return developedProperties(stack).reduce(
-    (sum, property) => sum + property.rank,
-    0
-  );
 }
 
 function developedProperties(stack: DistrictStack) {

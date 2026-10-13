@@ -278,6 +278,7 @@ describe('extended rules: income and victory', () => {
     const district = state.districts.find((item) => item.id === 'D1')!;
     // Ace of Moons (1) + Court (10) + 1 Ace bonus for the Court's Moons suit.
     expect(districtScore(district.stacks[PLAYER_A])).toBe(12);
+    expect(scoreGame(state).rankTotals[PLAYER_A]).toBe(12);
   });
 });
 

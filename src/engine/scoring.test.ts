@@ -106,6 +106,47 @@ describe('scoreGame', () => {
     expect(score.decidedBy).toBe('rank-total');
   });
 
+  it('includes Ace bonuses in the total-properties tiebreaker', () => {
+    const districts = withStacks('D1', {
+      [PLAYER_A]: { developed: ['0', '6', '10'] },
+      [PLAYER_B]: { developed: ['17'] },
+    }).map((district) =>
+      district.id === 'D2'
+        ? withStacks('D2', {
+            [PLAYER_A]: { developed: ['7'] },
+            [PLAYER_B]: { developed: ['12'] },
+          }).find((entry) => entry.id === 'D2')!
+        : district
+    );
+    const state = makeGameState({ districts });
+
+    const score = scoreGame(state);
+    // Raw ranks would give B an 8-9 win; A's two local Ace bonuses reverse it.
+    expect(score.districtPoints).toEqual({ PlayerA: 1, PlayerB: 1 });
+    expect(score.rankTotals).toEqual({ PlayerA: 10, PlayerB: 9 });
+    expect(score.winner).toBe('PlayerA');
+    expect(score.decidedBy).toBe('rank-total');
+  });
+
+  it('includes Ace bonuses from tied districts before comparing resources', () => {
+    const state = makeGameState({
+      districts: withStacks('D1', {
+        [PLAYER_A]: { developed: ['0', '6'] },
+        [PLAYER_B]: { developed: ['12'] },
+      }),
+      players: [
+        makePlayer(PLAYER_A, { resources: makeResources({ Moons: 1 }) }),
+        makePlayer(PLAYER_B),
+      ] as const,
+    });
+
+    const score = scoreGame(state);
+    expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 0 });
+    expect(score.rankTotals).toEqual({ PlayerA: 4, PlayerB: 4 });
+    expect(score.winner).toBe('PlayerA');
+    expect(score.decidedBy).toBe('resources');
+  });
+
   it('uses resource tiebreaker when districts and rank totals tie', () => {
     const districts = withStacks('D1', {
       [PLAYER_A]: { developed: ['6'] },
@@ -181,7 +222,7 @@ describe('scoreGame', () => {
 
     const score = scoreGame(state);
     expect(score.districtPoints).toEqual({ PlayerA: 0, PlayerB: 1 });
-    expect(score.rankTotals).toEqual({ PlayerA: 4, PlayerB: 6 });
+    expect(score.rankTotals).toEqual({ PlayerA: 5, PlayerB: 6 });
     expect(score.winner).toBe('PlayerB');
     expect(score.decidedBy).toBe('districts');
   });
@@ -252,13 +293,13 @@ describe('scoreGame', () => {
         { districtId: 'D5', margin: 0 },
       ],
       districtScoreMarginTotal: 1,
-      rankTotalMargin: 0,
+      rankTotalMargin: 1,
       resourceMargin: 2,
     });
     expect(scoreMarginsForPlayer(state, PLAYER_B, finalScore)).toMatchObject({
       districtPointMargin: -1,
       districtScoreMarginTotal: -1,
-      rankTotalMargin: 0,
+      rankTotalMargin: -1,
       resourceMargin: -2,
     });
   });

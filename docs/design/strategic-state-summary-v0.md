@@ -51,7 +51,7 @@ Implementation: `src/policies/strategicStateSummary.ts`. Contract identifier:
 | identity          | source state schema, perspective player, opponent player, visibility boundary                                                            |
 | turn              | turn number, phase, raw turn owner, card-play status, terminal status                                                                    |
 | clock             | draw count, discard count, reshuffle count, exact final-turn counter                                                                     |
-| live score        | Ace-aware district points, raw developed-rank totals, resources, margins, provisional lexicographic outcome                              |
+| live score        | Ace-aware district points and total-properties totals, resources, margins, provisional lexicographic outcome                             |
 | players           | Crowns and suit counts, loose resources, exact tax loss by suit, developed/deed counts, exact income sources for results 1-10            |
 | districts         | board order, marker suits, score/control, developed order, raw rank, Ace bonus, deed work and resource feasibility, placement constraint |
 | placement support | own known compatible hand cards and compatible cards in the combined unknown support for each player's stack                             |
