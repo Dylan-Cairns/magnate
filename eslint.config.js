@@ -8,7 +8,7 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 
 export default [
   {
-    ignores: ['node_modules/**', 'dist/**', '.venv/**'],
+    ignores: ['node_modules/**', 'dist/**', '.venv/**', 'artifacts/**'],
   },
   js.configs.recommended,
   {
