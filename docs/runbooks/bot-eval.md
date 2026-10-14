@@ -29,6 +29,10 @@ canonical TypeScript engine.
   heartbeats). Strategic-position characterization reports per decision and does
   not use this flag.
 
+Forced rollout traces compute TD and heuristic proposals over the same filtered
+bot candidates used by the rollout, and verify that the followed proposal
+matches the action taken. Engine legality remains unchanged.
+
 ## Head-To-Head Artifacts
 
 Head-to-head evals use paired seeds, swapped policy seats, alternating

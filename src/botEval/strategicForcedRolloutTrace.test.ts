@@ -71,6 +71,12 @@ describe('strategic forced rollout trace', () => {
           );
           for (const step of trace.steps.slice(1)) {
             expect(step.proposals).not.toBeNull();
+            expect(step.legalActionKeys).toContain(
+              step.proposals!.td.actionKey
+            );
+            expect(step.legalActionKeys).toContain(
+              step.proposals!.heuristicV2.actionKey
+            );
             expect(step.actionKey).toBe(
               trace.guide === 'td'
                 ? step.proposals!.td.actionKey

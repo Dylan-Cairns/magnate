@@ -19,6 +19,7 @@ import {
 } from '../engine/types';
 import { sampleHiddenWorldStates } from '../policies/determinization';
 import { scoreHeuristicV2Actions } from '../policies/heuristicScorerV2';
+import { botCandidateActions } from '../policies/policyUtils';
 import {
   DEFAULT_TD_ROOT_MODEL_INDEX_PATH,
   preloadTdRootBrowserModel,
@@ -602,7 +603,9 @@ function proposalsForState({
   context: OptionalityContext;
   model: LoadedTdGuidanceModel;
 }): NonNullable<StrategicForcedRolloutStepV0['proposals']> {
-  const actions = legalActionsForDecisionPlayer(state, decisionPlayer);
+  const actions = botCandidateActions(
+    legalActionsForDecisionPlayer(state, decisionPlayer)
+  );
   const view = toDecisionPlayerView(state, decisionPlayer);
   const keyed = toKeyedActions(actions);
   const observation = encodeObservation(view);
