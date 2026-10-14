@@ -142,7 +142,7 @@ describe('drawOne', () => {
     expect(result.rngCursor).toBe(10);
   });
 
-  it('does not start final turns on the last draw of the first deck', () => {
+  it('reshuffles immediately after the last draw of the first deck without drawing twice', () => {
     const result = drawOne({
       deck: { draw: ['6'], discard: ['7'], reshuffles: 0 },
       seed: 'first-deck-last-draw',
@@ -150,8 +150,28 @@ describe('drawOne', () => {
     });
 
     expect(result.cardId).toBe('6');
-    expect(result.deck.reshuffles).toBe(0);
+    expect(result.deck).toEqual({ draw: ['7'], discard: [], reshuffles: 1 });
+    expect(result.rngCursor).toBe(11);
     expect(result.finalTurnsRemaining).toBeUndefined();
+
+    const next = drawOne({ ...result, seed: 'first-deck-last-draw' });
+    expect(next.cardId).toBe('7');
+    expect(next.deck.reshuffles).toBe(2);
+    expect(next.finalTurnsRemaining).toBe(2);
+    expect(next.rngCursor).toBe(11);
+  });
+
+  it('starts final turns immediately if the first deck empties with no discards', () => {
+    const result = drawOne({
+      deck: { draw: ['6'], discard: [], reshuffles: 0 },
+      seed: 'empty-discard',
+      rngCursor: 10,
+    });
+
+    expect(result.cardId).toBe('6');
+    expect(result.deck).toEqual({ draw: [], discard: [], reshuffles: 2 });
+    expect(result.finalTurnsRemaining).toBe(2);
+    expect(result.rngCursor).toBe(10);
   });
 
   it('starts final turns when the reshuffled deck contains only one card', () => {
@@ -200,7 +220,7 @@ describe('drawOne', () => {
   it('uses seed + rngCursor for deterministic reshuffle ordering', () => {
     const baseContext: DrawContext = {
       deck: {
-        draw: [],
+        draw: ['12'],
         discard: ['6', '7', '8', '9', '10', '11'],
         reshuffles: 0,
       },
@@ -232,7 +252,7 @@ describe('issue regressions', () => {
   it('issue 7: reshuffle path changes when rngCursor changes', () => {
     const base: DrawContext = {
       deck: {
-        draw: [],
+        draw: ['12'],
         discard: ['6', '7', '8', '9', '10', '11'],
         reshuffles: 0,
       },

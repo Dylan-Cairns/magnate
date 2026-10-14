@@ -68,6 +68,9 @@ Design expectations:
 - TypeScript bots omit rank-2 deed purchases through `botCandidateActions`,
   including random exploration and serial/paired search rollouts. This policy
   pruning leaves engine legality, replay, bridge actions, and encoding unchanged.
+  TD replay requires search diagnostics for choices between multiple root
+  candidates; a single candidate after root pruning has an explicit one-hot
+  target over the unchanged canonical legal-action list.
 - Bot profiles resolve through `src/policies/catalog.ts`. Easy/Medium/Hard are
   deterministic `rollout-search-v2-*` profiles with heuristic v2; Experimental RL (slow)
   is `td-root-search-v2-medium` and is standard-ruleset only. Unknown or
@@ -153,10 +156,13 @@ Design expectations:
 - Decision phases are where external actors choose actions: `CollectIncome`
   with unsubmitted income choices and `ActionWindow`.
 - Draw/exhaustion handling and the final-turn countdown are part of phase
-  resolution; exhaustion is canonical in `deck.reshuffles`. The last successful
-  draw from the second deck starts two final turns; the drawing turn does not
-  consume the countdown. A failed draw counts as a final turn even when loading
-  an older state that has not yet marked the second exhaustion.
+  resolution; exhaustion is canonical in `deck.reshuffles`. Draw policy resolves
+  exhaustion immediately: the last draw from the first deck reshuffles the
+  current discards without drawing twice; the last draw from the second deck
+  starts two final turns. An empty discard pile at first exhaustion also starts
+  the final round. The drawing turn does not consume the countdown; subsequent
+  turns with no draw do. Earlier saves and replay artifacts may be incompatible
+  with the corrected shuffle timing; legacy rules are not supported.
 - Card-play gating is explicit (`cardPlayedThisTurn`): exactly one card-play
   action per turn. The `ActionWindow` surface is `trade` / `develop-deed` /
   card plays pre-card and `trade` / `develop-deed` / `end-turn` post-card.

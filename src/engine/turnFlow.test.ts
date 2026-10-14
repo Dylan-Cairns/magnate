@@ -142,6 +142,41 @@ describe('advanceToDecision', () => {
     expect(advanced.finalTurnsRemaining).toBe(1);
   });
 
+  it('reshuffles before handoff and excludes the next player sale from the second deck', () => {
+    const state = makeGameState({
+      phase: 'DrawCard',
+      deck: { draw: ['10'], discard: ['14'], reshuffles: 0 },
+      players: [
+        makePlayer(PLAYER_A, { hand: ['6', '7'] }),
+        makePlayer(PLAYER_B, { hand: ['11', '12', '13'] }),
+      ],
+    });
+
+    const afterDraw = advanceToDecision(state);
+    expect(afterDraw.players[0].hand).toEqual(['6', '7', '10']);
+    expect(afterDraw.deck).toEqual({
+      draw: ['14'],
+      discard: [],
+      reshuffles: 1,
+    });
+    expect(afterDraw.finalTurnsRemaining).toBeUndefined();
+
+    const afterSale = applyAction(afterDraw, {
+      type: 'sell-card',
+      cardId: '11',
+    });
+    const afterNextDraw = advanceToDecision(
+      applyAction(afterSale, { type: 'end-turn' })
+    );
+    expect(afterNextDraw.players[1].hand).toEqual(['12', '13', '14']);
+    expect(afterNextDraw.deck).toEqual({
+      draw: [],
+      discard: ['11'],
+      reshuffles: 2,
+    });
+    expect(afterNextDraw.finalTurnsRemaining).toBe(2);
+  });
+
   it('ends the game when final-turn countdown reaches zero on DrawCard', () => {
     const districts = makeDefaultDistricts().map((district) => {
       if (district.id !== 'D1') {
@@ -189,20 +224,22 @@ describe('advanceToDecision', () => {
   });
 
   it.each([
-    [Ruleset.Standard, 0],
-    [Ruleset.Standard, 1],
-    [Ruleset.Extended, 0],
-    [Ruleset.Extended, 1],
+    [Ruleset.Standard, 0, 1],
+    [Ruleset.Standard, 1, 1],
+    [Ruleset.Extended, 0, 1],
+    [Ruleset.Extended, 1, 1],
+    [Ruleset.Standard, 0, 0],
+    [Ruleset.Extended, 1, 0],
   ] as const)(
     'gives both players one final turn with three cards (%s, last drawer %i)',
-    (ruleset, lastDrawerIndex) => {
+    (ruleset, lastDrawerIndex, reshuffles) => {
       const nextPlayerIndex = 1 - lastDrawerIndex;
       const state = makeGameState({
         phase: 'DrawCard',
         turn: 20,
         ruleset,
         activePlayerIndex: lastDrawerIndex,
-        deck: { draw: ['10'], discard: [], reshuffles: 1 },
+        deck: { draw: ['10'], discard: [], reshuffles },
         finalTurnsRemaining: undefined,
         players: [
           makePlayer(PLAYER_A, {

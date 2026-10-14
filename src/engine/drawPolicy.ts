@@ -18,43 +18,41 @@ export interface DrawResult {
 }
 
 export function drawOne(context: DrawContext): DrawResult {
-  const { deck, seed, rngCursor, finalTurnsRemaining } = context;
+  const ready = resolveExhaustion(context);
+  const draw = drawTop(ready.deck);
+  const resolved = resolveExhaustion({ ...ready, deck: draw.deck });
 
-  const topDraw = drawTop(deck);
-  if (topDraw.cardId) {
-    const exhaustedSecondDeck =
-      deck.reshuffles === 1 && topDraw.deck.draw.length === 0;
-    return {
-      cardId: topDraw.cardId,
-      deck: exhaustedSecondDeck
-        ? { ...topDraw.deck, reshuffles: 2 }
-        : topDraw.deck,
-      rngCursor,
-      finalTurnsRemaining: exhaustedSecondDeck
-        ? (finalTurnsRemaining ?? 2)
-        : finalTurnsRemaining,
-    };
+  return {
+    cardId: draw.cardId,
+    deck: resolved.deck,
+    rngCursor: resolved.rngCursor,
+    finalTurnsRemaining: resolved.finalTurnsRemaining,
+  };
+}
+
+function resolveExhaustion(context: DrawContext): DrawContext {
+  const { deck, seed, rngCursor, finalTurnsRemaining } = context;
+  if (deck.draw.length > 0) {
+    return context;
   }
 
   if (deck.reshuffles === 0 && deck.discard.length > 0) {
     const rand = rngFromSeed(`${seed}:reshuffle:${rngCursor}`);
-    const reshuffledDeck = reshuffleDiscardIntoDraw(deck, rand);
-    return drawOne({
-      deck: reshuffledDeck,
-      seed,
+    return {
+      ...context,
+      deck: reshuffleDiscardIntoDraw(deck, rand),
       rngCursor: rngCursor + 1,
-      finalTurnsRemaining,
-    });
+    };
   }
 
+  // An empty discard pile leaves the second deck empty too.
   return {
-    cardId: undefined,
+    ...context,
     deck: {
       ...deck,
       draw: [],
       reshuffles: 2,
     },
-    rngCursor,
     finalTurnsRemaining: finalTurnsRemaining ?? 2,
   };
 }

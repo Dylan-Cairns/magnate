@@ -115,8 +115,9 @@ Results:
 ## 6. Draw a Card and End of Turn
 
 - Draw 1 card; your turn ends.
-- First time the draw pile is exhausted: shuffle the discard pile to form a new draw pile.
+- Drawing the last card from the first draw pile immediately shuffles the discard pile to form the second draw pile, before the next player's turn. This does not grant an extra draw. Cards sold afterward stay in the discard pile.
 - Drawing the last card from the second draw pile starts the final round. Each player then takes one final turn, starting with a full three-card hand and playing one card without drawing; then the game ends.
+- If the discard pile is empty at the first exhaustion, the second draw pile is also empty and the final round starts immediately.
 
 ## 7. Victory
 

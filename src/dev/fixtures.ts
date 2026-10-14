@@ -23,7 +23,7 @@ export type DevFixtureId =
   | 'd6-suns';
 
 const DEV_FIXTURE_PARAM = 'fixture';
-const LATE_GAME_FIXTURE_SEED = 'dev-late-6';
+const LATE_GAME_FIXTURE_SEED = 'dev-late-0';
 const LATE_GAME_MAX_DECISIONS = 500;
 const END_GAME_WIN_FIXTURE_SEED = 'dev-end-win-6';
 const END_GAME_WIN_MAX_DECISIONS = 700;

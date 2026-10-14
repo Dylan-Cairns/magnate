@@ -311,7 +311,7 @@ function resolveDrawPhase(state: GameState): GameState {
     finalTurnsRemaining: draw.finalTurnsRemaining,
   };
 
-  // A failed draw already belongs to a final turn (including older saves).
+  // A failed draw already belongs to a final turn.
   const justEnteredFinalTurns =
     previousReshuffles !== 2 &&
     withDraw.deck.reshuffles === 2 &&

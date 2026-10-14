@@ -4,8 +4,7 @@ import type { CardId } from '../engine/cards';
 import { legalActions } from '../engine/actionBuilders';
 import { actionStableKey } from '../engine/actionSurface';
 import { rngFromSeed } from '../engine/rng';
-import { isTerminal } from '../engine/scoring';
-import { createSession, stepToDecision } from '../engine/session';
+import { createSession } from '../engine/session';
 import type {
   DeedState,
   DistrictState,
@@ -16,6 +15,7 @@ import type {
 } from '../engine/types';
 import { toPlayerView } from '../engine/view';
 import { heuristicPolicy } from './heuristicPolicy';
+import nearEqualHeuristicState from './nearEqualHeuristicState.fixture.json';
 import {
   bestHeuristicAction,
   heuristicPriorsByKey,
@@ -72,7 +72,8 @@ describe('heuristic scorer', () => {
   });
 
   it('uses full-ranking tie-breaks for near-equal best action scores', () => {
-    const state = randomReachableState('typed-regression-v1-37', 141);
+    // Freeze the regression position so draw timing changes do not replace it.
+    const state = nearEqualHeuristicState as GameState;
     const actions = legalActions(state);
 
     const best = bestHeuristicAction(actions, { state });
@@ -652,16 +653,6 @@ describe('heuristic policy', () => {
     expect(legalKeys.has(actionStableKey(selected!))).toBe(true);
   });
 });
-
-function randomReachableState(seed: string, plies: number): GameState {
-  let state = createSession(seed, 'PlayerA');
-  const rng = rngFromSeed(seed.replace('typed-regression', 'typed-regression-roll'));
-  for (let ply = 0; ply < plies && !isTerminal(state); ply += 1) {
-    const actions = legalActions(state);
-    state = stepToDecision(state, actions[Math.floor(rng() * actions.length)]!);
-  }
-  return state;
-}
 
 function heuristicFixtureState({
   resources = fixtureResources(),

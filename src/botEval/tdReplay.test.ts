@@ -268,6 +268,20 @@ describe('TypeScript TD replay collection', () => {
     });
   }, 10_000);
 
+  it('rejects missing search diagnostics when root pruning leaves multiple candidates', async () => {
+    await expect(
+      collectTdReplay(tdReplayConfig({ games: 1 }), {
+        createPolicy(): ActionPolicy {
+          return {
+            selectAction({ legalActions }) {
+              return legalActions[0];
+            },
+          };
+        },
+      })
+    ).rejects.toThrow('did not emit search diagnostics');
+  });
+
   it('does not publish final streaming artifacts when collection fails', async () => {
     const outputDirectory = await mkdtemp(
       path.join(os.tmpdir(), 'magnate-td-replay-failure-')

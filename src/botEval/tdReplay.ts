@@ -12,6 +12,7 @@ import { isTerminal } from '../engine/scoring';
 import { createSession, stepToDecision } from '../engine/session';
 import { type GameAction, type GameState, PlayerId } from '../engine/types';
 import { createPolicyFromBotSpec, type BotSpec } from '../policies/botSpec';
+import { pruneDominatedRootActions } from '../policies/rolloutSearchCore';
 import {
   policyRandomForState,
   policyRandomSeedForState,
@@ -343,6 +344,7 @@ async function collectTdReplayGame({
       actionFeatures,
       actionIndex,
       actionProbs: actionProbabilitiesForDecision({
+        state,
         actions,
         actionIndex,
         bot,
@@ -449,12 +451,14 @@ function createRuntimeBot(
 }
 
 function actionProbabilitiesForDecision({
+  state,
   actions,
   actionIndex,
   bot,
   diagnostics,
   policyTargetAlpha,
 }: {
+  state: GameState;
   actions: readonly GameAction[];
   actionIndex: number;
   bot: RuntimeBot;
@@ -477,9 +481,19 @@ function actionProbabilitiesForDecision({
 
   if (!diagnostics) {
     if (bot.spec.kind === BotKind.Search) {
-      throw new Error(
-        `Search bot ${bot.spec.id} did not emit search diagnostics for TD replay policy targets.`
-      );
+      const playerId = decisionPlayerIdForState(state);
+      if (!playerId) {
+        throw new Error('TD replay policy target requires a decision player.');
+      }
+      const candidates = pruneDominatedRootActions(state, playerId, actions);
+      if (
+        candidates.length !== 1 ||
+        actionStableKey(candidates[0]) !== actionStableKey(actions[actionIndex])
+      ) {
+        throw new Error(
+          `Search bot ${bot.spec.id} did not emit search diagnostics for TD replay policy targets.`
+        );
+      }
     }
     return oneHotPolicyTarget(actions.length, actionIndex);
   }
